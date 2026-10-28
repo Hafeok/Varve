@@ -11,6 +11,10 @@ decisions:
     statement: "An SBOM generated twice from the same commit and creation time is byte-identical on every OS; at a release its creation time is the descriptor's date at 00:00Z, and no SBOM carries the commit id"
   - key: SbomsArePublishedAndAttested
     statement: "Each SBOM is embedded in its nupkg at _manifest/spdx_2.3/manifest.spdx.json, attached to the release, and attested keylessly beside a build-provenance attestation, and CI verifies both for every published package after the release"
+  - key: AttestationsPrecedeThePush
+    statement: "Every package's provenance and SBOM attestations are made before the push to nuget.org, which is a job of its own in publish.yml, under the release environment, and pushes only the attested SHA256SUMS"
+  - key: TheReleasePathHasADryRun
+    statement: "publish.yml runs every job on a pull request that touches the release pipeline, attestations, release assets and verification included, skipping only the pushes to nuget.org and GHCR, the registry's manifest and the GitHub release; a release's verification requires the tag's source ref"
   - key: OneRegisterCheckedAgainstTheLockfiles
     statement: "Directory.Packages.props is the one register; a transitive package is admitted by the ADR of the package that brings it in, and the gate checks every lockfile for unadmitted and stale entries and every resolved package's licence and native assets"
   - key: LicencesByScope

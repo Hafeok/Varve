@@ -182,8 +182,8 @@ one.
    - writes every SBOM and checks each against the descriptor's `sbom:` line
      (ADR 0224);
    - packs each package with its SBOM inside it;
-   - publishes to nuget.org;
    - attests each package's build provenance and its SBOM, keylessly;
+   - publishes to nuget.org, once every package has both attestations;
    - has the gates App create the GitHub Release, marked prerelease when the
      version is one.
 
@@ -192,6 +192,13 @@ one.
    was published as a consumer would: the attestations of the release's
    packages, and that nuget.org serves each of those packages under its own
    repository signature ([`supply-chain.md`](supply-chain.md)).
+
+   **The dry run of `publish.yml`.** A pull request that touches the release
+   pipeline runs all of this at its head, as its landing would cut the
+   pending descriptor: the gates, the SBOMs, the pack, every attestation, the
+   release's assets and the verification. Only the pushes to nuget.org and
+   GHCR, the registry's manifest and the GitHub release are skipped
+   (ADR 0224, revised 2026-10-28).
 
 **The head guard.** A release is cut only at a commit that carries a
 successful `agent review` check run from the gates App, which that App posts

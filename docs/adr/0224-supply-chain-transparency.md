@@ -19,6 +19,11 @@ assets beyond nuget.org.
 by digest, and the image's SBOM is merged.
 Each amendment is dated 2026-10-27 and filed unaccepted.
 
+**Revised 2026-10-28** on the pull request's review, before acceptance:
+- point 3: every package's attestations come before the push, which is a job
+  of its own;
+- point 3: `publish.yml` has a dry run on the pull request.
+
 **Builds on:**
 - constraint 1 (no native assets) and constraint 4 (an ADR per third-party
   package);
@@ -182,6 +187,50 @@ and not SPDX 3.0's JSON-LD.
   does: build provenance and the SBOM. Each CLI binary gets the same when #129
   distributes them. Both attestations are keyless, through GitHub's OIDC
   identity.
+- **Both attestations precede the push.** No package reaches nuget.org
+  without them.
+  - **Where the push is.** It is a job of its own (`push`). It needs the
+    publish job, which attests every package's provenance, and the
+    `attest-packages` job, which attests each package's SBOM. Before minting a
+    credential, it checks that the packages it pushes are the attested
+    `SHA256SUMS`.
+  - **Why the SBOM attestations cannot be steps in the job that pushes:**
+    - `actions/attest` takes one SBOM per call, and the packages are a list the
+      pack produces (27 today);
+    - a job's steps are fixed when the workflow is read, and a step cannot loop
+      over an action;
+    - so one attestation per package is a matrix, which is jobs, and a step
+      cannot wait for jobs;
+    - one literal step per package would be a second list of the packages,
+      beside `Varve.slnx`, that drifts the first time a package is added.
+  - **Why the move costs nothing.** `actions/attest` needs only `id-token:
+    write` and `attestations: write`, so it can run in any job. nuget.org's
+    trusted-publishing policy names the repository, the workflow file and,
+    optionally, the environment, never the job. The push keeps both its file
+    and its `release` environment.
+- **The release path has a dry run.** `publish.yml` runs on a pull request
+  that touches the release pipeline, and on a dispatch, at the head, as its
+  landing would cut it: the one pending descriptor's version, or MinVer's.
+  - **What it runs:**
+    - every gate;
+    - the SBOMs, against the descriptor;
+    - the pack;
+    - every package's provenance and SBOM attestations;
+    - the release's assets and `SHA256SUMS`;
+    - the verification, against what the run built.
+  - **What it skips:**
+    - the push to nuget.org;
+    - the push to GHCR, and the multi-platform manifest that needs the
+      registry. Each platform's image is built as an OCI layout instead, and
+      its manifest, a file whose SHA-256 is the image's digest, gets both
+      attestations and is verified by that digest;
+    - the GitHub release;
+    - the check of nuget.org's copies.
+  - **So the first tag is not the first run** of anything in the release path
+    but the pushes.
+  - **A dry run's attestations never satisfy a release's verification.** The
+    release's runs `gh attestation verify --source-ref refs/tags/<version>`,
+    and a dry run's attestations are signed for a pull request's ref.
 - **The release also carries the packages exactly as they were attested,**
   with an attested `SHA256SUMS`.
   - nuget.org adds its repository signature to every package it accepts, as an
@@ -190,9 +239,9 @@ and not SPDX 3.0's JSON-LD.
     download fails by construction. This was found while building this
     ADR's gate: the draft assumed nuget.org's copy could be verified directly.
 - **After a release, CI verifies what was published as a consumer would:**
-  - `gh attestation verify` on each package attached to the release, for both
-    predicates, with each embedded SBOM required to be the release's SBOM
-    asset;
+  - `gh attestation verify --source-ref refs/tags/<version>` on each package
+    attached to the release, for both predicates, with each embedded SBOM
+    required to be the release's SBOM asset;
   - each package downloaded from nuget.org, every entry but the signature
     required to be the attested package's, byte for byte
     (`eng/nuget-served.cs`);

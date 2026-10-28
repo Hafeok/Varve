@@ -80,16 +80,21 @@ To verify a package as the release published it:
 ```sh
 gh release download v0.1.0-preview.16 --repo Hafeok/Varve --pattern 'Varve.Rdf.*'
 gh attestation verify Varve.Rdf.0.1.0-preview.16.nupkg --owner hafeok \
-  --predicate-type https://slsa.dev/provenance/v1
+  --source-ref refs/tags/v0.1.0-preview.16 --predicate-type https://slsa.dev/provenance/v1
 gh attestation verify Varve.Rdf.0.1.0-preview.16.nupkg --owner hafeok \
-  --predicate-type https://spdx.dev/Document/v2.3
+  --source-ref refs/tags/v0.1.0-preview.16 --predicate-type https://spdx.dev/Document/v2.3
 ```
 
-and the image:
+`--source-ref` requires the attestation to come from the release's tag. The
+release workflow also runs as a dry run on pull requests, attesting what it
+builds there. Those attestations are signed for the pull request's ref, so
+they never pass for a release.
+
+And the image:
 
 ```sh
 gh attestation verify oci://ghcr.io/hafeok/varve:v0.1.0-preview.16 --owner hafeok \
-  --predicate-type https://spdx.dev/Document/v2.3
+  --source-ref refs/tags/v0.1.0-preview.16 --predicate-type https://spdx.dev/Document/v2.3
 ```
 
 **About the copy on nuget.org.** It is the same package plus nuget.org's

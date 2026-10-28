@@ -1,21 +1,53 @@
 # Publishes to nuget.org on a v* tag, through trusted publishing.
 #
 # The policy on nuget.org names this file by path — decision-driven-design /
-# Hafeok/Varve / publish.yml, no environment — so renaming it breaks publishing
-# in a way that looks like an authentication failure. See ADR 0029.
+# Hafeok/Varve / publish.yml — so renaming it breaks publishing in a way that
+# looks like an authentication failure. It names the workflow file and the
+# environment, never a job, so the push can be a job of its own. See ADR 0029.
 #
 # A version pushed to nuget.org cannot be edited, replaced or deleted, only
 # unlisted. That is why every gate runs here too: a tag is the one moment they
 # matter most, and it is the wrong place to save four minutes.
+#
+# The dry run (ADR 0224, amended 2026-10-28). On a pull request that touches
+# the release pipeline, and on a dispatch, every job runs at the head:
+#   - the gates;
+#   - the SBOMs, checked against the pending descriptor;
+#   - the pack;
+#   - every attestation, provenance and SBOM, per package and for the image;
+#   - the release's assets;
+#   - the verification, against what this run built.
+# Four things are skipped: the push to nuget.org (`push`), the push to GHCR
+# and the multi-platform manifest that needs it (each platform's image is
+# built and attested by its manifest's digest instead), and the GitHub release
+# (`release`). So the first tag is not the first time any of this runs.
 
 name: Publish
 
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths:
+      - .github/workflows/publish.yml
+      - eng/sbom.cs
+      - eng/nuget-served.cs
+      - eng/package-metadata.cs
+      - eng/release.cs
+      - eng/lib/**
+      - releases/**
+      - Directory.Build.targets
+      - src/Varve.Server/container/**
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+# A dry run of a pull request is superseded by its next push; a tag's run is
+# never cancelled.
+concurrency:
+  group: publish-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   DOTNET_NOLOGO: "true"
@@ -27,25 +59,21 @@ jobs:
   publish:
     runs-on: ubuntu-latest
 
-    # ADR 0102. The human decision is the release descriptor, reviewed and
-    # approved on its pull request and landed at its approved head; the tag
-    # that started this run was created from it by the gates App, after every
-    # gate passed at that commit. The `release` environment keeps its branch
-    # and tag restriction (main and v*) and has no reviewer: a second approval
-    # here would be a human step after the decision, which is what ADR 0102
-    # removes. The environment's name stays in the OIDC claim, so the
-    # trusted-publishing policy on nuget.org is unchanged (ADR 0029).
-    environment: release
+    # A pull request from a fork gets no OIDC token, so its dry run could not
+    # attest anything; it is not run.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
 
     outputs:
       packages: ${{ steps.matrix.outputs.packages }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
 
     permissions:
       contents: read
 
-      # Trusted publishing: the workflow's OIDC token is exchanged for a
-      # short-lived API key. There is no long-lived secret to leak or rotate.
-      # The same identity signs the attestations (ADR 0224 point 3).
+      # The attestations are keyless, signed through this job's OIDC identity
+      # (ADR 0224 point 3). The push, and the trusted-publishing token it
+      # needs, are the push job's.
       id-token: write
       attestations: write
 
@@ -63,6 +91,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          # A dry run builds the pull request's head, not GitHub's merge of it.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
 
           # MinVer reads the version off the tag, and a shallow clone has no
@@ -102,6 +132,51 @@ jobs:
         # Locked (CI is set, ADR 0224): a lockfile that does not match the
         # register fails here, before anything is built.
         run: dotnet restore Varve.slnx
+
+      - name: Plan
+        # What is released, after the restore (MinVer's version needs MinVer
+        # restored) and before the build. At a tag, the tag's version and descriptor. In a
+        # dry run, the one pending descriptor (no tag yet), as its landing
+        # would cut it; with none pending, the version MinVer gives the head,
+        # created at its time, with no descriptor to check. MinVerVersionOverride
+        # makes every build and pack of this job, and the image's, that
+        # version, so the packages and the SBOMs they embed agree with the
+        # descriptor.
+        id: plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            tag=""
+            for descriptor in releases/v*.yaml; do
+              candidate=$(basename "$descriptor" .yaml)
+              if ! git rev-parse -q --verify "refs/tags/$candidate" > /dev/null; then tag="$candidate"; fi
+            done
+          fi
+          if [ -n "$tag" ]; then
+            version="${tag#v}"
+            descriptor="releases/$tag.yaml"
+            created=$(sed -n 's/^date: *//p' "$descriptor")
+          else
+            version=$(dotnet msbuild src/Varve.Iri/Varve.Iri.csproj -t:MinVer -getProperty:MinVerVersion | tr -d '\r')
+            descriptor=""
+            created=$(date -u -d "@$(git log -1 --format=%ct)" +%Y-%m-%dT%H:%M:%SZ)
+            tag="v$version"
+          fi
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "descriptor=$descriptor"
+            echo "created=$created"
+          } >> "$GITHUB_OUTPUT"
+          echo "MinVerVersionOverride=$version" >> "$GITHUB_ENV"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then kind="Release"; else kind="Dry run"; fi
+          {
+            echo "### $kind plan"
+            echo "Version \`$version\`, descriptor \`${descriptor:-none}\`, created \`$created\`."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Licences and native assets
         # ADR 0224 point 4, and constraint 1 on the shipped closure (what
@@ -207,7 +282,8 @@ jobs:
         # before anything is pushed, so a tag with no descriptor fails while
         # nothing is permanent; the release job below publishes them once the
         # push has succeeded.
-        run: dotnet run eng/release.cs -- --notes "$GITHUB_REF_NAME" --into "${{ github.workspace }}/artifacts/release"
+        if: steps.plan.outputs.descriptor != ''
+        run: dotnet run eng/release.cs -- --notes "${{ steps.plan.outputs.tag }}" --into "${{ github.workspace }}/artifacts/release"
 
       - name: Install Syft
         # The image's OS packages are Syft's, from the base image pinned by
@@ -224,15 +300,18 @@ jobs:
         # descriptor's (ADR 0102, amended 2026-10-27), checked here while
         # nothing is permanent.
         shell: bash
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
+          CREATED: ${{ steps.plan.outputs.created }}
+          DESCRIPTOR: ${{ steps.plan.outputs.descriptor }}
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          descriptor="releases/$GITHUB_REF_NAME.yaml"
-          created=$(sed -n 's/^date: *//p' "$descriptor")
-          dotnet run eng/sbom.cs -- --version "$version" --created "$created" \
+          check=()
+          if [ -n "$DESCRIPTOR" ]; then check=(--descriptor "$DESCRIPTOR"); fi
+          dotnet run eng/sbom.cs -- --version "$VERSION" --created "$CREATED" \
             --out "${{ github.workspace }}/artifacts/sbom" \
             --syft "${{ steps.syft.outputs.cmd }}" \
-            --descriptor "$descriptor"
+            "${check[@]}"
 
       - name: Pack
         # Each package embeds its SBOM (ADR 0224 point 3).
@@ -253,8 +332,10 @@ jobs:
         # 0.0.0-alpha.0.N without failing anything. A version cannot be
         # replaced once pushed, so the file names are checked here.
         shell: bash
+        env:
+          VERSION: ${{ steps.plan.outputs.version }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="$VERSION"
           status=0
           for package in "${{ github.workspace }}"/artifacts/packages/*.nupkg; do
             case "$(basename "$package")" in
@@ -296,36 +377,14 @@ jobs:
 
       - name: Attest the packages' build provenance
         # Keyless, through this job's OIDC identity (ADR 0224 point 3): every
-        # package and the checksum list, one SLSA v1 statement, before
-        # anything is pushed, so that no package reaches nuget.org without
-        # it. The SBOM attestations are one job per package, after this one
-        # (actions/attest takes one SBOM per call); a failed one is re-run on
-        # its own, and attests the same bytes.
+        # package and the checksum list, one SLSA v1 statement. The SBOM
+        # attestations are the attest-packages job's, one job per package; the
+        # push waits for both.
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             ${{ github.workspace }}/artifacts/packages/*.nupkg
             ${{ github.workspace }}/artifacts/packages/SHA256SUMS
-
-      # The two steps below are adjacent on purpose. The key NuGet/login mints
-      # lives one hour, and anything between them is something that can fail
-      # while a credential is in flight.
-      - name: Log in to nuget.org
-        id: login
-        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
-        with:
-          user: ${{ secrets.NUGET_USER }}
-
-      - name: Push
-        # --skip-duplicate so that re-running a half-successful publish does not
-        # fail on the packages that already went up. A tag that published two of
-        # three packages and cannot be retried is the failure to avoid.
-        run: >
-          dotnet nuget push "${{ github.workspace }}/artifacts/packages/*.nupkg"
-          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
-          --source https://api.nuget.org/v3/index.json
-          --skip-duplicate
-
 
       - name: Upload the test results
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
@@ -371,6 +430,73 @@ jobs:
           subject-path: ${{ runner.temp }}/packages/${{ matrix.package }}
           sbom-path: ${{ runner.temp }}/sbom.spdx.json
 
+  # The push to nuget.org, at a tag only, after every package has both its
+  # attestations (ADR 0224 point 3): no package reaches nuget.org unattested.
+  #
+  # Why a job of its own, not a step after the attestations in the publish job:
+  # - actions/attest takes one SBOM per call, and the packages are a list the
+  #   pack produces (27 today). A job's steps are fixed when the workflow is
+  #   read and cannot loop over an action, so the SBOM attestations are a
+  #   matrix, which is jobs, and a step cannot wait for them.
+  # - Writing one literal step per package would be a second list of the
+  #   packages, beside Varve.slnx, which drifts the first time a package is
+  #   added.
+  # - Trusted publishing names this workflow file and the `release`
+  #   environment, never a job (ADR 0029), so the push is as trusted here as
+  #   it was in the publish job.
+  #
+  # ADR 0102. The human decision is the release descriptor, reviewed and
+  # approved on its pull request and landed at its approved head; the tag that
+  # started this run was created from it by the gates App, after every gate
+  # passed at that commit. The `release` environment keeps its branch and tag
+  # restriction (main and v*) and has no reviewer: a second approval here would
+  # be a human step after the decision, which is what ADR 0102 removes.
+  push:
+    name: push to nuget.org
+    needs: [publish, attest-packages]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: release
+
+    permissions:
+      contents: read
+
+      # Trusted publishing: the workflow's OIDC token is exchanged for a
+      # short-lived API key. There is no long-lived secret to leak or rotate.
+      id-token: write
+
+    steps:
+      - name: Download the packages
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: packages
+          path: ${{ runner.temp }}/packages
+
+      - name: The attested bytes
+        # The packages pushed are the ones attested, checked against the
+        # attested checksum list before a credential is minted.
+        working-directory: ${{ runner.temp }}/packages
+        run: sha256sum --check SHA256SUMS
+
+      # The two steps below are adjacent on purpose. The key NuGet/login mints
+      # lives one hour, and anything between them is something that can fail
+      # while a credential is in flight.
+      - name: Log in to nuget.org
+        id: login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push
+        # --skip-duplicate so that re-running a half-successful publish does not
+        # fail on the packages that already went up. A tag that published two of
+        # three packages and cannot be retried is the failure to avoid.
+        run: >
+          dotnet nuget push "${{ runner.temp }}/packages/*.nupkg"
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
   # The container image (ADR 0111), after the gates: the Native AOT binary
   # published on a native runner per architecture, built into the chiseled
   # image and pushed by digest; the manifest job joins the two, tags the
@@ -399,11 +525,15 @@ jobs:
 
     env:
       IMAGE: ghcr.io/hafeok/varve
+      # The release's version, so the binary in the image says what the
+      # packages say, in a dry run as at a tag.
+      MinVerVersionOverride: ${{ needs.publish.outputs.version }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
 
       - name: Set up .NET
@@ -422,13 +552,17 @@ jobs:
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GHCR
+        if: github.event_name == 'push'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push by digest
+      - name: Build, and push by digest
+        # At a tag, pushed to GHCR by digest. In a dry run, written as an OCI
+        # layout and pushed nowhere: its manifest is a file whose SHA-256 is
+        # the image's digest, which is what the manifest job attests.
         id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -436,13 +570,21 @@ jobs:
           file: src/Varve.Server/container/Dockerfile
           platforms: ${{ matrix.platform }}
           provenance: false
-          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          outputs: ${{ github.event_name == 'push' && format('type=image,name={0},push-by-digest=true,name-canonical=true,push=true', env.IMAGE) || format('type=oci,dest={0}/oci,tar=false', runner.temp) }}
 
       - name: Keep the digest
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p "$RUNNER_TEMP/digests"
           digest="${{ steps.build.outputs.digest }}"
-          touch "$RUNNER_TEMP/digests/${digest#sha256:}"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            touch "$RUNNER_TEMP/digests/${digest#sha256:}"
+          else
+            # The manifest itself, named by its digest, checked to be that digest.
+            cp "$RUNNER_TEMP/oci/blobs/sha256/${digest#sha256:}" "$RUNNER_TEMP/digests/${digest#sha256:}"
+            echo "${digest#sha256:}  $RUNNER_TEMP/digests/${digest#sha256:}" | sha256sum --check
+          fi
 
       - name: Upload the digest
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -454,7 +596,7 @@ jobs:
 
   manifest:
     name: image manifest, attested
-    needs: image
+    needs: [publish, image]
     runs-on: ubuntu-latest
 
     permissions:
@@ -475,9 +617,11 @@ jobs:
           merge-multiple: true
 
       - name: Set up Buildx
+        if: github.event_name == 'push'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GHCR
+        if: github.event_name == 'push'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -487,6 +631,7 @@ jobs:
       - name: Create the manifest
         # The tag is the release descriptor's version (ADR 0102); latest only
         # for a version with no prerelease part (ADR 0111 point 6).
+        if: github.event_name == 'push'
         id: manifest
         working-directory: ${{ runner.temp }}/digests
         run: |
@@ -503,6 +648,7 @@ jobs:
           docker buildx imagetools inspect "$IMAGE:$GITHUB_REF_NAME"
 
       - name: Attest the build provenance
+        if: github.event_name == 'push'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
@@ -520,6 +666,7 @@ jobs:
           path: ${{ runner.temp }}/sbom
 
       - name: Attest the SBOM
+        if: github.event_name == 'push'
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ${{ env.IMAGE }}
@@ -527,11 +674,48 @@ jobs:
           sbom-path: ${{ runner.temp }}/sbom/image/varve.spdx.json
           push-to-registry: true
 
+      # The dry run: no registry, so no multi-platform manifest. Each
+      # platform's image manifest, a file whose SHA-256 is that image's digest,
+      # is attested instead, with the same two predicates, and verified by
+      # that digest as an operator verifies the image.
+      - name: Attest each platform's build provenance (dry run)
+        if: github.event_name != 'push'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/digests/*
+
+      - name: Attest each platform's SBOM (dry run)
+        if: github.event_name != 'push'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/digests/*
+          sbom-path: ${{ runner.temp }}/sbom/image/varve.spdx.json
+
+      - name: Verify each platform's image (dry run)
+        if: github.event_name != 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The commit the attestation's signing identity records: the run's,
+          # which for a pull request is GitHub's merge of it, though the build
+          # checked out the head.
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          for manifest in "$RUNNER_TEMP"/digests/*; do
+            for predicate in https://slsa.dev/provenance/v1 https://spdx.dev/Document/v2.3; do
+              gh attestation verify "$manifest" --owner hafeok --source-digest "$RUN_SHA" --predicate-type "$predicate" --format json \
+                --jq '.[].verificationResult | "verified \(.statement.predicateType) for the image sha256:\(.statement.subject[0].digest.sha256), signed by \(.signature.certificate.buildSignerURI) at \(.signature.certificate.sourceRepositoryDigest)"' \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+            done
+          done
+
       - name: Verify, as an operator would
         # pipefail, or the step's status is tee's and a failed verification
         # passes. gh prints nothing on success off a terminal, so each
         # verified statement is printed from its JSON: what, by whom, from
         # which commit.
+        if: github.event_name == 'push'
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -539,20 +723,81 @@ jobs:
         run: |
           set -euo pipefail
           for predicate in https://slsa.dev/provenance/v1 https://spdx.dev/Document/v2.3; do
-            gh attestation verify "$SUBJECT" --owner hafeok --predicate-type "$predicate" --format json \
+            gh attestation verify "$SUBJECT" --owner hafeok --source-ref "refs/tags/$GITHUB_REF_NAME" --predicate-type "$predicate" --format json \
               --jq '.[].verificationResult | "verified \(.statement.predicateType) for \(.statement.subject[0].name)@sha256:\(.statement.subject[0].digest.sha256), signed by \(.signature.certificate.buildSignerURI) at \(.signature.certificate.sourceRepositoryDigest)"' \
               | tee -a "$GITHUB_STEP_SUMMARY"
           done
 
-  # The GitHub release for the tag, with its descriptor's summary as the notes.
-  # A separate job so that contents: write is never held by the job that runs
-  # the build and the tests, and after publish, so that a release is never
-  # created for a version that did not reach nuget.org. Re-runnable on its own.
-  # Created by the gates App, never by GITHUB_TOKEN (ADR 0102): the App made
-  # the tag, and the identity map says the maintainer decides, the App
-  # executes (ADR 0087). The gates environment admits v* tags for this job.
-  release:
+  # The release's assets (ADR 0224 points 3 and 6): every SBOM, the VEX
+  # document, the packages exactly as they were attested (nuget.org adds its
+  # repository signature, so its copies are not these bytes), and their
+  # checksums, each SBOM named for its artefact and version. A job of its own,
+  # with no environment and no credential, so the dry run assembles exactly
+  # what the release will carry.
+  release-assets:
+    name: the release's assets
     needs: publish
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Download the packages
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: packages
+          path: ${{ runner.temp }}/packages
+
+      - name: Download the SBOMs
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: sbom
+          path: ${{ runner.temp }}/sbom
+
+      - name: The release's assets
+        shell: bash
+        env:
+          VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          set -euo pipefail
+          version="$VERSION"
+          assets="$RUNNER_TEMP/assets"
+          mkdir -p "$assets"
+          cp "$RUNNER_TEMP"/packages/*.nupkg "$RUNNER_TEMP/packages/SHA256SUMS" "$assets/"
+          for sbom in "$RUNNER_TEMP"/sbom/nupkg/*.spdx.json "$RUNNER_TEMP"/sbom/tool/*.spdx.json; do
+            name=$(basename "$sbom" .spdx.json)
+            cp "$sbom" "$assets/$name.$version.spdx.json"
+          done
+          cp "$RUNNER_TEMP/sbom/image/varve.spdx.json" "$assets/varve-image-$version.spdx.json"
+          cp security/vex.openvex.json "$assets/varve-$version.openvex.json"
+          (cd "$assets" && sha256sum --check SHA256SUMS)
+          ls -l "$assets" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the release's assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-assets
+          path: ${{ runner.temp }}/assets
+          if-no-files-found: error
+
+  # The GitHub release for the tag, with its descriptor's summary as the notes
+  # and the assets above. At a tag only. A separate job so that contents: write
+  # is never held by the job that runs the build and the tests, and after the
+  # push, so that a release is never created for a version that did not reach
+  # nuget.org. Re-runnable on its own. Created by the gates App, never by
+  # GITHUB_TOKEN (ADR 0102): the App made the tag, and the identity map says the
+  # maintainer decides, the App executes (ADR 0087). The gates environment
+  # admits v* tags for this job.
+  release:
+    needs: [push, release-assets]
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: gates
 
@@ -575,6 +820,12 @@ jobs:
       - name: Release notes
         run: dotnet run eng/release.cs -- --notes "$GITHUB_REF_NAME" --into "$RUNNER_TEMP/release"
 
+      - name: Download the release's assets
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: release-assets
+          path: ${{ runner.temp }}/assets
+
       - name: Mint the gates App's token
         id: gates
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -582,38 +833,6 @@ jobs:
           client-id: ${{ secrets.GATES_APP_CLIENT_ID }}
           private-key: ${{ secrets.GATES_APP_PRIVATE_KEY }}
           permission-contents: write
-
-      - name: Download the packages
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: packages
-          path: ${{ runner.temp }}/packages
-
-      - name: Download the SBOMs
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: sbom
-          path: ${{ runner.temp }}/sbom
-
-      - name: The release's assets
-        # ADR 0224 points 3 and 6: every SBOM, the VEX document, the packages
-        # exactly as they were attested (nuget.org adds its repository
-        # signature, so its copies are not these bytes), and their checksums.
-        # Each SBOM is named for its artefact and version.
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="${GITHUB_REF_NAME#v}"
-          assets="$RUNNER_TEMP/assets"
-          mkdir -p "$assets"
-          cp "$RUNNER_TEMP"/packages/*.nupkg "$RUNNER_TEMP/packages/SHA256SUMS" "$assets/"
-          for sbom in "$RUNNER_TEMP"/sbom/nupkg/*.spdx.json "$RUNNER_TEMP"/sbom/tool/*.spdx.json; do
-            name=$(basename "$sbom" .spdx.json)
-            cp "$sbom" "$assets/$name.$version.spdx.json"
-          done
-          cp "$RUNNER_TEMP/sbom/image/varve.spdx.json" "$assets/varve-image-$version.spdx.json"
-          cp security/vex.openvex.json "$assets/varve-$version.openvex.json"
-          ls -l "$assets"
 
       - name: Create the release
         shell: bash
@@ -643,18 +862,35 @@ jobs:
   #   the attested package's, byte for byte. Its repository signature is then
   #   verified with `dotnet nuget verify`.
   # - The image is verified by the manifest job, as before.
+  #
+  # In a dry run the same checks run against what this run built (the
+  # release-assets artifact), with --source-digest the run's commit, and the nuget.org
+  # step, which needs the push, is skipped.
   verify:
     name: verify what was published
-    needs: [release, attest-packages, manifest]
+    needs: [publish, release-assets, attest-packages, manifest, release]
+    if: >-
+      !cancelled()
+      && needs.release-assets.result == 'success'
+      && needs.attest-packages.result == 'success'
+      && needs.manifest.result == 'success'
+      && (needs.release.result == 'success' || (github.event_name != 'push' && needs.release.result == 'skipped'))
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
 
+    env:
+      VERSION: ${{ needs.publish.outputs.version }}
+      # The commit the attestations' signing identity records (see the
+      # manifest job).
+      RUN_SHA: ${{ github.sha }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Set up .NET
@@ -663,9 +899,17 @@ jobs:
           global-json-file: global.json
 
       - name: Download the release's assets
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/release"
+
+      - name: Download what this run built (dry run)
+        if: github.event_name != 'push'
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: release-assets
+          path: ${{ runner.temp }}/release
 
       - name: Verify the release's packages and their SBOMs
         shell: bash
@@ -675,10 +919,14 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP/release"
           sha256sum --check SHA256SUMS
-          version="${GITHUB_REF_NAME#v}"
+          version="$VERSION"
+          # At a tag, the attestation must come from the tag's run; in a dry
+          # run, from the head this run built. A dry run's attestations never
+          # satisfy a release's verification.
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then source=(--source-ref "refs/tags/$GITHUB_REF_NAME"); else source=(--source-digest "$RUN_SHA"); fi
           for package in *.nupkg; do
             for predicate in https://slsa.dev/provenance/v1 https://spdx.dev/Document/v2.3; do
-              gh attestation verify "$package" --owner hafeok --predicate-type "$predicate" --format json \
+              gh attestation verify "$package" --owner hafeok "${source[@]}" --predicate-type "$predicate" --format json \
                 --jq '.[].verificationResult | "verified \(.statement.predicateType) for \(.statement.subject[0].name)@sha256:\(.statement.subject[0].digest.sha256), signed by \(.signature.certificate.buildSignerURI) at \(.signature.certificate.sourceRepositoryDigest)"' \
                 | tee -a "$GITHUB_STEP_SUMMARY"
             done
@@ -688,12 +936,14 @@ jobs:
 
       - name: nuget.org serves the attested packages
         # nuget.org indexes a new version within minutes, sometimes longer:
-        # each package is retried for up to 30 minutes.
+        # each package is retried for up to 30 minutes. At a tag only: a dry
+        # run pushed nothing.
+        if: github.event_name == 'push'
         shell: bash
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/release"
-          version="${GITHUB_REF_NAME#v}"
+          version="$VERSION"
           mkdir -p nuget
           for package in *.nupkg; do
             id="${package%."$version".nupkg}"
