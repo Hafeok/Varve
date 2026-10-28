@@ -437,3 +437,29 @@ the same commit.
   its log goes on. ADR 0179's text said such a fault "fails the commit with
   `500`"; under §7 the commit stands and the dataset fails, and the text now
   says so.
+
+### The maintainer's fifth message
+
+> D2 looks right. I’ll accept 0179 and 0180. The projection-fault correction to spec §7 is right too.
+>
+> The fence race is the important finding. Split 0119abc, with its deterministic test and the new exact-equality assertion, into its own small PR from main, closing #181 with a Closes #181 trailer on its commit. It should land ahead of the rest of #175, because every dataset’s writer fence depends on it. Then merge main back into #175.
+>
+> #183 stays yours to note; the free session will fix it, and I’ve added the empty-report diagnosis to it.
+>
+> Then continue: the placement-events property, ADR 0181 and the automation, active-active, writer-stepped-down and the descriptor. Cite as you go once the ADRs are accepted.
+
+- **The fence fix, apart.** #185 carries 0119abc from `main`, with its own
+  record (`2026-10-28-issue-181-a-later-epoch-in-the-listed-log.md`).
+  `MemoryWriterFenceTests` ran 1,035 times there with the fix, up to six
+  processes at once, and all passed.
+- **Placement as events (ADR 0180 point 2).** What a member of a writer set
+  does at a reconcile is now one pure function, `OpenDatasets.Decide`, over
+  the declaration it applied before, the one it applies now, its state and
+  the writer record. `PlacementEventTests` runs it for three members over
+  generated histories of declarations and takeovers. A holder abdicates
+  only in the round its `placedOn` changed, quiet rounds move no epoch,
+  and a release for placement is the new `placedOn`'s alone. Three mutants
+  each fail it: abdicating whenever the holder is not preferred, opening a
+  placement release by any member, and letting a standby claim one. Its
+  full depth, 20,000 histories, takes under a second, so it is also the land
+  gate's count.

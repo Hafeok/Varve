@@ -73,8 +73,6 @@ internal sealed partial class OpenDatasets
             return;
         }
 
-        bool preferred = placement.IsPreferred(declared);
-
         if (holding && entry.Dataset is { AppendFailed: true })
         {
             // A batch failed against the store: the writer releases the epoch
@@ -97,71 +95,136 @@ internal sealed partial class OpenDatasets
             return;
         }
 
-        if (holding)
+        MemberState state = holding ? MemberState.Holding
+            : entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer ? MemberState.Superseded
+            : entry.State == DatasetState.Open && entry.Role == DatasetRole.Standby ? MemberState.Standby
+            : MemberState.Away;
+
+        // The record is read only where the decision needs it: a holder acts on events alone.
+        WriterRecord? record = state is MemberState.Standby or MemberState.Away ? await _objects!.ReadWriterAsync(name, cancellationToken).ConfigureAwait(false) : null;
+        RecordView? seen = record is null ? null : new RecordView(record.Holder.Value, record.Released);
+
+        if (state == MemberState.Standby)
         {
-            // A change of placedOn moves the epoch to the new placedOn only;
-            // a holder that differs from placedOn after a takeover is a state,
-            // and nothing reacts to it (point 2).
-            if (previous is { } before && before.PlacedOn != declared.PlacedOn && !preferred)
+            await TailAsync(name, entry, cancellationToken).ConfigureAwait(false);
+
+            if (entry.Dataset is { ReopenDue: true })
             {
+                // Not warm while it re-opens (point 8).
+                ReconcileLog.Reopened(_logger, name);
+                await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+        }
+
+        MemberStep step = Decide(previous, declared, placement, state, seen, entry.Warm, entry.Started);
+        entry.Started = true;
+
+        switch (step)
+        {
+            case MemberStep.Abdicate:
                 await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: ReleaseReason.Placement, cancellationToken).ConfigureAwait(false);
-            }
-
-            return;
-        }
-
-        if (entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer)
-        {
-            // Superseded: it rejoins as a standby, opened again, and is
-            // eligible to claim once it is warm (ADR 0179 point 10).
-            ReconcileLog.Rejoined(_logger, name);
-            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        WriterRecord? record = await _objects!.ReadWriterAsync(name, cancellationToken).ConfigureAwait(false);
-
-        if (!entry.Started)
-        {
-            entry.Started = true;
-
-            if (Starts(record, declared, placement, preferred))
-            {
+                break;
+            case MemberStep.Rejoin:
+                // Superseded: it rejoins as a standby, opened again, and is
+                // eligible to claim once it is warm (ADR 0179 point 10).
+                ReconcileLog.Rejoined(_logger, name);
+                await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
+                break;
+            case MemberStep.Start:
                 await SwitchAsync(name, entry, DatasetRole.Writer, wait: true, abdicate: null, cancellationToken).ConfigureAwait(false);
-                return;
-            }
-        }
-
-        bool standing = entry.State == DatasetState.Open && entry.Role == DatasetRole.Standby;
-
-        if (!standing)
-        {
-            if (record is { Released: ReleaseReason.Placement } && preferred)
-            {
+                break;
+            case MemberStep.Open:
                 await SwitchAsync(name, entry, DatasetRole.Writer, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
-                return;
-            }
+                break;
+            case MemberStep.Stand:
+                await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
+                break;
+            case MemberStep.Claim:
+                await ClaimInPlaceAsync(name, entry, record!, placement, ClaimTrigger.Abdication, cancellationToken).ConfigureAwait(false);
+                break;
+        }
+    }
 
-            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
-            return;
+    /// <summary>What a member of a dataset's writer set holds of it, as the decision sees it.</summary>
+    internal enum MemberState
+    {
+        /// <summary>It holds the writer epoch.</summary>
+        Holding,
+
+        /// <summary>It opened for write, and a newer epoch took the log.</summary>
+        Superseded,
+
+        /// <summary>It follows the dataset as a standby.</summary>
+        Standby,
+
+        /// <summary>It holds nothing open: not yet opened, or failed to open.</summary>
+        Away,
+    }
+
+    /// <summary>What a member does next (ADR 0180).</summary>
+    internal enum MemberStep
+    {
+        /// <summary>Nothing.</summary>
+        Stay,
+
+        /// <summary>Release the epoch for placement, and stand by.</summary>
+        Abdicate,
+
+        /// <summary>Open again as a standby, after a supersession.</summary>
+        Rejoin,
+
+        /// <summary>Claim at start, by the start rule.</summary>
+        Start,
+
+        /// <summary>Open for write after a placement release, as the preferred writer.</summary>
+        Open,
+
+        /// <summary>Open as a standby.</summary>
+        Stand,
+
+        /// <summary>Claim in place a release its reason lets it race for.</summary>
+        Claim,
+    }
+
+    /// <summary>The writer record as the decision reads it: who holds it, and why it was released.</summary>
+    internal readonly record struct RecordView(string Holder, ReleaseReason? Released);
+
+    /// <summary>
+    /// A member's next step, from the declaration applied before and the one
+    /// applied now, what it holds, and the writer record (ADR 0180 points 2–4),
+    /// a function of these alone so a property can drive it. Placement is a
+    /// sequence of events: a holder abdicates only when placedOn changed and
+    /// it is not the new placedOn, never because the holder differs from
+    /// placedOn. A member that is not holding starts by the start rule, opens
+    /// as the preferred writer on a release for placement, and otherwise
+    /// stands by, racing for a release its reason allows once warm.
+    /// </summary>
+    internal static MemberStep Decide((string? PlacedOn, System.Collections.Generic.IReadOnlyList<string> StandbyOn)? previous, DatasetDeclaration declared, Placement placement, MemberState state, RecordView? record, bool warm, bool started)
+    {
+        bool preferred = placement.IsPreferred(declared);
+
+        switch (state)
+        {
+            case MemberState.Holding:
+                return previous is { } before && before.PlacedOn != declared.PlacedOn && !preferred ? MemberStep.Abdicate : MemberStep.Stay;
+            case MemberState.Superseded:
+                return MemberStep.Rejoin;
         }
 
-        await TailAsync(name, entry, cancellationToken).ConfigureAwait(false);
-
-        if (entry.Dataset is { ReopenDue: true })
+        if (!started && Starts(record, declared, placement, preferred))
         {
-            // Not warm while it re-opens (point 8).
-            ReconcileLog.Reopened(_logger, name);
-            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
-            return;
+            return MemberStep.Start;
+        }
+
+        if (state == MemberState.Away)
+        {
+            return record is { Released: ReleaseReason.Placement } && preferred ? MemberStep.Open : MemberStep.Stand;
         }
 
         // The record read before the advance: a release it shows is one the
         // advance has applied up to, or more (ADR 0179 point 3).
-        if (record is { Released: { } reason } && Races(reason, preferred, entry.Warm))
-        {
-            await ClaimInPlaceAsync(name, entry, record, placement, ClaimTrigger.Abdication, cancellationToken).ConfigureAwait(false);
-        }
+        return record is { Released: { } reason } && Races(reason, preferred, warm) ? MemberStep.Claim : MemberStep.Stay;
     }
 
     // The start rule (point 3): the record is empty or released and this is
@@ -170,14 +233,14 @@ internal sealed partial class OpenDatasets
     // this instance was down. A holder named by no declared member, where the
     // preferred writer is the system writer's, may be that writer: it is
     // taken for a member, and not fenced.
-    private static bool Starts(WriterRecord? record, DatasetDeclaration declared, Placement placement, bool preferred)
+    private static bool Starts(RecordView? record, DatasetDeclaration declared, Placement placement, bool preferred)
     {
-        if (record is null || record.Released is not null)
+        if (record is not { } held || held.Released is not null)
         {
             return preferred;
         }
 
-        string holder = record.Holder.Value;
+        string holder = held.Holder;
         bool member = declared.PlacedOn is not { } placed || placed == holder || declared.StandbyOn.Contains(holder);
         return holder == placement.Instance.Value || !member;
     }
