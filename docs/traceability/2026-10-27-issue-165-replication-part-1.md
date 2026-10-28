@@ -529,3 +529,47 @@ the same commit.
     for each `Ready` that turned from `True` to anything else, a deletion
     included. It started none for a pod that was never ready, nor for a
     repeated `False`.
+
+### The maintainer's seventh message
+
+> #185 looks right; I’ll approve 80a80f6 once CI is green. After it lands, merge `main` into #175, and add the log listing to the in-place claim when the newest segment is consolidated, with its test.
+> On #175:
+>
+> 1. The Kubernetes controller: go back to the plan’s C# controller (raw `HttpClient`, the pod’s service-account token, source-generated JSON), built into Varve’s own GHCR image and calling the same takeover logic as `varve manage takeover`. No `alpine/k8s`: a community Docker Hub image holding RBAC over the writer is the wrong place for a third-party dependency. If the C# controller hit a blocker, tell me what it was.
+> 2. Restart against takeover: put the measured 2.0–3.2 s restart downtime and the 0.3–0.9 s takeover in the operator guide, beside the choice of layout.
+> 3. The perf ADR is a project draft that #164 files. Your credit in 0181 is right for now.
+>
+> I’ll mirror kubeconform, make the package private, and add `kubernetes sample` to the required checks once it’s green. Then carry on with the Azure Bicep, active-active, `writer-stepped-down` and the descriptor.
+
+- **The controller is C#**: `varve manage watch-kubernetes`, in Varve's
+  image.
+  - It lists the fleet's pods, then watches them, over a raw `HttpClient`
+    that trusts the service account's CA, with the service account's token
+    read at each request.
+  - On a `Ready` that turns from `True`, it calls `Manage.TakeOverFromAsync`,
+    the code `varve manage takeover` now shares. The operator token's
+    options are shared too, as `Manage.OperatorToken`.
+  - `handover.yaml` keeps the service account, a role that reads and
+    watches pods, and one Deployment. The CronJob, the ConfigMap and
+    `alpine/k8s` are gone.
+- **One blocker: the source-generated JSON.** In a packable project, the
+  System.Text.Json generator's metadata code calls `Type.GetConstructor`
+  and `Type.GetProperty`, which ADR 0064's banned symbols refuse: 19
+  `RS0030` errors. Only test and `eng/` projects use a
+  `JsonSerializerContext` today. The controller reads the API server's JSON
+  with `JsonDocument`, as every JSON reader in `src/` does; that needs no
+  reflection either. ADR 0181 point 8 says so.
+- **The fleet case** runs the controller's watcher against an API server
+  stood up at the process boundary. That server serves a list, then
+  streams events. On Azurite and RustFS:
+  - a, killed, turns not ready; the controller moves d to b and `other` to
+    c;
+  - a repeat, and a pod first seen not ready, start nothing;
+  - an `ERROR` event makes it list again;
+  - every request carries the token file's token.
+
+  A mutant that takes over on any not-ready event fails it.
+- **The operator guide's layout choice** now holds the measured table:
+  restart 2,568–3,221 ms on Azurite and 1,998–2,264 ms on RustFS, against
+  0.3–0.9 s for a warm standby. It says what each figure includes and
+  excludes, and the Container Apps page points to it.

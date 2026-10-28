@@ -1,180 +1,94 @@
-# The handover controller (ADR 0181 point 8): it watches the fleet's pods,
-# with no timer, and when one's Ready condition turns False after kubelet's
-# failureThreshold, it starts a Job from the suspended CronJob below. The
-# Job runs `varve manage takeover --from <pod>` over the other pods, with the
+# The handover controller (ADR 0181 point 8): Varve's own image running
+# `varve manage watch-kubernetes`. It watches the fleet's pods through the API
+# server, with its service account's token and no timer, and when one's Ready
+# condition turns False after kubelet's failureThreshold, it takes over from
+# that pod over the others, as `varve manage takeover --from` does, with the
 # operator role by workload identity. A late, duplicated or false trigger is a
 # no-op (ADR 0181 point 2). Replace each {…}.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: varve-handover-controller
+  name: varve-handover
   namespace: varve
+  annotations:
+    # Federated with the operator's identity: its token is exchanged at the
+    # identity provider for the operator role on the management audience.
+    azure.workload.identity/client-id: "{operatorClientId}"
 ---
-# The controller may watch pods and start Jobs from the template, in this
-# namespace, and nothing else.
+# The controller may read and watch the fleet's pods in this namespace, and
+# nothing else in the cluster.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: varve-handover-controller
+  name: varve-handover
   namespace: varve
 rules:
   - apiGroups: [""]
     resources: [pods]
     verbs: [get, list, watch]
-  - apiGroups: [batch]
-    resources: [cronjobs]
-    resourceNames: [varve-takeover]
-    verbs: [get]
-  - apiGroups: [batch]
-    resources: [jobs]
-    verbs: [create]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: varve-handover-controller
+  name: varve-handover
   namespace: varve
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: varve-handover-controller
+  name: varve-handover
 subjects:
   - kind: ServiceAccount
-    name: varve-handover-controller
+    name: varve-handover
     namespace: varve
----
-# The Job's identity: nothing in the cluster. Its projected token is exchanged
-# at the identity provider for the operator role on the management audience.
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: varve-takeover
-  namespace: varve
-  annotations:
-    azure.workload.identity/client-id: "{operatorClientId}"
-automountServiceAccountToken: false
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: varve-handover-controller
-  namespace: varve
-data:
-  watch.sh: |
-    #!/bin/bash
-    # Each pod's Ready status, as the watch last showed it. A pod that turns
-    # from True to False starts one takeover Job; the probe's threshold has
-    # already passed, so nothing here waits.
-    set -euo pipefail
-    declare -A ready
-    kubectl get pods --namespace varve --selector app.kubernetes.io/name=varve --watch --output-watch-events --output json \
-      | jq --unbuffered --compact-output '{type, name: .object.metadata.name, ready: ([.object.status.conditions[]? | select(.type == "Ready") | .status][0] // "Unknown")}' \
-      | while read -r event; do
-          name=$(jq -r .name <<<"$event")
-          now=$(jq -r .ready <<<"$event")
-          [[ $(jq -r .type <<<"$event") == DELETED ]] && now=False
-          if [[ ${ready[$name]:-} == True && $now != True ]]; then
-            echo "$name is not ready: starting a takeover from it"
-            kubectl get cronjob varve-takeover --namespace varve --output json \
-              | jq --arg from "$name" '{
-                  apiVersion: "batch/v1", kind: "Job",
-                  metadata: {generateName: ("varve-takeover-" + $from + "-"), namespace: "varve", labels: {"app.kubernetes.io/name": "varve-takeover"}},
-                  spec: (.spec.jobTemplate.spec
-                    | .template.spec.containers[0].args |= (
-                        ["manage", "takeover", "--from", $from]
-                        + ([range(0; 3)] | map("varve-\(.)") | map(select(. != $from)) | map(["--server", "http://\(.).varve-headless.varve.svc.cluster.local:8080"]) | add)
-                        + .))
-                }' \
-              | kubectl create --filename -
-          fi
-          ready[$name]=$now
-        done
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: varve-handover-controller
+  name: varve-handover
   namespace: varve
 spec:
+  # One watcher: a second would send each takeover twice, which is safe but
+  # pointless (ADR 0181 point 2).
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
-      app.kubernetes.io/name: varve-handover-controller
+      app.kubernetes.io/name: varve-handover
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: varve-handover-controller
+        app.kubernetes.io/name: varve-handover
+        azure.workload.identity/use: "true"
     spec:
-      serviceAccountName: varve-handover-controller
+      serviceAccountName: varve-handover
       containers:
         - name: watch
-          # kubectl, jq and bash; any image with the three serves, at a digest.
-          image: docker.io/alpine/k8s:1.34.1@sha256:ec714df3813b5405292860f8a1c55c5727bf8c33c88992f1e981efad8065547f
-          command: [/bin/bash, /etc/varve-handover/watch.sh]
-          env:
-            # kubectl's cache, under a read-only root.
-            - name: HOME
-              value: /tmp
+          image: ghcr.io/hafeok/varve@sha256:{digest}
+          args:
+            - manage
+            - watch-kubernetes
+            - --selector
+            - app.kubernetes.io/name=varve
+            - --address
+            - "http://{pod}.varve-headless.varve.svc.cluster.local:8080"
+            - --authority
+            - "https://login.microsoftonline.com/{tenant}/v2.0"
+            - --client-id
+            - "{operatorClientId}"
+            - --client-assertion
+            - /var/run/secrets/azure/tokens/azure-identity-token
+            - --scope
+            - "api://varve-manage/.default"
           resources:
             requests:
               cpu: 10m
-              memory: 32Mi
-            limits:
               memory: 64Mi
+            limits:
+              memory: 128Mi
           securityContext:
             runAsNonRoot: true
-            runAsUser: 65534
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-          volumeMounts:
-            - name: script
-              mountPath: /etc/varve-handover
-            - name: home
-              mountPath: /tmp
-      volumes:
-        - name: script
-          configMap:
-            name: varve-handover-controller
-        - name: home
-          emptyDir: {}
----
-# The takeover Job's template, never scheduled: the controller creates each
-# Job from it, adding --from and the other pods' addresses before these args.
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: varve-takeover
-  namespace: varve
-spec:
-  suspend: true
-  schedule: "0 0 1 1 *"
-  jobTemplate:
-    spec:
-      backoffLimit: 0
-      ttlSecondsAfterFinished: 86400
-      template:
-        metadata:
-          labels:
-            app.kubernetes.io/name: varve-takeover
-            azure.workload.identity/use: "true"
-        spec:
-          serviceAccountName: varve-takeover
-          restartPolicy: Never
-          containers:
-            - name: takeover
-              image: ghcr.io/hafeok/varve@sha256:{digest}
-              args:
-                - --authority
-                - "https://login.microsoftonline.com/{tenant}/v2.0"
-                - --client-id
-                - "{operatorClientId}"
-                - --client-assertion
-                - /var/run/secrets/azure/tokens/azure-identity-token
-                - --scope
-                - "api://varve-manage/.default"
-              resources:
-                requests:
-                  cpu: 100m
-                  memory: 128Mi
-                limits:
-                  memory: 256Mi
+            capabilities:
+              drop: [ALL]

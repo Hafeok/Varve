@@ -94,6 +94,7 @@ internal static class Manage
         Command manage = new("manage", "Management plane operations that are acts, not declarations.");
         manage.Subcommands.Add(move);
         manage.Subcommands.Add(Takeover(io));
+        manage.Subcommands.Add(KubernetesController.Command(io));
         return manage;
     }
 
@@ -110,42 +111,70 @@ internal static class Manage
         Argument<string[]> datasets = new("dataset") { Description = "The datasets to take over, _fleet for the system dataset; every dataset the failed instance holds when absent.", Arity = ArgumentArity.ZeroOrMore };
         Option<string> from = new("--from") { Description = "The instance the probe found failed: only an epoch it holds is taken over.", Required = true };
         Option<string[]> servers = new("--server") { Description = "An instance that may take the writer over, by its address; repeat it, in order of preference.", Required = true, AllowMultipleArgumentsPerToken = true };
-        Option<string?> token = new("--token") { Description = "A bearer token for the management audience, of the operator role; VARVE_TOKEN when absent." };
-        Option<string?> authority = new("--authority") { Description = "The OIDC issuer to obtain a token from." };
-        Option<string?> clientId = new("--client-id") { Description = "The OIDC client." };
-        Option<string?> clientSecret = new("--client-secret") { Description = "The client's secret; VARVE_CLIENT_SECRET when absent. Prefer --client-assertion." };
-        Option<string?> clientAssertion = new("--client-assertion") { Description = "Workload identity federation: a file holding the platform's token, or 'github' for GitHub Actions' OIDC token." };
-        Option<string?> assertionAudience = new("--assertion-audience") { Description = "The audience GitHub Actions' token is asked for; api://AzureADTokenExchange by default." };
-        Option<string?> scope = new("--scope") { Description = "The scope to ask the issuer for: the management audience's." };
-        Option<bool> managedIdentity = new("--managed-identity") { Description = "Take the token from the platform's managed identity (Container Apps' IDENTITY_ENDPOINT), for the audience --scope names; AZURE_CLIENT_ID picks a user-assigned identity." };
         Command takeover = new("takeover", "Move the writer of the datasets a failed instance holds to a warm standby (ADRs 0179, 0181).");
         takeover.Arguments.Add(datasets);
-
-        foreach (Option option in (Option[])[from, servers, token, authority, clientId, clientSecret, clientAssertion, assertionAudience, scope, managedIdentity])
-        {
-            takeover.Options.Add(option);
-        }
+        takeover.Options.Add(from);
+        takeover.Options.Add(servers);
+        OperatorToken credentials = new(takeover);
 
         takeover.SetAction((parsed, cancellationToken) => Cli.GuardAsync(async () =>
         {
-            string failed = parsed.GetValue(from)!;
-            string[] addresses = [.. parsed.GetValue(servers)!.Select(address => address.TrimEnd('/'))];
             using HttpClient http = OutboundHttp.CreateClient();
-            string? bearer = parsed.GetValue(managedIdentity)
-                ? await ManagedIdentityTokenAsync(http, parsed.GetValue(scope) ?? throw new Cli.CommandException("--managed-identity asks for the audience --scope names."), Environment.GetEnvironmentVariable, cancellationToken).ConfigureAwait(false)
-                : await Apply.TokenAsync(parsed, http, token, authority, clientId, clientSecret, clientAssertion, assertionAudience, scope, cancellationToken).ConfigureAwait(false);
-            string[] named = parsed.GetValue(datasets) ?? [];
-            int refused = 0;
-
-            foreach (string name in named.Length > 0 ? named : await ListAsync(http, bearer, addresses, cancellationToken).ConfigureAwait(false))
-            {
-                refused += await TakeOverAsync(http, bearer, addresses, name, failed, io, cancellationToken).ConfigureAwait(false) ? 0 : 1;
-            }
-
-            return refused == 0 ? 0 : 1;
+            string? bearer = await credentials.TokenAsync(parsed, http, cancellationToken).ConfigureAwait(false);
+            string[] addresses = [.. parsed.GetValue(servers)!.Select(address => address.TrimEnd('/'))];
+            return await TakeOverFromAsync(http, bearer, parsed.GetValue(from)!, addresses, parsed.GetValue(datasets) ?? [], io, cancellationToken).ConfigureAwait(false) ? 0 : 1;
         }, parsed.InvocationConfiguration.Error));
 
         return takeover;
+    }
+
+    /// <summary>
+    /// The takeover from a failed instance, as <c>varve manage takeover</c>
+    /// and the Kubernetes controller both make it (ADR 0181 point 2): true
+    /// when every dataset named, or every one listed and <c>_fleet</c>, is
+    /// taken over or needs nothing.
+    /// </summary>
+    internal static async Task<bool> TakeOverFromAsync(HttpClient http, string? bearer, string failed, string[] addresses, string[] named, Io io, CancellationToken cancellationToken)
+    {
+        int refused = 0;
+
+        foreach (string name in named.Length > 0 ? named : await ListAsync(http, bearer, addresses, cancellationToken).ConfigureAwait(false))
+        {
+            refused += await TakeOverAsync(http, bearer, addresses, name, failed, io, cancellationToken).ConfigureAwait(false) ? 0 : 1;
+        }
+
+        return refused == 0;
+    }
+
+    /// <summary>
+    /// The operator token's options, on a command that sends takeovers: any
+    /// of the CLI's ways (ADR 0163), or the platform's managed identity (ADR
+    /// 0181 point 3). Asked for at each use, so a long-running command never
+    /// holds one past its lifetime.
+    /// </summary>
+    internal sealed class OperatorToken
+    {
+        private readonly Option<string?> _token = new("--token") { Description = "A bearer token for the management audience, of the operator role; VARVE_TOKEN when absent." };
+        private readonly Option<string?> _authority = new("--authority") { Description = "The OIDC issuer to obtain a token from." };
+        private readonly Option<string?> _clientId = new("--client-id") { Description = "The OIDC client." };
+        private readonly Option<string?> _clientSecret = new("--client-secret") { Description = "The client's secret; VARVE_CLIENT_SECRET when absent. Prefer --client-assertion." };
+        private readonly Option<string?> _clientAssertion = new("--client-assertion") { Description = "Workload identity federation: a file holding the platform's token, or 'github' for GitHub Actions' OIDC token." };
+        private readonly Option<string?> _assertionAudience = new("--assertion-audience") { Description = "The audience GitHub Actions' token is asked for; api://AzureADTokenExchange by default." };
+        private readonly Option<string?> _scope = new("--scope") { Description = "The scope to ask the issuer for: the management audience's." };
+        private readonly Option<bool> _managedIdentity = new("--managed-identity") { Description = "Take the token from the platform's managed identity (Container Apps' IDENTITY_ENDPOINT), for the audience --scope names; AZURE_CLIENT_ID picks a user-assigned identity." };
+
+        internal OperatorToken(Command command)
+        {
+            foreach (Option option in (Option[])[_token, _authority, _clientId, _clientSecret, _clientAssertion, _assertionAudience, _scope, _managedIdentity])
+            {
+                command.Options.Add(option);
+            }
+        }
+
+        internal async Task<string?> TokenAsync(ParseResult parsed, HttpClient http, CancellationToken cancellationToken) =>
+            parsed.GetValue(_managedIdentity)
+                ? await ManagedIdentityTokenAsync(http, parsed.GetValue(_scope) ?? throw new Cli.CommandException("--managed-identity asks for the audience --scope names."), Environment.GetEnvironmentVariable, cancellationToken).ConfigureAwait(false)
+                : await Apply.TokenAsync(parsed, http, _token, _authority, _clientId, _clientSecret, _clientAssertion, _assertionAudience, _scope, cancellationToken).ConfigureAwait(false);
     }
 
     // Every dataset the first answering server lists, and the system dataset.

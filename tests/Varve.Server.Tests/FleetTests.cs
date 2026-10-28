@@ -539,6 +539,198 @@ public abstract class FleetCases : IAsyncDisposable
         Assert.DoesNotContain("Taken over", output, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The Kubernetes controller (ADR 0181 point 8), against an API server
+    /// that serves the pods a, b and c, all ready, and then streams what the
+    /// test sends:
+    /// - a is killed and its <c>Ready</c> turns <c>False</c>, and the
+    ///   controller takes over from a over b and c, which moves d to b and
+    ///   other to c;
+    /// - a repeat of that event, and a pod first seen not ready, start nothing;
+    /// - an <c>ERROR</c> event, the API server's 410 for a version too old,
+    ///   makes it list again.
+    /// Every request to the API server carries the token file's token.
+    /// </summary>
+    [Fact]
+    public async Task The_kubernetes_controller_takes_over_from_a_pod_that_turns_not_ready_and_from_nothing_else()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, writer: "a");
+        await DeclareAsync(a, "d", "a", "b");
+        long last = await DeclareAsync(a, "other", "a", "c");
+        Server b = await StartAsync("b", container, writer: "a");
+        Server c = await StartAsync("c", container, writer: "a");
+        await WaitDeclaredAsync(b, last, "d", "standby");
+        await WaitDeclaredAsync(c, last, "other", "standby");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(c, "other", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        await WaitWarmAsync(b, "d");
+        await WaitWarmAsync(c, "other");
+
+        string token = Path.Combine(_caches, "kubernetes-token");
+        await File.WriteAllTextAsync(token, "k8s-t0k3n\n", Ct);
+        await using FakeKubernetes api = await FakeKubernetes.StartAsync(["a", "b", "c"]);
+        Dictionary<string, Server> pods = new() { ["a"] = a, ["b"] = b, ["c"] = c };
+        ConcurrentQueue<(string Failed, string[] Others, bool Handled, string Output)> takeovers = new();
+        StringWriter log = new() { NewLine = "\n" };
+        using HttpClient varve = new();
+        using HttpClient kubernetes = new();
+        using CancellationTokenSource stop = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        Varve.Server.Commands.KubernetesController.Watcher watcher = new(kubernetes, new Uri(api.Address, "api/v1/namespaces/varve/pods?labelSelector=app%3Dvarve"), token, new Varve.Server.Commands.Io(log, log, new MemoryStream()));
+        Task watching = watcher.RunAsync(
+            async (failed, others, ct) =>
+            {
+                StringWriter output = new() { NewLine = "\n" };
+                string[] addresses = [.. others.Select(pod => pods[pod].Address.ToString().TrimEnd('/'))];
+                bool handled = await Varve.Server.Commands.Manage.TakeOverFromAsync(varve, null, failed, addresses, [], new Varve.Server.Commands.Io(output, output, new MemoryStream()), ct);
+                takeovers.Enqueue((failed, others, handled, output.ToString()));
+                return handled;
+            },
+            stop.Token);
+
+        await api.WaitWatchingAsync(1);
+        a.Kill();
+        api.Send("MODIFIED", "a", ready: false, version: 2);
+        (string Failed, string[] Others, bool Handled, string Output) took = await NextAsync(takeovers, log);
+        Assert.Equal("a", took.Failed);
+        Assert.Equal(["b", "c"], took.Others);
+        Assert.True(took.Handled, took.Output);
+        Assert.Contains("Taken over: d from epoch 1 by " + b.Address.ToString().TrimEnd('/'), took.Output, StringComparison.Ordinal);
+        Assert.Contains("Taken over: other from epoch 1 by " + c.Address.ToString().TrimEnd('/'), took.Output, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(c, "other", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+
+        // A repeat, a pod first seen not ready, and one that only turns ready start nothing.
+        api.Send("MODIFIED", "a", ready: false, version: 3);
+        api.Send("ADDED", "d-0", ready: false, version: 4);
+        api.Send("MODIFIED", "d-0", ready: true, version: 5);
+
+        // A version too old: the controller lists again, and watches from the list's version.
+        api.Send("ERROR", null, ready: false, version: 0);
+        await api.WaitWatchingAsync(2);
+        Assert.Equal(2, api.Lists);
+        Assert.Empty(takeovers);
+        Assert.All(api.Tokens, presented => Assert.Equal("Bearer k8s-t0k3n", presented));
+
+        await stop.CancelAsync();
+        await watching;
+    }
+
+    private static async Task<(string, string[], bool, string)> NextAsync(ConcurrentQueue<(string, string[], bool, string)> takeovers, StringWriter log)
+    {
+        for (int i = 0; i < 600; i++)
+        {
+            if (takeovers.TryDequeue(out (string, string[], bool, string) took))
+            {
+                return took;
+            }
+
+            await Task.Delay(50, Ct);
+        }
+
+        Assert.Fail("The controller took over from nothing: " + log);
+        return default;
+    }
+
+    /// <summary>
+    /// A Kubernetes API server for one namespace's pods, at the process
+    /// boundary: a list, then a watch that streams the events the test sends,
+    /// one JSON object a line, as the API server does.
+    /// </summary>
+    private sealed class FakeKubernetes : IAsyncDisposable
+    {
+        private readonly WebApplication _app;
+        private readonly string[] _pods;
+        private System.Threading.Channels.Channel<string> _events = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        private int _watches;
+        private int _lists;
+
+        private FakeKubernetes(WebApplication app, string[] pods)
+        {
+            _app = app;
+            _pods = pods;
+        }
+
+        internal Uri Address { get; private set; } = null!;
+
+        internal int Lists => Volatile.Read(ref _lists);
+
+        internal ConcurrentQueue<string> Tokens { get; } = new();
+
+        internal static async Task<FakeKubernetes> StartAsync(string[] pods)
+        {
+            WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
+            builder.WebHost.UseKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 0));
+            builder.Logging.ClearProviders();
+            WebApplication app = builder.Build();
+            FakeKubernetes api = new(app, pods);
+
+            app.Run(async context =>
+            {
+                api.Tokens.Enqueue(context.Request.Headers.Authorization.ToString());
+                context.Response.ContentType = "application/json";
+
+                if (context.Request.Query["watch"] != "true")
+                {
+                    Interlocked.Increment(ref api._lists);
+                    await context.Response.WriteAsync("{\"kind\":\"PodList\",\"metadata\":{\"resourceVersion\":\"1\"},\"items\":[" + string.Join(",", api._pods.Select(pod => Pod(pod, true, 1))) + "]}", context.RequestAborted);
+                    return;
+                }
+
+                System.Threading.Channels.Channel<string> events = api._events;
+                Interlocked.Increment(ref api._watches);
+                await context.Response.StartAsync(context.RequestAborted);
+
+                try
+                {
+                    await foreach (string line in events.Reader.ReadAllAsync(context.RequestAborted))
+                    {
+                        await context.Response.WriteAsync(line + "\n", context.RequestAborted);
+                        await context.Response.Body.FlushAsync(context.RequestAborted);
+
+                        // The API server ends the watch after an error event.
+                        if (line.Contains("\"ERROR\"", StringComparison.Ordinal))
+                        {
+                            api._events = System.Threading.Channels.Channel.CreateUnbounded<string>();
+                            return;
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            });
+
+            await app.StartAsync();
+            api.Address = new Uri(app.Urls.First().TrimEnd('/') + "/");
+            return api;
+        }
+
+        internal void Send(string type, string? pod, bool ready, long version) =>
+            _events.Writer.TryWrite(type == "ERROR"
+                ? "{\"type\":\"ERROR\",\"object\":{\"kind\":\"Status\",\"code\":410,\"reason\":\"Expired\"}}"
+                : "{\"type\":\"" + type + "\",\"object\":" + Pod(pod!, ready, version) + "}");
+
+        internal async Task WaitWatchingAsync(int watches)
+        {
+            for (int i = 0; Volatile.Read(ref _watches) < watches; i++)
+            {
+                Assert.True(i < 600, "the controller never opened watch " + watches);
+                await Task.Delay(50, Ct);
+            }
+        }
+
+        private static string Pod(string name, bool ready, long version) =>
+            "{\"metadata\":{\"name\":\"" + name + "\",\"resourceVersion\":\"" + version.ToString(CultureInfo.InvariantCulture) + "\"},\"status\":{\"conditions\":[{\"type\":\"Ready\",\"status\":\"" + (ready ? "True" : "False") + "\"}]}}";
+
+        public async ValueTask DisposeAsync()
+        {
+            _events.Writer.TryComplete();
+            await _app.StopAsync();
+            await _app.DisposeAsync();
+        }
+    }
+
     private static async Task<(int Exit, string Output, string Error)> RunAsync(string[] args)
     {
         StringWriter output = new() { NewLine = "\n" };

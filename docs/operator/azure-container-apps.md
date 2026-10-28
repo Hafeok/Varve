@@ -64,6 +64,12 @@ two apps on one container (ADRs 0163, 0168):
   assignment, on S3 a prefix-scoped policy. Whichever of #110 and #105 lands
   second reconciles this grant with the reader contract.
 
+**Its recovery is a restart.** When `varve-writer`'s replica fails,
+Container Apps restarts it, and writes are refused with `503` until it is
+back. Measured from the stop to the first write forwarded again, that is
+2.0–3.2 s plus the platform's own restart, where a warm standby's takeover
+is 0.3–0.9 s ([Restart or handover](fleet.md#restart-or-handover-choosing-the-layout)).
+
 Clients reach `varve`; a write costs one extra hop inside the environment.
 The internal address carries the caller's token, so it stays inside the
 environment's network, or is `https`. Datasets are not parameters of the

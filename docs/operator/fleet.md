@@ -237,6 +237,31 @@ The code is the same everywhere; only the address differs.
 - **Handover by hand**: N single-replica apps behind a front door, each with
   its own instance name, and placement changed by declaration.
 
+### Restart or handover: choosing the layout
+
+What a writer's failure costs in write downtime decides between them
+(ADR 0181). These were measured by the handover (services) job's cases, on
+a 4-core cloud container, with `Varve:Fleet:FollowInterval` at 200 ms. Each
+time runs from the event to the first write the fleet commits again:
+
+| Recovery | Layout | Azurite | RustFS |
+|---|---|---:|---:|
+| The writer restarts, with no standby | two apps, or one pod per instance without standbys | 2,568–3,221 ms | 1,998–2,264 ms |
+| A warm standby claims on the writer's shutdown | a writer set, any layout | 908 ms | 573 ms |
+| A warm standby takes over on a takeover request | a writer set, with automation | 504 ms | 312 ms |
+
+- **The restart's figure includes the process start alone.** A platform's
+  own restart adds its time to it: scheduling, pulling the image, the
+  startup probe. #164 measures that on real Container Apps.
+- **A takeover's figure starts at the request.** The time the probe takes
+  to declare the writer failed comes first: its period times its failure
+  threshold, plus the automation's own latency, which #164 measures on
+  Azure.
+- **Restart is free.** The two-app layout's followers scale to zero, and
+  it needs no automation. **A writer set costs** a warm standby per
+  dataset that stays up, and on Azure N always-on apps and Front Door's
+  base fee.
+
 **With standbys, a rolling deploy moves the writer to a standby on each
 restart** (ADR 0180 point 4). The restarting holder shuts down, releasing
 its epoch with `shutdown`. A warm standby wins the race to claim it, and the

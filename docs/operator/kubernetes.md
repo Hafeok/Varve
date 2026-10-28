@@ -103,22 +103,25 @@ kubeconform, strict, against Kubernetes 1.34.
   A rolling restart then moves each writer to its warm standby: the stopping
   pod releases for shutdown, in its termination grace.
 - **`handover.yaml`.** A crashed, hung or partitioned writer releases
-  nothing, so a small controller turns kubelet's verdict into a takeover:
-  - **The controller** watches the fleet's pods, with no timer of its own.
-    When a pod's `Ready` turns `False`, after the readiness probe's
-    `failureThreshold`, it creates a Job from the suspended CronJob
-    `varve-takeover`. A pod deleted while ready counts too.
-  - **The Job** runs `varve manage takeover --from <pod>` over the other
-    pods' addresses ([The fleet](fleet.md#taking-over-from-a-failed-writer)).
-    A late or duplicated trigger, or one for a pod whose writer already
-    moved by abdication, finds nothing to do.
-  - **Its identity** is the `varve-takeover` service account. It holds
-    nothing in the cluster, and its federated token is exchanged for the
-    operator role on the management audience.
-  - **The controller's role** allows `get`, `list` and `watch` on pods,
-    `get` on that one CronJob, and `create` on Jobs, in the namespace.
-  - **Its image** needs `kubectl`, `jq` and `bash`. The sample pins
-    `alpine/k8s` by digest; any image with the three serves.
+  nothing, so a controller turns kubelet's verdict into a takeover. It is
+  Varve's own image, running `varve manage watch-kubernetes`:
+  - **It watches the fleet's pods** through the API server, by their label
+    selector, with its service account's token. It keeps no timer of its
+    own. When a pod's `Ready` turns from `True` to anything else, after the
+    readiness probe's `failureThreshold`, it takes over from that pod over
+    the others' addresses. A pod deleted while ready counts too; a pod
+    first seen not ready, or one that only turns ready, does not.
+  - **The takeover is `varve manage takeover`'s**, in the same process
+    ([The fleet](fleet.md#taking-over-from-a-failed-writer)). A late or
+    duplicated trigger, or one for a pod whose writer already moved by
+    abdication, finds nothing to do.
+  - **Its identity** is the `varve-handover` service account. In the
+    cluster it may `get`, `list` and `watch` pods in the namespace, and
+    nothing else. Its federated token is exchanged at the identity provider
+    for the operator role on the management audience.
+  - **A watch the API server ends** is opened again from the last version
+    seen; one it refuses as too old (`410`) starts from a fresh list. A
+    watch that fails is opened again after two seconds.
 
 Replace each `{…}`: the image digest, the storage account, the tenant, and
 the client ids of the store's and the operator's identities.

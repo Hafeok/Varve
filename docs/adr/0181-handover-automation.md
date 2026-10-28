@@ -206,19 +206,29 @@ Container Apps job.**
 - **A StatefulSet** of N pods. Each pod is one instance, named for itself by
   the downward API, with its own volume for the cache, `/health/live` and
   `/health/ready` as probes, and a headless Service for internal addresses.
-- **The handover controller** is a small Deployment that watches the
-  StatefulSet's pods: `kubectl get pods --watch`, with no timer. When a
-  pod's `Ready` condition turns `False`, after kubelet's own
-  `failureThreshold`, it creates a Job from a template held as a suspended
-  CronJob. The Job runs `varve manage takeover --from {pod}` over the other
-  pods' addresses, with a projected service account token as
-  `--client-assertion`.
+- **The handover controller is Varve's own image**, running `varve manage
+  watch-kubernetes`, one replica:
+  - **It watches** the StatefulSet's pods through the API server, by their
+    label selector, with the pod's service-account token, over a raw
+    `HttpClient` that trusts the service account's CA alone. It lists
+    them, then watches from the list's version; the API server pushes each
+    change, so nothing waits on a clock. A watch the server ends is opened
+    again from the last version seen. One refused as too old (`410`) starts
+    from a fresh list, and one that fails is opened again after a pause.
+  - **When a pod's `Ready` turns from `True`** to anything else, after
+    kubelet's own `failureThreshold`, or the pod is deleted while ready, it
+    takes over from that pod over the other pods' addresses. It calls the
+    same code as `varve manage takeover --from` (point 2), in-process.
+  - **It reads the API server's JSON with `JsonDocument`**, as every JSON
+    reader in `src/` does. The plan's source-generated JSON was tried: in a
+    packable project the generator's metadata code calls
+    `Type.GetConstructor` and `Type.GetProperty`, which ADR 0064's banned
+    symbols refuse, 19 errors. `JsonDocument` needs no reflection either.
 - **A rolling restart** turns pods not ready too. Its abdication has moved
   the writer already, so the takeover finds nothing to do (point 2).
 - **RBAC.** The controller's service account may `get`, `list` and `watch`
-  pods, and create Jobs, in its namespace and no more. The Job's service
-  account holds nothing in the cluster. Its token is exchanged at the
-  identity provider for the operator role.
+  pods, in its namespace and no more. Its federated token is exchanged at
+  the identity provider for the operator role.
 - **CI validates the manifests** with `kubeconform`, strict, against a
   pinned Kubernetes schema version. Its image is a row of
   `.github/ci-images.yaml`, mirrored like every other.
@@ -253,6 +263,9 @@ nothing. `Varve.Aspire` gains no automation.
 - **A watch loop or a lease inside Varve.** That would be a timer in Varve's
   decisions (ADR 0179 point 7).
 - **A Kubernetes operator with its own custom resource.** It would be more
-  code than the act it performs. A sample controller of one watch and one
-  Job template shows the shape, and an operator may replace it with their
-  own.
+  code than the act it performs. One watch and the takeover command's own
+  code show the shape, and an operator may replace it with their own.
+- **A shell controller on a community image**, `kubectl` and `jq` creating
+  Jobs from a template. A third-party image holding RBAC over the writer is
+  the wrong place for a dependency, and the takeover would run in a second
+  image (the maintainer, on #175).

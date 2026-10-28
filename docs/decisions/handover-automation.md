@@ -22,7 +22,7 @@ decisions:
   - key: LogicAppAcceptsOnlyTheActionGroup
     statement: "The Logic App's trigger has SAS disabled and one OAuth policy requiring the tenant's issuer, the operator's app registration as audience and the AzNS AAD Webhook's application id as azp; its identity holds only jobs read, start and executions read on the jobs"
   - key: KubernetesSampleWatchesReadiness
-    statement: "The Kubernetes sample's controller watches the StatefulSet's pods with no timer and, when one's Ready condition turns False, creates a Job from a suspended CronJob template running varve manage takeover --from that pod"
+    statement: "The Kubernetes controller is Varve's own image running varve manage watch-kubernetes: it watches the fleet's pods through the API server with its service-account token and no timer, and when one's Ready turns from True, takes over from it with varve manage takeover's own code; its role may only read and watch pods"
   - key: KubernetesManifestsValidatedByKubeconform
     statement: "CI validates the Kubernetes sample's manifests with kubeconform, strict, against a pinned schema version, from an image listed in .github/ci-images.yaml"
   - key: AspireKeepsRestart
