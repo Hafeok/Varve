@@ -463,3 +463,20 @@ the same commit.
   placement release by any member, and letting a standby claim one. Its
   full depth, 20,000 histories, takes under a second, so it is also the land
   gate's count.
+- **The two-app layout's write downtime on a restart** is now measured
+  beside the takeover times, by the handover (services) job. The case has
+  a system writer with no standby and a follower forwarding. The writer stops
+  and starts again on its cache, and the downtime runs until the first write
+  the follower forwards. Locally, three runs each: Azurite 2,568–3,221 ms,
+  RustFS 1,998–2,264 ms, against 504–908 ms for a takeover. The process start
+  is included; a platform's own restart time adds to it, and #164 measures
+  that on real Container Apps.
+
+### The maintainer's sixth message
+
+> For a forwarded write whose outcome is unknown (the store’s response to the create was lost), answer the client with readiness A’s new problem type commit-outcome-unknown (ADR 0214, on #180’s step-3 branch), with position where known and requestId, not a separate 503 unavailable. One type for one situation. Merge it in when it reaches main.
+
+- Noted. ADR 0214 is not on `main` yet. The writer's answer to an append
+  whose outcome is unknown (`Dataset.AppendFailed`, the storage-error
+  abdication) moves to `commit-outcome-unknown` in the merge that brings it
+  in.

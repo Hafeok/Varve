@@ -521,6 +521,44 @@ public abstract class FleetCases : IAsyncDisposable
         await WaitManagementAsync(b, "writer", warm: null);
     }
 
+    /// <summary>
+    /// The default two-app layout keeps restart as its recovery (#97, ADR
+    /// 0181): a is the system writer and d's, with no standby, and b follows
+    /// and forwards. a stops and starts again on the same cache, and the
+    /// write downtime is the time from its stop to the first write b forwards
+    /// and a commits, beside the takeover times. It includes the process
+    /// start here; a platform's restart adds its own (#164 measures it).
+    /// </summary>
+    [Fact]
+    [Trait("Measure", "Handover")]
+    public async Task A_restart_of_the_writer_with_no_standby_answers_writes_through_the_follower_again()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container);
+        long declared = await DeclareAsync(a, "d");
+        Server b = await StartAsync("b", container);
+        await WaitDeclaredAsync(b, declared, "d", "follower");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+
+        Stopwatch downtime = Stopwatch.StartNew();
+        await a.StopAsync();
+        Server again = await StartAsync("a", container);
+        HttpResponseMessage write;
+        int refused = 0;
+
+        // b refuses while no writer answers, writer-unreachable or writer-moved, and forwards once a holds d again.
+        while ((write = await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode != HttpStatusCode.NoContent)
+        {
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, write.StatusCode);
+            Assert.True(++refused < 600, "b never forwarded a write to the restarted writer\n" + b.Log + "\n" + again.Log);
+            await Task.Delay(50, Ct);
+        }
+
+        downtime.Stop();
+        Measured("restart (two-app layout, no standby): the writer's stop, its start again, to the first write the follower forwards", downtime);
+        Assert.Equal("2", await CountAsync(b, write.Headers.GetValues("Varve-Position").Single()));
+    }
+
     private static Task<HttpResponseMessage> Takeover(Server server, string dataset, long epoch) =>
         server.Http.PutAsync(new Uri(server.Address, "manage/datasets/" + dataset + "/state"), new StringContent("{\"takeover\":{\"epoch\":" + epoch.ToString(CultureInfo.InvariantCulture) + "}}", Encoding.UTF8, "application/json"), Ct);
 
