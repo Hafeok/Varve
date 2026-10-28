@@ -900,3 +900,77 @@ about 1.8 s at 10 Mbit/s.
   485 kB.
 
 Both are why ADR 0205 point 4 says to measure from a clean tree only.
+
+### Gates: the browser tests, the axe audit and the keyboard walk-through (ADR 0204)
+
+**The browser tests,** `tests/Varve.WebUi.Browser.Tests`: Playwright 1.64.1
+and `Deque.AxeCore.Playwright` 4.14.0, on Chrome by its path. They serve the
+published bundle from `Varve.Server` in the test process, with declarations
+and one commit written first. CI runs them in their own required job,
+`web ui in Chromium`, after `browser wasm`, with mock-oauth2-server from the
+mirror and `VARVE_BROWSER_TESTS_REQUIRED=1`.
+
+All 5 pass locally in 43 s:
+- **axe on every screen and dialog:** wcag2a, 2aa, 21a, 21aa and 22aa, with
+  zero violations, in both themes. That covers 9 screens, plus the close and
+  checkpoint dialogs open. A `securitypolicyviolation` watcher reported
+  nothing on any of them.
+- **The keyboard's first stops:** the first Tab reaches the skip link, which
+  is visible, and Enter moves focus to `main` without navigating. A
+  navigation inside the Web UI moves focus to the new page's `h1`.
+- **Anonymous mode:** both planes say anonymous, and there is no Sign out.
+- **OIDC mode against mock-oauth2-server:**
+  - the sign-in completes, with one token per plane;
+  - the data plane refuses the management token, and the management plane
+    refuses the data token, each with 401.
+- **The dual-audience refusal:** a token for `varve-dual`, whose `aud` is
+  both `api://varve` and `api://varve-manage`, is refused by both planes,
+  each with 401.
+
+**A defect the tests found:** `FocusOnNavigate` focused the `h1` on the
+first render too. On a fresh load the first Tab then went past the skip link
+("Read again" came first). `App.razor` now renders it only after an in-app
+navigation. A fresh load keeps the browser's start (WCAG 2.4.1), and a
+navigation still lands on what changed (2.4.3).
+
+**The keyboard walk-through.**
+- **How it was done:** a keyboard only, in Chrome at 1280×900, on the
+  anonymous server above. Each screen was loaded fresh and walked with Tab
+  until focus came back round. At every stop the session read the focused
+  element, its name, whether it matched `:focus-visible`, and whether its
+  outline or shadow was drawn.
+- **On every screen:**
+  - every stop matched `:focus-visible` and drew its ring;
+  - nothing focusable was hidden;
+  - the order followed the reading order.
+
+| Screen | Stops after the skip link and the shell (brand, Datasets, Health, Fleet) |
+|---|---|
+| Datasets | Read again, then each dataset's link (`catalog`, `notes`) |
+| Health | Read again |
+| Fleet | Copy, then the declaration source (a scrollable `region`) |
+| A dataset | the rail (Commits, Grants, Declaration), the crumb, Take checkpoint, Close dataset, All commits, each commit's position, Copy, the source |
+| A dataset as of 1 | the rail, the crumb, Return to head, the commit's position. The acts are not offered |
+| Commits | the rail, the crumb, each commit's position |
+| A commit | the rail, the crumb |
+| Grants | the rail, the crumb |
+| Declaration | the rail, the crumb, Copy, the source |
+
+**The dialogs,** each opened with Enter on its button:
+- **Close dataset:**
+  - focus opens on the name field;
+  - the confirm button is disabled until the name is typed, so Tab passes
+    it and goes to Cancel;
+  - after typing `notes`, Tab goes on from the field;
+  - Escape closes the dialog and returns focus to Close dataset.
+- **Take checkpoint:**
+  - focus opens on Cancel, and Tab reaches Take checkpoint;
+  - Escape closes it and returns focus to the button.
+- **Both:** Tab stays within the dialog and the page behind is inert. The
+  one stop outside the dialog is the browser's own toolbar, which is what
+  `showModal` does.
+
+**Noted for #96, not changed:**
+- "All commits" on a dataset is a `button` that navigates. The reference
+  screens pin it as a button, so the page follows them. A link would be the
+  usual choice.
