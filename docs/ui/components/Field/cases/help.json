@@ -1,0 +1,9 @@
+{
+  "parameters": {
+    "Id": "f-asof",
+    "Label": "As of position",
+    "Value": "17950",
+    "InputMode": "numeric",
+    "Help": "A position at or below the head, 18417."
+  }
+}

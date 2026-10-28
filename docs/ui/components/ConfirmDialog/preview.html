@@ -1,0 +1,15 @@
+<!-- @dsCard group="Organisms" height=704 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../../bundle.css"><title>ConfirmDialog — preview</title>
+<style>html,body{margin:0}body.vw-root{padding:16px}.cases{display:grid;gap:16px}.case{margin:0}.case figcaption{margin-bottom:4px;font-size:11px;line-height:16px;color:var(--ink-muted)}.vw-dialog{position:static;display:block;margin:0}</style></head>
+<body class="vw-root">
+<!-- One figure per contract case in cases/: the markup inside each data-case
+     element is the case's, verbatim, and a test checks it (ADR 0206 point 6). -->
+<div class="cases">
+<figure class="case"><figcaption>checkpoint-result</figcaption><div data-case="checkpoint-result"><dialog class="vw-dialog" aria-labelledby="cp-title"><div class="vw-dialog__body"><h2 class="vw-dialog__title" id="cp-title">Take a checkpoint of notes?</h2><p class="vw-dialog__effect">Writes a checkpoint of <strong>notes</strong> at position 18417: derived data, droppable, no change to the log.</p><p>Checkpoint taken at position 18417.</p></div><div class="vw-dialog__foot"><button class="vw-button" type="button">Close</button></div></dialog></div></figure>
+<figure class="case"><figcaption>close</figcaption><div data-case="close"><dialog class="vw-dialog" aria-labelledby="dlg-title"><div class="vw-dialog__body"><h2 class="vw-dialog__title" id="dlg-title">Close notes?</h2><p class="vw-dialog__effect">Every instance stops serving <strong>notes</strong> and its writer releases the dataset. Reads and writes answer <code>404</code> until it is opened again. Nothing is deleted.</p><div class="vw-notice vw-notice--warn"><p class="vw-notice__title">The declaration will drift from Git</p><p class="vw-notice__body">This changes the dataset's declaration on the server. Your declaration files in Git will differ until you update them; <code>varve apply --plan</code> will show the difference.</p></div><div class="vw-field"><label for="dlg-name">Type <code>notes</code> to confirm</label><input id="dlg-name" autocomplete="off" spellcheck="false" value=""></div></div><div class="vw-dialog__foot"><button class="vw-button" type="button">Cancel</button><button class="vw-button vw-button--danger-solid" type="button" disabled>Close notes</button></div></dialog></div></figure>
+</div>
+</body>
+</html>

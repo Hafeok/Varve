@@ -1,0 +1,7 @@
+{
+  "parameters": {
+    "Title": "The declaration will drift from Git",
+    "Warn": true,
+    "ChildContent": "This changes the dataset's declaration on the server. Your declaration files in Git will differ until you update them; <code>varve apply --plan</code> will show the difference."
+  }
+}

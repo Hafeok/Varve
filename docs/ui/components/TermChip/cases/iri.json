@@ -1,0 +1,8 @@
+{
+  "parameters": {
+    "Kind": "Iri",
+    "Text": "notes:users/42",
+    "Full": "https://notes.example/users/42",
+    "Href": "#"
+  }
+}
