@@ -9,6 +9,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using CsCheck;
 using Varve.Store.Log;
+using Varve.Store.ObjectStorage;
 using Varve.Store.ObjectStorage.Model;
 using Xunit;
 using Backend = Varve.Store.ObjectStorage.ObjectStorage;
@@ -72,6 +73,84 @@ public sealed class ObjectEpochPropertyTests
         // b writes on; a, reading the log b wrote, writes nothing.
         await using Dataset writer = await Dataset.OpenAsync(later, options, T.Ct);
         Assert.Equal(CommitOutcome.Committed, (await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s2"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
+    }
+
+    /// <summary>
+    /// The log's last segment holds chunks of more than one epoch: it was
+    /// opened in epoch 1, and b, of epoch 3, fenced it and committed into it,
+    /// before a, which claimed epoch 2, listed it. Its first chunk is of epoch 1
+    /// and its last of epoch 3, so a is superseded, and creates nothing.
+    /// </summary>
+    [Fact]
+    public async Task a_writer_whose_last_segment_starts_in_an_older_epoch_and_ends_in_a_newer_one_is_superseded()
+    {
+        DatasetOptions options = SmallSegments(64 << 20);
+        MemoryObjectStore store = new();
+        await using ObjectHarness objects = new(store, waits: new InstantClock(DateTimeOffset.UnixEpoch));
+        await using (Dataset first = await T.OpenOrCreate(await objects.OpenAsync(instance: "first"), options))
+        {
+            await first.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
+        }
+
+        Dataset? writer = null;
+        bool armed = true;
+        store.Hook = (operation, name) =>
+        {
+            if (armed && operation == ObjectOperation.List && name.Value.Contains("log/", StringComparison.Ordinal))
+            {
+                armed = false;
+                writer = Task.Run(async () =>
+                {
+                    Dataset opened = await Dataset.OpenAsync(await objects.OpenAsync(instance: "b"), options, T.Ct);
+                    Assert.Equal(CommitOutcome.Committed, (await opened.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s2"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
+                    return opened;
+                }).GetAwaiter().GetResult();
+            }
+
+            return null;
+        };
+
+        Backend earlier;
+
+        try
+        {
+            earlier = await objects.OpenAsync(instance: "a");
+        }
+        finally
+        {
+            store.Hook = null;
+        }
+
+        await using Dataset held = writer!;
+        string[] chunks = await ChunksAsync(store);
+
+        // One segment, from epoch 1's opening chunk to epoch 3's commit, with epoch 3's fence between.
+        Assert.All(chunks, name => Assert.StartsWith("log/00000000.chunks/", name, StringComparison.Ordinal));
+        Assert.Equal(1, await EpochOfAsync(store, chunks[0]));
+        Assert.Equal(3, await EpochOfAsync(store, chunks[^1]));
+        Assert.Contains(chunks, name => EpochOfAsync(store, name).AsTask().GetAwaiter().GetResult() == 1 && name != chunks[0]);
+
+        Assert.True(earlier.IsSuperseded);
+        Assert.Null(earlier.Epoch);
+
+        // b holds the log, and its next commit lands in the slot a did not take.
+        Assert.Equal(CommitOutcome.Committed, (await held.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s3"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
+        Assert.Equal(chunks.Length + 1, (await ChunksAsync(store)).Length);
+    }
+
+    private static DatasetOptions SmallSegments(int segmentBytes) => T.Options(maxRecordBytes: 128, segmentBytes: segmentBytes) is var small
+        ? new DatasetOptions { Clock = small.Clock, MaxRecordBytes = small.MaxRecordBytes, SegmentBytes = small.SegmentBytes, CommitCache = small.CommitCache, Maintenance = MaintenanceMode.Off }
+        : throw new InvalidOperationException();
+
+    // The log's chunks, in log order.
+    private static async Task<string[]> ChunksAsync(MemoryObjectStore store) =>
+        [.. (await store.ListAsync(new ObjectName("log/"), T.Ct)).Select(entry => entry.Name.Value).Where(name => name.Contains(".chunks/", StringComparison.Ordinal)).Order(StringComparer.Ordinal)];
+
+    private static async ValueTask<long> EpochOfAsync(MemoryObjectStore store, string chunk)
+    {
+        ObjectRead read = (await ConditionalWrites.ReadWholeAsync(store, new ObjectName(chunk), T.Ct))!;
+        Assert.True(ChunkHeader.TryRead(read.Bytes.Span, out ChunkHeader header, out _));
+        return header.Epoch;
     }
 
     [Fact]
