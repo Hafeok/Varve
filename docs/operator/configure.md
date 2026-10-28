@@ -249,6 +249,19 @@ A preflight is answered before authentication and before the read limit, so
 it needs no token. A refusal (`401`, `429`, any problem) carries the CORS
 headers too, so the application can read the problem.
 
+## The Web UI — `WebUi` (ADR 0202)
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `Path` | unset | the absolute path of a published Web UI, the `wwwroot` of `varve-webui-<version>.zip`; unset, the server serves no `/ui/` |
+
+Set, the server serves the Web UI under `/ui/` on the data-plane listener, and
+refuses to start if the directory holds no `index.html`. The files are public:
+no token is asked for them. Every `/ui/` response carries the Web UI's
+Content Security Policy, with `Auth:Authority`'s origin allowed for the token
+requests. After editing `appsettings.json` in the bundle, nothing else is
+needed: the server never serves a compressed copy older than its file.
+
 ## Telemetry — `Telemetry` (ADR 0112)
 
 | Key | Default | Meaning |

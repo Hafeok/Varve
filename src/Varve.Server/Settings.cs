@@ -60,6 +60,19 @@ internal sealed class ServerSettings
 
     /// <summary>Domain events (ADRs 0143, 0144): the base their URLs are built on, and the Event Hubs server the AsyncAPI document names.</summary>
     public EventsSettings Events { get; set; } = new();
+
+    /// <summary>The Web UI this server serves under <c>/ui/</c> (ADR 0202), if any.</summary>
+    public WebUiSettings WebUi { get; set; } = new();
+}
+
+/// <summary>
+/// The Web UI (ADR 0202): <see cref="Path"/> is the directory of a published
+/// Web UI bundle, the <c>wwwroot</c> of its zip. Unset, the server serves no
+/// <c>/ui/</c> at all.
+/// </summary>
+internal sealed class WebUiSettings
+{
+    public string? Path { get; set; }
 }
 
 /// <summary>

@@ -594,3 +594,76 @@ One difference is not in the markup a case pins. The screens give every
 panel title an id (`readiness-title-2`, …), and the page sets `TitleId` on
 none of them. Only a table labelled by its panel needs one, and the page's
 tables have captions.
+
+### The remaining slices: the order
+
+**The ruling** (2026-10-28), verbatim in its order and standing rule:
+
+> Carry on with part 1’s remaining slices, in this order unless your plan on #96 already fixes a different one:
+>
+> 1. Sign-in (D1): […]
+> 2. The read screens, each built against its reference screen in `docs/ui/screens/`: […]
+> 3. The acts: checkpoint, close and open, through `ConfirmDialog`, with the drift note and the result slot. Close requires the typed name. The 409/412 paths show the problem inside the dialog with “Reload at head”.
+> 4. Gates and close-out: […]
+>
+> Standing rule for the design, so `docs/ui/` stays the source:
+>
+> * New markup gets its case in `docs/ui/components/<Comp>/cases/` first, in the same commit as the component that renders it. No component renders markup that no case pins.
+> * Where a screen needs something the cases and the reference screens don’t cover, don’t invent it: ask on #96, and wait or carry on with the next slice.
+> * Where a page you build and its reference screen disagree, check the page against the cases and list the difference on #96. The screens get regenerated; they don’t hold back the page.
+>
+> Report at the end of each slice: what landed, test counts, and the bundle size against slice 1.
+
+The plan on #96 fixes hosting and the CSP (ADR 0202) before sign-in, as its
+slice 3 before slice 4: the sign-in redirect lands on `/ui/`, and the CSP
+names the issuer's origin. So hosting came first.
+
+### Hosting and the Content Security Policy (ADR 0202)
+
+**Landed:**
+- **`Varve:WebUi:Path`.** It names the published bundle. The server checks at
+  start that the path is absolute and holds `index.html`, and refuses to
+  start otherwise (exit 2).
+- **`src/Varve.Server/WebUi.cs`.** It serves `/ui/` on the data-plane
+  listener, before CORS, rate limits and authentication:
+  - only `GET` and `HEAD`;
+  - `308` from `/ui` to `/ui/`;
+  - extensionless routes get `index.html`, and a missing file with an
+    extension gets a `404` problem;
+  - a `.br` or `.gz` sibling is sent only when accepted and not older than
+    its file;
+  - fingerprinted `_framework` files are immutable for a year, and every
+    other file is `no-cache` with an `ETag` and `304`;
+  - every response carries the policy, `nosniff`, `no-referrer` and
+    `same-origin` opener.
+- **ADR 0202 and its decision set** are filed unaccepted. The configure
+  guide has a `WebUi` section.
+
+**One refinement of the plan, stated in the ADR.** The plan said any
+non-file path gets `index.html`. It is now only a path with no extension:
+the runtime expecting a module and getting HTML fails far from the cause,
+and a `404` problem names it.
+
+**Tests:**
+- `WebUiHostingTests` passes 10:
+  - the headers and the exact policy;
+  - the redirect;
+  - deep links;
+  - missing and dot files, and a climb out of the bundle;
+  - brotli accepted and refused (`q=0`), and a stale sibling not served;
+  - immutable against `no-cache`, and `304`;
+  - `GET`/`HEAD` only;
+  - unset, no `/ui/`;
+  - the issuer's origin in `connect-src`;
+  - a bad path refused at start.
+- `Varve.Server.Tests` in full: 144, none failed, 14 skipped for missing
+  services, as before.
+
+**In a browser.** I published the Web UI, ran the Release server with
+`Varve:WebUi:Path` set to it, and loaded `/ui/health` in Chromium:
+- the Health screen rendered in 1.5 s;
+- every framework file came brotli-encoded;
+- no `securitypolicyviolation`, console error or page error.
+
+**Bundle:** `_framework` is 1.703 MB brotli-11, against slice 1's 1.675 MB.
+The 28 kB since then are the components; this slice changed no Web UI code.

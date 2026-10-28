@@ -46,6 +46,7 @@ internal static class SettingsCheck
         "Store:GroupCommit:MaxRecords", "Store:GroupCommit:MaxBytes",
         "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes",
         "Events:Source", "Events:EventHubs:Host", "Events:EventHubs:Hub",
+        "WebUi:Path",
     ];
 
     /// <summary>The leaf keys under <paramref name="section"/> that match no known pattern, as <c>Varve:…</c> paths.</summary>
@@ -257,6 +258,12 @@ internal static class SettingsCheck
         if (!string.IsNullOrWhiteSpace(settings.DatasetsRoot) && !Path.IsPathFullyQualified(settings.DatasetsRoot))
         {
             errors.Add("Varve:DatasetsRoot is an absolute path.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.WebUi.Path)
+            && (!Path.IsPathFullyQualified(settings.WebUi.Path) || !File.Exists(Path.Combine(settings.WebUi.Path, "index.html"))))
+        {
+            errors.Add("Varve:WebUi:Path is the absolute path of a published Web UI, the directory holding its index.html (ADR 0202); it is '" + settings.WebUi.Path + "'.");
         }
 
         CheckObjectStorage(settings.ObjectStorage, errors);
