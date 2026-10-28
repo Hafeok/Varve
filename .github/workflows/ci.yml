@@ -1067,6 +1067,13 @@ jobs:
           key: nuget-${{ runner.os }}-${{ matrix.rid }}-${{ hashFiles('Directory.Packages.props') }}
           restore-keys: nuget-${{ runner.os }}-${{ matrix.rid }}-
 
+      - name: Restore, for every RID at once
+        # The lockfile has every RID the project ships (ADR 0224). A
+        # publish given -r would restore its whole graph for that RID,
+        # and the libraries' lockfiles have none, so the restore is
+        # this one, locked, and the publish does none of its own.
+        run: dotnet restore src/Varve.Server
+
       - name: Publish the server
         # The binary the gate runs, for this runner's architecture; no
         # cross-compilation (ADR 0111 point 2).
@@ -1074,6 +1081,7 @@ jobs:
           dotnet publish src/Varve.Server
           --configuration Release
           --runtime ${{ matrix.rid }}
+          --no-restore
           --output ${{ github.workspace }}/artifacts/server-aot
 
       - name: Log in to GHCR
@@ -1589,11 +1597,19 @@ jobs:
           key: nuget-${{ runner.os }}-repo-standard-${{ hashFiles('Directory.Packages.props') }}
           restore-keys: nuget-${{ runner.os }}-
 
+      - name: Restore, for every RID at once
+        # The lockfile has every RID the project ships (ADR 0224). A
+        # publish given -r would restore its whole graph for that RID,
+        # and the libraries' lockfiles have none, so the restore is
+        # this one, locked, and the publish does none of its own.
+        run: dotnet restore tools/repo-standard/src/RepoStandard
+
       - name: Publish the native binary
         run: >
           dotnet publish tools/repo-standard/src/RepoStandard
           --configuration Release
           --runtime ${{ matrix.rid }}
+          --no-restore
           --output ${{ runner.temp }}/aot
 
       - name: Lay it out as a release, and a tampered copy

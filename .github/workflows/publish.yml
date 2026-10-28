@@ -541,11 +541,19 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Restore, for every RID at once
+        # The lockfile has every RID the project ships (ADR 0224). A
+        # publish given -r would restore its whole graph for that RID,
+        # and the libraries' lockfiles have none, so the restore is
+        # this one, locked, and the publish does none of its own.
+        run: dotnet restore src/Varve.Server
+
       - name: Publish the server
         run: >
           dotnet publish src/Varve.Server
           --configuration Release
           --runtime ${{ matrix.rid }}
+          --no-restore
           --output ${{ github.workspace }}/artifacts/server-aot
 
       - name: Set up Buildx
