@@ -826,3 +826,50 @@ from an empty folder.
 - `Varve.WebUi.Tests` passes 171;
 - the client and hosting tests in `Varve.Server.Tests` pass 22;
 - `Varve.Analyzers.Tests` passes 135.
+
+### The acts: checkpoint, close and open (D4)
+
+**Landed:**
+- **The client:**
+  - `VarveManagementClient.CheckpointAsync` and `SetStateAsync` (open or
+    closed only), each a `VarveResult<Acknowledgement>` whose facts name the
+    position;
+  - `AtLeast(p)`: the same client asking every request for management
+    position `p` or later (`Varve-Min-Management-Position`).
+- **The Dataset screen:**
+  - Take checkpoint (primary; for a follower, disabled with "Only the writer
+    takes checkpoints."), and Close dataset, or Open dataset when closed;
+  - each through `ConfirmDialog`. Close and open carry the drift note (the
+    `DriftNote` part), and close asks for the name typed exactly;
+  - the result slot shows the position, or the problem;
+  - a `409` or `412` problem carries "Reload at head", which reads the view
+    again;
+  - after an accepted close or open, the view is read again with `AtLeast`
+    the act's position.
+
+**On `main`, close and open take no precondition.** `PUT …/state` commits
+with no expected version: an `If-Match` or `Varve-If-Graphs-Match` sent
+with it is ignored (checked: both answered `204`). So the `412` of the
+reference screen `dataset--conflict` cannot happen against `main`. The
+dialog handles it all the same, and `ActTests` drives it against a fake
+server. Whether the state route should honour the declaration's version is
+put on #96.
+
+**In a browser**, against an anonymous Release server:
+- Close notes: confirm disabled until `notes` was typed (`Notes` kept it
+  disabled). The result was "notes is closed, at management position 6",
+  and after the re-read the Open dataset button.
+- Open notes: "open again".
+- Take checkpoint: "Checkpoint taken at position 3", and the status's Last
+  checkpoint read `at 3`.
+- No CSP violation. The console logged the `404`s a closed dataset's reads
+  answer, which the page shows as their problem.
+
+**Tests:**
+- `ManagementClientTests` passes 9, with close, open, checkpoint, `AtLeast`
+  and `management-behind`.
+- `ActTests` passes 4:
+  - the typed name and the drift note;
+  - `412` and `409` with "Reload at head" reading again;
+  - `403` with no reload.
+- `Varve.WebUi.Tests` passes 175.

@@ -508,3 +508,14 @@ public sealed class GraphScope
         return texts;
     }
 }
+
+/// <summary>
+/// A write the server accepted (ADR 0203): no body of its own; the result's
+/// facts carry the status and the positions it was committed at.
+/// </summary>
+public sealed class Acknowledgement
+{
+    internal Acknowledgement()
+    {
+    }
+}

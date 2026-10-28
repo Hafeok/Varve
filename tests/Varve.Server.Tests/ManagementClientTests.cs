@@ -158,6 +158,50 @@ public class ManagementClientTests
     }
 
     [Fact]
+    public async Task Close_open_and_checkpoint_are_acknowledged_and_a_re_read_at_the_acts_position_sees_them()
+    {
+        await using RunningServer server = await RunningServer.StartAsync(Anonymous());
+        VarveManagementClient manage = new(server.Client, server.Address, ClientLimits.Default, null, null);
+        DatasetName catalog = new("catalog");
+
+        VarveResult<Acknowledgement> closed = await manage.SetStateAsync(catalog, DatasetState.Closed, Ct);
+        Assert.NotNull(closed.Value);
+        Assert.Equal(HttpStatusCode.NoContent, closed.Facts.Status);
+        FeedPosition committed = closed.Facts.Position!.Value;
+
+        VarveResult<DatasetLifecycle> after = await manage.AtLeast(committed).LifecycleAsync(catalog, Ct);
+        Assert.Equal(DatasetState.Closed, after.Value!.State);
+
+        VarveResult<Acknowledgement> opened = await manage.SetStateAsync(catalog, DatasetState.Open, Ct);
+        Assert.NotNull(opened.Value);
+
+        SparqlHttpClient notes = new(server.Client, new Uri(server.Address, "datasets/notes/"), ClientLimits.Default);
+        using (HttpResponseMessage written = await notes.UpdateAsync("INSERT DATA { <http://ex/a> <http://ex/p> 1 }", (long?)null, Ct))
+        {
+            Assert.Equal(HttpStatusCode.NoContent, written.StatusCode);
+        }
+
+        VarveResult<Acknowledgement> checkpoint = await manage.CheckpointAsync(new DatasetName("notes"), Ct);
+        Assert.True(checkpoint.Facts.Status == HttpStatusCode.Created, checkpoint.Problem?.Detail);
+        VarveResult<ClientDatasetStatus> status = await manage.StatusAsync(new DatasetName("notes"), Ct);
+        Assert.Contains(checkpoint.Facts.Position!.Value, status.Value!.Checkpoints);
+
+        Assert.Throws<ArgumentException>(() => { _ = manage.SetStateAsync(catalog, DatasetState.Failed, Ct); });
+    }
+
+    [Fact]
+    public async Task A_re_read_asking_for_a_management_position_not_yet_applied_is_management_behind()
+    {
+        await using RunningServer server = await RunningServer.StartAsync(Anonymous());
+        VarveManagementClient manage = new(server.Client, server.Address, ClientLimits.Default, null, null);
+
+        VarveResult<DatasetList> list = await manage.AtLeast(new FeedPosition(1_000_000)).DatasetsAsync(Ct);
+
+        Assert.Null(list.Value);
+        Assert.Equal(new ProblemType("https://w3id.org/varve/problems/management-behind"), list.Problem!.Type);
+    }
+
+    [Fact]
     public async Task An_unknown_dataset_is_a_problem_with_its_request_id_never_an_exception()
     {
         await using RunningServer server = await RunningServer.StartAsync(Anonymous());

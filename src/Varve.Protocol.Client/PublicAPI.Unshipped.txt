@@ -562,3 +562,7 @@ static Varve.Protocol.Client.Model.GrantRight.Write.get -> Varve.Protocol.Client
 static Varve.Protocol.Client.Model.GrantRight.operator !=(Varve.Protocol.Client.Model.GrantRight left, Varve.Protocol.Client.Model.GrantRight right) -> bool
 static Varve.Protocol.Client.Model.GrantRight.operator ==(Varve.Protocol.Client.Model.GrantRight left, Varve.Protocol.Client.Model.GrantRight right) -> bool
 ~override Varve.Protocol.Client.Model.GrantRight.Equals(object obj) -> bool
+Varve.Protocol.Client.Model.Acknowledgement
+Varve.Protocol.Client.VarveManagementClient.AtLeast(Varve.Delta.Model.FeedPosition managementPosition) -> Varve.Protocol.Client.VarveManagementClient!
+Varve.Protocol.Client.VarveManagementClient.CheckpointAsync(Varve.Protocol.Client.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.Acknowledgement!>!>!
+Varve.Protocol.Client.VarveManagementClient.SetStateAsync(Varve.Protocol.Client.Model.DatasetName dataset, Varve.Protocol.Client.Model.DatasetState state, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.Acknowledgement!>!>!

@@ -32,6 +32,7 @@ public sealed class VarveManagementClient
     private readonly ClientLimits _limits;
     private readonly BearerTokenProvider? _tokens;
     private readonly TimeProvider? _clock;
+    private readonly FeedPosition? _atLeast;
 
     /// <summary>
     /// A client of the server at <paramref name="server"/>. With
@@ -60,6 +61,52 @@ public sealed class VarveManagementClient
         _limits = limits;
         _tokens = tokens;
         _clock = clock;
+    }
+
+    private VarveManagementClient(VarveManagementClient client, FeedPosition atLeast)
+    {
+        _http = client._http;
+        _server = client._server;
+        _limits = client._limits;
+        _tokens = client._tokens;
+        _clock = client._clock;
+        _atLeast = atLeast;
+    }
+
+    /// <summary>
+    /// The same client, whose every request asks to be answered at management
+    /// position <paramref name="managementPosition"/> or later
+    /// (<c>Varve-Min-Management-Position</c>, ADR 0163 point 3): after a
+    /// management write, a re-read sees it, or is a <c>management-behind</c>
+    /// problem, never a stale answer.
+    /// </summary>
+    public VarveManagementClient AtLeast(FeedPosition managementPosition) => new(this, managementPosition);
+
+    /// <summary>
+    /// Takes a checkpoint of <paramref name="dataset"/> at its head (ADR 0106):
+    /// derived data, no change to the log. On success the value is set and the
+    /// facts name the position.
+    /// </summary>
+    /// <exception cref="HttpRequestException">No answer within the limits' timeout, or a body over their cap.</exception>
+    public Task<VarveResult<Acknowledgement>> CheckpointAsync(DatasetName dataset, CancellationToken cancellationToken) =>
+        SendAsync(HttpMethod.Post, DatasetPath(dataset) + "/checkpoints", null, cancellationToken);
+
+    /// <summary>
+    /// Opens or closes <paramref name="dataset"/> (ADR 0165): a write to its
+    /// declaration graph, which drifts from the declaration files until they
+    /// say the same. On success the facts name the management position the
+    /// change was committed at.
+    /// </summary>
+    /// <exception cref="ArgumentException"><paramref name="state"/> is neither open nor closed.</exception>
+    /// <exception cref="HttpRequestException">No answer within the limits' timeout, or a body over their cap.</exception>
+    public Task<VarveResult<Acknowledgement>> SetStateAsync(DatasetName dataset, DatasetState state, CancellationToken cancellationToken)
+    {
+        if (state != DatasetState.Open && state != DatasetState.Closed)
+        {
+            throw new ArgumentException("A dataset is opened or closed.", nameof(state));
+        }
+
+        return SendAsync(HttpMethod.Put, DatasetPath(dataset) + "/state", "{\"state\":\"" + state.Value + "\"}", cancellationToken);
     }
 
     /// <summary>Every dataset the management plane knows, with this instance's role for each.</summary>
@@ -166,6 +213,34 @@ public sealed class VarveManagementClient
         return new VarveResult<Declaration>(null, problem, facts.With(problem));
     }
 
+    private async Task<VarveResult<Acknowledgement>> SendAsync(HttpMethod method, string path, string? json, CancellationToken cancellationToken)
+    {
+        BearerToken? token = await Tokens.ForRequestAsync(_tokens, _clock, cancellationToken).ConfigureAwait(false);
+        HttpRequestMessage request = new(method, new Uri(_server, path));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/problem+json"));
+
+        if (json is not null)
+        {
+            request.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+        }
+
+        if (token is BearerToken bearer)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer.Value);
+        }
+
+        using HttpResponseMessage response = await Requests.SendAsync(_http, request, _limits, cancellationToken).ConfigureAwait(false);
+        (ResponseFacts facts, byte[] body) = await ReadAsync(response, cancellationToken).ConfigureAwait(false);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return new VarveResult<Acknowledgement>(new Acknowledgement(), null, facts);
+        }
+
+        Problem? problem = Problem.Parse(body, facts.Status);
+        return new VarveResult<Acknowledgement>(null, problem, facts.With(problem));
+    }
+
     private async Task<(ResponseFacts Facts, byte[] Body)> ReadAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         ResponseFacts facts = ResponseFacts.Of(response);
@@ -179,6 +254,11 @@ public sealed class VarveManagementClient
         HttpRequestMessage request = new(HttpMethod.Get, new Uri(_server, path));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(accept));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/problem+json"));
+
+        if (_atLeast is FeedPosition least)
+        {
+            request.Headers.TryAddWithoutValidation("Varve-Min-Management-Position", least.Value.ToString(CultureInfo.InvariantCulture));
+        }
 
         if (asOf is FeedPosition at)
         {

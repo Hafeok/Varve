@@ -60,6 +60,17 @@ else
         <Notice Title="@("This instance follows " + Name)">Writes go to the writer. Reads here are served at this instance's position.</Notice>
     }
 
+    @if (_lifecycle?.Value is DatasetLifecycle current)
+    {
+        bool writer = current.Role == InstanceRole.Writer;
+        bool closed = current.State == DatasetState.Closed;
+        <div class="vw-actions">@if (_status?.Value is not null && !closed)
+        {<Button Kind="ButtonKind.Primary" Disabled="!writer" DisabledReason="@(writer ? null : "Only the writer takes checkpoints.")" OnClick="() => Begin(Act.Checkpoint)">Take checkpoint</Button>}@if (closed)
+        {<Button OnClick="() => Begin(Act.Open)">Open dataset</Button>}
+        else
+        {<Button Kind="ButtonKind.Danger" OnClick="() => Begin(Act.Close)">Close dataset</Button>}</div>
+    }
+
     @if (_status?.Problem is Problem unavailable)
     {
         <ProblemView Problem="unavailable" Facts="_status.Facts" Management="true" />
@@ -144,7 +155,28 @@ else
     }
 }
 
+<ConfirmDialog Id="act" Open="_act is not null" OnClosed="Ended" Title="@ActTitle()" Danger="@(_act == Act.Close)" ConfirmName="@(_act == Act.Close ? Name : null)" ConfirmLabel="@ActLabel()" Busy="_acting" Done="_outcome is not null" OnConfirm="ConfirmAsync">
+    <Effect>@ActEffect()</Effect>
+    <Note>@if (_act is Act.Close or Act.Open && _outcome is null)
+    {<DriftNote />}</Note>
+    <Result>@if (_outcome?.Problem is Problem refused)
+    {<ProblemView Problem="refused" Facts="_outcome.Facts" Management="true" Actions="@(Stale(refused) ? ReloadAction : null)" />}
+    else if (_outcome is not null)
+    {<p>@Accepted()</p>}</Result>
+</ConfirmDialog>
+
 @code {
+    // The acts (D4): checkpoint, close and open, each through the dialog.
+    private enum Act
+    {
+        Checkpoint,
+        Close,
+        Open,
+    }
+
+    private Act? _act;
+    private bool _acting;
+    private VarveResult<Acknowledgement>? _outcome;
     private VarveResult<DatasetLifecycle>? _lifecycle;
     private VarveResult<DatasetStatus>? _status;
     private VarveResult<Declaration>? _declaration;
@@ -171,19 +203,19 @@ else
     protected override Task OnParametersSetAsync()
     {
         _asOf = AsOf is long at and > 0 ? new FeedPosition(at) : null;
-        return ReadAsync();
+        return ReadAsync(Management);
     }
 
-    private async Task ReadAsync()
+    private async Task ReadAsync(VarveManagementClient management)
     {
         try
         {
             SparqlHttpClient data = Datasets.For(This);
-            Task<VarveResult<DatasetLifecycle>> lifecycle = Management.LifecycleAsync(This, CancellationToken.None);
-            Task<VarveResult<DatasetStatus>> status = Management.StatusAsync(This, CancellationToken.None);
-            Task<VarveResult<Declaration>> declaration = Management.DeclarationAsync(This, CancellationToken.None);
-            Task<VarveResult<DatasetList>> list = Management.DatasetsAsync(CancellationToken.None);
-            Task<VarveResult<PlacementList>> placements = Management.PlacementsAsync(CancellationToken.None);
+            Task<VarveResult<DatasetLifecycle>> lifecycle = management.LifecycleAsync(This, CancellationToken.None);
+            Task<VarveResult<DatasetStatus>> status = management.StatusAsync(This, CancellationToken.None);
+            Task<VarveResult<Declaration>> declaration = management.DeclarationAsync(This, CancellationToken.None);
+            Task<VarveResult<DatasetList>> list = management.DatasetsAsync(CancellationToken.None);
+            Task<VarveResult<PlacementList>> placements = management.PlacementsAsync(CancellationToken.None);
             Task<VarveResult<Readiness>> readiness = Health.ReadyAsync(CancellationToken.None);
             _lifecycle = await lifecycle;
             _status = await status;
@@ -218,6 +250,109 @@ else
     // A projection's word: failed, behind when it lags, current when it does not.
     private static string ProjectionWord(bool failed, PositionLag? lag) =>
         failed ? "failed" : lag is { Value: > 0 } ? "behind" : "current";
+
+    private void Begin(Act act)
+    {
+        _act = act;
+        _outcome = null;
+    }
+
+    private async Task ConfirmAsync()
+    {
+        _acting = true;
+
+        try
+        {
+            _outcome = _act switch
+            {
+                Act.Checkpoint => await Management.CheckpointAsync(This, CancellationToken.None),
+                Act.Close => await Management.SetStateAsync(This, DatasetState.Closed, CancellationToken.None),
+                _ => await Management.SetStateAsync(This, DatasetState.Open, CancellationToken.None),
+            };
+        }
+        catch (HttpRequestException e)
+        {
+            _failure = e.Message;
+            _act = null;
+        }
+        finally
+        {
+            _acting = false;
+        }
+    }
+
+    // The dialog closed: after an act the server accepted, the view is read
+    // again at the act's management position or later, so it shows the
+    // converged state and never a stale one.
+    private async Task Ended()
+    {
+        Act? act = _act;
+        VarveResult<Acknowledgement>? outcome = _outcome;
+        _act = null;
+        _outcome = null;
+
+        if (outcome?.Value is not null && act is Act.Close or Act.Open && outcome.Facts.Position is FeedPosition at)
+        {
+            await ReadAsync(Management.AtLeast(at));
+        }
+        else if (outcome?.Value is not null)
+        {
+            await ReadAsync(Management);
+        }
+    }
+
+    private RenderFragment ReloadAction => builder =>
+    {
+        builder.OpenComponent<Button>(0);
+        builder.AddComponentParameter(1, nameof(Button.Kind), ButtonKind.Primary);
+        builder.AddComponentParameter(2, nameof(Button.OnClick), EventCallback.Factory.Create(this, ReloadAtHeadAsync));
+        builder.AddComponentParameter(3, nameof(Button.ChildContent), (RenderFragment)(b => b.AddContent(0, "Reload at head")));
+        builder.CloseComponent();
+    };
+
+    private async Task ReloadAtHeadAsync()
+    {
+        _act = null;
+        _outcome = null;
+        await ReadAsync(Management);
+    }
+
+    // A conflict or a stale precondition: the view is behind the server.
+    private static bool Stale(Problem problem) =>
+        problem.Status is System.Net.HttpStatusCode.Conflict or System.Net.HttpStatusCode.PreconditionFailed;
+
+    private string ActTitle() => _act switch
+    {
+        Act.Checkpoint => "Take a checkpoint of " + Name + "?",
+        Act.Close => "Close " + Name + "?",
+        Act.Open => "Open " + Name + "?",
+        _ => "",
+    };
+
+    private string ActLabel() => _act switch
+    {
+        Act.Checkpoint => "Take checkpoint",
+        Act.Close => "Close " + Name,
+        _ => "Open " + Name,
+    };
+
+    private RenderFragment ActEffect() => _act switch
+    {
+        Act.Checkpoint => @<text>Writes a checkpoint of <strong>@Name</strong> at position @(_status?.Value?.Head?.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "its head"): derived data, droppable, no change to the log.</text>,
+        Act.Close => @<text>Every instance stops serving <strong>@Name</strong> and its writer releases the dataset. Reads and writes answer <code>404</code> until it is opened again. Nothing is deleted.</text>,
+        _ => @<text>The instances <strong>@Name</strong> is placed on serve it again, for reads and writes.</text>,
+    };
+
+    private string Accepted()
+    {
+        string at = _outcome?.Facts.Position?.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "?";
+        return _act switch
+        {
+            Act.Checkpoint => "Checkpoint taken at position " + at + ".",
+            Act.Close => Name + " is closed, at management position " + at + ".",
+            _ => Name + " is open again, at management position " + at + ".",
+        };
+    }
 
     private void AllCommits() => Navigation.NavigateTo("datasets/" + Uri.EscapeDataString(Name) + "/commits");
 
