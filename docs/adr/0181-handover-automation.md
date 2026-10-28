@@ -29,6 +29,9 @@ by the maintainer on #97's plan, 2026-10-27:
 - **the default two-app layout keeps restart as its recovery**, and its
   write downtime is measured beside the takeover time (#97's amendment).
 
+**Amended 2026-10-28** (below): point 6's signal, and stale triggers in point
+2. Filed unaccepted (ADR 0066).
+
 **Builds on** [ADR 0179](0179-writer-handover-within-a-store.md) point 6 (the
 takeover request) and point 7 (no timers in Varve), and
 [ADR 0180](0180-warm-standbys-and-the-writer-set.md) (the writer set).
@@ -269,3 +272,58 @@ nothing. `Varve.Aspire` gains no automation.
   Jobs from a template. A third-party image holding RBAC over the writer is
   the wrong place for a dependency, and the takeover would run in a second
   image (the maintainer, on #175).
+
+## Amendment, 2026-10-28 — point 6's signal, and stale triggers
+
+Filed by Replication part 1 (#165), unaccepted until the maintainer accepts
+it (ADR 0066). Decided by the maintainer on #175.
+
+**Point 6: the signal is replicas gone and probes failing, not restarts.**
+Azure Monitor's metric reference describes `RestartCount` as "the cumulative
+number of times the replica has restarted since it was created". A static
+threshold above 0 therefore fires at a replica's first restart and stays
+fired, and a metric alert cannot express "increased". So later failures
+would start no takeover. Point 6 is replaced:
+
+- **A crash is recovered by Container Apps' own restart, in seconds.** The
+  restarted instance reclaims at once (point 4): 2.0–3.2 s to the first
+  write again, measured locally, plus the platform's restart. No alert is
+  needed for it, and a takeover a late alert starts finds the trigger stale
+  (point 2, below).
+- **The alerts exist for the two failures a restart does not recover**,
+  both into one action group:
+  - **a replica that is gone** (a zone lost, a replica that cannot start):
+    a metric alert per app on `Replicas` below 1, minimum over one minute,
+    evaluated every minute. It is fast, and free for up to ten apps;
+  - **a replica that is running but stuck not ready**: a log search alert
+    on the environment's system logs, counting readiness-probe failures per
+    app over five minutes, evaluated every minute. It is a backstop, behind
+    the logs' ingestion of typically 3–10 minutes. It costs $3.00 a month for
+    the rule at that frequency, plus $0.30 for each app after the first,
+    plus the system logs' ingestion.
+- **The Logic App learns the app from each alert's own payload**: a metric
+  alert names the app as its target, and a log search alert carries the app
+  as its dimension. Either way it starts that app's own job (point 7).
+- **#164 measures both detection times** on real Container Apps.
+
+**Point 2: a stale trigger changes nothing.** A trigger can arrive after the
+failed instance recovered by restart and reclaimed: the record then names
+it, at a new epoch, and a takeover at that epoch would move a healthy writer.
+So before it sends a takeover, `varve manage takeover --from X`, and the
+Kubernetes controller, which shares its code, ask X itself:
+
+- at the address its last claim recorded (the system dataset's: the
+  system writer's address), for `/health/ready` and the dataset's state,
+  within five seconds;
+- **X answers ready and holds the dataset as its writer**: the trigger is
+  stale. Nothing is sent, the command says so, and it exits 0;
+- **X does not answer, or answers not ready**: the takeover goes on, as
+  point 2 says.
+
+A fleet case kills a, restarts it, and lets it reclaim; the late trigger then
+changes nothing, where without the check b, warm, would have taken d over.
+`HandoverScheduleTests` cannot express it: its model is the store's, where a
+trigger after the restart reads the restarted holder's epoch and is
+indistinguishable from a genuine probe. The check is the command's, above
+the store.
+

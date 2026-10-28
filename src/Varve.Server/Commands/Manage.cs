@@ -200,6 +200,7 @@ internal static class Manage
         bool system = name == SystemDataset;
         string path = "/manage/datasets/" + Uri.EscapeDataString(name) + "/state";
         List<string> refusals = [];
+        bool askedHolder = false;
 
         foreach (string address in addresses)
         {
@@ -227,6 +228,20 @@ internal static class Manage
             {
                 await io.Out.WriteLineAsync(name + ": epoch " + epoch + " is held by " + holder + ", not " + failed + "; nothing to take over.").ConfigureAwait(false);
                 return true;
+            }
+
+            // A stale trigger: the failed instance recovered by restart and
+            // reclaimed before the trigger came. It answers ready and holds
+            // the dataset, so nothing is taken over (ADR 0181 point 2).
+            if (!askedHolder && (system ? String(root, "writer") : HolderAddress(root)) is { } holding)
+            {
+                askedHolder = true;
+
+                if (await HolderAnswersAsync(http, bearer, holding.TrimEnd('/'), system ? "/manage/system" : path, cancellationToken).ConfigureAwait(false))
+                {
+                    await io.Out.WriteLineAsync(name + ": " + (system ? "its writer" : failed) + " at " + holding + " answers ready and holds epoch " + epoch + ": the trigger is stale; nothing to take over.").ConfigureAwait(false);
+                    return true;
+                }
             }
 
             if (!system && root.TryGetProperty("writerSet", out JsonElement set) && !set.GetProperty("automaticHandover").GetBoolean())
@@ -285,6 +300,47 @@ internal static class Manage
     }
 
     private const string SystemDataset = "_fleet";
+
+    // How long the failed instance is given to answer before it counts as
+    // not answering, and the takeover goes on.
+    private static readonly TimeSpan HolderProbe = TimeSpan.FromSeconds(5);
+
+    // Whether the holder at its recorded address answers /health/ready and
+    // holds the dataset as its writer; a refusal, no answer or a timeout is no.
+    private static async Task<bool> HolderAnswersAsync(HttpClient http, string? bearer, string address, string path, CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource probe = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        probe.CancelAfter(HolderProbe);
+
+        try
+        {
+            using HttpRequestMessage ready = new(HttpMethod.Get, new Uri(address + "/health/ready", UriKind.Absolute));
+            using HttpResponseMessage answer = await http.SendAsync(ready, probe.Token).ConfigureAwait(false);
+
+            if (!answer.IsSuccessStatusCode)
+            {
+                return false;
+            }
+
+            using JsonDocument? state = await GetAsync(http, bearer, address + path, probe.Token).ConfigureAwait(false);
+            return state is not null && String(state.RootElement, "role") == "writer";
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+    }
+
+    // The address the epoch history names for its last holder, if any.
+    private static string? HolderAddress(JsonElement state) =>
+        state.TryGetProperty("history", out JsonElement history) && history.GetArrayLength() > 0 ? String(history[history.GetArrayLength() - 1], "address") : null;
+
+    private static string? String(JsonElement element, string property) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
     // A token for the management audience from the managed-identity endpoint
     // Container Apps gives a job or an app (ADR 0181 point 3): no secret. The

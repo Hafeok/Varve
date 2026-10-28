@@ -100,6 +100,12 @@ varve manage takeover --from a --server https://b.internal --server https://c.in
   preference. Each one answers for itself, at the epoch it reads, so the
   command asks the first that is a warm standby of the dataset. It skips one
   that does not answer, the failed instance among them.
+- **A stale trigger changes nothing.** The probe's verdict can arrive after
+  the failed instance recovered by restart and reclaimed. So before it sends
+  anything, the command asks that instance itself, at the address its last
+  claim recorded, within five seconds. If it answers ready and holds the
+  dataset, the command says the trigger is stale and exits 0. If it does
+  not answer, or answers not ready, the takeover goes on.
 - **It is safe to run twice.** A dataset another instance already holds, or
   whose epoch moved meanwhile, is reported as needing nothing, and so is
   one that declares no automatic handover; that one keeps restart as its
@@ -257,6 +263,11 @@ time runs from the event to the first write the fleet commits again:
   to declare the writer failed comes first: its period times its failure
   threshold, plus the automation's own latency, which #164 measures on
   Azure.
+- **A crash is recovered by the platform's own restart**, in seconds, in
+  either layout: the restarted instance reclaims at once. Handover
+  automation is for what a restart does not recover: a replica that is
+  gone, and one that runs but stays not ready. On Azure those are its two
+  alerts (ADR 0181, amendment of 2026-10-28).
 - **Restart is free.** The two-app layout's followers scale to zero, and
   it needs no automation. **A writer set costs** a warm standby per
   dataset that stays up, and on Azure N always-on apps and Front Door's

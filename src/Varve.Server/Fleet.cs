@@ -447,6 +447,12 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             json.WriteString("holder", claim.Holder.Value);
             json.WriteString("trigger", Commands.ObjectLease.Shown(claim.Trigger));
 
+            // Where the holder answers: the automation asks it before a takeover (ADR 0181 point 2).
+            if (claim.Address is { } address)
+            {
+                json.WriteString("address", address.Value);
+            }
+
             if (claim.Released is { } reason)
             {
                 json.WriteString("released", Commands.ObjectLease.Shown(reason));

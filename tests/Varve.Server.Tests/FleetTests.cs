@@ -731,6 +731,43 @@ public abstract class FleetCases : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// A stale trigger (ADR 0181 point 2): a, the writer of d, is killed and
+    /// restarts on its cache, and reclaims d at once, as a restart after its
+    /// own crash does. The probe's trigger arrives after that. The command
+    /// finds the record's holder still a, asks a, and a answers ready and
+    /// holding d. So it takes nothing over, exits 0, and says why. b, warm,
+    /// would otherwise have taken d.
+    /// </summary>
+    [Fact]
+    public async Task A_trigger_that_arrives_after_the_writer_restarted_and_reclaimed_changes_nothing()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, writer: "a");
+        long declared = await DeclareAsync(a, "d", "a", "b");
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, declared, "d", "standby");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+
+        a.Kill();
+        Server again = await StartAsync("a", container, writer: "a");
+        await WaitDeclaredAsync(again, declared, "d", "writer");
+        await WaitWarmAsync(b, "d");
+
+        (int exit, string output, string error) = await RunAsync(["manage", "takeover", "d", "--from", "a", "--server", b.Address.ToString()]);
+        Assert.True(exit == 0, output + error);
+        Assert.Contains("d: a at ", output, StringComparison.Ordinal);
+        Assert.Contains("answers ready and holds epoch 2: the trigger is stale; nothing to take over.", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("Taken over", output, StringComparison.Ordinal);
+
+        // a still writes d at epoch 2, and b still stands by.
+        using JsonDocument state = JsonDocument.Parse(await b.Http.GetStringAsync(new Uri(b.Address, "manage/datasets/d/state"), Ct));
+        Assert.Equal("standby", state.RootElement.GetProperty("role").GetString());
+        Assert.Equal(2, state.RootElement.GetProperty("epoch").GetInt64());
+        Assert.Equal("a", state.RootElement.GetProperty("history").EnumerateArray().Last().GetProperty("holder").GetString());
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(again, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+    }
+
     private static async Task<(int Exit, string Output, string Error)> RunAsync(string[] args)
     {
         StringWriter output = new() { NewLine = "\n" };

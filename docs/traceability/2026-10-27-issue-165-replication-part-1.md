@@ -592,3 +592,35 @@ main: writer-handover-within-a-store (11 keys, ADR 0179), warm-standbys-and-the-
 session only wrote it at their direction, as the acceptance of ADRs
 0127–0133 was written. The ADRs' status text and the index rows are left as
 filed, as in that precedent.
+
+### The maintainer's eighth message
+
+> ADR 0181 point 6: take (c), the `Replicas` < 1 metric alert per app plus the log search alert on probe failures, into one action group. Record in the ADR and the guide that a crash is recovered by Container Apps’ own restart in seconds (your 2.0–3.2 s). The alerts exist for a replica that’s gone (b, fast) and one that’s running but stuck not ready (a, a 3–10 minute backstop). #164 measures both detection times.
+> One required addition: stale triggers. A trigger can arrive after the writer has already recovered by restart and reclaimed. Before requesting the takeover, `varve manage takeover --from X` (and the Kubernetes controller, which shares the code) reads X’s own state:
+>
+> * X answers ready and holds the dataset: the trigger is stale. Do nothing, exit 0, and log it.
+> * X doesn’t answer, or answers not ready: proceed.
+>
+> Add a fleet test for it: the writer is killed, restarts and reclaims, and then the late trigger arrives and changes nothing. Add the same case to `HandoverScheduleTests` if its model can express a late trigger after a restart.
+> The `JsonDocument` decision is fine as recorded in point 8. Carry on with active-active, `writer-stepped-down` and the descriptor in parallel.
+
+- **The maintainer accepted 0179–0181** (f2978d2). Point 6 changed after
+  that, so ADR 0181 changes by a dated amendment, as ADR 0062 says.
+  - `AzureDetectionIsAMetricAlertPerApp` keeps its key with the new
+    statement, and has no acceptance until the maintainer gives it again.
+  - The stale-trigger rule is a new key, `StaleTriggerAsksTheFailedInstance`,
+    also unaccepted.
+- **The stale-trigger check.** The state resource's epoch history now
+  carries each claim's `address`.
+  - Before it sends a takeover from an instance the record still names, the
+    command asks that address for `/health/ready` and the dataset's state,
+    within five seconds. For the system dataset it asks the system writer's
+    address.
+  - Ready and holding the dataset as its writer means the trigger is stale.
+- **The fleet case.** a is killed, restarts and reclaims, then the late
+  trigger arrives. It passes on Azurite and RustFS, and fails without the
+  check: b, warm, takes d.
+- **`HandoverScheduleTests` cannot express it.** In the store's model, a
+  trigger after the restart reads the restarted holder's epoch and looks
+  like a genuine probe. The check is the command's, above the store.
+- The server suite passes: 174 tests.
