@@ -573,3 +573,12 @@ the same commit.
   restart 2,568–3,221 ms on Azurite and 1,998–2,264 ms on RustFS, against
   0.3–0.9 s for a warm standby. It says what each figure includes and
   excludes, and the Container Apps page points to it.
+- **ADR 0181 point 6's signal does not work as written.** Azure Monitor's
+  metric reference describes `RestartCount` as "the cumulative number of
+  times the replica has restarted since it was created". A static threshold
+  above 0 therefore fires at a replica's first restart and stays fired, so
+  later failures start no takeover; a metric alert cannot say "increased".
+  The alert's kind also decides how the Logic App learns the failed app:
+  a metric alert names the app as its target, while a log search alert
+  names the workspace and carries the app as a dimension. So the choice is
+  put to the maintainer before the Bicep's alert and Logic App are written.
