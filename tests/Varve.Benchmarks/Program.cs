@@ -117,6 +117,18 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 2 && args[0] == "--soak-judge")
+        {
+            Environment.ExitCode = SoakJudge.Run(args[1], Console.Out);
+            return;
+        }
+
+        if (args.Length == 2 && args[0] == "--soak-judge-fixtures")
+        {
+            Environment.ExitCode = SoakJudge.RunFixtures(args[1], Console.Out);
+            return;
+        }
+
         if (args.Length >= 2 && args[0] == "--soak")
         {
             Soak.RunAsync(TimeSpan.FromMinutes(double.Parse(args[1], CultureInfo.InvariantCulture)), SoakOptions.Parse(args.AsSpan(2))).GetAwaiter().GetResult();
