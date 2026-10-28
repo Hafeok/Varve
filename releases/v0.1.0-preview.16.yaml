@@ -6,6 +6,7 @@ basis:
   - issue: 119
   - storage-format: 1
   - delta-format: 1
+  - adr: "0206"
   - adr: "0224"
   - adr: "0225"
 sbom:
@@ -91,6 +92,11 @@ summary: |
   - **Descriptor format 2** (ADR 0102, amended): `sbom:` names every
     artefact and its SBOM's digest. It is checked on the pull request and
     again before anything is pushed. Every earlier descriptor stays format 1.
+
+  - **The Web UI's design source** (#174, ADR 0206, filed unaccepted):
+    `docs/ui/`, the components, their levels and the markup contract the
+    console (#167) is built to. It is documentation only, and no package
+    changes.
 
   #### Changed
 

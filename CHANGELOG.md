@@ -69,6 +69,11 @@ accepted on the pull request (ADR 0066).
   artefact and its SBOM's digest. It is checked on the pull request and
   again before anything is pushed. Every earlier descriptor stays format 1.
 
+- **The Web UI's design source** (#174, ADR 0206, filed unaccepted):
+  `docs/ui/`, the components, their levels and the markup contract the
+  console (#167) is built to. It is documentation only, and no package
+  changes.
+
 #### Changed
 
 - **`CommitRequest` is renamed `CommitRequestBuilder` (breaking, #173).**
