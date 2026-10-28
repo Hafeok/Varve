@@ -11,17 +11,39 @@ using System.Text.Json;
 
 namespace Varve.WebUi.SignIn;
 
+/// <summary>How the management plane's token is asked for (ADR 0201, amended 2026-10-28).</summary>
+internal enum ManagementGrant
+{
+    /// <summary>The refresh-token grant with the management scope alone.</summary>
+    Refresh,
+
+    /// <summary>Token exchange (RFC 8693) of the data plane's access token, from the public client.</summary>
+    Exchange,
+}
+
 /// <summary>
 /// The Web UI's sign-in settings (ADR 0201), from <c>appsettings.json</c>'s
-/// <c>Varve:Auth</c>: the issuer, the Web UI's own public client, and the
-/// two planes' scopes, which are never asked for in one request.
+/// <c>Varve:Auth</c>: the issuer, the Web UI's own public client, the two
+/// planes' scopes, which are never asked for in one request, and how the
+/// management token is asked for, with the audience an exchange names.
 /// </summary>
-internal sealed record OidcOptions(Uri Authority, string ClientId, string DataScope, string ManageScope)
+internal sealed record OidcOptions(Uri Authority, string ClientId, string DataScope, string ManageScope, ManagementGrant Grant = ManagementGrant.Refresh, string? ManageAudience = null)
 {
     /// <summary>The settings, or a message naming what is missing.</summary>
-    internal static OidcOptions From(string? authority, string? clientId, string? dataScope, string? manageScope)
+    internal static OidcOptions From(string? authority, string? clientId, string? dataScope, string? manageScope, string? manageGrant = null, string? manageAudience = null)
     {
         List<string> missing = [];
+        ManagementGrant? grant = manageGrant switch
+        {
+            null or "" or "refresh" => ManagementGrant.Refresh,
+            "exchange" => ManagementGrant.Exchange,
+            _ => null,
+        };
+
+        if (grant is null)
+        {
+            missing.Add("Varve:Auth:ManageGrant as refresh or exchange");
+        }
 
         if (!Uri.TryCreate(authority, UriKind.Absolute, out Uri? issuer) || (issuer.Scheme != Uri.UriSchemeHttps && issuer.Scheme != Uri.UriSchemeHttp))
         {
@@ -44,7 +66,7 @@ internal sealed record OidcOptions(Uri Authority, string ClientId, string DataSc
         }
 
         return missing.Count == 0
-            ? new OidcOptions(issuer!, clientId!, dataScope!, manageScope!)
+            ? new OidcOptions(issuer!, clientId!, dataScope!, manageScope!, grant!.Value, string.IsNullOrWhiteSpace(manageAudience) ? null : manageAudience)
             : throw new InvalidOperationException("Sign-in is configured (Varve:Auth:Mode is Oidc) but these are not set: " + string.Join(", ", missing) + ".");
     }
 }

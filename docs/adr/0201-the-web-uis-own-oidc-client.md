@@ -170,3 +170,34 @@ but ADR 0037 refuses MSAL.
   - Layer ownership: `Varve.WebUi`, layer 6; internal.
   - Analyzer rule: none new. The sign-in types are outside the level
     namespaces, and VARVE0006 does not count them.
+
+## Amendment, 2026-10-28 — the management token by token exchange
+
+Filed by Web UI part 1 (#167, milestone #96), unaccepted until the maintainer
+accepts it (ADR 0066). Decided by the maintainer on that milestone's pull
+request (#187, 2026-10-28): token exchange, as a generic RFC 8693 path, not
+issuer code.
+
+1. **`Varve:Auth:ManageGrant`** is `refresh`, point 2's grant and the
+   default, or `exchange`. Any other value refuses to start, naming the
+   setting.
+2. **With `exchange`,** the management plane's token is the data plane's
+   access token exchanged (RFC 8693 §2.1) for `ManageScope`.
+   - It runs from the public client: `client_id`, with no client secret and
+     no actor token.
+   - It names `audience` when `Varve:Auth:ManageAudience` is set.
+   - It asks for `requested_token_type=urn:ietf:params:oauth:token-type:jwt`,
+     because the server validates JWTs alone, and an issuer asked for an
+     access token may answer an opaque one (Zitadel does).
+   - A management token near expiry is exchanged again from a data token
+     that is itself fresh: one near expiry is first renewed by point 2's
+     refresh grant.
+3. **One audience.** The exchanged token must name the management audience
+   alone. The server's refusal of a token naming both planes (ADR 0163
+   point 1) enforces it; the Web UI adds no check of its own.
+4. **Where the issuer answers no token,** the management plane is signed out
+   and the shell says why (point 4), as for a refused refresh.
+5. **The issuers' table** in `docs/operator/web-ui.md` says which issuers use
+   `refresh` and which use `exchange`.
+
+The ruling is `ManagementTokenByExchange`.

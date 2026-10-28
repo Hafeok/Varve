@@ -27,6 +27,8 @@ decisions:
     statement: "A reload starts a sign-in with prompt=none, and an interactive one only if the issuer needs the person"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-28T00:00:00Z
+  - key: ManagementTokenByExchange
+    statement: "With Varve:Auth:ManageGrant exchange, the management token is the data access token exchanged by RFC 8693 from the public client, with no secret and no actor token, asking for a JWT and naming ManageAudience when set; the server's dual-audience refusal keeps it to one audience"
 ---
 
 The rulings of [ADR 0201](../adr/0201-the-web-uis-own-oidc-client.md), one line each.

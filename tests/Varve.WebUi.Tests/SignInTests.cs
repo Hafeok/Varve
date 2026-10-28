@@ -244,6 +244,63 @@ public class SignInTests
     }
 
     [Fact]
+    public async Task With_exchange_the_management_token_is_the_data_token_exchanged_from_the_public_client()
+    {
+        Issuer issuer = new();
+        Harness harness = new(issuer, Exchanging("urn:zitadel:iam:org:project:id:42:aud"));
+        await harness.Session.StartAsync("/", silent: false, CancellationToken.None);
+        await harness.CallbackAsync(harness.Store.Pending!.State);
+
+        Assert.True(harness.Session.ManagementSignedIn);
+        Assert.Equal("manage-exchanged-1", (await harness.Session.Management(CancellationToken.None))!.Value.Value);
+        Assert.Equal("data-1", (await harness.Session.Data(CancellationToken.None))!.Value.Value);
+
+        Dictionary<string, string> exchange = Assert.Single(issuer.TokenExchanges);
+        Assert.Equal("data-1", exchange["subject_token"]);
+        Assert.Equal("urn:ietf:params:oauth:token-type:access_token", exchange["subject_token_type"]);
+        Assert.Equal("urn:ietf:params:oauth:token-type:jwt", exchange["requested_token_type"]);
+        Assert.Equal("api://varve-manage/operate", exchange["scope"]);
+        Assert.Equal("urn:zitadel:iam:org:project:id:42:aud", exchange["audience"]);
+        Assert.Equal(Client, exchange["client_id"]);
+        Assert.DoesNotContain("client_secret", exchange.Keys);
+        Assert.DoesNotContain("actor_token", exchange.Keys);
+        Assert.Empty(issuer.Refreshes);
+    }
+
+    [Fact]
+    public async Task With_exchange_a_management_token_near_expiry_is_exchanged_again_from_a_fresh_data_token()
+    {
+        Issuer issuer = new();
+        Harness harness = new(issuer, Exchanging(null));
+        await harness.Session.StartAsync("/", silent: false, CancellationToken.None);
+        await harness.CallbackAsync(harness.Store.Pending!.State);
+
+        harness.Clock.Advance(TimeSpan.FromSeconds(300 - 20));
+        BearerToken? management = await harness.Session.Management(CancellationToken.None);
+
+        Assert.Equal("manage-exchanged-2", management!.Value.Value);
+        Dictionary<string, string> refresh = Assert.Single(issuer.Refreshes);
+        Assert.Equal("api://varve/read", refresh["scope"]);
+        Assert.Equal("data-1", issuer.TokenExchanges[0]["subject_token"]);
+        Assert.Equal((await harness.Session.Data(CancellationToken.None))!.Value.Value, issuer.TokenExchanges[1]["subject_token"]);
+        Assert.DoesNotContain("audience", issuer.TokenExchanges[1].Keys);
+    }
+
+    [Theory]
+    [InlineData(null, "Refresh")]
+    [InlineData("refresh", "Refresh")]
+    [InlineData("exchange", "Exchange")]
+    public void The_management_grant_is_read_from_the_settings(string? setting, string expected) =>
+        Assert.Equal(expected, OidcOptions.From(IssuerAddress, Client, "d", "m", setting, null).Grant.ToString());
+
+    [Fact]
+    public void An_unknown_management_grant_is_refused_by_name() =>
+        Assert.Contains("Varve:Auth:ManageGrant", Assert.Throws<InvalidOperationException>(() => OidcOptions.From(IssuerAddress, Client, "d", "m", "password", null)).Message, StringComparison.Ordinal);
+
+    private static OidcOptions Exchanging(string? audience) =>
+        new(new Uri(IssuerAddress), Client, "api://varve/read", "api://varve-manage/operate", ManagementGrant.Exchange, audience);
+
+    [Fact]
     public async Task Sign_out_drops_both_tokens_and_leaves_for_the_end_session_endpoint()
     {
         Issuer issuer = new();
@@ -266,12 +323,12 @@ public class SignInTests
 
     private sealed class Harness
     {
-        internal Harness(Issuer issuer)
+        internal Harness(Issuer issuer, OidcOptions? options = null)
         {
             Issuer = issuer;
             issuer.Clock = Clock;
             Session = new SignInSession(
-                new OidcOptions(new Uri(IssuerAddress), Client, "api://varve/read", "api://varve-manage/operate"),
+                options ?? new OidcOptions(new Uri(IssuerAddress), Client, "api://varve/read", "api://varve-manage/operate"),
                 new HttpClient(issuer),
                 Store,
                 Browser,
@@ -368,6 +425,8 @@ public class SignInTests
 
         internal List<Dictionary<string, string>> Refreshes { get; } = [];
 
+        internal List<Dictionary<string, string>> TokenExchanges { get; } = [];
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             if (request.Method == HttpMethod.Get && request.RequestUri!.AbsoluteUri == IssuerAddress + "/.well-known/openid-configuration")
@@ -400,6 +459,18 @@ public class SignInTests
                     ["expires_in"] = 300,
                     ["refresh_token"] = "refresh-1",
                     ["id_token"] = IdToken(Nonce ?? Store!.Taken!.Nonce),
+                });
+            }
+
+            if (form["grant_type"] == "urn:ietf:params:oauth:grant-type:token-exchange")
+            {
+                TokenExchanges.Add(form);
+                return Json(new Dictionary<string, object>
+                {
+                    ["access_token"] = "manage-exchanged-" + TokenExchanges.Count,
+                    ["issued_token_type"] = "urn:ietf:params:oauth:token-type:access_token",
+                    ["token_type"] = "Bearer",
+                    ["expires_in"] = 300,
                 });
             }
 

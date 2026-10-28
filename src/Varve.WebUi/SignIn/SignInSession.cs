@@ -240,7 +240,12 @@ internal sealed class SignInSession : IDisposable
         _management = null;
         ManagementAbsence = null;
 
-        if (_refreshToken is null)
+        if (_options.Grant == ManagementGrant.Exchange)
+        {
+            _management = await ExchangeAsync(_data.Value, cancellationToken).ConfigureAwait(false);
+            ManagementAbsence = _management is null ? "The issuer did not exchange the sign-in's token for the management scope." : null;
+        }
+        else if (_refreshToken is null)
         {
             ManagementAbsence = "The issuer gave no refresh token, so the management plane's token cannot be asked for.";
         }
@@ -304,7 +309,9 @@ internal sealed class SignInSession : IDisposable
                 return token;
             }
 
-            BearerToken? renewed = _refreshToken is null ? null : await RedeemAsync(isManagement ? _options.ManageScope : _options.DataScope, cancellationToken).ConfigureAwait(false);
+            BearerToken? renewed = isManagement && _options.Grant == ManagementGrant.Exchange
+                ? await ExchangeFreshAsync(cancellationToken).ConfigureAwait(false)
+                : _refreshToken is null ? null : await RedeemAsync(isManagement ? _options.ManageScope : _options.DataScope, cancellationToken).ConfigureAwait(false);
 
             if (isManagement)
             {
@@ -348,6 +355,47 @@ internal sealed class SignInSession : IDisposable
 
         _refreshToken = Text(answer, "refresh_token") ?? _refreshToken;
         return Bearer(answer, access);
+    }
+
+    // The management token by exchange, from a data token that is itself
+    // fresh: one near expiry is renewed first, by the refresh grant.
+    private async Task<BearerToken?> ExchangeFreshAsync(CancellationToken cancellationToken)
+    {
+        if (_data is { } data && data.ExpiresOn - SparqlHttpClient.TokenExpirySkew <= _clock.GetUtcNow())
+        {
+            _data = _refreshToken is null ? null : await RedeemAsync(_options.DataScope, cancellationToken).ConfigureAwait(false);
+        }
+
+        return _data is { } subject ? await ExchangeAsync(subject, cancellationToken).ConfigureAwait(false) : null;
+    }
+
+    // Token exchange (RFC 8693 §2.1) of the data plane's access token for the
+    // management scope, from the public client: no client secret, no actor
+    // token. It asks for a JWT, the only token the server validates; an
+    // issuer asked for an access token may answer an opaque one (Zitadel
+    // does). The audience is named when the settings name one. The token it
+    // answers must name the management audience alone; the server refuses one
+    // naming both planes (ADR 0163), so a wider token signs nothing in.
+    private async Task<BearerToken?> ExchangeAsync(BearerToken subject, CancellationToken cancellationToken)
+    {
+        Discovery discovery = await DiscoverAsync(cancellationToken).ConfigureAwait(false);
+        List<KeyValuePair<string, string>> form =
+        [
+            new("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange"),
+            new("client_id", _options.ClientId),
+            new("subject_token", subject.Value),
+            new("subject_token_type", "urn:ietf:params:oauth:token-type:access_token"),
+            new("requested_token_type", "urn:ietf:params:oauth:token-type:jwt"),
+            new("scope", _options.ManageScope),
+        ];
+
+        if (_options.ManageAudience is { } audience)
+        {
+            form.Add(new("audience", audience));
+        }
+
+        using JsonDocument? answer = await TokenAsync(discovery, [.. form], cancellationToken).ConfigureAwait(false);
+        return answer is not null && Text(answer, "access_token") is { } access ? Bearer(answer, access) : null;
     }
 
     private BearerToken Bearer(JsonDocument answer, string access) =>

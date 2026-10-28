@@ -33,7 +33,9 @@ if (!anonymous)
         builder.Configuration["Varve:Auth:Authority"],
         builder.Configuration["Varve:Auth:ClientId"],
         builder.Configuration["Varve:Auth:DataScope"],
-        builder.Configuration["Varve:Auth:ManageScope"]);
+        builder.Configuration["Varve:Auth:ManageScope"],
+        builder.Configuration["Varve:Auth:ManageGrant"],
+        builder.Configuration["Varve:Auth:ManageAudience"]);
     Uri application = new(builder.HostEnvironment.BaseAddress);
     builder.Services.AddSingleton(services => new SignInSession(
         oidc,
