@@ -160,3 +160,13 @@ amendment of today holds the table and what it says.
 ## Commits
 
 Listed by the pull request.
+
+### Acceptance, 2026-10-28
+
+A later session (Claude Code, model `claude-fable-5-1`), on the maintainer's
+instruction to accept every decision on the open pull requests, added
+`accepted-by` and `accepted-at` to the 17 keys this branch files over
+main: verified-derived-data (17 keys, ADR 0213). The acceptance is the maintainer's, who had read them; the
+session only wrote it at their direction, as the acceptance of ADRs
+0127–0133 was written. The ADRs' status text and the index rows are left as
+filed, as in that precedent.
