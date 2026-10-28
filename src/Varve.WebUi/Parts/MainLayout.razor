@@ -1,12 +1,22 @@
 @inherits LayoutComponentBase
+@using Varve.WebUi.SignIn
 @implements IDisposable
 @inject NavigationManager Navigation
 @inject WebUiSettings Settings
+@inject IServiceProvider Services
 @* The layout every screen renders in: the Shell template, given the server,
    each plane's sign-in state and the navigation with the current screen
    marked. Part 1's groups (docs/ui/components/Shell) fill in as their
-   screens are built. *@
-<Shell Server="@Settings.Server.AbsoluteUri" Planes="Planes" Navigation="Groups()">@Body</Shell>
+   screens are built.
+
+   With sign-in (ADR 0201), a tab with no token starts one on its first
+   screen: silently first (prompt=none), so a reload with an issuer session
+   is invisible. The callback and the signed-out screen start none. *@
+<Shell Server="@Settings.Server.AbsoluteUri" Planes="Planes" Navigation="Groups()">
+    <BarActions>@if (_session is { DataSignedIn: true })
+    {<Button Small="true" OnClick="SignOutAsync">Sign out</Button>}</BarActions>
+    <ChildContent>@Body</ChildContent>
+</Shell>
 
 @code {
     private static readonly (string Group, string Text, string Href)[] Screens =
@@ -14,13 +24,40 @@
         ("Operate", "Health", "health"),
     ];
 
+    // The callback and the signed-out screen start no sign-in.
+    private static bool StartsSignIn(string route) => route is not ("signin" or "signedout");
+
+    private SignInSession? _session;
+
     private IReadOnlyList<PlaneState> Planes =>
-        Settings.Anonymous
+        Settings.Anonymous || _session is null
             ? [new PlaneState("Data plane", "anonymous", Anonymous: true, Absent: false), new PlaneState("Management", "anonymous", Anonymous: true, Absent: false)]
-            : [new PlaneState("Data plane", "signed out", Anonymous: false, Absent: true), new PlaneState("Management", "signed out", Anonymous: false, Absent: true)];
+            : [Plane("Data plane", _session.DataSignedIn), Plane("Management", _session.ManagementSignedIn)];
+
+    private static PlaneState Plane(string name, bool signedIn) =>
+        new(name, signedIn ? "signed in" : "signed out", Anonymous: false, Absent: !signedIn);
 
     /// <inheritdoc />
-    protected override void OnInitialized() => Navigation.LocationChanged += Changed;
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += Changed;
+        _session = Settings.Anonymous ? null : Services.GetService(typeof(SignInSession)) as SignInSession;
+
+        if (_session is not null)
+        {
+            _session.Changed += SessionChanged;
+            string path = Navigation.ToBaseRelativePath(Navigation.Uri);
+
+            if (!_session.DataSignedIn && StartsSignIn(path.Split('?', '#')[0]))
+            {
+                await _session.StartAsync("/" + path, silent: true, CancellationToken.None);
+            }
+        }
+    }
+
+    private Task SignOutAsync() => _session!.SignOutAsync(CancellationToken.None);
+
+    private void SessionChanged() => _ = InvokeAsync(StateHasChanged);
 
     private IReadOnlyList<NavGroup> Groups()
     {
@@ -38,5 +75,13 @@
     private void Changed(object? sender, LocationChangedEventArgs e) => StateHasChanged();
 
     /// <inheritdoc />
-    public void Dispose() => Navigation.LocationChanged -= Changed;
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= Changed;
+
+        if (_session is not null)
+        {
+            _session.Changed -= SessionChanged;
+        }
+    }
 }

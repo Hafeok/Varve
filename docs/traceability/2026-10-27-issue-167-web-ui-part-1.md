@@ -667,3 +667,99 @@ and a `404` problem names it.
 
 **Bundle:** `_framework` is 1.703 MB brotli-11, against slice 1's 1.675 MB.
 The 28 kB since then are the components; this slice changed no Web UI code.
+
+### Sign-in (ADR 0201, D1)
+
+**Landed:**
+- **`src/Varve.WebUi/SignIn/`:** the Web UI's own public client.
+  - `OidcOptions`, `OidcRandom` and `Pkce`.
+  - `Discovery` and `IdToken`.
+  - `PendingSignIn`, kept in session storage and taken out once.
+  - `SignInSession`: the redirect, the callback's checks, one token per plane,
+    renewal, and sign-out.
+  - The browser seams: `SessionSignInStore` and `NavigationBrowser`.
+- **`Pages/SignInCallback` (`/signin`) and `Pages/SignedOut` (`/signedout`).**
+- **`MainLayout`:**
+  - the real plane states;
+  - Sign out in the bar;
+  - a `prompt=none` sign-in on the first screen of a tab with no token.
+- **`Shell`'s `sign-out` case,** with its preview figure and README line.
+- **The mock fixture** maps `varve-webui`. **ADR 0201 and its decision set**
+  are filed unaccepted.
+
+**Zitadel, measured, and put to the maintainer on #96.** Zitadel v4.19.4 was
+run locally:
+- the pinned image, with Postgres from ghcr because Docker Hub and public ECR
+  were rate-limited here;
+- the seed, plus a `varve-manage` project and a user-agent app;
+- login through the session and OIDC v2 APIs, as a custom login UI does.
+
+What the access token's `aud` held:
+- Both scopes at sign-in gave both projects, and a narrowing refresh left both.
+- The data scope at sign-in, then a refresh for the management scope, gave
+  `invalid_scope`.
+- The app in its own project changed nothing: its project is always in `aud`.
+- Token exchange (RFC 8693) with `audience` gave exactly one project, for each
+  plane.
+
+So the refresh grant cannot serve Zitadel. Options 1–3 are on #96; the leg is
+out until ruled.
+
+**mock-oauth2-server:**
+- It answers CORS on its token endpoint again (`Access-Control-Allow-Origin`
+  echoed for `http://127.0.0.1:5081`).
+- It redeems the refresh token for the management scope alone (`aud`
+  `api://varve-manage`).
+- It refuses a replayed code (`invalid_grant`).
+- **A finding the ID-token check made itself:** the mock puts a mapping's
+  claims in the ID token too. The first run in the browser failed with "The
+  ID token is not for this client", because `aud` was `api://varve`. The
+  mapping now names both `api://varve` and `varve-webui`.
+
+**In a browser, against the mock.** The Release server ran with
+`Auth:Mode` `Oidc`, the mock as its authority, `varve.operator` as bootstrap
+operator, and `WebUi:Path` set. The bundle's `appsettings.json` was edited
+after publish, and the server served the edit, not its stale brotli.
+Chromium, scripted:
+1. **First visit to `/ui/health`.** The authorize request carried
+   `prompt=none` and `scope=openid offline_access varve-webui-data`. After the
+   mock's login form, the browser landed back on `/ui/health` with both planes
+   "signed in". The token requests were `authorization_code`, then
+   `refresh_token` with `varve-webui-manage`.
+2. **Each plane's token on the management plane:**
+   - the management token: `GET /manage/fleet` answered `200`;
+   - the data token: `GET /manage/system` answered `401`.
+
+   (With `alice` as bootstrap operator, my first configuration, it was `403`:
+   bootstrap operators are agent IRIs or roles, as the configure guide says.)
+3. **Reload.** `prompt=none` again. The mock keeps no session, so its form
+   came back, and then both planes were signed in again.
+4. **Sign out.** The mock's end-session endpoint, then `/ui/signedout`, with
+   both planes "signed out".
+
+No `securitypolicyviolation`, console error or page error. The policy's
+`connect-src` named `http://localhost:8080`.
+
+**A whitespace bug the contract did not catch, and now does.** The bar read
+"Data planesigned in" as text: Blazor drops whitespace-only text between an
+expression and an `@if`. bUnit's default comparison normalises whitespace,
+so the `Shell` cases passed. The contract test now compares with
+`diff:whitespace="preserve"` on both sides. That found two components off
+their cases:
+- `Shell`'s plane space, now written explicitly;
+- `TripleList`'s newline between the head row and the list.
+
+Both are fixed. ADR 0206 point 6 and ADR 0204 say whitespace counts; both
+are unaccepted, so they are amended in place.
+
+**Not in the reference screens:** the sign-in callback and the signed-out
+screen. They compose only cased components (`ViewHead`, `Notice`, `Button`)
+and one sentence. This is listed on #96 for the screens.
+
+**Tests:**
+- `Varve.WebUi.Tests` passes 168: 18 `SignInTests`, and one more contract case
+  and preview.
+- `ProviderTests`' mock leg, against the updated fixture, passes its 2.
+
+**Bundle:** 1.728 MB brotli-11, against slice 1's 1.675 MB. Sign-in adds
+25 kB, mostly `System.Text.Json` and `System.Security.Cryptography`.

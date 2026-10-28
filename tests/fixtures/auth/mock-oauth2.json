@@ -7,6 +7,24 @@
       "tokenExpiry": 300,
       "requestMappings": [
         {
+          "requestParam": "scope",
+          "match": ".*varve-webui-manage.*",
+          "claims": {
+            "sub": "${subject}",
+            "aud": [ "api://varve-manage" ],
+            "roles": [ "varve.operator" ]
+          }
+        },
+        {
+          "requestParam": "client_id",
+          "match": "varve-webui",
+          "claims": {
+            "sub": "${subject}",
+            "aud": [ "api://varve", "varve-webui" ],
+            "roles": [ "varve.read" ]
+          }
+        },
+        {
           "requestParam": "client_id",
           "match": "varve-writer",
           "claims": {

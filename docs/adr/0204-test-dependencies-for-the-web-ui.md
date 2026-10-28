@@ -42,7 +42,8 @@ the packable members of `Varve.slnx`, and of a member that declares
      parameters, a fake `IJSRuntime` (loose mode, so a component's interop
      calls are recorded and answered with defaults), and a semantic markup
      comparison through `AngleSharp.Diffing`. The comparison ignores attribute
-     order, insignificant whitespace and Blazor's own `blazor:*` attributes.
+     order and Blazor's own `blazor:*` attributes. Whitespace is preserved
+     where the contract asks for it (ADR 0206 point 6).
    - **Why this version:** 2.11.3 is not the latest. 2.12.x and 2.13.x require
      the Blazor packages at 10.0.13 or later. The repository pins the
      runtime's 10.0.12 (ADR 0200), and transitive pinning refuses a lower pin

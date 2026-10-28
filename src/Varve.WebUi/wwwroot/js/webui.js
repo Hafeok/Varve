@@ -56,6 +56,17 @@
                 dialog.close();
             }
         },
+        // The sign-in in flight (ADR 0201): state, nonce, verifier and return
+        // path, never a token. Taken out as it is read, so a callback is
+        // honoured once.
+        sessionPut: function (key, value) {
+            window.sessionStorage.setItem(key, value);
+        },
+        sessionTake: function (key) {
+            var value = window.sessionStorage.getItem(key);
+            window.sessionStorage.removeItem(key);
+            return value;
+        },
         setTheme: function (choice) {
             try {
                 if (choice === 'light' || choice === 'dark') {

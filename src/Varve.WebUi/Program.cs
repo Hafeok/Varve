@@ -4,11 +4,14 @@
 
 using System;
 using System.Net.Http;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 using Varve.Protocol.Client;
 using Varve.WebUi;
+using Varve.WebUi.SignIn;
 
 // The composition root (ADR 0060): the server's address and its mode, the
 // clients of Varve.Protocol.Client the screens read through, and the clock.
@@ -22,5 +25,24 @@ builder.Services.AddSingleton(new WebUiSettings(server, anonymous));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(new HttpClient());
 builder.Services.AddSingleton(services => new VarveHealthClient(services.GetRequiredService<HttpClient>(), server, ClientLimits.Default));
+
+// Sign-in (ADR 0201): the Web UI's own public client, one token per plane.
+if (!anonymous)
+{
+    OidcOptions oidc = OidcOptions.From(
+        builder.Configuration["Varve:Auth:Authority"],
+        builder.Configuration["Varve:Auth:ClientId"],
+        builder.Configuration["Varve:Auth:DataScope"],
+        builder.Configuration["Varve:Auth:ManageScope"]);
+    Uri application = new(builder.HostEnvironment.BaseAddress);
+    builder.Services.AddSingleton(services => new SignInSession(
+        oidc,
+        services.GetRequiredService<HttpClient>(),
+        new SessionSignInStore(services.GetRequiredService<IJSRuntime>()),
+        new NavigationBrowser(services.GetRequiredService<NavigationManager>()),
+        services.GetRequiredService<TimeProvider>(),
+        OidcRandom.Default,
+        application));
+}
 
 await builder.Build().RunAsync().ConfigureAwait(false);

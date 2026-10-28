@@ -35,8 +35,9 @@ namespace Varve.WebUi.Tests;
 /// member's name, and anything else is read as JSON into the parameter's type.
 /// </para>
 /// <para>
-/// The comparison is bUnit's semantic one: attribute order and insignificant
-/// whitespace don't count; an element, a class or an attribute does.
+/// The comparison is bUnit's semantic one, with whitespace preserved on both
+/// sides: attribute order doesn't count; an element, a class, an attribute or
+/// a space between two inline elements does.
 /// </para>
 /// <para>
 /// Each preview carries its cases verbatim, one per <c>data-case</c> element,
@@ -86,19 +87,22 @@ public class ComponentContractTests
 
         IRenderedComponent<ContainerFragment> rendered = context.Render(builder =>
         {
-            builder.OpenComponent(0, type);
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "diff:whitespace", "preserve");
+            builder.OpenComponent(1, type);
 
             foreach (JsonProperty parameter in parameters.RootElement.GetProperty("parameters").EnumerateObject())
             {
                 PropertyInfo property = type.GetProperty(parameter.Name)
                     ?? throw new InvalidOperationException($"{component} has no parameter {parameter.Name} ({name}.json).");
-                builder.AddAttribute(1, parameter.Name, Value(property.PropertyType, parameter.Value));
+                builder.AddAttribute(2, parameter.Name, Value(property.PropertyType, parameter.Value));
             }
 
             builder.CloseComponent();
+            builder.CloseElement();
         });
 
-        rendered.MarkupMatches(expected, $"docs/ui/components/{component}/cases/{name}");
+        rendered.MarkupMatches(Strict(expected), $"docs/ui/components/{component}/cases/{name}");
     }
 
     [Theory]
@@ -109,8 +113,8 @@ public class ComponentContractTests
         IElement shown = PreviewCases(component).FirstOrDefault(element => element.GetAttribute("data-case") == name)
             ?? throw new InvalidOperationException($"docs/ui/components/{component}/preview.html has no data-case=\"{name}\".");
 
-        shown.InnerHtml.Replace("src=\"../../assets/", "src=\"img/", StringComparison.Ordinal)
-            .MarkupMatches(expected, $"docs/ui/components/{component}/preview.html, data-case {name}");
+        ("<div diff:whitespace=\"preserve\">" + shown.InnerHtml.Replace("src=\"../../assets/", "src=\"img/", StringComparison.Ordinal) + "</div>")
+            .MarkupMatches(Strict(expected), $"docs/ui/components/{component}/preview.html, data-case {name}");
     }
 
     [Fact]
@@ -201,6 +205,12 @@ public class ComponentContractTests
 
         Assert.True(missing.Count == 0, "Every component in docs/ui has a component and contract cases (ADR 0206 point 6): " + string.Join("; ", missing));
     }
+
+    // A space between two inline elements is visible ("Data plane signed
+    // in"), so whitespace counts: the comparison preserves it rather than
+    // normalising it away. Only the case file's final newline is not markup.
+    private static string Strict(string expected) =>
+        "<div diff:whitespace=\"preserve\">" + expected.TrimEnd('\n') + "</div>";
 
     private static BunitContext NewContext(TimeProvider time)
     {

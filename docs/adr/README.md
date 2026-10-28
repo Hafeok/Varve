@@ -384,6 +384,7 @@ Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), mile
 | # | Title | Status |
 |---:|---|---|
 | [0200](0200-varve-webui-a-blazor-webassembly-host.md) | `Varve.WebUi`: a Blazor WebAssembly host at layer 6, and what Blazor costs | Filed unaccepted (Web UI part 1, #167) |
+| [0201](0201-the-web-uis-own-oidc-client.md) | The Web UI's own OIDC client: one token per plane | Filed unaccepted (Web UI part 1, #167) |
 | [0202](0202-serving-the-web-ui-and-its-content-security-policy.md) | Serving the Web UI under `/ui/`, and its Content Security Policy | Filed unaccepted (Web UI part 1, #167) |
 | [0203](0203-typed-reads-in-the-protocol-client.md) | Typed reads in `Varve.Protocol.Client`: health, problems, response facts and the management plane | Filed unaccepted (Web UI part 1, #167) |
 | [0204](0204-test-dependencies-for-the-web-ui.md) | Test dependencies for the Web UI: bUnit, Playwright on the runner's Chrome, axe-core | Filed unaccepted (Web UI part 1, #167) |
