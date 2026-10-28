@@ -282,6 +282,42 @@ it back: `placedOn` is the preferred writer, claimed at a cold start, and
 changing it is how you move the writer on purpose. `varve lease` shows each
 move as an `abdication` claim following a `shutdown` release.
 
+## Active-active by dataset
+
+One fleet on one store can write in two places at once, **by dataset,
+never two writers on one dataset** (#97 point 9, ADR 0180). Give each
+dataset the writer set of the region, or the group of instances, it lives
+in:
+
+```turtle
+<urn:fleet:orders> varve:placedOn "r1a" ; varve:standbyOn "r1b" ;
+    varve:automaticHandover true .
+<urn:fleet:invoices> varve:placedOn "r2a" ; varve:standbyOn "r2b" ;
+    varve:automaticHandover true .
+```
+
+- **Every instance serves every dataset.** It reads what it follows, and
+  forwards a write to the dataset's writer, in whichever region that is
+  (ADR 0168). A write to the other region's dataset costs the hop between
+  regions.
+- **A handover stays in its writer set.** Only a member claims, so a
+  crash, a takeover or a rolling restart moves `orders` between `r1a` and
+  `r1b`, and never to region 2.
+- **Each epoch has one writer.** Every write appends under the epoch the
+  writer record names, and a superseded writer appends nothing after the
+  next epoch's fence (ADR 0136). So two instances never append to one
+  dataset, whatever the regions do.
+- **The system dataset has one writer set too**, for the whole fleet.
+  Management writes from the other region are forwarded to it.
+
+A property runs four processes on one store as two regions, over generated
+schedules of writes through any instance, crashes, takeovers and rolling
+restarts (`docs/testing.md`). After every step each dataset has one writer,
+in its own region. At the end, every acknowledged write is present, each
+write took exactly one position, and every claim in each dataset's epoch
+history is its own region's. Active-active across copies of a store, with
+shipping between them, is part 2's (#166).
+
 ## Event schemas in a fleet
 
 A dataset's event declarations can live on the management plane (ADR 0167),

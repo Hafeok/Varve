@@ -684,3 +684,24 @@ Left for #164's leg, and said so in the README:
 
 The prices were confirmed against the Azure retail prices API, which backs
 the pricing pages.
+
+### Active-active within a store (#97 point 9, D5)
+
+- **The plan's four-process property, as a fleet case** on Azurite and
+  RustFS: four server processes on one store, as two regions of two.
+  - Dataset a's writer set is region 1's and b's is region 2's.
+  - Generated schedules hold writes through any instance, the holder's
+    crash and restart, its crash and a takeover by its standby, and its
+    graceful restart.
+  - After every step, each dataset has exactly one writer among the live
+    instances, in its own region, and its other member is a warm standby.
+  - At the end, every acknowledged write is present, every write present
+    was tried, the head equals the writes present (one commit each), and
+    every claim in the epoch history is the region's.
+- It needed no server code beyond placement and forwarding, so it stays in
+  #175.
+- 12 schedules ran clean on each store, about 2 minutes each. The land gate
+  runs 2, about 20 s a store. A mutant that lets a non-member claim on a
+  release fails it on both.
+- The operator guide's fleet page has the layout and what it guarantees.
+  Active-active across copies is part 2's.

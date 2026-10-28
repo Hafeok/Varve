@@ -16,6 +16,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using CsCheck;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -766,6 +767,222 @@ public abstract class FleetCases : IAsyncDisposable
         Assert.Equal(2, state.RootElement.GetProperty("epoch").GetInt64());
         Assert.Equal("a", state.RootElement.GetProperty("history").EnumerateArray().Last().GetProperty("holder").GetString());
         Assert.Equal(HttpStatusCode.NoContent, (await Update(again, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+    }
+
+    // The active-active property's count; VARVE_ACTIVE_ACTIVE_SCHEDULES sets it nightly (docs/testing.md §8).
+    private static readonly int ActiveActiveSchedules = int.TryParse(Environment.GetEnvironmentVariable("VARVE_ACTIVE_ACTIVE_SCHEDULES"), out int n) ? n : 2;
+
+    private static readonly string[] Regions = ["r1a", "r1b", "r2a", "r2b"];
+
+    /// <summary>
+    /// Active-active by dataset within one store (#97 point 9, ADR 0180):
+    /// four processes as two regions of two. Dataset a's writer set is region
+    /// 1's, placed on r1a with r1b its standby, and b's is region 2's. Over
+    /// generated schedules, writes go through any instance and are forwarded
+    /// to the dataset's writer. The holder of either dataset crashes and
+    /// restarts, crashes and is taken over by its standby, or restarts
+    /// gracefully and hands over. After every step, each dataset has exactly
+    /// one writer among the live instances, in its own region, and its other
+    /// member is a warm standby. At the end:
+    /// - every acknowledged write is present;
+    /// - every write present was tried, and took exactly one position, as no
+    ///   two instances ever appended to one epoch;
+    /// - every claim in each dataset's epoch history is its own region's.
+    /// </summary>
+    [Fact]
+    public async Task Two_regions_write_their_own_datasets_hand_over_within_them_and_never_have_two_writers()
+    {
+        Gen<(int Kind, int Arg)[]> schedules = Gen.Select(Gen.Int[0, 5], Gen.Int[0, 7]).Array[4, 12];
+        await schedules.SampleAsync(RunActiveActiveAsync, iter: ActiveActiveSchedules, print: schedule => string.Join(" ", schedule.Select(step => step.Kind + ":" + step.Arg)));
+    }
+
+    // Kinds: 0-2 a write of a or b through any instance; 3 the holder crashes
+    // and restarts, and reclaims; 4 the holder crashes, its standby is asked to
+    // take over, and it returns as the standby; 5 the holder restarts
+    // gracefully, releasing for shutdown, and its standby claims.
+    private async Task RunActiveActiveAsync((int Kind, int Arg)[] schedule)
+    {
+        FleetLocation container = await Store.NewAsync();
+        string run = Guid.NewGuid().ToString("N")[..8];
+        Dictionary<string, Server> live = [];
+        Dictionary<string, string[]> region = new() { ["a"] = ["r1a", "r1b"], ["b"] = ["r2a", "r2b"] };
+
+        async Task StartAsync(string name)
+        {
+            Server server = Server.Start(name, FreePort(), container, Path.Combine(_caches, run + "-" + name), "r1a", []);
+            live[name] = server;
+            await server.WaitLiveAsync();
+        }
+
+        try
+        {
+            await StartAsync("r1a");
+            await DeclareAsync(live["r1a"], "a", "r1a", "r1b");
+            long last = await DeclareAsync(live["r1a"], "b", "r2a", "r2b");
+
+            foreach (string name in Regions[1..])
+            {
+                await StartAsync(name);
+            }
+
+            foreach (string name in Regions)
+            {
+                await WaitDeclaredAsync(live[name], last, "b", name == "r2a" ? "writer" : name == "r2b" ? "standby" : "follower");
+            }
+
+            Dictionary<string, List<long>> positions = new() { ["a"] = [], ["b"] = [] };
+            Dictionary<string, HashSet<int>> acknowledged = new() { ["a"] = [], ["b"] = [] };
+            Dictionary<string, HashSet<int>> tried = new() { ["a"] = [], ["b"] = [] };
+            int marker = 0;
+
+            foreach (string dataset in region.Keys)
+            {
+                await SettleAsync(live, region, dataset);
+            }
+
+            foreach ((int kind, int arg) in schedule)
+            {
+                string dataset = arg % 2 == 0 ? "a" : "b";
+
+                if (kind <= 2)
+                {
+                    // Forwarded to the dataset's writer from any instance, either region's.
+                    Server through = live[Regions[arg / 2 % 4]];
+                    tried[dataset].Add(++marker);
+                    HttpResponseMessage written = await Update(through, dataset, "INSERT DATA { <http://ex/w" + marker + "> <http://ex/p> " + marker + " }");
+
+                    if (written.StatusCode == HttpStatusCode.NoContent)
+                    {
+                        acknowledged[dataset].Add(marker);
+                        positions[dataset].Add(long.Parse(written.Headers.GetValues("Varve-Position").Single(), CultureInfo.InvariantCulture));
+                    }
+                    else
+                    {
+                        // A route the last handover made stale: refused, and sent again by a client.
+                        Assert.True(written.StatusCode == HttpStatusCode.ServiceUnavailable, (int)written.StatusCode + " " + await written.Content.ReadAsStringAsync(Ct));
+                    }
+
+                    continue;
+                }
+
+                (string holder, long epoch) = await HolderAsync(live, dataset);
+                string standby = region[dataset].Single(member => member != holder);
+
+                switch (kind)
+                {
+                    case 3:
+                        live[holder].Kill();
+                        await live[holder].DisposeAsync();
+                        await StartAsync(holder);
+                        break;
+                    case 4:
+                        live[holder].Kill();
+                        await live[holder].DisposeAsync();
+                        HttpResponseMessage took = await Takeover(live[standby], dataset, epoch);
+                        Assert.True(took.StatusCode == HttpStatusCode.OK, (int)took.StatusCode + " " + await took.Content.ReadAsStringAsync(Ct));
+                        await StartAsync(holder);
+                        break;
+                    default:
+                        await live[holder].StopAsync();
+                        await live[holder].DisposeAsync();
+                        await StartAsync(holder);
+                        break;
+                }
+
+                await SettleAsync(live, region, dataset);
+            }
+
+            foreach (string dataset in region.Keys)
+            {
+                (string holder, _) = await HolderAsync(live, dataset);
+                Server writer = live[holder];
+                using HttpRequestMessage read = new(HttpMethod.Get, new Uri(writer.Address, "datasets/" + dataset + "/sparql?query=" + Uri.EscapeDataString("SELECT ?o { ?s <http://ex/p> ?o }")));
+                read.Headers.TryAddWithoutValidation("Varve-Min-Position", (positions[dataset].Count == 0 ? 0 : positions[dataset].Max()).ToString(CultureInfo.InvariantCulture));
+                read.Headers.TryAddWithoutValidation("Accept", "text/csv");
+                HttpResponseMessage response = await writer.Http.SendAsync(read, Ct);
+                string body = await response.Content.ReadAsStringAsync(Ct);
+                Assert.True(response.StatusCode == HttpStatusCode.OK, body);
+                HashSet<int> present = [.. body.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Skip(1).Select(value => int.Parse(value, CultureInfo.InvariantCulture))];
+
+                Assert.Subset(present, acknowledged[dataset]);
+                Assert.Subset(tried[dataset], present);
+                Assert.Equal(positions[dataset].Count, positions[dataset].Distinct().Count());
+
+                // One commit a write: the head is the writes present, as the declaration commits none.
+                long head = long.Parse(response.Headers.GetValues("Varve-Position").Single(), CultureInfo.InvariantCulture);
+                Assert.Equal(present.Count, head);
+
+                using JsonDocument state = JsonDocument.Parse(await writer.Http.GetStringAsync(new Uri(writer.Address, "manage/datasets/" + dataset + "/state"), Ct));
+                Assert.All(state.RootElement.GetProperty("history").EnumerateArray(), claim => Assert.Contains(claim.GetProperty("holder").GetString(), region[dataset]));
+            }
+        }
+        finally
+        {
+            foreach (Server server in live.Values)
+            {
+                await server.DisposeAsync();
+            }
+        }
+    }
+
+    // The epoch holder of a dataset, and its epoch, as any live instance's state resource reads the record.
+    private static async Task<(string Holder, long Epoch)> HolderAsync(Dictionary<string, Server> live, string dataset)
+    {
+        foreach (Server server in live.Values)
+        {
+            try
+            {
+                using JsonDocument state = JsonDocument.Parse(await server.Http.GetStringAsync(new Uri(server.Address, "manage/datasets/" + dataset + "/state"), Ct));
+                return (state.RootElement.GetProperty("history").EnumerateArray().Last().GetProperty("holder").GetString()!, state.RootElement.GetProperty("epoch").GetInt64());
+            }
+            catch (HttpRequestException)
+            {
+            }
+        }
+
+        Assert.Fail("no live instance answered " + dataset + "'s state");
+        return default;
+    }
+
+    // Until exactly one live member of the dataset's writer set reports it as
+    // writer, the other as a warm standby, and every other instance follows it.
+    private static async Task SettleAsync(Dictionary<string, Server> live, Dictionary<string, string[]> region, string dataset)
+    {
+        string seen = string.Empty;
+
+        for (int attempt = 0; attempt < 300; attempt++)
+        {
+            Dictionary<string, (string Role, bool Warm)> roles = [];
+
+            foreach ((string name, Server server) in live)
+            {
+                HttpResponseMessage response = await server.Http.GetAsync(new Uri(server.Address, "manage/datasets/" + dataset + "/state"), Ct);
+
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    using JsonDocument state = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
+                    roles[name] = (state.RootElement.GetProperty("role").GetString()!, state.RootElement.TryGetProperty("warm", out JsonElement warm) && warm.GetBoolean());
+                }
+            }
+
+            seen = string.Join(", ", roles.Select(role => role.Key + " " + role.Value.Role + (role.Value.Warm ? " warm" : string.Empty)));
+            string[] writers = [.. roles.Where(role => role.Value.Role == "writer").Select(role => role.Key)];
+
+            // Never two writers, settled or not; and never one outside the region.
+            Assert.True(writers.Length <= 1, dataset + " has two writers: " + seen);
+            Assert.All(writers, writer => Assert.Contains(writer, region[dataset]));
+
+            if (roles.Count == live.Count && writers.Length == 1
+                && region[dataset].All(member => member == writers[0] || roles[member] is ("standby", true))
+                && roles.Where(role => !region[dataset].Contains(role.Key)).All(role => role.Value.Role == "follower"))
+            {
+                return;
+            }
+
+            await Task.Delay(100, Ct);
+        }
+
+        Assert.Fail(dataset + " never settled: " + seen + "\n" + string.Join("\n", live.Values.Select(server => server.Instance + ":\n" + server.Log)));
     }
 
     private static async Task<(int Exit, string Output, string Error)> RunAsync(string[] args)
