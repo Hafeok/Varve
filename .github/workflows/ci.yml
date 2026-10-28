@@ -1736,6 +1736,87 @@ jobs:
       - name: Run in headless Chromium
         run: dotnet run eng/browser-tests.cs
 
+  # The Web UI in a browser (ADR 0204): the published bundle from the wasm
+  # job, served in-process by Varve.Server and driven by Playwright on the
+  # runner's Chrome. axe on every screen and dialog in both themes, the
+  # keyboard's first stops, and the anonymous and OIDC modes against
+  # mock-oauth2-server, the dual-audience refusal included. Outside eng/ci.cs
+  # for the reason the wasm job is: the devcontainer has no browser (ADR 0036).
+  # Linux only: the issuer is a Linux container.
+  webui-browser:
+    name: web ui in Chromium
+    runs-on: ubuntu-latest
+    needs: wasm
+    env:
+      VARVE_CHROME: ${{ vars.VARVE_CHROME || '/usr/bin/google-chrome' }}
+
+    # Its issuer comes from this repository's private mirror (#118).
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Download the Web UI
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: webui
+          path: ${{ runner.temp }}/webui
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start mock-oauth2-server
+        run: |
+          docker compose --file .github/mock-oauth2/compose.yaml up --detach
+          for attempt in $(seq 1 60); do
+            curl --silent --fail http://localhost:8080/varve/.well-known/openid-configuration > /dev/null && exit 0
+            sleep 1
+          done
+          docker compose --file .github/mock-oauth2/compose.yaml logs
+          exit 1
+
+      - name: Test in headless Chromium
+        env:
+          VARVE_WEBUI: ${{ runner.temp }}/webui
+          VARVE_MOCK_OAUTH2: http://localhost:8080
+          VARVE_BROWSER_TESTS_REQUIRED: 1
+        run: >
+          dotnet test
+          --project tests/Varve.WebUi.Browser.Tests/Varve.WebUi.Browser.Tests.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.WebUi.Browser.Tests
+
+      - name: Store test durations
+        # #126: the slowest tests, in the job summary, from the step's own TRX.
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/Varve.WebUi.Browser.Tests
+          --label "Varve.WebUi.Browser.Tests on ubuntu-latest"
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-webui-browser
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
+
   # Does not gate on the raw test result, and still should not now that all 883
   # cases pass: an exempt case is allowed to fail, and a case outside the
   # baseline is allowed to fail while it is being worked on (ADR 0007). The
