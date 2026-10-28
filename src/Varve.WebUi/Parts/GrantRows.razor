@@ -1,0 +1,63 @@
+@* A dataset's grants as rows of the grants table (docs/ui/screens/
+   declarations--grants.html): the grantee as the server names it, its
+   permission, its scope in words, and the graph it is declared in. *@
+@foreach (GrantEntry grant in Grants)
+{
+<tr><td class="vw-table__name">@(grant.Grantee?.Value ?? "—")<span class="vw-table__sub">@(grant.GranteeKind?.Value ?? "grantee")</span></td><td><StateBadge Tone="Tone.Neutral" Word="@(grant.Permission?.Value ?? "—")" /></td><td>@Scope(grant.Scope)</td><td><code>…/dataset/@Dataset.Value</code></td></tr>
+}
+
+@code {
+    /// <summary>The grants.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<GrantEntry> Grants { get; set; } = [];
+
+    /// <summary>The dataset whose declaration graph they are in.</summary>
+    [Parameter, EditorRequired]
+    public DatasetName Dataset { get; set; }
+
+    private static RenderFragment Scope(GraphScope scope) => builder =>
+    {
+        int sequence = 0;
+        bool first = true;
+
+        void Phrase(string words, string? code)
+        {
+            builder.AddContent(sequence++, (first ? "" : "; ") + words);
+
+            if (code is not null)
+            {
+                builder.AddContent(sequence++, " ");
+                builder.OpenElement(sequence++, "code");
+                builder.AddContent(sequence++, code);
+                builder.CloseElement();
+            }
+
+            first = false;
+        }
+
+        if (scope.All)
+        {
+            Phrase("the dataset", null);
+        }
+
+        if (scope.DefaultGraph)
+        {
+            Phrase("the default graph", null);
+        }
+
+        foreach (Uri graph in scope.Graphs)
+        {
+            Phrase("graph", graph.OriginalString);
+        }
+
+        foreach (Uri prefix in scope.Prefixes)
+        {
+            Phrase("graphs under", prefix.OriginalString);
+        }
+
+        foreach (GraphTemplate template in scope.Templates)
+        {
+            Phrase("graphs from template", template.Value);
+        }
+    };
+}

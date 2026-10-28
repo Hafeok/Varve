@@ -1,0 +1,72 @@
+@page "/fleet"
+@inject VarveManagementClient Management
+@inject WebUiSettings Settings
+@inject TimeProvider Clock
+@* Fleet (docs/ui/screens/fleet--*.html): this instance in the system
+   dataset, and the fleet's declaration as served. The instance's name and
+   internal address and the writer epochs' history have no route yet (#97),
+   and are not shown; the fleet's instances are not listed, and the screen
+   says so. *@
+<PageTitle>Fleet · Varve</PageTitle>
+<ViewHead Title="Fleet">@if (_system is not null)
+{<ReadStamps Facts="_system.Facts" />}</ViewHead>
+
+@if (_failure is not null)
+{
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+}
+
+@if (_system?.Problem is Problem problem)
+{
+    <ProblemView Problem="problem" Facts="_system.Facts" Management="true" />
+}
+else if (_system?.Value is SystemPlane system)
+{
+    @if (system.Role == InstanceRole.Follower)
+    {
+        <Notice Title="This instance follows the system dataset">Management writes made here are forwarded to <code>@(system.Writer?.AbsoluteUri ?? "the system writer")</code>, the system writer@(system.Epoch is WriterEpoch epoch ? ", at epoch " + epoch : "").</Notice>
+    }
+
+    <Panel Title="This instance in the system dataset" TitleId="this-instance-title">
+        <KeyValue>
+            <KeyValueItem Label="Role"><StateWord Word="@system.Role?.Value" /></KeyValueItem>
+            <KeyValueItem Label="Writer epoch"><code>@(system.Epoch?.ToString() ?? "—")</code></KeyValueItem>
+            <KeyValueItem Label="Applied">@if (system.Position is FeedPosition applied)
+            {<PositionStamp Label="management" Value="applied.Value" Management="true" />}
+            else
+            {<text>—</text>}</KeyValueItem>
+            <KeyValueItem Label="Bootstrap"><StateWord Word="@system.Bootstrap?.Value" /></KeyValueItem>
+        </KeyValue>
+    </Panel>
+
+    <Notice Title="Instances are not listed yet">The fleet's instances as observed, the writer and reader records per dataset, have no route yet. They appear here when it lands.</Notice>
+
+    @if (_fleet?.Value is Declaration fleet)
+    {
+        <SourceBlock Graph="varve:manage/fleet" Position="_fleet.Facts.ManagementPosition?.Value" Source="@System.Text.Encoding.UTF8.GetString(fleet.Content.Span)" />
+    }
+}
+
+@code {
+    private VarveResult<SystemPlane>? _system;
+    private VarveResult<Declaration>? _fleet;
+    private DateTimeOffset? _lastRead;
+    private string? _failure;
+
+    /// <inheritdoc />
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Task<VarveResult<SystemPlane>> system = Management.SystemAsync(CancellationToken.None);
+            Task<VarveResult<Declaration>> fleet = Management.FleetAsync(CancellationToken.None);
+            _system = await system;
+            _fleet = await fleet;
+            _lastRead = Clock.GetUtcNow();
+        }
+        catch (HttpRequestException e)
+        {
+            _failure = e.Message;
+        }
+    }
+}

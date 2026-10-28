@@ -763,3 +763,66 @@ and one sentence. This is listed on #96 for the screens.
 
 **Bundle:** 1.728 MB brotli-11, against slice 1's 1.675 MB. Sign-in adds
 25 kB, mostly `System.Text.Json` and `System.Security.Cryptography`.
+
+### The read screens
+
+**The client (ADR 0203 point 8, completed in place).**
+- **`VarveManagementClient`:**
+  - `DatasetsAsync`, `LifecycleAsync`, `StatusAsync` and `SystemAsync`;
+  - `DeclarationAsync`, `FleetAsync` and `GraphsAsync`;
+  - `GrantsAsync`, with a management-position pin;
+  - `PlacementsAsync`: one query on `/manage/sparql` for `varve:placedOn`.
+- **`SparqlHttpClient`:** `ReadCommitsAsync` and `ReadCommitAsync`.
+- **New model types:** wrappers for the server's words, and `Members` keeping
+  what the client does not know. The per-request token logic is shared in
+  `Tokens`.
+- **Tests:** `ManagementClientTests` (7) and `CommitReadTests` (1). Each read
+  against the server's own composition root, a problem with its request id,
+  the management token on every request, and a pin on the management log.
+
+**Screens:**
+- **Datasets** (the root): placement, state, role, head, lag and storage.
+- **Dataset:**
+  - status, projections, recent commits and the declaration;
+  - a follower's notice;
+  - `?asof=p`, which hides what is served only live.
+- **Fleet:**
+  - this instance in the system dataset;
+  - "Instances are not listed yet", as the screen has it;
+  - the fleet graph as served.
+- **Commits:** the latest 20, then the live tail through the client's
+  `FollowAsync`. Each new commit is marked for 4 s. Scrolled away from the
+  top, the tail reads "Paused while you read · n new" and shows them on
+  return.
+- **A commit's delta:** grouped by graph, retractions first, at most 200 per
+  graph with "n of m changes".
+- **Grants** (`?asof=p` on the management log) **and the declaration source,**
+  behind "Declarations are read-only here".
+- **New parts:**
+  - `Unreachable`, `StateWord` and `ReadOnlyDeclarations`: wording once;
+  - `Commits`: a feed record to a commit entry;
+  - `Term`: an RDF term to a `TermChip`, with well-known prefixes compact;
+  - `GrantRows`.
+- **The rail** gains Fleet. Inside a dataset's screen it also shows History
+  (Commits) and Declarations (Grants, Declaration).
+- **One new case:** `AsOfBanner`'s `pinned-no-time`, for a management-log pin,
+  which has no commit time to read.
+
+**In a browser,** against an anonymous Release server with two datasets
+declared through `varve apply`:
+- every screen rendered;
+- a commit made while Commits was open appeared at once, marked new;
+- no CSP violation, console error or page error.
+
+**Where a page and its reference screen differ.** The page is right by the
+cases; the list is on #96 for the screens.
+
+**Bundle:** 1.818 MB brotli-11 on a clean publish, against slice 1's
+1.675 MB. A publish into a folder that held an earlier one measured 5.2 MB:
+stale fingerprinted copies stay beside the new ones. Every number here is
+from an empty folder.
+
+**Tests:**
+- `Varve.WebUi.Tests` passes 171;
+- the client and hosting tests in `Varve.Server.Tests` pass 22;
+- `Varve.Analyzers.Tests` passes 135.

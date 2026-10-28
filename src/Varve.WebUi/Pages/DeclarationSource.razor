@@ -1,0 +1,50 @@
+@page "/datasets/{Name}/declaration"
+@inject VarveManagementClient Management
+@inject WebUiSettings Settings
+@inject TimeProvider Clock
+@* A dataset's declaration graph as served (docs/ui/screens/
+   declarations--source.html), read-only, exactly as the server wrote it. *@
+<PageTitle>Declaration of @Name · Varve</PageTitle>
+<ViewHead Title="Declaration" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (_declaration?.Facts.ManagementPosition is FeedPosition management)
+{<PositionStamp Label="management" Value="management.Value" Management="true" />}</ViewHead>
+
+@if (_failure is not null)
+{
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+}
+
+<ReadOnlyDeclarations />
+
+@if (_declaration?.Problem is Problem problem)
+{
+    <ProblemView Problem="problem" Facts="_declaration.Facts" Management="true" />
+}
+else if (_declaration?.Value is Declaration declaration)
+{
+    <SourceBlock Graph="@("varve:manage/dataset/" + Name)" Position="_declaration.Facts.ManagementPosition?.Value" Source="@System.Text.Encoding.UTF8.GetString(declaration.Content.Span)" />
+}
+
+@code {
+    private VarveResult<Declaration>? _declaration;
+    private DateTimeOffset? _lastRead;
+    private string? _failure;
+
+    /// <summary>The dataset's name, from the address.</summary>
+    [Parameter]
+    public string Name { get; set; } = "";
+
+    /// <inheritdoc />
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            _declaration = await Management.DeclarationAsync(new DatasetName(Name), CancellationToken.None);
+            _lastRead = Clock.GetUtcNow();
+            _failure = null;
+        }
+        catch (HttpRequestException e)
+        {
+            _failure = e.Message;
+        }
+    }
+}

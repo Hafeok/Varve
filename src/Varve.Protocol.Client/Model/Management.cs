@@ -363,3 +363,148 @@ public sealed class CommitRange
     /// <summary>The position the next page starts after, or null when this is the last.</summary>
     public FeedPosition? Next { get; }
 }
+
+/// <summary>
+/// A dataset's grants as <c>GET /manage/datasets/{d}/grants</c> answers them
+/// (ADRs 0107, 0166), at the management position they were read at.
+/// </summary>
+public sealed class GrantList
+{
+    private GrantList(FeedPosition? position, IReadOnlyList<GrantEntry> grants)
+    {
+        Position = position;
+        Grants = grants;
+    }
+
+    /// <summary>The management position the grants were read at.</summary>
+    public FeedPosition? Position { get; }
+
+    /// <summary>The grants, in the order the server lists them.</summary>
+    public IReadOnlyList<GrantEntry> Grants { get; }
+
+    internal static GrantList Of(JsonElement root)
+    {
+        List<GrantEntry> grants = [];
+
+        if (root.TryGetProperty("grants", out JsonElement listed) && listed.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement grant in listed.EnumerateArray())
+            {
+                if (grant.ValueKind == JsonValueKind.Object)
+                {
+                    grants.Add(GrantEntry.Of(grant));
+                }
+            }
+        }
+
+        return new GrantList(Json.Count(root, "position") is { } position ? new FeedPosition(position) : null, grants);
+    }
+}
+
+/// <summary>One grant: who, what permission, and over which graphs.</summary>
+public sealed class GrantEntry
+{
+    private GrantEntry(Uri? grant, GrantRight? permission, GranteeKind? granteeKind, ClaimValue? grantee, GraphScope scope, IReadOnlyDictionary<string, JsonElement> members)
+    {
+        Grant = grant;
+        Permission = permission;
+        GranteeKind = granteeKind;
+        Grantee = grantee;
+        Scope = scope;
+        Members = members;
+    }
+
+    /// <summary>The grant's IRI in its declaration.</summary>
+    public Uri? Grant { get; }
+
+    /// <summary>What it allows.</summary>
+    public GrantRight? Permission { get; }
+
+    /// <summary>Whether the grantee is an agent, a role or a group.</summary>
+    public GranteeKind? GranteeKind { get; }
+
+    /// <summary>The value the grantee is matched by.</summary>
+    public ClaimValue? Grantee { get; }
+
+    /// <summary>The graphs it covers.</summary>
+    public GraphScope Scope { get; }
+
+    /// <summary>Every other member: what a newer server adds.</summary>
+    public IReadOnlyDictionary<string, JsonElement> Members { get; }
+
+    internal static GrantEntry Of(JsonElement grant)
+    {
+        JsonElement grantee = grant.TryGetProperty("grantee", out JsonElement g) && g.ValueKind == JsonValueKind.Object ? g : default;
+        return new GrantEntry(
+            Uri.TryCreate(Json.Text(grant, "grant"), UriKind.Absolute, out Uri? iri) ? iri : null,
+            Json.Text(grant, "permission") is { } permission ? new GrantRight(permission) : null,
+            grantee.ValueKind == JsonValueKind.Object && Json.Text(grantee, "kind") is { } kind ? new GranteeKind(kind) : null,
+            grantee.ValueKind == JsonValueKind.Object && Json.Text(grantee, "value") is { } value ? new ClaimValue(value) : null,
+            GraphScope.Of(grant.TryGetProperty("graphs", out JsonElement graphs) ? graphs : default),
+            Json.Rest(grant, "grant", "permission", "grantee", "graphs"));
+    }
+}
+
+/// <summary>
+/// The graphs a grant covers (ADR 0107): all of them, the default graph, named
+/// graphs, graphs under prefixes, and graphs from templates.
+/// </summary>
+public sealed class GraphScope
+{
+    private GraphScope(bool all, bool defaultGraph, IReadOnlyList<Uri> graphs, IReadOnlyList<Uri> prefixes, IReadOnlyList<GraphTemplate> templates)
+    {
+        All = all;
+        DefaultGraph = defaultGraph;
+        Graphs = graphs;
+        Prefixes = prefixes;
+        Templates = templates;
+    }
+
+    /// <summary>Every graph of the dataset.</summary>
+    public bool All { get; }
+
+    /// <summary>The default graph.</summary>
+    public bool DefaultGraph { get; }
+
+    /// <summary>Named graphs, each by IRI.</summary>
+    public IReadOnlyList<Uri> Graphs { get; }
+
+    /// <summary>Every graph whose IRI starts with one of these.</summary>
+    public IReadOnlyList<Uri> Prefixes { get; }
+
+    /// <summary>Graphs from templates, filled from the caller's token.</summary>
+    public IReadOnlyList<GraphTemplate> Templates { get; }
+
+    internal static GraphScope Of(JsonElement graphs)
+    {
+        bool object_ = graphs.ValueKind == JsonValueKind.Object;
+        return new GraphScope(
+            object_ && graphs.TryGetProperty("all", out JsonElement all) && all.ValueKind == JsonValueKind.True,
+            object_ && graphs.TryGetProperty("defaultGraph", out JsonElement d) && d.ValueKind == JsonValueKind.True,
+            Iris(graphs, "graphs"),
+            Iris(graphs, "prefixes"),
+            [.. Texts(graphs, "templates").ConvertAll(template => new GraphTemplate(template))]);
+    }
+
+    private static List<Uri> Iris(JsonElement graphs, string name) =>
+        Texts(graphs, name).ConvertAll(text => Uri.TryCreate(text, UriKind.Absolute, out Uri? iri) ? iri : null).FindAll(iri => iri is not null)!;
+
+    private static List<string> Texts(JsonElement graphs, string name)
+    {
+        List<string> texts = [];
+
+        if (graphs.ValueKind == JsonValueKind.Object && graphs.TryGetProperty(name, out JsonElement list) && list.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement item in list.EnumerateArray())
+            {
+                // A template is an object, {template, match}; the rest are strings.
+                if ((item.ValueKind == JsonValueKind.String ? item.GetString() : item.ValueKind == JsonValueKind.Object ? Json.Text(item, "template") : null) is { Length: > 0 } text)
+                {
+                    texts.Add(text);
+                }
+            }
+        }
+
+        return texts;
+    }
+}

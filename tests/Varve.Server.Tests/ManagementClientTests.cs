@@ -124,6 +124,40 @@ public class ManagementClientTests
     }
 
     [Fact]
+    public async Task Grants_are_read_with_their_grantee_permission_and_scope_and_pinned_on_the_management_log()
+    {
+        await using RunningServer server = await RunningServer.StartAsync(new Dictionary<string, string> { ["Varve:Auth:Mode"] = "Anonymous" });
+        await RunningServer.DeclareAsync(server.Started!.Fleet, """
+            @prefix varve: <https://w3id.org/varve/ns#> .
+            @prefix n: <https://notes.example/manage/> .
+            varve:manage\/dataset\/notes {
+              n:notes a varve:Dataset ; varve:datasetName "notes" ; varve:storage varve:Memory .
+              n:users a varve:Role ; varve:claimValue "Notes.User" .
+              n:own a varve:GraphTemplate ; varve:template "https://notes.example/users/{sub}/" ; varve:match varve:Prefix .
+              n:users-own a varve:Grant ; varve:grantee n:users ; varve:permission varve:write ; varve:graphTemplate n:own .
+              n:users-shared a varve:Grant ; varve:grantee n:users ; varve:permission varve:read ; varve:graph <https://notes.example/shared> .
+            }
+            """);
+        VarveManagementClient manage = new(server.Client, server.Address, ClientLimits.Default, null, null);
+
+        VarveResult<GrantList> grants = await manage.GrantsAsync(new DatasetName("notes"), null, Ct);
+
+        Assert.Null(grants.Problem);
+        Assert.Equal(2, grants.Value!.Grants.Count);
+        GrantEntry shared = Assert.Single(grants.Value.Grants, grant => grant.Permission == GrantRight.Read);
+        Assert.Equal(GranteeKind.Role, shared.GranteeKind);
+        Assert.Equal(new ClaimValue("Notes.User"), shared.Grantee);
+        Assert.Equal(new Uri("https://notes.example/shared"), Assert.Single(shared.Scope.Graphs));
+        GrantEntry own = Assert.Single(grants.Value.Grants, grant => grant.Permission == GrantRight.Write);
+        Assert.Equal(new GraphTemplate("https://notes.example/users/{sub}/"), Assert.Single(own.Scope.Templates));
+
+        // Before the declaration, at management position 0, there was no dataset to grant on.
+        VarveResult<GrantList> before = await manage.GrantsAsync(new DatasetName("notes"), new FeedPosition(0), Ct);
+        Assert.Null(before.Value);
+        Assert.NotNull(before.Problem);
+    }
+
+    [Fact]
     public async Task An_unknown_dataset_is_a_problem_with_its_request_id_never_an_exception()
     {
         await using RunningServer server = await RunningServer.StartAsync(Anonymous());

@@ -23,6 +23,15 @@
     [
         ("Operate", "Datasets", "datasets"),
         ("Operate", "Health", "health"),
+        ("Operate", "Fleet", "fleet"),
+    ];
+
+    // A dataset's own screens, in the rail while a dataset's screen is open.
+    private static readonly (string Group, string Text, string Path)[] DatasetScreens =
+    [
+        ("History", "Commits", "commits"),
+        ("Declarations", "Grants", "grants"),
+        ("Declarations", "Declaration", "declaration"),
     ];
 
     // The callback and the signed-out screen start no sign-in.
@@ -67,7 +76,19 @@
 
         foreach (IGrouping<string, (string Group, string Text, string Href)> group in Screens.GroupBy(screen => screen.Group))
         {
-            groups.Add(new NavGroup(group.Key, [.. group.Select(screen => new NavEntry(screen.Text, screen.Href, Current(current, screen.Href)))]));
+            groups.Add(new NavGroup(group.Key, [.. group.Select(screen => new NavEntry(screen.Text, screen.Href, Current(current, screen.Href) && !InDatasetScreen(current)))]));
+        }
+
+        string[] segments = current.Split('/');
+
+        if (segments.Length >= 2 && segments[0] == "datasets" && segments[1].Length > 0)
+        {
+            string dataset = "datasets/" + segments[1] + "/";
+
+            foreach (IGrouping<string, (string Group, string Text, string Path)> group in DatasetScreens.GroupBy(screen => screen.Group))
+            {
+                groups.Add(new NavGroup(group.Key, [.. group.Select(screen => new NavEntry(screen.Text, dataset + screen.Path, Current(current, dataset + screen.Path)))]));
+            }
         }
 
         return groups;
@@ -77,6 +98,13 @@
     // Datasets), and the root is Datasets.
     private static bool Current(string route, string href) =>
         route == href || route.StartsWith(href + "/", StringComparison.Ordinal) || (route.Length == 0 && href == "datasets");
+
+    // Within a dataset's own screen, that screen is current, not Datasets.
+    private static bool InDatasetScreen(string route)
+    {
+        string[] segments = route.Split('/');
+        return segments.Length >= 3 && segments[0] == "datasets";
+    }
 
     private void Changed(object? sender, LocationChangedEventArgs e) => StateHasChanged();
 

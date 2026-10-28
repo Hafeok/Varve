@@ -67,6 +67,37 @@
             window.sessionStorage.removeItem(key);
             return value;
         },
+        // Whether the main column is at its top, reported to the page on
+        // every scroll (the live tail pauses while the operator reads lower).
+        watchTop: function (page) {
+            var main = document.getElementById('main');
+            var last = null;
+
+            function report() {
+                var top = (main ? main.scrollTop : 0) <= 8 && window.scrollY <= 8;
+
+                if (top !== last) {
+                    last = top;
+                    page.invokeMethodAsync('AtTop', top);
+                }
+            }
+
+            if (main) {
+                main.addEventListener('scroll', report, { passive: true });
+            }
+
+            window.addEventListener('scroll', report, { passive: true });
+            report();
+            return {
+                dispose: function () {
+                    if (main) {
+                        main.removeEventListener('scroll', report);
+                    }
+
+                    window.removeEventListener('scroll', report);
+                },
+            };
+        },
         setTheme: function (choice) {
             try {
                 if (choice === 'light' || choice === 'dark') {

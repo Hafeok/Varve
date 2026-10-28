@@ -1,0 +1,97 @@
+@page "/datasets/{Name}/commits/{Position:long}"
+@using Varve.Rdf
+@inject DatasetClients Datasets
+@inject WebUiSettings Settings
+@inject TimeProvider Clock
+@* One commit and its delta (docs/ui/screens/commits--delta.html): who made
+   it, when and why, then its changes grouped by graph, retractions before
+   assertions. A long delta shows its first changes per graph and says how
+   many there are. Validation is not shown: the attachment names a digest,
+   not a verdict (#96). *@
+<PageTitle>Commit @Position of @Name · Varve</PageTitle>
+<ViewHead Title="Commits" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name) + "/commits")">@if (_commit is not null)
+{<ReadStamps Facts="_commit.Facts" />}</ViewHead>
+
+@if (_failure is not null)
+{
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+}
+
+@if (_commit?.Problem is Problem problem)
+{
+    <ProblemView Problem="problem" Facts="_commit.Facts" />
+}
+else if (_commit?.Value is FeedRecord commit)
+{
+    <Panel Title="@("Commit " + Position.ToString(System.Globalization.CultureInfo.InvariantCulture))" TitleId="commit-title">
+        <KeyValue>
+            <KeyValueItem Label="Agent"><code>@(commit.Agent is { } agent ? Text(agent) : "none")</code></KeyValueItem>
+            <KeyValueItem Label="Committed"><code>@Times.Utc(commit.Timestamp.Value)</code> <span class="vw-muted">@Times.Ago(commit.Timestamp.Value, Clock.GetUtcNow())</span></KeyValueItem>
+            @if (commit.Cause is { } cause)
+            {
+                <KeyValueItem Label="Cause"><code>@Text(cause)</code></KeyValueItem>
+            }
+        </KeyValue>
+    </Panel>
+
+    @foreach (IGrouping<string, FeedChange> graph in commit.Changes.GroupBy(change => change.Graph is { } g ? Text(g) : "the default graph"))
+    {
+        List<FeedChange> changes = [.. graph.OrderBy(change => change.Kind == FeedChangeKind.Assert)];
+        <Panel Title="@("Delta in " + graph.Key)" Flush="true">
+            <Head><span class="vw-muted">@Shown(changes.Count) of @changes.Count changes</span></Head>
+            <ChildContent>
+                <TripleList>
+                    @foreach (FeedChange change in changes.Take(Limit))
+                    {
+                        bool added = change.Kind == FeedChangeKind.Assert;
+                        <Triple Kind="@(added ? TripleKind.Added : TripleKind.Removed)" Note="@((added ? "asserted at " : "retracted at ") + Position.ToString(System.Globalization.CultureInfo.InvariantCulture))">
+                            <Subject><Term Value="change.Subject" /></Subject>
+                            <Predicate><Term Value="change.Predicate" /></Predicate>
+                            <Object><Term Value="change.Object" /></Object>
+                        </Triple>
+                    }
+                </TripleList>
+            </ChildContent>
+        </Panel>
+    }
+
+    @if (commit.Changes.Count == 0)
+    {
+        <Notice Title="This commit changes no statement">@(commit.CommitKind == FeedCommitKind.Settings ? "It records the dataset's settings." : commit.CommitKind == FeedCommitKind.Erasure ? "It records an erasure: a data subject's key was destroyed." : "It records no change.")</Notice>
+    }
+}
+
+@code {
+    private const int Limit = 200;
+
+    private VarveResult<FeedRecord>? _commit;
+    private DateTimeOffset? _lastRead;
+    private string? _failure;
+
+    /// <summary>The dataset's name, from the address.</summary>
+    [Parameter]
+    public string Name { get; set; } = "";
+
+    /// <summary>The commit's position, from the address.</summary>
+    [Parameter]
+    public long Position { get; set; }
+
+    /// <inheritdoc />
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            _commit = await Datasets.For(new DatasetName(Name)).ReadCommitAsync(new FeedPosition(Position), CancellationToken.None);
+            _lastRead = Clock.GetUtcNow();
+            _failure = null;
+        }
+        catch (HttpRequestException e)
+        {
+            _failure = e.Message;
+        }
+    }
+
+    private static int Shown(int count) => Math.Min(count, Limit);
+
+    private static string Text(RdfTerm term) => System.Text.Encoding.UTF8.GetString(term.Lexical);
+}

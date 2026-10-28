@@ -98,6 +98,15 @@ public sealed class VarveManagementClient
         TrigAsync("manage/graphs", cancellationToken);
 
     /// <summary>
+    /// A dataset's grants, at the management position <paramref name="asOf"/>
+    /// when one is given (<c>Varve-As-Of</c> on the management log), else at
+    /// the position applied.
+    /// </summary>
+    /// <exception cref="HttpRequestException">No answer within the limits' timeout, or a body over their cap.</exception>
+    public Task<VarveResult<GrantList>> GrantsAsync(DatasetName dataset, FeedPosition? asOf, CancellationToken cancellationToken) =>
+        JsonAsync(DatasetPath(dataset) + "/grants", GrantList.Of, cancellationToken, asOf: asOf);
+
+    /// <summary>
     /// Where each dataset is placed, from the declarations, through the
     /// management plane's SPARQL endpoint (ADR 0166).
     /// </summary>
@@ -110,10 +119,10 @@ public sealed class VarveManagementClient
 
     private static string DatasetPath(DatasetName dataset) => "manage/datasets/" + Uri.EscapeDataString(dataset.Value);
 
-    private async Task<VarveResult<T>> JsonAsync<T>(string path, Func<JsonElement, T> read, CancellationToken cancellationToken, string accept = "application/json")
+    private async Task<VarveResult<T>> JsonAsync<T>(string path, Func<JsonElement, T> read, CancellationToken cancellationToken, string accept = "application/json", FeedPosition? asOf = null)
         where T : class
     {
-        using HttpResponseMessage response = await GetAsync(path, accept, cancellationToken).ConfigureAwait(false);
+        using HttpResponseMessage response = await GetAsync(path, accept, asOf, cancellationToken).ConfigureAwait(false);
         (ResponseFacts facts, byte[] body) = await ReadAsync(response, cancellationToken).ConfigureAwait(false);
 
         if (response.StatusCode == HttpStatusCode.OK)
@@ -141,7 +150,7 @@ public sealed class VarveManagementClient
 
     private async Task<VarveResult<Declaration>> TrigAsync(string path, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage response = await GetAsync(path, "application/trig", cancellationToken).ConfigureAwait(false);
+        using HttpResponseMessage response = await GetAsync(path, "application/trig", null, cancellationToken).ConfigureAwait(false);
         (ResponseFacts facts, byte[] body) = await ReadAsync(response, cancellationToken).ConfigureAwait(false);
 
         if (response.StatusCode == HttpStatusCode.OK)
@@ -164,12 +173,17 @@ public sealed class VarveManagementClient
         return body is null ? throw new HttpRequestException(failure) : (facts, body);
     }
 
-    private async Task<HttpResponseMessage> GetAsync(string path, string accept, CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> GetAsync(string path, string accept, FeedPosition? asOf, CancellationToken cancellationToken)
     {
         BearerToken? token = await Tokens.ForRequestAsync(_tokens, _clock, cancellationToken).ConfigureAwait(false);
         HttpRequestMessage request = new(HttpMethod.Get, new Uri(_server, path));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(accept));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/problem+json"));
+
+        if (asOf is FeedPosition at)
+        {
+            request.Headers.TryAddWithoutValidation("Varve-As-Of", "position:" + at.Value.ToString(CultureInfo.InvariantCulture));
+        }
 
         if (token is BearerToken bearer)
         {
