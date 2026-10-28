@@ -21,8 +21,13 @@
     <!-- Native AOT is a gate (ADR 0101): minimal APIs only, no MVC, JSON
          without reflection, configuration bound by the source generator. -->
     <PublishAot>true</PublishAot>
-    <!-- ADR 0224: every RID it is published for is in its lockfile. -->
-    <RuntimeIdentifiers>$(VarveNativeRuntimeIdentifiers)</RuntimeIdentifiers>
+    <!-- ADR 0224: every RID it is published for is in its lockfile. Only while
+         restoring: the RIDs are the lockfile's, not the build's, and since
+         .NET 10 a tool project with RuntimeIdentifiers packs as RID-specific
+         packages behind a pointer package that carries no assembly. A
+         publish for a RID restores first, without it, then publishes with
+         no restore of its own. -->
+    <RuntimeIdentifiers Condition="'$(MSBuildIsRestoring)' == 'true'">$(VarveNativeRuntimeIdentifiers)</RuntimeIdentifiers>
     <InvariantGlobalization>true</InvariantGlobalization>
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <TrimmerSingleWarn>false</TrimmerSingleWarn>
