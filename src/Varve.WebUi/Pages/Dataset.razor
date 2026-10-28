@@ -33,7 +33,7 @@ else if (_asOf is FeedPosition at)
     @if (_pinned?.Value is FeedRecord commit)
     {
         <AsOfBanner Position="at.Value" CommittedAt="@Times.Utc(commit.Timestamp.Value)" Head="(_status?.Value?.Head?.Value ?? at.Value)" OnReturn="ReturnToHead" />
-        <Panel Title="Status" TitleId="status-title">
+        <Panel Title="Status">
             <Head><StateBadge Tone="Tone.Past" Word="@("as of " + at.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))" /></Head>
             <ChildContent>
                 <KeyValue>
@@ -80,7 +80,7 @@ else
         DatasetReadiness? ready = Readiness();
         bool follower = _lifecycle?.Value?.Role == InstanceRole.Follower;
 
-        <Panel Title="Status" TitleId="status-title">
+        <Panel Title="Status">
             <Head>@if (follower)
             {<StateWord Word="@InstanceRole.Follower.Value" />}</Head>
             <ChildContent>
@@ -134,8 +134,8 @@ else
             </ResourceTable>
         </Panel>
 
-        <Panel Title="Recent commits" TitleId="recent-commits-title" Flush="true">
-            <Head><Button Small="true" OnClick="AllCommits">All commits</Button></Head>
+        <Panel Title="Recent commits" Flush="true">
+            <Head><a href="@("datasets/" + Uri.EscapeDataString(Name) + "/commits")">All commits</a></Head>
             <ChildContent>
                 @if (_recent?.Problem is Problem notRead)
                 {
@@ -266,8 +266,8 @@ else
             _outcome = _act switch
             {
                 Act.Checkpoint => await Management.CheckpointAsync(This, CancellationToken.None),
-                Act.Close => await Management.SetStateAsync(This, DatasetState.Closed, CancellationToken.None),
-                _ => await Management.SetStateAsync(This, DatasetState.Open, CancellationToken.None),
+                Act.Close => await Management.SetStateAsync(This, DatasetState.Closed, _declaration?.Value?.Version, CancellationToken.None),
+                _ => await Management.SetStateAsync(This, DatasetState.Open, _declaration?.Value?.Version, CancellationToken.None),
             };
         }
         catch (HttpRequestException e)
@@ -354,7 +354,6 @@ else
         };
     }
 
-    private void AllCommits() => Navigation.NavigateTo("datasets/" + Uri.EscapeDataString(Name) + "/commits");
 
     private void ReturnToHead() => Navigation.NavigateTo("datasets/" + Uri.EscapeDataString(Name));
 }

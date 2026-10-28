@@ -10,10 +10,13 @@
    events), each new commit marked for a few seconds. While the operator
    reads lower down, the tail pauses and counts what arrived; back at the
    top, it shows them. Only the commits the caller's grants let them read
-   are delivered (ADR 0107). *@
+   are delivered (ADR 0107). The "read at" stamp is the newest position the
+   list holds: it advances with each commit the live tail shows, and while
+   the tail is paused it stays at what is being read, so it agrees with the
+   count of new ones waiting (#96, 2026-10-28). *@
 <PageTitle>Commits of @Name · Varve</PageTitle>
-<ViewHead Title="Commits" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (_page is not null)
-{<ReadStamps Facts="_page.Facts" />}</ViewHead>
+<ViewHead Title="Commits" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (Newest is FeedPosition newest)
+{<PositionStamp Label="read at" Value="newest.Value" />}</ViewHead>
 
 @if (_failure is not null)
 {
@@ -26,7 +29,7 @@
 }
 else if (_page is not null || _head is not null)
 {
-    <Panel Title="Commits in your scope" TitleId="commits-title" Flush="@(_shown.Count > 0)">
+    <Panel Title="Commits in your scope" Flush="@(_shown.Count > 0)">
         <Head><Tail Paused="!_atTop" Pending="_waiting.Count" /></Head>
         <ChildContent>
             @if (_shown.Count > 0)
@@ -56,6 +59,10 @@ else if (_page is not null || _head is not null)
     private bool _atTop = true;
     private DotNetObjectReference<CommitsPage>? _self;
     private IJSObjectReference? _watch;
+
+    // The newest position the list holds, or the head it was read at when it
+    // holds none. Commits waiting while paused are not in the list.
+    private FeedPosition? Newest => _shown.Count > 0 ? _shown.Max(record => record.Position) : _head;
 
     /// <summary>The dataset's name, from the address.</summary>
     [Parameter]

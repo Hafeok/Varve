@@ -194,3 +194,32 @@ to align with or depart from.
     0163 (two audiences) and 0065 (wrappers). No conflict.
   - Layer ownership: `Varve.Protocol.Client` (5) only.
   - Analyzer rule: none new.
+
+## Amendment, 2026-10-28 — If-Match on a state change, shapes bindings, and what a grant read kept back
+
+Filed by Web UI part 1 (#167, milestone #96), unaccepted until the maintainer
+accepts it (ADR 0066). Decided by the maintainer on that milestone's pull
+request (#187, 2026-10-28).
+
+1. **A state change carries `If-Match`.** Closing or opening a dataset writes
+   its declaration graph. `SetStateAsync(dataset, state, ifMatch, …)` takes
+   the version of that graph the caller read, the `Declaration.Version` its
+   ETag gave, and sends it as `If-Match`, so the console never overwrites a
+   newer declaration blind. `null` sends none. The state route does not yet
+   honour the header (#189); until it does, the request applies as before.
+   The parameter is added in place, because the method has never shipped in
+   a release (ADR 0118). The ruling is `StateChangeCarriesIfMatch`.
+2. **Shapes bindings.** `ShapesBindingsAsync(dataset, …)` answers a
+   `ShapesBindingList`: each binding's IRI and the shapes graph it binds
+   (ADR 0170), from the dataset's declaration graph, through
+   `/manage/sparql`, as the placements read does. The dataset's name is
+   escaped into the graph's IRI, so a name taken from an address can name
+   only a graph. The ruling is `ShapesBindingsByManagementQuery`.
+3. **What a grant read kept back.** `GrantEntry.GranteeClaimType`, a
+   `ClaimType`, is a group grantee's claim. `GraphScope.TemplateMatches`
+   maps each template to its `TemplateMatch`, `exact` or `prefix`. Both were
+   on the wire and dropped. The match is a map beside the templates, not a
+   member of `GraphTemplate`, which stays a one-value wrapper (ADR 0065).
+   The ruling is `GrantReadKeepsClaimTypeAndMatch`.
+
+Nothing is removed (`NothingIsRemoved`).

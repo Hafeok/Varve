@@ -345,6 +345,59 @@ public sealed class PlacementList
 }
 
 /// <summary>
+/// A dataset's shapes bindings as its declaration graph states them (ADR
+/// 0170): each binding's IRI and the shapes graph it binds, a named graph of
+/// the same dataset. Read through the management plane's SPARQL endpoint.
+/// </summary>
+public sealed class ShapesBindingList
+{
+    private ShapesBindingList(IReadOnlyList<ShapesBindingEntry> bindings) => Bindings = bindings;
+
+    /// <summary>The bindings, ordered by their IRI.</summary>
+    public IReadOnlyList<ShapesBindingEntry> Bindings { get; }
+
+    // SPARQL 1.1 Query Results JSON: bindings of ?binding and ?graph.
+    internal static ShapesBindingList Of(JsonElement root)
+    {
+        List<ShapesBindingEntry> bindings = [];
+
+        if (root.TryGetProperty("results", out JsonElement results) && results.TryGetProperty("bindings", out JsonElement rows) && rows.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement row in rows.EnumerateArray())
+            {
+                if (Bound(row, "binding") is { } binding && Bound(row, "graph") is { } graph
+                    && Uri.TryCreate(binding, UriKind.Absolute, out Uri? bindingIri) && Uri.TryCreate(graph, UriKind.Absolute, out Uri? graphIri))
+                {
+                    bindings.Add(new ShapesBindingEntry(bindingIri, graphIri));
+                }
+            }
+        }
+
+        bindings.Sort((x, y) => string.CompareOrdinal(x.Binding.OriginalString, y.Binding.OriginalString));
+        return new ShapesBindingList(bindings);
+    }
+
+    private static string? Bound(JsonElement row, string variable) =>
+        row.ValueKind == JsonValueKind.Object && row.TryGetProperty(variable, out JsonElement term) && term.ValueKind == JsonValueKind.Object ? Json.Text(term, "value") : null;
+}
+
+/// <summary>One shapes binding: its IRI and the shapes graph it binds.</summary>
+public sealed class ShapesBindingEntry
+{
+    internal ShapesBindingEntry(Uri binding, Uri shapesGraph)
+    {
+        Binding = binding;
+        ShapesGraph = shapesGraph;
+    }
+
+    /// <summary>The binding node's IRI.</summary>
+    public Uri Binding { get; }
+
+    /// <summary>The shapes graph it binds, a named graph of the dataset.</summary>
+    public Uri ShapesGraph { get; }
+}
+
+/// <summary>
 /// A range of commits as the line format carries it (ADR 0118): the records in
 /// order, and where the next page starts when the server paged the range
 /// (<c>Link: rel="next"</c>, ADR 0114).
@@ -404,12 +457,13 @@ public sealed class GrantList
 /// <summary>One grant: who, what permission, and over which graphs.</summary>
 public sealed class GrantEntry
 {
-    private GrantEntry(Uri? grant, GrantRight? permission, GranteeKind? granteeKind, ClaimValue? grantee, GraphScope scope, IReadOnlyDictionary<string, JsonElement> members)
+    private GrantEntry(Uri? grant, GrantRight? permission, GranteeKind? granteeKind, ClaimValue? grantee, ClaimType? granteeClaimType, GraphScope scope, IReadOnlyDictionary<string, JsonElement> members)
     {
         Grant = grant;
         Permission = permission;
         GranteeKind = granteeKind;
         Grantee = grantee;
+        GranteeClaimType = granteeClaimType;
         Scope = scope;
         Members = members;
     }
@@ -426,6 +480,9 @@ public sealed class GrantEntry
     /// <summary>The value the grantee is matched by.</summary>
     public ClaimValue? Grantee { get; }
 
+    /// <summary>The claim a group grantee's value is read from; null for an agent or a role.</summary>
+    public ClaimType? GranteeClaimType { get; }
+
     /// <summary>The graphs it covers.</summary>
     public GraphScope Scope { get; }
 
@@ -440,6 +497,7 @@ public sealed class GrantEntry
             Json.Text(grant, "permission") is { } permission ? new GrantRight(permission) : null,
             grantee.ValueKind == JsonValueKind.Object && Json.Text(grantee, "kind") is { } kind ? new GranteeKind(kind) : null,
             grantee.ValueKind == JsonValueKind.Object && Json.Text(grantee, "value") is { } value ? new ClaimValue(value) : null,
+            grantee.ValueKind == JsonValueKind.Object && Json.Text(grantee, "claimType") is { Length: > 0 } claimType ? new ClaimType(claimType) : null,
             GraphScope.Of(grant.TryGetProperty("graphs", out JsonElement graphs) ? graphs : default),
             Json.Rest(grant, "grant", "permission", "grantee", "graphs"));
     }
@@ -451,13 +509,14 @@ public sealed class GrantEntry
 /// </summary>
 public sealed class GraphScope
 {
-    private GraphScope(bool all, bool defaultGraph, IReadOnlyList<Uri> graphs, IReadOnlyList<Uri> prefixes, IReadOnlyList<GraphTemplate> templates)
+    private GraphScope(bool all, bool defaultGraph, IReadOnlyList<Uri> graphs, IReadOnlyList<Uri> prefixes, IReadOnlyList<GraphTemplate> templates, IReadOnlyDictionary<GraphTemplate, TemplateMatch> matches)
     {
         All = all;
         DefaultGraph = defaultGraph;
         Graphs = graphs;
         Prefixes = prefixes;
         Templates = templates;
+        TemplateMatches = matches;
     }
 
     /// <summary>Every graph of the dataset.</summary>
@@ -475,15 +534,45 @@ public sealed class GraphScope
     /// <summary>Graphs from templates, filled from the caller's token.</summary>
     public IReadOnlyList<GraphTemplate> Templates { get; }
 
+    /// <summary>How each template matches, where the server said: exactly, or as a prefix.</summary>
+    public IReadOnlyDictionary<GraphTemplate, TemplateMatch> TemplateMatches { get; }
+
     internal static GraphScope Of(JsonElement graphs)
     {
         bool object_ = graphs.ValueKind == JsonValueKind.Object;
+        Dictionary<GraphTemplate, TemplateMatch> matches = [];
         return new GraphScope(
             object_ && graphs.TryGetProperty("all", out JsonElement all) && all.ValueKind == JsonValueKind.True,
             object_ && graphs.TryGetProperty("defaultGraph", out JsonElement d) && d.ValueKind == JsonValueKind.True,
             Iris(graphs, "graphs"),
             Iris(graphs, "prefixes"),
-            [.. Texts(graphs, "templates").ConvertAll(template => new GraphTemplate(template))]);
+            TemplatesOf(graphs, matches),
+            matches);
+    }
+
+    // A template is an object, {template, match}.
+    private static List<GraphTemplate> TemplatesOf(JsonElement graphs, Dictionary<GraphTemplate, TemplateMatch> matches)
+    {
+        List<GraphTemplate> templates = [];
+
+        if (graphs.ValueKind == JsonValueKind.Object && graphs.TryGetProperty("templates", out JsonElement list) && list.ValueKind == JsonValueKind.Array)
+        {
+            foreach (JsonElement item in list.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.Object && Json.Text(item, "template") is { Length: > 0 } text)
+                {
+                    GraphTemplate template = new(text);
+                    templates.Add(template);
+
+                    if (Json.Text(item, "match") is { Length: > 0 } match)
+                    {
+                        matches[template] = new TemplateMatch(match);
+                    }
+                }
+            }
+        }
+
+        return templates;
     }
 
     private static List<Uri> Iris(JsonElement graphs, string name) =>
@@ -497,8 +586,7 @@ public sealed class GraphScope
         {
             foreach (JsonElement item in list.EnumerateArray())
             {
-                // A template is an object, {template, match}; the rest are strings.
-                if ((item.ValueKind == JsonValueKind.String ? item.GetString() : item.ValueKind == JsonValueKind.Object ? Json.Text(item, "template") : null) is { Length: > 0 } text)
+                if (item.ValueKind == JsonValueKind.String && item.GetString() is { Length: > 0 } text)
                 {
                     texts.Add(text);
                 }

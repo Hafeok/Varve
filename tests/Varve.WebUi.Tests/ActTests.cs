@@ -21,7 +21,8 @@ namespace Varve.WebUi.Tests;
 /// The acts on a dataset (D4) through <c>ConfirmDialog</c>: close asks for the
 /// name typed exactly and names the drift; a conflict or a stale precondition
 /// is shown in the dialog with "Reload at head", which reads the view again.
-/// The server on <c>main</c> answers neither for a close, so a fake one does.
+/// The server on <c>main</c> answers neither for a close, so a fake one does,
+/// and records the <c>If-Match</c> a close sends.
 /// </summary>
 public class ActTests
 {
@@ -43,6 +44,19 @@ public class ActTests
 
         page.Find("dialog input").Input("notes");
         Assert.False(page.Find("dialog button.vw-button--danger-solid").HasAttribute("disabled"));
+    }
+
+    [Fact]
+    public void Close_sends_the_version_of_the_declaration_it_read_as_if_match()
+    {
+        FakeServer server = new();
+        using BunitContext context = NewContext(server);
+        IRenderedComponent<Dataset> page = context.Render<Dataset>(parameters => parameters.Add(p => p.Name, "notes"));
+        page.WaitForElement("button.vw-button--danger").Click();
+        page.Find("dialog input").Input("notes");
+        page.Find("dialog button.vw-button--danger-solid").Click();
+
+        page.WaitForAssertion(() => Assert.Equal("\"412\"", server.IfMatch));
     }
 
     [Theory]
@@ -104,12 +118,15 @@ public class ActTests
 
         internal int StatusReads => Volatile.Read(ref _statusReads);
 
+        internal string? IfMatch { get; private set; }
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             string path = request.RequestUri!.AbsolutePath;
 
             if (request.Method == HttpMethod.Put && path == "/manage/datasets/notes/state")
             {
+                IfMatch = request.Headers.IfMatch.ToString();
                 return Task.FromResult(StateAnswer is { } answer
                     ? Json(answer.Status, "{\"type\":\"https://w3id.org/varve/problems/" + answer.Type + "\",\"title\":\"Refused.\",\"status\":" + (int)answer.Status + ",\"instance\":\"vm:1\"}", "application/problem+json")
                     : new HttpResponseMessage(HttpStatusCode.NoContent));
@@ -119,7 +136,7 @@ public class ActTests
             {
                 "/manage/datasets/notes/state" => Json(HttpStatusCode.OK, "{\"state\":\"open\",\"role\":\"writer\"}"),
                 "/manage/datasets/notes/status" => Count(Json(HttpStatusCode.OK, "{\"name\":\"notes\",\"head\":0,\"durability\":\"None\",\"failed\":false,\"state\":\"open\",\"projection\":{\"position\":0,\"lag\":0,\"failed\":false},\"settings\":{},\"checkpoints\":[]}")),
-                "/manage/datasets/notes" => Json(HttpStatusCode.OK, "@prefix varve: <https://w3id.org/varve/ns#> .", "application/trig"),
+                "/manage/datasets/notes" => Tagged(Json(HttpStatusCode.OK, "@prefix varve: <https://w3id.org/varve/ns#> .", "application/trig"), "\"412\""),
                 "/manage/datasets" => Json(HttpStatusCode.OK, "{\"datasets\":[{\"name\":\"notes\",\"state\":\"open\",\"storage\":\"Memory\",\"role\":\"writer\",\"head\":0}]}"),
                 "/manage/sparql" => Json(HttpStatusCode.OK, "{\"head\":{\"vars\":[\"name\",\"instance\"]},\"results\":{\"bindings\":[]}}", "application/sparql-results+json"),
                 "/health/ready" => Json(HttpStatusCode.OK, "{\"status\":\"ready\",\"datasets\":{}}"),
@@ -130,6 +147,12 @@ public class ActTests
         private HttpResponseMessage Count(HttpResponseMessage response)
         {
             Interlocked.Increment(ref _statusReads);
+            return response;
+        }
+
+        private static HttpResponseMessage Tagged(HttpResponseMessage response, string tag)
+        {
+            response.Headers.ETag = new System.Net.Http.Headers.EntityTagHeaderValue(tag);
             return response;
         }
 

@@ -565,4 +565,34 @@ static Varve.Protocol.Client.Model.GrantRight.operator ==(Varve.Protocol.Client.
 Varve.Protocol.Client.Model.Acknowledgement
 Varve.Protocol.Client.VarveManagementClient.AtLeast(Varve.Delta.Model.FeedPosition managementPosition) -> Varve.Protocol.Client.VarveManagementClient!
 Varve.Protocol.Client.VarveManagementClient.CheckpointAsync(Varve.Protocol.Client.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.Acknowledgement!>!>!
-Varve.Protocol.Client.VarveManagementClient.SetStateAsync(Varve.Protocol.Client.Model.DatasetName dataset, Varve.Protocol.Client.Model.DatasetState state, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.Acknowledgement!>!>!
+Varve.Protocol.Client.VarveManagementClient.SetStateAsync(Varve.Protocol.Client.Model.DatasetName dataset, Varve.Protocol.Client.Model.DatasetState state, Varve.Delta.Model.FeedPosition? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.Acknowledgement!>!>!
+Varve.Protocol.Client.Model.ShapesBindingEntry
+Varve.Protocol.Client.Model.ShapesBindingEntry.Binding.get -> System.Uri!
+Varve.Protocol.Client.Model.ShapesBindingEntry.ShapesGraph.get -> System.Uri!
+Varve.Protocol.Client.Model.ShapesBindingList
+Varve.Protocol.Client.Model.ShapesBindingList.Bindings.get -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.Client.Model.ShapesBindingEntry!>!
+Varve.Protocol.Client.VarveManagementClient.ShapesBindingsAsync(Varve.Protocol.Client.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.ShapesBindingList!>!>!
+Varve.Protocol.Client.Model.ClaimType
+Varve.Protocol.Client.Model.ClaimType.ClaimType() -> void
+Varve.Protocol.Client.Model.ClaimType.ClaimType(string! value) -> void
+Varve.Protocol.Client.Model.ClaimType.Equals(Varve.Protocol.Client.Model.ClaimType other) -> bool
+Varve.Protocol.Client.Model.ClaimType.Value.get -> string!
+Varve.Protocol.Client.Model.GrantEntry.GranteeClaimType.get -> Varve.Protocol.Client.Model.ClaimType?
+override Varve.Protocol.Client.Model.ClaimType.GetHashCode() -> int
+override Varve.Protocol.Client.Model.ClaimType.ToString() -> string!
+static Varve.Protocol.Client.Model.ClaimType.operator !=(Varve.Protocol.Client.Model.ClaimType left, Varve.Protocol.Client.Model.ClaimType right) -> bool
+static Varve.Protocol.Client.Model.ClaimType.operator ==(Varve.Protocol.Client.Model.ClaimType left, Varve.Protocol.Client.Model.ClaimType right) -> bool
+~override Varve.Protocol.Client.Model.ClaimType.Equals(object obj) -> bool
+Varve.Protocol.Client.Model.GraphScope.TemplateMatches.get -> System.Collections.Generic.IReadOnlyDictionary<Varve.Protocol.Client.Model.GraphTemplate, Varve.Protocol.Client.Model.TemplateMatch>!
+Varve.Protocol.Client.Model.TemplateMatch
+Varve.Protocol.Client.Model.TemplateMatch.Equals(Varve.Protocol.Client.Model.TemplateMatch other) -> bool
+Varve.Protocol.Client.Model.TemplateMatch.TemplateMatch() -> void
+Varve.Protocol.Client.Model.TemplateMatch.TemplateMatch(string! value) -> void
+Varve.Protocol.Client.Model.TemplateMatch.Value.get -> string!
+override Varve.Protocol.Client.Model.TemplateMatch.GetHashCode() -> int
+override Varve.Protocol.Client.Model.TemplateMatch.ToString() -> string!
+static Varve.Protocol.Client.Model.TemplateMatch.Exact.get -> Varve.Protocol.Client.Model.TemplateMatch
+static Varve.Protocol.Client.Model.TemplateMatch.Prefix.get -> Varve.Protocol.Client.Model.TemplateMatch
+static Varve.Protocol.Client.Model.TemplateMatch.operator !=(Varve.Protocol.Client.Model.TemplateMatch left, Varve.Protocol.Client.Model.TemplateMatch right) -> bool
+static Varve.Protocol.Client.Model.TemplateMatch.operator ==(Varve.Protocol.Client.Model.TemplateMatch left, Varve.Protocol.Client.Model.TemplateMatch right) -> bool
+~override Varve.Protocol.Client.Model.TemplateMatch.Equals(object obj) -> bool

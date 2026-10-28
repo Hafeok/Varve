@@ -36,6 +36,9 @@ public sealed class WebUiBrowserTests
           n:notes a varve:Dataset ; varve:datasetName "notes" ; varve:storage varve:Memory .
           n:users a varve:Role ; varve:claimValue "Notes.User" .
           n:users-shared a varve:Grant ; varve:grantee n:users ; varve:permission varve:read ; varve:graph <https://notes.example/shared> .
+          n:own a varve:GraphTemplate ; varve:template "https://notes.example/users/{sub}/" ; varve:match varve:Prefix .
+          n:users-own a varve:Grant ; varve:grantee n:users ; varve:permission varve:write ; varve:graphTemplate n:own .
+          n:shapes a varve:ShapesBinding ; varve:boundGraph <https://notes.example/shapes> ; varve:validationMode varve:Report ; varve:graph <https://notes.example/shared> .
         }
         varve:manage\/dataset\/catalog { n:catalog a varve:Dataset ; varve:datasetName "catalog" ; varve:storage varve:Memory . }
         """;
@@ -52,6 +55,9 @@ public sealed class WebUiBrowserTests
         ("datasets/notes/commits/1", "text=Delta in"),
         ("datasets/notes/grants", "text=Who may read"),
         ("datasets/notes/declaration", ".vw-source"),
+        ("datasets/notes/agents", "text=Who the grants name"),
+        ("datasets/notes/templates", "text=Graphs expanded for each caller"),
+        ("datasets/notes/shapes", ".vw-source"),
     ];
 
     [Fact]
@@ -120,6 +126,30 @@ public sealed class WebUiBrowserTests
         await page.WaitForSelectorAsync("text=This instance in the system dataset", new() { Timeout = 60_000 });
         await page.WaitForFunctionAsync("document.activeElement && document.activeElement.tagName === 'H1'");
         Assert.Equal("Fleet", await page.EvaluateAsync<string>("document.activeElement.textContent"));
+    }
+
+    [Fact]
+    public async Task The_commits_stamp_advances_with_each_commit_the_live_tail_shows()
+    {
+        (string bundle, string chrome) = WebUiServer.Required();
+        await using WebUiServer server = await AnonymousAsync(bundle);
+        using IPlaywright playwright = await Playwright.CreateAsync();
+        await using IBrowser browser = await playwright.Chromium.LaunchAsync(new() { ExecutablePath = chrome });
+        IPage page = await browser.NewPageAsync();
+
+        await page.GotoAsync(server.Ui + "datasets/notes/commits");
+        await page.WaitForSelectorAsync(".vw-tail", new() { Timeout = 60_000 });
+        string before = await page.InnerTextAsync(".vw-viewhead .vw-position__value");
+
+        using HttpClient http = new() { BaseAddress = server.Address };
+        using HttpResponseMessage written = await http.PostAsync("datasets/notes/sparql", new StringContent("INSERT DATA { <https://notes.example/43> <http://purl.org/dc/terms/title> \"Retro\"@en }", new MediaTypeHeaderValue("application/sparql-update")), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NoContent, written.StatusCode);
+
+        await page.WaitForFunctionAsync("p => document.querySelector('.vw-viewhead .vw-position__value').textContent !== p", before, new() { Timeout = 30_000 });
+        long stamp = long.Parse(await page.InnerTextAsync(".vw-viewhead .vw-position__value"), System.Globalization.CultureInfo.InvariantCulture);
+        IReadOnlyList<string> shown = await page.Locator(".vw-commit__pos a").AllInnerTextsAsync();
+        Assert.Equal(shown.Max(position => long.Parse(position, System.Globalization.CultureInfo.InvariantCulture)), stamp);
+        Assert.True(stamp > long.Parse(before, System.Globalization.CultureInfo.InvariantCulture));
     }
 
     [Fact]
@@ -216,6 +246,10 @@ public sealed class WebUiBrowserTests
         using HttpClient http = new() { BaseAddress = server.Address };
         using HttpResponseMessage written = await http.PostAsync("datasets/notes/sparql", new StringContent("INSERT DATA { <https://notes.example/42> <http://purl.org/dc/terms/title> \"Weekly sync\"@en }", new MediaTypeHeaderValue("application/sparql-update")), TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.NoContent, written.StatusCode);
+
+        // And the shapes graph the binding names, for the Shapes screen.
+        using HttpResponseMessage shapes = await http.PostAsync("datasets/notes/sparql", new StringContent("INSERT DATA { GRAPH <https://notes.example/shapes> { <https://notes.example/TitleShape> a <http://www.w3.org/ns/shacl#NodeShape> ; <http://www.w3.org/ns/shacl#targetNode> <https://notes.example/42> } }", new MediaTypeHeaderValue("application/sparql-update")), TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.NoContent, shapes.StatusCode);
         return server;
     }
 

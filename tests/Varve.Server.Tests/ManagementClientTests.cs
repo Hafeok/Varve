@@ -163,7 +163,10 @@ public class ManagementClientTests
         VarveManagementClient manage = new(server.Client, server.Address, ClientLimits.Default, null, null);
         DatasetName catalog = new("catalog");
 
-        VarveResult<Acknowledgement> closed = await manage.SetStateAsync(catalog, DatasetState.Closed, Ct);
+        // The version of the declaration read, sent as If-Match (#96, 2026-10-28).
+        VarveResult<Declaration> declaration = await manage.DeclarationAsync(catalog, Ct);
+        Assert.NotNull(declaration.Value!.Version);
+        VarveResult<Acknowledgement> closed = await manage.SetStateAsync(catalog, DatasetState.Closed, declaration.Value.Version, Ct);
         Assert.NotNull(closed.Value);
         Assert.Equal(HttpStatusCode.NoContent, closed.Facts.Status);
         FeedPosition committed = closed.Facts.Position!.Value;
@@ -171,7 +174,7 @@ public class ManagementClientTests
         VarveResult<DatasetLifecycle> after = await manage.AtLeast(committed).LifecycleAsync(catalog, Ct);
         Assert.Equal(DatasetState.Closed, after.Value!.State);
 
-        VarveResult<Acknowledgement> opened = await manage.SetStateAsync(catalog, DatasetState.Open, Ct);
+        VarveResult<Acknowledgement> opened = await manage.SetStateAsync(catalog, DatasetState.Open, null, Ct);
         Assert.NotNull(opened.Value);
 
         SparqlHttpClient notes = new(server.Client, new Uri(server.Address, "datasets/notes/"), ClientLimits.Default);
@@ -185,7 +188,7 @@ public class ManagementClientTests
         VarveResult<ClientDatasetStatus> status = await manage.StatusAsync(new DatasetName("notes"), Ct);
         Assert.Contains(checkpoint.Facts.Position!.Value, status.Value!.Checkpoints);
 
-        Assert.Throws<ArgumentException>(() => { _ = manage.SetStateAsync(catalog, DatasetState.Failed, Ct); });
+        Assert.Throws<ArgumentException>(() => { _ = manage.SetStateAsync(catalog, DatasetState.Failed, null, Ct); });
     }
 
     [Fact]

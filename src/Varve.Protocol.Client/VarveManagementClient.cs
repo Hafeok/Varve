@@ -95,18 +95,21 @@ public sealed class VarveManagementClient
     /// Opens or closes <paramref name="dataset"/> (ADR 0165): a write to its
     /// declaration graph, which drifts from the declaration files until they
     /// say the same. On success the facts name the management position the
-    /// change was committed at.
+    /// change was committed at. With <paramref name="ifMatch"/>, the request
+    /// carries <c>If-Match</c> with that version of the declaration graph, as
+    /// its ETag names it, so a newer declaration is never overwritten blind: a
+    /// server that honours it answers <c>412 precondition-failed</c> instead.
     /// </summary>
     /// <exception cref="ArgumentException"><paramref name="state"/> is neither open nor closed.</exception>
     /// <exception cref="HttpRequestException">No answer within the limits' timeout, or a body over their cap.</exception>
-    public Task<VarveResult<Acknowledgement>> SetStateAsync(DatasetName dataset, DatasetState state, CancellationToken cancellationToken)
+    public Task<VarveResult<Acknowledgement>> SetStateAsync(DatasetName dataset, DatasetState state, FeedPosition? ifMatch, CancellationToken cancellationToken)
     {
         if (state != DatasetState.Open && state != DatasetState.Closed)
         {
             throw new ArgumentException("A dataset is opened or closed.", nameof(state));
         }
 
-        return SendAsync(HttpMethod.Put, DatasetPath(dataset) + "/state", "{\"state\":\"" + state.Value + "\"}", cancellationToken);
+        return SendAsync(HttpMethod.Put, DatasetPath(dataset) + "/state", "{\"state\":\"" + state.Value + "\"}", cancellationToken, ifMatch);
     }
 
     /// <summary>Every dataset the management plane knows, with this instance's role for each.</summary>
@@ -161,6 +164,19 @@ public sealed class VarveManagementClient
     public Task<VarveResult<PlacementList>> PlacementsAsync(CancellationToken cancellationToken) =>
         JsonAsync("manage/sparql?query=" + Uri.EscapeDataString(PlacementQuery), PlacementList.Of, cancellationToken, "application/sparql-results+json");
 
+    /// <summary>
+    /// A dataset's shapes bindings (ADR 0170): each binding and the shapes
+    /// graph it binds, from the dataset's declaration graph, through the
+    /// management plane's SPARQL endpoint. The name is escaped into the graph's
+    /// IRI, so a name from an address can only name a graph, never add to the
+    /// query.
+    /// </summary>
+    /// <exception cref="HttpRequestException">No answer within the limits' timeout, or a body over their cap.</exception>
+    public Task<VarveResult<ShapesBindingList>> ShapesBindingsAsync(DatasetName dataset, CancellationToken cancellationToken) =>
+        JsonAsync("manage/sparql?query=" + Uri.EscapeDataString(
+            "PREFIX varve: <https://w3id.org/varve/ns#> SELECT ?binding ?graph WHERE { GRAPH <https://w3id.org/varve/ns#manage/dataset/" + Uri.EscapeDataString(dataset.Value)
+            + "> { ?binding a varve:ShapesBinding ; varve:boundGraph ?graph } }"), ShapesBindingList.Of, cancellationToken, "application/sparql-results+json");
+
     private const string PlacementQuery =
         "PREFIX varve: <https://w3id.org/varve/ns#> SELECT ?name ?instance WHERE { GRAPH ?g { ?d varve:datasetName ?name ; varve:placedOn ?instance } }";
 
@@ -213,11 +229,16 @@ public sealed class VarveManagementClient
         return new VarveResult<Declaration>(null, problem, facts.With(problem));
     }
 
-    private async Task<VarveResult<Acknowledgement>> SendAsync(HttpMethod method, string path, string? json, CancellationToken cancellationToken)
+    private async Task<VarveResult<Acknowledgement>> SendAsync(HttpMethod method, string path, string? json, CancellationToken cancellationToken, FeedPosition? ifMatch = null)
     {
         BearerToken? token = await Tokens.ForRequestAsync(_tokens, _clock, cancellationToken).ConfigureAwait(false);
         HttpRequestMessage request = new(method, new Uri(_server, path));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/problem+json"));
+
+        if (ifMatch is FeedPosition version)
+        {
+            request.Headers.IfMatch.Add(new EntityTagHeaderValue("\"" + version.Value.ToString(CultureInfo.InvariantCulture) + "\""));
+        }
 
         if (json is not null)
         {

@@ -1,0 +1,98 @@
+@page "/datasets/{Name}/shapes"
+@inject VarveManagementClient Management
+@inject DatasetClients Datasets
+@inject WebUiSettings Settings
+@inject TimeProvider Clock
+@* A dataset's shapes, source only (#96, 2026-10-28): each shapes binding its
+   declaration graph states, and the shapes graph it binds as the data plane
+   serves it, read-only and exactly as served. The shapes graph is a named
+   graph of the dataset, so its source is read with the data token at the
+   dataset's head, not the management position. *@
+<PageTitle>Shapes of @Name · Varve</PageTitle>
+<ViewHead Title="Shapes" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (_bindings?.Facts.ManagementPosition is FeedPosition management)
+{<PositionStamp Label="management" Value="management.Value" Management="true" />}</ViewHead>
+
+@if (_failure is not null)
+{
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+}
+
+<ReadOnlyDeclarations />
+
+@if (_bindings?.Problem is Problem problem)
+{
+    <ProblemView Problem="problem" Facts="_bindings.Facts" Management="true" />
+}
+else if (_bindings?.Value is ShapesBindingList bindings)
+{
+    @if (bindings.Bindings.Count == 0)
+    {
+        <p>No shapes binding is declared for this dataset, so no commit is validated.</p>
+    }
+
+    @foreach (ShapesBindingEntry binding in bindings.Bindings)
+    {
+        @if (_sources.TryGetValue(binding.ShapesGraph, out Source? source))
+        {
+            @if (source.Problem is Problem notRead)
+            {
+                <ProblemView Problem="notRead" Facts="source.Facts" />
+            }
+            else
+            {
+                <SourceBlock Graph="@binding.ShapesGraph.OriginalString" Source="@source.Text" />
+            }
+        }
+    }
+}
+
+@code {
+    private readonly Dictionary<Uri, Source> _sources = [];
+    private VarveResult<ShapesBindingList>? _bindings;
+    private DateTimeOffset? _lastRead;
+    private string? _failure;
+
+    /// <summary>The dataset's name, from the address.</summary>
+    [Parameter]
+    public string Name { get; set; } = "";
+
+    /// <inheritdoc />
+    protected override async Task OnParametersSetAsync()
+    {
+        _sources.Clear();
+
+        try
+        {
+            _bindings = await Management.ShapesBindingsAsync(new DatasetName(Name), CancellationToken.None);
+
+            foreach (ShapesBindingEntry binding in _bindings.Value?.Bindings ?? [])
+            {
+                if (!_sources.ContainsKey(binding.ShapesGraph))
+                {
+                    _sources[binding.ShapesGraph] = await ReadAsync(binding.ShapesGraph);
+                }
+            }
+
+            _lastRead = Clock.GetUtcNow();
+            _failure = null;
+        }
+        catch (HttpRequestException e)
+        {
+            _failure = e.Message;
+        }
+    }
+
+    // The shapes graph as the graph store serves it, in Turtle.
+    private async Task<Source> ReadAsync(Uri graph)
+    {
+        using HttpResponseMessage response = await Datasets.For(new DatasetName(Name)).GetGraphAsync(graph.OriginalString, "text/turtle", CancellationToken.None);
+        byte[] body = await response.Content.ReadAsByteArrayAsync();
+        ResponseFacts facts = ResponseFacts.Of(response);
+
+        return response.StatusCode == System.Net.HttpStatusCode.OK
+            ? new Source(System.Text.Encoding.UTF8.GetString(body), null, facts)
+            : new Source("", Problem.Parse(body, response.StatusCode) ?? Problem.Parse("{}"u8.ToArray(), response.StatusCode)!, facts);
+    }
+
+    private sealed record Source(string Text, Problem? Problem, ResponseFacts Facts);
+}

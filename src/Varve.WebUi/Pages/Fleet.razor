@@ -27,7 +27,7 @@ else if (_system?.Value is SystemPlane system)
         <Notice Title="This instance follows the system dataset">Management writes made here are forwarded to <code>@(system.Writer?.AbsoluteUri ?? "the system writer")</code>, the system writer@(system.Epoch is WriterEpoch epoch ? ", at epoch " + epoch : "").</Notice>
     }
 
-    <Panel Title="This instance in the system dataset" TitleId="this-instance-title">
+    <Panel Title="This instance in the system dataset">
         <KeyValue>
             <KeyValueItem Label="Role"><StateWord Word="@system.Role?.Value" /></KeyValueItem>
             <KeyValueItem Label="Writer epoch"><code>@(system.Epoch?.ToString() ?? "—")</code></KeyValueItem>

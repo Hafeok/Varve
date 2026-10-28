@@ -23,7 +23,7 @@
 }
 else if (_commit?.Value is FeedRecord commit)
 {
-    <Panel Title="@("Commit " + Position.ToString(System.Globalization.CultureInfo.InvariantCulture))" TitleId="commit-title">
+    <Panel Title="@("Commit " + Position.ToString(System.Globalization.CultureInfo.InvariantCulture))">
         <KeyValue>
             <KeyValueItem Label="Agent"><code>@(commit.Agent is { } agent ? Text(agent) : "none")</code></KeyValueItem>
             <KeyValueItem Label="Committed"><code>@Times.Utc(commit.Timestamp.Value)</code> <span class="vw-muted">@Times.Ago(commit.Timestamp.Value, Clock.GetUtcNow())</span></KeyValueItem>
