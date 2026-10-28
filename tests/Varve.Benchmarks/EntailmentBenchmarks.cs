@@ -72,7 +72,7 @@ public class EntailmentBenchmarks : IDisposable
     [GlobalSetup]
     public void Setup()
     {
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
         RdfTerm subClassOf = RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#subClassOf"u8);
         RdfTerm subPropertyOf = RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#subPropertyOf"u8);
         RdfTerm domain = RdfTerm.Iri("http://www.w3.org/2000/01/rdf-schema#domain"u8);
@@ -184,7 +184,7 @@ public class EntailmentBenchmarks : IDisposable
         }
     }
 
-    private static void Add(CommitRequest request, RdfTerm s, RdfTerm p, RdfTerm o, RdfTerm? graph)
+    private static void Add(CommitRequestBuilder request, RdfTerm s, RdfTerm p, RdfTerm o, RdfTerm? graph)
     {
         if (graph is null)
         {

@@ -61,7 +61,7 @@ public class FullReadBenchmarks : IDisposable
     [GlobalSetup]
     public void Setup()
     {
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
         Add(request, Iri("Student"), SubClassOf, Iri("Person"), Tbox);
         if (Redefinition != "none")
         {
@@ -91,7 +91,7 @@ public class FullReadBenchmarks : IDisposable
     [Benchmark]
     public bool CommitThenAsk()
     {
-        CommitRequest request = new();
+        CommitRequestBuilder request = new();
         Add(request, Iri("q" + _commits++), Type, Iri("Student"), Data);
         _ = _store!.CommitAsync(request).AsTask().GetAwaiter().GetResult();
         using DatasetView view = _store.Pin();
@@ -115,7 +115,7 @@ public class FullReadBenchmarks : IDisposable
         return names.Count == 0 ? "none" : string.Join(", ", names);
     }
 
-    private static void Add(CommitRequest request, RdfTerm s, RdfTerm p, RdfTerm o, RdfTerm graph) =>
+    private static void Add(CommitRequestBuilder request, RdfTerm s, RdfTerm p, RdfTerm o, RdfTerm graph) =>
         request.Assert(RequestTerm.FromTerm(s), RequestTerm.FromTerm(p), RequestTerm.FromTerm(o), RequestTerm.FromTerm(graph));
 
     private static RdfTerm Iri(string local) => RdfTerm.Iri(Encoding.UTF8.GetBytes(Ex + local));
