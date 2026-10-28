@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using CsCheck;
 using Varve.Rdf;
 using Varve.Sparql.Entailment.Closure;
@@ -44,10 +45,11 @@ public class ProbeBuiltSchemaTests
 
     // A schema triple, under a schema predicate or one of the user's properties
     // (which a chain may make a sub-property of one), about the user's terms
-    // and rdf:_n, the vocabulary as object.
+    // and rdf:_n, the vocabulary as object. Now and then about rdfs:member,
+    // which is the vocabulary's own and so read whole.
     private static readonly Gen<(RdfTerm, RdfTerm, RdfTerm)> SchemaTriple =
         Gen.Select(
-            Of(Classes, Properties, Membership),
+            Gen.Frequency((12, Of(Classes, Properties, Membership[..2])), (1, Gen.Const(Membership[2]))),
             Gen.Frequency((3, Of(SchemaPredicates)), (1, Of(Properties))),
             Gen.Frequency((3, Of(Classes, Properties)), (3, Of(MetaClasses)), (1, Of(Membership, SchemaPredicates, [Type]))));
 
@@ -64,7 +66,7 @@ public class ProbeBuiltSchemaTests
         Gen.Select(Of(SchemaPredicates, [Type], Membership), Of(SchemaPredicates), Of(Classes, Properties, MetaClasses, SchemaPredicates));
 
     private static readonly Gen<(RdfTerm, RdfTerm, RdfTerm)[]> Graph =
-        Gen.Frequency((4, SchemaTriple), (5, DataTriple), (1, VocabularyTriple)).Array[0, 8];
+        Gen.Frequency((16, SchemaTriple), (20, DataTriple), (1, VocabularyTriple)).Array[0, 8];
 
     /// <remarks>
     /// Most cases are answered by the probes; the rest redefine the vocabulary
@@ -79,8 +81,12 @@ public class ProbeBuiltSchemaTests
         Gen.Select(Graph, Graph, Gen.Bool).Sample(
             (tbox, data, inNamedGraph) =>
             {
-                cases++;
-                whole += Same(tbox, data, inNamedGraph) ? 1 : 0;
+                bool readWhole = Same(tbox, data, inNamedGraph);
+                Interlocked.Increment(ref cases);
+                if (readWhole)
+                {
+                    Interlocked.Increment(ref whole);
+                }
             },
             iter: RewritingEqualsMaterialisationTests.Iterations);
         Assert.True(whole * 2 < cases, whole + " of " + cases + " cases were read whole");

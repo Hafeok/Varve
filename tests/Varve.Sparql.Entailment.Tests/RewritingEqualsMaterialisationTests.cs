@@ -167,8 +167,11 @@ public class RewritingEqualsMaterialisationTests
                     EntailedQuery off = EntailmentRewriter.Rewrite(Parse(text), dataset, covers, regime, Pruning.Off, cancellationToken: ct);
                     List<string> expected = Run(off);
                     List<string> actual = Run(on);
-                    cases++;
-                    pruned += on.Query.Equals(off.Query) ? 0 : 1;
+                    Interlocked.Increment(ref cases);
+                    if (!on.Query.Equals(off.Query))
+                    {
+                        Interlocked.Increment(ref pruned);
+                    }
                     Assert.True(
                         expected.SequenceEqual(actual),
                         "Under " + regime + ", " + text + "\nTBox: " + Show(tbox) + "\ndata: " + Show(data)
