@@ -705,3 +705,20 @@ the pricing pages.
   release fails it on both.
 - The operator guide's fleet page has the layout and what it guarantees.
   Active-active across copies is part 2's.
+
+### The close-out
+
+- **`releases/v0.1.0-preview.16.yaml`**, the next free version: basis #165,
+  storage and delta format 1, and ADRs 0179–0181 with 0206, which `main`
+  holds unreleased. `accepted-by` is the maintainer's, which this session
+  writes for a descriptor (`docs/releases.md` point 6; decision sets never).
+  `CHANGELOG.md` is its projection.
+- README's Status, AGENTS.md's State, the roadmap's Replication section (part
+  1 shipped, part 2's scope) and storage format §8.2 (the writer record, which
+  the spec left to ADR 0136) are current. `eng/status.cs` passes.
+- **Still to do before this lands:**
+  - merging `main` once #185 lands, with the in-place claim's listing for a
+    consolidated tail;
+  - `commit-outcome-unknown` once ADR 0214 is on `main`;
+  - the maintainer's acceptance of the amendment of 2026-10-28;
+  - the kubeconform mirror.

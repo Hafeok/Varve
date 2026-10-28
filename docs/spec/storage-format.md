@@ -650,3 +650,37 @@ a command-line read — named by its reader id: 1 to 128 ASCII letters, digits,
   4 (ADR 0178); a record of another `format` counts as `4`. Adding the field
   leaves the record format 1.
 
+
+### 8.2 Writer record — `writer`, format 1
+
+One per dataset, beside `log/`: who holds the writer epoch, whether it was
+released and why, and every claim's history (ADRs 0136, 0179). UTF-8 JSON, one
+object, written by create-if-absent once and then only by
+replace-if-unchanged against the version read:
+
+| Member | Type | Meaning |
+|---|---|---|
+| `format` | number | `1`. Another value is refused, never guessed at |
+| `epoch` | number | the current writer epoch, from 1 |
+| `holder` | string | the instance that claimed it |
+| `released` | string, optional | present when the holder released the epoch: `shutdown`, `operator-takeover`, `placement`, `storage-error` or `local-disk-error` |
+| `history` | array | every claim, in epoch order |
+
+Each claim in `history`:
+
+| Member | Type | Meaning |
+|---|---|---|
+| `epoch` | number | the epoch claimed |
+| `holder` | string | the instance that claimed it |
+| `trigger` | string | why: `restart` (an open for write), `operator` (`varve lease --take`), `abdication` (a claim of a released epoch), or `probe` (a takeover request, ADR 0179 point 6) |
+| `at` | string | when, an `xsd:dateTime` in UTC, for the operator; nothing decides by it |
+| `fence` | string, optional | the log slot the claim fenced, `NNNNNNNN.chunks/CCCCCCCC` |
+| `address` | string, optional | where the holder answered, its `Varve:Fleet:InternalUrl`; a forwarder routes writes to it, and the automation asks it before a takeover (ADR 0181) |
+| `released` | string, optional | how the epoch ended, as `released` above |
+
+A reader ignores members it does not know, so a later version may add one and
+stay format 1. An unknown `trigger` or `released` value is refused with the
+record, never read as another. The epoch history is how an operator reads a
+handover: a run of `restart` claims alternating between two holders means two
+writers are configured for one dataset, where `abdication` after a release,
+or `probe`, is a handover (ADR 0179 point 11).
