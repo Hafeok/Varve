@@ -90,6 +90,15 @@ images:
     jobs: [storage (services), fleet (services), handover (services)]
     why: the S3-compatible server of the object-storage legs, which the contract suite chose (ADR 0134, decision 6)
 
+  - name: kubeconform
+    upstream: ghcr.io/yannh/kubeconform:v0.7.0
+    digest: sha256:85dbef6b4b312b99133decc9c6fc9495e9fc5f92293d4ff3b7e1b30f5611823c
+    licence: Apache-2.0 (https://github.com/yannh/kubeconform/blob/master/LICENSE)
+    jobs: [kubernetes sample]
+    why: >-
+      validates deploy/kubernetes/'s manifests, strict, against a pinned
+      Kubernetes schema version (ADR 0181 point 8)
+
   - name: eventhubs-emulator
     upstream: mcr.microsoft.com/azure-messaging/eventhubs-emulator:2.2.1
     digest: sha256:be413f0d59541621879e6d197d73f64f3b3ac5fa45861641fdc1430252b8b44b

@@ -506,3 +506,26 @@ the same commit.
   dataset to its warm standby. It leaves a dataset with no handover, and the
   system dataset without `Varve:Fleet:AutomaticHandover`, to a's restart. Run
   again, it does nothing and exits 0. It passes on Azurite and RustFS.
+
+### The Kubernetes sample (ADR 0181 point 8)
+
+- **`deploy/kubernetes/`** holds the fleet with handover (`fleet.yaml`) and
+  the controller (`handover.yaml`).
+- **The `kubernetes sample` CI job** runs kubeconform, strict, against
+  Kubernetes 1.34.0, with the schemas pinned to a commit
+  (89a35a5e9a1412a692a2603d79c3786f602238a4) rather than their `master`.
+  - Locally, all 12 resources are valid.
+  - A misspelt `servicename` in the StatefulSet makes it invalid (1 of 5).
+  - Its image is a new row of `.github/ci-images.yaml`, so the job is red
+    until the maintainer runs the mirror and makes the package private.
+- **The official `kubectl` image has no shell**, so the controller can't
+  run on it. The sample pins `alpine/k8s` by digest, and says any image
+  with `kubectl`, `jq` and `bash` serves.
+- **Checked at development, not in CI** (both run in that image):
+  - The controller's `jq` makes a Job from the CronJob that kubeconform
+    finds valid. Its arguments name the failed pod, then the other two pods'
+    addresses, then the template's own.
+  - Against a stub `kubectl` replaying pod events, the watch started one Job
+    for each `Ready` that turned from `True` to anything else, a deletion
+    included. It started none for a pod that was never ready, nor for a
+    repeated `False`.
