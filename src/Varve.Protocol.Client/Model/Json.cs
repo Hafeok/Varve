@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System;
+using System.Collections.Generic;
 using System.Text.Json;
 
 namespace Varve.Protocol.Client.Model;
@@ -22,4 +24,21 @@ internal static class Json
         value.TryGetProperty(name, out JsonElement member) && member.ValueKind == JsonValueKind.Number && member.TryGetInt64(out long number) && number >= 0
             ? number
             : null;
+
+    // Every member but the named ones, cloned: what a newer server adds is
+    // kept, not dropped (ADR 0203).
+    internal static IReadOnlyDictionary<string, JsonElement> Rest(JsonElement value, params ReadOnlySpan<string> known)
+    {
+        Dictionary<string, JsonElement> rest = new(StringComparer.Ordinal);
+
+        foreach (JsonProperty member in value.EnumerateObject())
+        {
+            if (!known.Contains(member.Name))
+            {
+                rest[member.Name] = member.Value.Clone();
+            }
+        }
+
+        return rest;
+    }
 }

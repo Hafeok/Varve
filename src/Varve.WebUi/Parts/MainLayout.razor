@@ -21,6 +21,7 @@
 @code {
     private static readonly (string Group, string Text, string Href)[] Screens =
     [
+        ("Operate", "Datasets", "datasets"),
         ("Operate", "Health", "health"),
     ];
 
@@ -66,11 +67,16 @@
 
         foreach (IGrouping<string, (string Group, string Text, string Href)> group in Screens.GroupBy(screen => screen.Group))
         {
-            groups.Add(new NavGroup(group.Key, [.. group.Select(screen => new NavEntry(screen.Text, screen.Href, current == screen.Href || (current.Length == 0 && screen.Href == "health")))]));
+            groups.Add(new NavGroup(group.Key, [.. group.Select(screen => new NavEntry(screen.Text, screen.Href, Current(current, screen.Href)))]));
         }
 
         return groups;
     }
+
+    // A screen is current on its own address and below it (a dataset under
+    // Datasets), and the root is Datasets.
+    private static bool Current(string route, string href) =>
+        route == href || route.StartsWith(href + "/", StringComparison.Ordinal) || (route.Length == 0 && href == "datasets");
 
     private void Changed(object? sender, LocationChangedEventArgs e) => StateHasChanged();
 

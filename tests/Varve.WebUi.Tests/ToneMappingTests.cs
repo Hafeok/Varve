@@ -71,6 +71,7 @@ public class ToneMappingTests
     [InlineData("follower", Tone.Neutral)]
     [InlineData("elsewhere", Tone.Neutral)]
     [InlineData("anonymous", Tone.Neutral)]
+    [InlineData("current", Tone.Ok)]
     public void a_state_word_has_the_tone_the_brand_book_gives_it(string word, Tone tone) =>
         Assert.Equal(tone, Tones.OfState(word));
 

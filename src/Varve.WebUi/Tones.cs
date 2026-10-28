@@ -20,7 +20,8 @@ public static class Tones
 {
     // The state words the API writes: dataset state and role (ADRs 0113,
     // 0118, 0163), readiness, the system role and the bootstrap state, the
-    // event declarations' move (ADR 0167), and the Web UI's own "anonymous".
+    // event declarations' move (ADR 0167), and the Web UI's own "anonymous"
+    // and "current" (a projection with no lag).
     private static readonly FrozenDictionary<string, Tone> States = new Dictionary<string, Tone>(StringComparer.Ordinal)
     {
         ["open"] = Tone.Ok,
@@ -28,6 +29,7 @@ public static class Tones
         ["writer"] = Tone.Ok,
         ["applied"] = Tone.Ok,
         ["recorded"] = Tone.Ok,
+        ["current"] = Tone.Ok,
         ["rebuilding"] = Tone.Warn,
         ["behind"] = Tone.Warn,
         ["moving"] = Tone.Warn,

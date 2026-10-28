@@ -132,6 +132,20 @@ to align with or depart from.
    only; a data-plane `SparqlHttpClient` keeps its own. One provider is one
    audience, so no caller of this client ever needs a token that names both
    planes.
+   - **Its reads:**
+     - `DatasetsAsync`, `LifecycleAsync`, `StatusAsync` and `SystemAsync`
+       (JSON);
+     - `DeclarationAsync`, `FleetAsync` and `GraphsAsync`, TriG as served,
+       with its version;
+     - `PlacementsAsync`: each dataset's `varve:placedOn`, by one query on
+       `/manage/sparql`, so placement is read without parsing TriG in the
+       client's caller.
+   - **Unknown members are kept,** in each value's `Members`, as readiness
+     keeps them.
+   - **`SparqlHttpClient` reads commits whole:** `ReadCommitsAsync(from, to)`
+     and `ReadCommitAsync(p)` return the line format's records through
+     `Varve.Delta`'s reader, with the next page's start when the server pages
+     the range.
 
 9. **Nothing is removed.** The existing dataset-scoped management methods of
    `SparqlHttpClient` stay as they are. The baseline diff adds lines and

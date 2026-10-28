@@ -45,4 +45,19 @@ if (!anonymous)
         application));
 }
 
+// The data plane, one client per dataset, with its token when signed in.
+builder.Services.AddSingleton(services => new DatasetClients(
+    services.GetRequiredService<HttpClient>(),
+    server,
+    services.GetService<SignInSession>()?.Data,
+    services.GetRequiredService<TimeProvider>()));
+
+// The management plane's reads, with its own token when signed in (ADR 0203).
+builder.Services.AddSingleton(services => new VarveManagementClient(
+    services.GetRequiredService<HttpClient>(),
+    server,
+    ClientLimits.Default,
+    services.GetService<SignInSession>()?.Management,
+    services.GetRequiredService<TimeProvider>()));
+
 await builder.Build().RunAsync().ConfigureAwait(false);

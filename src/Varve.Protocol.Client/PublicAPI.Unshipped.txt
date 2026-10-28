@@ -384,3 +384,118 @@ static Varve.Protocol.Client.Model.WriterEpoch.operator >=(Varve.Protocol.Client
 ~override Varve.Protocol.Client.Model.WriterEpoch.Equals(object obj) -> bool
 Varve.Protocol.Client.BearerTokens
 static Varve.Protocol.Client.BearerTokens.Fixed(string! value) -> Varve.Protocol.Client.BearerTokenProvider!
+Varve.Protocol.Client.Model.DatasetEntry
+Varve.Protocol.Client.Model.DatasetEntry.Head.get -> Varve.Delta.Model.FeedPosition?
+Varve.Protocol.Client.Model.DatasetEntry.Members.get -> System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>!
+Varve.Protocol.Client.Model.DatasetEntry.Name.get -> Varve.Protocol.Client.Model.DatasetName
+Varve.Protocol.Client.Model.DatasetEntry.Origin.get -> Varve.Protocol.Client.Model.DatasetOrigin?
+Varve.Protocol.Client.Model.DatasetEntry.Role.get -> Varve.Protocol.Client.Model.InstanceRole?
+Varve.Protocol.Client.Model.DatasetEntry.State.get -> Varve.Protocol.Client.Model.DatasetState?
+Varve.Protocol.Client.Model.DatasetEntry.Storage.get -> Varve.Protocol.Client.Model.StorageKind?
+Varve.Protocol.Client.Model.DatasetLifecycle
+Varve.Protocol.Client.Model.DatasetLifecycle.Members.get -> System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>!
+Varve.Protocol.Client.Model.DatasetLifecycle.Reason.get -> string?
+Varve.Protocol.Client.Model.DatasetLifecycle.Role.get -> Varve.Protocol.Client.Model.InstanceRole?
+Varve.Protocol.Client.Model.DatasetLifecycle.State.get -> Varve.Protocol.Client.Model.DatasetState?
+Varve.Protocol.Client.Model.DatasetList
+Varve.Protocol.Client.Model.DatasetList.Datasets.get -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.Client.Model.DatasetEntry!>!
+Varve.Protocol.Client.Model.DatasetOrigin
+Varve.Protocol.Client.Model.DatasetOrigin.DatasetOrigin() -> void
+Varve.Protocol.Client.Model.DatasetOrigin.DatasetOrigin(string! value) -> void
+Varve.Protocol.Client.Model.DatasetOrigin.Equals(Varve.Protocol.Client.Model.DatasetOrigin other) -> bool
+Varve.Protocol.Client.Model.DatasetOrigin.Value.get -> string!
+Varve.Protocol.Client.Model.DatasetState
+Varve.Protocol.Client.Model.DatasetState.DatasetState() -> void
+Varve.Protocol.Client.Model.DatasetState.DatasetState(string! value) -> void
+Varve.Protocol.Client.Model.DatasetState.Equals(Varve.Protocol.Client.Model.DatasetState other) -> bool
+Varve.Protocol.Client.Model.DatasetState.Value.get -> string!
+Varve.Protocol.Client.Model.DatasetStatus
+Varve.Protocol.Client.Model.DatasetStatus.Checkpoints.get -> System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedPosition>!
+Varve.Protocol.Client.Model.DatasetStatus.Durability.get -> Varve.Protocol.Client.Model.Durability?
+Varve.Protocol.Client.Model.DatasetStatus.Failed.get -> bool
+Varve.Protocol.Client.Model.DatasetStatus.Head.get -> Varve.Delta.Model.FeedPosition?
+Varve.Protocol.Client.Model.DatasetStatus.Members.get -> System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>!
+Varve.Protocol.Client.Model.DatasetStatus.Projection.get -> Varve.Protocol.Client.Model.ProjectionStatus?
+Varve.Protocol.Client.Model.DatasetStatus.Settings.get -> System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>!
+Varve.Protocol.Client.Model.DatasetStatus.State.get -> Varve.Protocol.Client.Model.DatasetState?
+Varve.Protocol.Client.Model.Declaration
+Varve.Protocol.Client.Model.Declaration.Content.get -> System.ReadOnlyMemory<byte>
+Varve.Protocol.Client.Model.Declaration.Version.get -> Varve.Delta.Model.FeedPosition?
+Varve.Protocol.Client.Model.Durability
+Varve.Protocol.Client.Model.Durability.Durability() -> void
+Varve.Protocol.Client.Model.Durability.Durability(string! value) -> void
+Varve.Protocol.Client.Model.Durability.Equals(Varve.Protocol.Client.Model.Durability other) -> bool
+Varve.Protocol.Client.Model.Durability.Value.get -> string!
+Varve.Protocol.Client.Model.ProjectionStatus
+Varve.Protocol.Client.Model.ProjectionStatus.Failed.get -> bool
+Varve.Protocol.Client.Model.ProjectionStatus.Lag.get -> Varve.Protocol.Client.Model.PositionLag?
+Varve.Protocol.Client.Model.ProjectionStatus.Position.get -> Varve.Delta.Model.FeedPosition?
+Varve.Protocol.Client.Model.StorageKind
+Varve.Protocol.Client.Model.StorageKind.Equals(Varve.Protocol.Client.Model.StorageKind other) -> bool
+Varve.Protocol.Client.Model.StorageKind.StorageKind() -> void
+Varve.Protocol.Client.Model.StorageKind.StorageKind(string! value) -> void
+Varve.Protocol.Client.Model.StorageKind.Value.get -> string!
+Varve.Protocol.Client.Model.SystemPlane
+Varve.Protocol.Client.Model.SystemPlane.Bootstrap.get -> Varve.Protocol.Client.Model.BootstrapState?
+Varve.Protocol.Client.Model.SystemPlane.Epoch.get -> Varve.Protocol.Client.Model.WriterEpoch?
+Varve.Protocol.Client.Model.SystemPlane.Lag.get -> Varve.Protocol.Client.Model.PositionLag?
+Varve.Protocol.Client.Model.SystemPlane.Members.get -> System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>!
+Varve.Protocol.Client.Model.SystemPlane.Position.get -> Varve.Delta.Model.FeedPosition?
+Varve.Protocol.Client.Model.SystemPlane.Role.get -> Varve.Protocol.Client.Model.InstanceRole?
+Varve.Protocol.Client.Model.SystemPlane.Tail.get -> Varve.Delta.Model.FeedPosition?
+Varve.Protocol.Client.Model.SystemPlane.Writer.get -> System.Uri?
+Varve.Protocol.Client.VarveManagementClient
+Varve.Protocol.Client.VarveManagementClient.DatasetsAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.DatasetList!>!>!
+Varve.Protocol.Client.VarveManagementClient.DeclarationAsync(Varve.Protocol.Client.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.Declaration!>!>!
+Varve.Protocol.Client.VarveManagementClient.FleetAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.Declaration!>!>!
+Varve.Protocol.Client.VarveManagementClient.GraphsAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.Declaration!>!>!
+Varve.Protocol.Client.VarveManagementClient.LifecycleAsync(Varve.Protocol.Client.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.DatasetLifecycle!>!>!
+Varve.Protocol.Client.VarveManagementClient.StatusAsync(Varve.Protocol.Client.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.DatasetStatus!>!>!
+Varve.Protocol.Client.VarveManagementClient.SystemAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.SystemPlane!>!>!
+Varve.Protocol.Client.VarveManagementClient.VarveManagementClient(System.Net.Http.HttpClient! http, System.Uri! server, Varve.Protocol.Client.ClientLimits limits, Varve.Protocol.Client.BearerTokenProvider? tokens, System.TimeProvider? clock) -> void
+override Varve.Protocol.Client.Model.DatasetOrigin.GetHashCode() -> int
+override Varve.Protocol.Client.Model.DatasetOrigin.ToString() -> string!
+override Varve.Protocol.Client.Model.DatasetState.GetHashCode() -> int
+override Varve.Protocol.Client.Model.DatasetState.ToString() -> string!
+override Varve.Protocol.Client.Model.Durability.GetHashCode() -> int
+override Varve.Protocol.Client.Model.Durability.ToString() -> string!
+override Varve.Protocol.Client.Model.StorageKind.GetHashCode() -> int
+override Varve.Protocol.Client.Model.StorageKind.ToString() -> string!
+static Varve.Protocol.Client.Model.DatasetOrigin.Declared.get -> Varve.Protocol.Client.Model.DatasetOrigin
+static Varve.Protocol.Client.Model.DatasetOrigin.operator !=(Varve.Protocol.Client.Model.DatasetOrigin left, Varve.Protocol.Client.Model.DatasetOrigin right) -> bool
+static Varve.Protocol.Client.Model.DatasetOrigin.operator ==(Varve.Protocol.Client.Model.DatasetOrigin left, Varve.Protocol.Client.Model.DatasetOrigin right) -> bool
+static Varve.Protocol.Client.Model.DatasetState.Closed.get -> Varve.Protocol.Client.Model.DatasetState
+static Varve.Protocol.Client.Model.DatasetState.Failed.get -> Varve.Protocol.Client.Model.DatasetState
+static Varve.Protocol.Client.Model.DatasetState.Open.get -> Varve.Protocol.Client.Model.DatasetState
+static Varve.Protocol.Client.Model.DatasetState.operator !=(Varve.Protocol.Client.Model.DatasetState left, Varve.Protocol.Client.Model.DatasetState right) -> bool
+static Varve.Protocol.Client.Model.DatasetState.operator ==(Varve.Protocol.Client.Model.DatasetState left, Varve.Protocol.Client.Model.DatasetState right) -> bool
+static Varve.Protocol.Client.Model.Durability.Synchronised.get -> Varve.Protocol.Client.Model.Durability
+static Varve.Protocol.Client.Model.Durability.operator !=(Varve.Protocol.Client.Model.Durability left, Varve.Protocol.Client.Model.Durability right) -> bool
+static Varve.Protocol.Client.Model.Durability.operator ==(Varve.Protocol.Client.Model.Durability left, Varve.Protocol.Client.Model.Durability right) -> bool
+static Varve.Protocol.Client.Model.StorageKind.File.get -> Varve.Protocol.Client.Model.StorageKind
+static Varve.Protocol.Client.Model.StorageKind.Memory.get -> Varve.Protocol.Client.Model.StorageKind
+static Varve.Protocol.Client.Model.StorageKind.ObjectStorage.get -> Varve.Protocol.Client.Model.StorageKind
+static Varve.Protocol.Client.Model.StorageKind.operator !=(Varve.Protocol.Client.Model.StorageKind left, Varve.Protocol.Client.Model.StorageKind right) -> bool
+static Varve.Protocol.Client.Model.StorageKind.operator ==(Varve.Protocol.Client.Model.StorageKind left, Varve.Protocol.Client.Model.StorageKind right) -> bool
+~override Varve.Protocol.Client.Model.DatasetOrigin.Equals(object obj) -> bool
+~override Varve.Protocol.Client.Model.DatasetState.Equals(object obj) -> bool
+~override Varve.Protocol.Client.Model.Durability.Equals(object obj) -> bool
+~override Varve.Protocol.Client.Model.StorageKind.Equals(object obj) -> bool
+Varve.Protocol.Client.Model.InstanceName
+Varve.Protocol.Client.Model.InstanceName.Equals(Varve.Protocol.Client.Model.InstanceName other) -> bool
+Varve.Protocol.Client.Model.InstanceName.InstanceName() -> void
+Varve.Protocol.Client.Model.InstanceName.InstanceName(string! value) -> void
+Varve.Protocol.Client.Model.InstanceName.Value.get -> string!
+Varve.Protocol.Client.Model.PlacementList
+Varve.Protocol.Client.Model.PlacementList.Placements.get -> System.Collections.Generic.IReadOnlyDictionary<Varve.Protocol.Client.Model.DatasetName, Varve.Protocol.Client.Model.InstanceName>!
+Varve.Protocol.Client.VarveManagementClient.PlacementsAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.PlacementList!>!>!
+override Varve.Protocol.Client.Model.InstanceName.GetHashCode() -> int
+override Varve.Protocol.Client.Model.InstanceName.ToString() -> string!
+static Varve.Protocol.Client.Model.InstanceName.operator !=(Varve.Protocol.Client.Model.InstanceName left, Varve.Protocol.Client.Model.InstanceName right) -> bool
+static Varve.Protocol.Client.Model.InstanceName.operator ==(Varve.Protocol.Client.Model.InstanceName left, Varve.Protocol.Client.Model.InstanceName right) -> bool
+~override Varve.Protocol.Client.Model.InstanceName.Equals(object obj) -> bool
+Varve.Protocol.Client.Model.CommitRange
+Varve.Protocol.Client.Model.CommitRange.Commits.get -> System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedRecord!>!
+Varve.Protocol.Client.Model.CommitRange.Next.get -> Varve.Delta.Model.FeedPosition?
+Varve.Protocol.Client.SparqlHttpClient.ReadCommitAsync(Varve.Delta.Model.FeedPosition position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Delta.Model.FeedRecord!>!>!
+Varve.Protocol.Client.SparqlHttpClient.ReadCommitsAsync(Varve.Delta.Model.FeedPosition from, Varve.Delta.Model.FeedPosition to, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.CommitRange!>!>!
