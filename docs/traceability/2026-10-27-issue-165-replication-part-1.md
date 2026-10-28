@@ -656,3 +656,31 @@ filed, as in that precedent.
     its reason and that nothing was written.
 - Suites: store 407, protocol 119, server 174. The one server failure in one
   run was #183's `ShapesBindingTests` flake, which then passed three times.
+
+### The Azure handover layout's template (ADR 0181 points 5–7)
+
+`deploy/azure/container-apps-handover/` was written in a worktree of its
+own, alongside the citations, then read and built here. It holds the N
+single-replica apps, Front Door Standard, a takeover job per app, the two
+alerts into one Secure-webhook action group, the Consumption Logic App and
+a custom role for it. `az bicep build` and `az bicep lint` (0.48.1) pass,
+with no warnings. Three choices differ from the first sketch:
+- **`aud` is the webhook app registration's client id**, not its identifier
+  URI: a v2.0 access token's `aud` is always the API's client id, per
+  Microsoft's access-token claims reference.
+- **Each app's `Varve:Fleet:InternalUrl` is its FQDN**,
+  `https://{app}.{defaultDomain}`, without `.internal.`: that name is for
+  apps with internal ingress, and an external app's FQDN stays inside the
+  environment for the other apps.
+- **`Varve:Auth:SubjectClaim` is `oid`**, so the jobs' identity is named by
+  the agent IRI the template adds to the bootstrap operators,
+  `https://login.microsoftonline.com/{tenant}/v2.0#{principalId}`.
+
+Left for #164's leg, and said so in the README:
+- what text separates a readiness failure from a liveness one in
+  `ContainerAppSystemLogs_CL`;
+- whether `Replicas` reports 0, or nothing, for a replica that is gone;
+- the alerts' payloads, live.
+
+The prices were confirmed against the Azure retail prices API, which backs
+the pricing pages.
