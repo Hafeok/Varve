@@ -117,10 +117,11 @@ internal static class Manage
         Option<string?> clientAssertion = new("--client-assertion") { Description = "Workload identity federation: a file holding the platform's token, or 'github' for GitHub Actions' OIDC token." };
         Option<string?> assertionAudience = new("--assertion-audience") { Description = "The audience GitHub Actions' token is asked for; api://AzureADTokenExchange by default." };
         Option<string?> scope = new("--scope") { Description = "The scope to ask the issuer for: the management audience's." };
+        Option<bool> managedIdentity = new("--managed-identity") { Description = "Take the token from the platform's managed identity (Container Apps' IDENTITY_ENDPOINT), for the audience --scope names; AZURE_CLIENT_ID picks a user-assigned identity." };
         Command takeover = new("takeover", "Move the writer of the datasets a failed instance holds to a warm standby (ADRs 0179, 0181).");
         takeover.Arguments.Add(datasets);
 
-        foreach (Option option in (Option[])[from, servers, token, authority, clientId, clientSecret, clientAssertion, assertionAudience, scope])
+        foreach (Option option in (Option[])[from, servers, token, authority, clientId, clientSecret, clientAssertion, assertionAudience, scope, managedIdentity])
         {
             takeover.Options.Add(option);
         }
@@ -130,7 +131,9 @@ internal static class Manage
             string failed = parsed.GetValue(from)!;
             string[] addresses = [.. parsed.GetValue(servers)!.Select(address => address.TrimEnd('/'))];
             using HttpClient http = OutboundHttp.CreateClient();
-            string? bearer = await Apply.TokenAsync(parsed, http, token, authority, clientId, clientSecret, clientAssertion, assertionAudience, scope, cancellationToken).ConfigureAwait(false);
+            string? bearer = parsed.GetValue(managedIdentity)
+                ? await ManagedIdentityTokenAsync(http, parsed.GetValue(scope) ?? throw new Cli.CommandException("--managed-identity asks for the audience --scope names."), Environment.GetEnvironmentVariable, cancellationToken).ConfigureAwait(false)
+                : await Apply.TokenAsync(parsed, http, token, authority, clientId, clientSecret, clientAssertion, assertionAudience, scope, cancellationToken).ConfigureAwait(false);
             string[] named = parsed.GetValue(datasets) ?? [];
             int refused = 0;
 
@@ -253,6 +256,31 @@ internal static class Manage
     }
 
     private const string SystemDataset = "_fleet";
+
+    // A token for the management audience from the managed-identity endpoint
+    // Container Apps gives a job or an app (ADR 0181 point 3): no secret. The
+    // scope's /.default suffix, if any, is the v2 form of the same resource.
+    internal static async Task<string> ManagedIdentityTokenAsync(HttpClient http, string scope, Func<string, string?> environment, CancellationToken cancellationToken)
+    {
+        string endpoint = environment("IDENTITY_ENDPOINT") is { Length: > 0 } given ? given : throw new Cli.CommandException("--managed-identity needs the platform's IDENTITY_ENDPOINT and IDENTITY_HEADER: give the job or app an identity.");
+        string header = environment("IDENTITY_HEADER") ?? throw new Cli.CommandException("--managed-identity needs IDENTITY_HEADER beside IDENTITY_ENDPOINT.");
+        string resource = scope.EndsWith("/.default", StringComparison.Ordinal) ? scope[..^"/.default".Length] : scope;
+        string query = "resource=" + Uri.EscapeDataString(resource) + "&api-version=2019-08-01"
+            + (environment("AZURE_CLIENT_ID") is { Length: > 0 } client ? "&client_id=" + Uri.EscapeDataString(client) : string.Empty);
+        using HttpRequestMessage request = new(HttpMethod.Get, new UriBuilder(endpoint) { Query = query }.Uri);
+        request.Headers.Add("X-IDENTITY-HEADER", header);
+        using HttpResponseMessage response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            // Its answer names the cause, never a token.
+            throw new Cli.CommandException("the managed-identity endpoint refused a token for " + resource + " with " + (int)response.StatusCode + ": " + body);
+        }
+
+        using JsonDocument json = JsonDocument.Parse(body);
+        return json.RootElement.GetProperty("access_token").GetString() ?? throw new Cli.CommandException("the managed-identity endpoint answered without a token.");
+    }
 
     private static async Task<JsonDocument?> GetAsync(HttpClient http, string? bearer, string url, CancellationToken cancellationToken)
     {
