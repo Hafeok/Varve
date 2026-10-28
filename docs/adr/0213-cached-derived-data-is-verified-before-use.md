@@ -344,10 +344,8 @@ The measurements are added here by dated amendment.
   writes. Checkpoints run in the background, off the read path and off the
   commit path: no read waits for one, and a checkpoint is written off the
   sequencer and enters it only to publish (ADR 0070), so the checks add
-  nothing to a commit's wait. Windows has
-  only CI's store test durations, and only once the build is green; no CI
-  job runs the store on macOS. Each is recorded here by amendment when it
-  exists.
+  nothing to a commit's wait. Only Linux was measured: CI runs no REC M
+  benchmark on Windows or macOS.
 - While an older follower is announced, a set's shared blobs stay unchecked
   version 4, their flushes stay, and readiness says how many sets are not
   yet checked.
