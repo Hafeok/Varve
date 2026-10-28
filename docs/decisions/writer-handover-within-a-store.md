@@ -8,7 +8,7 @@ decisions:
   - key: TwoTriggersOnly
     statement: "A handover is triggered by the writer's abdication or by a takeover request after the orchestrator's probe failure, each naming the epoch it is about; load signals, a client's failure to reach the writer and elapsed time never trigger one"
   - key: AbdicateOnStorageOrLocalFaults
-    statement: "A writer abdicates by releasing its epoch for shutdown, placement, a failed batch against the store, or local storage the commit path needs failing past its bound; a failed derived-cache write degrades and never abdicates, and a fault deterministic over the log fails the commit with 500 and the writer stays"
+    statement: "A writer abdicates by releasing its epoch for shutdown, placement, a failed batch against the store, or local spills failing once, at a commit, the memtable passes four times MemtableLimit or the memory load reaches the GC's high-load threshold, whichever comes first; a failed derived-cache write degrades and never abdicates, and a fault deterministic over the log fails the commit or the dataset and the writer stays"
   - key: TakeoverAnsweredByTheStandby
     statement: "PUT /manage/datasets/{d}/state with a takeover naming epoch n, under an operator token, is answered by the instance that receives it, which claims n+1 only if the record still shows n, and is refused 409 takeover-refused with handover-off, not-in-writer-set, cold or epoch-moved otherwise"
   - key: OnlyWarmStandbysTakeOver

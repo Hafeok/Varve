@@ -218,17 +218,34 @@ public sealed partial class Dataset
         State partial = new(p, commits, state.Index, state.Checkpoints, null, state.Graphs);
         IndexVersion index = state.Index;
         GraphVersions graphs = state.Graphs;
+        string? failed = state.Failed;
         p = head;
 
         foreach (ScannedCommit commit in closed)
         {
             p++;
             LoggedCommit full = commit.Full ?? await ReadLoggedAsync(partial, p, cancellationToken).ConfigureAwait(false);
-            index = index.Apply(full.Asserted, full.Retracted, partial.TermsOf(full, p), p);
+
+            // A failure here is the projection's, not the log's, as on the
+            // writer (§7): the follower's head goes on, and its projection
+            // stays failed at the position until it is rebuilt.
+            if (failed is null)
+            {
+                try
+                {
+                    ThrowIfFaulted(p);
+                    index = index.Apply(full.Asserted, full.Retracted, partial.TermsOf(full, p), p);
+                }
+                catch (Exception error) when (error is not OperationCanceledException)
+                {
+                    failed = "The default projection failed at position " + p + " and must be rebuilt: " + error.Message;
+                }
+            }
+
             graphs = graphs.Apply(full.Header.Kind, full.Asserted, full.Retracted, p);
         }
 
-        _state = new State(p, commits, index, state.Checkpoints, null, graphs);
+        _state = new State(p, commits, index, state.Checkpoints, failed, graphs);
         _scanOwed = false;
         Signal();
         return scan;

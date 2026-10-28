@@ -161,12 +161,19 @@ event seen from two sides. The reasons:
   - **A failed spill degrades first.** The writer stays. Readiness reports
     the dataset's `spill` as `failing`, with the error's kind, and
     maintenance tries again after the next commit, as it does now.
-  - **It abdicates when the memtable can no longer be bounded.** That is the
-    commit that takes the memtable past four times `MemtableLimit` while
-    spills are failing. The bound is reached by commits, not by elapsed time,
-    so an idle writer never abdicates. Past it, the writer's memory is no
-    longer bounded, and a standby with its own disk can spill. This is
-    proposed; the maintainer confirms the factor on the pull request.
+  - **It abdicates when its memory can no longer be bounded.** While spills
+    are failing, that is the commit that first meets either of two measures:
+    - the memtable holds more than four times `MemtableLimit`;
+    - the process's memory load reaches the GC's high-load threshold
+      (`GC.GetGCMemoryInfo()`, which measures against a container's memory
+      limit where there is one).
+
+    Whichever comes first decides, so a small container releases cleanly
+    before the out-of-memory killer acts, and a large one is not held to a
+    fraction of its memory. Both are checked at commit, never on a timer,
+    so an idle writer never abdicates. Once reached it stays reached, and a
+    standby with its own disk can spill. Decided by the maintainer on #165,
+    2026-10-28.
 - **A failed write to the derived cache never abdicates** (#146's rule: the
   cache is a miss, never a stop). This covers extent pages, the commit
   index's cached blobs and every other local copy of something the store or
@@ -176,20 +183,25 @@ event seen from two sides. The reasons:
 - **`placement`**: ADR 0163 point 12 and ADR 0180's placement event, as
   today.
 
-**Never on a fault that is deterministic over the log.** A projection or
-validator fault on the commit path fails the commit with `500`, and the
-writer stays. Such a fault is a function of the log, so every standby would
+**Never on a fault that is deterministic over the log.** A validator fault
+refuses the commit, and a projection fault fails the dataset at the commit's
+position (spec §7: the commit stands, and the projection must be rebuilt).
+The writer stays. Such a fault is a function of the log, so every standby would
 meet it at the same position, and handing over would only move it: a
 handover storm with no timer to stop it.
 
 **The tests that tell them apart.** `HandoverAbdicationTests`:
-- **A projection fault**, injected as a function of the commit, fails the
-  commit with `500` on the writer and again on a standby given the same
-  commit. The epoch history is unchanged, so there was no handover.
+- **A projection fault**, injected as a function of the commit's position,
+  fails the writer's projection there and the standby's at the same
+  position as it applies it, so the standby is not warm. Nothing a host
+  releases the epoch for is set, and the epoch history is unchanged.
 - **A local disk fault**, failing every spill on the writer's disk alone,
-  keeps the writer and reports `spill: failing`. Once its memtable passes
-  the bound, it releases the epoch with `local-disk-error`. The standby then
-  claims, and commits the same request.
+  keeps the writer and reports `spill: failing`. Each measure is tested on
+  its own: the memtable passing four times its limit, and the memory load
+  at the threshold while the memtable is still far below that. The bound is
+  reached at the commit that crosses it and not one before. The writer then
+  releases the epoch with `local-disk-error`, and the standby claims and
+  commits the same request.
 - **A failing cache write never abdicates.** This is a property over
   generated schedules of commits and reads, with writes to the derived cache
   failing at any point, for any kind. The epoch history never changes, every
@@ -222,7 +234,8 @@ A refusal is `409 takeover-refused`, a new problem type, with a `reason`:
 
 They are checked in that list's order, except that `epoch-moved` comes
 before `cold`: the winner of a takeover is no longer a standby, and a
-repeated trigger sent to it must still read as the no-op it is.
+repeated trigger sent to it must still read as the no-op it is. Agreed by
+the maintainer on #165, 2026-10-28.
 
 Varve does not judge liveness. **Nothing else triggers a handover**:
 - `503 server-busy` and `429` are load signals, and never trigger one;

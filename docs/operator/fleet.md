@@ -140,8 +140,11 @@ state (`recorded`, `absent` or `mismatch`). Each dataset carries:
   part of it;
 - `spill`, `{"state": "failing", "kind": …}`, while the memtable's spills to
   the local disk fail. The writer goes on committing. With a standby, it
-  releases the epoch for `local-disk-error` once the memtable passes four
-  times `Varve:Store:MemtableLimit`;
+  releases the epoch for `local-disk-error` at the first commit where the
+  memtable passes four times `Varve:Store:MemtableLimit` or the process's
+  memory load reaches the GC's high-load threshold, which respects the
+  container's memory limit. A small container so hands over before the
+  out-of-memory killer acts;
 - `cache`, the local caches turned off because a write to them failed:
   `segment-copies`, `extent-pages`. What they would hold is read from the
   store, and nothing else changes: a failing cache never moves the writer.

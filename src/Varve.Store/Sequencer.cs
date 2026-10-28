@@ -303,6 +303,7 @@ public sealed partial class Dataset
 
             _state = new State(staging.Head, commits, staging.Index, state.Checkpoints, staging.Failed, staging.Graphs);
             Signal();
+            CheckSpillBound(staging.Index);
 
             if (staging.Failed is null && MaintenanceDue(_state))
             {

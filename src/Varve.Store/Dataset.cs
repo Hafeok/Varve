@@ -118,6 +118,16 @@ public sealed class DatasetOptions
 
     /// <summary>Test seam: throws from the default projection at the positions it returns true for.</summary>
     internal Func<long, bool>? DefaultProjectionFault { get; set; }
+
+    /// <summary>Test seam: true fails the next spill of the memtable to a local run, as a failing disk would.</summary>
+    internal Func<bool>? SpillFault { get; set; }
+
+    /// <summary>
+    /// Test seam: whether the process's memory load has reached the GC's
+    /// high-load threshold; unset, the GC's own measure, which respects a
+    /// container's memory limit (ADR 0179 point 6).
+    /// </summary>
+    internal Func<bool>? MemoryLoadHigh { get; set; }
 }
 
 /// <summary>

@@ -742,3 +742,9 @@ Varve.Store.Dataset.TakeWriteAsync(System.Func<System.Threading.CancellationToke
 Varve.Store.Dataset.AppendFailed.get -> bool
 Varve.Store.Dataset.SpillFailure.get -> System.Exception?
 Varve.Store.Dataset.MemtableEntries.get -> Varve.Rdf.QuadCount
+const Varve.Store.Dataset.SpillBoundFactor = 4 -> int
+Varve.Store.Dataset.SpillBound.get -> Varve.Store.SpillBound
+Varve.Store.SpillBound
+Varve.Store.SpillBound.MemoryLoad = 2 -> Varve.Store.SpillBound
+Varve.Store.SpillBound.Memtable = 1 -> Varve.Store.SpillBound
+Varve.Store.SpillBound.None = 0 -> Varve.Store.SpillBound

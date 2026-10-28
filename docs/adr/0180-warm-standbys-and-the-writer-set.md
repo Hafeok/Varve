@@ -130,9 +130,10 @@ for a follower; this point adds the standby.
   header above its head.
 - **A standby, and the system dataset,** advance on the interval. A standby
   also reads the writer record on the same interval, which is how it observes
-  a release (ADR 0179 point 7). The read is whole, a few hundred bytes: the
-  store contract has five operations and no conditional read (ADR 0134), and
-  adding one is not worth a sixth for a record this small.
+  a release (ADR 0179 point 7). The read is whole, a few hundred bytes, and
+  answers `200` each time, not `304`. `IObjectStore` keeps its five
+  operations (ADR 0134), none of them a conditional read, and a record this
+  small is not worth a sixth. Decided by the maintainer on #165, 2026-10-28.
 - **The cost**, stated in the operator guide: an idle standby dataset is three
   GETs per interval, the writer record and the two probes of ADR 0164 point
   3. An idle dataset with no standby still makes no requests.

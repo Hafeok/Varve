@@ -395,3 +395,45 @@ the same commit.
 - **Model types.** The analyzers refused the outcome type in `Varve.Protocol`
   (DD0010) and a naked `long` epoch (DD0013). The design change took a
   `TakeoverEpoch` wrapper and `TakeoverOutcome` in `Varve.Protocol.Model`.
+
+### The maintainer's messages since, and the fourth set of answers
+
+> what are we waiting for ?
+
+> carry on with the schedule tests while CI runs
+
+> is there anything left to do for  you ?
+
+> great give me a full report of what you have done and what you have left todo, details on the things i need to decide on
+
+> Good progress.
+> D1: I’ll accept 0179 and 0180 on the PR once you’ve applied D2 below. Then cite as you go; there should be no red phase.
+> D2:
+>
+> 1. `local-disk-error`: release at whichever comes first: 4× `MemtableLimit`, or the GC’s memory load (`GC.GetGCMemoryInfo()`, cgroup-aware) reaching its high-load threshold while spills are failing. Both are checked at commit, never on a timer. That way a small container releases cleanly before the out-of-memory killer acts. Test both arms in `HandoverAbdicationTests`.
+> 2. `epoch-moved` before `cold`: agreed.
+> 3. The writer record read whole: agreed. Keep `IObjectStore` at five operations, and correct ADR 0180 point 5’s text to say so.
+>
+> D3: answered by D1.
+> D4: the release descriptor’s `accepted-by: mailto:emil@okkels-klein.dk` is yours to write (`docs/releases.md` point 6). “Never write `accepted-by`” applies to decision sets only. My earlier instructions blurred the two.
+> D5: active-active stays in part 1, after ADR 0181: the plan’s four-process property and its docs. If it needs new server code beyond placement and forwarding, it becomes its own PR then.
+> Also:
+>
+> * The concurrent-claims assertion: in the PR, quote the old assertion and the new one, and say why the old was wrong and why the new one isn’t weaker. If it was hiding a real race, fix the race instead.
+> * Takeover times: write them to the `handover (services)` job summary per run, as the plan said, beside the two-app restart downtime once ADR 0181 measures it.
+> * `ShapesBindingTests`: run the stress comparison against `main` I asked for, and record the result on an issue either way.
+>
+> Your order is fine: items 1 and 2, then ADR 0181 and the automation, then active-active, then `writer-stepped-down` and the descriptor.
+
+- **D2.1.** The spill bound is now the store's, decided at the commit that
+  crosses it: `Dataset.SpillBound` names the measure that was reached,
+  `Memtable` or `MemoryLoad`, and stays reached. The server releases on it.
+  `HandoverAbdicationTests` tests each measure on its own, and the commit
+  that crosses it and not one before.
+- **A follower now meets a projection fault as the writer does.** Writing the
+  projection-fault case showed that a follower's apply ignored the fault: a
+  fault "deterministic over the log" was not, for a follower. Its apply now
+  fails its projection at the position, as the writer's does (spec §7), and
+  its log goes on. ADR 0179's text said such a fault "fails the commit with
+  `500`"; under §7 the commit stands and the dataset fails, and the text now
+  says so.

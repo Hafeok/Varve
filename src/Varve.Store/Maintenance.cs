@@ -130,6 +130,58 @@ public sealed partial class Dataset
 
     /// <summary>The entries in the memtable now, by the measure <see cref="DatasetOptions.MemtableLimit"/> bounds.</summary>
     public Varve.Rdf.QuadCount MemtableEntries => new(_state.Index.MemtableCount);
+
+    /// <summary>
+    /// How many times <see cref="DatasetOptions.MemtableLimit"/> a memtable
+    /// may hold while its spills fail before the writer can no longer bound
+    /// its memory (ADR 0179 point 6).
+    /// </summary>
+    public const int SpillBoundFactor = 4;
+
+    private int _spillBound;
+
+    /// <summary>
+    /// Whether the writer's memory can no longer be bounded, and by which
+    /// measure, decided at the commit that crossed it and never on a timer
+    /// (ADR 0179 point 6): its spills fail, and its memtable holds more than
+    /// <see cref="SpillBoundFactor"/> times <see cref="DatasetOptions.MemtableLimit"/>,
+    /// or the process's memory load has reached the GC's high-load threshold,
+    /// which respects a container's limit. Once reached it stays reached; a
+    /// host whose dataset has a standby releases the epoch for
+    /// <c>local-disk-error</c>, so a small container hands over before the
+    /// out-of-memory killer acts.
+    /// </summary>
+    public SpillBound SpillBound => (SpillBound)Volatile.Read(ref _spillBound);
+
+    // At each commit: the spill bound, while spills fail.
+    private void CheckSpillBound(IndexVersion index)
+    {
+        if (Volatile.Read(ref _spillFailure) is null || Volatile.Read(ref _spillBound) != 0)
+        {
+            return;
+        }
+
+        SpillBound reached = index.MemtableCount > SpillBoundFactor * _options.MemtableLimit.Value ? SpillBound.Memtable
+            : MemoryLoadIsHigh() ? SpillBound.MemoryLoad
+            : SpillBound.None;
+
+        if (reached != SpillBound.None)
+        {
+            Interlocked.CompareExchange(ref _spillBound, (int)reached, 0);
+        }
+    }
+
+    private bool MemoryLoadIsHigh()
+    {
+        if (_options.MemoryLoadHigh is { } probe)
+        {
+            return probe();
+        }
+
+        // The last GC's view: memory load and threshold both against the container's limit where there is one.
+        GCMemoryInfo memory = GC.GetGCMemoryInfo();
+        return memory.HighMemoryLoadThresholdBytes > 0 && memory.MemoryLoadBytes >= memory.HighMemoryLoadThresholdBytes;
+    }
     private long _runSequence;
 
     /// <summary>
@@ -374,6 +426,11 @@ public sealed partial class Dataset
     {
         try
         {
+            if (_options.SpillFault?.Invoke() == true)
+            {
+                throw new System.IO.IOException("An injected fault of the memtable's spill.");
+            }
+
             LoadedRun written = await write().ConfigureAwait(false);
             Volatile.Write(ref _spillFailure, null);
             return written;

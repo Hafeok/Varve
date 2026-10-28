@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Varve.Management.Model;
 using Varve.Protocol.Model;
+using Varve.Store;
 using Varve.Store.ObjectStorage.Model;
 
 namespace Varve.Server;
@@ -23,14 +24,6 @@ namespace Varve.Server;
 internal sealed partial class OpenDatasets
 {
     /// <summary>Whether this instance is a warm standby of the dataset (ADR 0180 point 6), and whether it tails it at all.</summary>
-    /// <summary>
-    /// How far past <see cref="Varve.Store.DatasetOptions.MemtableLimit"/> a writer's
-    /// memtable may grow while its spills fail before it releases the epoch
-    /// for local-disk-error (ADR 0179 point 6). Proposed; the maintainer
-    /// confirms the factor.
-    /// </summary>
-    internal const long SpillBound = 4;
-
     /// <summary>A dataset's local storage as readiness reports it: its last spill's failure, and the local caches turned off (ADR 0179 point 6).</summary>
     internal (Exception? Spill, LocalCache Cache) LocalHealthOf(DatasetName name)
     {
@@ -92,13 +85,14 @@ internal sealed partial class OpenDatasets
             return;
         }
 
-        if (holding && entry.Dataset is { SpillFailure: not null } spilling && spilling.MemtableEntries.Value > SpillBound * _memtableLimit.Value)
+        if (holding && entry.Dataset is { SpillBound: not SpillBound.None } unbounded)
         {
-            // Spills to the local disk fail and the memtable is past the
-            // bound: this writer's memory can no longer be bounded, and a
-            // standby with its own disk can spill (ADR 0179 point 6). Reached
-            // by commits, never by time, so an idle writer never abdicates.
-            ReconcileLog.AbdicatedForLocalDisk(_logger, name, spilling.MemtableEntries.Value);
+            // The commit that crossed the bound decided it (ADR 0179 point 6):
+            // spills to the local disk fail, and the memtable passed
+            // SpillBoundFactor times MemtableLimit or the memory load reached
+            // the GC's high-load threshold. A standby with its own disk can
+            // spill; an idle writer never gets here.
+            ReconcileLog.AbdicatedForLocalDisk(_logger, name, unbounded.MemtableEntries.Value, unbounded.SpillBound == SpillBound.MemoryLoad ? "the memory load reached the GC's high-load threshold" : "the memtable passed " + Dataset.SpillBoundFactor + " times its limit");
             await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: ReleaseReason.LocalDiskError, cancellationToken).ConfigureAwait(false);
             return;
         }
@@ -320,8 +314,8 @@ internal sealed partial class OpenDatasets
         [LoggerMessage(EventId = 18, Level = LogLevel.Warning, Message = "A batch of '{Name}' failed against the store: this writer released its epoch for storage-error and stands by (ADR 0179 point 6).")]
         internal static partial void AbdicatedForStorage(ILogger logger, string name);
 
-        [LoggerMessage(EventId = 19, Level = LogLevel.Error, Message = "The memtable of '{Name}' holds {Entries} entries and its spills to the local disk fail: this writer released its epoch for local-disk-error and stands by (ADR 0179 point 6).")]
-        internal static partial void AbdicatedForLocalDisk(ILogger logger, string name, long entries);
+        [LoggerMessage(EventId = 19, Level = LogLevel.Error, Message = "The memtable of '{Name}' holds {Entries} entries, its spills to the local disk fail, and {Bound}: this writer released its epoch for local-disk-error and stands by (ADR 0179 point 6).")]
+        internal static partial void AbdicatedForLocalDisk(ILogger logger, string name, long entries, string bound);
 
         [LoggerMessage(EventId = 17, Level = LogLevel.Warning, Message = "A newer writer holds '{Name}': this instance rejoins its writer set as a standby (ADR 0179 point 10).")]
         internal static partial void Rejoined(ILogger logger, string name);
