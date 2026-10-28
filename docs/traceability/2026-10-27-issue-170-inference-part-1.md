@@ -243,4 +243,14 @@ machine.
 - **#171, part 2**, and part 3, as the grants record lists them.
 - **Merge `main`** once #172 lands, and when #165 or #151 does.
 
+### Acceptance, 2026-10-28
+
+A later session (Claude Code, model `claude-fable-5-1`), on the maintainer's
+instruction to accept every decision on the open pull requests, added
+`accepted-by` and `accepted-at` to the 54 keys this branch files over
+main: entailments-under-graph-level-grants (17 keys, ADR 0190), the-inference-packages-and-their-layers (5 keys, ADR 0191), entailment-regimes-over-http (6 keys, ADR 0192), rdfs-rdf-and-d-by-rewriting (18 keys, ADR 0193), the-tbox-binding-vocabulary (8 keys, ADR 0194). The acceptance is the maintainer's, who had read them; the
+session only wrote it at their direction, as the acceptance of ADRs
+0127–0133 was written. The ADRs' status text and the index rows are left as
+filed, as in that precedent.
+
 Developed with AI assistance under human review.
