@@ -128,6 +128,8 @@
          the runtime version pinned here; 2.11.3 is the newest whose floor
          (10.0.10) the pin meets. Moves with the 10.0.x pins. -->
     <PackageVersion Include="bunit" Version="2.11.3" Adr="0204" Scope="tests/Varve.WebUi.Tests/" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.64.1" Adr="0204" Scope="tests/Varve.WebUi.Browser.Tests/" />
+    <PackageVersion Include="Deque.AxeCore.Playwright" Version="4.14.0" Adr="0204" Scope="tests/Varve.WebUi.Browser.Tests/" />
   </ItemGroup>
 
   <ItemGroup Label="Samples only — never of a shipped package (ADR 0133)">

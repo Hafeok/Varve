@@ -56,7 +56,7 @@ the packable members of `Varve.slnx`, and of a member that declares
      authentication package is inert in the tests, and the Web UI never
      references it (ADR 0201).
 2. **Playwright for the browser tests.** `Microsoft.Playwright`, licence
-   Apache-2.0, scoped to the Web UI's browser test project.
+   MIT, scoped to the Web UI's browser test project.
    - **Native binaries in the test closure.** `Microsoft.Playwright` ships a
      **Node.js driver as native binaries**, one per platform, copied into the
      test project's output and started by the library. That is a native asset
@@ -75,7 +75,10 @@ the packable members of `Varve.slnx`, and of a member that declares
    - **Its own job.** The browser tests run in their own named CI job, outside
      `eng/ci.cs`, because the devcontainer has no browser (ADR 0036).
 3. **axe-core for the accessibility audit.** `Deque.AxeCore.Playwright`,
-   licence MPL-2.0, which embeds axe-core (MPL-2.0), scoped as Playwright is.
+   licence MIT, scoped as Playwright is. It depends on
+   `Deque.AxeCore.Commons`, licence MPL-2.0, which embeds axe-core (MPL-2.0)
+   and depends on `Newtonsoft.Json` (MIT). All three are managed, and all
+   stay in the test closure.
    - It runs on every screen and every dialog, in both themes, with the tags
      `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa` and `wcag22aa`, and zero
      violations allowed.

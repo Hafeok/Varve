@@ -1,9 +1,16 @@
-@* The router (ADR 0200). Focus moves to each page's h1 on navigation, so a
-   keyboard or screen reader user lands on what changed (WCAG 2.4.3). *@
+@implements IDisposable
+@inject NavigationManager Navigation
+@* The router (ADR 0200). After a navigation inside the Web UI, focus moves to
+   the new page's h1, so a keyboard or screen reader user lands on what
+   changed (WCAG 2.4.3). A page loaded fresh keeps the browser's start, so
+   the first Tab reaches the skip link (2.4.1). *@
 <Router AppAssembly="typeof(App).Assembly">
     <Found Context="routeData">
         <RouteView RouteData="routeData" DefaultLayout="typeof(Parts.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        @if (_navigated)
+        {
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        }
     </Found>
     <NotFound>
         <LayoutView Layout="typeof(Parts.MainLayout)">
@@ -13,3 +20,22 @@
         </LayoutView>
     </NotFound>
 </Router>
+
+@code {
+    private bool _navigated;
+
+    /// <inheritdoc />
+    protected override void OnInitialized() => Navigation.LocationChanged += Navigated;
+
+    private void Navigated(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        if (!_navigated)
+        {
+            _navigated = true;
+            StateHasChanged();
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose() => Navigation.LocationChanged -= Navigated;
+}

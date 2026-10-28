@@ -13,7 +13,6 @@ using System.Threading.Tasks;
 using Varve.Delta;
 using Varve.Delta.Model;
 using Varve.Protocol.Client;
-using Varve.Protocol.Client.Model;
 using Xunit;
 
 namespace Varve.Server.Tests;

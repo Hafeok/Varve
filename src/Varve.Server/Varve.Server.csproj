@@ -59,6 +59,7 @@
   <ItemGroup>
     <!-- The server's tests run its composition root in process (ADR 0100). -->
     <InternalsVisibleTo Include="Varve.Server.Tests" />
+    <InternalsVisibleTo Include="Varve.WebUi.Browser.Tests" />
   </ItemGroup>
 
   <ItemGroup>
