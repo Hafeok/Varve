@@ -17,6 +17,10 @@ amendment: the problem type `storage-full`.
 Records decision set
 [`file-backend-failure-injection`](../decisions/file-backend-failure-injection.md).
 
+Records [`docs/spec/log-and-projection-model.md`](../spec/log-and-projection-model.md)
+version 1.9: a failed batch answered by the log, a full disk recovered by
+the next write, and an open that flushes what it adopts.
+
 ## Context
 
 #129's first deliverable asks for four faults, each injected at every point
