@@ -136,7 +136,11 @@ Conventional commits, one logical change each, and three things in each:
 - **`Signed-off-by:`** — DCO, from every session without exception; it names the
   human who may contribute the code: for a session's commit, its responsible
   human in `eng/identities.json` or a delegate. Enforced by `eng/dco.cs`
-  (ADR 0087).
+  (ADR 0087). A session never uses `git commit -s`: that signs off as the
+  session's own identity, which the gate refuses. `eng/hooks/commit-msg` adds
+  the right sign-off (`git config core.hooksPath eng/hooks`, which the
+  devcontainer sets; `dotnet run eng/dco.cs -- --sign-off-for <email>` prints
+  it).
 - **A signature**, for human committers. Cloud AI sessions are exempt by ruleset
   bypass; ADR 0034 records why, as a stated deviation.
 

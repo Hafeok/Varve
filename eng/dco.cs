@@ -7,6 +7,7 @@
 //   dotnet run eng/dco.cs -- [--base <ref>] [--head <ref>]
 //   dotnet run eng/dco.cs -- --range <a>..<b>
 //   dotnet run eng/dco.cs -- --commits <file> [--identities <file>]
+//   dotnet run eng/dco.cs -- --sign-off-for <author email>
 //
 // ADR 0034 point 3: every commit carries a DCO sign-off, human and AI session
 // alike. Until this gate it was enforced by nobody (ADR 0034, amendment of
@@ -32,6 +33,11 @@
 // any other branch is checked from origin/main, because what a required check
 // on that branch's head vouches for is everything it would bring to main
 // (ADR 0088); a local run uses origin/main..HEAD.
+//
+// --sign-off-for prints the sign-off this gate accepts from an author: an
+// agent's responsible human, by name and first email, or a human's own. It is
+// what eng/hooks/commit-msg adds, so a commit is signed off as the gate reads
+// it when it is made, not when CI refuses it.
 //
 // --commits reads commits from a file instead of git, which is how the failure
 // path is proven: tests/fixtures/dco/ holds a failing and a passing set, with
@@ -59,6 +65,7 @@ string? headRef = null;
 string? explicitRange = null;
 string? commitsFile = null;
 string? identitiesFile = null;
+string? signOffFor = null;
 
 string[] arguments = args;
 for (int i = 0; i < arguments.Length; i++)
@@ -79,6 +86,9 @@ for (int i = 0; i < arguments.Length; i++)
             break;
         case "--identities" when i + 1 < arguments.Length:
             identitiesFile = arguments[++i];
+            break;
+        case "--sign-off-for" when i + 1 < arguments.Length:
+            signOffFor = arguments[++i];
             break;
         default:
             break;
@@ -105,6 +115,32 @@ if (map is null || problems.Count > 0)
     }
 
     return 2;
+}
+
+// --- the sign-off an author needs -----------------------------------------
+
+if (signOffFor is not null)
+{
+    if (map.AgentByEmail(signOffFor) is { } agent)
+    {
+        if (map.HumanById(agent.Responsible) is not { } responsible || responsible.Emails.Count == 0)
+        {
+            Console.Error.WriteLine($"dco: agent '{agent.Id}' has no responsible human with an email in {IdentityMap.RelativePath}.");
+            return 2;
+        }
+
+        Console.WriteLine($"Signed-off-by: {responsible.Name} <{responsible.Emails[0]}>");
+        return 0;
+    }
+
+    if (map.HumanByEmail(signOffFor) is { } human)
+    {
+        Console.WriteLine($"Signed-off-by: {human.Name} <{signOffFor}>");
+        return 0;
+    }
+
+    Console.Error.WriteLine($"dco: '{signOffFor}' is in no entry of {IdentityMap.RelativePath}; sign off as yourself.");
+    return 1;
 }
 
 // --- the commits -------------------------------------------------------------
