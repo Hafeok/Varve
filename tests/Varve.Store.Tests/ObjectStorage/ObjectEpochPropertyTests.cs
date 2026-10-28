@@ -9,6 +9,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using CsCheck;
 using Varve.Store.Log;
+using Varve.Store.ObjectStorage.Model;
 using Xunit;
 using Backend = Varve.Store.ObjectStorage.ObjectStorage;
 
@@ -24,6 +25,54 @@ namespace Varve.Store.Tests.Objects;
 public sealed class ObjectEpochPropertyTests
 {
     private const int Iterations = 200;
+
+    /// <summary>
+    /// A writer that claimed an epoch, and lists the log only after a newer
+    /// epoch's fence is in it, is superseded and fences nothing below it
+    /// (ADR 0136, #165): its open finds the later epoch among the chunks it
+    /// lists, not in a slot it races for. Found by the concurrent-claims
+    /// case, where it was one run in about a hundred; replayed here in order.
+    /// </summary>
+    [Fact]
+    public async Task a_writer_that_lists_a_newer_epochs_fence_is_superseded_and_the_newer_writer_holds_the_log()
+    {
+        DatasetOptions options = T.Options(maxRecordBytes: 128, segmentBytes: 1024) is var small
+            ? new DatasetOptions { Clock = small.Clock, MaxRecordBytes = small.MaxRecordBytes, SegmentBytes = small.SegmentBytes, CommitCache = small.CommitCache, Maintenance = MaintenanceMode.Off }
+            : throw new InvalidOperationException();
+        MemoryObjectStore store = new();
+        await using ObjectHarness objects = new(store, waits: new InstantClock(DateTimeOffset.UnixEpoch));
+        await using (Dataset first = await T.OpenOrCreate(await objects.OpenAsync(instance: "first"), options))
+        {
+            await first.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
+        }
+
+        // a has claimed its epoch and is about to list the log; b claims the next and fences first.
+        Backend? later = null;
+        bool armed = true;
+        store.Hook = (operation, name) =>
+        {
+            if (armed && operation == ObjectOperation.List && name.Value.Contains("log/", StringComparison.Ordinal))
+            {
+                armed = false;
+                later = Task.Run(() => objects.OpenAsync(instance: "b")).GetAwaiter().GetResult();
+            }
+
+            return null;
+        };
+
+        Backend earlier = await objects.OpenAsync(instance: "a");
+        store.Hook = null;
+
+        Assert.NotNull(later);
+        Assert.Equal(new WriterEpoch(3), later!.Epoch);
+        Assert.False(later.IsSuperseded);
+        Assert.Null(earlier.Epoch);
+        Assert.True(earlier.IsSuperseded);
+
+        // b writes on; a, reading the log b wrote, writes nothing.
+        await using Dataset writer = await Dataset.OpenAsync(later, options, T.Ct);
+        Assert.Equal(CommitOutcome.Committed, (await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s2"), T.Iri("p"), T.Iri("o")), T.Ct)).Outcome);
+    }
 
     /// <summary>
     /// Writers that claim and close, one after another, before any record is
