@@ -323,6 +323,7 @@ public abstract class FleetCases : IAsyncDisposable
     /// standby, forwarding writes to it. The takeover time is reported.
     /// </summary>
     [Fact]
+    [Trait("Measure", "Handover")]
     public async Task A_rolling_restart_moves_the_writer_to_the_warm_standby_and_the_restarted_writer_stands_by()
     {
         FleetLocation container = await Store.NewAsync();
@@ -336,10 +337,9 @@ public abstract class FleetCases : IAsyncDisposable
         Stopwatch takeover = Stopwatch.StartNew();
         await a.StopAsync();
         await WaitDeclaredAsync(b, declared, "d", "writer");
-        takeover.Stop();
-        TestContext.Current.SendDiagnosticMessage("takeover after a shutdown release, " + GetType().Name + ": " + takeover.ElapsedMilliseconds + " ms");
-
         Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+        takeover.Stop();
+        Measured("abdication (shutdown): the writer's stop to the standby's first commit", takeover);
 
         Server again = await StartAsync("a", container, writer: "a");
         await WaitDeclaredAsync(again, declared, "d", "standby");
@@ -374,6 +374,7 @@ public abstract class FleetCases : IAsyncDisposable
     /// by, forwarding management writes to b.
     /// </summary>
     [Fact]
+    [Trait("Measure", "Handover")]
     public async Task The_system_dataset_moves_to_its_warm_standby_when_its_writer_shuts_down()
     {
         string[] handover = ["--Varve:Fleet:AutomaticHandover=true"];
@@ -387,10 +388,10 @@ public abstract class FleetCases : IAsyncDisposable
         Stopwatch takeover = Stopwatch.StartNew();
         await a.StopAsync();
         await WaitManagementAsync(b, "writer", warm: null);
-        takeover.Stop();
-        TestContext.Current.SendDiagnosticMessage("system takeover after a shutdown release, " + GetType().Name + ": " + takeover.ElapsedMilliseconds + " ms");
-
         long second = await DeclareAsync(b, "e");
+        takeover.Stop();
+        Measured("system dataset, abdication (shutdown): the writer's stop to the standby's first management commit", takeover);
+
         Server again = await StartAsync("a", container, "a,b", handover);
         await WaitManagementAsync(again, "follower", warm: true);
         await WaitDeclaredAsync(again, second, "e", "follower");
@@ -410,6 +411,7 @@ public abstract class FleetCases : IAsyncDisposable
     /// forwards to it. The epoch history shows the release and the claim.
     /// </summary>
     [Fact]
+    [Trait("Measure", "Handover")]
     public async Task A_writer_whose_batch_fails_against_the_store_abdicates_and_the_warm_standby_takes_over()
     {
         FleetLocation container = await Store.NewAsync();
@@ -422,12 +424,18 @@ public abstract class FleetCases : IAsyncDisposable
         await WaitWarmAsync(b, "d");
 
         proxy.Fail = (method, path) => method == "PUT" && path.Contains("/d/log/", StringComparison.Ordinal);
+        Stopwatch takeover = Stopwatch.StartNew();
         HttpResponseMessage failed = await Update(a, "d", "INSERT DATA { <http://ex/lost> <http://ex/p> 2 }");
         Assert.NotEqual(HttpStatusCode.NoContent, failed.StatusCode);
+        Stopwatch afterRefusal = Stopwatch.StartNew();
         await WaitDeclaredAsync(b, declared, "d", "writer");
 
         HttpResponseMessage written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 3 }");
         Assert.True(written.StatusCode == HttpStatusCode.NoContent, (int)written.StatusCode + " " + await written.Content.ReadAsStringAsync(Ct) + "\n" + a.Log);
+        takeover.Stop();
+        afterRefusal.Stop();
+        Measured("abdication (storage-error): the first failed write, retries included, to the first commit forwarded to the standby", takeover);
+        Measured("abdication (storage-error): the failed write's answer to the first commit forwarded to the standby", afterRefusal);
         Assert.Equal("2", await CountAsync(b, written.Headers.GetValues("Varve-Position").Single()));
 
         StringWriter output = new() { NewLine = "\n" };
@@ -446,6 +454,7 @@ public abstract class FleetCases : IAsyncDisposable
     /// The time from the kill to b's first write is reported.
     /// </summary>
     [Fact]
+    [Trait("Measure", "Handover")]
     public async Task A_takeover_request_moves_a_killed_writer_s_dataset_to_the_warm_standby_and_refuses_the_rest()
     {
         FleetLocation container = await Store.NewAsync();
@@ -477,7 +486,7 @@ public abstract class FleetCases : IAsyncDisposable
         downtime.Stop();
         Assert.Equal(HttpStatusCode.NoContent, written.StatusCode);
         Assert.Equal("2", await CountAsync(b, written.Headers.GetValues("Varve-Position").Single()));
-        TestContext.Current.SendDiagnosticMessage("takeover on a probe, kill to the first write, " + GetType().Name + ": " + downtime.ElapsedMilliseconds + " ms");
+        Measured("probe: the writer's kill, then the takeover request, to the standby's first commit", downtime);
 
         await AssertRefusedAsync(b, "d", 1, "epoch-moved", 2);
         StringWriter output = new() { NewLine = "\n" };
@@ -492,6 +501,7 @@ public abstract class FleetCases : IAsyncDisposable
     /// request to <c>_fleet</c>, then answers management writes.
     /// </summary>
     [Fact]
+    [Trait("Measure", "Handover")]
     public async Task A_takeover_request_moves_the_system_dataset_of_a_killed_writer()
     {
         string[] handover = ["--Varve:Fleet:AutomaticHandover=true"];
@@ -507,7 +517,7 @@ public abstract class FleetCases : IAsyncDisposable
         Assert.True(took.StatusCode == HttpStatusCode.OK, (int)took.StatusCode + " " + await took.Content.ReadAsStringAsync(Ct) + "\n" + b.Log);
         Assert.True((await Declare(b, "e")).IsSuccessStatusCode);
         downtime.Stop();
-        TestContext.Current.SendDiagnosticMessage("system takeover on a probe, kill to the first management write, " + GetType().Name + ": " + downtime.ElapsedMilliseconds + " ms");
+        Measured("system dataset, probe: the writer's kill, then the takeover request, to the standby's first management commit", downtime);
         await WaitManagementAsync(b, "writer", warm: null);
     }
 
@@ -549,6 +559,20 @@ public abstract class FleetCases : IAsyncDisposable
         }
 
         Assert.Fail(server.Instance + " never reported the system role " + role + (warm is { } w ? ", warm " + w : string.Empty) + ": " + last + "\n" + server.Log);
+    }
+
+    // A handover time: a diagnostic message, and a row of the table the
+    // handover (services) job writes to its summary, when it names the file
+    // (ADR 0179, #165).
+    private void Measured(string what, Stopwatch elapsed)
+    {
+        string store = Store == FleetStore.Azurite ? "Azurite" : "RustFS";
+        TestContext.Current.SendDiagnosticMessage(what + ", " + store + ": " + elapsed.ElapsedMilliseconds + " ms");
+
+        if (Environment.GetEnvironmentVariable("VARVE_HANDOVER_TIMES") is { Length: > 0 } file)
+        {
+            File.AppendAllText(file, "| " + what + " | " + store + " | " + elapsed.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture) + " |\n");
+        }
     }
 
     // Until readiness reports the dataset's standby warm (ADR 0180 point 7).

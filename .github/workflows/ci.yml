@@ -813,6 +813,7 @@ jobs:
           --configuration Release
           --filter-class Varve.Server.Tests.FleetTests
           --filter-class Varve.Server.Tests.RustFsFleetTests
+          --filter-not-trait Measure=Handover
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
 
@@ -830,6 +831,95 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: test-results-fleet-services
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
+
+  # The handover's measurements (ADR 0179, #165): the fleet cases that time a
+  # takeover, for each trigger on Azurite and on RustFS, written to the job
+  # summary on every run. The fleet job leaves them to this one.
+  handover-services:
+    name: handover (services)
+    runs-on: ubuntu-latest
+
+    # Its test containers come from this repository's private mirror (#118).
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start the object stores
+        run: |
+          docker compose --file .github/storage/compose.yaml up --detach
+          for attempt in $(seq 1 60); do
+            azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
+            rustfs=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:9000/ || true)
+            # RustFS answers before it has discovered its issuer: ready once its STS exchanges a token.
+            token=$(curl --silent --header 'Host: issuer:8080' --data 'grant_type=client_credentials&client_id=varve-storage&client_secret=unchecked&scope=openid' http://127.0.0.1:8090/varve/token | jq -r '.access_token // empty' || true)
+            sts=$(curl --silent --output /dev/null --write-out '%{http_code}' --data-urlencode "WebIdentityToken=$token" --data 'Action=AssumeRoleWithWebIdentity&Version=2011-06-15&DurationSeconds=900' http://127.0.0.1:9000/ || true)
+            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$sts" = 200 ] && exit 0
+            sleep 1
+          done
+          docker compose --file .github/storage/compose.yaml logs
+          exit 1
+
+      - name: Run the handover cases
+        env:
+          VARVE_HANDOVER_TIMES: ${{ runner.temp }}/handover-times.md
+          VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
+          VARVE_RUSTFS: http://127.0.0.1:9000,varvetest,varvetestsecret
+          VARVE_RUSTFS_WEB_IDENTITY: http://127.0.0.1:9000/,http://127.0.0.1:8090/varve/token,issuer:8080
+          VARVE_STORAGE_LEGS_REQUIRED: azurite,rustfs,rustfs-web-identity
+        run: >
+          dotnet test
+          --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+          --configuration Release
+          --filter-class Varve.Server.Tests.FleetTests
+          --filter-class Varve.Server.Tests.RustFsFleetTests
+          --filter-trait Measure=Handover
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+
+      - name: Takeover times
+        # ADR 0179's measurements, per run: each trigger on each store, from
+        # the event to the first commit the new writer answers (#165).
+        if: always()
+        env:
+          TIMES: ${{ runner.temp }}/handover-times.md
+        run: |
+          {
+            echo "## Takeover times"
+            echo
+            echo "Each from the event to the new writer's first commit, with \`Varve:Fleet:FollowInterval\` at 200 ms."
+            echo
+            echo "| Trigger | Store | ms |"
+            echo "|---|---|---:|"
+            if [ -f "$TIMES" ]; then sort "$TIMES"; else echo "| no case reported a time | | |"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-handover-services
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
 
