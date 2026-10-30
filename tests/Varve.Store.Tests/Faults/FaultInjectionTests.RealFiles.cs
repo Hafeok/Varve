@@ -69,11 +69,11 @@ public static partial class FaultInjectionTests
                         Materialise(mirror.Image(kind, new Random((at * 31) + image)), written, restarted);
                         string where = sweep.Replay + ": real power cut at operation " + at + ", " + kind + " image " + image;
                         await VerifyCoreAsync(new DiskFileSystem(), reference, kind == CrashKind.LostDirectoryEntries ? 0 : acknowledged, where, null, "after", root: restarted);
-                        Directory.Delete(restarted, recursive: true);
+                        DeleteTree(restarted);
                         points++;
                     }
 
-                    Directory.Delete(written, recursive: true);
+                    DeleteTree(written);
                 }
             }
             finally
@@ -144,7 +144,7 @@ public static partial class FaultInjectionTests
                         string where = sweep.Replay + ": killed " + when + " flush " + at + " of " + flushes;
                         Assert.True(killedExit != 0, where + ": the host was not killed: " + killedOutput);
                         await VerifyCoreAsync(new DiskFileSystem(), reference, acknowledged, where, null, "after", root: Path.Combine(directory, "dataset"));
-                        Directory.Delete(directory, recursive: true);
+                        DeleteTree(directory);
                         points++;
                     }
                 }
