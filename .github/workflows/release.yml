@@ -16,6 +16,11 @@
 #          publishes, the API baselines, decision-sets, dependency-register,
 #          licence-headers. A valid descriptor whose gates fail is not cut and
 #          leaves no tag.
+#   release gate
+#          release-gate.yml, at the same commit: the file backend's faults at
+#          every point, the four-hour soak on Linux, and the latest Windows
+#          soak on main's nightly green and at most eight days old (ADR 0214,
+#          ADR 0215). A release that fails it is not cut either.
 #   cut    the gates App, with a token minted from the `gates` environment,
 #          creates the annotated tag "<version> — <title>", pushes it, and
 #          closes the issues the basis names. Never
@@ -126,9 +131,23 @@ jobs:
       ref: ${{ needs.plan.outputs.sha }}
     secrets: inherit
 
+  # What a release must pass beyond ci.yml (ADR 0214, ADR 0215): the
+  # file backend's faults at every point, the four-hour soak on Linux, and a
+  # Windows soak on main's nightly that is green and at most eight days old.
+  release-gate:
+    name: release gate
+    needs: plan
+    if: needs.plan.outputs.count == '1'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/release-gate.yml
+    with:
+      ref: ${{ needs.plan.outputs.sha }}
+
   cut:
     name: cut
-    needs: [plan, gates]
+    needs: [plan, gates, release-gate]
     if: needs.plan.outputs.count == '1'
     runs-on: ubuntu-latest
 

@@ -671,7 +671,8 @@ internal static partial class ServerHost
                 open && dataset!.IsFailed,
                 open && datasets.IsSuperseded(entry.Name),
                 entry.Role,
-                open ? dataset!.Retention : null));
+                open ? dataset!.Retention : null,
+                open && dataset!.StorageFull));
         }
 
         ManagementStatus management = fleet.Status;
@@ -775,6 +776,7 @@ internal static partial class ServerHost
 
                 json.WriteEndObject();
                 Readiness.WriteRetention(json, health);
+                Readiness.WriteRefusals(json, health);
             }).ConfigureAwait(false);
             return;
         }
@@ -814,6 +816,7 @@ internal static partial class ServerHost
 
             json.WriteEndArray();
             Readiness.WriteRetention(json, health);
+            Readiness.WriteRefusals(json, health);
         }).ConfigureAwait(false);
     }
 
