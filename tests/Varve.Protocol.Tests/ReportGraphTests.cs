@@ -11,6 +11,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CsCheck;
+using Varve.Protocol.Http;
 using Varve.Protocol.Model;
 using Varve.Rdf;
 using Varve.Shacl;
@@ -138,6 +139,45 @@ public class ReportGraphTests
 
         Assert.Equal("focus\r\nhttp://ex/ann\r\n", await ReadAsync(host, P.Query(Sparql, FocusQuery, "text/csv")));
         Assert.Equal(1, reports.Waits);
+    }
+
+    /// <summary>
+    /// The quad source contract (ADR 0022, amended 2026-10-30; #191) over a
+    /// report graph read whose projection is behind at the lookup and
+    /// reaches the position in the read's one bounded wait: no term the
+    /// report holds is denied before the report is read. Each fresh source
+    /// is a fresh projection, held back, over the same pinned head.
+    /// </summary>
+    [Fact]
+    public async Task a_report_graph_read_behind_its_projection_never_denies_a_term_its_report_holds()
+    {
+        await using Dataset dataset = await P.NewDatasetAsync();
+        await FillAsync(dataset);
+        using DatasetView view = dataset.Pin();
+
+        IQuadSource Fresh()
+        {
+            ValidationProjection projection = new(dataset, Binding);
+            Reports reports = new(projection, wait: () => dataset.CatchUpAsync(projection, P.Ct).AsTask().GetAwaiter().GetResult());
+            return ReportGraphs.Compose(view, GraphScope.All, [reports]);
+        }
+
+        IReadOnlyCollection<RdfTerm> yielded = QuadSourceContract.Holds(Fresh);
+        Assert.Contains(RdfTerm.Iri(Encoding.UTF8.GetBytes(Sh + "focusNode")), yielded);
+    }
+
+    /// <summary>The same contract over a report graph read whose projection is at the position already.</summary>
+    [Fact]
+    public async Task a_report_graph_read_at_its_projection_never_denies_a_term_its_report_holds()
+    {
+        await using Dataset dataset = await P.NewDatasetAsync();
+        await FillAsync(dataset);
+        ValidationProjection projection = new(dataset, Binding);
+        await dataset.CatchUpAsync(projection, P.Ct);
+        using DatasetView view = dataset.Pin();
+
+        IReadOnlyCollection<RdfTerm> yielded = QuadSourceContract.Holds(() => ReportGraphs.Compose(view, GraphScope.All, [new Reports(projection)]));
+        Assert.Contains(RdfTerm.Iri(Encoding.UTF8.GetBytes(Sh + "focusNode")), yielded);
     }
 
     /// <summary>
