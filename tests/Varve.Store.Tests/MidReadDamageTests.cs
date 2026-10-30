@@ -128,6 +128,101 @@ public sealed class MidReadDamageTests
         damage.StopRecording();
     }
 
+    /// <summary>
+    /// A seek of distinct predicates and objects inside a set's window that
+    /// meets damage after it has started carries on below the set, past the
+    /// terms it has already yielded (ADRs 0193, 0213). The set here spans
+    /// several key blocks, so the blocks a seek reads after its first are
+    /// met in the middle of it; each is damaged in turn.
+    /// </summary>
+    [Fact]
+    public async Task a_seek_inside_a_set_that_meets_damage_partway_resumes_below_it()
+    {
+        await using TemporaryDirectory directory = new(flushes: false);
+        Damage damage = new();
+        IFileSystem files = new DamagingFileSystem(new UnflushedFileSystem(), damage);
+
+        await using (FileStorage storage = FileStorage.Open(files, directory.Directory, TemporaryDirectory.Options))
+        await using (Dataset dataset = await T.OpenOrCreate(storage, Options()))
+        {
+            // 600 quads over 40 predicates before the checkpoint, so the
+            // set's predicate-first keys fill five blocks.
+            for (int c = 1; c <= 6; c++)
+            {
+                CommitRequestBuilder request = new();
+
+                for (int i = 0; i < 100; i++)
+                {
+                    int n = (c * 100) + i;
+                    request.Assert(T.Iri("s" + n), T.Iri("p" + (n % 40)), T.Literal("o" + (n % 7).ToString(CultureInfo.InvariantCulture)));
+                }
+
+                await dataset.CommitAsync(request, T.Ct);
+                await dataset.MaintainAsync(T.Ct);
+            }
+
+            await dataset.CheckpointAsync(dataset.Head, T.Ct);
+            CommitRequestBuilder after = new();
+            after.Assert(T.Iri("late"), T.Iri("p0"), T.Literal("late"));
+            await dataset.CommitAsync(after, T.Ct);
+            await dataset.MaintainAsync(T.Ct);
+        }
+
+        async Task<(string Served, List<(string Name, long Offset, int Length)> Reads, int Healed)> SeekAsync(bool record)
+        {
+            FileStorage storage = FileStorage.Open(files, directory.Directory, TemporaryDirectory.Options);
+            Dataset dataset = await Dataset.OpenAsync(storage, Options(), T.Ct);
+            List<string> served = [];
+
+            try
+            {
+                using DatasetView inside = await dataset.AsOfAsync(new Position(3), T.Ct);
+                damage.Live(record);
+                Seek(served, "3", inside);
+                return (string.Join("\n", served), damage.StopRecording(), dataset.Damaged.Count);
+            }
+            finally
+            {
+                damage.StopRecording();
+                damage.Disarm();
+                await dataset.DisposeAsync();
+                await storage.DisposeAsync();
+            }
+        }
+
+        damage.Clear();
+        (string expected, List<(string Name, long Offset, int Length)> reads, _) = await SeekAsync(record: true);
+        Assert.True(reads.Count >= 3, "the seek read " + reads.Count + " blocks, too few to meet damage partway");
+        List<string> wrong = [];
+        int healed = 0;
+
+        // The first read opens the seek; every later one is met partway.
+        foreach ((string name, long offset, _) in reads.Skip(1))
+        {
+            damage.Clear();
+            damage.Arm(name, offset);
+
+            try
+            {
+                (string served, _, int damaged) = await SeekAsync(record: false);
+                healed += damaged > 0 ? 1 : 0;
+
+                if (served != expected)
+                {
+                    wrong.Add(name + " at " + offset + ": served a different answer");
+                }
+            }
+            catch (Exception error) when (error is not Xunit.Sdk.XunitException)
+            {
+                wrong.Add(name + " at " + offset + ": " + error.GetType().Name + ": " + error.Message);
+            }
+        }
+
+        damage.Clear();
+        Assert.True(wrong.Count == 0, wrong.Count + " of " + (reads.Count - 1) + " seeks damaged partway were not a miss:\n  " + string.Join("\n  ", wrong));
+        Assert.True(healed > 0, "no seek met its damage");
+    }
+
     // Every position's quads, by scan, from the views inside and at the ends of the sets.
     private static async Task<List<string>> AsOfAsync(Dataset dataset)
     {
@@ -308,6 +403,8 @@ public sealed class MidReadDamageTests
 
             foreach ((string label, DatasetView view) in new[] { ("head", head), ("10", ten), ("20", twenty), ("5", five), ("15", fifteen) })
             {
+                // The seek first, so that it is the read that meets the damage.
+                Seek(served, label, view);
                 Stream(served, label + " all", view, TermHandle.None, TermHandle.None);
 
                 for (int p = 0; p < 3; p++)
@@ -339,6 +436,41 @@ public sealed class MidReadDamageTests
             damage.Disarm();
             await dataset.DisposeAsync();
             await storage.DisposeAsync();
+        }
+    }
+
+    // The default graph's distinct predicates and each one's distinct
+    // objects, by the index's seek (ADR 0193), which inside a set's window
+    // seeks the set and resumes below it as a scan does.
+    private static void Seek(List<string> served, string label, DatasetView view)
+    {
+        Assert.True(view.TryDistinctPredicates(GraphPattern.DefaultGraph, out ITermCursor? predicates), label + ": the view cannot seek");
+        List<TermHandle> found = [];
+
+        using (predicates)
+        {
+            while (predicates.MoveNext())
+            {
+                found.Add(predicates.Current);
+            }
+        }
+
+        served.Add(label + " predicates: " + string.Join(" ", found.Select(p => T.Render(view, p))));
+
+        foreach (TermHandle predicate in found)
+        {
+            Assert.True(view.TryDistinctObjects(predicate, GraphPattern.DefaultGraph, out ITermCursor? objects), label + ": the view cannot seek");
+            List<string> terms = [];
+
+            using (objects)
+            {
+                while (objects.MoveNext())
+                {
+                    terms.Add(T.Render(view, objects.Current));
+                }
+            }
+
+            served.Add(label + " objects of " + T.Render(view, predicate) + ": " + string.Join(" | ", terms));
         }
     }
 
