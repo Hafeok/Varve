@@ -179,6 +179,32 @@ public sealed class ObjectFollowerTests
         await Assert.ThrowsAsync<LogVerificationException>(async () => await follower.AdvanceAsync(T.Ct));
     }
 
+    /// <summary>
+    /// A follower's views under the quad source contract (ADR 0022, amended
+    /// 2026-10-30; #191): its pinned view and an as-of view before and after
+    /// an advance deny no term they hold. An advance swaps the state the next
+    /// view reads, never a view already handed out.
+    /// </summary>
+    [Fact]
+    public async Task a_followers_views_never_deny_a_term_they_hold()
+    {
+        await using ObjectHarness objects = new();
+        Backend written = await objects.OpenAsync();
+        await using Dataset writer = await T.OpenOrCreate(written, Small());
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("first"), T.Iri("g")), T.Ct);
+        await using Dataset follower = await Dataset.OpenFollowerAsync(await objects.OpenAsync(ObjectStorageAccess.ReadOnly), Small(), T.Ct);
+
+        using DatasetView before = follower.Pin();
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Literal("second")), T.Ct);
+        await follower.AdvanceAsync(T.Ct);
+        using DatasetView after = follower.Pin();
+        using DatasetView asOf = await follower.AsOfAsync(new Position(1), T.Ct);
+
+        Assert.DoesNotContain(T.Literal("second"), QuadSourceContract.Holds(() => before, [T.Literal("second")]));
+        Assert.Contains(T.Literal("second"), QuadSourceContract.Holds(() => after));
+        Assert.DoesNotContain(T.Literal("second"), QuadSourceContract.Holds(() => asOf, [T.Literal("second")]));
+    }
+
     private static async Task SameAsync(Dataset writer, Dataset follower, Position at)
     {
         using DatasetView expected = await writer.AsOfAsync(at, T.Ct);

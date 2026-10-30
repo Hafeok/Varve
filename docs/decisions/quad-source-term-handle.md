@@ -31,6 +31,10 @@ decisions:
     statement: "An in-memory dataset without a store brings its own interning table, and nothing about the contract presumes a log"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-21T00:00:00Z
+  - key: DenialCoversQuadsNotYetLoaded
+    statement: "TryInternalise answers false only when no quad the source will ever yield holds the term, quads it has not loaded yet included; a source that cannot know yet answers true with a handle it stages, and a blank node, or a part of a triple term the source cannot take apart by handle, is outside the promise"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-30T00:00:00Z
 ---
 
 The rulings of [ADR 0022](../adr/0022-quad-source-term-handle.md) still in force, one line each. The ADR is the
@@ -39,3 +43,7 @@ narrative; this is what code cites. Acceptance is transcribed from the ADR's Sta
 The revisit condition was judged on 2026-09-25 by ADR 0050's rule and did not fire; a
 judgement is not a ruling and is not enumerated. ADRs 0049 and 0050 widen the contract
 with members of their own, in their sets.
+
+**`DenialCoversQuadsNotYetLoaded`**, filed 2026-10-30 by the amendment of that date for #191,
+unaccepted until the maintainer accepts it (ADR 0066). Every source passes
+`tests/QuadSourceContract.cs`.
