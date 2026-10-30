@@ -73,6 +73,11 @@ accepted on the pull request (ADR 0066).
   `docs/ui/`, the components, their levels and the markup contract the
   console (#167) is built to. It is documentation only, and no package
   changes.
+- **Entailments under graph-level grants** (#95, ADR 0190, amending ADR
+  0107): what a reader may see of a quad that inference adds. It is
+  decided ahead of inference, which this release does not ship. The TBox
+  and rules graphs of a binding are readable by every reader of the
+  dataset.
 
 #### Changed
 
@@ -100,6 +105,10 @@ accepted on the pull request (ADR 0066).
   - a segment holding only fence chunks opens;
   - a reader record whose write was applied but whose answer was lost is
     not forgotten.
+- **A binding's report graph, read while its projection was a commit
+  behind** (#183), could answer with no rows, which reads as conforming.
+  It now answers with the report at the position, or `503
+  validation-behind` after one bounded wait (ADR 0174).
 
 #### Upgrading
 
