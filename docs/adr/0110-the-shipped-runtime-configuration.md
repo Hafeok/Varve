@@ -14,6 +14,12 @@ and files stand. `FlatWithinABand` moves to this ADR's set under the same
 key (ADR 0068 point 4). Closes #61 when the soak under the shipped
 configuration holds the gate as point 5 states it.
 
+**Superseded in part 2026-10-28 by [ADR
+0215](0215-the-soak-gate-run-and-judged.md)** (filed unaccepted):
+`FlatWithinABand` moves to 0215's set under its key, restated for a run of
+any length with a bounded vocabulary. The configuration, and judging the
+soak under it, stand.
+
 **Revisit condition:** a soak or a benchmark showing the shipped
 configuration costing throughput that an operator would notice, or the
 runtime changing what `ConserveMemory` does.

@@ -66,6 +66,9 @@ internal static class Soak
 {
     internal static async Task RunAsync(TimeSpan duration, SoakOptions options)
     {
+        // The process's own handles, before the dataset opens: the base of the
+        // handles bound (ADR 0215), whatever the platform counts as a handle.
+        int handlesBefore = Handles();
         string directory = Directory.CreateTempSubdirectory("varve-soak-").FullName;
         FileStorage storage = await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = TimeProvider.System });
         DatasetOptions datasetOptions = new()
@@ -73,12 +76,14 @@ internal static class Soak
             Clock = TimeProvider.System,
             MemtableLimit = new QuadCount(options.MemtableLimit),
             Maintenance = options.Maintenance ? MaintenanceMode.Background : MaintenanceMode.Off,
-            Checkpoints = options.Policy ? new CheckpointPolicy { EveryCommits = 1_000, Keep = 12 } : CheckpointPolicy.Never,
+            Checkpoints = options.Policy ? new CheckpointPolicy { EveryCommits = 1_000, Keep = SoakBounds.KeepCheckpoints } : CheckpointPolicy.Never,
         };
         StoreDatasetType dataset = await StoreDatasetType.CreateAsync(storage, new DatasetId(Guid.NewGuid()), datasetOptions);
         using CancellationTokenSource stop = new(duration);
         long commits = 0, reads = 0, asOf = 0, checkpoints = 0, checkpointsInWindow = 0;
         Console.WriteLine("# soak " + duration.TotalMinutes.ToString(CultureInfo.InvariantCulture) + " min, " + options);
+        Console.WriteLine(GarbageCollection());
+        Console.WriteLine("# handles before the dataset " + handlesBefore.ToString(CultureInfo.InvariantCulture));
 
         // The writer: batches of 50 over a vocabulary of ten million possible
         // quads, a third of them retractions, pausing 25 ms between commits; the
@@ -194,7 +199,7 @@ internal static class Soak
         });
 
         Stopwatch clock = Stopwatch.StartNew();
-        Console.WriteLine("minutes,commits,head,quads,managed MB,heap MB,fragmented MB,committed MB,LOH MB,working set MB,private MB,peak working set MB,peak heap MB,open handles,derived files,derived MB,pins,as-of reads,checkpoints,checkpoint in window,allocated GB,directories MB,checkpoint directories MB");
+        Console.WriteLine(Header);
 
         while (!stop.IsCancellationRequested)
         {
@@ -211,9 +216,10 @@ internal static class Soak
             GC.Collect();
             GCMemoryInfo gc = GC.GetGCMemoryInfo(GCKind.Any);
             using Process self = Process.GetCurrentProcess();
-            int handles = Directory.Exists("/proc/self/fd") ? Directory.GetFiles("/proc/self/fd").Length : self.HandleCount;
+            int handles = Handles();
+            int segments = Directory.GetFiles(Path.Combine(directory, "log")).Length;
             string[] derivedFiles = Directory.GetFiles(Path.Combine(directory, "derived"), "*", SearchOption.AllDirectories);
-            long derivedBytes = derivedFiles.Sum(f => new FileInfo(f).Length);
+            long derivedBytes = derivedFiles.Sum(SizeOf);
             long directories = derivedFiles.Where(f => !IsCheckpoint(f)).Sum(DirectoryLength);
             long checkpointDirectories = derivedFiles.Where(IsCheckpoint).Sum(DirectoryLength);
             long quads = 0;
@@ -251,7 +257,11 @@ internal static class Soak
                 Interlocked.Exchange(ref checkpointsInWindow, 0).ToString(CultureInfo.InvariantCulture),
                 (GC.GetTotalAllocatedBytes() / 1e9).ToString("F1", CultureInfo.InvariantCulture),
                 Mb(directories),
-                Mb(checkpointDirectories)));
+                Mb(checkpointDirectories),
+                Mb(gc.PromotedBytes),
+                Mb(Math.Max(0, self.PrivateMemorySize64 - gc.TotalCommittedBytes)),
+                Mb(DatasetsOwn(directories, checkpointDirectories, dataset.Head.Value)),
+                segments.ToString(CultureInfo.InvariantCulture)));
         }
 
         await writer;
@@ -276,6 +286,26 @@ internal static class Soak
         Directory.Delete(directory, recursive: true);
     }
 
+    /// <summary>
+    /// The CSV's columns, which <see cref="SoakJudge"/> reads by name. The
+    /// live heap is <c>managed MB</c>, taken after a full collection; native
+    /// memory is the process's private bytes less the collector's committed
+    /// memory; <c>own MB</c> is the dataset's own (ADR 0082).
+    /// </summary>
+    internal const string Header =
+        "minutes,commits,head,quads,managed MB,heap MB,fragmented MB,committed MB,LOH MB,working set MB,private MB,peak working set MB,peak heap MB,"
+        + "open handles,derived files,derived MB,pins,as-of reads,checkpoints,checkpoint in window,allocated GB,directories MB,checkpoint directories MB,"
+        + "promoted MB,native MB,own MB,log segments";
+
+    /// <summary>
+    /// The dataset's own (ADR 0082): what grows with the dataset and nothing
+    /// else. The runs' directories and filters whole, a twentieth of the
+    /// checkpoints' and extent sets', which are held sparsely, and the table
+    /// of commits, 144 bytes a commit.
+    /// </summary>
+    internal static long DatasetsOwn(long directories, long checkpointDirectories, long commits) =>
+        directories + (checkpointDirectories / 20) + (commits * 144);
+
     // The directory of a derived run or checkpoint: what its reader holds in
     // memory, the fences and where each block begins (ADR 0080), read from
     // the header at the file's end (storage-format.md §7), and, in a
@@ -285,6 +315,43 @@ internal static class Soak
     private static bool IsCheckpoint(string path) =>
         path.Replace('\\', '/').Contains("/derived/checkpoints/", StringComparison.Ordinal)
         || path.Replace('\\', '/').Contains("/derived/extents/", StringComparison.Ordinal);
+
+    // The process's open handles: file descriptors where /proc has them, the
+    // kernel's handle count elsewhere.
+    private static int Handles()
+    {
+        using Process self = Process.GetCurrentProcess();
+        return Directory.Exists("/proc/self/fd") ? Directory.GetFiles("/proc/self/fd").Length : self.HandleCount;
+    }
+
+    /// <summary>
+    /// The collector the run had, as the runtime reports it, on the line
+    /// <see cref="SoakJudge"/> reads: the mode, whether collections are
+    /// concurrent, and ConserveMemory, from the runtimeconfig the shipped
+    /// props give or from the environment (ADR 0110, ADR 0215).
+    /// </summary>
+    internal static string GarbageCollection()
+    {
+        string conserve = AppContext.GetData("System.GC.ConserveMemory") as string
+            ?? Environment.GetEnvironmentVariable("DOTNET_GCConserveMemory")
+            ?? "0";
+        bool concurrent = System.Runtime.GCSettings.LatencyMode != System.Runtime.GCLatencyMode.Batch;
+        return "# gc " + (System.Runtime.GCSettings.IsServerGC ? "server" : "workstation") + ", " + (concurrent ? "concurrent" : "not concurrent") + ", ConserveMemory " + conserve;
+    }
+
+    // A file listed a moment ago may be gone: a temporary file renamed into
+    // place, or a file maintenance deleted. It counts as nothing.
+    private static long SizeOf(string path)
+    {
+        try
+        {
+            return new FileInfo(path).Length;
+        }
+        catch (FileNotFoundException)
+        {
+            return 0;
+        }
+    }
 
     private static long DirectoryLength(string path)
     {
@@ -308,6 +375,19 @@ internal static class Soak
 
             long directory = (long)BinaryPrimitives.ReadUInt64LittleEndian(header[80..]);
             ushort kind = BinaryPrimitives.ReadUInt16LittleEndian(header[6..]);
+            ushort version = BinaryPrimitives.ReadUInt16LittleEndian(header[4..]);
+
+            // Version 6 (ADR 0213) puts the term pages' checks after the
+            // directory's words, so the filter's length is found by walking
+            // the directory from its start.
+            if (version >= 6 && kind is 1 or 2)
+            {
+                long at = (long)BinaryPrimitives.ReadUInt64LittleEndian(header[72..]);
+                byte[] words = new byte[directory];
+                file.Seek(at, SeekOrigin.Begin);
+                file.ReadExactly(words);
+                return directory + FilterLengthOf(words);
+            }
 
             // Only a run or a checkpoint (kinds 1 and 2) carries a filter; the
             // projection state and the commit index are version 3 too, and
@@ -326,6 +406,25 @@ internal static class Soak
         {
             return 0;
         }
+    }
+
+    // A version-6 run's directory (storage format §7.2): the keys per block,
+    // the section count, each section's offset, count and length, then per
+    // block a fence of 32 bytes, a start and a check of 8 each, then the
+    // term section's words, of which the ninth is the filter's length.
+    private static long FilterLengthOf(ReadOnlySpan<byte> directory)
+    {
+        int sections = BinaryPrimitives.ReadInt32LittleEndian(directory[4..]);
+        long blocks = 0;
+
+        for (int i = 0; i < sections; i++)
+        {
+            long count = BinaryPrimitives.ReadInt64LittleEndian(directory[(8 + (i * 24) + 8)..]);
+            blocks += (count + 127) / 128;
+        }
+
+        int words = 8 + (sections * 24) + (int)(blocks * (32 + 8 + 8));
+        return BinaryPrimitives.ReadInt64LittleEndian(directory[(words + (8 * 8))..]);
     }
 
     private static string Mb(long bytes) => (bytes / 1e6).ToString("F1", CultureInfo.InvariantCulture);

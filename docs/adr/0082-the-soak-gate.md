@@ -16,6 +16,10 @@ named for 1.0.
 the shipped runtime configuration, the default-runtime figures beside it; see
 the end.
 
+**Amended 2026-10-28 by [ADR 0215](0215-the-soak-gate-run-and-judged.md)**
+(filed unaccepted): the soak is run by the release gate and judged by a
+script, with a bounded vocabulary. See the end.
+
 **Superseded in part 2026-10-10 by ADR
 [0110](0110-the-shipped-runtime-configuration.md)** (its point 5): the
 drift's reference window is minutes 30–40, not 10–20. The band, the
@@ -115,3 +119,20 @@ restatement: the criterion, the band and the drift are unchanged.
 key, restated with the later window (the supersession in part). The ruling
 of this amendment is the new key `JudgedUnderTheShippedConfiguration` in
 this ADR's set, unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-10-28 — run by the release gate, judged by a script
+
+Filed by 1.0 readiness A (#61, under #129) with ADR 0215, unaccepted until
+the maintainer accepts it (ADR 0066). "The gate is run and reported at each
+milestone that touches the store; it is not in CI" no longer holds:
+
+- the release gate runs the soak for four hours on Linux at every release,
+  and the nightly runs it on Windows once a week;
+- `Varve.Benchmarks --soak-judge` applies the gate, so no one reads it by
+  hand;
+- the workload's vocabulary is bounded (`--subjects 2000`), so the dataset
+  is steady from minute 30 and the gate measures the store, not the
+  dataset's growth.
+
+The band, the samples and the dataset's own stand. The gate itself is
+`FlatWithinABand` in ADR 0215's set, restated for a run of any length.

@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Store.Log;
 
@@ -173,6 +175,11 @@ public sealed partial class Dataset
     // commits as one batch, publishes, and answers. Inside the sequencer.
     private async ValueTask LeadAsync()
     {
+        if (_writerSuspect && !_disposing)
+        {
+            await RecoverWriterAsync().ConfigureAwait(false);
+        }
+
         State state = _state;
         Staging staging = new(state);
         GroupCommitOptions bounds = _options.GroupCommit ?? GroupCommitOptions.For(Durability);
@@ -265,12 +272,60 @@ public sealed partial class Dataset
                 // The records may be half written. The log is still readable —
                 // an unclosed tail is ignored on open — but this writer's idea
                 // of the active segment can no longer be trusted, and nothing
-                // staged against it was ever real (ADR 0124 point 3).
-                _broken = "An append failed; reopen the dataset to recover.";
+                // staged against it was ever real (ADR 0124 point 3). After a
+                // full disk the next write recovers the writer in place, as an
+                // open would, and the refusal is answered as such, never as an
+                // error: nothing was acknowledged, and a retry is right (ADR
+                // 0214 point 2). Any other failure waits for a reopen.
+                if (error is not System.IO.IOException)
+                {
+                    // Not the storage failing to write: a superseded writer's
+                    // fence (ADR 0136), whose batch was not written, or a
+                    // defect. Every member gets the error, and the dataset
+                    // waits for a reopen (ADR 0124 point 3).
+                    _broken = "An append failed; reopen the dataset to recover: " + error.Message;
+
+                    foreach (Member member in members)
+                    {
+                        member.Pending.Answer.TrySetException(member.Error ?? error);
+                    }
+
+                    return;
+                }
+
+                bool full = StorageSpace.IsFull(error);
+                AppendFailed(error);
+
+                // Each member is answered by the log, before anyone is (ADR
+                // 0214 point 2): committed when closed and flushed; not known
+                // when closed and the flush was not confirmed, since the
+                // record may survive; refused for space when never closed,
+                // as the writer's recovery fences it off. The committed
+                // members are therefore a prefix of the batch.
+                (long committed, long closed) = await SettleFailedAppendAsync().ConfigureAwait(false);
 
                 foreach (Member member in members)
                 {
-                    member.Pending.Answer.TrySetException(member.Error ?? error);
+                    if (member.Error is not null)
+                    {
+                        member.Pending.Answer.TrySetException(member.Error);
+                    }
+                    else if (member.Commit is { } written && written.Position <= committed)
+                    {
+                        member.Pending.Answer.TrySetResult(CommitResult.Committed(written.Position));
+                    }
+                    else if (member.Commit is { } unsettled && unsettled.Position <= closed)
+                    {
+                        member.Pending.Answer.TrySetResult(CommitResult.OutcomeUnknown(_state.Head, unsettled.Position, OutcomeUnknownReason));
+                    }
+                    else if (full)
+                    {
+                        member.Pending.Answer.TrySetResult(CommitResult.NoSpace(_state.Head, NoSpaceReason));
+                    }
+                    else
+                    {
+                        member.Pending.Answer.TrySetException(error);
+                    }
                 }
 
                 return;
@@ -368,6 +423,103 @@ public sealed partial class Dataset
         return null;
     }
 
+    private const string NoSpaceReason = "The storage has no space for the commit; nothing was written, and the next write tries again.";
+
+    /// <summary>
+    /// Whether the last write was refused because the storage had no space
+    /// (ADR 0214 point 2): true from such a refusal until a write gets through.
+    /// Readiness reports it, and stays ready: reads go on.
+    /// </summary>
+    [DesignDecision(typeof(FileBackendFailureInjection.FullDiskFailsTheCommitAndTheNextWriteRecovers), Scope = ExceptionScope.Boundary)]
+    public bool StorageFull => _storageFull;
+
+    // An append, or a bulk load's, failed. On a full disk the writer is
+    // suspect until the next write recovers it; any other failure waits for
+    // a reopen (ADR 0124 point 3).
+    private void AppendFailed(Exception error)
+    {
+        _storageFull = StorageSpace.IsFull(error);
+        _broken = _storageFull ? NoSpaceReason : "An append failed; reopen the dataset to recover: " + error.Message;
+        _writerSuspect = _storageFull;
+    }
+
+    private const string OutcomeUnknownReason = "The commit was written and closed, and the flush that would make it durable did not return: it may or may not be committed. The commits resource says which, once the head reaches its position.";
+
+    // After a failed append: one flush, unless a flush is what failed, then
+    // the commits closed and flushed applied. Returns the head after, the
+    // last committed, and the last closed; between the two the outcome is
+    // not known. When the log cannot be read back, nothing more is applied
+    // and the dataset waits for a reopen.
+    [DesignDecision(typeof(FileBackendFailureInjection.AcknowledgedOnlyWhenTheBatchIsDurable), Scope = ExceptionScope.Boundary)]
+    private async ValueTask<(long Committed, long Closed)> SettleFailedAppendAsync()
+    {
+        long closed = _writer.Closed;
+        _dictionary.Forget();
+
+        // Nothing here may escape: every member of the batch is answered
+        // after it, and a member left unanswered waits for ever. What cannot
+        // be settled stays outcome unknown or refused, never committed.
+        try
+        {
+            await _writer.SettleAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // The flush failed too: what an earlier flush covered is
+            // committed, and what it did not is not known.
+        }
+
+        try
+        {
+            await AdoptClosedAsync(_writer.Durable, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception error)
+        {
+            _writerSuspect = false;
+            _storageFull = false;
+            _broken = "An append failed and the log could not be read back: reopen the dataset to recover. " + error.Message;
+        }
+
+        return (_state.Head, closed);
+    }
+
+    /// <summary>
+    /// After a failed append on a full disk, what an open does, in place (ADR
+    /// 0214 point 2): the writer is opened on a scan stopped at the head, the
+    /// last commit closed and flushed, which gives the newest segment an
+    /// abandoned trailer naming it, so that nothing written after it is ever
+    /// read, a commit whose outcome was not known included; it seals the
+    /// segment, and the next commit starts a new one (storage format §5). When the
+    /// storage still has no space, the dataset stays as it was and the write
+    /// is refused as <c>storage-full</c>; any other failure leaves it waiting
+    /// for a reopen. Inside the sequencer.
+    /// </summary>
+    [DesignDecision(typeof(FileBackendFailureInjection.FullDiskFailsTheCommitAndTheNextWriteRecovers), Scope = ExceptionScope.Boundary)]
+    private async ValueTask RecoverWriterAsync()
+    {
+        try
+        {
+            LogScan scan = await AdoptClosedAsync(_state.Head, CancellationToken.None).ConfigureAwait(false);
+            _writer = await LogWriter.OpenAsync(_storage.Log, Id, scan, _options.SegmentBytes.Value, (int)_options.MaxRecordBytes.Value, CancellationToken.None).ConfigureAwait(false);
+            _writerSuspect = false;
+            _storageFull = false;
+            _broken = null;
+        }
+        catch (Exception error) when (StorageSpace.IsFull(error))
+        {
+            // Still no space: tried again at the next write.
+            _storageFull = true;
+            _broken = NoSpaceReason;
+        }
+        catch (Exception error)
+        {
+            // Any other failure, or a log that does not verify: only a reopen decides.
+            _writerSuspect = false;
+            _storageFull = false;
+            _broken = "The log could not be recovered after a failed append; reopen the dataset: " + error.Message;
+        }
+    }
+
     // Spec T1 steps 1 to 6 against the staged state, and step 7's encoding; on
     // a commit, advances the staging to it. The write is the batch's.
     private CommitResult Stage(Staging staging, PendingCommit pending, long budget, out StagedCommit? staged, out bool deferred)
@@ -386,7 +538,7 @@ public sealed partial class Dataset
 
         if (_broken is not null)
         {
-            return CommitResult.Unavailable(head, _broken);
+            return _storageFull ? CommitResult.NoSpace(head, _broken) : CommitResult.Unavailable(head, _broken);
         }
 
         if (staging.Failed is not null)

@@ -29,7 +29,7 @@ namespace Varve.Store.Tests.Faults;
 /// they share: xunit runs a class's tests one after another, and as one
 /// class the suite ran its 13 in series for the whole of the step (#126).
 /// </remarks>
-public static class FaultInjectionTests
+public static partial class FaultInjectionTests
 {
     private static readonly string Root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "varve-simulated", "dataset"));
 
@@ -88,11 +88,11 @@ public static class FaultInjectionTests
     /// commit, and a checkpoint every seventh step. The last acknowledged
     /// position is reported as it happens, so a crash knows what must survive.
     /// </summary>
-    private static async Task RunAsync(SimulatedFileSystem files, int seed, int steps, Action<long> acknowledged, Reference? reference, int batch = 1)
+    private static async Task RunAsync(IFileSystem files, int seed, int steps, Action<long> acknowledged, Reference? reference, int batch = 1, string? root = null)
     {
         Random random = new(seed);
         SortedSet<string> state = [];
-        FileStorage storage = FileStorage.Open(files, new DatasetDirectory(Root), StorageOptions);
+        FileStorage storage = FileStorage.Open(files, new DatasetDirectory(root ?? Root), StorageOptions);
         Dataset dataset = await Dataset.CreateAsync(storage, T.Id, OptionsFor(batch), T.Ct);
 
         for (int step = 0; step < steps; step += batch)
@@ -143,9 +143,9 @@ public static class FaultInjectionTests
     }
 
     // One request of a few asserts and retracts, and the state after it.
-    private static (CommitRequestBuilder Request, SortedSet<string> Next) Generate(Random random, SortedSet<string> state)
+    private static (CommitRequestBuilder Request, SortedSet<string> Next) Generate(Random random, SortedSet<string> state, CommitMetadata? metadata = null)
     {
-            CommitRequestBuilder request = new();
+        CommitRequestBuilder request = new() { Metadata = metadata ?? new() };
         SortedSet<string> next = [.. state];
 
         for (int op = random.Next(1, 6); op > 0; op--)
@@ -229,10 +229,10 @@ public static class FaultInjectionTests
             ? [.. reference.History[(int)continued.At], Continued(continued.Marker)]
             : reference.History[(int)position];
 
-    private static async Task<long> VerifyCoreAsync(SimulatedFileSystem image, Reference reference, long atLeast, string where, Continuation? continued, string marker, int batch = 1)
+    private static async Task<long> VerifyCoreAsync(IFileSystem image, Reference reference, long atLeast, string where, Continuation? continued, string marker, int batch = 1, string? root = null)
     {
         DatasetOptions options = OptionsFor(batch);
-        FileStorage storage = FileStorage.Open(image, new DatasetDirectory(Root), StorageOptions);
+        FileStorage storage = FileStorage.Open(image, new DatasetDirectory(root ?? Root), StorageOptions);
         long head;
 
         try
@@ -281,7 +281,7 @@ public static class FaultInjectionTests
             await storage.DisposeAsync();
         }
 
-        await using FileStorage again = FileStorage.Open(image, new DatasetDirectory(Root), StorageOptions);
+        await using FileStorage again = FileStorage.Open(image, new DatasetDirectory(root ?? Root), StorageOptions);
         await using Dataset reopened = await Dataset.OpenAsync(again, options, T.Ct);
         Check(reopened.Head.Value == head + 1, where + ": a reopen after recovery lost the continuation");
         using DatasetView view = reopened.Pin();
