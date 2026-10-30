@@ -12,6 +12,71 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.18] - 2026-10-30
+
+**Row-level access through the classifier — the first part of milestone 9**
+
+### Row-level access through the classifier (#202, under #14, in 1.0 by #15)
+
+Beneath graph-level grants, a dataset's rows now belong to data subjects,
+and a grant can be limited to the rows of its subjects. It works with
+erasure mode off and is stable 1.0 API. Erasure mode itself is the second
+part of milestone 9 (#203), preview only. This release closes #202; #14
+stays open. The nine ADRs are filed unaccepted and accepted on the pull
+request (ADR 0066). No byte of storage format 1 or delta format 1 changes.
+
+#### Added
+
+- **Classifier bindings** (ADRs 0232, 0234). `varve:ClassifierBinding`
+  names an annotated shapes graph of the dataset and the graphs it
+  classifies:
+  - `varve:dataSubject` on a node shape names data subjects, by
+    `sh:targetClass`, `sh:targetNode` or `sh:targetSubjectsOf`;
+  - `varve:subjectLink` on a property shape carries ownership, transitively;
+  - `varve:publicLink` marks a predicate whose object is not hidden with
+    the row it names, `rdf:type` always among them.
+
+  A shapes graph that does not classify fails closed.
+- **What a quad is about** (ADR 0230). A quad is about its subject node's
+  subjects and, unless its predicate is a public link, its object's. A
+  caller sees it when its graph is readable and every one of those
+  subjects is in the caller's subject set for the binding.
+- **Subject-scoped grants** (ADR 0234). A read or write grant may carry
+  `varve:subject`, `varve:subjectPrefix`, `varve:subjectTemplate`,
+  `varve:subjectClass` and `varve:subjectLink`, and a write grant
+  `varve:createUnder`. A grant without them means what it meant. `varve
+  apply` refuses a row-restricted grant that does not cover the whole
+  binding, overlapping bindings, and a reject or report shapes gate over a
+  row-restricted writer's classified graphs.
+- **`RowScopedQuadSource`** in `Varve.Rdf` (ADR 0235): two probes and a
+  memoised set decision per quad, no allocation, and no wrapper at all for
+  a caller with no row restriction.
+- **The write rule** (ADR 0236). A row-restricted writer writes only rows
+  already wholly its own, creates rows only at fresh blank nodes or under
+  `varve:createUnder`, and links only to rows it reads. Every breach is the
+  same `403 row-not-writable`, so no write's outcome depends on a row it
+  cannot read.
+- **Every surface** (ADR 0237). Queries, the Graph Store and the service
+  description read the caller's rows. The feed and the diff deliver the
+  delta of the caller's view, reclassified quads included. Validation
+  report graphs and their attachments are withheld from a row-restricted
+  caller. Inference's closure waits for #171 (ADR 0238).
+- **`Varve.Classification`**, a new layer-5 package (ADRs 0232, 0233).
+  `ShapeClassifier` is `Varve.Store`'s new `IClassifier`.
+  `ClassificationProjection` keeps the classification at every position,
+  from exact deltas, in the local cache verified in full on read. A
+  row-restricted read it has not reached waits once, then answers
+  `503 classification-behind`. Its lag is on readiness as `classification`.
+- **Access without erasure mode** (ADR 0231):
+  `GET /datasets/{name}/access?subject=<IRI>`, for a dataset admin, answers
+  a subject's quads at the head through the new `ISelector`.
+
+#### Upgrading
+
+- **Nothing to do.** No grant restricts rows until it carries subject
+  terms, and no dataset is classified until it declares a classifier
+  binding. `varve:ClassifierBinding` was reserved and refused before.
+
 ## [0.1.0-preview.15] - 2026-10-23
 
 **As-of reads that seek — an as-of read inside an extent set costs its matches**
@@ -1658,7 +1723,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.18...HEAD
+[0.1.0-preview.18]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...v0.1.0-preview.18
 [0.1.0-preview.15]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...v0.1.0-preview.15
 [0.1.0-preview.14]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.13...v0.1.0-preview.14
 [0.1.0-preview.13]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.12...v0.1.0-preview.13

@@ -1815,3 +1815,48 @@ The first run, before the fix to incremental validation's candidate targets
   A generation is a full validation, so the fix leaves it unchanged. S's
   cold start of 7.1 s against 4.3 s is one run's spread at a few seconds.
 - **Part 2a's 7.6 ms** were measured without those constraints.
+
+## Milestone 9, part 1 — the row-scoped quad source (ADR 0235)
+
+**Machine.** A cloud container: Intel Xeon @ 2.10 GHz, 4 cores, 15 GiB,
+.NET SDK 10.0.403, runtime 10.0.14.
+
+```bash
+WarningsNotAsErrors=CS0618 dotnet run -c Release --project tests/Varve.Benchmarks -- \
+  --filter 'Varve.Benchmarks.ScanBenchmarks.FullScan*' 'Varve.Benchmarks.ScanBenchmarks.TenThousand*' \
+  --job short --inProcess
+```
+
+The million-quad scan of milestone 4, through a `RowScopedQuadSource` over a
+classification of a hundred tenants (`TenantClassification`: every subject
+belongs to one tenant, and no link is public), against the unwrapped view
+and milestone 7b's graph scopes in the same run. It is the short job, three
+iterations, so the error columns are wide. The ratios are what this
+measures.
+
+| Every quad, every graph | Mean | ± error | Per quad over the unwrapped scan | Allocated |
+|---|---:|---:|---:|---:|
+| The view itself | 31.5 ms | 54.2 | — | 512 B |
+| A scope listing four of the five graphs by IRI | 44.9 ms | 44.2 | 13.4 ns | 2,943 B |
+| A scope of one IRI prefix | 47.2 ms | 80.6 | 15.6 ns | 2,039 B |
+| A row scope restricting nothing | 31.0 ms | 26.2 | — | 658 B |
+| A row scope of one tenant of a hundred | 57.2 ms | 20.8 | 25.6 ns | 25,698 B |
+| A row scope of half the tenants | 65.4 ms | 68.4 | 33.9 ns | 26,118 B |
+
+| 10,000 subject lookups | Mean | ± error | Per lookup over the view | Allocated |
+|---|---:|---:|---:|---:|
+| The view itself | 9.6 ms | 10.5 | — | 5,120,073 B |
+| A row scope of half the tenants | 13.9 ms | 14.0 | 0.43 µs | 5,465,705 B |
+
+**Reading it.**
+- **A row scope that restricts nothing is the view.** `Wrap` builds no
+  wrapper, so an unrestricted caller pays nothing.
+- **A restricted scan** probes the subject's set and the object's set per
+  quad, and decides each set once. That is about twice a graph scope's cost
+  per quad. Half the tenants costs more than one tenant, because more quads
+  pass to the count.
+- **What it allocates** is the per-set decision table, per request, never
+  per quad.
+- **Not measured here:** the classification projection's lag and cold start
+  on the REC portfolio at M, as part 2b measured validation's. That is the
+  next run of this section.

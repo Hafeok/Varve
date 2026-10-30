@@ -13,6 +13,7 @@ the `varve` command line (ADR 0105). Fourteen pages, each a task:
 | [Shapes](shapes.md) | shapes bindings: declaring one, `reject`, `report` and `off`, which shapes can be checked per commit, the attachment, the report graph and who reads it, the projection's lag, cold start and cost, and the composition REC and Brick need |
 | [Moving event schemas](moving-event-schemas.md) | moving a dataset's event declarations from its catalogue graphs to the management plane: the freeze, the copy, a stopped move, and declaring event types afterwards |
 | [Integrate](integrate.md) | the commits resource as the stream other systems follow, `FollowAsync` and its checkpoint, at least once; domain events as CloudEvents, their catalogue, schemas and AsyncAPI, `FollowEventsAsync`, and the Event Hubs bridge |
+| [Row-level access](row-level-access.md) | classifier bindings, subject-scoped grants, the write rule, what a row-restricted caller sees, the classification projection, access requests |
 | [Observe](observe.md) | the OTLP exporter and the `OTEL_*` variables, every span and metric by name, the log events, what it costs |
 | [Back up and restore](backup-and-restore.md) | what the files are, taking a copy, checkpoints, restoring, and the change feed as an incremental copy |
 | [Upgrade](upgrade.md) | what a new build reads, what it rewrites, and the order of a rolling upgrade |
@@ -27,7 +28,7 @@ and its members (ADR 0119). Every term the service description coins under
 
 The decisions behind the pages are ADRs 0101 (the host), 0105 (the command
 line), 0106 (the admin API), 0163–0168 (the management plane, the
-follower, the management position, the vocabulary, the event-schema move, write forwarding), 0169–0176 (shapes bindings, the validation projection and the REC gate), 0107 (graph-level authorisation), 0104 (`SERVICE`
+follower, the management position, the vocabulary, the event-schema move, write forwarding), 0169–0176 (shapes bindings, the validation projection and the REC gate), 0107 (graph-level authorisation), 0230–0238 (row-level access), 0104 (`SERVICE`
 and `LOAD` over HTTP), 0112 (telemetry), 0037, 0100 and 0127 (authentication
 and on-behalf-of), 0128 and 0129 (the feed's format and following it), 0130
 and 0131 (setup), and 0132 (CORS). The protocol a

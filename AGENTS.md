@@ -33,7 +33,7 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 | 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser); `Varve.Derivation` (dependency graphs, regular paths, propagation — ADR 0172, amending 0003) |
 | 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128) |
 | 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143); `Varve.Shacl.Sparql` (SHACL-SPARQL over the evaluator, through `Varve.Shacl`'s extension contract — ADR 0148); `Varve.Management` (the management plane's declarations and grants, by dependency — ADR 0166) |
-| 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Shacl.Store` (commit-time gating under a shapes binding — ADR 0169) |
+| 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Shacl.Store` (commit-time gating under a shapes binding — ADR 0169), `Varve.Classification` (the shape-derived classifier and the classification projection — ADR 0232) |
 | 6 | hosts — every executable, and only executables: the server, the CLI, the smoke apps, the benchmarks (ADR 0060) |
 
 **Same-layer references are violations.** Contracts live in the lowest layer that
@@ -205,7 +205,29 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 8, SHACL (#13), complete with part 2b (ADRs 0174–0176, filed
+Milestone 9, part 1 (#202, under #14; ADRs 0230–0238, filed unaccepted):
+**row-level access through the classifier**, in 1.0 and stable, with erasure
+mode off. A `varve:ClassifierBinding` names an annotated shapes graph and the
+graphs it classifies (0234). `Varve.Classification` (layer 5) reads
+`varve:dataSubject`, `varve:subjectLink` and `varve:publicLink` as RDF (0232):
+a node belongs to the data subjects it is and those its links reach, and a
+quad is about its subject's subjects and, unless its predicate is a public
+link, its object's (0230). A caller sees a classified quad when every subject
+it is about is in its subject set for the binding: a grant's `varve:subject`,
+prefix, template, class or link terms, all subjects when it has none, and a
+grant with them must cover the whole binding. `RowScopedQuadSource` in
+`Varve.Rdf` is two probes and a memoised set decision per quad, and is not
+built for `RowScope.All` (0235). A row-restricted writer writes only rows
+already wholly its own, creates at fresh blank nodes or under
+`varve:createUnder`, links only to rows it reads, and every breach is one
+`403 row-not-writable` (0236). The feed and the diff deliver the caller's view;
+report graphs are withheld; inference's closure waits for #171 (0237, 0238).
+The classification projection is incremental, served at any position,
+verified in the local cache, `503 classification-behind` to a row-restricted
+read it has not reached, and kept by every tier-1 follower (0233). The access
+route answers an admin a subject's quads (0231). Part 2 (#203) is erasure mode.
+
+Before that, milestone 8, SHACL (#13), complete with part 2b (ADRs 0174–0176, filed
 unaccepted). Each shapes binding keeps a **validation projection** in
 `Varve.Shacl.Store` (0174). It lives in the local cache only and is rebuilt
 by every instance from the head on a cold start. Its report at p equals
