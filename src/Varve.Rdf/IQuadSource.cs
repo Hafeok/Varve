@@ -65,6 +65,24 @@ public interface IQuadSource
     /// entitled to report that a term it has never seen cannot appear in any
     /// quad it holds.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <strong>False is a promise about every quad the source will ever
+    /// yield</strong>, including quads it has not loaded yet (ADR 0022,
+    /// amended 2026-10-30). A consumer compiles a constant this source
+    /// denies into a pattern it never runs, before it matches anything. A
+    /// source that cannot know yet, because what it serves is filled later,
+    /// answers true with a handle it stages for the term, which matches
+    /// nothing until the term is there.
+    /// </para>
+    /// <para>
+    /// A blank node is outside the promise, since a source looks up no blank
+    /// node by label (ADR 0044). So is a part of a triple term the source
+    /// cannot take apart by handle (<see cref="TryGetTripleTermComponents"/>),
+    /// which the evaluator matches by value. Every source passes
+    /// <c>tests/QuadSourceContract.cs</c> (#191).
+    /// </para>
+    /// </remarks>
     bool TryInternalise(RdfTerm term, out TermHandle handle);
 
     /// <summary>

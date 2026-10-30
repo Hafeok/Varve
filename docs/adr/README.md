@@ -38,7 +38,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0019](0019-erasure-by-crypto-shredding.md) | Erasure by crypto-shredding | **Superseded by 0023** |
 | [0020](0020-cipher-for-erasure-mode.md) | Cipher for erasure mode | **Superseded by 0028** |
 | [0021](0021-dataset-settings-as-a-commit-kind.md) | Dataset settings as a commit kind | Accepted |
-| [0022](0022-quad-source-term-handle.md) | The quad source contract over an opaque term handle | Accepted |
+| [0022](0022-quad-source-term-handle.md) | The quad source contract over an opaque term handle | Accepted; amended 2026-10-30 (a denied term is in no quad the source will yield, loaded or not; filed unaccepted, #191) |
 | [0023](0023-erasure-and-access-requests.md) | Erasure by crypto-shredding, and access requests | Accepted |
 
 ## Milestone 3a — the model and the syntax
