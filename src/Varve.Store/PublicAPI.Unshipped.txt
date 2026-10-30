@@ -745,6 +745,9 @@ Varve.Store.IClassifier.Classify(Varve.Rdf.IQuadSource! pinned, Varve.Rdf.QuadDe
 Varve.Store.ISelector
 Varve.Store.ISelector.Select(Varve.Rdf.IQuadSource! source, Varve.Rdf.IRowClassification! classification, Varve.Rdf.RdfTerm! subject) -> Varve.Rdf.IQuadCursor!
 static Varve.Store.ClassificationSelector.Instance.get -> Varve.Store.ClassificationSelector!
+Varve.Store.Log.CommitResult.StorageFull.get -> bool
+Varve.Store.Dataset.StorageFull.get -> bool
+Varve.Store.Log.CommitResult.OutcomeUnknownAt.get -> Varve.Store.Log.Position?
 Varve.Store.Dataset.TryReadCheckedAsync(Varve.Store.IDerivedStore! store, Varve.Store.Log.BlobName name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CheckedContent?>
 Varve.Store.Dataset.WriteCheckedAsync(Varve.Store.IDerivedStore! store, Varve.Store.Log.BlobName name, Varve.Store.Log.Position position, System.ReadOnlyMemory<byte> bytes, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Varve.Store.Log.CheckedContent

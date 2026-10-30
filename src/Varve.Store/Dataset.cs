@@ -136,7 +136,7 @@ public sealed partial class Dataset : IAsyncDisposable
     private readonly IStorage _storage;
     private readonly DatasetOptions _options;
     private readonly TermDictionary _dictionary;
-    private readonly LogWriter _writer;
+    private LogWriter _writer;
     private readonly StoreMetrics _metrics;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _damaged = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _sequencer = new(1, 1);
@@ -146,6 +146,12 @@ public sealed partial class Dataset : IAsyncDisposable
     private volatile State _state;
     private string? _broken;
     private volatile bool _disposing;
+
+    // An append failed, so the writer's idea of the log's tail is not to be
+    // trusted: the next write recovers it in place, as an open would (ADR
+    // 0214 point 2), and until then nothing is staged against it.
+    private bool _writerSuspect;
+    private volatile bool _storageFull;
 
     private Dataset(IStorage storage, DatasetId id, DatasetOptions options, TermDictionary dictionary, LogWriter writer, State state)
     {
@@ -262,6 +268,21 @@ public sealed partial class Dataset : IAsyncDisposable
         return await OpenAsync(storage, options, cancellationToken).ConfigureAwait(false);
     }
 
+    // What the open finds closed it takes as committed, and committed means
+    // closed and flushed: the newest segment's tail may be records whose
+    // flush failed in a process that then closed or reopened the dataset
+    // (ADR 0214 point 2). It is flushed before anything is built on it: a
+    // commit index, a checkpoint, an answer. On a backend that flushes with
+    // fsync; an object store's chunks are durable when acknowledged.
+    [DesignDecision(typeof(FileBackendFailureInjection.AnOpenFlushesWhatItAdopts), Scope = ExceptionScope.Boundary)]
+    private static async ValueTask FlushWhatTheOpenAdoptsAsync(ISegmentStore log, LogScan scan, CancellationToken cancellationToken)
+    {
+        if (log.Durability == Durability.Synchronised && scan.Segments.Count > 0 && scan.Segments[^1] is { IsSealed: false } newest)
+        {
+            await log.FlushAsync(newest.Id, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
     /// <summary>
     /// Opens a dataset: checks its manifest, verifies the log's chain (refusing
     /// one that does not verify), ignores a torn or unclosed tail, and builds
@@ -343,6 +364,8 @@ public sealed partial class Dataset : IAsyncDisposable
             : await LogReader.ScanAsync(
                 storage.Log, id, bodiesAfter, commit => opener.AddAsync(commit, bodiesAfter, cancellationToken), options.TornWindow, cancellationToken).ConfigureAwait(false);
         long head = scan.Head;
+
+        await FlushWhatTheOpenAdoptsAsync(storage.Log, scan, cancellationToken).ConfigureAwait(false);
         CommitIndex commits = await opener.FinishAsync(cancellationToken).ConfigureAwait(false);
 
         if (commits.Head != head)

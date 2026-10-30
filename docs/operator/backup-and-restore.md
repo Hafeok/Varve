@@ -16,6 +16,19 @@ saves the replay. Every commit is flushed to the device before it is
 acknowledged (`Synchronised`, ADR 0073), so the log on disk is never behind
 what a client was told.
 
+**A full disk fails the write that met it, and nothing that was
+acknowledged** (ADR 0214). The commit that needed the space is refused with
+`507` and the problem type `storage-full`, and its client is not told it
+committed. The dataset keeps serving reads at the position it had, and
+`/health/ready` stays ready, naming the dataset under `writesRefused`. Free
+space; nothing needs restarting. The next write recovers the dataset's log
+itself, as an open would, and commits. Until there is space, each write is
+refused `storage-full` again. A full disk while the dataset opens fails the
+open; the next open with space succeeds. A checkpoint or maintenance write
+that meets a full disk fails on its own, and a later round retries it. Every
+release is gated on these outcomes, on Linux and Windows, at every allocation
+the backend makes.
+
 ## Taking a copy
 
 **Hot**: copy the directory while the server runs. The store is built for
