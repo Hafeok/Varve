@@ -216,5 +216,11 @@ names both planes, under the conditions below (2026-10-30).
      keeps such a token off the network.
 4. **The issuers' table** in `docs/operator/web-ui.md` says which issuers use
    `refresh` and which use `exchange`, and what each needs.
+5. **Who is signed in, for display** (#187, 2026-10-30, review F02). The shell
+   names, per plane, the agent the plane's token names, `iss#sub` encoded as
+   the server encodes it, with the roles in `Varve:Auth:RoleClaimType`
+   (`roles` by default); a `403` names it too. The claims are read from the
+   payload without validating, as point 3 reads `aud`: they authorise
+   nothing, and the server decides.
 
 The ruling is `ManagementTokenByExchange`.

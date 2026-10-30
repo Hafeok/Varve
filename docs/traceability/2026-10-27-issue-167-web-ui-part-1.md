@@ -1133,3 +1133,47 @@ Measured:
   | `Varve.WebUi.Browser.Tests` | 7 / 7, both issuers, 53.9 s |
 - **Gates:** `decision-sets`, `ci-images`, `required-checks`, `status` and
   `release-pending` pass; the Release build has zero warnings.
+
+### The heuristic review, 2026-10-30
+An independent heuristic review of the console found 28 findings at
+severity 2 and up. The maintainer ruled on #187 which are part 1's, and
+how. Every markup or wording change went through its case in `docs/ui/`
+first.
+
+**In this pull request:**
+
+| Item | Finding | As built |
+|---|---|---|
+| 1 | F01 | The bar shows the instance that answered by its role in the system dataset, "system writer". `/manage/system` does not name the instance, so the name waits on #193; `ShellFacts` shows it once it is served. |
+| 2 | F02 | Each signed-in plane names the agent its token names, `iss#sub` encoded as the server encodes it. The token's roles show on hover or focus, and Escape hides them. A `403` adds "Signed in as …". Read without validating, display only (ADR 0201 amendment, point 5). |
+| 3 | F05 | Every stamp names its log: "notes position 18417", "management position 412", "expected management position 412 / now 415". The atom stays generic; the parts and pages name the log. |
+| 4 | F06 | The drift note, in the ruling's words. |
+| 5 | F07 | Closing a `Memory` dataset says its data is lost. Checked against `OpenDatasets`: closing disposes the in-memory storage, and opening again creates a new, empty one. Other storage keeps "Nothing is deleted." |
+| 6 | F08 | Cancel before the act, Done after a successful one. A refused act keeps Cancel and its confirm button. |
+| 7 | F09 | The unreachable notice carries Read again and the one time of the last successful read. Panels under it are stale (`vw-panel--stale`, a new case). |
+| 8 | F20 | "Show 3 new" is a button. It shows the waiting commits and returns to the top, where the tail runs, and the stamp follows. |
+| 9 | F27 | The tail is a polite live region, and a loading table is `aria-busy`. `TripleList` is a real table with header cells and a caption; the contract test renders a row case inside a table body. |
+| 10 | F25 | Anonymous mode is in the warn tone. |
+| 11 | F22 | A dataset's screens sit under a dataset selector. It defaults to the dataset open, else the one last viewed, else the first. On a dataset's screen, choosing another opens the same screen of it. |
+| 12 | F23 | Grants has Table and Source views (a new `Tabs` molecule, links with their own addresses). The separate Declaration screen goes. |
+| 13 | F24 | Copy copies a source exactly as served. A browser test copies it on every screen with a source, parses it as TriG, checks a declaration's graph wrapper, and compares it with the server's own document. |
+| 14 | F28 | The 412's `graphs` show as "Changed since you read it". Reload at head keeps the dialog filled in. |
+| 15 | F13 | Agents are full IRIs everywhere, the writer's included. A declaration's IRIs are compact only with its own prefixes, read as the full IRI. A commit's cause is labelled "request id". |
+
+**Found on the way:**
+- **Shapes have no graph wrapper.** The graph store serves a graph's statements without a graph wrapper even when asked for TriG. So a shapes graph is copied as served, in Turtle, which parses as TriG. The wrapper is required of declarations only.
+- **"Done" after a refusal was wrong.** The first build showed Done after any outcome, so a refused act lost its confirm button. Done now follows success only.
+
+**Filed instead:**
+- #193: the instance's name on `/manage/system`.
+- #194: problem details that say what to do, covering F02's server half, F03, F04 and F17, with a "What to do" section on every `docs/problems/` page.
+- Part 2 under #96: #195 (F10), #196 (F11: the as-of time input is not small, since no screen has an as-of control yet), #197 (F12), #198 (F21), #199 (F26).
+
+Measured:
+- **Tests:**
+
+  | Suite | Result |
+  |---|---|
+  | `Varve.WebUi.Tests` | 229 / 229 |
+  | `Varve.WebUi.Browser.Tests` | 8 / 8, both issuers, about 1 minute; axe on every screen and dialog in both themes |
+- **The download:** 1,846.8 kB brotli, from a clean publish: 16.1 kB more than before, and within the 1,920,000-byte budget.

@@ -23,7 +23,12 @@ summary: |
   - the datasets, a dataset's status (at its head or as of a position);
   - the fleet;
   - a dataset's commits, followed live, and a commit's delta;
-  - a dataset's grants and declaration source.
+  - a dataset's declarations: its grants as a table and as source, its
+    agents and roles, its graph templates and its shapes.
+
+  The shell names the instance that answered, by its role in the system
+  dataset, and who is signed in on each plane, and the navigation holds a
+  dataset's own screens under a dataset selector.
 
   It takes a checkpoint, and closes and opens a dataset, each through a
   confirmation that names the drift from Git. It is published as
@@ -37,7 +42,7 @@ summary: |
 
   - **The Web UI** (ADR 0200).
     - It is trimmed and interpreted, not AOT-compiled.
-    - Its download is 1.82 MB brotli-compressed, gated at 1,920,000 bytes
+    - Its download is 1.85 MB brotli-compressed, gated at 1,920,000 bytes
       by `eng/browser-size.cs` (ADR 0205).
     - AOT measured at 4.11 MB, and loaded no faster.
   - **Its design source is `docs/ui/`** (ADR 0206): the tokens, the
@@ -53,6 +58,8 @@ summary: |
       send any token naming more than one audience.
     - Tokens live in the tab's memory. A reload signs in again with
       `prompt=none`.
+    - The shell names the agent each plane's token names, with its roles
+      (`Varve:Auth:RoleClaimType`), for display only.
   - **`Varve:WebUi:Path`** (ADR 0202).
     - The server serves the bundle under `/ui/`, with a Content Security
       Policy: `script-src 'self' 'wasm-unsafe-eval'`, no inline script or
@@ -91,3 +98,5 @@ summary: |
 
   - **The state route ignores `If-Match`,** so the "Reload at head" path a
     `412` would take is tested against a fake server only (#189).
+  - **The instance's name:** `/manage/system` does not serve it, so the
+    shell shows the instance's role alone (#193).
