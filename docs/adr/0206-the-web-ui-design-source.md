@@ -107,13 +107,9 @@ and fails on any that has no tone.
 `docs/ui/components/<Comp>/cases/`, one case per state the preview shows: its
 parameters as JSON and its expected markup as an HTML fragment. A component
 test renders the Razor component with each case's parameters and compares it to
-the fragment with bUnit's semantic markup comparison. Attribute order is
-ignored; whitespace is not. Both sides are compared with
-`diff:whitespace="preserve"`, because a space between two inline elements
-is part of the text a reader copies and a screen reader reads. Blazor drops
-whitespace-only text between elements, so a component writes such a space
-explicitly. A design change without the code change, or the reverse, fails the
-build.
+the fragment with bUnit's semantic markup comparison (attribute order and
+insignificant whitespace ignored). A design change without the code change, or
+the reverse, fails the build.
 
 The preview shows the same fragments, so the design system page and the app
 render one markup: each case is one figure in `preview.html`, its markup verbatim
@@ -153,6 +149,14 @@ disagrees with it, this governs.
    holds the token providers.
 6. **The brand book** states the levels without exception, and VARVE0006
    checks points 1, 3 and 4 with a violating and a conforming sample each.
+7. **Point 6's comparison counts whitespace.** Attribute order is ignored;
+   whitespace is not. Both sides are compared with
+   `diff:whitespace="preserve"`, because a space between two inline elements
+   is part of the text a reader copies and a screen reader reads. Blazor drops
+   whitespace-only text between elements, so a component writes such a space
+   explicitly. A case whose markup is valid only inside another element, such
+   as a table row, names it (`"within": "tbody"`), and is rendered and compared
+   there.
 
 The rulings are `TheAppIsTheTopLevel` and `NoTypeOutsideTheLevelsHoldsAService`.
 
