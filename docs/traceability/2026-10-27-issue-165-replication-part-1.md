@@ -760,3 +760,52 @@ the maintainer's, who had read them; the session only wrote it at their
 direction, as the acceptance of 2026-10-28 above was written. The
 amendment's status text and the index row are left as filed. With it, the
 two keys may be cited (ADR 0066).
+
+### The citations, main merged in, and #175 made ready
+
+> Add the citations now, in one push with the remaining correctness work, since #175 isn't ready to land yet: 1. Merge main (bringing #185 if it isn't in yet) and add the in-place claim's log listing for a log whose newest segment is consolidated, with its test, and rerun HandoverScheduleTests at nightly depth. 2. Cite StaleTriggerAsksTheFailedInstance on the stale-trigger check in Takeovers, and AzureDetectionIsAMetricAlertPerApp where the Azure layout carries its citations (the Bicep's README, if no code carries it). 3. commit-outcome-unknown: if ADR 0214 (#190) reaches main before you push, include it. Otherwise file a follow-up issue to switch the forwarded-write answer once 0214 lands, link it in the PR body, and don't wait for it. 4. Update the PR body's "Still open", renumber the descriptor if preview.16 is taken by then, mark the PR ready, and post the new head.
+
+- **The merge (a40bb1c).** #185 and the in-place claim's listing were in
+  already (01d11b9, db9b4bf). `main` had since moved by ADR 0213, #146's
+  verified derived data, and ADR 0206's acceptance. The conflicts were
+  lists both sides appended to: the nightly's variables, and the Protocol
+  and Store API baselines.
+- **ADR 0213's status (d092fbd).** preview.16 is the first release to ship
+  0213, and the release check accepts a basis ADR only if its status reads
+  Accepted. 0213's decision set was accepted in 70d991c, but its status line
+  still read "Filed unaccepted". At the maintainer's direction it now opens
+  "Accepted — filed unaccepted by …", as the others do, and names
+  70d991c. Nothing else in 0213 changed.
+- **The citations.**
+  - The stale-trigger check moves into `Takeovers.StaleTrigger`, which
+    carries
+    `[Contract(typeof(HandoverAutomation.StaleTriggerAsksTheFailedInstance))]`,
+    since a type carries one contract.
+  - No code carries the Azure signal, so `AzureDetectionIsAMetricAlertPerApp`
+    is named in the handover layout's README and beside the alerts in its
+    `main.bicep`.
+- **preview.16**, still free on `main`:
+  - its basis gains ADR 0213;
+  - its summary gains #146's verified derived data, under Changed, and
+    derived format 6, under Upgrading, since they ship with it;
+  - `CHANGELOG.md` is regenerated.
+
+  #179 also proposes preview.16 and renumbers if this lands first.
+- **`commit-outcome-unknown`:** ADR 0214 is not on `main` (#190 is open).
+  #210 switches the forwarded write's lost answer to it once 0214 lands.
+- **The note on #165 about `TermDictionary`'s caches** (from #190's step 3).
+  A follower caches only what it adopted from chunks that exist in the log,
+  and the claim's refresh runs before its fence. So every id it holds is in
+  the new writer's history. The claim-in-place property already checks
+  this: at every position after the claim, it compares every quad, rendered
+  as terms, with a dataset re-opened from the catalog. A cached id read back
+  as another term would fail it. No change is needed.
+- **Measured after the merge:**
+  - `HandoverScheduleTests` at nightly depth, 1,000 schedules, clean;
+  - `ClaimInPlaceTests` at 1,000 schedules, `ObjectEpochPropertyTests`,
+    `HandoverAbdicationTests` and `CacheFaultTests`: 16 of 16;
+  - the fleet suite on both stores, 34 of 34.
+
+  One whole-suite run of the server tests failed once. A fleet case's
+  dataset declaration hit the 30 s HTTP timeout while the suite ran in
+  parallel. On its own, it and the fleet suite passed.

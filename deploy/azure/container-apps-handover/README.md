@@ -40,8 +40,8 @@ restart as its recovery and needs none of this (ADR 0181 point 4).
   `https://login.microsoftonline.com/{tenantId}/v2.0#{its principal id}`
   (`Varve:Manage:BootstrapOperators`, ADR 0163 point 7), and sets
   `Varve:Auth:SubjectClaim` to `oid` so that the IRI names it.
-- **Detection** (ADR 0181, amendment of 2026-10-28), both into one action
-  group:
+- **Detection** (ADR 0181 point 6, amended 2026-10-28; the ruling
+  `AzureDetectionIsAMetricAlertPerApp`), both into one action group:
   - **a replica that is gone**: a metric alert per app, `Replicas`
     (`Microsoft.App/containerApps`) below 1, minimum over one minute,
     evaluated every minute;

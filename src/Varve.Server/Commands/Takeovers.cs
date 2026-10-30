@@ -105,7 +105,7 @@ internal static class Takeovers
             {
                 askedHolder = true;
 
-                if (await HolderAnswersAsync(http, bearer, holding.TrimEnd('/'), system ? "/manage/system" : path, cancellationToken).ConfigureAwait(false))
+                if (await StaleTrigger.HolderAnswersAsync(http, bearer, holding.TrimEnd('/'), system ? "/manage/system" : path, cancellationToken).ConfigureAwait(false))
                 {
                     await io.Out.WriteLineAsync(name + ": " + (system ? "its writer" : failed) + " at " + holding + " answers ready and holds epoch " + epoch + ": the trigger is stale; nothing to take over.").ConfigureAwait(false);
                     return true;
@@ -169,37 +169,48 @@ internal static class Takeovers
 
     private const string SystemDataset = "_fleet";
 
-    // How long the failed instance is given to answer before it counts as
-    // not answering, and the takeover goes on.
-    private static readonly TimeSpan HolderProbe = TimeSpan.FromSeconds(5);
-
-    // Whether the holder at its recorded address answers /health/ready and
-    // holds the dataset as its writer; a refusal, no answer or a timeout is no.
-    private static async Task<bool> HolderAnswersAsync(HttpClient http, string? bearer, string address, string path, CancellationToken cancellationToken)
+    /// <summary>
+    /// The stale trigger (ADR 0181 point 2): a trigger can come after the
+    /// failed instance recovered by restart and reclaimed. Before the takeover
+    /// the command asks the holder at its recorded address, within five
+    /// seconds; ready and holding the dataset as its writer, the trigger is
+    /// stale and nothing is sent.
+    /// </summary>
+    [Contract(typeof(HandoverAutomation.StaleTriggerAsksTheFailedInstance), Role = "the failed instance asked first, so a trigger after its restart sends nothing")]
+    internal static class StaleTrigger
     {
-        using CancellationTokenSource probe = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        probe.CancelAfter(HolderProbe);
+        // How long the failed instance is given to answer before it counts as
+        // not answering, and the takeover goes on.
+        private static readonly TimeSpan HolderProbe = TimeSpan.FromSeconds(5);
 
-        try
+        // Whether the holder at its recorded address answers /health/ready and
+        // holds the dataset as its writer; a refusal, no answer or a timeout is no.
+        internal static async Task<bool> HolderAnswersAsync(HttpClient http, string? bearer, string address, string path, CancellationToken cancellationToken)
         {
-            using HttpRequestMessage ready = new(HttpMethod.Get, new Uri(address + "/health/ready", UriKind.Absolute));
-            using HttpResponseMessage answer = await http.SendAsync(ready, probe.Token).ConfigureAwait(false);
+            using CancellationTokenSource probe = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            probe.CancelAfter(HolderProbe);
 
-            if (!answer.IsSuccessStatusCode)
+            try
+            {
+                using HttpRequestMessage ready = new(HttpMethod.Get, new Uri(address + "/health/ready", UriKind.Absolute));
+                using HttpResponseMessage answer = await http.SendAsync(ready, probe.Token).ConfigureAwait(false);
+
+                if (!answer.IsSuccessStatusCode)
+                {
+                    return false;
+                }
+
+                using JsonDocument? state = await GetAsync(http, bearer, address + path, probe.Token).ConfigureAwait(false);
+                return state is not null && String(state.RootElement, "role") == "writer";
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 return false;
             }
-
-            using JsonDocument? state = await GetAsync(http, bearer, address + path, probe.Token).ConfigureAwait(false);
-            return state is not null && String(state.RootElement, "role") == "writer";
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return false;
-        }
-        catch (HttpRequestException)
-        {
-            return false;
+            catch (HttpRequestException)
+            {
+                return false;
+            }
         }
     }
 

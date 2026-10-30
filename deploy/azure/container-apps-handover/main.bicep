@@ -708,6 +708,8 @@ resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
   }
 }
 
+// Detection (ADR 0181 point 6, AzureDetectionIsAMetricAlertPerApp): this
+// metric alert per app and the log search alert below, into one action group.
 // A replica that is gone: a zone lost, a replica that cannot start. Replicas
 // below 1, the minimum over a minute, evaluated every minute.
 resource replicasGone 'Microsoft.Insights/metricAlerts@2018-03-01' = [for (instance, i) in instances: {

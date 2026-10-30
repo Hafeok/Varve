@@ -90,6 +90,13 @@ record stays `format: 1`.
   the writer's does, and its log goes on (spec §7).
 - **A failing local cache never abdicates** (#146): the instance reads from
   the store and reports the cache degraded.
+- **Cached derived data is verified before use** (ADR 0213, #146): every
+  block of a run, checkpoint, commit index and dictionary carries a check.
+  Damage is a miss, re-read from the log, never an error or a wrong
+  result. A bulk load that finds its own spill damaged commits nothing and
+  answers `503 load-spill-damaged`, and readiness reports the
+  `uncheckedSets` still read without checks while an older reader is
+  announced.
 
 #### Measured
 
@@ -107,6 +114,9 @@ run.
 - **A dataset written by `v0.1.0-preview.15` or before opens as it is.**
   A dataset with no `standbyOn` behaves as before: placement, the start
   rule and restart recovery are unchanged for it.
+- **Cached derived data moves to derived format 6** for the checked
+  kinds. A local blob below 6 is a miss and is rebuilt, and maintenance
+  rewrites a set in 6 once no reader of 5 or older is announced.
 - **The two-app Container Apps layout is unchanged** and keeps restart as
   its recovery. The handover layout is a second template.
 
