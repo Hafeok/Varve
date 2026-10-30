@@ -107,6 +107,7 @@ are the value as of the last of those.
 | `varve.store.checkpoint.duration` | histogram | s | a checkpoint, written and read back |
 | `varve.store.log.bytes` | gauge | By | the bytes of every commit's records in the log |
 | `varve.store.derived.bytes` | gauge | By | the bytes of the runs and checkpoints held open |
+| `varve.store.derived.damaged` | counter | {blob} | derived blobs found damaged as they were read: a block that did not match its check (ADR 0213). Each was put aside and its part of the answer re-run from the log, so no read failed or answered differently; the writer's next round writes a damaged set again. A count that keeps rising is the disk or the store under `derived/` failing |
 
 The server also exports ASP.NET Core's and the runtime's meters:
 `Microsoft.AspNetCore.Hosting` (request duration and active requests),

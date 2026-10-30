@@ -4,7 +4,6 @@
 
 using System;
 using System.Buffers.Binary;
-using System.IO;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 
@@ -66,7 +65,7 @@ internal static class KeyBlocks
     /// Decodes a block into exactly <paramref name="keys"/>' length of keys,
     /// using every byte.
     /// </summary>
-    /// <exception cref="IOException">The bytes are not a block of that many keys.</exception>
+    /// <exception cref="DerivedDamageException">The bytes are not a block of that many keys.</exception>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal static void Decode(ReadOnlySpan<byte> bytes, Span<QuadKey> keys)
     {
@@ -77,7 +76,7 @@ internal static class KeyBlocks
 
         if (bytes.Length < QuadKey.Size)
         {
-            throw new IOException(DamagedMessage);
+            throw new DerivedDamageException(DamagedMessage);
         }
 
         ulong k0 = BinaryPrimitives.ReadUInt64LittleEndian(bytes);
@@ -91,7 +90,7 @@ internal static class KeyBlocks
         {
             if (at >= bytes.Length)
             {
-                throw new IOException(DamagedMessage);
+                throw new DerivedDamageException(DamagedMessage);
             }
 
             int differs = bytes[at++];
@@ -117,7 +116,7 @@ internal static class KeyBlocks
                     k3 += Uleb(bytes, ref at);
                     break;
                 default:
-                    throw new IOException(DamagedMessage);
+                    throw new DerivedDamageException(DamagedMessage);
             }
 
             keys[i] = new QuadKey(k0, k1, k2, k3);
@@ -125,7 +124,7 @@ internal static class KeyBlocks
 
         if (at != bytes.Length)
         {
-            throw new IOException(DamagedMessage);
+            throw new DerivedDamageException(DamagedMessage);
         }
     }
 
@@ -147,7 +146,7 @@ internal static class KeyBlocks
         {
             if (at >= bytes.Length)
             {
-                throw new IOException(DamagedMessage);
+                throw new DerivedDamageException(DamagedMessage);
             }
 
             byte b = bytes[at++];
@@ -159,7 +158,7 @@ internal static class KeyBlocks
             }
         }
 
-        throw new IOException(DamagedMessage);
+        throw new DerivedDamageException(DamagedMessage);
     }
 
     private const string DamagedMessage = "A derived run's block does not decode; the run is damaged.";
@@ -263,7 +262,7 @@ internal sealed class KeyBlockWriter
 /// too. Damage across words is caught with all but negligible chance. Not
 /// a cryptographic hash: it detects damage, not tampering.
 /// </summary>
-[DesignDecision(typeof(SeekingExtentSets.EveryBlockIsChecked), Scope = ExceptionScope.Boundary)]
+[DesignDecision(typeof(VerifiedDerivedData.EveryBlockIsChecked), Scope = ExceptionScope.Boundary)]
 internal static class BlockCheck
 {
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]

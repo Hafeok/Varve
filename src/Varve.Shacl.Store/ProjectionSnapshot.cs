@@ -21,10 +21,14 @@ namespace Varve.Shacl.Store;
 /// results as <see cref="Shacl.Model.ValidationReport.WriteTo"/> wrote them.
 /// A failed generation keeps only its start: its problems are the full
 /// validation's there, and are computed again when the snapshot is read.
+/// Kept in the dataset's checked envelope (ADR 0213), which verifies every
+/// block and binds it to the dataset and the commit at its position; the
+/// layout inside is version 1's under the mark <c>VVP2</c>, so a blob
+/// written before the envelope is never read as one.
 /// </summary>
 internal static class ProjectionSnapshot
 {
-    private static ReadOnlySpan<byte> Magic => "VVP1"u8;
+    private static ReadOnlySpan<byte> Magic => "VVP2"u8;
 
     /// <summary>The directory a binding's snapshots are written to: <c>validation/{enc(binding)}/</c>.</summary>
     internal static string Directory(ShapesBinding binding) => "validation/" + Encode(binding.Binding.Lexical) + "/";

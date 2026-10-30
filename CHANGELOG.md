@@ -86,6 +86,14 @@ stays open for part 2, the data explorer.
 
 - **`BearerToken.Fixed` is `BearerTokens.Fixed`** (ADR 0127, amended).
   The fixed provider sits beside the delegate type, not on it.
+- **Cached derived data is verified before use** (ADR 0213). Every
+  derived block carries a check, held in the blob's directory, and is
+  verified before first use. Damage is a miss: the read rebuilds the
+  damaged run from the log and carries on, and the writer writes the blob
+  again. The commit index, runs, the dictionary extent and the new checked
+  envelope move to derived version 6. The catalog and the state stay at
+  4, so an older build still reads the log above them. The log's own
+  format is unchanged.
 - **Entailments under graph-level grants** (ADR 0190, amending ADR
   0107). The decision Inference (#95) builds on, accepted ahead of it;
   nothing infers yet.

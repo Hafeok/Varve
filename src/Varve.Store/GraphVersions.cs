@@ -291,11 +291,12 @@ internal sealed class GraphVersions
 
     /// <summary>
     /// One graph's version in a blob, by binary search over its sorted
-    /// entries: a few small reads, never the whole index. Null when the blob
-    /// is absent, not one, or names another commit than <paramref name="hash"/>.
-    /// Derived files are published whole (ADR 0071), so the entries read are
-    /// those the header's hash covers.
+    /// entries, once the entries have verified against the header's hash of
+    /// them (ADR 0213): the index is its directory, 16 bytes a graph, read
+    /// whole. Null when the blob is absent, not one, damaged, or names
+    /// another commit than <paramref name="hash"/>.
     /// </summary>
+    [DesignDecision(typeof(VerifiedDerivedData.GraphIndexLookupsVerifyTheDirectory), Scope = ExceptionScope.Boundary)]
     internal static async ValueTask<long?> TryLookupAsync(IDerivedStore store, BlobName name, DatasetId dataset, ReadOnlyMemory<byte> hash, ulong graph, CancellationToken cancellationToken)
     {
         IReadableBlob blob;
@@ -313,27 +314,40 @@ internal sealed class GraphVersions
         {
             if (!DerivedFormat.TryReadHeader(blob, dataset, DerivedFormat.KindGraphs, out DerivedHeader header)
                 || !hash.Span.SequenceEqual(header.ToHash)
-                || header.DirectoryLength < DirectoryHead)
+                || header.DirectoryOffset != 0
+                || header.DirectoryLength < DirectoryHead
+                || (header.DirectoryLength - DirectoryHead) % EntryBytes != 0)
             {
                 return null;
             }
 
-            byte[] head = new byte[DirectoryHead];
-            blob.Read(new ByteOffset(0), head);
-            long all = BinaryPrimitives.ReadInt64LittleEndian(head);
+            byte[] directory = new byte[header.DirectoryLength];
+
+            if (blob.Read(new ByteOffset(0), directory) != directory.Length || !LogFormat.HashMatches(directory, header.DirectoryHash))
+            {
+                return null;
+            }
+
+            long all = BinaryPrimitives.ReadInt64LittleEndian(directory);
+            long count = BinaryPrimitives.ReadInt64LittleEndian(directory.AsSpan(8));
+
+            if (count != (directory.Length - DirectoryHead) / EntryBytes)
+            {
+                return null;
+            }
+
             long low = 0;
-            long high = BinaryPrimitives.ReadInt64LittleEndian(head.AsSpan(8)) - 1;
-            byte[] entry = new byte[EntryBytes];
+            long high = count - 1;
 
             while (low <= high)
             {
                 long middle = low + ((high - low) / 2);
-                blob.Read(new ByteOffset(DirectoryHead + (middle * EntryBytes)), entry);
+                ReadOnlySpan<byte> entry = directory.AsSpan((int)(DirectoryHead + (middle * EntryBytes)), EntryBytes);
                 ulong key = BinaryPrimitives.ReadUInt64LittleEndian(entry);
 
                 if (key == graph)
                 {
-                    return Math.Max(all, BinaryPrimitives.ReadInt64LittleEndian(entry.AsSpan(8)));
+                    return Math.Max(all, BinaryPrimitives.ReadInt64LittleEndian(entry[8..]));
                 }
 
                 if (key < graph)

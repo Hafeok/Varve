@@ -399,6 +399,14 @@ Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), mile
 | [0205](0205-the-web-uis-size-budget-and-no-aot.md) | The Web UI's size budget, and why it is not AOT-compiled | Filed unaccepted (Web UI part 1, #167) |
 | [0206](0206-the-web-ui-design-source.md) | The Web UI's design source, its levels, and the markup contract | Filed unaccepted (Web UI part 1, #167) |
 
+## 1.0 readiness A — correctness and the read-forever contract (#129)
+
+Filed by 1.0 readiness A ([#129](https://github.com/Hafeok/Varve/issues/129); [#146](https://github.com/Hafeok/Varve/issues/146), [#132](https://github.com/Hafeok/Varve/issues/132), [#61](https://github.com/Hafeok/Varve/issues/61)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0213. Superseded in part by 0213, likewise unaccepted: 0071 (publishing qualified), 0073 (the derived flush kept only where a reader cannot verify), 0161 (the `commits` blob in version 6), 0177 (a block that does not match is a miss; version 6 for the checked kinds), 0178 (rewrites generalised to any blob below the newest version). Amended by it: 0072 (derived version 6), 0119 (`load-spill-damaged`), 0174 (the snapshot in the checked envelope).
+
+| # | Title | Status |
+|---:|---|---|
+| [0213](0213-cached-derived-data-is-verified-before-use.md) | Cached derived data is verified before use: a check per block, and damage is a miss | Filed unaccepted (#146) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

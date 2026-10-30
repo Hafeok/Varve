@@ -21,6 +21,8 @@ derived format 5 for extents.
 Records decision set
 [`the-format-5-upgrade-and-the-set-cap`](../decisions/the-format-5-upgrade-and-the-set-cap.md).
 
+**Superseded in part 2026-10-27 by [ADR 0213](0213-cached-derived-data-is-verified-before-use.md)**: `ReaderRecordsStateMaxDerived`, `OlderReadersDecideRewrites` and `MaintenanceRewritesFormat4Sets` move to its set, generalised from format 4 to any blob below the newest derived version, and a record this build writes says 6. Filed unaccepted.
+
 ## Context
 
 ADR 0177 writes extents in derived format 5, so an as-of read inside a set

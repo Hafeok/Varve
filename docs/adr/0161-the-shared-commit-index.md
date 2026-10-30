@@ -17,6 +17,8 @@ By dated amendment.
 
 Records decision set [`the-shared-commit-index`](../decisions/the-shared-commit-index.md).
 
+**Superseded in part 2026-10-27 by [ADR 0213](0213-cached-derived-data-is-verified-before-use.md)**: `CommitIndexBesideEachSet` and `NoDerivedFormatChange` move to its set; a set's `commits` blob is written as derived version 6, with a check per block, when every announced reader reads 6. Filed unaccepted.
+
 ## Context
 
 A cold start reads the log only after the catalog's cursor (ADR 0139).

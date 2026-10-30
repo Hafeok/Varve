@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
 using Varve.Store.Log;
 
@@ -48,7 +50,7 @@ public sealed class BulkLoadOptions
 }
 
 /// <summary>A bulk load that cannot proceed for a reason in its input, not in the dataset.</summary>
-public sealed class BulkLoadException : Exception
+public class BulkLoadException : Exception
 {
     /// <summary>Creates one with a message.</summary>
     public BulkLoadException(string message)
@@ -67,9 +69,44 @@ public sealed class BulkLoadException : Exception
     {
     }
 
-    internal static BulkLoadException Collision() => new(
+    internal static BulkLoadException Collision() => new BulkLoadException(
         "Two different terms of this load have the same 120-bit content hash. The load is refused rather than "
         + "merging them; load the input in two parts (ADR 0081).");
+}
+
+/// <summary>
+/// A bulk load whose own spill, a temporary blob it sorted its input into,
+/// was found damaged when it was read back (ADR 0213). The load ended before
+/// its commit, so nothing of it is visible and the dataset is at the position
+/// it held before: resubmitting the same input is right. The problem type is
+/// <c>load-spill-damaged</c>.
+/// </summary>
+[DesignDecision(typeof(VerifiedDerivedData.ASpillDamagedFailsTheLoadUncommitted), Scope = ExceptionScope.Boundary)]
+public sealed class BulkLoadSpillDamagedException : BulkLoadException
+{
+    /// <summary>Creates one with the message every one carries.</summary>
+    public BulkLoadSpillDamagedException()
+        : base(Text)
+    {
+    }
+
+    /// <summary>Creates one with a message.</summary>
+    public BulkLoadSpillDamagedException(string message)
+        : base(message)
+    {
+    }
+
+    /// <summary>Creates one with a message and the error underneath.</summary>
+    public BulkLoadSpillDamagedException(string message, Exception inner)
+        : base(message, inner)
+    {
+    }
+
+    private const string Text =
+        "A spill of this bulk load, a temporary blob it sorted its input into, was found damaged when read back. "
+        + "The load ended before its commit and nothing of it was committed; submit the same input again (ADR 0213).";
+
+    internal static BulkLoadSpillDamagedException Of(DerivedDamageException damage) => new(Text, damage);
 }
 
 /// <summary>
@@ -386,6 +423,12 @@ public sealed class BulkLoad : IAsyncDisposable
             _pipeline.Release();
             await using BulkCommit commit = new(this, Space, cancellationToken);
             return await commit.RunAsync(agent, cause, scope).ConfigureAwait(false);
+        }
+        catch (DerivedDamageException damage)
+        {
+            // Every spill is read back before the commit is appended, so a
+            // damaged one ends the load with nothing of it committed.
+            throw BulkLoadSpillDamagedException.Of(damage);
         }
         finally
         {
