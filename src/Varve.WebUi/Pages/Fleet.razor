@@ -13,7 +13,7 @@
 
 @if (_failure is not null)
 {
-    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="OnParametersSetAsync" />
 }
 
 @if (_system?.Problem is Problem problem)
@@ -27,7 +27,7 @@ else if (_system?.Value is SystemPlane system)
         <Notice Title="This instance follows the system dataset">Management writes made here are forwarded to <code>@(system.Writer?.AbsoluteUri ?? "the system writer")</code>, the system writer@(system.Epoch is WriterEpoch epoch ? ", at epoch " + epoch : "").</Notice>
     }
 
-    <Panel Title="This instance in the system dataset">
+    <Panel StaleSince="@LastAnswered" Title="This instance in the system dataset">
         <KeyValue>
             <KeyValueItem Label="Role"><StateWord Word="@system.Role?.Value" /></KeyValueItem>
             <KeyValueItem Label="Writer epoch"><code>@(system.Epoch?.ToString() ?? "—")</code></KeyValueItem>
@@ -52,6 +52,9 @@ else if (_system?.Value is SystemPlane system)
     private VarveResult<Declaration>? _fleet;
     private DateTimeOffset? _lastRead;
     private string? _failure;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
 
     /// <inheritdoc />
     protected override async Task OnInitializedAsync()

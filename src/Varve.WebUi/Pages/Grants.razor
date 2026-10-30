@@ -13,7 +13,7 @@
 
 @if (_failure is not null)
 {
-    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="OnParametersSetAsync" />
 }
 
 @if (_asOf is FeedPosition at)
@@ -31,7 +31,7 @@ else
 }
 else if (_grants?.Value is GrantList grants)
 {
-    <Panel Title="@(_asOf is null ? "Who may read and write which graphs" : "Who could read and write, then")" TitleId="grants-title" Flush="true">
+    <Panel StaleSince="@LastAnswered" Title="@(_asOf is null ? "Who may read and write which graphs" : "Who could read and write, then")" TitleId="grants-title" Flush="true">
         <ResourceTable ColumnCount="4" LabelledBy="grants-title" Empty="grants.Grants.Count == 0">
             <Columns>
                 <th scope="col">Grantee</th><th scope="col">Permission</th><th scope="col">Scope</th><th scope="col">Declared in</th>
@@ -48,6 +48,9 @@ else if (_grants?.Value is GrantList grants)
     private FeedPosition? _asOf;
     private DateTimeOffset? _lastRead;
     private string? _failure;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
 
     /// <summary>The dataset's name, from the address.</summary>
     [Parameter]

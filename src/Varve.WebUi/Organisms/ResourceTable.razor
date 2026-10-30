@@ -7,7 +7,7 @@
 {@Problem}
 else
 {
-<div class="vw-table-wrap"><table class="vw-table" aria-labelledby="@(Caption is null ? LabelledBy : null)">@if (Caption is not null)
+<div class="vw-table-wrap"><table class="vw-table" aria-labelledby="@(Caption is null ? LabelledBy : null)" aria-busy="@(Loading ? "true" : null)">@if (Caption is not null)
 {<caption class="vw-visually-hidden">@Caption</caption>}<thead><tr>@Columns</tr></thead><tbody>@if (Loading)
 {
 @for (int i = 0; i < 3; i++)

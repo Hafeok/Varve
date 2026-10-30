@@ -14,7 +14,7 @@
 
 @if (_failure is not null)
 {
-    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="OnParametersSetAsync" />
 }
 
 @if (_commit?.Problem is Problem problem)
@@ -23,7 +23,7 @@
 }
 else if (_commit?.Value is FeedRecord commit)
 {
-    <Panel Title="@("Commit " + Position.ToString(System.Globalization.CultureInfo.InvariantCulture))">
+    <Panel StaleSince="@LastAnswered" Title="@("Commit " + Position.ToString(System.Globalization.CultureInfo.InvariantCulture))">
         <KeyValue>
             <KeyValueItem Label="Agent"><code>@(commit.Agent is { } agent ? Text(agent) : "none")</code></KeyValueItem>
             <KeyValueItem Label="Committed"><code>@Times.Utc(commit.Timestamp.Value)</code> <span class="vw-muted">@Times.Ago(commit.Timestamp.Value, Clock.GetUtcNow())</span></KeyValueItem>
@@ -37,10 +37,10 @@ else if (_commit?.Value is FeedRecord commit)
     @foreach (IGrouping<string, FeedChange> graph in commit.Changes.GroupBy(change => change.Graph is { } g ? Text(g) : "the default graph"))
     {
         List<FeedChange> changes = [.. graph.OrderBy(change => change.Kind == FeedChangeKind.Assert)];
-        <Panel Title="@("Delta in " + graph.Key)" Flush="true">
+        <Panel StaleSince="@LastAnswered" Title="@("Delta in " + graph.Key)" Flush="true">
             <Head><span class="vw-muted">@Shown(changes.Count) of @changes.Count changes</span></Head>
             <ChildContent>
-                <TripleList>
+                <TripleList Caption="@("The changes of commit " + Position.ToString(System.Globalization.CultureInfo.InvariantCulture) + " in " + graph.Key)">
                     @foreach (FeedChange change in changes.Take(Limit))
                     {
                         bool added = change.Kind == FeedChangeKind.Assert;
@@ -67,6 +67,9 @@ else if (_commit?.Value is FeedRecord commit)
     private VarveResult<FeedRecord>? _commit;
     private DateTimeOffset? _lastRead;
     private string? _failure;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
 
     /// <summary>The dataset's name, from the address.</summary>
     [Parameter]

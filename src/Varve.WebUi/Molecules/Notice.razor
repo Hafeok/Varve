@@ -2,7 +2,8 @@
    acting, inline in the flow. Generic: the page passes the words in, the
    drift note's included. Never an error from the API: those are problem
    panels. *@
-<div class="@(Warn ? "vw-notice vw-notice--warn" : "vw-notice")"><p class="vw-notice__title">@Title</p><p class="vw-notice__body">@ChildContent</p></div>
+<div class="@(Warn ? "vw-notice vw-notice--warn" : "vw-notice")"><p class="vw-notice__title">@Title</p><p class="vw-notice__body">@ChildContent</p>@if (Actions is not null)
+{<div class="vw-actions">@Actions</div>}</div>
 
 @code {
     /// <summary>A one-line title.</summary>
@@ -12,6 +13,10 @@
     /// <summary>A short body.</summary>
     [Parameter, EditorRequired]
     public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>The way on, such as Read again: buttons the consumer passes in.</summary>
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
 
     /// <summary>The operator should think before going on.</summary>
     [Parameter]

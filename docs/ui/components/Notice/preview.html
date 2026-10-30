@@ -10,6 +10,7 @@
 <div class="cases">
 <figure class="case"><figcaption>neutral</figcaption><div data-case="neutral"><div class="vw-notice"><p class="vw-notice__title">This instance follows notes</p><p class="vw-notice__body">Writes go to the writer, <code>varve-1</code>, epoch 7. Reads here are served at this instance's position.</p></div></div></figure>
 <figure class="case"><figcaption>warn</figcaption><div data-case="warn"><div class="vw-notice vw-notice--warn"><p class="vw-notice__title">The declaration will drift from Git</p><p class="vw-notice__body">This changes the dataset's declaration on the server. Your declaration files in Git still say otherwise, so the next <code>varve apply</code>, including one run by CI, will undo it unless you change them too. <code>varve apply --plan</code> shows the difference.</p></div></div></figure>
+<figure class="case"><figcaption>unreachable</figcaption><div data-case="unreachable"><div class="vw-notice vw-notice--warn"><p class="vw-notice__title">The server did not answer</p><p class="vw-notice__body"><code>https://varve.example/</code>: Connection refused. Last read <code>2026-10-27T09:58:12Z</code>.</p><div class="vw-actions"><button class="vw-button vw-button--small" type="button">Read again</button></div></div></div></figure>
 </div>
 </body>
 </html>

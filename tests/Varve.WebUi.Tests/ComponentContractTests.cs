@@ -35,6 +35,12 @@ namespace Varve.WebUi.Tests;
 /// member's name, and anything else is read as JSON into the parameter's type.
 /// </para>
 /// <para>
+/// A case whose markup is only valid inside another element, such as a table
+/// row, names it: <c>"within": "tbody"</c> beside <c>parameters</c> renders
+/// and compares the case inside <c>&lt;table&gt;&lt;tbody&gt;</c>, since an
+/// HTML parser drops a row found anywhere else.
+/// </para>
+/// <para>
 /// The comparison is bUnit's semantic one, with whitespace preserved on both
 /// sides: attribute order doesn't count; an element, a class, an attribute or
 /// a space between two inline elements does.
@@ -84,11 +90,18 @@ public class ComponentContractTests
         string expected = File.ReadAllText(Path.Combine(folder, name + ".html"));
 
         using BunitContext context = NewContext(TimeProvider.System);
+        string[] within = Within(parameters);
 
         IRenderedComponent<ContainerFragment> rendered = context.Render(builder =>
         {
-            builder.OpenElement(0, "div");
+            builder.OpenElement(0, within[0]);
             builder.AddAttribute(1, "diff:whitespace", "preserve");
+
+            for (int i = 1; i < within.Length; i++)
+            {
+                builder.OpenElement(1, within[i]);
+            }
+
             builder.OpenComponent(1, type);
 
             foreach (JsonProperty parameter in parameters.RootElement.GetProperty("parameters").EnumerateObject())
@@ -99,10 +112,14 @@ public class ComponentContractTests
             }
 
             builder.CloseComponent();
-            builder.CloseElement();
+
+            foreach (string _ in within)
+            {
+                builder.CloseElement();
+            }
         });
 
-        rendered.MarkupMatches(Strict(expected), $"docs/ui/components/{component}/cases/{name}");
+        rendered.MarkupMatches(Strict(expected, within), $"docs/ui/components/{component}/cases/{name}");
     }
 
     [Theory]
@@ -110,11 +127,13 @@ public class ComponentContractTests
     public void the_preview_shows_the_case(string component, string name)
     {
         string expected = File.ReadAllText(Path.Combine(ComponentsRoot(), component, "cases", name + ".html"));
+        using JsonDocument parameters = JsonDocument.Parse(File.ReadAllText(Path.Combine(ComponentsRoot(), component, "cases", name + ".json")));
+        string[] within = Within(parameters);
         IElement shown = PreviewCases(component).FirstOrDefault(element => element.GetAttribute("data-case") == name)
             ?? throw new InvalidOperationException($"docs/ui/components/{component}/preview.html has no data-case=\"{name}\".");
 
-        ("<div diff:whitespace=\"preserve\">" + shown.InnerHtml.Replace("src=\"../../assets/", "src=\"img/", StringComparison.Ordinal) + "</div>")
-            .MarkupMatches(Strict(expected), $"docs/ui/components/{component}/preview.html, data-case {name}");
+        Strict(shown.InnerHtml.Replace("src=\"../../assets/", "src=\"img/", StringComparison.Ordinal), within)
+            .MarkupMatches(Strict(expected, within), $"docs/ui/components/{component}/preview.html, data-case {name}");
     }
 
     [Fact]
@@ -209,8 +228,17 @@ public class ComponentContractTests
     // A space between two inline elements is visible ("Data plane signed
     // in"), so whitespace counts: the comparison preserves it rather than
     // normalising it away. Only the case file's final newline is not markup.
-    private static string Strict(string expected) =>
-        "<div diff:whitespace=\"preserve\">" + expected.TrimEnd('\n') + "</div>";
+    private static string Strict(string expected, string[] within) =>
+        "<" + within[0] + " diff:whitespace=\"preserve\">"
+        + string.Concat(within.Skip(1).Select(element => "<" + element + ">"))
+        + expected.TrimEnd('\n')
+        + string.Concat(within.Reverse().Select(element => "</" + element + ">"));
+
+    // The elements a case renders inside: a div, or a table body for a row.
+    private static string[] Within(JsonDocument parameters) =>
+        parameters.RootElement.TryGetProperty("within", out JsonElement within) && within.GetString() == "tbody"
+            ? ["table", "tbody"]
+            : ["div"];
 
     private static BunitContext NewContext(TimeProvider time)
     {

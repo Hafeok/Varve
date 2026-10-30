@@ -14,7 +14,7 @@
 
 @if (_failure is not null)
 {
-    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="OnParametersSetAsync" />
 }
 
 <ReadOnlyDeclarations />

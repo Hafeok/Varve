@@ -11,24 +11,25 @@
 
 @if (_failure is not null)
 {
-    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="ReadAsync" />
 }
 
 @if (_result?.Value is Readiness readiness)
 {
-    <Panel Title="Readiness">
+    <Panel StaleSince="@LastAnswered" Title="Readiness">
         <Head>
             <StateBadge Tone="@Tones.OfState(readiness.IsReady ? "ready" : "not-ready")" Word="@(readiness.IsReady ? "ready" : "not-ready")" />
             <Button Small="true" Disabled="_reading" OnClick="ReadAsync">Read again</Button>
         </Head>
         <ChildContent>
-            <p>@(readiness.IsReady ? "This instance is ready." : readiness.Detail ?? "This instance is not ready; the datasets below say why.") Read <code>@Times.Utc(_lastRead!.Value)</code>.</p>
+            <p>@(readiness.IsReady ? "This instance is ready." : readiness.Detail ?? "This instance is not ready; the datasets below say why.")@if (_failure is null)
+            {<text> Read </text><code>@Times.Utc(_lastRead!.Value)</code><text>.</text>}</p>
         </ChildContent>
     </Panel>
 
     @if (readiness.Management is ManagementReadiness management)
     {
-        <Panel Title="Management plane on this instance">
+        <Panel StaleSince="@LastAnswered" Title="Management plane on this instance">
             <KeyValue>
                 <KeyValueItem Label="Role"><StateWord Word="@management.Role?.Value" Missing="not reported" /></KeyValueItem>
                 <KeyValueItem Label="Writer epoch"><code>@Text(management.Epoch)</code></KeyValueItem>
@@ -42,7 +43,7 @@
         </Panel>
     }
 
-    <Panel Title="Datasets" Flush="true">
+    <Panel StaleSince="@LastAnswered" Title="Datasets" Flush="true">
         <ResourceTable ColumnCount="6" Caption="@(readiness.IsReady ? "Every dataset this instance serves" : "The datasets that are not ready")" Empty="readiness.Datasets.Count == 0">
             <Columns>
                 <th scope="col">Dataset</th><th scope="col">State</th><th scope="col">This instance</th><th scope="col" class="vw-num">Lag</th><th scope="col">Validation lag</th><th scope="col">Reason</th>
@@ -74,7 +75,7 @@
 
         @if (more.Count > 0)
         {
-            <Panel Title="@("More about " + dataset.Name.Value)">
+            <Panel StaleSince="@LastAnswered" Title="@("More about " + dataset.Name.Value)">
                 <KeyValue>@foreach (KeyValuePair<string, System.Text.Json.JsonElement> member in more)
                 {<KeyValueItem Label="@member.Key"><code>@member.Value.GetRawText()</code></KeyValueItem>}</KeyValue>
             </Panel>
@@ -83,7 +84,7 @@
 
     @if (readiness.Members.Count > 0)
     {
-        <Panel Title="More">
+        <Panel StaleSince="@LastAnswered" Title="More">
             <KeyValue>@foreach (KeyValuePair<string, System.Text.Json.JsonElement> member in readiness.Members)
             {<KeyValueItem Label="@member.Key"><code>@member.Value.GetRawText()</code></KeyValueItem>}</KeyValue>
         </Panel>
@@ -99,7 +100,7 @@ else if (_result is not null)
 }
 else if (_failure is null)
 {
-    <Panel Title="Datasets" Flush="true">
+    <Panel StaleSince="@LastAnswered" Title="Datasets" Flush="true">
         <ResourceTable ColumnCount="6" Caption="Every dataset this instance serves" Loading="true">
             <Columns>
                 <th scope="col">Dataset</th><th scope="col">State</th><th scope="col">This instance</th><th scope="col" class="vw-num">Lag</th><th scope="col">Validation lag</th><th scope="col">Reason</th>
@@ -117,6 +118,9 @@ else if (_failure is null)
     private DateTimeOffset? _lastRead;
     private string? _failure;
     private bool _reading;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
 
     /// <inheritdoc />
     protected override Task OnInitializedAsync() => ReadAsync();

@@ -1,6 +1,13 @@
 @* The live tail's indicator (docs/ui/components/Tail): live, or paused and
-   saying so, with how many commits arrived while it was paused. *@
-<span class="@(Paused ? "vw-tail vw-tail--paused" : "vw-tail")">@Words()</span>
+   saying so. While paused with commits waiting, it offers to show them,
+   which resumes the tail. A polite live region, so a change is announced
+   (review F20, F27). *@
+<span class="@(Paused ? "vw-tail vw-tail--paused" : "vw-tail")" aria-live="polite">@if (!Paused)
+{<text>Live</text>}
+else if (Pending > 0)
+{<text>Paused while you read · </text><button class="vw-tail__show" type="button" @onclick="OnShow">Show @Pending.ToString(System.Globalization.CultureInfo.InvariantCulture) new</button>}
+else
+{<text>Paused while you read</text>}</span>
 
 @code {
     /// <summary>Whether the tail is paused.</summary>
@@ -11,8 +18,7 @@
     [Parameter]
     public long Pending { get; set; }
 
-    private string Words() =>
-        !Paused ? "Live"
-        : Pending > 0 ? "Paused while you read · " + Pending.ToString(System.Globalization.CultureInfo.InvariantCulture) + " new"
-        : "Paused while you read";
+    /// <summary>Shows the commits waiting and resumes the tail.</summary>
+    [Parameter]
+    public EventCallback OnShow { get; set; }
 }

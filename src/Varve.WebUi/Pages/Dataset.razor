@@ -21,7 +21,7 @@ else if (_status is not null)
 
 @if (_failure is not null)
 {
-    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="OnParametersSetAsync" />
 }
 
 @if (_lifecycle?.Problem is Problem gone)
@@ -33,7 +33,7 @@ else if (_asOf is FeedPosition at)
     @if (_pinned?.Value is FeedRecord commit)
     {
         <AsOfBanner Position="at.Value" CommittedAt="@Times.Utc(commit.Timestamp.Value)" Head="(_status?.Value?.Head?.Value ?? at.Value)" OnReturn="ReturnToHead" />
-        <Panel Title="Status">
+        <Panel StaleSince="@LastAnswered" Title="Status">
             <Head><StateBadge Tone="Tone.Past" Word="@("as of " + at.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))" /></Head>
             <ChildContent>
                 <KeyValue>
@@ -44,7 +44,7 @@ else if (_asOf is FeedPosition at)
                 </KeyValue>
             </ChildContent>
         </Panel>
-        <Panel Title="@("Commits up to " + at.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))" Flush="true">
+        <Panel StaleSince="@LastAnswered" Title="@("Commits up to " + at.Value.ToString(System.Globalization.CultureInfo.InvariantCulture))" Flush="true">
             <Commits Records="@(_recent?.Value?.Commits ?? [])" Dataset="This" />
         </Panel>
     }
@@ -80,7 +80,7 @@ else
         DatasetReadiness? ready = Readiness();
         bool follower = _lifecycle?.Value?.Role == InstanceRole.Follower;
 
-        <Panel Title="Status">
+        <Panel StaleSince="@LastAnswered" Title="Status">
             <Head>@if (follower)
             {<StateWord Word="@InstanceRole.Follower.Value" />}</Head>
             <ChildContent>
@@ -116,7 +116,7 @@ else
             </ChildContent>
         </Panel>
 
-        <Panel Title="Projections" TitleId="projections-title" Flush="true">
+        <Panel StaleSince="@LastAnswered" Title="Projections" TitleId="projections-title" Flush="true">
             <ResourceTable ColumnCount="4" LabelledBy="projections-title">
                 <Columns>
                     <th scope="col">Projection</th><th scope="col">State</th><th scope="col" class="vw-num">Position</th><th scope="col" class="vw-num">Lag</th>
@@ -134,7 +134,7 @@ else
             </ResourceTable>
         </Panel>
 
-        <Panel Title="Recent commits" Flush="true">
+        <Panel StaleSince="@LastAnswered" Title="Recent commits" Flush="true">
             <Head><a href="@("datasets/" + Uri.EscapeDataString(Name) + "/commits")">All commits</a></Head>
             <ChildContent>
                 @if (_recent?.Problem is Problem notRead)
@@ -188,6 +188,9 @@ else
     private FeedPosition? _asOf;
     private DateTimeOffset? _lastRead;
     private string? _failure;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
 
     /// <summary>The dataset's name, from the address.</summary>
     [Parameter]

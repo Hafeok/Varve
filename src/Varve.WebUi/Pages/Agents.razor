@@ -12,7 +12,7 @@
 
 @if (_failure is not null)
 {
-    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="OnParametersSetAsync" />
 }
 
 <ReadOnlyDeclarations />
@@ -24,7 +24,7 @@
 else if (_grants?.Value is GrantList grants)
 {
     IReadOnlyList<Principal> principals = Principals(grants.Grants);
-    <Panel Title="Who the grants name" TitleId="principals-title" Flush="true">
+    <Panel StaleSince="@LastAnswered" Title="Who the grants name" TitleId="principals-title" Flush="true">
         <ResourceTable ColumnCount="3" LabelledBy="principals-title" Empty="principals.Count == 0">
             <Columns>
                 <th scope="col">Principal</th><th scope="col">Matched against</th><th scope="col">Granted</th>
@@ -45,6 +45,9 @@ else if (_grants?.Value is GrantList grants)
     private VarveResult<GrantList>? _grants;
     private DateTimeOffset? _lastRead;
     private string? _failure;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
 
     /// <summary>The dataset's name, from the address.</summary>
     [Parameter]

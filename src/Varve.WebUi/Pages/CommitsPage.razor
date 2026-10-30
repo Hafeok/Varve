@@ -13,14 +13,15 @@
    are delivered (ADR 0107). The "read at" stamp is the newest position the
    list holds: it advances with each commit the live tail shows, and while
    the tail is paused it stays at what is being read, so it agrees with the
-   count of new ones waiting (#96, 2026-10-28). *@
+   count of new ones waiting (#96, 2026-10-28). "Show 3 new" shows them and
+   returns to the top, where the tail runs (review F20). *@
 <PageTitle>Commits of @Name · Varve</PageTitle>
 <ViewHead Title="Commits" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (Newest is FeedPosition newest)
 {<PositionStamp Label="@(Name + " position")" Value="newest.Value" />}</ViewHead>
 
 @if (_failure is not null)
 {
-    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="ReadAgainAsync" />
 }
 
 @if (_page?.Problem is Problem problem)
@@ -29,8 +30,8 @@
 }
 else if (_page is not null || _head is not null)
 {
-    <Panel Title="Commits in your scope" Flush="@(_shown.Count > 0)">
-        <Head><Tail Paused="!_atTop" Pending="_waiting.Count" /></Head>
+    <Panel StaleSince="@LastAnswered" Title="Commits in your scope" Flush="@(_shown.Count > 0)">
+        <Head><Tail Paused="!_atTop" Pending="_waiting.Count" OnShow="ShowWaitingAsync" /></Head>
         <ChildContent>
             @if (_shown.Count > 0)
             {
@@ -52,6 +53,7 @@ else if (_page is not null || _head is not null)
     private readonly List<FeedRecord> _waiting = [];
     private readonly HashSet<FeedPosition> _arrived = [];
     private readonly CancellationTokenSource _closing = new();
+    private CancellationTokenSource? _following;
     private VarveResult<CommitRange>? _page;
     private FeedPosition? _head;
     private DateTimeOffset? _lastRead;
@@ -59,6 +61,9 @@ else if (_page is not null || _head is not null)
     private bool _atTop = true;
     private DotNetObjectReference<CommitsPage>? _self;
     private IJSObjectReference? _watch;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
 
     // The newest position the list holds, or the head it was read at when it
     // holds none. Commits waiting while paused are not in the list.
@@ -69,7 +74,24 @@ else if (_page is not null || _head is not null)
     public string Name { get; set; } = "";
 
     /// <inheritdoc />
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => ReadAsync();
+
+    // Read again (review F09): the follow is stopped, and the page and the
+    // tail start over from the head as it is now.
+    private async Task ReadAgainAsync()
+    {
+        if (_following is not null)
+        {
+            await _following.CancelAsync();
+        }
+
+        _shown.Clear();
+        _waiting.Clear();
+        _arrived.Clear();
+        await ReadAsync();
+    }
+
+    private async Task ReadAsync()
     {
         try
         {
@@ -83,7 +105,10 @@ else if (_page is not null || _head is not null)
             }
 
             _lastRead = Clock.GetUtcNow();
-            _ = FollowAsync(_head.Value);
+            _failure = null;
+            _following?.Dispose();
+            _following = CancellationTokenSource.CreateLinkedTokenSource(_closing.Token);
+            _ = FollowAsync(_head.Value, _following.Token);
         }
         catch (HttpRequestException e)
         {
@@ -117,15 +142,15 @@ else if (_page is not null || _head is not null)
     }
 
     // The live tail, from the head the page was read at, until the screen closes.
-    private async Task FollowAsync(FeedPosition from)
+    private async Task FollowAsync(FeedPosition from, CancellationToken cancellationToken)
     {
         try
         {
-            await Datasets.For(new DatasetName(Name)).FollowAsync(from, ArrivedAsync, new TabCheckpoint(), new FollowOptions(Clock), _closing.Token);
+            await Datasets.For(new DatasetName(Name)).FollowAsync(from, ArrivedAsync, new TabCheckpoint(), new FollowOptions(Clock), cancellationToken);
         }
-        catch (OperationCanceledException) when (_closing.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // The screen closed.
+            // The screen closed, or is read again.
         }
         catch (Exception e) when (e is FollowRefusedException or HttpRequestException or Varve.Delta.ChangeFeedFormatException)
         {
@@ -154,6 +179,16 @@ else if (_page is not null || _head is not null)
 
             StateHasChanged();
         });
+    }
+
+    // "Show n new": shows what waited, and returns to the top, where the tail
+    // runs; the stamp follows, since it is the newest position shown.
+    private async Task ShowWaitingAsync()
+    {
+        _atTop = true;
+        Show([.. _waiting]);
+        _waiting.Clear();
+        await Js.InvokeVoidAsync("varveWebUi.toTop");
     }
 
     // Shows commits that arrived, marked as new for a few seconds.
@@ -186,6 +221,7 @@ else if (_page is not null || _head is not null)
     public async ValueTask DisposeAsync()
     {
         await _closing.CancelAsync();
+        _following?.Dispose();
         _closing.Dispose();
 
         if (_watch is not null)

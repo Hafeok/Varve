@@ -1,6 +1,8 @@
-@* Triple (docs/ui/components/Triple): a statement as three term chips, with a
-   sign column and a note column. *@
-<li class="@Classes"><span class="vw-triple__sign" aria-label="@SignLabel">@Sign</span><span>@Subject</span><span class="vw-triple__p">@Predicate</span><span>@Object</span><span class="vw-triple__note">@Note</span></li>
+@* Triple (docs/ui/components/Triple): a statement as a table row of three
+   term chips, with a sign column, whose sign is read out as its word, and a
+   note column. *@
+<tr class="@Classes"><td class="vw-triple__sign">@if (Sign is not null)
+{<span aria-hidden="true">@Sign</span><span class="vw-visually-hidden">@SignLabel</span>}</td><td>@Subject</td><td class="vw-triple__p">@Predicate</td><td>@Object</td><td class="vw-triple__note">@Note</td></tr>
 
 @code {
     /// <summary>The subject's chip.</summary>

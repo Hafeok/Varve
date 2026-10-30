@@ -7,6 +7,6 @@ The frame around every screen: the bar (core mark, server address, one sign-in i
 - **The navigation is named "Main"** (`aria-label="Main"`), which a screen reader announces as "Main navigation": the operator's word, not the project's name.
 - **Planes are shown separately.** The console holds two tokens; each `vw-plane` says whether its plane is signed in. A plane without a token shows `vw-plane--absent` and its word, never a merged "signed in".
 - **Navigation is words.** Part 1's groups: *Operate* (Datasets, Health, Fleet), *History* (Commits), *Declarations* (Grants, Agents and roles, Graph templates, Shapes). Part 2 adds an *Explore* group to the same rail.
-- In anonymous mode both indicators read "Anonymous" with the neutral state badge.
+- In anonymous mode both indicators read "anonymous" with the **warn** state badge: every caller holds every permission, which is worth attention on any server but a laptop (review F25).
 - **Sign out** is the bar's one action when signed in: a small quiet `Button` passed in the `BarActions` slot, after the planes. Anonymous mode and a signed-out tab have none.
 - Below 720px the rail becomes a wrapping row above the main column.

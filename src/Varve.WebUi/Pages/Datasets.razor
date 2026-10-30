@@ -15,7 +15,7 @@
 
 @if (_failure is not null)
 {
-    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" />
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="ReadAsync" />
 }
 
 @if (_list?.Problem is Problem problem)
@@ -24,7 +24,7 @@
 }
 else if (_list is not null || _failure is null)
 {
-    <Panel Title="Datasets" TitleId="datasets-title" Flush="true">
+    <Panel StaleSince="@LastAnswered" Title="Datasets" TitleId="datasets-title" Flush="true">
         <Head>@if (_list is not null)
         {<Button Small="true" Disabled="_reading" OnClick="ReadAsync">Read again</Button>}</Head>
         <ChildContent>
@@ -52,6 +52,9 @@ else if (_list is not null || _failure is null)
     private DateTimeOffset? _lastRead;
     private string? _failure;
     private bool _reading;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
 
     /// <inheritdoc />
     protected override Task OnInitializedAsync() => ReadAsync();

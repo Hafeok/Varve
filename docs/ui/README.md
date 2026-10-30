@@ -52,9 +52,9 @@ Two themes, light first. Every text token's note names the grounds it reads on; 
 | Tone | Tokens | Mark | Words from the API |
 |---|---|---|---|
 | ok | `ok`, `ok-soft` | filled disc | `open`, `ready`, `writer`, `applied`, within lag |
-| warn | `warn`, `warn-soft` | triangle | `rebuilding`, behind its lag bound, `not-ready` while starting, the drift note |
+| warn | `warn`, `warn-soft` | triangle | `rebuilding`, behind its lag bound, `not-ready` while starting, the drift note, anonymous mode |
 | critical | `critical`, `critical-soft` | square | `failed`, `superseded`, lease lost, `mismatch`, `not-ready` |
-| neutral | `surface-sunk`, `ink-muted` | hollow ring | `closed`, `follower`, `elsewhere`, anonymous mode |
+| neutral | `surface-sunk`, `ink-muted` | hollow ring | `closed`, `follower`, `elsewhere` |
 | past | `past`, `past-soft` | two bands | a view pinned as of a position |
 
 `ok` and `critical` differ in hue more than lightness; that is accepted because neither ever appears without its mark and word. Do not introduce a tone outside this table: a new state maps onto one of the five.
@@ -102,7 +102,7 @@ A screen renders all of these, from the same components:
 - **Empty:** the table's empty row, saying what would appear and how it gets there ("No datasets are declared. Declare one in TriG and run `varve apply`.").
 - **Forbidden (`403`)** and every other problem: the problem panel in place of the view's body, with the view head still showing what was requested.
 - **Signed out (`401`):** sign-in starts; no screen renders a `401`.
-- **Server unreachable:** a warn notice directly below the view head, above everything else, with the server address and the time of the last successful read; the last data stays visible below it, marked with its position.
+- **Server unreachable:** a warn notice directly below the view head, above everything else, with the server address, the one time of the last successful read, and "Read again"; the last data stays visible below it, marked with its position, and its panels are stale (`vw-panel--stale`), each saying "As last read at" that same time.
 - **Conflict on a write (`409`, `412`):** the problem panel inside the dialog that made the write, with `expectedPosition` and `headPosition` from its members, and the action to reload at the new position.
 
 ## Iconography

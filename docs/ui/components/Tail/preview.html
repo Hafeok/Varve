@@ -8,9 +8,9 @@
 <!-- One figure per contract case in cases/: the markup inside each data-case
      element is the case's, verbatim, and a test checks it (ADR 0206 point 6). -->
 <div class="cases">
-<figure class="case"><figcaption>live</figcaption><div data-case="live"><span class="vw-tail">Live</span></div></figure>
-<figure class="case"><figcaption>paused</figcaption><div data-case="paused"><span class="vw-tail vw-tail--paused">Paused while you read · 3 new</span></div></figure>
-<figure class="case"><figcaption>paused-nothing-new</figcaption><div data-case="paused-nothing-new"><span class="vw-tail vw-tail--paused">Paused while you read</span></div></figure>
+<figure class="case"><figcaption>live</figcaption><div data-case="live"><span class="vw-tail" aria-live="polite">Live</span></div></figure>
+<figure class="case"><figcaption>paused</figcaption><div data-case="paused"><span class="vw-tail vw-tail--paused" aria-live="polite">Paused while you read · <button class="vw-tail__show" type="button">Show 3 new</button></span></div></figure>
+<figure class="case"><figcaption>paused-nothing-new</figcaption><div data-case="paused-nothing-new"><span class="vw-tail vw-tail--paused" aria-live="polite">Paused while you read</span></div></figure>
 </div>
 </body>
 </html>

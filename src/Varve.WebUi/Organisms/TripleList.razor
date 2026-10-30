@@ -1,8 +1,13 @@
-@* The statements of a description, a delta or a diff (docs/ui/components/Triple):
-   a column head for sighted readers, and the rows. *@
-<div class="vw-triples__head" aria-hidden="true"><span></span><span>Subject</span><span>Predicate</span><span>Object</span><span>Note</span></div><ul class="vw-triples">@ChildContent</ul>
+@* The statements of a description, a delta or a diff (docs/ui/components/TripleList):
+   a table, named by its caption, with a header cell for each column, so
+   assistive technology reads each term with its role (review F27). *@
+<table class="vw-triples"><caption class="vw-visually-hidden">@Caption</caption><thead><tr><th scope="col"><span class="vw-visually-hidden">Change</span></th><th scope="col">Subject</th><th scope="col">Predicate</th><th scope="col">Object</th><th scope="col">Note</th></tr></thead><tbody>@ChildContent</tbody></table>
 
 @code {
+    /// <summary>What the statements are, for assistive technology: "The changes of commit 18417".</summary>
+    [Parameter, EditorRequired]
+    public string Caption { get; set; } = "";
+
     /// <summary>The rows, each a <see cref="Molecules.Triple"/>.</summary>
     [Parameter, EditorRequired]
     public RenderFragment? ChildContent { get; set; }

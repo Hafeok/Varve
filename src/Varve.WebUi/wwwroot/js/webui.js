@@ -67,6 +67,16 @@
             window.sessionStorage.removeItem(key);
             return value;
         },
+        // Back to the top of the main column, where the live tail runs.
+        toTop: function () {
+            var main = document.getElementById('main');
+
+            if (main) {
+                main.scrollTop = 0;
+            }
+
+            window.scrollTo(0, 0);
+        },
         // Whether the main column is at its top, reported to the page on
         // every scroll (the live tail pauses while the operator reads lower).
         watchTop: function (page) {
