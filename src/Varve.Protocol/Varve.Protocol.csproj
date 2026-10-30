@@ -46,4 +46,11 @@
     <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- ADR 0003 permits InternalsVisibleTo toward *.Tests only: the tests
+         run the quad source contract (ADR 0022, amended 2026-10-30) over a
+         report graph read, which only the endpoints compose. -->
+    <InternalsVisibleTo Include="Varve.Protocol.Tests" />
+  </ItemGroup>
+
 </Project>

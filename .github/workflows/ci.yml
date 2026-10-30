@@ -1090,10 +1090,14 @@ jobs:
       - name: Ratchet
         # The memory subject's baseline, read as the server's: what passes in
         # process passes over the network, or the gate says which case does not.
+        # Its exemptions too, with their reasons, so the cases exempt in
+        # process report as exempt here rather than as failures (#127).
         run: |
           sed -n 's/@memory$/@server/p' tests/Varve.Conformance.Tests/baseline/passing.txt > "$RUNNER_TEMP/server-baseline.txt"
+          sed -n 's/@memory /@server /p' tests/Varve.Conformance.Tests/baseline/exemptions.txt > "$RUNNER_TEMP/server-exemptions.txt"
           dotnet run eng/ratchet.cs -- "${{ github.workspace }}/artifacts/container-protocol" \
-            --baseline "$RUNNER_TEMP/server-baseline.txt" --label container-${{ matrix.rid }}
+            --baseline "$RUNNER_TEMP/server-baseline.txt" --exemptions "$RUNNER_TEMP/server-exemptions.txt" \
+            --label container-${{ matrix.rid }}
 
       - name: The container's log
         if: failure()

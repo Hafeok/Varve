@@ -24,6 +24,8 @@ The upgrade from format 4, mixed-version instances and `MaxSetBytes` are
 
 Records decision set [`seeking-extent-sets`](../decisions/seeking-extent-sets.md).
 
+**Superseded in part 2026-10-27 by [ADR 0213](0213-cached-derived-data-is-verified-before-use.md)**: `EveryBlockIsChecked` (point 6: a block that does not match is a cache miss, no longer a failed read) and `Format5ForExtentsOnly` (point 5: the checked kinds move to version 6) move to its set. Filed unaccepted.
+
 ## Context
 
 An as-of read at `P` strictly inside an extent set's window `(a, e]`

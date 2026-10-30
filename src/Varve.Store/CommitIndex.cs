@@ -697,9 +697,10 @@ internal static class CommitIndexFormat
     /// header, whose end hash is the header hash at <paramref name="to"/>.
     /// </summary>
     internal static async ValueTask WriteAsync(
-        IDerivedStore store, BlobName name, DatasetId dataset, long from, long to, Func<long, CommitEntry> entryAt, CancellationToken cancellationToken)
+        IDerivedStore store, BlobName name, DatasetId dataset, long from, long to, Func<long, CommitEntry> entryAt, CancellationToken cancellationToken,
+        ushort version = DerivedFormat.CheckedVersion)
     {
-        await using CommitIndexWriter writer = await CommitIndexWriter.StartAsync(store, name, dataset, from, to, cancellationToken).ConfigureAwait(false);
+        await using CommitIndexWriter writer = await CommitIndexWriter.StartAsync(store, name, dataset, from, to, cancellationToken, version).ConfigureAwait(false);
 
         for (long p = from + 1; p <= to; p++)
         {
@@ -709,8 +710,15 @@ internal static class CommitIndexFormat
         await writer.PublishAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>A commit index blob, or null when it is not one this store can use: another version, kind or dataset, or damaged.</summary>
-    internal static async ValueTask<CommitSegment?> TryLoadAsync(IDerivedStore store, BlobName name, DatasetId dataset, CancellationToken cancellationToken)
+    /// <summary>
+    /// A commit index blob, or null when it is not one this store can use:
+    /// another version, kind or dataset, or damaged. A version-6 blob is
+    /// verified whole, every block against its check, before it is used (ADR
+    /// 0213). An older one is used only where <paramref name="shared"/>
+    /// says it may be a set's, written for a reader of version 4: a local
+    /// blob below 6 is a miss, and is rebuilt.
+    /// </summary>
+    internal static async ValueTask<CommitSegment?> TryLoadAsync(IDerivedStore store, BlobName name, DatasetId dataset, CancellationToken cancellationToken, bool shared = false)
     {
         IReadableBlob blob;
 
@@ -727,7 +735,7 @@ internal static class CommitIndexFormat
 
         try
         {
-            loaded = TryLoad(blob, name, dataset);
+            loaded = TryLoad(blob, name, dataset, shared);
             return loaded;
         }
         finally
@@ -739,19 +747,22 @@ internal static class CommitIndexFormat
         }
     }
 
-    private static CommitSegment? TryLoad(IReadableBlob blob, BlobName name, DatasetId dataset)
+    [DesignDecision(typeof(VerifiedDerivedData.VerifiedBeforeFirstUse), Scope = ExceptionScope.Boundary)]
+    private static CommitSegment? TryLoad(IReadableBlob blob, BlobName name, DatasetId dataset, bool shared)
     {
-        if (!DerivedFormat.TryReadHeader(blob, dataset, DerivedFormat.KindCommits, out DerivedHeader header))
+        if (!DerivedFormat.TryReadHeader(blob, dataset, DerivedFormat.KindCommits, out DerivedHeader header)
+            || (header.Version < DerivedFormat.CheckedVersion && !shared))
         {
             return null;
         }
 
+        bool checks = header.Version >= DerivedFormat.CheckedVersion;
         long count = header.To - header.From;
         long blocks = (count + CommitSegment.BlockEntries - 1) / CommitSegment.BlockEntries;
 
         if (header.From < 0 || count <= 0
             || header.DirectoryOffset != count * CommitEntry.Size
-            || header.DirectoryLength != 4 + 8 + (blocks * 8))
+            || header.DirectoryLength != 4 + 8 + (blocks * (checks ? 16 : 8)))
         {
             return null;
         }
@@ -773,10 +784,44 @@ internal static class CommitIndexFormat
             fences.Add(BinaryPrimitives.ReadInt64LittleEndian(directory.AsSpan((int)(12 + (i * 8)))));
         }
 
+        if (checks && !BlocksMatch(blob, count, blocks, directory.AsSpan((int)(12 + (blocks * 8)))))
+        {
+            return null;
+        }
+
         CommitSegment segment = new(new RunBlob(name, blob), header.From, header.To, fences);
 
         // The end hash names the commit the blob reaches; its last entry must agree.
         return segment.Read(header.To).HashEquals(header.ToHash) ? segment : null;
+    }
+
+    // Every block of entries against its check in the directory, which the
+    // header's hash covers (ADR 0213): a blob with any byte damaged is never
+    // loaded.
+    private static bool BlocksMatch(IReadableBlob blob, long count, long blocks, ReadOnlySpan<byte> checks)
+    {
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(CommitSegment.BlockEntries * CommitEntry.Size);
+
+        try
+        {
+            for (long i = 0; i < blocks; i++)
+            {
+                int entries = (int)Math.Min(CommitSegment.BlockEntries, count - (i * CommitSegment.BlockEntries));
+                Span<byte> block = buffer.AsSpan(0, entries * CommitEntry.Size);
+
+                if (blob.Read(new ByteOffset(i * CommitSegment.BlockEntries * CommitEntry.Size), block) != block.Length
+                    || BlockCheck.Of(block) != BinaryPrimitives.ReadUInt64LittleEndian(checks[(int)(i * 8)..]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     /// <summary>The blob name of the entries after <paramref name="from"/> up to <paramref name="to"/>.</summary>
@@ -793,34 +838,49 @@ internal static class CommitIndexFormat
 /// </summary>
 internal sealed class CommitIndexWriter : IAsyncDisposable
 {
-    private const int PerBuffer = 64 * 1024 / CommitEntry.Size;
+    // A whole number of blocks, so a block's check is taken over one span.
+    private const int PerBuffer = CommitSegment.BlockEntries * 6;
 
     private readonly IBlobWriter _writer;
     private readonly DatasetId _dataset;
     private readonly long _from;
     private readonly long _to;
+    private readonly ushort _version;
     private readonly byte[] _buffer = ArrayPool<byte>.Shared.Rent(PerBuffer * CommitEntry.Size);
     private readonly List<long> _fences = [];
+    private readonly List<ulong> _checks = [];
     private CommitEntry _last;
     private long _added;
     private int _filled;
 
-    private CommitIndexWriter(IBlobWriter writer, DatasetId dataset, long from, long to)
+    private CommitIndexWriter(IBlobWriter writer, DatasetId dataset, long from, long to, ushort version)
     {
         _writer = writer;
         _dataset = dataset;
         _from = from;
         _to = to;
+        _version = version;
     }
 
-    internal static async ValueTask<CommitIndexWriter> StartAsync(IDerivedStore store, BlobName name, DatasetId dataset, long from, long to, CancellationToken cancellationToken)
+    /// <summary>
+    /// Starts a blob in <paramref name="version"/>: 6, each block of 128
+    /// entries checked (ADR 0213), unless the blob is a set's and a reader of
+    /// version 4 is announced, which reads 4.
+    /// </summary>
+    internal static async ValueTask<CommitIndexWriter> StartAsync(
+        IDerivedStore store, BlobName name, DatasetId dataset, long from, long to, CancellationToken cancellationToken, ushort version = DerivedFormat.CheckedVersion)
     {
         if (to <= from)
         {
             throw new ArgumentException("A commit index blob holds at least one entry.", nameof(to));
         }
 
-        return new CommitIndexWriter(await store.CreateAsync(name, cancellationToken).ConfigureAwait(false), dataset, from, to);
+        if (version is not (DerivedFormat.Version or DerivedFormat.CheckedVersion))
+        {
+            throw new ArgumentOutOfRangeException(nameof(version), version, "A commit index blob is written in derived format 4 or 6.");
+        }
+
+        return new CommitIndexWriter(await store.CreateAsync(name, cancellationToken).ConfigureAwait(false), dataset, from, to, version);
     }
 
     /// <summary>The next position's entry.</summary>
@@ -842,9 +902,22 @@ internal sealed class CommitIndexWriter : IAsyncDisposable
 
         if (++_filled == PerBuffer)
         {
-            await _writer.WriteAsync(_buffer.AsMemory(0, _filled * CommitEntry.Size), cancellationToken).ConfigureAwait(false);
-            _filled = 0;
+            await FlushBufferAsync(cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    // Writes what is buffered, taking each block's check; only the last
+    // write of a blob holds a block of fewer than 128 entries.
+    private async ValueTask FlushBufferAsync(CancellationToken cancellationToken)
+    {
+        for (int at = 0; at < _filled; at += CommitSegment.BlockEntries)
+        {
+            int entries = Math.Min(CommitSegment.BlockEntries, _filled - at);
+            _checks.Add(BlockCheck.Of(_buffer.AsSpan(at * CommitEntry.Size, entries * CommitEntry.Size)));
+        }
+
+        await _writer.WriteAsync(_buffer.AsMemory(0, _filled * CommitEntry.Size), cancellationToken).ConfigureAwait(false);
+        _filled = 0;
     }
 
     /// <summary>Writes the directory and the header, and publishes the blob; it must hold every entry.</summary>
@@ -855,20 +928,25 @@ internal sealed class CommitIndexWriter : IAsyncDisposable
             throw new InvalidOperationException("The commit index blob holds " + _added + " of its " + (_to - _from) + " entries.");
         }
 
-        await _writer.WriteAsync(_buffer.AsMemory(0, _filled * CommitEntry.Size), cancellationToken).ConfigureAwait(false);
-        _filled = 0;
-        byte[] directory = new byte[4 + 8 + (_fences.Count * 8)];
+        await FlushBufferAsync(cancellationToken).ConfigureAwait(false);
+        bool checks = _version >= DerivedFormat.CheckedVersion;
+        byte[] directory = new byte[4 + 8 + (_fences.Count * (checks ? 16 : 8))];
         BinaryPrimitives.WriteUInt32LittleEndian(directory, CommitSegment.BlockEntries);
         BinaryPrimitives.WriteInt64LittleEndian(directory.AsSpan(4), _to - _from);
 
         for (int i = 0; i < _fences.Count; i++)
         {
             BinaryPrimitives.WriteInt64LittleEndian(directory.AsSpan(12 + (i * 8)), _fences[i]);
+
+            if (checks)
+            {
+                BinaryPrimitives.WriteUInt64LittleEndian(directory.AsSpan(12 + (_fences.Count * 8) + (i * 8)), _checks[i]);
+            }
         }
 
         await _writer.WriteAsync(directory, cancellationToken).ConfigureAwait(false);
         byte[] header = DerivedFormat.EncodeHeader(
-            DerivedFormat.KindCommits, _dataset, _from, _to, _last.HeaderHash(), (_to - _from) * CommitEntry.Size, directory.Length, SHA256.HashData(directory));
+            _version, DerivedFormat.KindCommits, _dataset, _from, _to, _last.HeaderHash(), (_to - _from) * CommitEntry.Size, directory.Length, SHA256.HashData(directory));
         await _writer.WriteAsync(header, cancellationToken).ConfigureAwait(false);
         await _writer.PublishAsync(cancellationToken).ConfigureAwait(false);
     }

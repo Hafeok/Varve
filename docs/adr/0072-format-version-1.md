@@ -22,6 +22,8 @@ see the end.
 [0177](0177-seek-dont-narrow-intervals-beside-the-key.md): derived version 5,
 for extents only; see the end.
 
+**Amended 2026-10-27** (ADR 0068), by #146 under [ADR 0213](0213-cached-derived-data-is-verified-before-use.md): derived version 6, for the checked kinds; see the end. Filed unaccepted.
+
 ## Context
 
 ADR 0045 wrote bytes so that milestone 4's properties tested something, and
@@ -287,3 +289,21 @@ unchanged at storage format 1.
   ([ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md)).
 - **Version 5 is not read forever.** A later change to extents is a rebuild
   from the log.
+
+## Amendment, 2026-10-27 — derived version 6, for the checked kinds
+
+Filed by #146, unaccepted until the maintainer accepts it (ADR 0066); ruled
+in [ADR 0213](0213-cached-derived-data-is-verified-before-use.md). `log/` is
+unchanged at storage format 1.
+
+- **Runs, checkpoints, the commit index, the dictionary extent and the new
+  checked envelope (kind 9) are written as version 6**, each with a 64-bit
+  check per block in its directory. Order extents stay version 5, and the
+  state, the graph-version index and the catalog version 4.
+- **This build reads derived versions 2 to 6.** A local-only blob of a
+  checked kind below 6 is a cache miss at open. A set's older blobs are read
+  as before until maintenance rewrites them.
+- **A set's shared blobs are written in the newest version every announced
+  reader reads**, so an older follower still attaches to the chain.
+- **Version 6 is not read forever.** A later change is a rebuild from the
+  log.

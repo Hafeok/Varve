@@ -449,3 +449,4 @@ override Varve.Protocol.Model.TBoxBindingDescription.GetHashCode() -> int
 override Varve.Protocol.Model.TBoxBindingDescription.ToString() -> string!
 static Varve.Protocol.Model.TBoxBindingDescription.operator !=(Varve.Protocol.Model.TBoxBindingDescription? left, Varve.Protocol.Model.TBoxBindingDescription? right) -> bool
 static Varve.Protocol.Model.TBoxBindingDescription.operator ==(Varve.Protocol.Model.TBoxBindingDescription? left, Varve.Protocol.Model.TBoxBindingDescription? right) -> bool
+static Varve.Protocol.Model.ProblemType.LoadSpillDamaged.get -> Varve.Protocol.Model.ProblemType

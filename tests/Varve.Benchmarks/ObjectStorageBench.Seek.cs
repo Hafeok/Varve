@@ -90,9 +90,21 @@ internal static partial class ObjectStorageBench
         PageCounter pages = new(opened);
         IStorage reading = target.Counter is null ? pages : opened;
         List<string> lines = [];
+        long opens = Stopwatch.GetTimestamp();
 
         await using (StoreDatasetType dataset = await StoreDatasetType.OpenAsync(reading, options))
         {
+            // The open from a fresh cache, and the first pass of the head's
+            // lookups, which reads and checks every block it touches (ADR 0213).
+            double openMs = Stopwatch.GetElapsedTime(opens).TotalMilliseconds;
+            long firstRead = Stopwatch.GetTimestamp();
+
+            using (DatasetView first = dataset.Pin())
+            {
+                _ = Line("head", first, pages, terms, probes, subject, target.Counter is null);
+            }
+
+            double firstReadMs = Stopwatch.GetElapsedTime(firstRead).TotalMilliseconds;
             List<(string Name, long From, long To, long Bytes)> sets = await SetsAsync(opened);
             (string Name, long From, long To, long Bytes) largest = sets.OrderByDescending(s => s.Bytes).First();
             (string Name, long From, long To, long Bytes) smaller = sets.Where(s => s.Bytes * 4 <= largest.Bytes && s.To - s.From >= 2).OrderByDescending(s => s.Bytes).FirstOrDefault();
@@ -117,6 +129,7 @@ internal static partial class ObjectStorageBench
 
             lines.Add("");
             lines.Add(string.Create(CultureInfo.InvariantCulture, $"- opening the view inside the largest set and its estimate of every quad, median of 5: {opening:F2} ms"));
+            lines.Add(string.Create(CultureInfo.InvariantCulture, $"- the open from a fresh cache: {openMs:F1} ms; the head's lookups and a subject's quads, first pass: {firstReadMs:F1} ms"));
 
             // The same predicate's quads at the head, beside the as-of scans below.
             using (DatasetView head = dataset.Pin())

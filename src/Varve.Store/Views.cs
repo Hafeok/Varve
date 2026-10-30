@@ -238,9 +238,10 @@ internal sealed class PendingSource : IQuadSource
     private readonly Dictionary<ulong, RdfTerm> _fresh;
     private readonly Dictionary<RdfTerm, ulong> _freshByTerm;
 
-    // The components of the triple terms the commit creates, built once per
-    // commit, and only when it creates one.
+    // The components of the triple terms the commit creates, and the reverse,
+    // built once per commit, and only when it creates one.
     private readonly Dictionary<ulong, (ulong S, ulong P, ulong O)>? _freshTriples;
+    private readonly Dictionary<(ulong S, ulong P, ulong O), ulong>? _freshTripleByParts;
 
     internal PendingSource(IndexVersion head, TermView terms, IReadOnlyList<Allocation> fresh)
     {
@@ -257,7 +258,9 @@ internal sealed class PendingSource : IQuadSource
             if (allocation.IsTriple)
             {
                 _freshTriples ??= [];
+                _freshTripleByParts ??= [];
                 _freshTriples[allocation.Id] = (allocation.Subject, allocation.Predicate, allocation.Object);
+                _freshTripleByParts[(allocation.Subject, allocation.Predicate, allocation.Object)] = allocation.Id;
             }
             else if (TermIds.ClassOf(allocation.Id) == IdClass.Canonical)
             {
@@ -268,6 +271,15 @@ internal sealed class PendingSource : IQuadSource
 
     public IEqualityComparer<TermHandle> TermComparer => StoreTermComparer.ById;
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// A term the commit creates is the commit's: a plain one by value, and a
+    /// triple term by its parts, each looked up here, so that a part the
+    /// commit creates is found too. The head's dictionary knows neither, and
+    /// a validator reads the delta's quads through this source, so "no such
+    /// term" for one of them is a denial of a term it yields (ADR 0022,
+    /// amended 2026-10-30; #191).
+    /// </remarks>
     public bool TryInternalise(RdfTerm term, out TermHandle handle)
     {
         if (_freshByTerm.TryGetValue(term, out ulong id))
@@ -276,7 +288,24 @@ internal sealed class PendingSource : IQuadSource
             return true;
         }
 
-        return _terms.TryInternalise(term, out handle);
+        if (_terms.TryInternalise(term, out handle))
+        {
+            return true;
+        }
+
+        if (_freshTripleByParts is not null
+            && term.Kind == RdfTermKind.TripleTerm
+            && TryInternalise(term.Subject!, out TermHandle s)
+            && TryInternalise(term.Predicate!, out TermHandle p)
+            && TryInternalise(term.Object!, out TermHandle o)
+            && _freshTripleByParts.TryGetValue((s.Value, p.Value, o.Value), out id))
+        {
+            handle = new TermHandle(id);
+            return true;
+        }
+
+        handle = TermHandle.None;
+        return false;
     }
 
     public bool TryExternalise(TermHandle handle, [MaybeNullWhen(false)] out RdfTerm term) =>

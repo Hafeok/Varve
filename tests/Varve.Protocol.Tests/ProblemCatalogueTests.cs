@@ -49,9 +49,12 @@ public class ProblemCatalogueTests
     /// not exist; and a read that finds an extent gone, as a forgotten or an
     /// unannounced reader may (ADR 0160), needs a server that only reads a
     /// dataset in an object store, which is the Management plane's follower
-    /// (#105). Removed from here by the slice that makes each emittable.
+    /// (#105). A bulk load runs from the command line only, which names its
+    /// damaged spill by type (<c>varve load</c>, ADR 0213); no endpoint loads
+    /// in bulk yet. Removed from here by the slice that makes each emittable.
     /// </summary>
-    private static readonly ImmutableArray<ProblemType> NotYetEmittable = [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone, ProblemType.EntailmentRefused];
+    private static readonly ImmutableArray<ProblemType> NotYetEmittable =
+        [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone, ProblemType.LoadSpillDamaged, ProblemType.EntailmentRefused];
 
     /// <summary>
     /// Types whose trigger holds state across requests, exercised in

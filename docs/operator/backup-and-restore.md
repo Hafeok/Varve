@@ -119,7 +119,9 @@ varve storage readers list https://account.blob.core.windows.net/varve/people
 `varve storage` prints the catalog's version, the sets per permutation, each
 set's window and bytes, the sets no catalog names that the store still keeps,
 and each record with the bytes it retains. `/health/ready` reports the same as
-`retention`; it never turns unready because of it.
+`retention`, with `uncheckedSets`, the sets still read without their block
+checks because a follower of an earlier build is announced (ADR 0213, see
+[Upgrade](upgrade.md)); it never turns unready because of either.
 
 A record holds what it announces until its instance moves on, ends, starts
 again under the same id, or is forgotten. A reader that is gone — a replica

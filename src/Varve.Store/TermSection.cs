@@ -5,7 +5,6 @@
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
-using System.IO;
 using System.Runtime.InteropServices;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
@@ -325,6 +324,11 @@ internal sealed class TermSection
     private readonly long[]? _offsets;
     private readonly TermHash[]? _hashes;
     private readonly IReadableBlob? _blob;
+
+    // The section rebuilt from the log, once its blob was found damaged
+    // (ADR 0213); see KeySection's.
+    private Func<TermSection>? _healer;
+    private TermSection? _healed;
     private readonly long _entriesAt;
     private readonly long _offsetsAt;
     private readonly long _hashesAt;
@@ -456,6 +460,34 @@ internal sealed class TermSection
         return new TermSection(older.From, newer.To, entries.Length, entries, offsets, hashes, null, 0, 0, 0, null);
     }
 
+    /// <summary>
+    /// From now on, when an entry, an offset or a hash of this section's blob
+    /// is found damaged, it is read from <paramref name="healer"/>: the
+    /// section rebuilt from the log, in memory, with the same entries (ADR
+    /// 0213). Only for a section on a blob.
+    /// </summary>
+    internal void HealWith(Func<TermSection> healer)
+    {
+        if (_blob is not null)
+        {
+            _healer = healer;
+        }
+    }
+
+    [DesignDecision(typeof(VerifiedDerivedData.DamageMidReadIsRerunAndResumed), Scope = ExceptionScope.HotPath)]
+    private TermSection Healed()
+    {
+        TermSection healed = _healer!();
+
+        if (healed.From != From || healed.To != To || healed.EntriesLength != EntriesLength || healed.OnBlob)
+        {
+            throw new InvalidOperationException("A term section rebuilt from the log does not hold the entries the damaged one held.");
+        }
+
+        _healed = healed;
+        return healed;
+    }
+
     /// <summary>A section of a derived blob, laid out as storage format §7 says, with its filter when the run carries one (ADR 0109).</summary>
     internal static TermSection On(IReadableBlob blob, long from, long to, long entriesAt, long entriesLength, long offsetsAt, long hashesAt, TermFilter? filter) =>
         new(from, to, entriesLength, null, null, null, blob, entriesAt, offsetsAt, hashesAt, filter);
@@ -473,8 +505,22 @@ internal sealed class TermSection
             return _offsets![index];
         }
 
+        if (_healed is { } healed)
+        {
+            return healed.Offset(index);
+        }
+
         Span<byte> bytes = stackalloc byte[8];
-        Fill(_offsetsAt + (index * 8), bytes);
+
+        try
+        {
+            Fill(_offsetsAt + (index * 8), bytes);
+        }
+        catch (DerivedDamageException) when (_healer is not null)
+        {
+            return Healed().Offset(index);
+        }
+
         return (long)BinaryPrimitives.ReadUInt64LittleEndian(bytes);
     }
 
@@ -487,7 +533,20 @@ internal sealed class TermSection
             return;
         }
 
-        Fill(_offsetsAt + (index * 8), MemoryMarshal.AsBytes(destination));
+        if (_healed is { } healed)
+        {
+            healed.ReadOffsets(index, destination);
+            return;
+        }
+
+        try
+        {
+            Fill(_offsetsAt + (index * 8), MemoryMarshal.AsBytes(destination));
+        }
+        catch (DerivedDamageException) when (_healer is not null)
+        {
+            Healed().ReadOffsets(index, destination);
+        }
     }
 
     /// <summary>
@@ -520,7 +579,20 @@ internal sealed class TermSection
             return;
         }
 
-        Fill(_entriesAt + offset, destination);
+        if (_healed is { } healed)
+        {
+            healed.ReadEntries(offset, destination);
+            return;
+        }
+
+        try
+        {
+            Fill(_entriesAt + offset, destination);
+        }
+        catch (DerivedDamageException) when (_healer is not null)
+        {
+            Healed().ReadEntries(offset, destination);
+        }
     }
 
     /// <summary>Copies hash index entries from <paramref name="index"/>.</summary>
@@ -533,7 +605,20 @@ internal sealed class TermSection
             return;
         }
 
-        Fill(_hashesAt + (index * TermHash.Size), MemoryMarshal.AsBytes(destination));
+        if (_healed is { } healed)
+        {
+            healed.ReadHashes(index, destination);
+            return;
+        }
+
+        try
+        {
+            Fill(_hashesAt + (index * TermHash.Size), MemoryMarshal.AsBytes(destination));
+        }
+        catch (DerivedDamageException) when (_healer is not null)
+        {
+            Healed().ReadHashes(index, destination);
+        }
     }
 
     /// <summary>
@@ -667,7 +752,7 @@ internal sealed class TermSection
     {
         if (_blob!.Read(new ByteOffset(offset), destination) != destination.Length)
         {
-            throw new IOException("A derived run's dictionary is shorter than its directory says.");
+            throw new DerivedDamageException("A derived run's dictionary is shorter than its directory says.");
         }
     }
 }

@@ -20,6 +20,8 @@ It **supersedes in part**:
 **Revisit condition:** a host where no synchronous read exists — 6c decides
 this for the browser — supersedes this ADR.
 
+**Superseded in part 2026-10-27 by [ADR 0213](0213-cached-derived-data-is-verified-before-use.md)**: `BlobsArePublishedAtomically` moves to its set, "durable as the backend declares" qualified for a blob that verifies itself for every announced reader. Filed unaccepted.
+
 ## Context
 
 ADR 0018 made storage asynchronous throughout, because the browser's storage is

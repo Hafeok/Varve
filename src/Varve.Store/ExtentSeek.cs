@@ -47,6 +47,8 @@ internal sealed class ExtentSeek
 
     internal ExtentSeek(ExtentSet set, long position)
     {
+        Set = set;
+
         for (int o = 0; o < Orders.Count; o++)
         {
             _infos[o] = set.Orders[o].Extent!;
@@ -59,6 +61,9 @@ internal sealed class ExtentSeek
     /// <summary>The position the set is read at, strictly inside its window.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal long Position { get; }
+
+    /// <summary>The set sought.</summary>
+    internal ExtentSet Set { get; }
 
     /// <summary>
     /// What the set read at the position says about a quad: asserted,

@@ -28,6 +28,7 @@ internal sealed class StoreMetrics
     private static readonly UpDownCounter<long> PinnedReads = Meter.CreateUpDownCounter<long>("varve.store.pinned_reads", unit: "{read}", description: "Views pinned and not yet released.");
     private static readonly Gauge<long> ProjectionLag = Meter.CreateGauge<long>("varve.store.projection.lag", unit: "{position}", description: "How many positions the default projection is behind the head, as of the last commit or maintenance step.");
     private static readonly Gauge<long> LogBytes = Meter.CreateGauge<long>("varve.store.log.bytes", unit: "By", description: "The bytes of every commit's records in the log, as of the last commit.");
+    private static readonly Counter<long> DerivedDamaged = Meter.CreateCounter<long>("varve.store.derived.damaged", unit: "{blob}", description: "Derived blobs a read found damaged and answered from the log instead (ADR 0213).");
     private static readonly Gauge<long> DerivedBytes = Meter.CreateGauge<long>("varve.store.derived.bytes", unit: "By", description: "The bytes of the runs and checkpoints the dataset holds open, as of the last commit, checkpoint or maintenance step.");
 
     private readonly KeyValuePair<string, object?> _tag;
@@ -61,6 +62,15 @@ internal sealed class StoreMetrics
         if (BatchSize.Enabled)
         {
             BatchSize.Record(commits, _tag);
+        }
+    }
+
+    /// <summary>A derived blob was found damaged, and is answered from the log until it is written again.</summary>
+    internal void Damaged()
+    {
+        if (DerivedDamaged.Enabled)
+        {
+            DerivedDamaged.Add(1, _tag);
         }
     }
 
