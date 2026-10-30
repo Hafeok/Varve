@@ -29,6 +29,8 @@ decisions:
     accepted-at: 2026-10-30T00:00:00Z
   - key: TripleTermsFoundOncePerSection
     statement: "A term section finds its triple terms' counters once, by one pass over its entries on the first lookup of a triple term's parts, and answers every later lookup by a search of them, so a lookup of a term that is not a triple term reads no entry"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-30T00:00:00Z
 ---
 
 The rulings of [ADR 0235](../adr/0235-the-row-scoped-quad-source-and-the-read-filters-cost.md), filed unaccepted by milestone 9, part 1 ([#202](https://github.com/Hafeok/Varve/issues/202), under #14)
