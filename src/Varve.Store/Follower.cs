@@ -91,7 +91,7 @@ public sealed partial class Dataset
                 return Head;
             }
 
-            await ApplyClosedAsync(cancellationToken).ConfigureAwait(false);
+            await AdoptClosedAsync(long.MaxValue, cancellationToken).ConfigureAwait(false);
             return Head;
         }
         finally
@@ -135,7 +135,7 @@ public sealed partial class Dataset
                 await tailing.RefreshAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            await ApplyClosedAsync(cancellationToken).ConfigureAwait(false);
+            await AdoptClosedAsync(long.MaxValue, cancellationToken).ConfigureAwait(false);
 
             if (!await claim(cancellationToken).ConfigureAwait(false))
             {
@@ -143,7 +143,7 @@ public sealed partial class Dataset
             }
 
             // What the claim adopted, then the log opened at its end as a writer's open opens it.
-            LogScan scan = await ApplyClosedAsync(cancellationToken).ConfigureAwait(false);
+            LogScan scan = await AdoptClosedAsync(long.MaxValue, cancellationToken).ConfigureAwait(false);
             _writer = await LogWriter.OpenAsync(_storage.Log, Id, scan, _options.SegmentBytes.Value, (int)_options.MaxRecordBytes.Value, cancellationToken).ConfigureAwait(false);
             IsFollower = false;
         }
@@ -161,10 +161,17 @@ public sealed partial class Dataset
         return true;
     }
 
-    // Applies every commit the storage holds closed above the head, as an
-    // open verifies them (I6), and returns the scan of the log's end. Inside
-    // the sequencer.
-    private async ValueTask<LogScan> ApplyClosedAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Applies every commit the log has closed after the head, verified as an
+    /// open verifies them (I6), to the commit index, the default projection
+    /// and the graph versions; returns the scan, which says where the log's
+    /// tail is. A follower calls it for its writer's commits; a writer whose
+    /// append failed calls it for its own, which reached the log without being
+    /// acknowledged (ADR 0214 point 2), and only up to <paramref name="upTo"/>,
+    /// the last it flushed: a commit closed past it is not committed. Inside
+    /// the sequencer.
+    /// </summary>
+    private async ValueTask<LogScan> AdoptClosedAsync(long upTo, CancellationToken cancellationToken)
     {
         State state = _state;
         long head = state.Head;
@@ -179,7 +186,7 @@ public sealed partial class Dataset
 
         if (head == 0)
         {
-            scan = await LogReader.ScanAsync(_storage.Log, Id, 0, Keep, _options.TornWindow, cancellationToken).ConfigureAwait(false);
+            scan = await LogReader.ScanAsync(_storage.Log, Id, 0, Keep, _options.TornWindow, upTo, cancellationToken).ConfigureAwait(false);
         }
         else
         {
@@ -187,7 +194,7 @@ public sealed partial class Dataset
             byte[] previous = head == 1 ? LogFormat.Genesis() : state.Commits.Entry(head - 1).HeaderHash();
             CommitLocation end = await LogReader.EndAsync(_storage.Log, Id, last.Location, head, previous, cancellationToken).ConfigureAwait(false);
             LogStart start = new(end.Segment, end.Offset, head, last.HeaderHash());
-            scan = await LogReader.ScanFromAsync(_storage.Log, Id, start, head, Keep, _options.TornWindow, cancellationToken).ConfigureAwait(false);
+            scan = await LogReader.ScanFromAsync(_storage.Log, Id, start, head, Keep, _options.TornWindow, upTo, cancellationToken).ConfigureAwait(false);
         }
 
         if (closed.Count == 0)

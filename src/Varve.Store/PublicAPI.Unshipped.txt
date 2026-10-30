@@ -756,6 +756,9 @@ Varve.Store.SpillBound
 Varve.Store.SpillBound.MemoryLoad = 2 -> Varve.Store.SpillBound
 Varve.Store.SpillBound.Memtable = 1 -> Varve.Store.SpillBound
 Varve.Store.SpillBound.None = 0 -> Varve.Store.SpillBound
+Varve.Store.Log.CommitResult.StorageFull.get -> bool
+Varve.Store.Dataset.StorageFull.get -> bool
+Varve.Store.Log.CommitResult.OutcomeUnknownAt.get -> Varve.Store.Log.Position?
 Varve.Store.Dataset.TryReadCheckedAsync(Varve.Store.IDerivedStore! store, Varve.Store.Log.BlobName name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CheckedContent?>
 Varve.Store.Dataset.WriteCheckedAsync(Varve.Store.IDerivedStore! store, Varve.Store.Log.BlobName name, Varve.Store.Log.Position position, System.ReadOnlyMemory<byte> bytes, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Varve.Store.Log.CheckedContent

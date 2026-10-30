@@ -98,6 +98,14 @@ public sealed partial class Dataset
             }
 
             await EnterSequencerAsync(cancellationToken).ConfigureAwait(false);
+
+            // A load is a write: after a failed append it recovers the
+            // writer first, as a commit does (ADR 0214 point 2).
+            if (_writerSuspect && !_disposing)
+            {
+                await RecoverWriterAsync().ConfigureAwait(false);
+            }
+
             State state = _state;
 
             if (state.Failed is not null || _broken is not null)
@@ -199,10 +207,32 @@ public sealed partial class Dataset
             {
                 location = await _writer.AppendStreamAsync(CommitKind.Data, next, previous, commit.BodyAsync(cancellationToken), headerBytes, cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception)
+            catch (Exception error)
             {
-                _broken = "An append failed; reopen the dataset to recover.";
-                throw;
+                // As a commit's failed append (ADR 0214 point 2): closed but
+                // not confirmed flushed is not known; not closed on a full
+                // disk is refused for space, and the next write recovers the
+                // writer and fences either off; anything else is the error.
+                if (error is not System.IO.IOException)
+                {
+                    _broken = "An append failed; reopen the dataset to recover: " + error.Message;
+                    throw;
+                }
+
+                RecordAppendFailure(error);
+                _dictionary.Forget();
+                bool closed = _writer.Closed >= next;
+
+                if (!closed && !StorageSpace.IsFull(error))
+                {
+                    throw;
+                }
+
+                CommitResult refused = closed ? CommitResult.OutcomeUnknown(head, next, OutcomeUnknownReason) : CommitResult.NoSpace(head, NoSpaceReason);
+                delta.Run.Blob!.Release();
+                await _storage.Derived.DeleteAsync(runName, CancellationToken.None).ConfigureAwait(false);
+                delta = null!;
+                return refused;
             }
 
             CommitEntry info = new(header.TimestampTicks, headerHash, location, header.CanonicalCount, header.BlankCount, state.LogBytesAt(head) + _writer.LastCommitBytes);

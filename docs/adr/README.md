@@ -38,7 +38,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0019](0019-erasure-by-crypto-shredding.md) | Erasure by crypto-shredding | **Superseded by 0023** |
 | [0020](0020-cipher-for-erasure-mode.md) | Cipher for erasure mode | **Superseded by 0028** |
 | [0021](0021-dataset-settings-as-a-commit-kind.md) | Dataset settings as a commit kind | Accepted |
-| [0022](0022-quad-source-term-handle.md) | The quad source contract over an opaque term handle | Accepted |
+| [0022](0022-quad-source-term-handle.md) | The quad source contract over an opaque term handle | Accepted; amended 2026-10-30 (a denied term is in no quad the source will yield, loaded or not; filed unaccepted, #191) |
 | [0023](0023-erasure-and-access-requests.md) | Erasure by crypto-shredding, and access requests | Accepted |
 
 ## Milestone 3a — the model and the syntax
@@ -451,6 +451,15 @@ carries a condition of its own that is not measurable by a build.
 | [0070](0070-the-storage-engine-is-our-own.md) | A workload at milestone 7 where tier merges cannot keep up with the commit rate. | milestone 7 |
 | [0071](0071-synchronous-reads-over-asynchronous-storage.md) | A host where no synchronous read exists. | milestone 6c, the browser |
 | [0034](0034-commit-signing-and-the-sandbox-exception.md) | A route appears by which a sandbox commit is signed by a key the project controls, or by GitHub itself. Two are identified and neither is available: GraphQL `createCommitOnBranch`, blocked by the session proxy rather than by GitHub, and a per-installation signing key. The REST contents API was tested and is **not** one — it produces unsigned commits. | whenever it fires |
+
+## 1.0 readiness A — the file backend's faults and the soak
+
+Filed by 1.0 readiness A ([#129](https://github.com/Hafeok/Varve/issues/129); [#61](https://github.com/Hafeok/Varve/issues/61)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Amended by them: 0073 (a full disk; the faults on real files), 0082 (run by the release gate and judged by a script), 0119 (`storage-full`). Superseded in part by 0214: 0124 (point 3 and `AcknowledgedOnlyWhenTheBatchIsDurable` move, restated: a failed batch answered by the log, and a full disk recovered by the next write). Superseded in part by 0215: 0110 (`FlatWithinABand` moves, restated).
+
+| ADR | Title | Status |
+|---|---|---|
+| [0214](0214-file-backend-failure-injection.md) | File-backend failure injection: four faults, at every point, on simulated and on real files | Filed unaccepted (#129) |
+| [0215](0215-the-soak-gate-run-and-judged.md) | The soak gate, run and judged: a bounded vocabulary, four hours, a judge, and Windows weekly | Filed unaccepted (#61) |
 
 ## Open questions recorded, not resolved
 
