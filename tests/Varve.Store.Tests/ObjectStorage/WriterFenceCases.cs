@@ -151,7 +151,22 @@ internal static class WriterFenceCases
             Assert.NotEmpty(claimed);
             Assert.All(opened.Except(claimed), storage => Assert.True(storage.IsSuperseded));
             WriterRecord record = Assert.IsType<WriterRecord>(await Backend.ReadWriterAsync(store, prefix, T.Ct));
-            Assert.Equal(claimed.Select(storage => storage.Epoch!.Value.Value).Order(), record.History.Select(claim => claim.Epoch.Value));
+            // The history is exactly the claims that succeeded in the record,
+            // each one claimant's, in ascending epochs. A claimant can win its
+            // epoch in the record and be fenced by the next claim before its
+            // own fence lands: its claim is in the history, and it is
+            // superseded, as the reopen below counts too. Every other claim
+            // in the history is held.
+            (long Epoch, string Holder)[] history = [.. record.History.Select(claim => (claim.Epoch.Value, claim.Holder.Value))];
+            (long Epoch, string Holder)[] won = [.. opened
+                .Select((storage, i) => (Storage: storage, Name: "create-" + i.ToString(CultureInfo.InvariantCulture)))
+                .Where(claimant => claimant.Storage.Writer?.Holder.Value == claimant.Name)
+                .Select(claimant => (claimant.Storage.Writer!.Epoch.Value, claimant.Name))
+                .OrderBy(claim => claim.Item1)];
+            Assert.Equal(history.OrderBy(claim => claim.Epoch), history);
+            Assert.Equal(won, history);
+            Assert.Subset(won.Select(claim => claim.Epoch).ToHashSet(), claimed.Select(storage => storage.Epoch!.Value.Value).ToHashSet());
+            Assert.All(opened.Where((storage, i) => storage.Epoch is null && won.Any(claim => claim.Holder == "create-" + i.ToString(CultureInfo.InvariantCulture))), storage => Assert.True(storage.IsSuperseded));
             Assert.Equal(claimed.Max(storage => storage.Epoch!.Value), record.Epoch);
             Assert.Null(record.Released);
         }

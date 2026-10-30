@@ -6,6 +6,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Win32.SafeHandles;
@@ -61,6 +62,11 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
     private ReadOnlyMemory<byte> _manifest;
     private bool _superseded;
     private bool _ready;
+
+    // The epoch of the highest chunk still listed in log order, read when the
+    // newest segment is consolidated and so holds no chunk in hand: what the
+    // fence compares with in place of that segment's last chunk.
+    private long _listedTail;
     private (int Segment, long Slot)? _start;
 
     private ObjectSegmentStore(IObjectStore store, ObjectNames names, TimeProvider clock, string cache, long epoch, List<Segment> segments, ReadOnlyMemory<byte> manifest)
@@ -189,6 +195,10 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
             if (segments.Count > 0 && !segments[^1].Consolidated)
             {
                 await opened.LoadFromAsync(segments[^1], segments[^1].Listed - 1, cancellationToken).ConfigureAwait(false);
+            }
+            else if (segments.Count > 0)
+            {
+                opened._listedTail = await ListedTailEpochAsync(store, names, [.. found.SelectMany(segment => segment.Value.Chunks.Select(chunk => (segment.Key, chunk.Chunk)))], cancellationToken).ConfigureAwait(false);
             }
 
             await opened.FenceAsync(cancellationToken).ConfigureAwait(false);
@@ -646,7 +656,11 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
     // The fence (ADR 0136): the slot after the last that exists, in log
     // order, created with this writer's epoch. A create that finds its slot
     // taken adopts what is there and tries the next; one that finds a later
-    // epoch there is superseded already.
+    // epoch there is superseded already. So is a writer whose log already
+    // ends in a later epoch's chunk: it claimed before that writer, and
+    // listed the log after it fenced (#165). Fencing past it would let the
+    // lower epoch write and supersede the higher. When the newest segment is
+    // consolidated, its last chunk is the highest still listed (#181).
     private async ValueTask FenceAsync(CancellationToken cancellationToken)
     {
         while (true)
@@ -664,6 +678,12 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
                 }
 
                 Segment? last = _segments.Count == 0 ? null : _segments[^1];
+
+                if (last is not null && (last.Consolidated ? _listedTail : last.Epoch) > _epoch)
+                {
+                    _superseded = true;
+                    return;
+                }
 
                 if (last is null || last.Sealed)
                 {
@@ -705,6 +725,34 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
                 }
             }
         }
+    }
+
+    // The epoch of the log's last chunk when its newest segment is
+    // consolidated (ADR 0136 decision 2): that of the highest chunk still
+    // listed in log order. Consolidation deletes every chunk but the fences
+    // (point 4), and every writer fences before it writes. So a writer that
+    // wrote past that chunk fenced at or before it, and the chunk's epoch is
+    // at least that writer's. It is the last kept fence once the deletes are
+    // done, and the seal while they are pending. A chunk deleted since the
+    // listing, a consolidation's pending delete, gives way to the one below.
+    private static async ValueTask<long> ListedTailEpochAsync(IObjectStore store, ObjectNames names, (int Segment, int Chunk)[] listed, CancellationToken cancellationToken)
+    {
+        foreach ((int segment, int chunk) in listed.OrderByDescending(static slot => slot.Segment).ThenByDescending(static slot => slot.Chunk))
+        {
+            if (await ConditionalWrites.ReadWholeAsync(store, names.Chunk(segment, chunk), cancellationToken).ConfigureAwait(false) is not { } read)
+            {
+                continue;
+            }
+
+            if (!ChunkHeader.TryRead(read.Bytes.Span, out ChunkHeader header, out _))
+            {
+                throw new LogVerificationException("Chunk " + ObjectNames.Slot(segment, chunk) + " does not verify: its header or its bytes are damaged.");
+            }
+
+            return header.Epoch;
+        }
+
+        return 0;
     }
 
     private async ValueTask WriteChunkAsync(int segmentId, bool seal, CancellationToken cancellationToken)
