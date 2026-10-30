@@ -132,9 +132,12 @@ writer's address in the writer record, `Varve:Fleet:InternalUrl`:
   [`503 writer-moved`](../problems/writer-moved.md), with the epoch, and never
   forwards it again: a request crosses at most one hop. Retry, and the route
   is read again.
-- A writer that cannot be reached is `503 unavailable` with the reason
-  `writer-unreachable`; no instance holding the epoch is `no-writer`. A
-  forward is never sent twice.
+- A forward whose writer cannot be reached, or whose answer is lost, is
+  [`503 commit-outcome-unknown`](../problems/commit-outcome-unknown.md),
+  with `requestId` and no `position` (ADR 0214): the writer may have
+  committed it, so send it again only conditionally. No instance holding the
+  epoch is `503 unavailable`, reason `no-writer`. A forward is never sent
+  twice.
 
 **`Varve:Fleet:InternalUrl` carries the caller's bearer token.** It is
 `https`, or stays inside a private network: a pod's headless-service name, an

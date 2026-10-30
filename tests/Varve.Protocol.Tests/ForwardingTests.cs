@@ -100,7 +100,10 @@ public sealed class ForwardingTests
         string body = await response.Content.ReadAsStringAsync(P.Ct);
 
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        Assert.Contains("\"reason\":\"writer-unreachable\"", body, StringComparison.Ordinal);
+        // Whether the writer received it is not known: the outcome is unknown, with the request id and no position (ADR 0214).
+        Assert.Contains("\"type\":\"https://w3id.org/varve/problems/commit-outcome-unknown\"", body, StringComparison.Ordinal);
+        Assert.Contains("\"requestId\":", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"position\"", body, StringComparison.Ordinal);
         Assert.Equal(1, pair.Stale);
     }
 

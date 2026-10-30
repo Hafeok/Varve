@@ -115,7 +115,7 @@ public abstract class FleetCases : IAsyncDisposable
         Assert.Contains("\"boolean\":true", await read.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
         HttpResponseMessage write = await Update(b, "d", "INSERT DATA { <http://ex/b> <http://ex/p> 2 }");
         Assert.Equal(HttpStatusCode.ServiceUnavailable, write.StatusCode);
-        Assert.Contains("writer-unreachable", await write.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        Assert.Contains("commit-outcome-unknown", await write.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
         HttpResponseMessage management = await Declare(b, "g");
         Assert.Equal(HttpStatusCode.ServiceUnavailable, management.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await b.Http.GetAsync(new Uri(b.Address, "health/live"), Ct)).StatusCode);
@@ -1045,7 +1045,7 @@ public abstract class FleetCases : IAsyncDisposable
         HttpResponseMessage write;
         int refused = 0;
 
-        // b refuses while no writer answers, writer-unreachable or writer-moved, and forwards once a holds d again.
+        // b refuses while no writer answers, commit-outcome-unknown or writer-moved, and forwards once a holds d again.
         while ((write = await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode != HttpStatusCode.NoContent)
         {
             Assert.Equal(HttpStatusCode.ServiceUnavailable, write.StatusCode);

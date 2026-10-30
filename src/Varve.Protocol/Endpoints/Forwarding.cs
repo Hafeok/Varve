@@ -7,6 +7,8 @@ using System.Collections.Immutable;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
@@ -148,10 +150,11 @@ internal static class Forwarding
         catch (HttpRequestException unreachable)
         {
             // Sent once, never again: whether the writer received any of it is
-            // unknown to this instance, so the client decides (ADR 0168).
+            // unknown to this instance, so the client decides (ADR 0168). The
+            // write may or may not have been committed, and nothing here knows
+            // a position to look at (ADR 0214).
             directory.Stale(target);
-            await HttpProblems.WriteAsync(context, ProblemType.Unavailable, "The writer at " + address + " could not be reached: " + unreachable.Message,
-                members => members.String("reason", "writer-unreachable")).ConfigureAwait(false);
+            await LostAnswerAsync(context, "The writer at " + address + " could not be reached, or its answer was lost: " + unreachable.Message).ConfigureAwait(false);
             return;
         }
 
@@ -202,6 +205,13 @@ internal static class Forwarding
             await response.Content.CopyToAsync(answer.Body, context.RequestAborted).ConfigureAwait(false);
         }
     }
+
+    // A forwarded write whose answer from the writer was lost: it may or may
+    // not have been committed, and this instance knows no position to look
+    // at, so the problem carries the request id alone (ADR 0214).
+    [DesignDecision(typeof(FileBackendFailureInjection.OutcomeUnknownIs503WithTheRequestId), Scope = ExceptionScope.Boundary)]
+    private static Task LostAnswerAsync(HttpContext context, string reason) =>
+        HttpProblems.WriteAsync(context, ProblemType.CommitOutcomeUnknown, reason, members => members.String("requestId", context.TraceIdentifier));
 
     // The problem type a writer answered a batch with, when it is one that
     // means the batch was never committed across a handover: its short name.

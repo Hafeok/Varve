@@ -809,3 +809,44 @@ two keys may be cited (ADR 0066).
   One whole-suite run of the server tests failed once. A fleet case's
   dataset declaration hit the 30 s HTTP timeout while the suite ran in
   parallel. On its own, it and the fleet suite passed.
+
+### #190 merged in, and the forwarded write's lost answer
+
+> ADR 0214 is on `main` now (#190 landed at eb5d451a), so `commit-outcome-unknown` is available for the forwarded write whose answer was lost, and `main` carries #180, #200 and #190 since this branch's last merge. A merge of `main` into this branch conflicts in seven files, and four of them are this branch's own design territory, so the merge is left to this session […]. Still open on this branch after that: the forwarded write's answer, `503 commit-outcome-unknown` with `requestId` and no `position`, in place of `503 unavailable` with `writer-unreachable`, as the record says.
+
+- **The merge (05cb4846).**
+  - **`Sequencer.cs`.** Main's failed append, settled member by member from
+    the log, is taken whole. This branch's abdication flag goes on both of
+    its paths:
+    - a failure that is not the storage's waits for a reopen, and abdicates
+      unless the writer was superseded, as before;
+    - a storage failure abdicates for `storage-error`, unless the disk was
+      full, which recovers in place at the next write (ADR 0214 point 2).
+
+    Main's private `AppendFailed(Exception)` is renamed
+    `RecordAppendFailure`, since this branch's public `AppendFailed` is the
+    flag the writer set reads.
+  - **`Follower.cs`.** Main's `AdoptClosedAsync(upTo, …)` is the one helper.
+    The follower's read and the claim in place call it unbounded. It keeps
+    this branch's projection fault at the position, so main's writer, which
+    adopts its own unacknowledged commits after a failed append, takes the
+    same rule.
+  - **The rest.** `DatasetHealth` carries both sides' fields. The catalogue
+    test has the `stepped`, `full` and `unflushed` datasets. The API
+    baselines are additive.
+- **ADRs 0214 and 0215's status (f3fbd275).** Like 0213's: both were
+  accepted in 97b39fee, and preview.16 is the first release to ship them. So
+  each status line now opens "Accepted — filed unaccepted by …" and names
+  97b39fee, as the maintainer directed for 0213. Nothing else in either
+  changed.
+- **The forwarded write.** `Forwarding.ForwardAsync`'s unreachable branch now
+  answers `503 commit-outcome-unknown`, with `requestId` and no `position`,
+  cited `OutcomeUnknownIs503WithTheRequestId`. A connection refused before
+  any byte went is answered the same: this instance can't tell it from a
+  lost answer. The tests and the operator guide follow. `EventMoves`' own
+  forward of a declaration move to the system writer still answers `503
+  unavailable`, reason `writer-unreachable`. It is a step of the move's
+  resumable protocol, not a client's write, and is left for the maintainer.
+- **preview.16** gains ADRs 0214 and 0215 in its basis, and notes for #190's
+  failed-batch answers and full-disk recovery, the soak gate, the forwarded
+  write, and #200's quad source fix (ADR 0022, amended).

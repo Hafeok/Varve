@@ -80,8 +80,9 @@ A new revision of `varve-writer` is a clean handover: it claims the epoch,
 the old revision is superseded, its `/health/ready` turns false
 (`superseded`), and it leaves the load balancer before it is stopped. While
 `varve-writer` is down, `varve` keeps serving reads under the grants it last
-applied, and answers writes `503 unavailable` with the reason
-`writer-unreachable`. Every claim is in the writer record:
+applied, and answers writes
+[`503 commit-outcome-unknown`](../problems/commit-outcome-unknown.md), since
+it cannot tell whether a write it forwarded arrived (ADR 0214). Every claim is in the writer record:
 
 ```sh
 varve lease https://{account}.blob.core.windows.net/datasets/people

@@ -97,6 +97,24 @@ record stays `format: 1`.
   answers `503 load-spill-damaged`, and readiness reports the
   `uncheckedSets` still read without checks while an older reader is
   announced.
+- **Committed means closed and flushed** (ADR 0214, #129). A failed batch
+  is answered by the log, member by member:
+  - closed and flushed is committed;
+  - closed with its flush unconfirmed is `503 commit-outcome-unknown`,
+    with `position` and `requestId`, settled by the commits resource;
+  - never closed on a full disk is `507 storage-full`.
+
+  A full disk recovers at the next write, with no reopen, and readiness
+  lists the dataset under `writesRefused` and stays ready.
+- **A forwarded write whose answer was lost** is `503
+  commit-outcome-unknown`, with `requestId` and no `position`, in place of
+  `503 unavailable` with the reason `writer-unreachable` (ADR 0214, #210).
+- **The soak gate is judged** (ADR 0215): the release gate runs four
+  hours on Linux, and a release needs a weekly Windows soak at most eight
+  days old.
+- **A denied term is in no quad a source yields** (ADR 0022, amended,
+  #200): a commit's pending source now finds a triple term the commit
+  itself creates.
 
 #### Measured
 
