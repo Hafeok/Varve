@@ -178,6 +178,8 @@ public sealed class FlushRuleTests
 
         public void Delete(string path) => _disk.Delete(path);
 
+        public bool DeleteEmptyDirectory(string path) => _disk.DeleteEmptyDirectory(path);
+
         public bool IsReadOnly(string path) => _disk.IsReadOnly(path);
 
         public void MakeReadOnly(string path) => _disk.MakeReadOnly(path);
