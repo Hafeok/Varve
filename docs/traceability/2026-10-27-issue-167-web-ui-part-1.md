@@ -1177,3 +1177,41 @@ Measured:
   | `Varve.WebUi.Tests` | 229 / 229 |
   | `Varve.WebUi.Browser.Tests` | 8 / 8, both issuers, about 1 minute; axe on every screen and dialog in both themes |
 - **The download:** 1,846.8 kB brotli, from a clean publish: 16.1 kB more than before, and within the 1,920,000-byte budget.
+
+### Rulings, 2026-10-30 (round 3)
+- **The App level and VARVE0006's hole.**
+  - **The hole:** asked whether VARVE0006 reported `ShellFacts`, it did not.
+    - The analyzer returned at once for any type outside the six level namespaces, and its page said so.
+    - `ShellFacts`, in `Varve.WebUi`, held the management client, and `MainLayout`, then a part, named it.
+    - A part read the server, and nothing reported it. The hole was pinned by a test, `A_type_outside_the_levels_is_not_checked`.
+  - **As ruled:** the levels gain a top, `… < Pages < App`. `App` holds `App.razor`, `MainLayout` and `ShellFacts`, and may use the client's services. Three further changes keep the rule uniform:
+    1. **Every type of the Web UI is checked.**
+       - A type in no level names no service (`A_type_in_no_level_naming_a_service_is_reported`, the violating sample, which replaces the test that pinned the hole).
+       - The Web UI is the assembly that declares the levels. Its tests only reference them, so they are not held to this.
+    2. **No type names a type of a higher level,** component or not. A part naming a non-component of `App` would reach its services otherwise.
+    3. **No exemption at the top.**
+       - `App.razor` naming `MainLayout` is a use of its own level, which the rule refuses.
+       - So `Program`, the composition root, outside the Web UI's namespaces, hands the layout's type to `App` as a root-component parameter.
+  - **Found by the build:** the pages named `DatasetClients`, `TabCheckpoint` and `SignInSession`, now `App`'s, from below. A page's service holders are the page level's own, so they moved to `Varve.WebUi.Pages.Services`.
+  - **`ProblemView`'s "Signed in as":** it reached the sign-in session through the service provider. It now takes a cascading `SignedIn`, values only, which the layout passes down.
+  - **Docs:**
+    - ADR 0206 gains a dated amendment with two keys filed unaccepted: `TheAppIsTheTopLevel` and `NoTypeOutsideTheLevelsHoldsAService`.
+    - The brand book drops its exception sentence and lists `App`.
+    - VARVE0006's page describes the hole and its samples.
+- **Notice actions:** `.vw-notice > .vw-actions { grid-column: 2; }`, with no case change.
+- **Who is signed in, in the bar:**
+  - When both planes name the same agent, "Signed in as" it is said once, before the two state chips. The roles tooltip lists each plane's roles.
+  - Separate agents are shown only when they differ.
+  - An IRI over 40 characters is truncated in the middle: 20 characters, "…", then 19. The full IRI is its `title` and accessible name.
+  - Cases `same-subject` and `different-subjects` are new, and `signed-in-as` is updated: a real Entra agent IRI, the instance and Sign out.
+- **The reference screens** are replaced from `varve-docs-ui-screens-3.zip`: 31 changed, 3 new (`dataset--checkpoint-confirm`, `dataset--closing-memory`, `dataset--closed`). The README's table lists them, and its Declarations row is now Grants.
+
+Measured:
+- **Tests:**
+
+  | Suite | Result |
+  |---|---|
+  | `Varve.WebUi.Tests` | 233 / 233 |
+  | VARVE0006's analyzer tests | 45 / 45 |
+  | `Varve.WebUi.Browser.Tests` | 8 / 8, both issuers |
+- **The download:** 1,848.1 kB brotli, within the 1,920,000-byte budget.

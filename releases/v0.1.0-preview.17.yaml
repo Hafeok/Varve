@@ -48,7 +48,9 @@ summary: |
   - **Its design source is `docs/ui/`** (ADR 0206): the tokens, the
     components' cases, and the reference screens.
     - Every component renders the markup its cases pin, checked by bUnit.
-    - `VARVE0006` holds the levels apart, and only pages call the API.
+    - `VARVE0006` holds the levels apart, `App` at the top, and only pages
+      and the app call the API. Every type of the Web UI is checked: one in
+      no level holds no service.
   - **Its own OIDC client** (ADR 0201).
     - Sign-in is authorisation code with PKCE, written on the BCL.
     - Each plane gets its own token: the data plane from the code exchange,
