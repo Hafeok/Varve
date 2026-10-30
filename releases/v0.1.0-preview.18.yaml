@@ -6,6 +6,11 @@ basis:
   - issue: 202
   - storage-format: 1
   - delta-format: 1
+  - adr: "0190"
+  - adr: "0206"
+  - adr: "0213"
+  - adr: "0214"
+  - adr: "0215"
   - adr: "0230"
   - adr: "0231"
   - adr: "0232"
