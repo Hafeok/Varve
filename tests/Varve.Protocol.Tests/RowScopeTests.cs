@@ -148,19 +148,41 @@ public partial class RowScopeTests
     }
 
     /// <summary>
-    /// ADR 0236's property over HTTP: the same INSERT DATA or DELETE DATA has
-    /// the same outcome over a dataset and over the same dataset without
-    /// every quad the writer does not see; a refusal is 403 row-not-writable.
+    /// ADR 0236's property over HTTP, the probe case: the same write, by
+    /// SPARQL Update (INSERT DATA, DELETE DATA) or the Graph Store (POST,
+    /// PUT, DELETE of a graph), has the same outcome over a dataset and over
+    /// the same dataset without every quad the writer does not see; a
+    /// refusal is the one 403 row-not-writable, and what the writer sees
+    /// after the write is the same over both.
     /// </summary>
     [Fact]
     public async Task A_row_restricted_writes_outcome_never_depends_on_a_quad_it_does_not_see()
     {
         await using Rows rows = new();
         await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(rows.Datasets, accessScopes: rows, rowClassifications: rows, stopping: P.Ct);
-        Gen<string> write = Gen.Select(Gen.Bool, Quad.List[1, 2], (insert, quads) => (insert ? "INSERT DATA { " : "DELETE DATA { ") + string.Join(" ", quads) + " }");
+        Gen<Func<string, HttpRequestMessage>> update = Gen.Select(Gen.Bool, Quad.List[1, 2], (insert, quads) =>
+        {
+            string text = (insert ? "INSERT DATA { " : "DELETE DATA { ") + string.Join(" ", quads) + " }";
+            return (Func<string, HttpRequestMessage>)(name => P.Update("datasets/" + name + "/sparql", text));
+        });
+        Gen<Func<string, HttpRequestMessage>> graphStore = Gen.Select(Gen.OneOfConst("POST", "PUT", "DELETE"), Gen.OneOfConst("http://ex/g/1", "http://ex/g/2"), Quad.List[0, 2], (method, graph, quads) =>
+        {
+            string body = string.Concat(quads.Select(static q => Triple(q) + "\n"));
+            return (Func<string, HttpRequestMessage>)(name =>
+            {
+                HttpRequestMessage request = new(new HttpMethod(method), new Uri("datasets/" + name + "/graphs?graph=" + Uri.EscapeDataString(graph), UriKind.Relative));
+
+                if (method != "DELETE")
+                {
+                    request.Content = new StringContent(body, Encoding.UTF8, "application/n-triples");
+                }
+
+                return request;
+            });
+        });
         int refused = 0;
 
-        await Gen.Select(Quad.List[0, 10], write, Gen.Int[0, 7]).SampleAsync(async (quads, update, set) =>
+        await Gen.Select(Quad.List[0, 10], Gen.OneOf(update, graphStore), Gen.Int[0, 7]).SampleAsync(async (quads, write, set) =>
         {
             (string whole, Dataset dataset, RowScope scope) = await rows.AddAsync(quads, set, writes: true);
             List<string> seen;
@@ -170,23 +192,41 @@ public partial class RowScopeTests
                 seen = [.. Lines(RowScopedQuadSource.Wrap(view, new ShapeClassifier([Binding]).Classify(view, QuadDelta.Empty), scope)).Select(static l => Quoted(l))];
             }
 
-            (string part, _, _) = await rows.AddAsync(seen, set, writes: true);
-            HttpResponseMessage first = await host.Client.SendAsync(P.Update("datasets/" + whole + "/sparql", update), P.Ct);
-            HttpResponseMessage second = await host.Client.SendAsync(P.Update("datasets/" + part + "/sparql", update), P.Ct);
+            (string part, Dataset partial, _) = await rows.AddAsync(seen, set, writes: true);
+            HttpResponseMessage first = await host.Client.SendAsync(write(whole), P.Ct);
+            HttpResponseMessage second = await host.Client.SendAsync(write(part), P.Ct);
+            string firstBody = await first.Content.ReadAsStringAsync(P.Ct);
             Assert.Equal(first.StatusCode, second.StatusCode);
-            Assert.Equal(Problem(await first.Content.ReadAsStringAsync(P.Ct)), Problem(await second.Content.ReadAsStringAsync(P.Ct)));
+            Assert.Equal(Problem(firstBody), Problem(await second.Content.ReadAsStringAsync(P.Ct)));
 
             if (first.StatusCode == HttpStatusCode.Forbidden)
             {
-                Assert.Contains("row-not-writable", await first.Content.ReadAsStringAsync(P.Ct), StringComparison.Ordinal);
+                Assert.Contains("row-not-writable", firstBody, StringComparison.Ordinal);
                 refused++;
             }
 
+            Assert.Equal(await SeenAsync(dataset, scope), await SeenAsync(partial, scope));
             rows.Remove(whole);
             rows.Remove(part);
         }, iter: Iterations);
 
         Assert.True(refused > 0, "no generated write was refused");
+    }
+
+    // The writer's view at the head, classified from scratch.
+    private static async Task<HashSet<string>> SeenAsync(Dataset dataset, RowScope scope)
+    {
+        await Task.Yield();
+        using DatasetView view = dataset.Pin();
+        return Lines(RowScopedQuadSource.Wrap(view, new ShapeClassifier([Binding]).Classify(view, QuadDelta.Empty), scope));
+    }
+
+    // A generated TriG quad as the N-Triples line of its triple.
+    private static string Triple(string quad)
+    {
+        int open = quad.IndexOf('{', StringComparison.Ordinal);
+        int close = quad.LastIndexOf('}');
+        return quad[(open + 1)..close].Trim() + " .";
     }
 
     [Fact]

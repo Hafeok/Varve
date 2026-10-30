@@ -23,9 +23,11 @@ namespace Varve.Store.Tests.Objects;
 /// from its log and, at its reported position and every position before it,
 /// shows a row-restricted caller exactly the quads its writer shows.
 /// </summary>
+[Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public class FollowerRowsTests
 {
-    private const int Iterations = 30;
+    /// <summary>Generated histories per run on the land gate; ten times as many in the nightly <c>long</c> job.</summary>
+    private static readonly int Iterations = Environment.GetEnvironmentVariable("VARVE_LONG_PROPERTIES") is null ? 30 : 300;
 
     private static readonly RdfTerm Shapes = Iri("http://ex/shapes");
     private static readonly ClassifierBinding Binding = new(Iri("http://ex/binding"), Shapes, GraphScope.Of([], ["http://ex/g/"], DefaultGraphAccess.Excluded));

@@ -19,7 +19,8 @@ namespace Varve.Rdf.Tests;
 /// </summary>
 public class RowScopedSourceTests
 {
-    internal const int Iterations = 1_000;
+    /// <summary>Generated cases per run on the land gate; ten times as many in the nightly <c>long</c> job.</summary>
+    internal static readonly int Iterations = Environment.GetEnvironmentVariable("VARVE_LONG_PROPERTIES") is null ? 1_000 : 10_000;
 
     private static readonly string[] Nodes = ["http://ex/a", "http://ex/b", "http://ex/c", "http://ex/x", "http://ex/y"];
     private static readonly string[] People = ["http://ex/a", "http://ex/b", "http://ex/c"];
