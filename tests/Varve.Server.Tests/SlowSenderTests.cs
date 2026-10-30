@@ -217,15 +217,21 @@ public sealed class SlowSenderTests
                 return await reader.ReadAsync(interimOnly: false);
             }
 
+            // The answer is read while the body is written. A server that
+            // refuses a body answers and closes with the rest unread, which
+            // resets the connection; Windows then discards whatever the
+            // client had received and not yet read, the answer included.
+            Task<Response> answer = reader.ReadAsync(interimOnly: false);
+
             try
             {
                 if (delivery == Delivery.Chunked)
                 {
-                    await WriteChunkedAsync(stream, body);
+                    await WriteChunkedAsync(stream, body, answer);
                 }
                 else
                 {
-                    await WriteSegmentsAsync(stream, body);
+                    await WriteSegmentsAsync(stream, body, answer);
                 }
             }
             catch (IOException)
@@ -233,7 +239,7 @@ public sealed class SlowSenderTests
                 // The server refused the body and closed: its answer is read below.
             }
 
-            return await reader.ReadAsync(interimOnly: false);
+            return await answer;
         }
 
         private static void Optional(StringBuilder head, string name, string? value)
@@ -246,9 +252,9 @@ public sealed class SlowSenderTests
 
         // Segments of one to seven bytes, with a pause after about one in
         // forty, so the server's reads see the body arrive in many pieces.
-        private async Task WriteSegmentsAsync(NetworkStream stream, byte[] body)
+        private async Task WriteSegmentsAsync(NetworkStream stream, byte[] body, Task answered)
         {
-            for (int at = 0; at < body.Length;)
+            for (int at = 0; at < body.Length && !answered.IsCompleted;)
             {
                 int length = Math.Min(random.Next(1, 8), body.Length - at);
                 await stream.WriteAsync(body.AsMemory(at, length), Ct);
@@ -264,9 +270,9 @@ public sealed class SlowSenderTests
 
         // Chunks of 1 to 97 bytes, cut wherever the random cut falls: inside
         // a UTF-8 sequence, a multipart delimiter or a part's body.
-        private async Task WriteChunkedAsync(NetworkStream stream, byte[] body)
+        private async Task WriteChunkedAsync(NetworkStream stream, byte[] body, Task answered)
         {
-            for (int at = 0; at < body.Length;)
+            for (int at = 0; at < body.Length && !answered.IsCompleted;)
             {
                 int length = Math.Min(random.Next(1, 98), body.Length - at);
                 await stream.WriteAsync(Encoding.ASCII.GetBytes(length.ToString("x", CultureInfo.InvariantCulture) + "\r\n"), Ct);
