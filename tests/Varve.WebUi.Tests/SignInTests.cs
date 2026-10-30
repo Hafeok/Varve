@@ -324,6 +324,38 @@ public class SignInTests
     public void An_opaque_token_names_no_audience_the_client_can_read() =>
         Assert.Equal(0, OneAudience.Audiences("Zm9vYmFy-opaque"));
 
+    // Review F02: the shell and a 403 name the agent as the server does,
+    // iss#sub with the subject percent-encoded (Varve.Server's
+    // TokenIdentity.Encode), and the roles in the configured claim: an array,
+    // one string, or Zitadel's object of roles per project.
+    [Theory]
+    [InlineData("""{"iss":"https://login.example/v2.0","sub":"owner","roles":["operator","Notes.User"]}""", "roles", "https://login.example/v2.0#owner", "operator,Notes.User")]
+    [InlineData("""{"iss":"https://login.example","sub":"a b@c/é","roles":"operator"}""", "roles", "https://login.example#a%20b%40c%2F%C3%A9", "operator")]
+    [InlineData("""{"iss":"http://localhost:8081","sub":"397375439435202563","urn:zitadel:iam:org:project:1:roles":{"operator":{"2":"varve.localhost"}}}""", "urn:zitadel:iam:org:project:1:roles", "http://localhost:8081#397375439435202563", "operator")]
+    [InlineData("""{"iss":"https://login.example","sub":"owner"}""", "roles", "https://login.example#owner", "")]
+    public void The_caller_is_the_agent_the_server_names_with_the_roles_the_token_carries(string payload, string roleClaim, string agent, string roles)
+    {
+        Caller caller = Caller.Of(Jwt(payload), roleClaim)!;
+
+        Assert.Equal(agent, caller.Agent);
+        Assert.Equal(roles, string.Join(',', caller.Roles));
+    }
+
+    [Theory]
+    [InlineData("""{"sub":"owner"}""")]
+    [InlineData("""{"iss":"https://login.example"}""")]
+    [InlineData("""{"iss":"https://login.example#x","sub":"owner"}""")]
+    public void A_token_naming_no_agent_names_no_caller(string payload) =>
+        Assert.Null(Caller.Of(Jwt(payload), "roles"));
+
+    [Fact]
+    public void An_opaque_token_names_no_caller() =>
+        Assert.Null(Caller.Of("Zm9vYmFy-opaque", "roles"));
+
+    [Fact]
+    public void The_role_claim_is_roles_unless_set() =>
+        Assert.Equal("roles", OidcOptions.From("https://login.example", "varve-webui", "data", "manage").RoleClaimType);
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

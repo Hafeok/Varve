@@ -4,15 +4,17 @@
 @inject NavigationManager Navigation
 @inject WebUiSettings Settings
 @inject IServiceProvider Services
-@* The layout every screen renders in: the Shell template, given the server,
-   each plane's sign-in state and the navigation with the current screen
-   marked. Part 1's groups (docs/ui/components/Shell) fill in as their
-   screens are built.
+@inject ShellFacts Facts
+@* The layout every screen renders in: the Shell template, given the server
+   and the instance that answered, each plane's sign-in state with who is
+   signed in, and the navigation with the current screen marked: Operate,
+   then a dataset selector, defaulting to the dataset last viewed, with that
+   dataset's own screens under it (review F01, F02, F22).
 
    With sign-in (ADR 0201), a tab with no token starts one on its first
    screen: silently first (prompt=none), so a reload with an issuer session
    is invisible. The callback and the signed-out screen start none. *@
-<Shell Server="@Settings.Server.AbsoluteUri" Planes="Planes" Navigation="Groups()">
+<Shell Server="@Settings.Server.AbsoluteUri" Instance="@Facts.Instance" Planes="Planes" Navigation="Groups()" Datasets="Offered()" Dataset="@Selected()" DatasetNavigation="DatasetGroups()" OnDataset="Choose">
     <BarActions>@if (_session is { DataSignedIn: true })
     {<Button Small="true" OnClick="SignOutAsync">Sign out</Button>}</BarActions>
     <ChildContent>@Body</ChildContent>
@@ -26,7 +28,7 @@
         ("Operate", "Fleet", "fleet"),
     ];
 
-    // A dataset's own screens, in the rail while a dataset's screen is open.
+    // The selected dataset's own screens, under the selector.
     private static readonly (string Group, string Text, string Path)[] DatasetScreens =
     [
         ("History", "Commits", "commits"),
@@ -34,7 +36,6 @@
         ("Declarations", "Agents and roles", "agents"),
         ("Declarations", "Graph templates", "templates"),
         ("Declarations", "Shapes", "shapes"),
-        ("Declarations", "Declaration", "declaration"),
     ];
 
     // The callback and the signed-out screen start no sign-in.
@@ -45,15 +46,16 @@
     private IReadOnlyList<PlaneState> Planes =>
         Settings.Anonymous || _session is null
             ? [new PlaneState("Data plane", "anonymous", Anonymous: true, Absent: false), new PlaneState("Management", "anonymous", Anonymous: true, Absent: false)]
-            : [Plane("Data plane", _session.DataSignedIn), Plane("Management", _session.ManagementSignedIn)];
+            : [Plane("Data plane", _session.DataSignedIn, _session.DataCaller), Plane("Management", _session.ManagementSignedIn, _session.ManagementCaller)];
 
-    private static PlaneState Plane(string name, bool signedIn) =>
-        new(name, signedIn ? "signed in" : "signed out", Anonymous: false, Absent: !signedIn);
+    private static PlaneState Plane(string name, bool signedIn, Varve.WebUi.SignIn.Caller? caller) =>
+        new(name, signedIn ? "signed in" : "signed out", Anonymous: false, Absent: !signedIn, caller?.Agent, caller?.Roles);
 
     /// <inheritdoc />
     protected override async Task OnInitializedAsync()
     {
         Navigation.LocationChanged += Changed;
+        Facts.Changed += FactsChanged;
         _session = Settings.Anonymous ? null : Services.GetService(typeof(SignInSession)) as SignInSession;
 
         if (_session is not null)
@@ -66,11 +68,71 @@
                 await _session.StartAsync("/" + path, silent: true, CancellationToken.None);
             }
         }
+
+        ReadFacts();
+    }
+
+    // The shell's facts, read again on every navigation and sign-in: behind
+    // one address, each read may reach another instance. Not before there is
+    // a token to read them with.
+    private void ReadFacts()
+    {
+        Remember();
+
+        if (_session is null || _session.DataSignedIn)
+        {
+            _ = Facts.ReadAsync(CancellationToken.None);
+        }
+    }
+
+    private void FactsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    // The dataset whose screen is open, from the address.
+    private string? Open()
+    {
+        string[] segments = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Split('/');
+        return segments.Length >= 2 && segments[0] == "datasets" && segments[1].Length > 0 ? Uri.UnescapeDataString(segments[1]) : null;
+    }
+
+    // The dataset viewed is the one the selector defaults to from now on.
+    private void Remember()
+    {
+        if (Open() is { } open)
+        {
+            Facts.LastDataset = open;
+        }
+    }
+
+    // The selector's dataset: the one open, else the one last viewed, else
+    // the first there is.
+    private string? Selected() => Open() ?? Facts.LastDataset ?? Facts.Datasets.FirstOrDefault();
+
+    // The datasets offered, the selected one among them even when the list
+    // could not be read.
+    private IReadOnlyList<string> Offered() =>
+        Selected() is { } selected && !Facts.Datasets.Contains(selected) ? [selected, .. Facts.Datasets] : Facts.Datasets;
+
+    // Another dataset selected: on a dataset's screen, the same screen of the
+    // new one; anywhere else, the rail's links follow it.
+    private void Choose(string dataset)
+    {
+        Facts.LastDataset = dataset;
+        string[] segments = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Split('/');
+
+        if (segments.Length >= 2 && segments[0] == "datasets" && segments[1].Length > 0)
+        {
+            segments[1] = Uri.EscapeDataString(dataset);
+            Navigation.NavigateTo(string.Join('/', segments));
+        }
     }
 
     private Task SignOutAsync() => _session!.SignOutAsync(CancellationToken.None);
 
-    private void SessionChanged() => _ = InvokeAsync(StateHasChanged);
+    private void SessionChanged() => _ = InvokeAsync(() =>
+    {
+        ReadFacts();
+        StateHasChanged();
+    });
 
     private IReadOnlyList<NavGroup> Groups()
     {
@@ -82,19 +144,19 @@
             groups.Add(new NavGroup(group.Key, [.. group.Select(screen => new NavEntry(screen.Text, screen.Href, Current(current, screen.Href) && !InDatasetScreen(current)))]));
         }
 
-        string[] segments = current.Split('/');
+        return groups;
+    }
 
-        if (segments.Length >= 2 && segments[0] == "datasets" && segments[1].Length > 0)
+    private IReadOnlyList<NavGroup> DatasetGroups()
+    {
+        if (Selected() is not { } selected)
         {
-            string dataset = "datasets/" + segments[1] + "/";
-
-            foreach (IGrouping<string, (string Group, string Text, string Path)> group in DatasetScreens.GroupBy(screen => screen.Group))
-            {
-                groups.Add(new NavGroup(group.Key, [.. group.Select(screen => new NavEntry(screen.Text, dataset + screen.Path, Current(current, dataset + screen.Path)))]));
-            }
+            return [];
         }
 
-        return groups;
+        string current = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0];
+        string dataset = "datasets/" + Uri.EscapeDataString(selected) + "/";
+        return [.. DatasetScreens.GroupBy(screen => screen.Group).Select(group => new NavGroup(group.Key, [.. group.Select(screen => new NavEntry(screen.Text, dataset + screen.Path, Current(current, dataset + screen.Path)))]))];
     }
 
     // A screen is current on its own address and below it (a dataset under
@@ -109,12 +171,17 @@
         return segments.Length >= 3 && segments[0] == "datasets";
     }
 
-    private void Changed(object? sender, LocationChangedEventArgs e) => StateHasChanged();
+    private void Changed(object? sender, LocationChangedEventArgs e)
+    {
+        ReadFacts();
+        StateHasChanged();
+    }
 
     /// <inheritdoc />
     public void Dispose()
     {
         Navigation.LocationChanged -= Changed;
+        Facts.Changed -= FactsChanged;
 
         if (_session is not null)
         {

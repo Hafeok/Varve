@@ -64,4 +64,7 @@ builder.Services.AddSingleton(services => new VarveManagementClient(
     services.GetService<SignInSession>()?.Management,
     services.GetRequiredService<TimeProvider>()));
 
+// What the shell shows that is not the screen's: the instance, the datasets.
+builder.Services.AddSingleton(services => new ShellFacts(services.GetRequiredService<VarveManagementClient>()));
+
 await builder.Build().RunAsync().ConfigureAwait(false);

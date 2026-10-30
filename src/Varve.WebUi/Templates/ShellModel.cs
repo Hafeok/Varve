@@ -23,6 +23,8 @@ public sealed record NavEntry(string Text, string Href, bool Current);
 /// </summary>
 /// <param name="Name">The plane: <c>Data plane</c> or <c>Management</c>.</param>
 /// <param name="Word">What its state is: <c>signed in</c>, <c>signed out</c>, <c>anonymous</c>.</param>
-/// <param name="Anonymous">The server runs in anonymous mode: the word is a neutral badge.</param>
+/// <param name="Anonymous">The server runs in anonymous mode: the word is a warn badge.</param>
 /// <param name="Absent">The plane holds no token.</param>
-public sealed record PlaneState(string Name, string Word, bool Anonymous, bool Absent);
+/// <param name="Agent">Who the plane's token names, when it is signed in: the agent IRI.</param>
+/// <param name="Roles">The roles the plane's token carries, shown on hover or focus.</param>
+public sealed record PlaneState(string Name, string Word, bool Anonymous, bool Absent, string? Agent = null, IReadOnlyList<string>? Roles = null);

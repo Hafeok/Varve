@@ -1,0 +1,54 @@
+{
+  "parameters": {
+    "Server": "https://varve.example/",
+    "Navigation": [
+      {
+        "Name": "Operate",
+        "Entries": [
+          {
+            "Text": "Datasets",
+            "Href": "datasets",
+            "Current": true
+          },
+          {
+            "Text": "Health",
+            "Href": "health",
+            "Current": false
+          }
+        ]
+      },
+      {
+        "Name": "History",
+        "Entries": [
+          {
+            "Text": "Commits",
+            "Href": "commits",
+            "Current": false
+          }
+        ]
+      }
+    ],
+    "ChildContent": "<p>Body.</p>",
+    "Planes": [
+      {
+        "Name": "Data plane",
+        "Word": "signed in",
+        "Anonymous": false,
+        "Absent": false,
+        "Agent": "https://login.example/v2.0#owner",
+        "Roles": [
+          "Notes.User"
+        ]
+      },
+      {
+        "Name": "Management",
+        "Word": "signed in",
+        "Anonymous": false,
+        "Absent": false,
+        "Agent": "https://login.example/v2.0#owner",
+        "Roles": []
+      }
+    ],
+    "Instance": "system writer"
+  }
+}

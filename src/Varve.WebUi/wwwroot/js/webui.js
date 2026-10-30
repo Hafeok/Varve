@@ -29,6 +29,28 @@
     apply();
     media.addEventListener('change', apply);
 
+    // The roles shown on hover or focus of who is signed in (Shell): Escape
+    // hides them without moving focus or the pointer (WCAG 1.4.13), until the
+    // pointer or focus comes to a plane again.
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            document.querySelectorAll('.vw-plane').forEach(function (plane) {
+                plane.classList.add('vw-plane--quiet');
+            });
+        }
+    });
+
+    function wake(event) {
+        var plane = event.target instanceof Element ? event.target.closest('.vw-plane') : null;
+
+        if (plane) {
+            plane.classList.remove('vw-plane--quiet');
+        }
+    }
+
+    document.addEventListener('focusin', wake);
+    document.addEventListener('mouseover', wake);
+
     // The skip link (Shell): its href is "#main", which against the base
     // address would be a navigation to the root. In the capture phase, before
     // Blazor's router sees the click, it moves focus to the main column instead.

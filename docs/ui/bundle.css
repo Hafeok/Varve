@@ -78,6 +78,15 @@ body.vw-root { margin: 0; }
 .vw-shell__brand { display: flex; align-items: center; gap: var(--space-2); font-weight: 600; color: var(--ink); text-decoration: none; }
 .vw-shell__brand img { width: 24px; height: 24px; border-radius: var(--radius-sm); }
 .vw-shell__server { font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); margin-right: auto; overflow-wrap: anywhere; }
+/* The instance that answered, and its role in the system dataset (review F01). */
+.vw-shell__instance { font-family: var(--font-sans); color: var(--ink); margin-left: var(--space-2); }
+.vw-shell__instance::before { content: "→ "; color: var(--ink-muted); }
+/* The dataset selector heading the dataset's own screens (review F22). */
+.vw-shell__dataset {
+  display: block; width: calc(100% - 2 * var(--space-3)); margin: 0 var(--space-3) var(--space-2);
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--control-border); border-radius: var(--radius-sm); padding: 4px var(--space-2);
+}
 .vw-shell__nav { grid-area: nav; background: var(--surface-sunk); border-right: 1px solid var(--rule); padding: var(--space-3) var(--space-2); }
 .vw-shell__nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .vw-shell__nav a {
@@ -96,6 +105,8 @@ body.vw-root { margin: 0; }
   .vw-shell__nav { border-right: 0; border-bottom: 1px solid var(--rule); }
   .vw-shell__nav ul { display: flex; flex-wrap: wrap; }
   .vw-shell__navgroup { display: none; }
+  label.vw-shell__navgroup { display: block; }
+  .vw-shell__dataset { width: auto; display: inline-block; }
   .vw-shell__main { padding: var(--space-4); }
 }
 
@@ -107,6 +118,16 @@ body.vw-root { margin: 0; }
 }
 .vw-plane strong { color: var(--ink); font-weight: 600; }
 .vw-plane--absent strong { color: var(--warn); }
+/* Who is signed in, with their roles on hover or focus; Escape hides them (WCAG 1.4.13). */
+.vw-plane { position: relative; }
+.vw-plane__who code { font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
+.vw-plane__roles {
+  display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 10;
+  padding: var(--space-1) var(--space-2); white-space: nowrap;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: var(--radius-sm); box-shadow: var(--shadow-overlay);
+}
+.vw-plane:hover .vw-plane__roles, .vw-plane__who:focus + .vw-plane__roles { display: block; }
+.vw-plane--quiet .vw-plane__roles { display: none !important; }
 
 /* ---------- View head: the title and the position it was read at ---------- */
 .vw-viewhead { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2) var(--space-4); }

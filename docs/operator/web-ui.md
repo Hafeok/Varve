@@ -114,6 +114,7 @@ The bundle's `appsettings.json`, under `Varve:Auth` (ADR 0201):
 | `ManageGrant` | how the management plane's token is asked for: `refresh` (the default) or `exchange`; see the issuers below |
 | `ManageAudience` | with `exchange`, the `audience` the management exchange names, where the issuer wants one (Zitadel: the management project's id) |
 | `DataAudience` | with `exchange`, the `audience` the data exchange names, where the issuer wants one (Zitadel: the data project's id) |
+| `RoleClaimType` | the claim whose roles the shell shows beside who is signed in: the server's `Auth:RoleClaimType`, `roles` by default. Display only; the server decides |
 
 ```json
 {
@@ -161,6 +162,7 @@ The bundle's `appsettings.json`, under `Varve:Auth` (ADR 0201):
   - A reload signs in again silently (`prompt=none`) while the issuer's
     session lasts, and interactively when it has ended.
   - Sign out ends the issuer's session and returns to `/ui/signedout`.
+- **Who is signed in:** each plane in the bar names the agent its token names, `<issuer>#<subject>`, as the server and the grants name it. Focus or hover shows the token's roles. A `403` says "Signed in as" that agent.
 - **What the Web UI may do:** the person's own roles decide it. The datasets
   list, the fleet and the declarations are management reads. Taking a
   checkpoint, closing and opening need an operator or the dataset's admin
