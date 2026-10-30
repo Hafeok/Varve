@@ -94,6 +94,16 @@ stays open for part 2, the data explorer.
   envelope move to derived version 6. The catalog and the state stay at
   4, so an older build still reads the log above them. The log's own
   format is unchanged.
+- **File-backend failure injection** (ADR 0214). Torn writes at every
+  byte of every write, and under power loss at every sector, a full disk
+  at every allocation, and the other faults, at every point, on simulated
+  and on real files. A full disk leaves the commit that met it
+  unacknowledged, keeps the dataset open for reads, and the next write
+  recovers the writer in place.
+- **The soak gate, run and judged** (ADR 0215). A bounded workload that
+  reaches a steady size, the shipped runtime configuration in one file,
+  and a judge that holds the working set flat within a band, for four
+  hours, with Windows weekly.
 - **Entailments under graph-level grants** (ADR 0190, amending ADR
   0107). The decision Inference (#95) builds on, accepted ahead of it;
   nothing infers yet.
