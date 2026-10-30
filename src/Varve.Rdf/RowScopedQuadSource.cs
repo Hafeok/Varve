@@ -109,17 +109,16 @@ public sealed class RowScopedQuadSource : IQuadSource
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     public bool Allows(in Quad quad)
     {
-        SubjectDecider? decider = Restriction(quad.Graph);
-        return decider is null || AllowsIn(decider, in quad);
+        BindingIndex binding = BindingOf(quad.Graph);
+        SubjectDecider? decider = binding.IsNone ? null : _deciders[binding.Value];
+        return decider is null || AllowsIn(decider, binding, in quad);
     }
 
     // Two probes per quad at most: the subject's set, and the object's
     // unless the predicate is a public link; each set's decision memoised.
     [DesignDecision(typeof(TheRowScopedQuadSource.RowDecisionIsTwoProbesPerQuad), Scope = ExceptionScope.HotPath)]
-    private bool AllowsIn(SubjectDecider decider, in Quad quad)
+    private bool AllowsIn(SubjectDecider decider, BindingIndex binding, in Quad quad)
     {
-        BindingIndex binding = BindingOf(quad.Graph);
-
         if (!decider.Allows(_rows.SubjectsOf(binding, quad.Subject)))
         {
             return false;
@@ -154,8 +153,16 @@ public sealed class RowScopedQuadSource : IQuadSource
         return deciders;
     }
 
+    // A scan yields a graph's quads together, so the cursor keeps the last
+    // graph's binding and decider: a quad of the same graph as the one
+    // before pays no lookup of either. A cursor is read by one thread.
     private sealed class Cursor(IQuadCursor inner, RowScopedQuadSource owner) : IQuadCursor
     {
+        private TermHandle _graph;
+        private BindingIndex _binding = BindingIndex.None;
+        private SubjectDecider? _decider;
+        private bool _resolved;
+
         public Quad Current => inner.Current;
 
         [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -165,7 +172,15 @@ public sealed class RowScopedQuadSource : IQuadSource
             {
                 Quad quad = inner.Current;
 
-                if (owner.Allows(in quad))
+                if (!_resolved || quad.Graph != _graph)
+                {
+                    _graph = quad.Graph;
+                    _binding = owner.BindingOf(quad.Graph);
+                    _decider = _binding.IsNone ? null : owner._deciders[_binding.Value];
+                    _resolved = true;
+                }
+
+                if (_decider is null || owner.AllowsIn(_decider, _binding, in quad))
                 {
                     return true;
                 }
