@@ -98,7 +98,14 @@ internal static class CommitsEndpoint
 
                 if (commit.Kind == CommitKind.Data || exchange.Scope.IsAdmin)
                 {
-                    DeltaLines.WriteCommit(output, commit, delta, commit.TryExternalise);
+                    if (exchange.Scope.ReadableRows.IsAll)
+                    {
+                        DeltaLines.WriteCommit(output, commit, delta, commit.TryExternalise);
+                    }
+                    else
+                    {
+                        DeltaLines.WriteCommitWithoutReports(output, commit, delta, commit.TryExternalise);
+                    }
                 }
             }
         }).ConfigureAwait(false);
@@ -304,7 +311,14 @@ internal static class CommitsEndpoint
                     if (deliver)
                     {
                         record.ResetWrittenCount();
-                        DeltaLines.WriteCommit(record, commit, delta, head is null ? commit.TryExternalise : (TermHandle handle, [System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out RdfTerm term) => commit.TryExternalise(handle, out term) || head.TryExternalise(handle, out term));
+                        if (exchange.Scope.ReadableRows.IsAll)
+                        {
+                            DeltaLines.WriteCommit(record, commit, delta, commit.TryExternalise);
+                        }
+                        else
+                        {
+                            DeltaLines.WriteCommitWithoutReports(record, commit, delta, head is null ? commit.TryExternalise : (TermHandle handle, [System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out RdfTerm term) => commit.TryExternalise(handle, out term) || head.TryExternalise(handle, out term));
+                        }
                         written += Frame(body, framing, commit.Position, record.WrittenSpan);
                         last = commit.Position;
 
