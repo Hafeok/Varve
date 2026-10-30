@@ -393,7 +393,14 @@ Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), mile
 |---:|---|---|
 | [0206](0206-the-web-ui-design-source.md) | The Web UI's design source, its levels, and the markup contract | Filed unaccepted (Web UI part 1, #167) |
 
-<<<<<<< HEAD
+## 1.0 readiness A — correctness and the read-forever contract (#129)
+
+Filed by 1.0 readiness A ([#129](https://github.com/Hafeok/Varve/issues/129); [#146](https://github.com/Hafeok/Varve/issues/146), [#132](https://github.com/Hafeok/Varve/issues/132), [#61](https://github.com/Hafeok/Varve/issues/61)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0213. Superseded in part by 0213, likewise unaccepted: 0071 (publishing qualified), 0073 (the derived flush kept only where a reader cannot verify), 0161 (the `commits` blob in version 6), 0177 (a block that does not match is a miss; version 6 for the checked kinds), 0178 (rewrites generalised to any blob below the newest version). Amended by it: 0072 (derived version 6), 0119 (`load-spill-damaged`), 0174 (the snapshot in the checked envelope).
+
+| # | Title | Status |
+|---:|---|---|
+| [0213](0213-cached-derived-data-is-verified-before-use.md) | Cached derived data is verified before use: a check per block, and damage is a miss | Filed unaccepted (#146) |
+
 ## Supply chain transparency (#119, readiness B)
 
 Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 1.0 ([#15](https://github.com/Hafeok/Varve/issues/15)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0224: readiness A holds 0213–0222. Amended by it, likewise unaccepted: 0009 (the register against every lockfile, licences by scope, the native-asset gate folded in); 0029 (the SBOM in the package, the release's assets); 0102 (descriptor format 2, `sbom:`); 0111 (the base by digest, the merged image SBOM).
@@ -402,15 +409,6 @@ Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 
 |---:|---|---|
 | [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119) |
 | [0225](0225-the-sbom-generator.md) | The SBOM generator: `eng/sbom.cs`, SPDX 2.3, from the restore | Filed unaccepted (#119) |
-=======
-## 1.0 readiness A — correctness and the read-forever contract (#129)
-
-Filed by 1.0 readiness A ([#129](https://github.com/Hafeok/Varve/issues/129); [#146](https://github.com/Hafeok/Varve/issues/146), [#132](https://github.com/Hafeok/Varve/issues/132), [#61](https://github.com/Hafeok/Varve/issues/61)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0213. Superseded in part by 0213, likewise unaccepted: 0071 (publishing qualified), 0073 (the derived flush kept only where a reader cannot verify), 0161 (the `commits` blob in version 6), 0177 (a block that does not match is a miss; version 6 for the checked kinds), 0178 (rewrites generalised to any blob below the newest version). Amended by it: 0072 (derived version 6), 0119 (`load-spill-damaged`), 0174 (the snapshot in the checked envelope).
-
-| # | Title | Status |
-|---:|---|---|
-| [0213](0213-cached-derived-data-is-verified-before-use.md) | Cached derived data is verified before use: a check per block, and damage is a miss | Filed unaccepted (#146) |
->>>>>>> origin/main
 
 ## Conformance — differential testing against Oxigraph
 
