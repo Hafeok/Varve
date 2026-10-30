@@ -19,10 +19,6 @@ decisions:
     statement: "A derived blob is read synchronously through IReadableBlob's Length and Read, and runs and checkpoints are scanned through it by one scan code on every backend"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-05T07:32:09Z
-  - key: BlobsArePublishedAtomically
-    statement: "A derived blob is written through an IBlobWriter and becomes visible only when published, durable as the backend declares and atomically replacing any blob of that name; an unpublished writer leaves nothing"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-05T07:32:09Z
   - key: ReadPathByBenchmark
     statement: "The file backend reads derived blobs with RandomAccess on a held handle, chosen over a memory-mapped view by milestone 6a's benchmark and recorded in ADR 0071; a mapped view wins only through a raw pointer, and reading through one is a separate decision"
     accepted-by: mailto:emil@okkels-klein.dk

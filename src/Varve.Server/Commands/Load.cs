@@ -7,6 +7,9 @@ using System.CommandLine;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Varve.Protocol.Model;
 using Varve.Rdf;
 using Varve.Store;
 using Varve.Store.Log;
@@ -48,20 +51,18 @@ internal static class Load
                 ? new BulkLoadOptions { MemoryBytes = budget, Workers = Math.Max(1, count) }
                 : new BulkLoadOptions { MemoryBytes = budget };
             await using BulkLoad load = await local.Dataset.BeginBulkLoadAsync(options, cancellationToken).ConfigureAwait(false);
+            CommitResult committed;
 
-            foreach (string path in paths)
+            try
             {
-                Varve.Turtle.ParseResult result = Parse(path, load, into);
-
-                if (!result.Succeeded)
-                {
-                    throw new Cli.CommandException(path + " does not parse: " + result.FirstError.ToString());
-                }
-
-                await io.Out.WriteLineAsync(path + ": " + result.QuadCount.ToString("N0", CultureInfo.InvariantCulture) + " quads").ConfigureAwait(false);
+                committed = await LoadAsync(io, load, paths, into, cancellationToken).ConfigureAwait(false);
+            }
+            catch (BulkLoadSpillDamagedException damaged)
+            {
+                // Nothing was committed; the same input submitted again is right (ADR 0213).
+                throw new Cli.CommandException(ProblemType.LoadSpillDamaged.Value + ": " + damaged.Message);
             }
 
-            CommitResult committed = await load.CommitAsync(new CommitMetadata(), cancellationToken).ConfigureAwait(false);
             await io.Out.WriteLineAsync(committed.Outcome switch
             {
                 CommitOutcome.Committed => "committed, position " + committed.Position.Value.ToString(CultureInfo.InvariantCulture),
@@ -71,6 +72,24 @@ internal static class Load
             return committed.Outcome is CommitOutcome.Committed or CommitOutcome.NoChange ? 0 : 1;
         }, parsed.InvocationConfiguration.Error));
         return command;
+    }
+
+    // The files, parsed into the load, and its commit.
+    private static async Task<CommitResult> LoadAsync(Io io, BulkLoad load, string[] paths, RdfTerm? into, CancellationToken cancellationToken)
+    {
+        foreach (string path in paths)
+        {
+            Varve.Turtle.ParseResult result = Parse(path, load, into);
+
+            if (!result.Succeeded)
+            {
+                throw new Cli.CommandException(path + " does not parse: " + result.FirstError.ToString());
+            }
+
+            await io.Out.WriteLineAsync(path + ": " + result.QuadCount.ToString("N0", CultureInfo.InvariantCulture) + " quads").ConfigureAwait(false);
+        }
+
+        return await load.CommitAsync(new CommitMetadata(), cancellationToken).ConfigureAwait(false);
     }
 
     private static Varve.Turtle.ParseResult Parse(string path, BulkLoad load, RdfTerm? into)

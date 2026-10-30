@@ -715,7 +715,15 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
             public ValueTask PublishAsync(CancellationToken cancellationToken)
             {
                 ObjectDisposedException.ThrowIf(_done, this);
-                handle.Flush();
+
+                // Flushed before the rename, unless its own header says it
+                // verifies itself to every reader that reads it (ADR 0213):
+                // torn by a power loss, it is then a miss, never an answer.
+                if (!VerifiesItself())
+                {
+                    handle.Flush();
+                }
+
                 handle.Dispose();
                 _done = true;
                 store.Publish(name, temporary, path);
@@ -732,6 +740,17 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
                 }
 
                 return ValueTask.CompletedTask;
+            }
+
+            private bool VerifiesItself()
+            {
+                if (_length < DerivedFormat.HeaderLength)
+                {
+                    return false;
+                }
+
+                Span<byte> tail = stackalloc byte[DerivedFormat.HeaderLength];
+                return handle.Read(_length - tail.Length, tail) == tail.Length && DerivedFormat.VerifiesItself(tail);
             }
         }
     }
