@@ -740,6 +740,9 @@ static Varve.Store.Log.DerivedVersion.operator >=(Varve.Store.Log.DerivedVersion
 Varve.Store.DatasetView.TryDistinctObjects(Varve.Rdf.TermHandle predicate, Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? objects) -> bool
 Varve.Store.DatasetView.TryDistinctPredicates(Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? predicates) -> bool
 Varve.Store.DatasetView.TryGetGraphVersion(Varve.Rdf.GraphPattern graph, out Varve.Rdf.GraphVersion version) -> bool
+Varve.Store.Log.CommitResult.StorageFull.get -> bool
+Varve.Store.Dataset.StorageFull.get -> bool
+Varve.Store.Log.CommitResult.OutcomeUnknownAt.get -> Varve.Store.Log.Position?
 Varve.Store.Dataset.TryReadCheckedAsync(Varve.Store.IDerivedStore! store, Varve.Store.Log.BlobName name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CheckedContent?>
 Varve.Store.Dataset.WriteCheckedAsync(Varve.Store.IDerivedStore! store, Varve.Store.Log.BlobName name, Varve.Store.Log.Position position, System.ReadOnlyMemory<byte> bytes, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
 Varve.Store.Log.CheckedContent

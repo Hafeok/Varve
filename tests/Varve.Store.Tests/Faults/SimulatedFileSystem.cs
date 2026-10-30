@@ -86,6 +86,31 @@ internal sealed class SimulatedFileSystem : IFileSystem
     /// <summary>Called before each mutating operation with its number; returns the bytes of a write to keep when it crashes there, or null to go on.</summary>
     public Func<Operation, int?>? Injector { get; set; }
 
+    /// <summary>
+    /// Called before each operation that allocates — a create, a write past
+    /// the file's end, a rename to a new name — with its number among the
+    /// allocations; true refuses it as a full disk would, and the process
+    /// goes on (ADR 0214 point 2).
+    /// </summary>
+    public Func<int, bool>? Refuser { get; set; }
+
+    /// <summary>
+    /// Called before each write and each flush with the operation and its
+    /// number; a value refuses it as a full disk would and the process goes
+    /// on: a write keeps that many of its bytes first, a flush flushes
+    /// nothing (ADR 0214 point 2). Null goes on.
+    /// </summary>
+    public Func<Operation, int?>? Refusal { get; set; }
+
+    /// <summary>The error a <see cref="Refusal"/> throws, by path: <see cref="DiskFull"/> unless set.</summary>
+    public Func<string, IOException>? RefusalError { get; set; }
+
+    /// <summary>How many allocating operations have been attempted.</summary>
+    public int Allocations { get; private set; }
+
+    /// <summary>The exception a full disk throws: <c>ERROR_DISK_FULL</c> on Windows, <c>ENOSPC</c> elsewhere, as an <see cref="IOException"/>.</summary>
+    public static IOException DiskFull(string path) => new("No space left on device: '" + path + "'.", unchecked((int)0x80070070));
+
     /// <summary>How many mutating operations have been performed.</summary>
     public int Operations { get; private set; }
 
@@ -151,7 +176,7 @@ internal sealed class SimulatedFileSystem : IFileSystem
                         throw new IOException("The file '" + path + "' already exists.");
                     }
 
-                    Step(new Operation(OperationKind.Create, normalised, 0));
+                    Step(new Operation(OperationKind.Create, normalised, 0) { Allocates = true });
                     Inode created = new();
                     _files[normalised] = created;
                     _journal.Add(MetadataOp.Bind(normalised, created));
@@ -194,7 +219,7 @@ internal sealed class SimulatedFileSystem : IFileSystem
             }
 
             Inode inode = Get(source);
-            Step(new Operation(OperationKind.Move, target, 0));
+            Step(new Operation(OperationKind.Move, target, 0) { Allocates = !_files.ContainsKey(target) });
             _files.Remove(source);
             _files[target] = inode;
             _journal.Add(MetadataOp.Unbind(source));
@@ -217,6 +242,23 @@ internal sealed class SimulatedFileSystem : IFileSystem
             Step(new Operation(OperationKind.Delete, normalised, 0));
             _files.Remove(normalised);
             _journal.Add(MetadataOp.Unbind(normalised));
+        }
+    }
+
+    public bool DeleteEmptyDirectory(string path)
+    {
+        lock (_gate)
+        {
+            Live();
+            string normalised = Normalise(path);
+            string prefix = normalised + Path.DirectorySeparatorChar;
+
+            if (!_directories.Contains(normalised) || _files.Keys.Any(f => f.StartsWith(prefix, StringComparison.Ordinal)) || _directories.Any(d => d.StartsWith(prefix, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            return _directories.Remove(normalised);
         }
     }
 
@@ -288,14 +330,6 @@ internal sealed class SimulatedFileSystem : IFileSystem
                 throw new InvalidOperationException("Only a process crash inside a write keeps part of the write in flight.");
             }
 
-            SimulatedFileSystem image = new();
-
-            foreach (string directory in _directories)
-            {
-                image._directories.Add(directory);
-            }
-
-            // Metadata: the journal replayed up to a cut.
             int keep = kind switch
             {
                 CrashKind.Process => _journal.Count,
@@ -303,53 +337,105 @@ internal sealed class SimulatedFileSystem : IFileSystem
                 _ => random.Next(0, _journal.Count + 1),
             };
 
-            Dictionary<string, Inode> names = new(StringComparer.Ordinal);
-            Dictionary<Inode, bool> sealedAt = [];
-
-            for (int i = 0; i < keep; i++)
-            {
-                MetadataOp op = _journal[i];
-
-                switch (op.Kind)
-                {
-                    case MetadataKind.Bind:
-                        names[op.Path!] = op.Inode!;
-                        break;
-                    case MetadataKind.Unbind:
-                        names.Remove(op.Path!);
-                        break;
-                    default:
-                        sealedAt[op.Inode!] = true;
-                        break;
-                }
-            }
-
-            Dictionary<Inode, Inode> copies = [];
-
-            foreach ((string path, Inode inode) in names)
-            {
-                if (!copies.TryGetValue(inode, out Inode? copy))
-                {
-                    copy = new Inode { ReadOnly = sealedAt.ContainsKey(inode) };
-                    copy.Bytes.AddRange(kind == CrashKind.Process ? inode.Bytes : inode.Survivors(random));
-
-                    if (inFlightBytes != 0 && _inFlight is { } inFlight && ReferenceEquals(inode, inFlight.Inode))
-                    {
-                        copy.Write(inFlight.Offset, inFlight.Bytes.AsSpan(0, Math.Min(inFlightBytes, inFlight.Bytes.Length)));
-                        copy.Pending.Clear();
-                    }
-
-                    copy.Durable = [.. copy.Bytes];
-                    copies[inode] = copy;
-                }
-
-                image._files[path] = copy;
-                image._journal.Add(MetadataOp.Bind(path, copy));
-            }
-
-            image._durableJournal = image._journal.Count;
-            return image;
+            return ImageOf(keep, (inode, _) => kind == CrashKind.Process ? inode.Bytes : inode.Survivors(random), inFlightBytes);
         }
+    }
+
+    /// <summary>
+    /// Every write since its file's last flush, named by the file and its
+    /// place among that file's writes: what a power loss chooses among.
+    /// </summary>
+    public IReadOnlyList<(string Path, int Write, int Length)> Unflushed()
+    {
+        lock (_gate)
+        {
+            List<(string, int, int)> writes = [];
+
+            foreach ((string path, Inode inode) in _files.OrderBy(f => f.Key, StringComparer.Ordinal))
+            {
+                for (int i = 0; i < inode.Pending.Count; i++)
+                {
+                    writes.Add((path, i, inode.Pending[i].Bytes.Length));
+                }
+            }
+
+            return writes;
+        }
+    }
+
+    /// <summary>
+    /// The image a power loss leaves when, for each unflushed write,
+    /// <paramref name="kept"/> says how many of its first bytes reached the
+    /// disk: -1 for none of it, else a count the caller cuts at a sector or
+    /// gives whole. The metadata journal is kept to the last flush, or, with
+    /// <paramref name="metadataToEnd"/>, whole (ADR 0214 point 1).
+    /// </summary>
+    public SimulatedFileSystem Image(Func<string, int, int, int> kept, bool metadataToEnd)
+    {
+        lock (_gate)
+        {
+            return ImageOf(metadataToEnd ? _journal.Count : _durableJournal, (inode, path) => inode.Survivors((write, length) => kept(path, write, length)), 0);
+        }
+    }
+
+    // The image of the journal replayed to `keep`, each file's bytes as
+    // `survivors` says; under the lock.
+    private SimulatedFileSystem ImageOf(int keep, Func<Inode, string, List<byte>> survivors, int inFlightBytes)
+    {
+        SimulatedFileSystem image = new();
+
+        foreach (string directory in _directories)
+        {
+            image._directories.Add(directory);
+        }
+
+        // Metadata: the journal replayed up to a cut.
+        Dictionary<string, Inode> names = new(StringComparer.Ordinal);
+        Dictionary<Inode, bool> sealedAt = [];
+
+        for (int i = 0; i < keep; i++)
+        {
+            MetadataOp op = _journal[i];
+
+            switch (op.Kind)
+            {
+                case MetadataKind.Bind:
+                    names[op.Path!] = op.Inode!;
+                    break;
+                case MetadataKind.Unbind:
+                    names.Remove(op.Path!);
+                    break;
+                default:
+                    sealedAt[op.Inode!] = true;
+                    break;
+            }
+        }
+
+        Dictionary<Inode, Inode> copies = [];
+
+        foreach ((string path, Inode inode) in names)
+        {
+            if (!copies.TryGetValue(inode, out Inode? copy))
+            {
+                copy = new Inode { ReadOnly = sealedAt.ContainsKey(inode) };
+                copy.Bytes.AddRange(survivors(inode, path));
+
+                if (inFlightBytes != 0 && _inFlight is { } inFlight && ReferenceEquals(inode, inFlight.Inode))
+                {
+                    copy.Write(inFlight.Offset, inFlight.Bytes.AsSpan(0, Math.Min(inFlightBytes, inFlight.Bytes.Length)));
+                    copy.Pending.Clear();
+                }
+
+                copy.Durable = [.. copy.Bytes];
+                copies[inode] = copy;
+            }
+
+            image._files[path] = copy;
+            image._journal.Add(MetadataOp.Bind(path, copy));
+        }
+
+        image._durableJournal = image._journal.Count;
+        return image;
     }
 
     /// <summary>A copy of every file as it reads now, for a copier that reads one file at a time.</summary>
@@ -420,6 +506,14 @@ internal sealed class SimulatedFileSystem : IFileSystem
             throw new SimulatedCrash("Crashed before " + operation.Kind + " of " + operation.Path + ".");
         }
 
+        // A full disk refuses the allocation before any of it happens, and
+        // the operation is not counted as done.
+        if (keep is null && operation.Allocates && Refuser?.Invoke(++Allocations) == true)
+        {
+            Operations--;
+            throw DiskFull(operation.Path);
+        }
+
         return keep;
     }
 
@@ -428,7 +522,26 @@ internal sealed class SimulatedFileSystem : IFileSystem
         lock (_gate)
         {
             Live();
-            int? keep = Step(new Operation(OperationKind.Write, path, bytes.Length));
+            Operation operation = new(OperationKind.Write, path, bytes.Length) { Allocates = offset + bytes.Length > inode.Bytes.Count };
+            int? keep = Step(operation);
+
+            if (keep is null && Refusal?.Invoke(operation with { Number = Operations }) is int kept)
+            {
+                kept = Math.Clamp(kept, 0, bytes.Length);
+
+                if (kept == 0)
+                {
+                    Operations--;
+                }
+                else
+                {
+                    Writes.Add((Operations, kept, path));
+                    inode.Write(offset, bytes[..kept]);
+                }
+
+                throw RefusalError?.Invoke(path) ?? DiskFull(path);
+            }
+
             Writes.Add((Operations, bytes.Length, path));
             ReadOnlySpan<byte> written = keep is int k ? bytes[..Math.Min(k, bytes.Length)] : bytes;
             inode.Write(offset, written);
@@ -447,7 +560,15 @@ internal sealed class SimulatedFileSystem : IFileSystem
         lock (_gate)
         {
             Live();
-            Step(new Operation(OperationKind.Flush, path, 0));
+            Operation operation = new(OperationKind.Flush, path, 0);
+            Step(operation);
+
+            if (Refusal?.Invoke(operation with { Number = Operations }) is not null)
+            {
+                Operations--;
+                throw RefusalError?.Invoke(path) ?? DiskFull(path);
+            }
+
             inode.Flush();
             _durableJournal = _journal.Count;
         }
@@ -479,6 +600,9 @@ internal sealed class SimulatedFileSystem : IFileSystem
     internal readonly record struct Operation(OperationKind Kind, string Path, int Length)
     {
         public int Number { get; init; }
+
+        /// <summary>Whether the operation needs space: a create, a write past the file's end, a rename to a new name.</summary>
+        public bool Allocates { get; init; }
     }
 
     private enum MetadataKind
@@ -554,18 +678,55 @@ internal sealed class SimulatedFileSystem : IFileSystem
                     length = (int)Math.Max(0, (end / 512 * 512) - offset);
                 }
 
-                while (bytes.Count < offset + length)
-                {
-                    bytes.Add(0);
-                }
-
-                for (int i = 0; i < length; i++)
-                {
-                    bytes[(int)offset + i] = written[i];
-                }
+                Place(bytes, offset, written, length);
             }
 
             return bytes;
+        }
+
+        /// <summary>
+        /// The flushed bytes, with each later write kept as <paramref name="kept"/>
+        /// says: -1 dropped, else its first bytes up to that count, cut back to
+        /// the sector boundary before it unless the write is kept whole.
+        /// </summary>
+        public List<byte> Survivors(Func<int, int, int> kept)
+        {
+            List<byte> bytes = [.. Durable];
+
+            for (int w = 0; w < Pending.Count; w++)
+            {
+                (long offset, byte[] written) = Pending[w];
+                int length = kept(w, written.Length);
+
+                if (length < 0)
+                {
+                    continue;
+                }
+
+                if (length < written.Length)
+                {
+                    // Torn: the sectors before some boundary reached the disk.
+                    long end = offset + length;
+                    length = (int)Math.Max(0, (end / 512 * 512) - offset);
+                }
+
+                Place(bytes, offset, written, length);
+            }
+
+            return bytes;
+        }
+
+        private static void Place(List<byte> bytes, long offset, byte[] written, int length)
+        {
+            while (bytes.Count < offset + length)
+            {
+                bytes.Add(0);
+            }
+
+            for (int i = 0; i < length; i++)
+            {
+                bytes[(int)offset + i] = written[i];
+            }
         }
     }
 

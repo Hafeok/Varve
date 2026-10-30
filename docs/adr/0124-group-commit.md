@@ -15,6 +15,15 @@ version 1.7, §5 T1 and I6's write window.
 **Amends** ADR [0072](0072-format-version-1.md) by a dated block
 of its own (ADR 0068): the torn tail's rule gains the write window.
 
+**Superseded in part 2026-10-28 by [ADR
+0214](0214-file-backend-failure-injection.md)** (filed unaccepted): point 3
+and its ruling `AcknowledgedOnlyWhenTheBatchIsDurable`, which moves to 0214's
+set under its key, restated. A failed batch is no longer all or nothing: what
+was written is flushed, and each member is answered by the log, committed
+when the log closed it. On a full disk the next write recovers the writer
+instead of a reopen. Any other failed append still leaves the dataset broken
+until reopened.
+
 ## Context
 
 T1 step 7 appends a commit's records and makes them durable before the

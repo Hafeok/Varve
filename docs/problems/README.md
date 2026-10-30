@@ -46,9 +46,10 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`too-many-live-tails`](too-many-live-tails.md) | 429 | `limit` | The client holds too many live tails open. |
 | [`too-many-requests`](too-many-requests.md) | 429 |  | The client sent more requests than the endpoint allows in its window. |
 | [`unavailable`](unavailable.md) | 503 | `reason` | The dataset cannot answer now. |
+| [`commit-outcome-unknown`](commit-outcome-unknown.md) | 503 | `position`, `requestId` | The write may or may not have been committed. |
 | [`read-limit-exceeded`](read-limit-exceeded.md) | 503 |  | The read was cut by a server limit. |
 | [`shutting-down`](shutting-down.md) | 503 |  | The server is shutting down. |
-| [`not-ready`](not-ready.md) | 503 | `management`, `datasets`, `retention` | The server is not ready. |
+| [`not-ready`](not-ready.md) | 503 | `management`, `datasets`, `retention`, `writesRefused` | The server is not ready. |
 | [`server-busy`](server-busy.md) | 503 | `limit` | The server has as many reads in flight as it allows. |
 | [`writer-superseded`](writer-superseded.md) | 503 |  | A newer writer holds the dataset; this instance serves reads only. |
 | [`management-behind`](management-behind.md) | 503 | `position`, `appliedPosition` | The server has not applied the management position asked for. |
@@ -58,6 +59,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`reader-forgotten`](reader-forgotten.md) | 503 |  | This instance's reader record was forgotten; it attaches again. |
 | [`read-unannounced-extent-gone`](read-unannounced-extent-gone.md) | 503 |  | An unannounced read found an extent gone. |
 | [`load-spill-damaged`](load-spill-damaged.md) | 503 |  | A bulk load's spill was damaged; nothing was committed. |
+| [`storage-full`](storage-full.md) | 507 |  | The dataset's storage has no space for the write; nothing was committed. |
 
 What each limit's failure looks like to a client is in
 [`docs/operator/limits.md`](../operator/limits.md).

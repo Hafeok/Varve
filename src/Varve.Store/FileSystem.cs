@@ -50,6 +50,9 @@ internal interface IFileSystem
 
     void Delete(string path);
 
+    /// <summary>Removes a directory if nothing is left in it; false when something is, or it is gone.</summary>
+    bool DeleteEmptyDirectory(string path);
+
     bool IsReadOnly(string path);
 
     void MakeReadOnly(string path);
@@ -94,6 +97,21 @@ internal sealed class DiskFileSystem : IFileSystem
     public void Move(string from, string to) => File.Move(from, to, overwrite: true);
 
     public void Delete(string path) => File.Delete(path);
+
+    public bool DeleteEmptyDirectory(string path)
+    {
+        try
+        {
+            // Not recursive: a directory with an entry in it is refused.
+            Directory.Delete(path);
+            return true;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Gone already, not empty, or the platform holds it open.
+            return false;
+        }
+    }
 
     public bool IsReadOnly(string path) => (File.GetAttributes(path) & FileAttributes.ReadOnly) != 0;
 

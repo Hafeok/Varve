@@ -618,6 +618,8 @@ public sealed class MidReadDamageTests
 
         public void Delete(string path) => inner.Delete(path);
 
+        public bool DeleteEmptyDirectory(string path) => inner.DeleteEmptyDirectory(path);
+
         public bool IsReadOnly(string path) => inner.IsReadOnly(path);
 
         public void MakeReadOnly(string path) => inner.MakeReadOnly(path);

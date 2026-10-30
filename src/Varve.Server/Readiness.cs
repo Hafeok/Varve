@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.Extensions.Hosting;
 using Varve.Protocol.Model;
 
@@ -16,7 +18,7 @@ namespace Varve.Server;
 /// head, its projection, whether it failed, and whether its storage no longer
 /// holds the writer epoch (ADR 0136).
 /// </summary>
-internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed, bool Superseded = false, DatasetRole Role = DatasetRole.Writer, Varve.Store.ExtentRetention? Retention = null);
+internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed, bool Superseded = false, DatasetRole Role = DatasetRole.Writer, Varve.Store.ExtentRetention? Retention = null, bool StorageFull = false);
 
 /// <summary>One dataset's line in the readiness answer.</summary>
 internal readonly record struct DatasetReadiness(string Name, string State, string? Reason, long? Lag, DatasetRole Role = DatasetRole.Writer);
@@ -33,6 +35,39 @@ internal readonly record struct DatasetReadiness(string Name, string State, stri
 /// </summary>
 internal static class Readiness
 {
+    /// <summary>
+    /// The datasets whose last write was refused because their storage had
+    /// no space (ADR 0214), by name, as <c>storage-full</c>: reported beside
+    /// readiness, and never a reason to be unready, since reads go on and the
+    /// next write tries again by itself.
+    /// </summary>
+    [DesignDecision(typeof(FileBackendFailureInjection.StorageFullIs507), Scope = ExceptionScope.Boundary)]
+    internal static void WriteRefusals(System.Text.Json.Utf8JsonWriter json, IEnumerable<DatasetHealth> datasets)
+    {
+        bool any = false;
+
+        foreach (DatasetHealth dataset in datasets)
+        {
+            if (!dataset.StorageFull)
+            {
+                continue;
+            }
+
+            if (!any)
+            {
+                json.WriteStartObject("writesRefused");
+                any = true;
+            }
+
+            json.WriteString(dataset.Name, "storage-full");
+        }
+
+        if (any)
+        {
+            json.WriteEndObject();
+        }
+    }
+
     /// <summary>
     /// What the store keeps for readers, per dataset that has reader records
     /// (ADR 0162): reported beside readiness, and never a reason to be unready.

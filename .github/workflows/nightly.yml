@@ -17,13 +17,25 @@
 #
 # No container: the suites here run in process. The services legs keep their
 # own job in ci.yml and its images in .github/ci-images.yaml.
+#
+# Once a week, on its own schedule, it runs only the soak on Windows, through
+# the release gate's workflow (ADR 0215 point 6): a release refuses when that
+# soak is red or older than eight days.
 name: Nightly
 
 on:
   schedule:
     # 02:41 UTC every day: off the hour, as GitHub asks of scheduled workflows.
     - cron: "41 2 * * *"
+    # 04:17 UTC on Saturdays: the Windows soak alone (ADR 0215). The release
+    # gate's freshness check allows eight days, a week and a day of slack.
+    - cron: "17 4 * * 6"
   workflow_dispatch:
+    inputs:
+      windows-soak:
+        description: Run the Windows soak instead of the full-depth suites
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -37,7 +49,7 @@ env:
 jobs:
   store:
     name: store, full depth (${{ matrix.os }})
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event.schedule != '17 4 * * 6' && !inputs.windows-soak
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -87,6 +99,12 @@ jobs:
           VARVE_FAULT_PROCESS_STRIDE: "1"
           VARVE_FAULT_BATCH_STRIDE: "1"
           VARVE_FAULT_POWER_STRIDE: "1"
+          # The file backend's faults at every point (ADR 0214).
+          VARVE_FAULT_TORN_STRIDE: "1"
+          VARVE_FAULT_SECTOR_STRIDE: "1"
+          VARVE_FAULT_DISKFULL_STRIDE: "1"
+          VARVE_FAULT_REAL_POWER_STRIDE: "1"
+          VARVE_FAULT_KILL_STRIDE: "1"
           VARVE_OBJECT_FAULT_SWEEP_STRIDE: "1"
           # Extent maintenance's release-gate depths (section 7).
           VARVE_EXTENT_SCHEDULES: "400"
@@ -128,7 +146,7 @@ jobs:
 
   long:
     name: long properties (${{ matrix.project }})
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event.schedule != '17 4 * * 6' && !inputs.windows-soak
     runs-on: ubuntu-latest
     timeout-minutes: 300
     env:
@@ -183,3 +201,19 @@ jobs:
           name: test-results-nightly-${{ matrix.project }}
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
+
+  windows-soak:
+    name: windows soak
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '17 4 * * 6' || inputs.windows-soak)
+    # What the called workflow's jobs ask for: a run whose called job asks for
+    # more than its caller grants never starts.
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/release-gate.yml
+    with:
+      ref: ${{ github.sha }}
+      faults: false
+      soak-os: windows-latest
+      soak-minutes: 240
+      windows-soak-fresh: false
