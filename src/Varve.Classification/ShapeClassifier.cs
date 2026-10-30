@@ -39,7 +39,21 @@ public sealed class ShapeClassifier : IClassifier
     {
         ArgumentNullException.ThrowIfNull(pinned);
         IQuadSource state = pending.IsEmpty ? pinned : new QuadOverlay(pinned, pending);
-        return Compose([.. _bindings.Select(binding => Scratch(state, binding))]);
+        return Compose([.. _bindings.Select(binding => OnDemand(state, binding))]);
+    }
+
+    /// <summary>
+    /// One binding classified node by node as asked (ADR 0231 point 2): equal
+    /// to <see cref="Scratch"/> for every node, at the cost of the nodes asked
+    /// about and their links.
+    /// </summary>
+    internal static RowClassification OnDemand(IQuadSource state, ClassifierBinding binding)
+    {
+        Annotations annotations = Annotations.Read(state, binding);
+        Engine engine = new(state, binding, annotations);
+        SetTable sets = new();
+        INodeSets nodes = annotations.Problems.Count > 0 ? new FailedSets(sets) : new OnDemandSets(engine, sets, state.TermComparer);
+        return new RowClassification(state, binding, nodes, sets, engine.Public);
     }
 
     /// <summary>Why each binding's shapes graph in <paramref name="state"/> does not classify; empty when they all do.</summary>

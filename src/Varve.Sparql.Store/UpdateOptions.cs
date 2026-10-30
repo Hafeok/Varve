@@ -78,6 +78,31 @@ public sealed class UpdateOptions
     public GraphScope WriteScope { get; init; } = GraphScope.All;
 
     /// <summary>
+    /// The rows every pattern of the request reads, per classifier binding
+    /// (ADR 0235): beneath <see cref="ReadScope"/>, a pattern sees only the
+    /// quads the caller's subject sets allow, and a retraction of a quad it
+    /// does not see is a no-op (ADR 0236, W5). Every row by default, which
+    /// builds nothing.
+    /// </summary>
+    public RowScope ReadRows { get; init; } = RowScope.All;
+
+    /// <summary>
+    /// The rows the request may write (ADR 0236). The requested quads are
+    /// checked against the row-level write rule before the submit, and one
+    /// that breaks it fails the whole request with
+    /// <see cref="Varve.Rdf.RowNotWritableException"/>. Every row by default.
+    /// </summary>
+    public RowScope WriteRows { get; init; } = RowScope.All;
+
+    /// <summary>
+    /// The dataset's classifier (ADR 0231), which the row scopes are judged
+    /// by: of the staging view as the request reads it, and of the state the
+    /// request would make. None when the dataset has no classifier binding;
+    /// then the row scopes restrict nothing.
+    /// </summary>
+    public IClassifier? Classifier { get; init; }
+
+    /// <summary>
     /// How many times a request that met a <c>Conflict</c> is executed again
     /// from a fresh pin. Default 0: a conflict is returned, because whether
     /// the request still means the same against the new head is the caller's

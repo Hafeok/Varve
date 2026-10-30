@@ -62,8 +62,8 @@ shapes are fixed here, as stable public API. The key store is part 2's
      0022 makes that the only correct equality. It allocates nothing, and
      `SelectorComparesThroughTheSourceComparer` answers `VARVE0003` for it.
 4. **Access without erasure mode** is served by the selector over `G_head`:
-   - `GET /datasets/{name}/access?subject=<IRI>&binding=<IRI>`, as N-Quads
-     or TriG by negotiation;
+   - `GET /datasets/{name}/access?subject=<IRI>`, as N-Quads, over every
+     classifier binding of the dataset;
    - **admin only**, because it is a controller's act under GDPR Article 15
      and not a reader's;
    - scope `Current` only. `AllHistory` needs key ids, and is part 2's (#203).

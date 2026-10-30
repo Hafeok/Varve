@@ -133,6 +133,7 @@ public class ClassificationTests
             {
                 using DatasetView view = await dataset.AsOfAsync(new Position(p), ct);
                 SortedSet<string> expected = Signature(ShapeClassifier.Scratch(view, Binding), view);
+                Assert.Equal(expected, Signature(new ShapeClassifier([Binding]).Classify(view, QuadDelta.Empty), view));
                 Assert.True(projection.TryAt(new Position(p), view, out IRowClassification held));
                 Assert.Equal(expected, Signature(held, view));
                 Assert.True(loaded.TryAt(new Position(p), view, out IRowClassification reread));

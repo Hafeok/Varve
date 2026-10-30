@@ -202,7 +202,7 @@ accepts it (ADR 0066).
 **The ledger.** The rulings are ADR 0174's `ValidationBehind` and
 `ReportGraphNotWritable`.
 
-## Amendment, 2026-10-30 — three problem types for rows
+## Amendment, 2026-10-30 — problem types for rows
 
 Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066).
 
@@ -211,6 +211,8 @@ The catalogue gains:
 - `classification-behind` (503, with `binding`, `position` and
   `projectedPosition`, ADR [0233](0233-the-classification-projection.md));
 - `entailment-not-available` (403, with `binding`, ADR
-  [0238](0238-inference-under-row-scoped-grants.md)).
+  [0238](0238-inference-under-row-scoped-grants.md)), when its guard is built
+  over #171's surfaces. Until then no endpoint emits it, and the catalogue
+  does not list it.
 
-Each has its page in `docs/problems/`.
+Each has its page in `docs/problems/` when it is catalogued.

@@ -49,8 +49,9 @@ ADR 0107 point 7's second property and ADR 0190 point 8's, extended to rows.
    point 4: additions by about_p, retractions by about_{p−1}. Its metadata
    is unchanged.
 6. **The validation report graph is withheld whole** from a caller whose
-   readable subject set is not `all` for a binding whose Γ_B meets the
-   graphs a shapes binding validates. ADR 0174 point 9 is amended:
+   readable subject set is not `all` for any classifier binding of the
+   dataset. That is stricter than the binding-by-binding rule the plan
+   stated, and simpler to hold. ADR 0174 point 9 is amended:
    - such a caller sees no such graph;
    - the Graph Store answers `404`;
    - ADR 0173's attachment is not delivered to it on the commits resource,

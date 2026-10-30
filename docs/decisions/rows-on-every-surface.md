@@ -10,7 +10,7 @@ decisions:
   - key: CommitsJudgedOnBothSides
     statement: "The commits resource judges additions by the classification at the commit and retractions by the one before it"
   - key: ReportWithheldFromRowRestricted
-    statement: "A validation report graph, and its commit attachment, are withheld whole from a caller whose subject set is not all for a binding meeting the validated graphs"
+    statement: "A validation report graph, and its commit attachment, are withheld whole from a caller whose subject set is not all for any classifier binding of the dataset"
   - key: AsOfReadsClassifyAtThePosition
     statement: "An as-of read uses the classification at its position and the grants at the management position it is served under, with rule forms over the data at the position"
   - key: FollowerEnforcesTheSameRows

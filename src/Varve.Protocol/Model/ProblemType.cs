@@ -130,6 +130,12 @@ public readonly record struct ProblemType
     /// <summary><c>503</c>: a read of a report graph at a position its validation projection has not reached, after one bounded wait (ADR 0174).</summary>
     public static ProblemType ValidationBehind { get; } = new("validation-behind");
 
+    /// <summary><c>403</c>: a row-restricted write breaks the row-level write rule; the body names no node, subject or binding (ADR 0236).</summary>
+    public static ProblemType RowNotWritable { get; } = new("row-not-writable");
+
+    /// <summary><c>503</c>: a row-restricted read at a position the classification projection has not reached, after one bounded wait (ADR 0233).</summary>
+    public static ProblemType ClassificationBehind { get; } = new("classification-behind");
+
     /// <summary><c>503</c>: a forwarded write reached an instance that does not write the dataset; it is never forwarded again (ADR 0168).</summary>
     public static ProblemType WriterMoved { get; } = new("writer-moved");
 

@@ -189,8 +189,8 @@ projection (spec §7, ADR 0016).
 
 Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066). The ruling is ADR [0237](0237-rows-on-every-surface.md)'s `ReportWithheldFromRowRestricted`.
 
-Point 9 gains a condition. A caller whose readable subject set is not `all`,
-for a classifier binding whose graph set meets the graphs the shapes binding
-validates, reads no such report graph, whatever its graph grants. For it, the
+Point 9 gains a condition. A caller whose readable subject set is not `all`
+for any classifier binding of the dataset reads no report graph, whatever
+its graph grants. For it, the
 graph is absent: a query finds nothing in it, and the Graph Store answers
 `404`. Filtering per result is #204.

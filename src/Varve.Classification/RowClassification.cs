@@ -100,6 +100,24 @@ internal sealed class FailedSets(SetTable sets) : INodeSets
     public SubjectSetId Of(TermHandle node) => _nobody;
 }
 
+/// <summary>
+/// A node's set computed when it is first asked, by a forward traversal of
+/// its links in the state (ADR 0230 point 1), and memoised: what the write
+/// rule needs, at the cost of the nodes a write touches and not of the
+/// dataset (ADR 0231 point 2).
+/// </summary>
+internal sealed class OnDemandSets(Engine engine, SetTable sets, IEqualityComparer<TermHandle> comparer) : INodeSets
+{
+    [Memoized]
+    private readonly ConcurrentDictionary<TermHandle, SubjectSetId> _decided = new(comparer);
+
+    [DesignDecision(typeof(TheClassificationProjection.ClassificationLookupsMemoisedPerHandle), Scope = ExceptionScope.HotPath)]
+    public SubjectSetId Of(TermHandle node) =>
+        _decided.GetOrAdd(node, static (handle, self) => self.Decide(handle), this);
+
+    private SubjectSetId Decide(TermHandle node) => sets.Intern(engine.SubjectsOf(node));
+}
+
 /// <summary>A node map built by classification from scratch.</summary>
 internal sealed class ScratchSets(Dictionary<TermHandle, SubjectSetId> sets) : INodeSets
 {

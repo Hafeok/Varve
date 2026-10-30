@@ -60,7 +60,10 @@ public static class SparqlUpdate
             throw new ArgumentException("An update expects a position or graph versions, not both (ADR 0126).", nameof(options));
         }
 
-        if (options.ExpectedPosition is null && options.ExpectedGraphs is null && RequestExecution.IsDataOnly(update))
+        // A row-restricted writer takes the staged path: its retractions are
+        // judged against the rows it sees, and its requested quads against
+        // the write rule, before the sequencer normalises anything (ADR 0236).
+        if (options.ExpectedPosition is null && options.ExpectedGraphs is null && RequestExecution.IsDataOnly(update) && !RequestExecution.RowRestricted(options))
         {
             return await dataset.CommitAsync(RequestExecution.DataOnly(update, options), cancellationToken).ConfigureAwait(false);
         }

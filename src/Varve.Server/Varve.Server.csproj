@@ -45,6 +45,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Varve.Classification/Varve.Classification.csproj" />
     <ProjectReference Include="../Varve.Events/Varve.Events.csproj" />
     <ProjectReference Include="../Varve.Protocol/Varve.Protocol.csproj" />
     <ProjectReference Include="../Varve.Protocol.Client/Varve.Protocol.Client.csproj" />

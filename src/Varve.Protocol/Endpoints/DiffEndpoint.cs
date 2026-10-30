@@ -71,6 +71,13 @@ internal static class DiffEndpoint
             // diff between two earlier positions carries.
             using DatasetView names = dataset.Pin();
             delta = new ScopeFilter(exchange.Scope.Readable).Apply(delta, names.TryExternalise);
+
+            // The caller's rows (ADR 0237 point 4): its view at one position against the other.
+            if (RowFilter.For(exchange) is { } rows)
+            {
+                delta = await rows.DiffAsync(range.From, to, delta, cancellationToken).ConfigureAwait(false);
+            }
+
             DeltaLines.WriteDiff(output, range.From, to, delta, names.TryExternalise);
         }).ConfigureAwait(false);
     }

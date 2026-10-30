@@ -129,6 +129,13 @@ public sealed class ProtocolOptions
     /// </summary>
     public IValidationReports? ValidationReports { get; init; }
 
+    /// <summary>
+    /// The host's classification projections (ADR 0233), which row-restricted
+    /// callers are read and written by; null when the host keeps none, and
+    /// then a row scope restricts nothing.
+    /// </summary>
+    public IRowClassifications? RowClassifications { get; init; }
+
     /// <summary>The catalogue graphs' history of each dataset, replayed once and kept current.</summary>
     internal Endpoints.EventCatalogues Catalogues { get; } = new();
 }

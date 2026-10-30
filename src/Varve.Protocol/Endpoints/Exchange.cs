@@ -140,11 +140,28 @@ internal sealed class Exchange
     /// </summary>
     internal IQuadSource Readable(IQuadSource view)
     {
+        // A row-restricted caller reads no report graph (ADR 0237 point 6),
+        // and beneath its graphs only the rows it may (ADR 0235).
+        if (!Scope.ReadableRows.IsAll && view is DatasetView rowView && Options.RowClassifications?.At(Name, rowView) is { } rows)
+        {
+            return RowScopedQuadSource.Wrap(GraphScopedQuadSource.Wrap(view, Scope.Readable), rows, Scope.ReadableRows);
+        }
+
         // The report graphs the caller reads every bound graph of (ADR 0174).
         return Options.ValidationReports is { } reports && view is DatasetView pinned && reports.Of(Name) is { Count: > 0 } graphs
             ? ReportGraphs.Compose(pinned, Scope.Readable, graphs)
             : GraphScopedQuadSource.Wrap(view, Scope.Readable);
     }
+
+    /// <summary>
+    /// <paramref name="view"/> with only the rows the caller reads, its graphs
+    /// unscoped: what a Graph Store write of a graph it may write retracts
+    /// (ADR 0236, W5). The view itself when the caller reads every row.
+    /// </summary>
+    internal IQuadSource VisibleRows(DatasetView view) =>
+        !Scope.ReadableRows.IsAll && Options.RowClassifications?.At(Name, view) is { } rows
+            ? RowScopedQuadSource.Wrap(view, rows, Scope.ReadableRows)
+            : view;
 
     /// <summary>
     /// An exchange over the fleet's system dataset, for the management

@@ -281,10 +281,27 @@ internal static class Writes
     /// The validators a data commit carries into the sequencer for the host:
     /// the order of the management positions its dataset records (ADR 0165).
     /// </summary>
-    internal static IReadOnlyList<ICommitValidator> Validators(Exchange exchange) =>
-        exchange.Options.Management is { } management && exchange.Authorised is { } position
-            ? [management.OrderOf(exchange.Name, position)]
-            : [];
+    internal static IReadOnlyList<ICommitValidator> Validators(Exchange exchange)
+    {
+        List<ICommitValidator> validators = [];
+
+        if (exchange.Options.Management is { } management && exchange.Authorised is { } position)
+        {
+            validators.Add(management.OrderOf(exchange.Name, position));
+        }
+
+        // The row-level write rule under the sequencer, against the true head (ADR 0236).
+        if (!exchange.Scope.WritableRows.IsAll && exchange.Options.RowClassifications?.Classifier(exchange.Name) is { } classifier)
+        {
+            validators.Add(new RowWriteGuard(classifier, exchange.Scope.ReadableRows, exchange.Scope.WritableRows));
+        }
+
+        return validators;
+    }
+
+    /// <summary><c>403 row-not-writable</c>: the same body for every reason (ADR 0236).</summary>
+    internal static Task RowNotWritableAsync(Exchange exchange) =>
+        HttpProblems.WriteAsync(exchange.Context, ProblemType.RowNotWritable, "Nothing was committed; the request writes a row outside the writable subject set.");
 
     /// <summary>The attachment a commit records its management position as (ADR 0165).</summary>
     internal static RdfTerm ManagementPositionTerm(Management.Model.ManagementPosition position) =>

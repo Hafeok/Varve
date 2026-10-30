@@ -107,11 +107,17 @@ internal static class BoundedReads
             detail = error.Message;
             members = ValidationBehind(error);
         }
+        catch (ClassificationBehindException error)
+        {
+            cut = ProblemType.ClassificationBehind;
+            detail = error.Message;
+            members = ClassificationBehind(error);
+        }
 
         if (!output.HasStarted && !response.HasStarted)
         {
             output.Discard();
-            if (cut == ProblemType.ValidationBehind)
+            if (cut == ProblemType.ValidationBehind || cut == ProblemType.ClassificationBehind)
             {
                 response.Headers.RetryAfter = "1";
             }
@@ -127,6 +133,14 @@ internal static class BoundedReads
             context.Abort();
         }
     }
+
+    /// <summary>The members of <c>classification-behind</c>: the binding, the position read, and the position its projection reached.</summary>
+    internal static Action<ProblemMembers> ClassificationBehind(ClassificationBehindException error) => m =>
+    {
+        m.String("binding", System.Text.Encoding.UTF8.GetString(error.Binding.Lexical));
+        m.Number("position", error.Position.Value);
+        m.Number("projectedPosition", error.Projected.Value);
+    };
 
     /// <summary>The members of <c>validation-behind</c>: the binding, the position read, and the position its projection reached.</summary>
     internal static Action<ProblemMembers> ValidationBehind(ValidationBehindException error) => m =>
