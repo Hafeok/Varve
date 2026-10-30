@@ -343,4 +343,14 @@ for a report graph. The maintainer's message, verbatim:
   ADR 0180 for warm standbys under a `reject` binding (D4). Its issue is
   opened when part 2 lands. Its descriptor closes #95.
 
+### Acceptance, 2026-10-28
+
+A later session (Claude Code, model `claude-fable-5-1`), on the maintainer's
+instruction "accept all decisions on the branch and commit and push", added
+`accepted-by` and `accepted-at` to the seventeen keys of
+`entailments-under-graph-level-grants` and pushed the commit. The acceptance
+is the maintainer's; the session only wrote it at their direction, as the
+acceptance of ADRs 0127–0133 was written. The ADR's status text and the
+index row are left as filed, as in that precedent.
+
 Developed with AI assistance under human review.
