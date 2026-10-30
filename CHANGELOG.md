@@ -47,7 +47,10 @@ stays open for part 2, the data explorer.
 - **Its own OIDC client** (ADR 0201).
   - Sign-in is authorisation code with PKCE, written on the BCL.
   - Each plane gets its own token: the data plane from the code exchange,
-    the management plane from a refresh grant for its scope alone.
+    the management plane from a refresh grant for its scope alone. Where
+    `Varve:Auth:ManageGrant` is `exchange` (Zitadel), each plane's token
+    is exchanged (RFC 8693) from the sign-in's, and the Web UI refuses to
+    send any token naming more than one audience.
   - Tokens live in the tab's memory. A reload signs in again with
     `prompt=none`.
 - **`Varve:WebUi:Path`** (ADR 0202).
@@ -66,7 +69,7 @@ stays open for part 2, the data explorer.
   - axe-core on every screen and dialog, in both themes, with no violation
     and no policy violation;
   - the skip link first;
-  - anonymous mode and sign-in against mock-oauth2-server;
+  - anonymous mode, and sign-in against mock-oauth2-server and Zitadel;
   - a token naming both audiences, refused by both planes.
 - **The operator guide's Web UI page,** `docs/operator/web-ui.md`.
 
@@ -74,15 +77,20 @@ stays open for part 2, the data explorer.
 
 - **`BearerToken.Fixed` is `BearerTokens.Fixed`** (ADR 0127, amended).
   The fixed provider sits beside the delegate type, not on it.
+- **Entailments under graph-level grants** (ADR 0190, amending ADR
+  0107). The decision Inference (#95) builds on, accepted ahead of it;
+  nothing infers yet.
+
+#### Fixed
+
+- **A report graph read while its projection was behind could answer an
+  empty report** (#183), which reads as conforming. It now answers the
+  report at the position, or `503 validation-behind`, as ADR 0174 allows.
 
 #### Not yet
 
-- **Zitadel's management plane:** a Zitadel refresh token never narrows
-  its audience, so the Web UI's management plane stays signed out there.
-  Token exchange is the proposal on #96.
 - **The state route ignores `If-Match`,** so the "Reload at head" path a
-  `412` would take is tested against a fake server only. The proposal is
-  on #96.
+  `412` would take is tested against a fake server only (#189).
 
 ## [0.1.0-preview.15] - 2026-10-23
 

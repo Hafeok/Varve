@@ -224,3 +224,33 @@ A grant naming the report graph itself has no effect. Any other caller sees
 no such graph: a query finds nothing in it, and the Graph Store answers `404`.
 
 **The ledger.** The ruling is ADR 0174's `ReadNeedsEveryValidatedGraph`.
+
+## Amendment, 2026-10-27 — a binding's ontology is read by the dataset's readers, and a graph may be governed by a set
+
+Filed by milestone Inference (#95), unaccepted until the maintainer accepts it
+(ADR 0066). The rulings are ADR
+[0190](0190-entailments-under-graph-level-grants.md)'s.
+
+- **Dataset-public graphs.**
+  - Who reads them: a graph that a TBox binding in force names as a TBox
+    graph or as its rules graph is read by every caller whose readable set in
+    the dataset is not empty. A grant naming it has no effect, writing it
+    still needs a write grant, and a caller who reads nothing in the dataset
+    reads none of them.
+  - Which bindings count: those at the management position the read is
+    served under (ADR 0165).
+  - How it is built: `GraphScope` carries the set. The host composes it
+    through `IAccessScopes`, and `Varve.Rdf` knows only that the set exists.
+- **Governed by a set.** The governing seam of the amendment of 2026-10-15
+  takes a set of governors, not one. A governed graph is allowed exactly when
+  every governor is allowed, by the scope's own rules. A single governor is
+  the set of one, so ADR 0144's catalogue graphs mean what they meant.
+- **Its cost.** Both decisions are made once per distinct graph handle and
+  memoised, like a prefix decision (`PrefixDecisionMemoisedPerGraph`), so
+  neither is per quad. The `all` scope is unchanged and still not wrapped.
+- **The second property of point 7** covers the new graphs too: no response
+  to a caller carries an IRI that occurs only in a graph it does not read.
+  ADR 0190's point 8 extends it to entailments.
+
+**The ledger.** The rulings are ADR 0190's `BindingGraphsAreDatasetPublic`,
+`DatasetPublicSetInTheScope` and `GovernedByEveryGraphOfASet`.
