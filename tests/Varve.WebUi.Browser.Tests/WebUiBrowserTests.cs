@@ -244,13 +244,26 @@ public sealed class WebUiBrowserTests
                 authorizations.Add(request);
             }
         };
-        page.Response += async (_, response) =>
+        // The token endpoint's answers, captured on their way to the page: a
+        // body read after the page navigates is gone, so it is read here,
+        // before the page has it.
+        await page.RouteAsync(issuer + "/token", async route =>
         {
-            if (response.Url == issuer + "/token" && response.Request.Method == "POST")
+            if (route.Request.Method != "POST")
             {
-                tokens.Add((response.Request.PostData ?? "", await response.TextAsync()));
+                await route.ContinueAsync();
+                return;
             }
-        };
+
+            IAPIResponse answer = await route.FetchAsync();
+            string body = await answer.TextAsync();
+            lock (tokens)
+            {
+                tokens.Add((route.Request.PostData ?? "", body));
+            }
+
+            await route.FulfillAsync(new() { Response = answer, Body = body });
+        });
 
         await page.GotoAsync(server.Ui + "datasets");
         await page.FillAsync("input[name=username]", "alice", new() { Timeout = 60_000 });
@@ -329,13 +342,26 @@ public sealed class WebUiBrowserTests
                 sentToServer.Add(bearer["Bearer ".Length..]);
             }
         };
-        page.Response += async (_, response) =>
+        // The token endpoint's answers, captured on their way to the page: a
+        // body read after the page navigates is gone, so it is read here,
+        // before the page has it.
+        await page.RouteAsync(issuer + "/oauth/v2/token", async route =>
         {
-            if (response.Url == issuer + "/oauth/v2/token" && response.Request.Method == "POST")
+            if (route.Request.Method != "POST")
             {
-                tokens.Add((response.Request.PostData ?? "", await response.TextAsync()));
+                await route.ContinueAsync();
+                return;
             }
-        };
+
+            IAPIResponse answer = await route.FetchAsync();
+            string body = await answer.TextAsync();
+            lock (tokens)
+            {
+                tokens.Add((route.Request.PostData ?? "", body));
+            }
+
+            await route.FulfillAsync(new() { Response = answer, Body = body });
+        });
 
         await page.GotoAsync(new Uri(address, "datasets").AbsoluteUri);
         await page.WaitForURLAsync(url => url.Contains("authRequest=", StringComparison.Ordinal) && !url.Contains("prompt", StringComparison.Ordinal), new() { Timeout = 60_000 });
