@@ -57,6 +57,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`takeover-refused`](takeover-refused.md) | 409 | `reason`, `epoch` | This instance refuses to take the dataset over. |
 | [`reader-forgotten`](reader-forgotten.md) | 503 |  | This instance's reader record was forgotten; it attaches again. |
 | [`read-unannounced-extent-gone`](read-unannounced-extent-gone.md) | 503 |  | An unannounced read found an extent gone. |
+| [`load-spill-damaged`](load-spill-damaged.md) | 503 |  | A bulk load's spill was damaged; nothing was committed. |
 
 What each limit's failure looks like to a client is in
 [`docs/operator/limits.md`](../operator/limits.md).

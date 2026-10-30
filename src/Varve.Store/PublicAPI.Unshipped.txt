@@ -756,3 +756,25 @@ Varve.Store.SpillBound
 Varve.Store.SpillBound.MemoryLoad = 2 -> Varve.Store.SpillBound
 Varve.Store.SpillBound.Memtable = 1 -> Varve.Store.SpillBound
 Varve.Store.SpillBound.None = 0 -> Varve.Store.SpillBound
+Varve.Store.Dataset.TryReadCheckedAsync(Varve.Store.IDerivedStore! store, Varve.Store.Log.BlobName name, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CheckedContent?>
+Varve.Store.Dataset.WriteCheckedAsync(Varve.Store.IDerivedStore! store, Varve.Store.Log.BlobName name, Varve.Store.Log.Position position, System.ReadOnlyMemory<byte> bytes, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Varve.Store.Log.CheckedContent
+Varve.Store.Log.CheckedContent.Bytes.get -> System.ReadOnlyMemory<byte>
+Varve.Store.Log.CheckedContent.Bytes.init -> void
+Varve.Store.Log.CheckedContent.CheckedContent(Varve.Store.Log.Position Position, System.ReadOnlyMemory<byte> Bytes) -> void
+Varve.Store.Log.CheckedContent.Deconstruct(out Varve.Store.Log.Position Position, out System.ReadOnlyMemory<byte> Bytes) -> void
+Varve.Store.Log.CheckedContent.Equals(Varve.Store.Log.CheckedContent? other) -> bool
+Varve.Store.Log.CheckedContent.Position.get -> Varve.Store.Log.Position
+Varve.Store.Log.CheckedContent.Position.init -> void
+override Varve.Store.Log.CheckedContent.Equals(object? obj) -> bool
+override Varve.Store.Log.CheckedContent.GetHashCode() -> int
+override Varve.Store.Log.CheckedContent.ToString() -> string!
+static Varve.Store.Log.CheckedContent.operator !=(Varve.Store.Log.CheckedContent? left, Varve.Store.Log.CheckedContent? right) -> bool
+static Varve.Store.Log.CheckedContent.operator ==(Varve.Store.Log.CheckedContent? left, Varve.Store.Log.CheckedContent? right) -> bool
+Varve.Store.Log.CheckedContent.<Clone>$() -> Varve.Store.Log.CheckedContent!
+Varve.Store.BulkLoadSpillDamagedException
+Varve.Store.BulkLoadSpillDamagedException.BulkLoadSpillDamagedException() -> void
+Varve.Store.BulkLoadSpillDamagedException.BulkLoadSpillDamagedException(string! message) -> void
+Varve.Store.BulkLoadSpillDamagedException.BulkLoadSpillDamagedException(string! message, System.Exception! inner) -> void
+Varve.Store.ExtentRetention.UncheckedSets.get -> int
+Varve.Store.ExtentRetention.UncheckedSets.init -> void

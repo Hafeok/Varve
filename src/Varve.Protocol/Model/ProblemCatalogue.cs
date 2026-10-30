@@ -109,6 +109,7 @@ public static class ProblemCatalogue
         new(ProblemType.DeclarationInvalid, 422, "The management declarations are not valid.", "findings"),
         new(ProblemType.ReaderForgotten, 503, "This instance's reader record was forgotten; it attaches again."),
         new(ProblemType.ReadUnannouncedExtentGone, 503, "An unannounced read found an extent gone."),
+        new(ProblemType.LoadSpillDamaged, 503, "A bulk load's spill was damaged; nothing was committed."),
     ];
 
     private static readonly FrozenDictionary<string, ProblemShape> ByType = Index();

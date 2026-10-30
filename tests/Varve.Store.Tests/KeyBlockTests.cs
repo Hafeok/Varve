@@ -4,7 +4,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CsCheck;
@@ -146,8 +145,8 @@ public class KeyBlockTests
             byte[] bytes = new byte[KeyBlocks.MaxBytes + 1];
             int length = KeyBlocks.Encode(keys, bytes);
             QuadKey[] back = new QuadKey[keys.Length];
-            Assert.Throws<IOException>(() => KeyBlocks.Decode(bytes.AsSpan(0, length - 1), back));
-            Assert.Throws<IOException>(() => KeyBlocks.Decode(bytes.AsSpan(0, length + 1), back));
+            Assert.Throws<DerivedDamageException>(() => KeyBlocks.Decode(bytes.AsSpan(0, length - 1), back));
+            Assert.Throws<DerivedDamageException>(() => KeyBlocks.Decode(bytes.AsSpan(0, length + 1), back));
         }, iter: 1_000);
     }
 }

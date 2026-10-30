@@ -455,3 +455,4 @@ Varve.Protocol.Model.TakeoverRefusal.HandoverOff = 1 -> Varve.Protocol.Model.Tak
 Varve.Protocol.Model.TakeoverRefusal.NotInWriterSet = 2 -> Varve.Protocol.Model.TakeoverRefusal
 Varve.Protocol.Model.TakeoverRefusal.Cold = 3 -> Varve.Protocol.Model.TakeoverRefusal
 Varve.Protocol.Model.TakeoverRefusal.EpochMoved = 4 -> Varve.Protocol.Model.TakeoverRefusal
+static Varve.Protocol.Model.ProblemType.LoadSpillDamaged.get -> Varve.Protocol.Model.ProblemType

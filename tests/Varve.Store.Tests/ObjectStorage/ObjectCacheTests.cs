@@ -15,19 +15,18 @@ using Backend = Varve.Store.ObjectStorage.ObjectStorage;
 namespace Varve.Store.Tests.Objects;
 
 /// <summary>
-/// The object-storage backend's local cache, damaged (#126): the commit index
-/// below the catalog, kept as a blob in the cache by an earlier instance, cut
-/// short or with a byte of what is verified zeroed. Opened again on that
-/// cache, the dataset serves what it served before, as a cache miss would:
-/// never an error, never a different answer.
+/// The object-storage backend's local cache, damaged (#126, #146): the
+/// commit index below the catalog, kept as a blob in the cache by an earlier
+/// instance, with any byte zeroed or flipped, or cut short at any byte.
+/// Opened again on that cache, the dataset serves what it served before, as
+/// a cache miss would: never an error, never a different answer (ADR 0213).
 /// </summary>
 /// <remarks>
-/// The entries before the last are not verified when the blob is read below
-/// the catalog: only the last is compared with the catalog's (ADR 0139), and
-/// a zeroed byte in one of the others is read as an error or as a different
-/// history. What keeps such a blob from existing is its publication, a
-/// temporary file flushed before its rename (ADR 0073), so a crash leaves a
-/// blob whole or absent; that flush stays for this reason (#126).
+/// Before ADR 0213 only the last entry was compared with the catalog's
+/// (ADR 0139). With each of the 1,920 bytes of the 24 entries zeroed, a
+/// read returned a wrong history or an error in 985 cases (#126). Version 6
+/// checks every block of 128 entries, and the whole blob is verified when
+/// it is loaded.
 /// </remarks>
 [Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class ObjectCacheTests
@@ -35,7 +34,7 @@ public sealed class ObjectCacheTests
     private const int Commits = 24;
 
     [Fact]
-    public async Task a_commit_index_blob_cut_short_or_with_its_verified_bytes_zeroed_is_a_miss()
+    public async Task a_commit_index_blob_with_any_byte_zeroed_flipped_or_cut_is_a_miss()
     {
         await using ObjectHarness objects = new();
         string cache = Directory.CreateTempSubdirectory("varve-cache-").FullName;
@@ -61,47 +60,45 @@ public sealed class ObjectCacheTests
             string expected = await ServeAsync(objects, cache);
             string blob = Assert.Single(Directory.GetFiles(Path.Combine(cache, "local", "derived", "index", "commits")));
             byte[] whole = await File.ReadAllBytesAsync(blob, T.Ct);
-            List<string> wrong = [];
+            List<(byte[] Damaged, string How, string Kind)> cases = [];
 
-            // The last entry, the directory after it and the derived header
-            // are what a read verifies (storage format, sections 7.1 and 7.4).
-            const int EntryBytes = 80;
-            int verified = whole.Length - 160 - (12 + (8 * ((Commits + 127) / 128))) - EntryBytes;
-            List<(byte[] Damaged, string How)> cases = [];
-
+            // Every byte zeroed, flipped, and the blob cut there. The entries
+            // are 80 bytes each from offset 0 (storage format section 7.4):
+            // #126's 1,920 cases are the zeroed bytes among them.
             for (int at = 0; at < whole.Length; at++)
             {
-                // A cut anywhere before the last entry loses the header as a
-                // cut inside it does; every sixteenth byte stands for them.
-                if (at >= verified || at % 16 == 0)
-                {
-                    cases.Add((whole[..at], "cut at byte " + at));
-                }
-
-                if (at >= verified && whole[at] != 0)
-                {
-                    byte[] zeroed = [.. whole];
-                    zeroed[at] = 0;
-                    cases.Add((zeroed, "byte " + at + " zeroed"));
-                }
+                string region = at < Commits * 80 ? "entries" : "directory and header";
+                byte[] zeroed = [.. whole];
+                zeroed[at] = 0;
+                cases.Add((zeroed, "byte " + at + " zeroed", "zeroed, " + region));
+                byte[] flipped = [.. whole];
+                flipped[at] ^= 0xFF;
+                cases.Add((flipped, "byte " + at + " flipped", "flipped, " + region));
+                cases.Add((whole[..at], "cut at byte " + at, "cut, " + region));
             }
 
             // A pull request checks every eighth case, from where a seed says,
             // so that pull requests between them check all of them; the
             // nightly run checks every one (docs/testing.md section 8).
             Sweep sweep = Depth.SweepOf("CACHE_DAMAGE", 8);
-            int checkedCases = 0;
+            Dictionary<string, (int Checked, int Wrong)> tally = [];
+            List<string> wrong = [];
 
             for (int i = sweep.First - 1; i < cases.Count; i += sweep.Stride)
             {
-                await CheckAsync(cases[i].Damaged, cases[i].How);
-                checkedCases++;
+                bool right = await CheckAsync(cases[i].Damaged, cases[i].How);
+                (int c, int w) = tally.GetValueOrDefault(cases[i].Kind);
+                tally[cases[i].Kind] = (c + 1, right ? w : w + 1);
             }
 
-            TestContext.Current.TestOutputHelper?.WriteLine(sweep.Replay + ": " + checkedCases + " of " + cases.Count + " damaged blobs");
+            foreach ((string kind, (int c, int w)) in tally)
+            {
+                TestContext.Current.TestOutputHelper?.WriteLine(sweep.Replay + ": " + kind + ": " + w + " wrong of " + c);
+            }
+
             Assert.True(wrong.Count == 0, sweep.Replay + " replays this. " + wrong.Count + " damaged blobs were not a miss, of " + whole.Length + " bytes:\n  " + string.Join("\n  ", wrong));
 
-            async Task CheckAsync(byte[] damaged, string how)
+            async Task<bool> CheckAsync(byte[] damaged, string how)
             {
                 string copy = Directory.CreateTempSubdirectory("varve-cache-").FullName;
 
@@ -118,13 +115,16 @@ public sealed class ObjectCacheTests
                     catch (Exception error) when (error is not Xunit.Sdk.XunitException)
                     {
                         wrong.Add(how + ": " + error.GetType().Name + ": " + error.Message);
-                        return;
+                        return false;
                     }
 
                     if (served != expected)
                     {
                         wrong.Add(how + ": served a different history");
+                        return false;
                     }
+
+                    return true;
                 }
                 finally
                 {

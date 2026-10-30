@@ -4,7 +4,6 @@
 
 using System;
 using System.Buffers;
-using System.IO;
 using System.Text;
 using System.Collections.Generic;
 using System.Threading;
@@ -257,7 +256,8 @@ public sealed class ValidationProjection : IProjection
     /// Writes the projection's state to <paramref name="store"/>, the local
     /// cache's derived store (ADR 0174), under
     /// <c>validation/{enc(binding)}/</c>, and deletes the older states there.
-    /// Its position is written with its state, in one blob.
+    /// Its position is written with its state, in one blob, in the dataset's
+    /// checked envelope (ADR 0213).
     /// </summary>
     public async ValueTask SaveAsync(IDerivedStore store, CancellationToken cancellationToken)
     {
@@ -300,11 +300,7 @@ public sealed class ValidationProjection : IProjection
         }
 
         BlobName name = new(ProjectionSnapshot.Name(Binding, position));
-        await using (IBlobWriter writer = await store.CreateAsync(name, cancellationToken).ConfigureAwait(false))
-        {
-            await writer.WriteAsync(bytes.WrittenMemory, cancellationToken).ConfigureAwait(false);
-            await writer.PublishAsync(cancellationToken).ConfigureAwait(false);
-        }
+        await _dataset.WriteCheckedAsync(store, name, new Position(position), bytes.WrittenMemory, cancellationToken).ConfigureAwait(false);
 
         string directory = ProjectionSnapshot.Directory(Binding);
         foreach (BlobName existing in await store.ListAsync(cancellationToken).ConfigureAwait(false))
@@ -318,10 +314,11 @@ public sealed class ValidationProjection : IProjection
 
     /// <summary>
     /// Reads the newest state <see cref="SaveAsync"/> wrote for this binding
-    /// to <paramref name="store"/>: whether one was read. A state for another
-    /// binding's identity or format, above the dataset's head, or that does
-    /// not read is ignored, and the projection stays as it was — empty on a
-    /// cold start, to be rebuilt from the log.
+    /// to <paramref name="store"/>: whether one was read. A state that does
+    /// not verify (ADR 0213), that is bound to another dataset or commit, for
+    /// another binding's identity or format, or that does not read is a
+    /// miss, and the projection stays as it was — empty on a cold start, to
+    /// be rebuilt from the log.
     /// </summary>
     public async ValueTask<bool> LoadAsync(IDerivedStore store, CancellationToken cancellationToken)
     {
@@ -341,15 +338,12 @@ public sealed class ValidationProjection : IProjection
             return false;
         }
 
-        byte[] bytes;
-        using (IReadableBlob blob = await store.OpenAsync(name, cancellationToken).ConfigureAwait(false))
+        if (await _dataset.TryReadCheckedAsync(store, name, cancellationToken).ConfigureAwait(false) is not { } content)
         {
-            bytes = new byte[checked((int)blob.Length.Value)];
-            if (blob.Read(new ByteOffset(0), bytes) != bytes.Length)
-            {
-                return false;
-            }
+            return false;
         }
+
+        byte[] bytes = content.Bytes.ToArray();
 
         List<Row> rows = [];
         List<(long Start, ValidationReport? Header)> generations = [];
@@ -357,7 +351,7 @@ public sealed class ValidationProjection : IProjection
         try
         {
             ProjectionSnapshot.Reader reader = new(bytes);
-            if (!reader.Header(Binding, out position, out floor) || position > _dataset.Head.Value || floor > position)
+            if (!reader.Header(Binding, out position, out floor) || position != content.Position.Value || floor > position)
             {
                 return false;
             }
@@ -382,12 +376,10 @@ public sealed class ValidationProjection : IProjection
                 return false;
             }
         }
-        catch (InvalidDataException)
+        catch (Exception error) when (error is not OperationCanceledException)
         {
-            return false;
-        }
-        catch (ArgumentException)
-        {
+            // Bytes that verified and still do not decode are a miss as
+            // well, never an error (ADR 0213).
             return false;
         }
 

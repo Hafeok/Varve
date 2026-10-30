@@ -233,3 +233,13 @@ WCAG technique for a focusable scrolling area uses.
 
 **Held:** the rule's third check finds one type on main: `BearerToken.Fixed`
 returns a `BearerTokenProvider`. That was put to the maintainer.
+
+### Acceptance, 2026-10-28
+
+A later session (Claude Code, model `claude-fable-5-1`), on the maintainer's
+instruction to accept every filed decision, added `accepted-by` and
+`accepted-at` to the eight keys of `the-web-ui-design-source` (ADR 0206),
+which had landed on main unaccepted in its docs-only pull request. The
+acceptance is the maintainer's, who had read them; the session only wrote
+it at their direction, in a pull request of its own from main. The ADR's
+status text and the index row are left as filed, as for ADRs 0127–0133.

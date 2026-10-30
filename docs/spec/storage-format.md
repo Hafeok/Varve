@@ -308,16 +308,20 @@ Recovery writes nothing else, and rewrites nothing.
 
 A derived file is written as a stream, so what describes it comes last: its
 **contents**, then its **directory**, then the **derived header**, which is the
-file's last 160 bytes. A file is published by a temporary file, a flush and a
-rename (ADR 0071, ADR 0073), so a reader never sees one half written.
+file's last 160 bytes. A file is published by a temporary file and a rename
+(ADR 0071, ADR 0073), so a reader never sees one half written. It is flushed
+before the rename unless its own header says version 6 of a checked kind
+(§7.1): such a file verifies every block before it is used, and a reader that
+does not read version 6 finds it a miss, so a power loss that tears it costs a
+rebuild, never an answer (ADR 0213).
 
 ### 7.1 Derived header — the last 160 bytes
 
 | Offset | Size | Field |
 |---:|---:|---|
 | 0 | 4 | magic `VRVD` |
-| 4 | 2 | derived format version: `5` for an extent, `4` for every other kind; `2` and `3` are read (§7.2), and `4` for an extent (§7.5) |
-| 6 | 2 | kind: `1` run, `2` checkpoint, `3` projection state, `4` commit index, `5` graph-version index, `6` extent, `7` extent dictionary, `8` catalog |
+| 4 | 2 | derived format version: `6` for a checked kind, `5` for an extent, `4` for the others; `2` to `4` are read (§7.2), `4` for an extent (§7.5), and `4` for a set's dictionary and commit index (§7.5) |
+| 6 | 2 | kind: `1` run, `2` checkpoint, `3` projection state, `4` commit index, `5` graph-version index, `6` extent, `7` extent dictionary, `8` catalog, `9` checked envelope (§7.7) |
 | 8 | 16 | dataset id |
 | 24 | 8 | from position: a run or a commit index blob covers the commits after it; 0 for the others |
 | 32 | 8 | to position |
@@ -328,9 +332,22 @@ rename (ADR 0071, ADR 0073), so a reader never sees one half written.
 | 120 | 8 | reserved |
 | 128 | 32 | self-hash of bytes 0–127 |
 
+The **checked kinds** are `1`, `2`, `4`, `7` and `9`; they are written in
+version 6 (ADR 0213), where every block of the file has a 64-bit check (§7.5's
+check function) and a block is verified before any byte of it is used. A
+version-6 file is laid out as its kind's version-4 file, with the checks
+added where each section says.
+
 A derived file is used only if its header and directory verify, its version is
-2 to 4 — or 5, for an extent — its kind is the one expected, its dataset id is the log's, and its *to
-position*'s header hash is the log's. Otherwise it is a cache miss.
+one this build reads — 6 for a checked kind, 5 or 4 for an extent, 2 to 4 for
+the unchecked kinds — its kind is the one expected, its dataset id is the
+log's, and its *to position*'s header hash is the log's. Otherwise it is a
+cache miss. A run, checkpoint or local commit index below version 6 is a miss
+(ADR 0213 point 7); a set's dictionary and commit index are read in version 4
+too, since an object store's followers of an earlier build read them, and
+then they are unchecked. A block found damaged after the file was opened is a
+miss too: that part of the read is answered from the log, and the set is
+written again by the writer (ADR 0213 point 4).
 
 ### 7.2 Runs and checkpoints
 
@@ -397,14 +414,18 @@ section, and a reader looks up its index for every key.
 | 8 | the blank counter at the run's *to position* |
 | 8 | version 3: the filter's offset, the index's end |
 | 8 | version 3: the filter's length; the filter ends at the directory |
+| 8 × Σ blocks | version 6, before the term words: **key-block checks**, one a block, section by section |
+| 8 × pages | version 6, after the term words: **page checks**, one for each 4096 bytes of the term section — its entries, offsets, hash index and filter, from the entries' offset to the filter's end; the last page may be shorter |
 
 A reader holds the fences and block starts in memory — 40 bytes per 128 keys —
 and the filter — eight bits a term — and reads a block at a time through the
 synchronous blob read; a term by id is two offsets and an entry, a term by key
 a filter probe and, when it may be there, a window of the index and the
-entries its hash names. Keys and entries are verified by their directory's placement,
-not hashed one by one: a derived file torn by a crash is never published, and
-bit rot in a published one is outside 6a and 6c.
+entries its hash names. In version 6 a key block is verified against its
+check when it is read, and a page of the term section the first time any read
+touches it. Below version 6, keys and entries are verified only by their
+directory's placement; only a set's shared dictionary is still read that way
+(§7.5).
 
 Names: a run is `index/runs/<from>-<to>.<n>`, positions in twenty digits and
 `n` a sequence number never reused; a checkpoint is `checkpoints/<P>`.
@@ -437,8 +458,9 @@ contents are its directory, at offset 0, little-endian:
 | 8 | entry count |
 | 16 per entry | `u64` graph id, `u64` the position of the last commit that touched it |
 
-Entries are sorted by graph id, so one graph's version is a binary search of
-a few small reads. `index/graphs` is written at the head by maintenance;
+Entries are sorted by graph id. A lookup reads the directory whole and
+verifies its SHA-256 against the header before it searches it (ADR 0213);
+the index is small, a few megabytes at the most graphs a dataset holds. `index/graphs` is written at the head by maintenance;
 `checkpoints/<P>.graphs` after the checkpoint at `P`, and deleted before it
 when the checkpoint is dropped, so a crash leaves a checkpoint without its
 index, never the reverse; opening deletes any `<P>.graphs` whose checkpoint
@@ -470,12 +492,14 @@ The directory follows the entries, at *directory offset* = 80 × the count:
 | 4 | entries per block, `128` |
 | 8 | the count, *to position* − *from position* |
 | 8 per block | the first timestamp of each block |
+| 8 per block | version 6: the check of each block's entries (§7.5's check function) |
 
 The header's hash at *to position* is the last entry's header hash. A blob is
 used only as §7.1 says and if its last entry's hash is the header's; on open,
 the blobs that continue the chain from position 0 are compared entry by entry
 with the log, and the index is rebuilt from the log from the first that
-differs. The newest entries are not in a blob but in memory; the blobs are
+differs. A version-6 blob is verified whole, every block against its check,
+when it is loaded. The newest entries are not in a blob but in memory; the blobs are
 merged, so there are few. The *n* is a sequence number.
 
 ### 7.5 Extents — `derived/extents/<from>-<to>.<n>/`
@@ -488,9 +512,9 @@ sequence, never reused:
 | File | Kind | |
 |---|---|---|
 | `order0` … `order5` | 6 | the extent of order *k* |
-| `terms` | 7 | the window's dictionary: a run (§7.2) whose twelve key sections are empty, and whose term section holds the canonical ids allocated in the window |
+| `terms` | 7 | the window's dictionary: a run (§7.2) whose twelve key sections are empty, and whose term section holds the canonical ids allocated in the window; version 6, or 4, unchecked, while a reader record says `maxDerived` below 6 (§8.1) |
 | `graphs` | 5 | the graph-version index at *to* (§7.3a) |
-| `commits` | 4 | optional: the commit index of the window, the entries after *from* up to *to* (§7.4); absent from a set written before milestone Extent maintenance (ADR 0161) |
+| `commits` | 4 | optional: the commit index of the window, the entries after *from* up to *to* (§7.4); absent from a set written before milestone Extent maintenance (ADR 0161); in the same version as `terms` |
 
 An **extent** of order *k* is laid out as a run (§7.2): the key sections —
 only order *k*'s two of the twelve are not empty, and in version 5 a
@@ -611,6 +635,33 @@ On an object store, the object `derived/catalog` holds the file behind a
 12-byte wrapper — magic `VRVK`, then the writer's epoch as an `i64` — and an
 object whose file part is empty stands for no catalog (ADR 0136, ADR 0139).
 
+### 7.7 Checked envelope — kind 9
+
+Version 6 (ADR 0213): the bytes of a projection kept outside the store, such
+as the validation projection's snapshot (ADR 0174), written and read through
+`Dataset.WriteCheckedAsync` and `Dataset.TryReadCheckedAsync`. *To position*
+is the position the bytes were built at and *to hash* the log's header hash
+there; *from position* is 0. The contents are the bytes, at offset 0. The
+directory follows them:
+
+| Size | Field |
+|---|---|
+| 8 | the bytes' length, the directory's offset |
+| 8 per block | the check of each 65,536 bytes of them; the last block may be shorter |
+
+An envelope is read whole and every block verified, or not at all: one that
+does not verify, of another dataset, or bound to a position whose header hash
+the log does not hold, is a miss, and the projection is rebuilt from the log.
+
+### 7.8 A bulk load's spills — `derived/bulk/<load>/`
+
+A bulk load's temporary blobs (ADR 0081, ADR 0108), deleted when it ends,
+whatever their layout. The load keeps a check of each 4096 bytes of every
+spill in memory as it writes it, never in the blob, and verifies each page
+the first time it reads it. A spill that does not verify, or is not the
+length it was written at, ends the load before its commit:
+`load-spill-damaged` (ADR 0213).
+
 ## 8. Coordination state in an object store
 
 Objects beside `log/` and `derived/` under a dataset's prefix that instances
@@ -649,6 +700,10 @@ a command-line read — named by its reader id: 1 to 128 ASCII letters, digits,
   no format-4 extent set, and a merge or split of format-4 sets writes format
   4 (ADR 0178); a record of another `format` counts as `4`. Adding the field
   leaves the record format 1.
+- **While a present record's `maxDerived` is below 6**, a set's `terms` and
+  `commits` are written in version 4, and the writer rewrites no set for its
+  version-4 blobs; once none is, maintenance rewrites them in version 6, the
+  oldest set first (ADR 0213). This build's records say `6`.
 
 
 ### 8.2 Writer record — `writer`, format 1
