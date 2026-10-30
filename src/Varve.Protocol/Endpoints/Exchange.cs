@@ -154,6 +154,18 @@ internal sealed class Exchange
     }
 
     /// <summary>
+    /// The graphs the caller reads in <paramref name="view"/>, whatever rows
+    /// it sees in them: what the service description lists (ADR 0237 point
+    /// 3). A readable graph whose quads are all hidden by rows is still
+    /// listed, as the Graph Store answers it as an empty graph (point 2);
+    /// a row-restricted caller is listed no report graph (point 6).
+    /// </summary>
+    internal IQuadSource ReadableGraphs(DatasetView view) =>
+        !Scope.ReadableRows.IsAll && Options.RowClassifications?.Classifier(Name) is not null
+            ? GraphScopedQuadSource.Wrap(view, Scope.Readable)
+            : Readable(view);
+
+    /// <summary>
     /// <paramref name="view"/> with only the rows the caller reads, its graphs
     /// unscoped: what a Graph Store write of a graph it may write retracts
     /// (ADR 0236, W5). The view itself when the caller reads every row.

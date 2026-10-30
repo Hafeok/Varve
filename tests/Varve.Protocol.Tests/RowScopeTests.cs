@@ -35,7 +35,7 @@ namespace Varve.Protocol.Tests;
 /// the same whether or not the quads it cannot see are there; and the access
 /// route answers an admin the quads about a subject.
 /// </summary>
-public class RowScopeTests
+public partial class RowScopeTests
 {
     /// <summary>Generated cases per run on the land gate; ten times as many in the nightly <c>long</c> job.</summary>
     internal static readonly int Iterations = Environment.GetEnvironmentVariable("VARVE_LONG_PROPERTIES") is null ? 80 : 800;
@@ -369,14 +369,14 @@ public class RowScopeTests
         /// <summary>Whether a read catches the projection up first; off, a read above it is behind.</summary>
         internal bool KeepUp { get; init; } = true;
 
-        internal async Task<(string Name, Dataset Dataset, RowScope Scope)> AddAsync(IReadOnlyList<string> quads, int set, bool writes = false)
+        internal async Task<(string Name, Dataset Dataset, RowScope Scope)> AddAsync(IReadOnlyList<string> quads, int set, bool writes = false, bool unrestricted = false)
         {
             Dataset dataset = await P.NewDatasetAsync();
             await CommitAsync(dataset, [ShapesText]);
             await CommitAsync(dataset, [.. quads]);
             RowScope scope = Scope(set);
             string name = "r" + Interlocked.Increment(ref _next).ToString(CultureInfo.InvariantCulture);
-            CallerScope caller = new(GraphScope.All, writes ? GraphScope.All : GraphScope.None, scope, writes ? scope : RowScope.All, AdminAccess.None);
+            CallerScope caller = unrestricted ? CallerScope.Everything : new(GraphScope.All, writes ? GraphScope.All : GraphScope.None, scope, writes ? scope : RowScope.All, AdminAccess.None);
             ClassificationProjection projection = new(dataset, Binding);
             await dataset.CatchUpAsync(projection, P.Ct);
 
@@ -396,6 +396,14 @@ public class RowScopeTests
         }
 
         internal void Remove(string name) => Datasets.Remove(name);
+
+        /// <summary>The same dataset under a second name, for a caller who reads every graph and every row.</summary>
+        internal string Alias(string name)
+        {
+            string alias = "u" + name;
+            Datasets.Add(alias, Entry(name).Dataset, CallerScope.Everything);
+            return alias;
+        }
 
         public CallerScope ScopesOf(ClaimsPrincipal caller, DatasetName dataset) =>
             dataset.Value.StartsWith('r') && TryEntry(dataset.Value, out var entry) ? entry.Scope : CallerScope.Everything;
