@@ -75,9 +75,14 @@ public class PropertyTests
             .Select(t => new XsdDateTime(
                 t.Item1, t.Item2, Math.Min(t.Item3, DaysInMonth(t.Item1, t.Item2)), t.Item4, t.Item5, t.Item6, t.Item7));
 
-    /// <summary>Years the runtime's calendar covers, whole seconds, always timezoned: the oracle's domain.</summary>
+    /// <summary>
+    /// The oracle's domain: whole seconds, always timezoned, in the years whose
+    /// every timezoned instant the runtime's calendar holds. Years 1 and 9999
+    /// are out: with an offset up to fourteen hours, their first and last
+    /// hours fall outside <see cref="DateTimeOffset"/>'s range in UTC.
+    /// </summary>
     private static readonly Gen<XsdDateTime> OracleDateTime =
-        Gen.Select(Gen.Int[1, 9999], Gen.Int[1, 12], Gen.Int[1, 31], Gen.Int[0, 23], Gen.Int[0, 59], Gen.Int[0, 59], Gen.Int[-840, 840])
+        Gen.Select(Gen.Int[2, 9998], Gen.Int[1, 12], Gen.Int[1, 31], Gen.Int[0, 23], Gen.Int[0, 59], Gen.Int[0, 59], Gen.Int[-840, 840])
             .Select(t => new XsdDateTime(
                 t.Item1, t.Item2, Math.Min(t.Item3, DaysInMonth(t.Item1, t.Item2)), t.Item4, t.Item5, XsdDecimal.FromInt64(t.Item6), t.Item7));
 
