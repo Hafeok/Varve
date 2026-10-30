@@ -81,6 +81,9 @@ Both must be declarative, applied by `varve apply`, and checked by shapes
    - A plan that **widens** a grantee's subject set, by removing a subject
      term or a binding, says so, as ADR 0190 point 5 does for
      dataset-public graphs.
+   - For each binding, the plan lists the graphs a row-restricted grantee
+     reads that lie outside every binding. Their quads are governed by graph
+     alone, so a subject's IRI there is shown (ADR 0230 point 5).
 6. **Shapes.** `shapes/management.ttl` states the cardinalities and kinds
    above. The residual code check keeps P1 to P5, which compare
    declarations, and template syntax (ADR 0175).

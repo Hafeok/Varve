@@ -292,3 +292,93 @@ Varve.Rdf.GraphScope.Governor.get -> Varve.Rdf.GraphGovernor?
 Varve.Rdf.GraphScope.WithGovernor(Varve.Rdf.GraphGovernor! governor) -> Varve.Rdf.GraphScope!
 virtual Varve.Rdf.GraphGovernor.Invoke(Varve.Rdf.RdfTerm! graph, out Varve.Rdf.RdfTerm? governor) -> bool
 Varve.Rdf.GraphScope.Prefixes.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Rdf.BindingIndex
+Varve.Rdf.BindingIndex.BindingIndex() -> void
+Varve.Rdf.BindingIndex.BindingIndex(int Value) -> void
+Varve.Rdf.BindingIndex.Deconstruct(out int Value) -> void
+Varve.Rdf.BindingIndex.Equals(Varve.Rdf.BindingIndex other) -> bool
+Varve.Rdf.BindingIndex.IsNone.get -> bool
+Varve.Rdf.BindingIndex.Value.get -> int
+Varve.Rdf.BindingIndex.Value.init -> void
+Varve.Rdf.CallerScope.CallerScope(Varve.Rdf.GraphScope! readable, Varve.Rdf.GraphScope! writable, Varve.Rdf.RowScope! readableRows, Varve.Rdf.RowScope! writableRows, Varve.Rdf.AdminAccess admin) -> void
+Varve.Rdf.CallerScope.ReadableRows.get -> Varve.Rdf.RowScope!
+Varve.Rdf.CallerScope.WritableRows.get -> Varve.Rdf.RowScope!
+Varve.Rdf.IRowClassification
+Varve.Rdf.IRowClassification.BindingOf(Varve.Rdf.TermHandle graph) -> Varve.Rdf.BindingIndex
+Varve.Rdf.IRowClassification.Bindings.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Rdf.IRowClassification.IsPublicLink(Varve.Rdf.BindingIndex binding, Varve.Rdf.TermHandle predicate) -> bool
+Varve.Rdf.IRowClassification.Members(Varve.Rdf.BindingIndex binding, Varve.Rdf.SubjectSetId set) -> System.ReadOnlySpan<Varve.Rdf.TermHandle>
+Varve.Rdf.IRowClassification.SubjectsOf(Varve.Rdf.BindingIndex binding, Varve.Rdf.TermHandle node) -> Varve.Rdf.SubjectSetId
+Varve.Rdf.RowNotWritableException
+Varve.Rdf.RowNotWritableException.RowNotWritableException() -> void
+Varve.Rdf.RowNotWritableException.RowNotWritableException(string! message) -> void
+Varve.Rdf.RowNotWritableException.RowNotWritableException(string! message, System.Exception! innerException) -> void
+Varve.Rdf.RowScope
+Varve.Rdf.RowScope.Bindings.get -> System.Collections.Generic.IEnumerable<Varve.Rdf.RdfTerm!>!
+Varve.Rdf.RowScope.For(Varve.Rdf.RdfTerm! binding) -> Varve.Rdf.SubjectScope!
+Varve.Rdf.RowScope.IsAll.get -> bool
+Varve.Rdf.RowScopedQuadSource
+Varve.Rdf.RowScopedQuadSource.Allows(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.RowScopedQuadSource.Contains(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.RowScopedQuadSource.Estimate(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.CardinalityEstimate
+Varve.Rdf.RowScopedQuadSource.Match(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object, Varve.Rdf.GraphPattern graph) -> Varve.Rdf.IQuadCursor!
+Varve.Rdf.RowScopedQuadSource.RowScopedQuadSource(Varve.Rdf.IQuadSource! inner, Varve.Rdf.IRowClassification! rows, Varve.Rdf.RowScope! scope) -> void
+Varve.Rdf.RowScopedQuadSource.Scope.get -> Varve.Rdf.RowScope!
+Varve.Rdf.RowScopedQuadSource.TermComparer.get -> System.Collections.Generic.IEqualityComparer<Varve.Rdf.TermHandle>!
+Varve.Rdf.RowScopedQuadSource.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
+Varve.Rdf.RowScopedQuadSource.TryGetInlineValue(Varve.Rdf.TermHandle handle, out Varve.Rdf.InlineValue value) -> bool
+Varve.Rdf.RowScopedQuadSource.TryGetTripleTermComponents(Varve.Rdf.TermHandle handle, out Varve.Rdf.TermHandle subject, out Varve.Rdf.TermHandle predicate, out Varve.Rdf.TermHandle object) -> bool
+Varve.Rdf.RowScopedQuadSource.TryInternalise(Varve.Rdf.RdfTerm! term, out Varve.Rdf.TermHandle handle) -> bool
+Varve.Rdf.RowWriteRule
+Varve.Rdf.RowWriteRule.Check(System.ReadOnlySpan<Varve.Rdf.Quad> asserted, System.ReadOnlySpan<Varve.Rdf.Quad> retracted) -> void
+Varve.Rdf.RowWriteRule.RowWriteRule(Varve.Rdf.IQuadSource! before, Varve.Rdf.IRowClassification! beforeRows, Varve.Rdf.IQuadSource! after, Varve.Rdf.IRowClassification! afterRows, Varve.Rdf.RowScope! readable, Varve.Rdf.RowScope! writable) -> void
+Varve.Rdf.RowWriteRule.SeesBefore(in Varve.Rdf.Quad quad) -> bool
+Varve.Rdf.SubjectLink
+Varve.Rdf.SubjectLink.Deconstruct(out Varve.Rdf.RdfTerm! Predicate, out Varve.Rdf.RdfTerm! Target) -> void
+Varve.Rdf.SubjectLink.Equals(Varve.Rdf.SubjectLink other) -> bool
+Varve.Rdf.SubjectLink.Predicate.get -> Varve.Rdf.RdfTerm!
+Varve.Rdf.SubjectLink.Predicate.init -> void
+Varve.Rdf.SubjectLink.SubjectLink() -> void
+Varve.Rdf.SubjectLink.SubjectLink(Varve.Rdf.RdfTerm! Predicate, Varve.Rdf.RdfTerm! Target) -> void
+Varve.Rdf.SubjectLink.Target.get -> Varve.Rdf.RdfTerm!
+Varve.Rdf.SubjectLink.Target.init -> void
+Varve.Rdf.SubjectScope
+Varve.Rdf.SubjectScope.AllowsByName(Varve.Rdf.RdfTerm! subject) -> bool
+Varve.Rdf.SubjectScope.Classes.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Rdf.SubjectScope.HasRules.get -> bool
+Varve.Rdf.SubjectScope.IsAll.get -> bool
+Varve.Rdf.SubjectScope.Links.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.SubjectLink>!
+Varve.Rdf.SubjectScope.MayCreate(Varve.Rdf.RdfTerm! iri) -> bool
+Varve.Rdf.SubjectScope.Subjects.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Rdf.SubjectScope.Union(Varve.Rdf.SubjectScope! other) -> Varve.Rdf.SubjectScope!
+Varve.Rdf.SubjectSetId
+Varve.Rdf.SubjectSetId.Deconstruct(out int Value) -> void
+Varve.Rdf.SubjectSetId.Equals(Varve.Rdf.SubjectSetId other) -> bool
+Varve.Rdf.SubjectSetId.IsNone.get -> bool
+Varve.Rdf.SubjectSetId.SubjectSetId() -> void
+Varve.Rdf.SubjectSetId.SubjectSetId(int Value) -> void
+Varve.Rdf.SubjectSetId.Value.get -> int
+Varve.Rdf.SubjectSetId.Value.init -> void
+override Varve.Rdf.BindingIndex.GetHashCode() -> int
+override Varve.Rdf.SubjectLink.GetHashCode() -> int
+override Varve.Rdf.SubjectSetId.GetHashCode() -> int
+static Varve.Rdf.BindingIndex.None.get -> Varve.Rdf.BindingIndex
+static Varve.Rdf.BindingIndex.operator !=(Varve.Rdf.BindingIndex left, Varve.Rdf.BindingIndex right) -> bool
+static Varve.Rdf.BindingIndex.operator ==(Varve.Rdf.BindingIndex left, Varve.Rdf.BindingIndex right) -> bool
+static Varve.Rdf.RowScope.All.get -> Varve.Rdf.RowScope!
+static Varve.Rdf.RowScope.Of(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Varve.Rdf.RdfTerm!, Varve.Rdf.SubjectScope!>>! restrictions) -> Varve.Rdf.RowScope!
+static Varve.Rdf.RowScopedQuadSource.Wrap(Varve.Rdf.IQuadSource! inner, Varve.Rdf.IRowClassification! rows, Varve.Rdf.RowScope! scope) -> Varve.Rdf.IQuadSource!
+static Varve.Rdf.SubjectLink.operator !=(Varve.Rdf.SubjectLink left, Varve.Rdf.SubjectLink right) -> bool
+static Varve.Rdf.SubjectLink.operator ==(Varve.Rdf.SubjectLink left, Varve.Rdf.SubjectLink right) -> bool
+static Varve.Rdf.SubjectScope.All.get -> Varve.Rdf.SubjectScope!
+static Varve.Rdf.SubjectScope.None.get -> Varve.Rdf.SubjectScope!
+static Varve.Rdf.SubjectScope.Of(System.ReadOnlySpan<Varve.Rdf.RdfTerm!> subjects, System.ReadOnlySpan<string!> prefixes, System.ReadOnlySpan<Varve.Rdf.RdfTerm!> classes, System.ReadOnlySpan<Varve.Rdf.SubjectLink> links, System.ReadOnlySpan<string!> createUnder) -> Varve.Rdf.SubjectScope!
+static Varve.Rdf.SubjectSetId.None.get -> Varve.Rdf.SubjectSetId
+static Varve.Rdf.SubjectSetId.operator !=(Varve.Rdf.SubjectSetId left, Varve.Rdf.SubjectSetId right) -> bool
+static Varve.Rdf.SubjectSetId.operator ==(Varve.Rdf.SubjectSetId left, Varve.Rdf.SubjectSetId right) -> bool
+~override Varve.Rdf.BindingIndex.Equals(object obj) -> bool
+~override Varve.Rdf.BindingIndex.ToString() -> string
+~override Varve.Rdf.SubjectLink.Equals(object obj) -> bool
+~override Varve.Rdf.SubjectLink.ToString() -> string
+~override Varve.Rdf.SubjectSetId.Equals(object obj) -> bool
+~override Varve.Rdf.SubjectSetId.ToString() -> string

@@ -105,11 +105,21 @@ before this milestone means what it meant**. A grant's subject sets are ADR
 
 ### 5. What a hidden row's IRI is
 
-**No response to C carries the IRI or blank node label of a classified node
-whose subjects are not all in S_B(C), unless a quad under a public link
-names it.** The node's own row is hidden by subjects_p(s). Every quad whose
-object is that node is hidden by point 2's object half. A triple term
-carrying it is hidden by its components.
+**No quad of a classified graph shown to C carries the IRI or blank node
+label of a classified node whose subjects are not all in S_B(C), unless the
+quad is under a public link.** The node's own row is hidden by
+subjects_p(s). Every quad whose object is that node is hidden by point 2's
+object half. A triple term carrying it is hidden by its components.
+
+**A graph outside every Γ_B is governed by its graph alone**, so a quad
+there that names a classified node is shown to every reader of that graph.
+That is the boundary of a classifier binding, stated rather than hidden. An
+operator who wants a subject's IRI hidden everywhere classifies every graph
+that can name it. `varve apply --plan` lists, per binding, the readable
+graphs it leaves outside (ADR 0234 point 5). So the property's case reads:
+no response reveals the IRI of a subject whose row the caller can't read,
+unless a declared public link names it **or a graph outside every classifier
+binding holds it**.
 
 ### 6. Determinism
 
@@ -129,7 +139,7 @@ ADR 0237:
 - **no more:** no response carries an IRI, literal or label that occurs only
   in quads the caller does not see. In particular, it carries no IRI of a
   classified node outside the caller's subject set, unless a public link
-  names it (point 5);
+  names it or a graph outside every binding holds it (point 5);
 - **no less:** each answer equals the same request over the sub-dataset of
   the quads the caller sees, computed from scratch by point 4 over a
   from-scratch classification.
