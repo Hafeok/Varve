@@ -720,7 +720,9 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
     /// it adopts every chunk the writer it followed made, by the same probe a
     /// refresh makes, then takes <paramref name="epoch"/>, already claimed in
     /// the writer record, and fences the next slot with it, as a writer's open
-    /// does. A fence that finds a later epoch leaves it superseded.
+    /// does. A fence that finds a later epoch leaves it superseded. When the
+    /// newest segment is consolidated, it lists the log and reads its tail,
+    /// as the write-open does, so both reach one verdict (#181).
     /// </summary>
     public async ValueTask ClaimInPlaceAsync(long epoch, CancellationToken cancellationToken)
     {
@@ -731,10 +733,36 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
 
         ArgumentOutOfRangeException.ThrowIfLessThan(epoch, 1L);
         await RefreshAsync(cancellationToken).ConfigureAwait(false);
+        bool consolidated;
 
         lock (_lock)
         {
             _epoch = epoch;
+            consolidated = _segments.Count > 0 && _segments[^1].Consolidated;
+        }
+
+        // The refresh holds no listing, and a consolidated segment no chunk:
+        // the listing comes after the refresh, so it holds every chunk the
+        // refresh adopted that has not been deleted since.
+        if (consolidated)
+        {
+            IReadOnlyList<ObjectEntry> entries = await _store.ListAsync(_names.Log, cancellationToken).ConfigureAwait(false);
+            List<(int Segment, int Chunk)> listed = [];
+
+            foreach (ObjectEntry entry in entries)
+            {
+                if (_names.TryParse(entry.Name, out int segment, out int chunk) && chunk >= 0)
+                {
+                    listed.Add((segment, chunk));
+                }
+            }
+
+            long tail = await ListedTailEpochAsync(_store, _names, [.. listed], cancellationToken).ConfigureAwait(false);
+
+            lock (_lock)
+            {
+                _listedTail = tail;
+            }
         }
 
         await FenceAsync(cancellationToken).ConfigureAwait(false);

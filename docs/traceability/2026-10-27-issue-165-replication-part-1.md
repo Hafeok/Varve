@@ -717,8 +717,34 @@ the pricing pages.
   1 shipped, part 2's scope) and storage format §8.2 (the writer record, which
   the spec left to ADR 0136) are current. `eng/status.cs` passes.
 - **Still to do before this lands:**
-  - merging `main` once #185 lands, with the in-place claim's listing for a
-    consolidated tail;
   - `commit-outcome-unknown` once ADR 0214 is on `main`;
   - the maintainer's acceptance of the amendment of 2026-10-28;
   - the kubeconform mirror.
+
+### #185 merged in, and the in-place claim's listing
+
+> #185 has landed, so the fence covers a consolidated last segment on main. Merge main into #175, add the log listing to the in-place claim for a log whose newest segment is consolidated (it must reach the same verdict as the write-open's fence), and add its test. Rerun HandoverScheduleTests at nightly depth, then post the new head.
+
+- **The merge.** #185's fence replaces this branch's own version of it from
+  0119abc: the comparison with `_listedTail` for a consolidated newest
+  segment, and `ListedTailEpochAsync`. Both sides' tests in
+  `ObjectEpochPropertyTests` are kept, and the nightly sets both
+  `VARVE_HANDOVER_SCHEDULES` and `VARVE_FENCE_SCHEDULES`.
+- **The listing.** `ObjectSegmentStore.ClaimInPlaceAsync` refreshes by
+  probing and holds no listing. When its newest segment is consolidated
+  after the refresh, it now lists the log and reads the highest chunk still
+  listed, as the write-open does. The listing comes after the refresh, so it
+  holds every chunk the refresh adopted that was not deleted since.
+- **Its test,**
+  `ClaimInPlaceTests.a_claim_in_place_over_a_segment_a_newer_epoch_sealed_and_consolidated_is_superseded_as_a_write_open_is`.
+  - The follower wins epoch 2 in the record. Before it fences, b claims 3,
+    commits until segment 0 is sealed and consolidated, and stops before it
+    opens segment 1.
+  - It has two arms: the seal's deletes pending, and done.
+  - In both, the follower is superseded and fences nothing in segment 1, as
+    #185's write-open case is.
+  - With the listing removed, the deleted arm fails with "the follower, of
+    epoch 2, fenced the next segment after epoch 3's seal", and the pending
+    arm passes, since its refresh adopts the seal itself.
+- **`HandoverScheduleTests` at nightly depth:** 1,000 schedules ran clean, in
+  73 s.

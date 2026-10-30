@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using CsCheck;
 using Varve.Rdf;
 using Varve.Store.Log;
+using Varve.Store.ObjectStorage;
 using Varve.Store.ObjectStorage.Model;
 using Xunit;
 using Backend = Varve.Store.ObjectStorage.ObjectStorage;
@@ -117,6 +118,107 @@ public sealed class ClaimInPlaceTests
             iter: Schedules,
             print: schedule => Show(schedule.Item1) + " | " + Show(schedule.Item2) + (schedule.Item3 ? " closed" : " stalled"));
     }
+
+    /// <summary>
+    /// The claim in place reaches the write-open's verdict over a log whose
+    /// newest segment is consolidated (ADR 0136 decision 2, #181). The
+    /// follower wins epoch 2 in the record; before it fences, b claims 3,
+    /// commits until segment 0 is sealed and consolidated, and stops before it
+    /// opens segment 1. With the seal's deletes pending, the refresh adopts
+    /// the seal; with them done, it adopts the consolidated segment, which
+    /// holds no chunk, and the claim reads the log's listed tail. Either way
+    /// the follower is superseded, as a write-open of epoch 2 is, and fences
+    /// nothing after epoch 3's seal.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task a_claim_in_place_over_a_segment_a_newer_epoch_sealed_and_consolidated_is_superseded_as_a_write_open_is(bool deleted)
+    {
+        MemoryObjectStore store = new();
+        await using ObjectHarness objects = new(store, waits: new InstantClock(DateTimeOffset.UnixEpoch));
+        await using (Dataset first = await T.OpenOrCreate(await objects.OpenAsync(instance: "first"), Small()))
+        {
+            await first.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s"), T.Iri("p"), T.Iri("o")), T.Ct);
+        }
+
+        Backend followed = await objects.OpenAsync(ObjectStorageAccess.ReadOnly, instance: "f");
+        await using Dataset follower = await Dataset.OpenFollowerAsync(followed, Small(), T.Ct);
+        WriterEpoch from = (await Backend.ReadWriterAsync(store, objects.Prefix, T.Ct))!.Epoch;
+
+        ObjectName writerRecord = new((objects.Prefix is { } prefix ? prefix.Value : string.Empty) + "writer");
+        const string Next = "log/00000001.chunks/00000000";
+        const string Consolidated = "log/00000000.seg";
+        bool armed = true;
+        bool failing = false;
+        Dataset? stopped = null;
+        store.Hook = (operation, name) =>
+        {
+            if (failing && operation == ObjectOperation.Create && name.Value.EndsWith(Next, StringComparison.Ordinal))
+            {
+                throw new System.IO.IOException("The writer of epoch 3 stops before it opens the next segment.");
+            }
+
+            if (!armed || operation is not (ObjectOperation.Create or ObjectOperation.Replace) || name != writerRecord)
+            {
+                return null;
+            }
+
+            // After the follower's claim of epoch 2 lands, before its refresh and fence.
+            armed = false;
+            return () =>
+            {
+                failing = true;
+                stopped = Task.Run(async () =>
+                {
+                    Backend storage = await objects.OpenAsync(instance: "b");
+                    Dataset opened = await Dataset.OpenAsync(storage, Small(), T.Ct);
+
+                    for (int i = 0; await ConditionalWrites.ReadWholeAsync(store, new ObjectName(Prefixed(objects, Consolidated)), T.Ct) is null; i++)
+                    {
+                        Assert.True(i < 100, "segment 0 was never sealed and consolidated");
+
+                        try
+                        {
+                            await opened.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Literal(new string('x', 100))), T.Ct);
+                        }
+                        catch (System.IO.IOException)
+                        {
+                            // The commit after the seal, whose segment b could not open: b stops here.
+                        }
+                    }
+
+                    if (deleted)
+                    {
+                        await storage.MaintainStorageAsync(T.Ct);
+                    }
+
+                    return opened;
+                }).GetAwaiter().GetResult();
+                failing = false;
+            };
+        };
+
+        bool won;
+
+        try
+        {
+            won = await follower.TakeWriteAsync(ct => followed.ClaimInPlaceAsync(new WriterInstance("f"), null, TestRandomness.Instance, ClaimTrigger.Probe, from, ct), T.Ct);
+        }
+        finally
+        {
+            store.Hook = null;
+        }
+
+        await using Dataset b = stopped!;
+        Assert.Equal(from.Value + 2, (await Backend.ReadWriterAsync(store, objects.Prefix, T.Ct))!.Epoch.Value);
+        Assert.True(await ConditionalWrites.ReadWholeAsync(store, new ObjectName(Prefixed(objects, Next)), T.Ct) is null, "the follower, of epoch 2, fenced the next segment after epoch 3's seal");
+        Assert.False(won);
+        Assert.True(followed.IsSuperseded);
+        Assert.True(follower.IsFollower);
+    }
+
+    private static string Prefixed(ObjectHarness objects, string name) => (objects.Prefix is { } prefix ? prefix.Value : string.Empty) + name;
 
     // One step of a history: a commit, a seal's consolidation, a checkpoint,
     // or an advance of the follower beside the writer.
