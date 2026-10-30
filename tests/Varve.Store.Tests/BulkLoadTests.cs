@@ -280,6 +280,34 @@ public class BulkLoadTests
         Assert.DoesNotContain(await storage.Derived.ListAsync(T.Ct), n => n.Value.StartsWith("bulk/", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// A validator that attaches a term rebinds the delta run to the commit
+    /// header that carries it. The run keeps its derived version: a
+    /// version-6 run rebound as version 4 did not read back, and the load
+    /// failed (ADR 0213).
+    /// </summary>
+    [Fact]
+    public async Task a_validator_that_attaches_a_term_commits_the_load_and_it_reopens()
+    {
+        MemoryStorage storage = new();
+        string expected;
+
+        await using (Dataset dataset = await PriorAsync(storage, [[new Op(true, 0, 0, 3, 0)]], [new AttachingValidator()]))
+        {
+            await using (BulkLoad load = await dataset.BeginBulkLoadAsync(Tiny, T.Ct))
+            {
+                Feed(load, [.. Enumerable.Range(0, 20).Select(i => new Op(true, i % 5, i % 3, i % 16, i % 3))]);
+                Assert.Equal(CommitOutcome.Committed, (await load.CommitAsync(new CommitMetadata(), T.Ct)).Outcome);
+            }
+
+            expected = string.Join(" ", T.Terms(dataset.Pin()));
+        }
+
+        await using Dataset reopened = await Dataset.OpenAsync(storage, Options([new AttachingValidator()]), T.Ct);
+        Assert.Equal(2, reopened.Head.Value);
+        Assert.Equal(expected, string.Join(" ", T.Terms(reopened.Pin())));
+    }
+
     [Fact]
     public async Task an_abandoned_load_writes_nothing_and_releases_the_sequencer()
     {
@@ -536,6 +564,19 @@ public class BulkLoadTests
         finally
         {
             await storage.DisposeAsync();
+        }
+    }
+
+    // Accepts, attaching the subject of the delta's first asserted quad.
+    private sealed class AttachingValidator : ICommitValidator
+    {
+        public ValidationVerdict Validate(IQuadSource proposed, QuadDelta delta) => ValidationVerdict.Accept();
+
+        public ValidationVerdict Validate(IQuadSource proposed, BulkDelta delta)
+        {
+            Quad first = T.All(delta.Asserted).First();
+            Assert.True(proposed.TryExternalise(first.Subject, out RdfTerm? subject));
+            return ValidationVerdict.Accept(subject!);
         }
     }
 

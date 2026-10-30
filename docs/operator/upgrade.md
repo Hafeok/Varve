@@ -8,8 +8,13 @@
 - **`derived/` carries its own version and is a cache.** Each build states
   the derived versions it reads; a file of another version is a cache miss
   and is rebuilt from the log (ADR 0072). This build writes extents in
-  **derived format 5** (ADR 0177: a read inside a set seeks it) and every
-  other derived file in format 4, and reads 2 to 4, and 5 for an extent. A
+  **derived format 5** (ADR 0177: a read inside a set seeks it), runs,
+  dictionaries, commit indexes and projections' envelopes in **derived
+  format 6** (ADR 0213: every block checked before it is used), and the
+  small files whose whole directory is hashed in format 4. It reads 2 to 4,
+  5 for an extent and 6 for a checked kind. A run, a checkpoint or a local
+  commit index this machine wrote in format 4 is a miss under this build
+  and is rebuilt once, from the log or from the sets. A
   dataset whose sets an earlier build wrote in format 4 opens as it was:
   reads inside those sets narrow them, as before, until maintenance rewrites
   each, oldest first, when no merge is due and no reader of an earlier build
@@ -43,6 +48,14 @@ order only decides how much log an older follower replays.
   writer's maintenance rewrites the format-4 sets as format 5, the oldest
   first, one a round. `varve storage readers list` shows each record's
   `maxDerived`, so the operator sees what holds the rewrite back.
+- **The same holds for format 6** (ADR 0213). While a present record says
+  `maxDerived` 5 or less — a follower of `v0.1.0-preview.15` or before — a
+  set's dictionary and commit index, which followers read, are written in
+  format 4, as that follower reads them, and stay unchecked; so do the sets
+  already there. Readiness reports them as `uncheckedSets` under
+  `retention`. When no such record remains, maintenance rewrites them in
+  format 6, the oldest first, one a round, and the count falls to 0.
+  Upgrading or forgetting the older followers ends the window.
 - **A writer of an earlier build** (a downgrade) finds the format-5 sets
   cache misses and writes its next checkpoint from the log; the sets it no
   longer names are deleted by the rule of reader records (ADR 0160), as any

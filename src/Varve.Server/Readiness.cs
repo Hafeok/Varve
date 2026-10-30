@@ -93,6 +93,7 @@ internal static class Readiness
             json.WriteNumber("catalogVersion", retention.Version.Value);
             json.WriteNumber("sets", retention.Sets);
             json.WriteNumber("unnamedSets", retention.UnnamedSets);
+            json.WriteNumber("uncheckedSets", retention.UncheckedSets);
             json.WriteNumber("retainedBytes", retention.RetainedBytes);
             json.WriteStartArray("readers");
 

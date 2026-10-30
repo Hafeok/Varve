@@ -138,6 +138,7 @@ public sealed partial class Dataset : IAsyncDisposable
     private readonly TermDictionary _dictionary;
     private LogWriter _writer;
     private readonly StoreMetrics _metrics;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _damaged = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _sequencer = new(1, 1);
     private readonly Lock _signalGate = new();
     private readonly Dictionary<Quad, bool> _pending = [];
@@ -550,6 +551,19 @@ public sealed partial class Dataset : IAsyncDisposable
         {
             IndexVersion within = new(position, inside.Index, inside.Index.Length, inside.Seek);
             TermView insideTerms = state.TermsAt(_dictionary, inside.Terms, position);
+
+            if (inside.Seek is { } seek)
+            {
+                // Damage met in the sought set is answered without it: the
+                // runs below and the log from its start (ADR 0213).
+                Run[] below = inside.Index;
+                ExtentSet set = seek.Set;
+                IndexVersion Below() =>
+                    new(position, [.. below, RebuildFromLog(new BlobName(set.Name), set.From, position, retractions: true)], below.Length + 1);
+
+                return new DatasetView(position, new SoughtSource(within, insideTerms, Below), insideTerms, _metrics.Pinned(inside.Release));
+            }
+
             return new DatasetView(position, new IndexSource(within, insideTerms), insideTerms, _metrics.Pinned(inside.Release));
         }
 
@@ -1049,6 +1063,91 @@ public sealed partial class Dataset : IAsyncDisposable
         }
 
         return (chain.ToDelta(), terms);
+    }
+
+    /// <summary>
+    /// <paramref name="run"/>, a run of <c>derived/</c>, from now on healed
+    /// from the log when a read finds its blob damaged: its window's net
+    /// delta and dictionary entries, read from the log and held in memory
+    /// for as long as the run is (ADR 0213). The blob is quarantined at the
+    /// same moment.
+    /// </summary>
+    [DesignDecision(typeof(VerifiedDerivedData.DamageMidReadIsRerunAndResumed), Scope = ExceptionScope.Boundary)]
+    internal Run Healing(Run run)
+    {
+        if (!run.InMemory)
+        {
+            BlobName name = run.Blob!.Name;
+            long from = run.From;
+            long to = run.To;
+            bool retractions = run.HasRetractions;
+            run.HealWith(() => RebuildFromLog(name, from, to, retractions));
+        }
+
+        return run;
+    }
+
+    /// <summary>The same for a loaded run, which it returns.</summary>
+    internal LoadedRun Healing(LoadedRun loaded)
+    {
+        Healing(loaded.Run);
+        return loaded;
+    }
+
+    /// <summary>
+    /// Writes a projection's bytes, built at <paramref name="position"/> of
+    /// this dataset, to <paramref name="store"/> as <paramref name="name"/>,
+    /// in a checked envelope: every block of 64 KiB checked, bound to this
+    /// dataset and to the commit at the position (ADR 0213). For a projection
+    /// kept in the local cache by a package other than the store's, such as
+    /// the validation projection (ADR 0174).
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="position"/> is above the head.</exception>
+    public ValueTask WriteCheckedAsync(IDerivedStore store, BlobName name, Position position, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken = default) =>
+        CheckedBlob.WriteAsync(store, name, this, position, bytes, cancellationToken);
+
+    /// <summary>
+    /// The bytes <see cref="WriteCheckedAsync"/> wrote as <paramref name="name"/>,
+    /// every block verified, with the position they were built at; or null —
+    /// a miss, never an error — when there is none, when any byte of it is
+    /// damaged, or when it is bound to another dataset or to a commit this
+    /// dataset's log does not hold at that position (ADR 0213).
+    /// </summary>
+    public ValueTask<CheckedContent?> TryReadCheckedAsync(IDerivedStore store, BlobName name, CancellationToken cancellationToken = default) =>
+        CheckedBlob.TryReadAsync(store, name, this, cancellationToken);
+
+    /// <summary>The hash of the header of the commit at <paramref name="position"/>; the genesis hash at 0.</summary>
+    internal byte[] HeaderHashAt(long position) => position == 0 ? LogFormat.Genesis() : _state.Commits.Entry(position).HeaderHash();
+
+    /// <summary>The names of the derived blobs found damaged since the dataset opened (ADR 0213).</summary>
+    internal IReadOnlyCollection<string> Damaged => (IReadOnlyCollection<string>)_damaged.Keys;
+
+    // A blob found damaged: noted, so that maintenance writes what it held
+    // again, and dropped from a cache that keeps a copy of it, so that the
+    // next read fetches it again (ADR 0213).
+    [DesignDecision(typeof(VerifiedDerivedData.DamageMidReadIsRerunAndResumed), Scope = ExceptionScope.Boundary)]
+    private void Quarantine(BlobName name)
+    {
+        if (_damaged.TryAdd(name.Value, 0))
+        {
+            _metrics.Damaged();
+        }
+
+        NoteDamagedSet(name);
+    }
+
+    /// <summary>Test seam: the run of a window rebuilt from the log, as a damaged read rebuilds it.</summary>
+    internal Run RebuildForTests(long from, long to, bool retractions) => RebuildFromLog(new BlobName("test"), from, to, retractions);
+
+    // The run of the window (from, to] from the log: what a run of derived/
+    // holds, since a run is its window's net delta. A run with no
+    // retractions — the oldest, with nothing below it to retract — keeps
+    // none. Read synchronously, by the read that found the damage.
+    private Run RebuildFromLog(BlobName name, long from, long to, bool retractions)
+    {
+        Quarantine(name);
+        (QuadDelta delta, TermSection terms) = NetAsync(_state, from, to, CancellationToken.None).AsTask().GetAwaiter().GetResult();
+        return Run.FromDelta(delta.Asserted, retractions ? delta.Retracted : [], terms, from, to);
     }
 
     private ValueTask<LoggedCommit> ReadLoggedAsync(State state, long position, CancellationToken cancellationToken)

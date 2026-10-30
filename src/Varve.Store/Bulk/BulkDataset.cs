@@ -152,7 +152,7 @@ public sealed partial class Dataset
 
         BlobName runName = new(RunPrefix + head.ToString("D20", CultureInfo.InvariantCulture) + "-" + next.ToString("D20", CultureInfo.InvariantCulture)
             + "." + Interlocked.Increment(ref _runSequence).ToString(CultureInfo.InvariantCulture));
-        await DerivedFormat.WriteRunAsync(_storage.Derived, runName, DerivedFormat.KindRun, Id, head, next, headerHash, commit.SectionAsync, [terms], commit.BlankAfter, cancellationToken).ConfigureAwait(false);
+        await DerivedFormat.WriteRunAsync(_storage.Derived, runName, DerivedFormat.KindRun, Id, head, next, headerHash, commit.SectionAsync, [terms], commit.BlankAfter, cancellationToken, DerivedFormat.CheckedVersion).ConfigureAwait(false);
         await commit.DropOrderAsync(cancellationToken).ConfigureAwait(false);
         LoadedRun delta = await DerivedFormat.TryLoadAsync(_storage.Derived, runName, Id, DerivedFormat.KindRun, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("A bulk load's delta run does not read back.");
@@ -243,6 +243,10 @@ public sealed partial class Dataset
             GraphVersions.DistinctGraphs(runs[^1].Asserted(IndexOrder.Gspo), graphs);
             GraphVersions.DistinctGraphs(runs[^1].Retracted(IndexOrder.Gspo), graphs);
             _state = new State(next, state.Commits.Append(in info, null), index, state.Checkpoints, null, state.Graphs.With(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(graphs), next));
+
+            // Committed, so its window is in the log, and the run heals from
+            // it from now on (ADR 0213); before, damage to it fails the load.
+            Healing(runs[^1]);
             Signal();
             await PersistStateAsync(index, cancellationToken).ConfigureAwait(false);
 

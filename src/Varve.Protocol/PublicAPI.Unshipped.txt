@@ -422,3 +422,4 @@ Varve.Protocol.EventCatalogueValidator.EventCatalogueValidator(Varve.Protocol.Mo
 static Varve.Protocol.EventDeclarationMove.MovingSinceAsync(Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<long?>!
 static Varve.Protocol.Model.ProblemType.StorageFull.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.CommitOutcomeUnknown.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.LoadSpillDamaged.get -> Varve.Protocol.Model.ProblemType
