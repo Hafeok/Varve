@@ -275,6 +275,7 @@ on `main`) sets every depth below.
 | `VARVE_CACHE_DAMAGE_STRIDE` | `Objects.ObjectCacheTests.a_commit_index_blob_cut_short_or_with_its_verified_bytes_zeroed_is_a_miss`: reopens a cache whose commit index blob is cut or has a verified byte zeroed, one case in *n* | 8, from case seed mod 8 (69 of 552 cases) | 1 (all 552) |
 | `VARVE_CACHE_DAMAGE_SEED` | the same: the seed that chooses which eighth | a new one each run | n/a at stride 1 |
 | `VARVE_EXTENT_DAMAGE_STRIDE`, `_SEED` | `ExtentDamageTests.an_order_extent_with_a_byte_zeroed_flipped_or_cut_never_serves_a_different_answer` (#133): a format-5 extent with one byte zeroed, flipped, or the blob cut there, at every position of the middle set's six order extents, opened again from the log and the extents and read at every position by scan and by lookup | 16, from case seed mod 16 (962 of 15,384 cases, about 5 s) | 1 (all, about 42 s) |
+| `VARVE_FENCE_SCHEDULES` | `Objects.ObjectEpochPropertyTests.a_stalled_claimant_never_fences_past_a_newer_epoch_whatever_was_sealed_or_consolidated_meanwhile` (#181): a claimant stalled before its listing or its fence's create, while the next epoch commits, seals, consolidates and deletes, and may stop at any of its writes; the chunks left never fall in epoch, and a holds nothing once the next epoch fenced | 300 schedules, about 3 s | 3,000, about 30 s (run clean at development) |
 
 The nightly run also sets section 7's release-gate depths for Extent
 maintenance: `VARVE_EXTENT_SCHEDULES=400` (40 on a pull request; it sets
