@@ -12,6 +12,154 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.16] - 2026-10-27
+
+**Supply chain transparency — an attested SBOM for every artefact, the dependency gate, a support period**
+
+### Supply chain transparency (#119, in 1.0 by #15)
+
+Every package, the `varve` tool and the container image now ship with an
+SPDX 2.3 SBOM of exactly what they contain. Each SBOM is generated from the
+locked restore, is byte-identical when generated twice, and is attested
+keylessly beside the artefact's build provenance. This descriptor names
+each artefact with its SBOM's SHA-256 under `sbom:`, so the release is the
+auditable unit. A known vulnerability fails the build unless a published
+VEX statement says why Varve is not affected, and `SECURITY.md` states the
+support period. `docs/supply-chain.md` is written for a NIS2 supplier
+assessment and for a manufacturer's due diligence under the Cyber
+Resilience Act. This release closes #119. ADRs 0224 and 0225, and their
+amendments to 0009, 0029, 0102 and 0111, are filed unaccepted and
+accepted on the pull request (ADR 0066).
+
+#### Added
+
+- **An SBOM per shipped artefact** (ADRs 0224, 0225). Each package's SBOM
+  is embedded at `_manifest/spdx_2.3/manifest.spdx.json` and attached to
+  the release, as are the tool's and the image's.
+  - For a library, it lists what a consumer resolves: no third-party
+    package for 24 of them, and eight `Microsoft.Extensions` abstractions
+    for `Varve.Protocol.Client`.
+  - For the tool, the 16 packages it carries.
+  - For the image, each platform's binary with its closure and the .NET
+    runtime, and the base image's OS packages.
+  - Each component carries its package URL, version, SHA-256 and SHA-512,
+    licence and supplier.
+- **Attestations for every package**: SLSA v1 build provenance and the
+  SBOM, through GitHub's OIDC identity. Verify with `gh attestation
+  verify <package> --owner hafeok`.
+  - The release carries the packages exactly as attested, with
+    `SHA256SUMS`.
+  - nuget.org's copy is the same package under nuget.org's own repository
+    signature. CI checks this after every release, entry by entry, and
+    verifies the signature.
+- **The dependency gate checks what was resolved.** Every project
+  restores from a checked-in lockfile, locked in CI. The register gate
+  fails on:
+  - an unadmitted or stale package;
+  - a missing ADR;
+  - a licence outside its scope's allow-list;
+  - a native asset in a shipped closure;
+  - an Action not pinned by SHA;
+  - an audit exemption without its VEX statement.
+
+  Each case has its own broken fixture.
+- **`security/vex.openvex.json`**, attached to every release, empty today:
+  `NuGetAudit` finds no known vulnerability in any resolved package.
+- **Descriptor format 2** (ADR 0102, amended): `sbom:` names every
+  artefact and its SBOM's digest. It is checked on the pull request and
+  again before anything is pushed. Every earlier descriptor stays format 1.
+
+- **The Web UI's design source** (#174, ADR 0206, filed unaccepted):
+  `docs/ui/`, the components, their levels and the markup contract the
+  console (#167) is built to. It is documentation only, and no package
+  changes.
+- **Entailments under graph-level grants** (#95, ADR 0190, amending ADR
+  0107): what a reader may see of a quad that inference adds. It is
+  decided ahead of inference, which this release does not ship. The TBox
+  and rules graphs of a binding are readable by every reader of the
+  dataset.
+- **Cached derived data is verified before use** (#146, #180, ADR 0213).
+  - Every derived kind carries a check per block, and damage is a cache
+    miss: the data is rebuilt from the log, never served.
+  - A read that meets damage partway through is re-run and resumed.
+  - Projections outside the store write through
+    `Dataset.WriteCheckedAsync` and read with `TryReadCheckedAsync`.
+  - The cost at REC M: checkpoints take about 18% longer. A subject's
+    quads read as of a commit inside the largest set is about 8% slower;
+    the other reads stay within 3%.
+- **A full disk, and a write whose outcome is unknown** (#129, #190, ADR
+  0214).
+  - Each request in a failed batch is answered by the log: committed when
+    its commit was closed and flushed, outcome unknown when closed but
+    not confirmed, refused when never closed. The committed requests are
+    a prefix of the batch.
+  - On a full disk the dataset stays open for reads, and a write is
+    answered `507 storage-full`. The next write after space returns
+    recovers the writer without a reopen. Readiness lists the dataset
+    under `writesRefused` and stays ready.
+  - A write whose flush was not confirmed is answered `503
+    commit-outcome-unknown` with its position and request id, and the
+    commits resource settles it.
+  - The storage specification is version 1.9.
+- **The release gate** (#61, ADR 0215): the file backend's faults at full
+  depth on Linux and Windows, and a four-hour soak, judged. A release
+  requires it, and refuses when the latest weekly Windows soak is red or
+  older than eight days.
+
+#### Changed
+
+- **`CommitRequest` is renamed `CommitRequestBuilder` (breaking, #173).**
+  It is a builder its caller assembles and passes once to
+  `Dataset.CommitAsync`, and DD0019 asked for it to be named one. Rename
+  the type at each call site; nothing else about it changed.
+- **DecisionDriven.Analyzers 0.1.0-preview.10** (#173) is build-time
+  only. Commit's carried handles are published once with
+  `CompareExchange`, and a graph-scoped source's prefix decisions are
+  memoised in a `ConcurrentDictionary`. Together these fix a race between
+  concurrent readers that could corrupt the dictionary.
+- **The container's base image is pinned by digest** (ADR 0111, amended).
+- **The SDK rolls forward to its latest patch only** (`global.json`).
+- **`SECURITY.md`'s support period:**
+  - before 1.0, the latest preview;
+  - from 1.0, the latest `1.minor`;
+  - after `2.0.0`, security fixes for `1.x` for 12 months.
+
+  Advisories are GitHub's, with CVE ids.
+
+#### Fixed
+
+- **Object storage** (#126's follow-up):
+  - a segment holding only fence chunks opens;
+  - a reader record whose write was applied but whose answer was lost is
+    not forgotten;
+  - a retired extent set's directory is deleted with its last file
+    (#61).
+  - a writer whose log already ends in a later epoch is superseded
+    before it fences, including when the newest segment is consolidated
+    (#181, ADR 0136 decision 2). Before, the lower epoch could keep the
+    log while the writer record named the higher one. Nothing was lost or
+    written twice.
+- **A binding's report graph, read while its projection was a commit
+  behind** (#183), could answer with no rows, which reads as conforming.
+  It now answers with the report at the position, or `503
+  validation-behind` after one bounded wait (ADR 0174).
+- **A validator's view of a commit names a triple term that the commit
+  creates** (#191, ADR 0022, amended). Before, a term the commit's delta
+  yields could be denied. No read was found that lost an answer. A
+  contract test now runs over every quad source.
+- **An event move's cancel is answered once the management plane has
+  applied it** (#206, #207). Before, a state read right after the `422`
+  could still see `varve:Moving`.
+
+#### Upgrading
+
+- **Datasets keep their log:** storage format 1, delta format 1.
+- **Derived data moves to format 6** for the checked kinds (ADR 0213),
+  and stays 5 for extents. Derived data is a cache of the log: what this
+  build does not read is rebuilt from the log, and an older build finds
+  the new files a cache miss.
+- **Code that built a `CommitRequest`** builds a `CommitRequestBuilder`.
+
 ## [0.1.0-preview.15] - 2026-10-23
 
 **As-of reads that seek — an as-of read inside an extent set costs its matches**
@@ -1658,7 +1806,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.16...HEAD
+[0.1.0-preview.16]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...v0.1.0-preview.16
 [0.1.0-preview.15]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...v0.1.0-preview.15
 [0.1.0-preview.14]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.13...v0.1.0-preview.14
 [0.1.0-preview.13]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.12...v0.1.0-preview.13

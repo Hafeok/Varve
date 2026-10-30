@@ -68,6 +68,7 @@ for (int i = 0; i < arguments.Length; i++)
 
 string conformanceResults = Path.Combine(repositoryRoot, "artifacts", "conformance");
 string packageOutput = Path.Combine(repositoryRoot, "artifacts", "packages");
+string sbomOutput = Path.Combine(repositoryRoot, "artifacts", "sbom");
 
 // The order is the dependency order, and it is also cheapest-first: the four
 // text gates cost seconds and catch the mistakes that are easiest to make, so
@@ -82,6 +83,12 @@ List<(string Name, string Description, Func<int> Run)> jobs =
         () => Run("dotnet", ["run", "eng/dependency-register.cs", "--", "tests/fixtures/dependency-register/failing/Directory.Packages.props"]) == 1
             ? Run("dotnet", ["run", "eng/dependency-register.cs", "--", "tests/fixtures/dependency-register/passing/Directory.Packages.props"])
             : 1),
+
+    // ADR 0224's failure paths, one broken register per check, each copied out
+    // of the repository and restored for real where it needs a restore
+    // (tests/fixtures/dependency-register/README.md).
+    ("register-fixtures", "the register gate fails each broken register for its own reason: unadmitted, stale, dangling, unpinned, unexempted, licence, native",
+        () => Run("dotnet", ["run", "eng/dependency-register.cs", "--", "--fixtures", "tests/fixtures/dependency-register"])),
 
     ("licence-headers", "every .cs file carries the MPL-2.0 notice",
         () => Run("dotnet", ["run", "eng/licence-headers.cs"])),
@@ -156,11 +163,32 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("land", "the landing helper builds and prints its usage",
         () => Run("dotnet", ["run", "eng/land.cs", "--", "--help"])),
 
-    ("restore", "restore the solution",
-        () => Run("dotnet", ["restore", "Varve.slnx"])),
+    // ADR 0224 point 5, amended 2026-10-28: every lockfile was written with the
+    // SDK global.json pins, whose own packages (ILLink, ILCompiler) it records.
+    // Before the restore, so a lockfile from another patch fails here with
+    // the script that regenerates them, not with NuGet's NU1004.
+    ("lockfiles", "every lockfile was written with global.json's SDK, before a locked restore says so less clearly",
+        () => Run("dotnet", ["run", "eng/lockfiles.cs", "--", "--check"])),
 
-    ("native-assets", "no native asset in a shipped closure",
-        () => Run("dotnet", ["run", "eng/native-assets.cs"])),
+    ("lockfiles-fixture", "the lockfile check fails a lockfile written with a newer SDK patch, naming the script",
+        () => Run("dotnet", ["run", "eng/lockfiles.cs", "--", "--check", "--lockfiles", "tests/fixtures/lockfiles/newer-patch"]) == 1 ? 0 : 1),
+
+    // The solution, and the projects outside it that have lockfiles: the
+    // samples, the benchmarks, the smoke apps and repo-standard. Locked, as CI
+    // always restores (ADR 0224), so a lockfile the change forgot fails here.
+    ("restore", "restore the solution, and every project outside it with a lockfile, locked",
+        RestoreEverything),
+
+    // ADR 0224: every resolved package's licence for its scope, and no native
+    // asset in a shipped closure (what eng/native-assets.cs was).
+    ("register-packages", "every resolved package's licence is allowed for its scope, and no shipped closure carries a native asset",
+        () => Run("dotnet", ["run", "eng/dependency-register.cs", "--", "--packages"])),
+
+    // ADR 0225: an SBOM per artefact, from the restore, written twice and
+    // required byte-identical. The binaries' are written for every RID the
+    // CLI ships; the image's needs its base scanned, which publish.yml does.
+    ("sbom", "an SBOM per shipped artefact, from the locked restore, byte-identical when written twice",
+        Sbom),
 
     ("build", "build with warnings as errors",
         () => Run("dotnet", ["build", "Varve.slnx", "--configuration", "Release", "--no-restore"])),
@@ -418,12 +446,15 @@ int Pack()
         Directory.Delete(packageOutput, recursive: true);
     }
 
+    // Each package embeds its SBOM (ADR 0224 point 3), which the sbom job
+    // wrote for the version MinVer gives this commit.
     int packed = Run("dotnet",
     [
         "pack", "Varve.slnx",
         "--configuration", "Release",
         "--no-build",
         "--output", packageOutput,
+        $"-p:VarveSbomDirectory={sbomOutput}",
     ]);
 
     if (packed != 0)
@@ -438,10 +469,103 @@ int Pack()
     return Run("dotnet", ["run", "eng/package-metadata.cs", "--", packageOutput]);
 }
 
+int RestoreEverything()
+{
+    int restored = Run("dotnet", ["restore", "Varve.slnx", "-p:RestoreLockedMode=true"]);
+
+    // The browser apps need the WebAssembly workloads, which the devcontainer
+    // installs and a bare machine may not have; without them their restore is
+    // skipped here and the register gate names them as not restored.
+    bool wasm = Capture("dotnet", ["workload", "list"]).Contains("wasm-tools", StringComparison.Ordinal);
+
+    foreach (string project in OutsideTheSolution())
+    {
+        if (restored != 0)
+        {
+            break;
+        }
+
+        if (!wasm && (project.Contains("WasmSmoke", StringComparison.Ordinal) || project.Contains("BrowserTests", StringComparison.Ordinal)))
+        {
+            Console.WriteLine($"skip  {project}: the WebAssembly workloads are not installed");
+            continue;
+        }
+
+        restored = Run("dotnet", ["restore", project, "-p:RestoreLockedMode=true"]);
+    }
+
+    return restored;
+}
+
+// Every project with a lockfile that Varve.slnx does not restore.
+List<string> OutsideTheSolution()
+{
+    HashSet<string> members = new(System.Xml.Linq.XDocument.Load(Path.Combine(repositoryRoot, "Varve.slnx"))
+        .Descendants("Project")
+        .Select(static e => e.Attribute("Path")?.Value?.Replace('\\', '/') ?? ""), StringComparer.Ordinal);
+
+    return [.. Directory.EnumerateFiles(repositoryRoot, "packages.lock.json", SearchOption.AllDirectories)
+        .Select(path => Path.GetRelativePath(repositoryRoot, Path.GetDirectoryName(path)!).Replace('\\', '/'))
+        .Where(static d => !d.StartsWith("tests/fixtures/", StringComparison.Ordinal) && !d.Split('/').Contains("obj"))
+        .Select(d => Directory.EnumerateFiles(Path.Combine(repositoryRoot, d), "*.csproj").Select(p => Path.GetRelativePath(repositoryRoot, p).Replace('\\', '/')).Single())
+        .Where(p => !members.Contains(p))
+        .Order(StringComparer.Ordinal)];
+}
+
+int Sbom()
+{
+    // The version MinVer gives this commit, so that the packed packages and
+    // the SBOMs they embed agree; the creation time is the commit's.
+    string version = Capture("dotnet", ["msbuild", "src/Varve.Iri/Varve.Iri.csproj", "-t:MinVer", "-getProperty:MinVerVersion"]).Trim();
+    string epoch = Capture("git", ["log", "-1", "--format=%ct"]).Trim();
+    string created = DateTimeOffset.FromUnixTimeSeconds(long.Parse(epoch, System.Globalization.CultureInfo.InvariantCulture)).UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+    string again = Path.Combine(repositoryRoot, "artifacts", "sbom-again");
+
+    if (Directory.Exists(sbomOutput))
+    {
+        Directory.Delete(sbomOutput, recursive: true);
+    }
+
+    string[] binaries = ["--binary", "linux-x64", "--binary", "linux-arm64", "--binary", "win-x64", "--binary", "win-arm64", "--binary", "osx-x64", "--binary", "osx-arm64"];
+    int first = Run("dotnet", ["run", "eng/sbom.cs", "--", "--version", version, "--created", created, "--out", sbomOutput, .. binaries]);
+
+    return first != 0
+        ? first
+        : Run("dotnet", ["run", "eng/sbom.cs", "--", "--version", version, "--created", created, "--out", again, "--check-against", sbomOutput, .. binaries]);
+}
+
 // --- helpers ---------------------------------------------------------------
 
 static string[] Args(params string?[] parts) =>
     parts.Where(static part => part is not null).Select(static part => part!).ToArray();
+
+// A command's standard output, for a value a job needs; its failure is the
+// job's.
+string Capture(string fileName, string[] arguments)
+{
+    ProcessStartInfo startInfo = new()
+    {
+        FileName = fileName,
+        WorkingDirectory = repositoryRoot,
+        RedirectStandardOutput = true,
+        UseShellExecute = false,
+    };
+
+    foreach (string argument in arguments)
+    {
+        startInfo.ArgumentList.Add(argument);
+    }
+
+    using Process process = Process.Start(startInfo)
+        ?? throw new InvalidOperationException($"Could not start {fileName}.");
+
+    string output = process.StandardOutput.ReadToEnd();
+    process.WaitForExit();
+
+    return process.ExitCode == 0
+        ? output
+        : throw new InvalidOperationException($"{fileName} {string.Join(' ', arguments)} exited {process.ExitCode}.");
+}
 
 int Run(string fileName, string[] arguments)
 {

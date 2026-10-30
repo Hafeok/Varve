@@ -401,6 +401,15 @@ Filed by 1.0 readiness A ([#129](https://github.com/Hafeok/Varve/issues/129); [#
 |---:|---|---|
 | [0213](0213-cached-derived-data-is-verified-before-use.md) | Cached derived data is verified before use: a check per block, and damage is a miss | Filed unaccepted (#146) |
 
+## Supply chain transparency (#119, readiness B)
+
+Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 1.0 ([#15](https://github.com/Hafeok/Varve/issues/15)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0224: readiness A holds 0213–0222. Amended by it, likewise unaccepted: 0009 (the register against every lockfile, licences by scope, the native-asset gate folded in); 0029 (the SBOM in the package, the release's assets); 0102 (descriptor format 2, `sbom:`); 0111 (the base by digest, the merged image SBOM).
+
+| # | Title | Status |
+|---:|---|---|
+| [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119) |
+| [0225](0225-the-sbom-generator.md) | The SBOM generator: `eng/sbom.cs`, SPDX 2.3, from the restore | Filed unaccepted (#119) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

@@ -89,6 +89,46 @@ updates:
       - dependency-name: JsonSchema.Net
         versions: [">= 9.0.0"]
 
+  # The .NET SDK global.json pins (ADR 0224 point 5, amended 2026-10-28).
+  # CI installs exactly that patch, and the SDK's patch fixes the versions of
+  # the packages it references by itself (ILLink, ILCompiler), which every
+  # lockfile records. So a pull request from this ecosystem is red until it is
+  # completed: run `dotnet run eng/lockfiles.cs` on the new SDK and push.
+  # The lockfile diff then shows ILLink and ILCompiler moving with the SDK,
+  # and the devcontainer's pinned SDK follows. A major version is a target
+  # framework's decision (ADR 0008), never a bump.
+  - package-ecosystem: dotnet-sdk
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Copenhagen
+    commit-message:
+      prefix: build(deps)
+    labels:
+      - dependencies
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  # The container image's two bases, pinned by digest in the Dockerfile
+  # (ADR 0111, amended 2026-10-27). Dependabot proposes a new digest when the
+  # tag moves; the image SBOM's digest in the next descriptor changes with it.
+  # mcr.microsoft.com, never Docker Hub.
+  - package-ecosystem: docker
+    directory: "/src/Varve.Server/container"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Copenhagen
+    commit-message:
+      prefix: build(deps)
+    labels:
+      - dependencies
+
   # The test containers CI starts are not watched here. They are pinned by
   # digest in .github/ci-images.yaml, the single list of them, and pulled
   # from this repository's private mirror (#118, ADR 0099's amendment of

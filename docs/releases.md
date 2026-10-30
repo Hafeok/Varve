@@ -1,6 +1,6 @@
 # Releases
 
-**Format version: 1.** How a Varve release is proposed, checked and cut
+**Format version: 2.** How a Varve release is proposed, checked and cut
 ([ADR 0102](adr/0102-a-release-is-a-descriptor.md)). This file is the
 versioned schema of the release descriptor plus the rules around it. A change
 to the format bumps its version and says here how existing descriptors move;
@@ -18,7 +18,7 @@ request**: adding it in a pull request proposes the release, and landing that
 pull request at its approved head cuts it.
 
 ```yaml
-format: 1                       # mandatory; the format this file conforms to
+format: 2                       # mandatory; the format this file conforms to
 version: v0.1.0-preview.2       # v<SemVer 2.0.0>, prerelease allowed; equals the file's name
 title: The protocols and the server   # one line; the tag message is "<version> — <title>"
 date: 2026-10-20                # the preparation date; CHANGELOG.md's heading
@@ -29,6 +29,10 @@ basis:                          # mandatory; resolved at the commit under releas
   - delta-format: 1             # Varve.Delta's DeltaFormat.Current, once the commit has it
   - adr: "0091"                 # every ADR first shipped by this release, and no other
   - adr: "0092"
+sbom:                           # format 2; every artefact shipped, and its SBOM's SHA-256
+  - nupkg: Varve.Rdf sha256:9456e3e2…
+  - tool: Varve.Server sha256:54c195b4…
+  - image: ghcr.io/hafeok/varve sha256:66a9dd9c…
 accepted-by: mailto:emil@okkels-klein.dk   # the human who approves the pull request
 summary: |                      # mandatory; the release notes, written
   What a consumer of the packages needs to know about this release.
@@ -42,6 +46,8 @@ shipped listed as comments, for information.
 package (hard constraint 4):
 - top-level `key: value` scalars, plain or quoted;
 - one list, `basis:`, with one `  - kind: value` line per entry;
+- in format 2, a second list, `sbom:`, with one `  - kind: name sha256:<digest>`
+  line per artefact;
 - `|` block scalars, indented with spaces;
 - whole-line `#` comments between keys.
 
@@ -95,6 +101,33 @@ takes them for numbers.
 9. **Immutable once cut.** A version whose tag exists is skipped, and a pull
    request that edits its descriptor fails. Corrections ship as a new version.
 10. **One release at a time.** Two pending descriptors are refused.
+11. **`sbom` names every artefact** (format 2; ADR 0102, amended 2026-10-27,
+    and ADR 0224):
+    - **one line per artefact:** `nupkg` for each library package, `tool`
+      for the tool package, `image` for the container, `binary` for each CLI
+      binary by its asset name, `asset` for any other release asset (the Web
+      UI bundle);
+    - **each with the SHA-256 of that artefact's SBOM**, not of the artefact.
+      The descriptor is in the commit that builds the artefacts, and a package
+      or binary embeds its commit, so its own digest cannot be known here. The
+      SBOM's can: it is deterministic and is created at `date`, at 00:00Z;
+    - **written, not typed.** After a restore, run:
+
+      ```bash
+      dotnet run eng/sbom.cs -- --version <version without v> --created <date> \
+        --out artifacts/sbom --syft <syft v1.54.0>
+      ```
+
+      and copy `artifacts/sbom/sbom.txt`. The CLI binaries add `--binary
+      <rid>` each, once they are released (#129);
+    - **checked three times:**
+      - `eng/release.cs` requires format 2 at a commit that carries
+        `eng/sbom.cs`, with a line for every packable project and the image;
+      - `ci.yml` regenerates the SBOMs on the pull request and fails a digest
+        that differs;
+      - `publish.yml` does the same at the tag, before anything is pushed.
+
+    A format-1 descriptor stays valid as it was cut (rule 9).
 
 **A release cut before descriptors is recorded, not cut.**
 `v0.1.0-preview.1` was tagged by hand under ADR 0085. Its descriptor was added
@@ -144,9 +177,28 @@ one.
    - **cut** has the gates App create the annotated tag, then close the
      issues its basis names.
 
-   The tag starts `publish.yml`, which runs its gates, reads the notes from
-   the descriptor, publishes to nuget.org, and has the gates App create the
-   GitHub Release, marked prerelease when the version is one.
+   The tag starts `publish.yml`, which runs its gates and reads the notes from
+   the descriptor. Then it:
+   - writes every SBOM and checks each against the descriptor's `sbom:` line
+     (ADR 0224);
+   - packs each package with its SBOM inside it;
+   - attests each package's build provenance and its SBOM, keylessly;
+   - publishes to nuget.org, once every package has both attestations;
+   - has the gates App create the GitHub Release, marked prerelease when the
+     version is one.
+
+   The release carries the packages exactly as they were attested, with
+   `SHA256SUMS`, every SBOM and the VEX document. Its last job verifies what
+   was published as a consumer would: the attestations of the release's
+   packages, and that nuget.org serves each of those packages under its own
+   repository signature ([`supply-chain.md`](supply-chain.md)).
+
+   **The dry run of `publish.yml`.** A pull request that touches the release
+   pipeline runs all of this at its head, as its landing would cut the
+   pending descriptor: the gates, the SBOMs, the pack, every attestation, the
+   release's assets and the verification. Only the pushes to nuget.org and
+   GHCR, the registry's manifest and the GitHub release are skipped
+   (ADR 0224, revised 2026-10-28).
 
 **The head guard.** A release is cut only at a commit that carries a
 successful `agent review` check run from the gates App, which that App posts

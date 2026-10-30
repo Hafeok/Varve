@@ -85,6 +85,31 @@
     <PackageReference Include="MinVer" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers" />
   </ItemGroup>
 
+  <!--
+    ADR 0224 point 3 — the package's SBOM travels inside it, at the path
+    Microsoft's sbom-tool uses (NuGet defines none). eng/sbom.cs writes it
+    from the restore before the pack; VarveSbomDirectory names its output, and
+    a pack given the directory without this package's document fails rather
+    than shipping a package without one. A tool package carries the tool's.
+  -->
+  <!-- By the project's name: PackageId is not set yet where this file is
+       evaluated (the pack targets default it later), and no Varve project
+       sets a PackageId of its own, so the two are the same name; eng/sbom.cs
+       names each document by its project, and eng/package-metadata.cs checks
+       the document describes the package it is in. -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true' and '$(VarveSbomDirectory)' != ''">
+    <_VarveSbomPath Condition="'$(PackAsTool)' == 'true'">$([MSBuild]::EnsureTrailingSlash('$(VarveSbomDirectory)'))tool/$(MSBuildProjectName).spdx.json</_VarveSbomPath>
+    <_VarveSbomPath Condition="'$(PackAsTool)' != 'true'">$([MSBuild]::EnsureTrailingSlash('$(VarveSbomDirectory)'))nupkg/$(MSBuildProjectName).spdx.json</_VarveSbomPath>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_VarveSbomPath)' != ''">
+    <None Include="$(_VarveSbomPath)" Pack="true" PackagePath="_manifest/spdx_2.3/manifest.spdx.json" Visible="false" />
+  </ItemGroup>
+
+  <Target Name="_VarveRequireSbom" BeforeTargets="GenerateNuspec" Condition="'$(_VarveSbomPath)' != ''">
+    <Error Condition="!Exists('$(_VarveSbomPath)')" Text="$(MSBuildProjectName) has no SBOM at $(_VarveSbomPath). Run eng/sbom.cs before the pack (ADR 0224)." />
+  </Target>
+
   <ItemGroup Condition="'$(IsPackable)' == 'true'">
     <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />

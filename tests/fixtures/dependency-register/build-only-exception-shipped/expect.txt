@@ -1,0 +1,1 @@
+Microsoft.NETCore.Platforms 1.1.0 (runtime, through src/Library/Library.csproj) is a build-only exception under ADR 0224, and it is in a shipped closure

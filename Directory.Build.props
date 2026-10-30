@@ -40,6 +40,23 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
 
+  <PropertyGroup Condition="!$(MSBuildProjectDirectory.Replace('\', '/').Contains('/tests/fixtures/'))">
+    <!-- ADR 0224: the resolved graph is checked in, beside every project, and
+         CI restores it exactly. A change to it is a diff in the pull request,
+         transitive packages included, and the SBOMs are generated from it.
+         The fixtures under tests/fixtures/ are left out: they exist to fail,
+         and each one that restores says what it restores in its own files. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode Condition="'$(CI)' == 'true'">true</RestoreLockedMode>
+
+    <!-- The runtime identifiers a Native AOT project restores for, so that
+         one lockfile serves a publish on every runner: a locked `publish -r`
+         for a RID the lockfile lacks fails. The six the CLI ships for
+         (ADR 0226). A project that publishes Native AOT sets its
+         RuntimeIdentifiers to this. -->
+    <VarveNativeRuntimeIdentifiers>linux-x64;linux-arm64;win-x64;win-arm64;osx-x64;osx-arm64</VarveNativeRuntimeIdentifiers>
+  </PropertyGroup>
+
   <PropertyGroup>
     <!-- Nothing is packable at milestone 1, by design: the brief forbids
          scaffolding that compiles and does nothing. A package project opts in

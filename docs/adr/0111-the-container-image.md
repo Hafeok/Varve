@@ -7,6 +7,11 @@
 Docker Hub a roadmap note. Acceptance is the maintainer's act on the pull
 request.
 
+**Amended 2026-10-27** (ADR 0068), by readiness B for #119 under ADR
+[0224](0224-supply-chain-transparency.md): the base image is pinned by digest,
+and the image's SBOM is merged from the generator's .NET part and Syft's OS
+part; see the end.
+
 ## Context
 
 The roadmap's Operability item left the registry and the base image to the
@@ -92,3 +97,29 @@ definition asks for "signed multi-arch container images with an SBOM".
 - **Layer ownership.** None; a packaging of `Varve.Server`.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-27 — the base by digest, and the merged SBOM
+
+Filed by readiness B for #119 under ADR 0224, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+- **Both bases are pinned by digest** in the `Dockerfile`, the tag kept for
+  the reader:
+  - `runtime-deps:10.0-noble-chiseled@sha256:43096262…`;
+  - the layout stage's `runtime-deps:10.0-noble@sha256:62028293…`.
+
+  Dependabot's docker ecosystem proposes a new digest when the tag moves.
+- **The image's SBOM is no longer Syft's scan of the image.**
+  - That scan listed the base's nine Ubuntu packages and nothing of the .NET
+    closure, because a Native AOT binary has no `.deps.json`. The
+    `v0.1.0-preview.15` attestation was confirmed to have that gap.
+  - `eng/sbom.cs` now writes it (ADR 0225 point 5): each platform's binary,
+    with its closure and the .NET runtime, from the restore. The base image's
+    OS packages are Syft's, from the pinned base, one scan per platform, at a
+    pinned Syft version.
+  - The document is deterministic, its digest is in the release descriptor,
+    and it is attested on the manifest digest with `actions/attest`, as
+    before.
+
+**The ledger.** The rulings of this ADR stand; the ruling of this block is
+`TheBaseIsPinnedAndTheSbomMerged`, unaccepted until the maintainer accepts it.

@@ -39,6 +39,10 @@ decisions:
     statement: "A register entry may carry Scope, repository-relative directory prefixes; every project referencing the package must sit under one, and eng/dependency-register.cs fails on any that does not, with a failing and a passing fixture; amended 2026-10-13 under ADR 0133"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-15T00:00:00Z
+  - key: TheRegisterIsCheckedAgainstTheLockfiles
+    statement: "The register gate checks every lockfile: a direct reference no PackageVersion or ImplicitPackage admits, and an entry nothing resolves, fail; every resolved package's licence is checked by scope, and the native-asset rule is its --packages half (ADR 0224)"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-28T00:00:00Z
 ---
 
 The rulings of [ADR 0009](../adr/0009-dependency-policy-and-register.md) still in force, one line each. The ADR is the

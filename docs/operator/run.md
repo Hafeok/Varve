@@ -26,6 +26,24 @@ The same executable comes three ways (ADRs 0105, 0111):
   `linux-x64`, `linux-arm64` and `win-x64`), and rename it `varve` or call it
   by its name; the commands are the same. The image is this binary.
 
+**Verify what you install.** Every package, the tool among them, and the
+image carry two attestations, both keyless:
+- the build provenance: which workflow, at which commit;
+- an SPDX SBOM of exactly what they contain.
+
+Each release attaches the packages as attested, their `SHA256SUMS`, every
+SBOM and the VEX document. Before installing the tool, for example:
+
+```sh
+gh release download v0.1.0-preview.16 --repo Hafeok/Varve --pattern 'Varve.Server.*'
+gh attestation verify Varve.Server.0.1.0-preview.16.nupkg --owner hafeok
+gh attestation verify oci://ghcr.io/hafeok/varve:v0.1.0-preview.16 --owner hafeok
+```
+
+[`docs/supply-chain.md`](../supply-chain.md) has the rest: what each SBOM
+lists, the package nuget.org serves (the same package under nuget.org's own
+signature), and the vulnerability process.
+
 ## The container
 
 ```sh

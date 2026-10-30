@@ -1,0 +1,1 @@
+NuGetAuditSuppress https://github.com/advisories/GHSA-pgww-w46g-26qg has no statement in security/vex.openvex.json

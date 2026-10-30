@@ -101,9 +101,8 @@ jobs:
           fetch-depth: 0
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: A closed milestone issue carries its release descriptor
         env:
@@ -131,9 +130,8 @@ jobs:
           fetch-depth: 0
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Every commit is signed off
         env:
@@ -193,14 +191,14 @@ jobs:
           fetch-depth: 0
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Dependency register
         # ADR 0009. Constraint 4 says every third-party package needs an ADR;
         # this is what makes that a gate rather than a sentence in a document.
-        # A text check over two inputs, so it runs before restore and fails in
+        # Since ADR 0224 it reads every lockfile, the Actions' pins and the VEX
+        # statements too: text only, so it runs before restore and fails in
         # seconds rather than after a compile.
         run: dotnet run eng/dependency-register.cs
 
@@ -227,14 +225,17 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Restore
+        # Locked, since CI is set (ADR 0224): a lockfile the change forgot to
+        # update fails here.
         run: dotnet restore Varve.slnx
 
-      - name: Native assets
-        # ADR 0009's amendment scopes constraint 1 to shipped artifacts. This is
-        # what makes the scoped version a gate rather than a sentence: no
-        # package in a packable project's restore closure may contribute a
-        # native runtime asset. Needs the restore above, and nothing else.
-        run: dotnet run eng/native-assets.cs
+      - name: Licences and native assets
+        # ADR 0009's amendment scopes constraint 1 to shipped artifacts, and
+        # ADR 0224 adds each package's licence against its scope. No package
+        # in a packable project's restore closure may contribute a native
+        # runtime asset (what eng/native-assets.cs was). Needs the restore
+        # above, and nothing else.
+        run: dotnet run eng/dependency-register.cs -- --packages
 
       - name: Build
         # Warnings are errors by configuration, not by a flag here; see
@@ -489,15 +490,61 @@ jobs:
       # every pull request rather than first on a tag. This packs and reads the
       # nuspec back; it does not push, and the workflow that pushes is not
       # triggered by a pull request at all. ADR 0029.
+      - name: SBOMs, twice
+        # ADR 0224 points 1 and 2, ADR 0225: one SBOM per artefact from the
+        # locked restore, for the version MinVer gives this commit and created
+        # at its time, written twice and required byte-identical. The binaries'
+        # are written for every RID the CLI ships.
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(dotnet msbuild src/Varve.Iri/Varve.Iri.csproj -t:MinVer -getProperty:MinVerVersion | tr -d '\r')
+          export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
+          binaries=()
+          for rid in linux-x64 linux-arm64 win-x64 win-arm64 osx-x64 osx-arm64; do binaries+=(--binary "$rid"); done
+          dotnet run eng/sbom.cs -- --version "$version" --out "${{ github.workspace }}/artifacts/sbom" "${binaries[@]}"
+          dotnet run eng/sbom.cs -- --version "$version" --out "${{ github.workspace }}/artifacts/sbom-again" "${binaries[@]}" \
+            --check-against "${{ github.workspace }}/artifacts/sbom"
+
       - name: Pack
+        # Each package embeds its SBOM (ADR 0224 point 3), and the metadata
+        # gate reads it back.
         run: >
           dotnet pack Varve.slnx
           --configuration Release
           --no-build
+          -p:VarveSbomDirectory=${{ github.workspace }}/artifacts/sbom
           --output ${{ github.workspace }}/artifacts/packages
 
       - name: Check the package metadata
         run: dotnet run eng/package-metadata.cs -- ${{ github.workspace }}/artifacts/packages
+
+      - name: Install Syft
+        # For a pull request that proposes a release: the image SBOM's OS
+        # packages, at the version publish.yml uses (ADR 0225 point 5).
+        if: runner.os == 'Linux'
+        id: syft
+        uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          syft-version: v1.54.0
+
+      - name: The proposed release's SBOM digests
+        # ADR 0102, amended 2026-10-27: a descriptor proposed here names every
+        # artefact's SBOM digest, and they are checked now, so that a wrong one
+        # is red on the pull request and not on the tag. Each pending
+        # descriptor (no tag yet) is regenerated at its version and date.
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for descriptor in releases/v*.yaml; do
+            version=$(basename "$descriptor" .yaml)
+            if git rev-parse -q --verify "refs/tags/$version" > /dev/null; then continue; fi
+            if ! grep -q '^sbom:' "$descriptor"; then continue; fi
+            created=$(sed -n 's/^date: *//p' "$descriptor")
+            dotnet run eng/sbom.cs -- --version "${version#v}" --created "$created" \
+              --out "$RUNNER_TEMP/sbom-$version" --syft "${{ steps.syft.outputs.cmd }}" --descriptor "$descriptor"
+          done
 
       - name: Upload the test results
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
@@ -538,9 +585,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -607,9 +653,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -671,9 +716,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -766,9 +810,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -832,9 +875,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Generate S, M and L and compare
         run: dotnet test --project tests/Varve.Rec.Tests/Varve.Rec.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Rec.Tests
@@ -869,9 +911,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -930,9 +971,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Test against Entra ID and Google
         env:
@@ -1006,9 +1046,8 @@ jobs:
           submodules: recursive
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -1017,6 +1056,13 @@ jobs:
           key: nuget-${{ runner.os }}-${{ matrix.rid }}-${{ hashFiles('Directory.Packages.props') }}
           restore-keys: nuget-${{ runner.os }}-${{ matrix.rid }}-
 
+      - name: Restore, for every RID at once
+        # The lockfile has every RID the project ships (ADR 0224). A
+        # publish given -r would restore its whole graph for that RID,
+        # and the libraries' lockfiles have none, so the restore is
+        # this one, locked, and the publish does none of its own.
+        run: dotnet restore src/Varve.Server
+
       - name: Publish the server
         # The binary the gate runs, for this runner's architecture; no
         # cross-compilation (ADR 0111 point 2).
@@ -1024,6 +1070,7 @@ jobs:
           dotnet publish src/Varve.Server
           --configuration Release
           --runtime ${{ matrix.rid }}
+          --no-restore
           --output ${{ github.workspace }}/artifacts/server-aot
 
       - name: Log in to GHCR
@@ -1303,9 +1350,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -1369,9 +1415,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Measure
         run: dotnet run eng/durability.cs
@@ -1390,9 +1435,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Build and test the on-behalf-of sample
         run: >
@@ -1432,9 +1476,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -1532,9 +1575,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -1543,11 +1585,19 @@ jobs:
           key: nuget-${{ runner.os }}-repo-standard-${{ hashFiles('Directory.Packages.props') }}
           restore-keys: nuget-${{ runner.os }}-
 
+      - name: Restore, for every RID at once
+        # The lockfile has every RID the project ships (ADR 0224). A
+        # publish given -r would restore its whole graph for that RID,
+        # and the libraries' lockfiles have none, so the restore is
+        # this one, locked, and the publish does none of its own.
+        run: dotnet restore tools/repo-standard/src/RepoStandard
+
       - name: Publish the native binary
         run: >
           dotnet publish tools/repo-standard/src/RepoStandard
           --configuration Release
           --runtime ${{ matrix.rid }}
+          --no-restore
           --output ${{ runner.temp }}/aot
 
       - name: Lay it out as a release, and a tampered copy
@@ -1651,9 +1701,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Install the WebAssembly workloads
         run: dotnet workload install wasm-tools wasm-experimental
@@ -1701,9 +1750,8 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Install the WebAssembly workloads
         run: dotnet workload install wasm-tools wasm-experimental
@@ -1752,9 +1800,8 @@ jobs:
           submodules: recursive
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -1818,9 +1865,8 @@ jobs:
           fetch-depth: 0
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
 
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6

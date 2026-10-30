@@ -1,0 +1,189 @@
+format: 2
+version: v0.1.0-preview.16
+title: Supply chain transparency — an attested SBOM for every artefact, the dependency gate, a support period
+date: 2026-10-27
+basis:
+  - issue: 119
+  - storage-format: 1
+  - delta-format: 1
+  - adr: "0190"
+  - adr: "0206"
+  - adr: "0213"
+  - adr: "0214"
+  - adr: "0215"
+  - adr: "0224"
+  - adr: "0225"
+sbom:
+  - image: ghcr.io/hafeok/varve sha256:2e9c8f0355012a7a0b0c9c2fcd1ef2238b5b592bc51d85660949f5b5d70ec83c
+  - nupkg: Varve.Aspire sha256:e04a5a22ce3f318a4e3ab5a2015b0f63df92fd0a66563a6442b4367bf1b24d5d
+  - nupkg: Varve.Delta sha256:298d0cf564b4eec262f03cd1dd4db3cc7885b513ef8599cf91f3c8daabfa773c
+  - nupkg: Varve.Derivation sha256:aea6beb23c2037a364c91ea6ce18a0c0b77e86fedd69101e487f6ffc660fa79c
+  - nupkg: Varve.Events sha256:3d3c24656f9dc3c9825fc0491e893726211ef577797d7d57c197cef9241982f6
+  - nupkg: Varve.Iri sha256:91f7b39601de6e50242991e0ce535e208a3c594a547389d41cbe27984f81073a
+  - nupkg: Varve.Json.Canonical sha256:a9ee72e02cc8fb9ee949e6d23f27ebab06e2ff9927d48f8b9388b54049165fa9
+  - nupkg: Varve.JsonLd sha256:3cc59ceb28bc73d506a4808a93c9a46f948bd12190c966818e0558ca89fc588e
+  - nupkg: Varve.Management sha256:cf523a5407edb876eddec14fb0f763c8d84e1ac6c0d8edc89aad335ee3d2b51a
+  - nupkg: Varve.Protocol sha256:958e88c87de99283384ef8ca52dfe5872c3bcd3063d64a17f75342459ac77d0f
+  - nupkg: Varve.Protocol.Client sha256:f728b31a068e5b1df591f8bb3de8d48871c9eb9a3826df1f8db01c66807ae11d
+  - nupkg: Varve.Rdf sha256:fab5bbd2fbc5499cf97c3d3483b16f7f7ff2cd745b32c5bee22e4d0eea3e9341
+  - nupkg: Varve.RdfXml sha256:b19a2ab469739575a9c977f16f54795753247f9b5a5fbe0bfab2899ed37a5183
+  - nupkg: Varve.Shacl sha256:d0a6d97e3e4d9f114f62beb492adf52619e5aa99d1113a74d9dc2cfada73c5a0
+  - nupkg: Varve.Shacl.Sparql sha256:9f268cf916c45b45e9790bdf71a9f2532837baefe5450d7da4999ebae0452061
+  - nupkg: Varve.Shacl.Store sha256:ebaa04a9d2f2a73be0744c3948bd637930bca3cb468fbd1d10a8ebad7d25b666
+  - nupkg: Varve.Sparql sha256:af212bc9d82f67c85b702e8a9116040826bbd6581b68c2422f35f7a2f8526cf9
+  - nupkg: Varve.Sparql.Evaluation sha256:40e065624b0c9f147cdb941c3fd804f5a18d77e18992f339359fd295eab306f2
+  - nupkg: Varve.Sparql.Results sha256:c79b45912d7b6c2d4260804a9b1dd46e298839b744c50a840552a4c4f38da395
+  - nupkg: Varve.Sparql.Store sha256:fb2d32e98adbfe75159b91abfad1205e7e4be7380ac3bd1df05733b90d25484e
+  - nupkg: Varve.Store sha256:25dc83b97bc8243aaa7271907a9bc5689aa4ecc0b0ea83e70b0b6865b995df85
+  - nupkg: Varve.Store.Azure sha256:c977b37387c9a79bbc1b3f48b1b1a132fbc571853c938da15f7a83a31b40b2dd
+  - nupkg: Varve.Store.Browser sha256:3dbbbb042762b9d75cd14cc5ecf9825e502daeb5764e2c99dafabfcf8f13ece8
+  - nupkg: Varve.Store.ObjectStorage sha256:ef950e133abd4fcb5453d21b1842e4ffc652a3aff1b1d3b3618ca3eacce01225
+  - nupkg: Varve.Store.S3 sha256:efe05bf2642ea8b1913d22a60b1922831c44e84166f561556bd165d6356d8323
+  - nupkg: Varve.Turtle sha256:3eabdfaae6dd06a4bc47adc13d3173f012084ae77bcfc39cdd082053a3de904f
+  - nupkg: Varve.Xsd sha256:d75ff814cceeedf01d67330167e492cf81e8960aa5198570c83ca6878678e739
+  - tool: Varve.Server sha256:7d8f221624d6338f7986c7f9b5a9edf977752156b7bd93a2d25ab9b235063322
+accepted-by: mailto:emil@okkels-klein.dk
+summary: |
+  ### Supply chain transparency (#119, in 1.0 by #15)
+
+  Every package, the `varve` tool and the container image now ship with an
+  SPDX 2.3 SBOM of exactly what they contain. Each SBOM is generated from the
+  locked restore, is byte-identical when generated twice, and is attested
+  keylessly beside the artefact's build provenance. This descriptor names
+  each artefact with its SBOM's SHA-256 under `sbom:`, so the release is the
+  auditable unit. A known vulnerability fails the build unless a published
+  VEX statement says why Varve is not affected, and `SECURITY.md` states the
+  support period. `docs/supply-chain.md` is written for a NIS2 supplier
+  assessment and for a manufacturer's due diligence under the Cyber
+  Resilience Act. This release closes #119. ADRs 0224 and 0225, and their
+  amendments to 0009, 0029, 0102 and 0111, are filed unaccepted and
+  accepted on the pull request (ADR 0066).
+
+  #### Added
+
+  - **An SBOM per shipped artefact** (ADRs 0224, 0225). Each package's SBOM
+    is embedded at `_manifest/spdx_2.3/manifest.spdx.json` and attached to
+    the release, as are the tool's and the image's.
+    - For a library, it lists what a consumer resolves: no third-party
+      package for 24 of them, and eight `Microsoft.Extensions` abstractions
+      for `Varve.Protocol.Client`.
+    - For the tool, the 16 packages it carries.
+    - For the image, each platform's binary with its closure and the .NET
+      runtime, and the base image's OS packages.
+    - Each component carries its package URL, version, SHA-256 and SHA-512,
+      licence and supplier.
+  - **Attestations for every package**: SLSA v1 build provenance and the
+    SBOM, through GitHub's OIDC identity. Verify with `gh attestation
+    verify <package> --owner hafeok`.
+    - The release carries the packages exactly as attested, with
+      `SHA256SUMS`.
+    - nuget.org's copy is the same package under nuget.org's own repository
+      signature. CI checks this after every release, entry by entry, and
+      verifies the signature.
+  - **The dependency gate checks what was resolved.** Every project
+    restores from a checked-in lockfile, locked in CI. The register gate
+    fails on:
+    - an unadmitted or stale package;
+    - a missing ADR;
+    - a licence outside its scope's allow-list;
+    - a native asset in a shipped closure;
+    - an Action not pinned by SHA;
+    - an audit exemption without its VEX statement.
+
+    Each case has its own broken fixture.
+  - **`security/vex.openvex.json`**, attached to every release, empty today:
+    `NuGetAudit` finds no known vulnerability in any resolved package.
+  - **Descriptor format 2** (ADR 0102, amended): `sbom:` names every
+    artefact and its SBOM's digest. It is checked on the pull request and
+    again before anything is pushed. Every earlier descriptor stays format 1.
+
+  - **The Web UI's design source** (#174, ADR 0206, filed unaccepted):
+    `docs/ui/`, the components, their levels and the markup contract the
+    console (#167) is built to. It is documentation only, and no package
+    changes.
+  - **Entailments under graph-level grants** (#95, ADR 0190, amending ADR
+    0107): what a reader may see of a quad that inference adds. It is
+    decided ahead of inference, which this release does not ship. The TBox
+    and rules graphs of a binding are readable by every reader of the
+    dataset.
+  - **Cached derived data is verified before use** (#146, #180, ADR 0213).
+    - Every derived kind carries a check per block, and damage is a cache
+      miss: the data is rebuilt from the log, never served.
+    - A read that meets damage partway through is re-run and resumed.
+    - Projections outside the store write through
+      `Dataset.WriteCheckedAsync` and read with `TryReadCheckedAsync`.
+    - The cost at REC M: checkpoints take about 18% longer. A subject's
+      quads read as of a commit inside the largest set is about 8% slower;
+      the other reads stay within 3%.
+  - **A full disk, and a write whose outcome is unknown** (#129, #190, ADR
+    0214).
+    - Each request in a failed batch is answered by the log: committed when
+      its commit was closed and flushed, outcome unknown when closed but
+      not confirmed, refused when never closed. The committed requests are
+      a prefix of the batch.
+    - On a full disk the dataset stays open for reads, and a write is
+      answered `507 storage-full`. The next write after space returns
+      recovers the writer without a reopen. Readiness lists the dataset
+      under `writesRefused` and stays ready.
+    - A write whose flush was not confirmed is answered `503
+      commit-outcome-unknown` with its position and request id, and the
+      commits resource settles it.
+    - The storage specification is version 1.9.
+  - **The release gate** (#61, ADR 0215): the file backend's faults at full
+    depth on Linux and Windows, and a four-hour soak, judged. A release
+    requires it, and refuses when the latest weekly Windows soak is red or
+    older than eight days.
+
+  #### Changed
+
+  - **`CommitRequest` is renamed `CommitRequestBuilder` (breaking, #173).**
+    It is a builder its caller assembles and passes once to
+    `Dataset.CommitAsync`, and DD0019 asked for it to be named one. Rename
+    the type at each call site; nothing else about it changed.
+  - **DecisionDriven.Analyzers 0.1.0-preview.10** (#173) is build-time
+    only. Commit's carried handles are published once with
+    `CompareExchange`, and a graph-scoped source's prefix decisions are
+    memoised in a `ConcurrentDictionary`. Together these fix a race between
+    concurrent readers that could corrupt the dictionary.
+  - **The container's base image is pinned by digest** (ADR 0111, amended).
+  - **The SDK rolls forward to its latest patch only** (`global.json`).
+  - **`SECURITY.md`'s support period:**
+    - before 1.0, the latest preview;
+    - from 1.0, the latest `1.minor`;
+    - after `2.0.0`, security fixes for `1.x` for 12 months.
+
+    Advisories are GitHub's, with CVE ids.
+
+  #### Fixed
+
+  - **Object storage** (#126's follow-up):
+    - a segment holding only fence chunks opens;
+    - a reader record whose write was applied but whose answer was lost is
+      not forgotten;
+    - a retired extent set's directory is deleted with its last file
+      (#61).
+    - a writer whose log already ends in a later epoch is superseded
+      before it fences, including when the newest segment is consolidated
+      (#181, ADR 0136 decision 2). Before, the lower epoch could keep the
+      log while the writer record named the higher one. Nothing was lost or
+      written twice.
+  - **A binding's report graph, read while its projection was a commit
+    behind** (#183), could answer with no rows, which reads as conforming.
+    It now answers with the report at the position, or `503
+    validation-behind` after one bounded wait (ADR 0174).
+  - **A validator's view of a commit names a triple term that the commit
+    creates** (#191, ADR 0022, amended). Before, a term the commit's delta
+    yields could be denied. No read was found that lost an answer. A
+    contract test now runs over every quad source.
+  - **An event move's cancel is answered once the management plane has
+    applied it** (#206, #207). Before, a state read right after the `422`
+    could still see `varve:Moving`.
+
+  #### Upgrading
+
+  - **Datasets keep their log:** storage format 1, delta format 1.
+  - **Derived data moves to format 6** for the checked kinds (ADR 0213),
+    and stays 5 for extents. Derived data is a cache of the log: what this
+    build does not read is rebuilt from the log, and an older build finds
+    the new files a cache miss.
+  - **Code that built a `CommitRequest`** builds a `CommitRequestBuilder`.

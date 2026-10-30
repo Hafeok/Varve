@@ -1,0 +1,3 @@
+FAIL: src/Library/Library.csproj has 1 package(s) shipping native assets
+Gee.External.Capstone/2.3.0
+runtimes/linux-x64/native/libcapstone.so
