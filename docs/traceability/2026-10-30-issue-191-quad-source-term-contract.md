@@ -105,3 +105,13 @@ hold returns nothing. To show the test depends on the path the exception
 rests on, the session temporarily made `BgpOperator.UnifyTerm` answer false
 for a denied part (`PositionKind.Never`), instead of comparing it by value:
 both cases then failed. The change was reverted. The exception stands.
+
+### Acceptance, 2026-10-30
+
+A later session (Claude Code, model `claude-fable-5-1`), on the maintainer's
+instruction, added `accepted-by` and `accepted-at` to
+`DenialCoversQuadsNotYetLoaded`, the key ADR 0022's amendment of this branch
+filed unaccepted. The acceptance is the maintainer's, who had read it and
+approved the head beneath; the session only wrote it at their direction.
+The amendment's status text is left as filed. The acceptance commit carries
+the closing trailer for #191, which no earlier commit of the branch did.

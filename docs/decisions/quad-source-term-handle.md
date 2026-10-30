@@ -33,6 +33,8 @@ decisions:
     accepted-at: 2026-09-21T00:00:00Z
   - key: DenialCoversQuadsNotYetLoaded
     statement: "TryInternalise answers false only when no quad the source will ever yield holds the term, quads it has not loaded yet included; a source that cannot know yet answers true with a handle it stages, and a blank node, or a part of a triple term the source cannot take apart by handle, is outside the promise"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-30T00:00:00Z
 ---
 
 The rulings of [ADR 0022](../adr/0022-quad-source-term-handle.md) still in force, one line each. The ADR is the
