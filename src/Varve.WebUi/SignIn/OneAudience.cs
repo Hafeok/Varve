@@ -2,8 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-using System;
-using System.Buffers.Text;
 using System.Net.Http;
 using System.Text.Json;
 using Varve.Protocol.Client.Model;
@@ -33,28 +31,14 @@ internal static class OneAudience
     // see, and the server, which validates JWTs alone, refuses it anyway.
     internal static int Audiences(string token)
     {
-        string[] parts = token.Split('.');
-
-        if (parts.Length != 3)
-        {
-            return 0;
-        }
-
-        try
-        {
-            using JsonDocument payload = JsonDocument.Parse(Base64Url.DecodeFromChars(parts[1]));
-            return payload.RootElement.ValueKind == JsonValueKind.Object && payload.RootElement.TryGetProperty("aud", out JsonElement aud)
-                ? aud.ValueKind switch
-                {
-                    JsonValueKind.Array => aud.GetArrayLength(),
-                    JsonValueKind.String => 1,
-                    _ => 0,
-                }
-                : 0;
-        }
-        catch (Exception e) when (e is FormatException or JsonException)
-        {
-            return 0;
-        }
+        using JsonDocument? payload = Jwt.Payload(token);
+        return payload is not null && payload.RootElement.TryGetProperty("aud", out JsonElement aud)
+            ? aud.ValueKind switch
+            {
+                JsonValueKind.Array => aud.GetArrayLength(),
+                JsonValueKind.String => 1,
+                _ => 0,
+            }
+            : 0;
     }
 }

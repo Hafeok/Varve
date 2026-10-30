@@ -8,8 +8,8 @@
    management log, a different axis from the dataset's (A6). *@
 <PageTitle>Grants of @Name · Varve</PageTitle>
 <ViewHead Title="Grants" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (_asOf is FeedPosition pinned)
-{<PositionStamp Label="as of" Value="pinned.Value" />}@if (_grants?.Facts.ManagementPosition is FeedPosition management)
-{<PositionStamp Label="management" Value="management.Value" Management="true" />}</ViewHead>
+{<PositionStamp Label="as of management position" Value="pinned.Value" Management="true" />}@if (_grants?.Facts.ManagementPosition is FeedPosition management)
+{<PositionStamp Label="management position" Value="management.Value" Management="true" />}</ViewHead>
 
 @if (_failure is not null)
 {

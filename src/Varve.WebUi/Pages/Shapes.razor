@@ -10,7 +10,7 @@
    dataset's head, not the management position. *@
 <PageTitle>Shapes of @Name · Varve</PageTitle>
 <ViewHead Title="Shapes" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (_bindings?.Facts.ManagementPosition is FeedPosition management)
-{<PositionStamp Label="management" Value="management.Value" Management="true" />}</ViewHead>
+{<PositionStamp Label="management position" Value="management.Value" Management="true" />}</ViewHead>
 
 @if (_failure is not null)
 {
@@ -36,7 +36,7 @@ else if (_bindings?.Value is ShapesBindingList bindings)
         {
             @if (source.Problem is Problem notRead)
             {
-                <ProblemView Problem="notRead" Facts="source.Facts" />
+                <ProblemView Problem="notRead" Facts="source.Facts" Dataset="@Name" />
             }
             else
             {

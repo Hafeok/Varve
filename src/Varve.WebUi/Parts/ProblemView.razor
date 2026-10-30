@@ -1,12 +1,30 @@
+@using Varve.WebUi.SignIn
+@inject IServiceProvider Services
 @* A problem from the client, as a ProblemPanel (docs/ui/components/ProblemPanel):
-   its positions as stamps, every other member in code, the request id from
-   the headers or the body, and the type linked to its page at the commit
-   this build came from. The one place a Problem becomes parameters. *@
-<ProblemPanel Status="(int)Problem.Status" Title="@(Problem.Title.Length > 0 ? Problem.Title : "The server answered with a problem")" Detail="@Problem.Detail" Type="@Problem.Type.Value" TypeHref="@(Problem.Type.Name is string name ? ProblemDocs.Page(name) : null)" RequestId="@((Facts?.RequestId ?? Problem.Instance)?.Value)" Actions="Actions">
+   its positions as stamps that name their log, an expected position and the
+   head as one "expected / now" pair, the graphs a conflict names, every other
+   member in code, the request id from the headers or the body, and the type
+   linked to its page at the commit this build came from. On a 403 it says who
+   the request was made as. The one place a Problem becomes parameters. *@
+<ProblemPanel Status="(int)Problem.Status" Title="@(Problem.Title.Length > 0 ? Problem.Title : "The server answered with a problem")" Detail="@Problem.Detail" Type="@Problem.Type.Value" TypeHref="@(Problem.Type.Name is string name ? ProblemDocs.Page(name) : null)" RequestId="@((Facts?.RequestId ?? Problem.Instance)?.Value)" SignedInAs="@SignedInAs()" Actions="Actions">
     <Members>
+        @if (Position("expectedPosition") is long expected && Position("headPosition") is long now)
+        {
+            <KeyValueItem Label="Position"><PositionStamp Label="@("expected " + Log() + " position")" Value="expected" Management="Management" /> / <PositionStamp Label="now" Value="now" Management="Management" /></KeyValueItem>
+        }
         @foreach (KeyValuePair<string, System.Text.Json.JsonElement> member in Problem.Members)
         {
-            @if (Positions.Contains(member.Key) && member.Value.ValueKind == System.Text.Json.JsonValueKind.Number && member.Value.TryGetInt64(out long position))
+            @if (member.Key is "graphsTruncated" || (Paired && member.Key is "expectedPosition" or "headPosition"))
+            {
+                continue;
+            }
+
+            @if (member.Key == "graphs" && member.Value.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                <KeyValueItem Label="Changed since you read it">@for (int i = 0; i < Graphs(member.Value).Count; i++)
+                {@(i > 0 ? ", " : "")<code>@Graphs(member.Value)[i]</code>}@(Truncated ? ", and more" : "")</KeyValueItem>
+            }
+            else if (Positions.Contains(member.Key) && member.Value.ValueKind == System.Text.Json.JsonValueKind.Number && member.Value.TryGetInt64(out long position))
             {
                 <KeyValueItem Label="@member.Key"><PositionStamp Label="@StampLabel(member.Key)" Value="position" Management="Management" /></KeyValueItem>
             }
@@ -34,16 +52,77 @@
     [Parameter]
     public bool Management { get; set; }
 
+    /// <summary>The dataset whose log a data-plane position is in, to name it on the stamps.</summary>
+    [Parameter]
+    public string? Dataset { get; set; }
+
     /// <summary>The way on, such as reloading at the new position.</summary>
     [Parameter]
     public RenderFragment? Actions { get; set; }
 
-    private static string StampLabel(string member) => member switch
+    private bool Paired => Position("expectedPosition") is not null && Position("headPosition") is not null;
+
+    private bool Truncated => Problem.Members.TryGetValue("graphsTruncated", out System.Text.Json.JsonElement truncated) && truncated.ValueKind == System.Text.Json.JsonValueKind.True;
+
+    // Which log the positions are in: the system dataset's, or the dataset's.
+    private string Log() => Management ? "management" : Dataset ?? "data";
+
+    private long? Position(string member) =>
+        Problem.Members.TryGetValue(member, out System.Text.Json.JsonElement value) && value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetInt64(out long position) ? position : null;
+
+    private string StampLabel(string member) => member switch
     {
-        "expectedPosition" => "expected",
-        "headPosition" => "head",
-        "appliedPosition" => "applied",
-        "projectedPosition" => "projected",
-        _ => "position",
+        "expectedPosition" => "expected " + Log() + " position",
+        "headPosition" => Log() + " head",
+        "appliedPosition" => "applied " + Log() + " position",
+        "projectedPosition" => "projected " + Log() + " position",
+        _ => Log() + " position",
     };
+
+    // The graphs a conflict names, each once, in the order given: a 412's
+    // {graph, version} entries, or a 409's {position, graphs} commits.
+    private static List<string> Graphs(System.Text.Json.JsonElement graphs)
+    {
+        List<string> names = [];
+
+        void Add(System.Text.Json.JsonElement graph)
+        {
+            if (graph.ValueKind == System.Text.Json.JsonValueKind.String && graph.GetString() is { } name && !names.Contains(name))
+            {
+                names.Add(name);
+            }
+        }
+
+        foreach (System.Text.Json.JsonElement entry in graphs.EnumerateArray())
+        {
+            if (entry.ValueKind != System.Text.Json.JsonValueKind.Object)
+            {
+                Add(entry);
+            }
+            else if (entry.TryGetProperty("graph", out System.Text.Json.JsonElement one))
+            {
+                Add(one);
+            }
+            else if (entry.TryGetProperty("graphs", out System.Text.Json.JsonElement many) && many.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (System.Text.Json.JsonElement graph in many.EnumerateArray())
+                {
+                    Add(graph);
+                }
+            }
+        }
+
+        return names;
+    }
+
+    // On a 403, the agent the request's token names (review F02).
+    private string? SignedInAs()
+    {
+        if (Problem.Status != System.Net.HttpStatusCode.Forbidden || Services.GetService(typeof(SignInSession)) is not SignInSession session)
+        {
+            return null;
+        }
+
+        return (Management ? session.ManagementCaller : session.DataCaller)?.Agent;
+    }
 }

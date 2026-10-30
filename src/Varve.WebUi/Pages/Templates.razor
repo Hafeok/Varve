@@ -8,7 +8,7 @@
    is not shown; the declaration's source has every node. *@
 <PageTitle>Graph templates of @Name · Varve</PageTitle>
 <ViewHead Title="Graph templates" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (_grants?.Facts.ManagementPosition is FeedPosition management)
-{<PositionStamp Label="management" Value="management.Value" Management="true" />}</ViewHead>
+{<PositionStamp Label="management position" Value="management.Value" Management="true" />}</ViewHead>
 
 @if (_failure is not null)
 {

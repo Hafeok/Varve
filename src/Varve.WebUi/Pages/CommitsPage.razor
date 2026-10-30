@@ -16,7 +16,7 @@
    count of new ones waiting (#96, 2026-10-28). *@
 <PageTitle>Commits of @Name · Varve</PageTitle>
 <ViewHead Title="Commits" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (Newest is FeedPosition newest)
-{<PositionStamp Label="read at" Value="newest.Value" />}</ViewHead>
+{<PositionStamp Label="@(Name + " position")" Value="newest.Value" />}</ViewHead>
 
 @if (_failure is not null)
 {
@@ -25,7 +25,7 @@
 
 @if (_page?.Problem is Problem problem)
 {
-    <ProblemView Problem="problem" Facts="_page.Facts" />
+    <ProblemView Problem="problem" Facts="_page.Facts" Dataset="@Name" />
 }
 else if (_page is not null || _head is not null)
 {

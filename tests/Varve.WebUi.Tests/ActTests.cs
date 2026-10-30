@@ -73,12 +73,43 @@ public class ActTests
 
         page.WaitForAssertion(() => Assert.Contains(((int)status).ToString(System.Globalization.CultureInfo.InvariantCulture), page.Find("dialog .vw-problem__status").TextContent, StringComparison.Ordinal));
         Assert.Contains("https://w3id.org/varve/problems/" + type, page.Find("dialog .vw-problem__type").TextContent, StringComparison.Ordinal);
-        Assert.Equal("Close", page.Find("dialog .vw-dialog__foot button").TextContent);
+        Assert.Equal("Cancel", page.Find("dialog .vw-dialog__foot button").TextContent);
+
+        if (status == HttpStatusCode.PreconditionFailed)
+        {
+            // Review F05 and F28: the positions name their log, as one pair,
+            // and the graph that changed is named.
+            Assert.Equal("expected management position 412 / now 415", page.Find("dialog .vw-problem dd").TextContent);
+            Assert.Contains("Changed since you read it", page.Find("dialog .vw-problem").TextContent, StringComparison.Ordinal);
+            Assert.Contains("https://w3id.org/varve/ns#manage/dataset/notes", page.Find("dialog .vw-problem").TextContent, StringComparison.Ordinal);
+        }
+
         int reads = server.StatusReads;
 
         page.FindAll("dialog .vw-problem button").Single(button => button.TextContent == "Reload at head").Click();
 
+        // Review F28: the view is read again, and the dialog stays as the
+        // operator filled it in, ready to confirm against the new version.
         page.WaitForAssertion(() => Assert.True(server.StatusReads > reads));
+        page.WaitForAssertion(() => Assert.Empty(page.FindAll("dialog .vw-problem")));
+        Assert.Equal("notes", page.Find("dialog input").GetAttribute("value"));
+        Assert.False(page.Find("dialog button.vw-button--danger-solid").HasAttribute("disabled"));
+    }
+
+    // Review F07, against OpenDatasets: closing a Memory dataset disposes its
+    // storage, and opening it again starts from an empty one.
+    [Theory]
+    [InlineData("Memory", "Its data is lost: Memory storage keeps nothing once the dataset is closed.")]
+    [InlineData("File", "Nothing is deleted.")]
+    [InlineData("ObjectStorage", "Nothing is deleted.")]
+    public void Close_says_what_happens_to_the_data_by_storage(string storage, string effect)
+    {
+        FakeServer server = new() { Storage = storage };
+        using BunitContext context = NewContext(server);
+        IRenderedComponent<Dataset> page = context.Render<Dataset>(parameters => parameters.Add(p => p.Name, "notes"));
+        page.WaitForElement("button.vw-button--danger").Click();
+
+        Assert.EndsWith(effect, page.Find("dialog .vw-dialog__effect").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -120,6 +151,8 @@ public class ActTests
 
         internal string? IfMatch { get; private set; }
 
+        internal string Storage { get; init; } = "Memory";
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             string path = request.RequestUri!.AbsolutePath;
@@ -128,7 +161,7 @@ public class ActTests
             {
                 IfMatch = request.Headers.IfMatch.ToString();
                 return Task.FromResult(StateAnswer is { } answer
-                    ? Json(answer.Status, "{\"type\":\"https://w3id.org/varve/problems/" + answer.Type + "\",\"title\":\"Refused.\",\"status\":" + (int)answer.Status + ",\"instance\":\"vm:1\"}", "application/problem+json")
+                    ? Json(answer.Status, "{\"type\":\"https://w3id.org/varve/problems/" + answer.Type + "\",\"title\":\"Refused.\",\"status\":" + (int)answer.Status + ",\"instance\":\"vm:1\"" + (answer.Status == HttpStatusCode.PreconditionFailed ? ",\"expectedPosition\":412,\"headPosition\":415,\"graphs\":[{\"graph\":\"https://w3id.org/varve/ns#manage/dataset/notes\",\"version\":415}]" : "") + "}", "application/problem+json")
                     : new HttpResponseMessage(HttpStatusCode.NoContent));
             }
 
@@ -137,7 +170,7 @@ public class ActTests
                 "/manage/datasets/notes/state" => Json(HttpStatusCode.OK, "{\"state\":\"open\",\"role\":\"writer\"}"),
                 "/manage/datasets/notes/status" => Count(Json(HttpStatusCode.OK, "{\"name\":\"notes\",\"head\":0,\"durability\":\"None\",\"failed\":false,\"state\":\"open\",\"projection\":{\"position\":0,\"lag\":0,\"failed\":false},\"settings\":{},\"checkpoints\":[]}")),
                 "/manage/datasets/notes" => Tagged(Json(HttpStatusCode.OK, "@prefix varve: <https://w3id.org/varve/ns#> .", "application/trig"), "\"412\""),
-                "/manage/datasets" => Json(HttpStatusCode.OK, "{\"datasets\":[{\"name\":\"notes\",\"state\":\"open\",\"storage\":\"Memory\",\"role\":\"writer\",\"head\":0}]}"),
+                "/manage/datasets" => Json(HttpStatusCode.OK, "{\"datasets\":[{\"name\":\"notes\",\"state\":\"open\",\"storage\":\"" + Storage + "\",\"role\":\"writer\",\"head\":0}]}"),
                 "/manage/sparql" => Json(HttpStatusCode.OK, "{\"head\":{\"vars\":[\"name\",\"instance\"]},\"results\":{\"bindings\":[]}}", "application/sparql-results+json"),
                 "/health/ready" => Json(HttpStatusCode.OK, "{\"status\":\"ready\",\"datasets\":{}}"),
                 _ => new HttpResponseMessage(HttpStatusCode.NotFound),

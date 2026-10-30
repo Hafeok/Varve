@@ -32,7 +32,7 @@ else if (_system?.Value is SystemPlane system)
             <KeyValueItem Label="Role"><StateWord Word="@system.Role?.Value" /></KeyValueItem>
             <KeyValueItem Label="Writer epoch"><code>@(system.Epoch?.ToString() ?? "—")</code></KeyValueItem>
             <KeyValueItem Label="Applied">@if (system.Position is FeedPosition applied)
-            {<PositionStamp Label="management" Value="applied.Value" Management="true" />}
+            {<PositionStamp Label="management position" Value="applied.Value" Management="true" />}
             else
             {<text>—</text>}</KeyValueItem>
             <KeyValueItem Label="Bootstrap"><StateWord Word="@system.Bootstrap?.Value" /></KeyValueItem>

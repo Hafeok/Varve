@@ -3,7 +3,7 @@
    Copy button that copies the source as served. Unhighlighted. The source
    scrolls inside itself, so it takes focus for the keyboard. *@
 <div class="vw-source"><div class="vw-source__head"><span class="vw-source__graph">@Graph</span>@if (Position is long position)
-{<PositionStamp Label="management" Value="position" Management="true" />}<CopyButton Text="@Source" /></div><pre tabindex="0" role="region" aria-label="@Graph">@Source</pre></div>
+{<PositionStamp Label="management position" Value="position" Management="true" />}<CopyButton Text="@Source" /></div><pre tabindex="0" role="region" aria-label="@Graph">@Source</pre></div>
 
 @code {
     /// <summary>The graph's IRI.</summary>

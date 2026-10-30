@@ -33,7 +33,7 @@
                 <KeyValueItem Label="Role"><StateWord Word="@management.Role?.Value" Missing="not reported" /></KeyValueItem>
                 <KeyValueItem Label="Writer epoch"><code>@Text(management.Epoch)</code></KeyValueItem>
                 <KeyValueItem Label="Applied position">@if (management.Position is { } applied)
-                {<PositionStamp Label="applied" Value="applied.Value" Management="true" />}
+                {<PositionStamp Label="management position" Value="applied.Value" Management="true" />}
                 else
                 {<text>not reported</text>}</KeyValueItem>
                 <KeyValueItem Label="Lag behind the system tail"><code>@Text(management.Lag)</code></KeyValueItem>

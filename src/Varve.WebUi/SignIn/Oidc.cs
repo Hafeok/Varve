@@ -27,13 +27,14 @@ internal enum ManagementGrant
 /// <summary>
 /// The Web UI's sign-in settings (ADR 0201), from <c>appsettings.json</c>'s
 /// <c>Varve:Auth</c>: the issuer, the Web UI's own public client, the two
-/// planes' scopes, which are never asked for in one request, and how the
-/// management token is asked for, with the audience an exchange names.
+/// planes' scopes, how each plane's token is asked for, with the audience an
+/// exchange names, and the claim whose roles the shell shows (the server's
+/// <c>Auth:RoleClaimType</c>, <c>roles</c> by default).
 /// </summary>
-internal sealed record OidcOptions(Uri Authority, string ClientId, string DataScope, string ManageScope, ManagementGrant Grant = ManagementGrant.Refresh, string? ManageAudience = null, string? DataAudience = null)
+internal sealed record OidcOptions(Uri Authority, string ClientId, string DataScope, string ManageScope, ManagementGrant Grant = ManagementGrant.Refresh, string? ManageAudience = null, string? DataAudience = null, string RoleClaimType = "roles")
 {
     /// <summary>The settings, or a message naming what is missing.</summary>
-    internal static OidcOptions From(string? authority, string? clientId, string? dataScope, string? manageScope, string? manageGrant = null, string? manageAudience = null, string? dataAudience = null)
+    internal static OidcOptions From(string? authority, string? clientId, string? dataScope, string? manageScope, string? manageGrant = null, string? manageAudience = null, string? dataAudience = null, string? roleClaimType = null)
     {
         List<string> missing = [];
         ManagementGrant? grant = manageGrant switch
@@ -69,7 +70,7 @@ internal sealed record OidcOptions(Uri Authority, string ClientId, string DataSc
         }
 
         return missing.Count == 0
-            ? new OidcOptions(issuer!, clientId!, dataScope!, manageScope!, grant!.Value, string.IsNullOrWhiteSpace(manageAudience) ? null : manageAudience, string.IsNullOrWhiteSpace(dataAudience) ? null : dataAudience)
+            ? new OidcOptions(issuer!, clientId!, dataScope!, manageScope!, grant!.Value, string.IsNullOrWhiteSpace(manageAudience) ? null : manageAudience, string.IsNullOrWhiteSpace(dataAudience) ? null : dataAudience, string.IsNullOrWhiteSpace(roleClaimType) ? "roles" : roleClaimType)
             : throw new InvalidOperationException("Sign-in is configured (Varve:Auth:Mode is Oidc) but these are not set: " + string.Join(", ", missing) + ".");
     }
 }

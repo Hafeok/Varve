@@ -1,9 +1,11 @@
 @* ProblemPanel (docs/ui/components/ProblemPanel): an RFC 9457 problem as the
    server answered it: the status, its title verbatim, the detail, its members,
-   the request id with a Copy button, and its type linked to its page. Known
+   the request id with a Copy button, and its type linked to its page. On a
+   403 it says who the request was made as. Known
    members render by kind; the page decides which, and passes them in. *@
 <div class="vw-problem" role="alert"><div class="vw-problem__head"><span class="vw-problem__status">@Status.ToString(System.Globalization.CultureInfo.InvariantCulture)</span><h2 class="vw-problem__title">@Title</h2></div><div class="vw-problem__body">@if (Detail is not null)
-{<p class="vw-problem__detail">@Detail</p>}<KeyValue>@Members@if (RequestId is not null)
+{<p class="vw-problem__detail">@Detail</p>}@if (SignedInAs is not null)
+{<p class="vw-problem__caller">Signed in as <code>@SignedInAs</code>.</p>}<KeyValue>@Members@if (RequestId is not null)
 {<KeyValueItem Label="Request id"><code>@RequestId</code> <CopyButton Text="@RequestId" /></KeyValueItem>}<KeyValueItem Label="Type">@if (TypeHref is not null)
 {<a class="vw-problem__type" href="@TypeHref">@Type</a>}
 else
@@ -34,6 +36,10 @@ else
     /// <summary>The request id, <c>instance</c> or <c>Varve-Request-Id</c>.</summary>
     [Parameter]
     public string? RequestId { get; set; }
+
+    /// <summary>Who the request was made as, on a <c>403</c>: the agent the token names.</summary>
+    [Parameter]
+    public string? SignedInAs { get; set; }
 
     /// <summary>The extension members, as <see cref="Molecules.KeyValueItem"/>s.</summary>
     [Parameter]

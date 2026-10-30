@@ -14,10 +14,10 @@
    last advance) is not shown (#96). *@
 <PageTitle>@Name · Varve</PageTitle>
 <ViewHead Title="@Name" CrumbText="Datasets" CrumbHref="datasets">@if (_asOf is FeedPosition pinned)
-{<PositionStamp Label="as of" Value="pinned.Value" />@if (_lifecycle is not null && _lifecycle.Facts.ManagementPosition is FeedPosition management)
-{<PositionStamp Label="management" Value="management.Value" Management="true" />}}
+{<PositionStamp Label="@("as of " + Name + " position")" Value="pinned.Value" />@if (_lifecycle is not null && _lifecycle.Facts.ManagementPosition is FeedPosition management)
+{<PositionStamp Label="management position" Value="management.Value" Management="true" />}}
 else if (_status is not null)
-{<ReadStamps Facts="_status.Facts" />}</ViewHead>
+{<ReadStamps Facts="_status.Facts" Log="@Name" />}</ViewHead>
 
 @if (_failure is not null)
 {
@@ -38,7 +38,7 @@ else if (_asOf is FeedPosition at)
             <ChildContent>
                 <KeyValue>
                     <KeyValueItem Label="State"><StateWord Word="@_lifecycle?.Value?.State?.Value" /></KeyValueItem>
-                    <KeyValueItem Label="As of"><PositionStamp Label="as of" Value="at.Value" /></KeyValueItem>
+                    <KeyValueItem Label="As of"><PositionStamp Label="@(Name + " position")" Value="at.Value" /></KeyValueItem>
                     <KeyValueItem Label="Committed"><code>@Times.Utc(commit.Timestamp.Value)</code> <span class="vw-muted">@Times.Ago(commit.Timestamp.Value, Clock.GetUtcNow())</span></KeyValueItem>
                     <KeyValueItem Label="Agent"><code>@(commit.Agent is { } agent ? System.Text.Encoding.UTF8.GetString(agent.Lexical) : "none")</code></KeyValueItem>
                 </KeyValue>
@@ -50,7 +50,7 @@ else if (_asOf is FeedPosition at)
     }
     else if (_pinned?.Problem is Problem notThere)
     {
-        <ProblemView Problem="notThere" Facts="_pinned.Facts" />
+        <ProblemView Problem="notThere" Facts="_pinned.Facts" Dataset="@Name" />
     }
 }
 else
@@ -97,7 +97,7 @@ else
                     }
                     @if (status.Head is FeedPosition head)
                     {
-                        <KeyValueItem Label="@(follower ? "Head here" : "Head")"><PositionStamp Label="head" Value="head.Value" /></KeyValueItem>
+                        <KeyValueItem Label="@(follower ? "Head here" : "Head")"><PositionStamp Label="@(Name + " position")" Value="head.Value" /></KeyValueItem>
                     }
                     @if (follower && ready?.Lag is PositionLag lag)
                     {
@@ -109,7 +109,7 @@ else
                         <KeyValueItem Label="Last commit"><code>@Times.Utc(last.Timestamp.Value)</code> <span class="vw-muted">@Times.Ago(last.Timestamp.Value, Clock.GetUtcNow())</span></KeyValueItem>
                     }
                     <KeyValueItem Label="Last checkpoint">@if (status.Checkpoints.Count > 0)
-                    {<PositionStamp Label="at" Value="status.Checkpoints.Max(checkpoint => checkpoint.Value)" />}
+                    {<PositionStamp Label="@(Name + " position")" Value="status.Checkpoints.Max(checkpoint => checkpoint.Value)" />}
                     else
                     {<text>none</text>}</KeyValueItem>
                 </KeyValue>
@@ -139,7 +139,7 @@ else
             <ChildContent>
                 @if (_recent?.Problem is Problem notRead)
                 {
-                    <ProblemView Problem="notRead" Facts="_recent.Facts" />
+                    <ProblemView Problem="notRead" Facts="_recent.Facts" Dataset="@Name" />
                 }
                 else
                 {
@@ -155,7 +155,7 @@ else
     }
 }
 
-<ConfirmDialog Id="act" Open="_act is not null" OnClosed="Ended" Title="@ActTitle()" Danger="@(_act == Act.Close)" ConfirmName="@(_act == Act.Close ? Name : null)" ConfirmLabel="@ActLabel()" Busy="_acting" Done="_outcome is not null" OnConfirm="ConfirmAsync">
+<ConfirmDialog Id="act" Open="_act is not null" OnClosed="Ended" Title="@ActTitle()" Danger="@(_act == Act.Close)" ConfirmName="@(_act == Act.Close ? Name : null)" ConfirmLabel="@ActLabel()" Busy="_acting" Done="_outcome?.Value is not null" OnConfirm="ConfirmAsync">
     <Effect>@ActEffect()</Effect>
     <Note>@if (_act is Act.Close or Act.Open && _outcome is null)
     {<DriftNote />}</Note>
@@ -310,9 +310,11 @@ else
         builder.CloseComponent();
     };
 
+    // Reload at head (review F28): the view is read again and the dialog stays
+    // open as the operator filled it in, so the act can be confirmed against
+    // the new version without starting over.
     private async Task ReloadAtHeadAsync()
     {
-        _act = null;
         _outcome = null;
         await ReadAsync(Management);
     }
@@ -339,7 +341,7 @@ else
     private RenderFragment ActEffect() => _act switch
     {
         Act.Checkpoint => @<text>Writes a checkpoint of <strong>@Name</strong> at position @(_status?.Value?.Head?.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "its head"): derived data, droppable, no change to the log.</text>,
-        Act.Close => @<text>Every instance stops serving <strong>@Name</strong> and its writer releases the dataset. Reads and writes answer <code>404</code> until it is opened again. Nothing is deleted.</text>,
+        Act.Close => @<text>Every instance stops serving <strong>@Name</strong> and its writer releases the dataset. Reads and writes answer <code>404</code> until it is opened again. @(Entry()?.Storage == StorageKind.Memory ? "Its data is lost: Memory storage keeps nothing once the dataset is closed." : "Nothing is deleted.")</text>,
         _ => @<text>The instances <strong>@Name</strong> is placed on serve it again, for reads and writes.</text>,
     };
 

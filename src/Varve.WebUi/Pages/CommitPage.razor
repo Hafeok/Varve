@@ -10,7 +10,7 @@
    not a verdict (#96). *@
 <PageTitle>Commit @Position of @Name · Varve</PageTitle>
 <ViewHead Title="Commits" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name) + "/commits")">@if (_commit is not null)
-{<ReadStamps Facts="_commit.Facts" />}</ViewHead>
+{<ReadStamps Facts="_commit.Facts" Log="@Name" />}</ViewHead>
 
 @if (_failure is not null)
 {
@@ -19,7 +19,7 @@
 
 @if (_commit?.Problem is Problem problem)
 {
-    <ProblemView Problem="problem" Facts="_commit.Facts" />
+    <ProblemView Problem="problem" Facts="_commit.Facts" Dataset="@Name" />
 }
 else if (_commit?.Value is FeedRecord commit)
 {

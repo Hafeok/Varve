@@ -9,7 +9,7 @@
 <dialog class="vw-dialog" aria-labelledby="@(Id + "-title")" @ref="_dialog" @onclose="ClosedAsync"><div class="vw-dialog__body"><h2 class="vw-dialog__title" id="@(Id + "-title")">@Title</h2><p class="vw-dialog__effect">@Effect</p>@Note@if (ConfirmName is not null)
 {<Field Id="@(Id + "-name")" Exact="true" Value="@_typed" ValueChanged="Typed">
     <Label>Type <code>@ConfirmName</code> to confirm</Label>
-</Field>}@Result</div><div class="vw-dialog__foot"><Button OnClick="CancelAsync">@(Done ? "Close" : "Cancel")</Button>@if (!Done)
+</Field>}@Result</div><div class="vw-dialog__foot"><Button OnClick="CancelAsync">@(Done ? "Done" : "Cancel")</Button>@if (!Done)
 {<Button Kind="@(Danger ? ButtonKind.DangerSolid : ButtonKind.Primary)" Disabled="@(!Ready)" OnClick="OnConfirm">@ConfirmLabel</Button>}</div></dialog>
 
 @code {
@@ -25,7 +25,7 @@
     [Parameter]
     public bool Open { get; set; }
 
-    /// <summary>Raised when the dialog closes, by Escape, Cancel or Close.</summary>
+    /// <summary>Raised when the dialog closes, by Escape, Cancel or Done.</summary>
     [Parameter]
     public EventCallback OnClosed { get; set; }
 
@@ -57,7 +57,7 @@
     [Parameter]
     public bool Busy { get; set; }
 
-    /// <summary>The write succeeded: the confirming button gives way to Close.</summary>
+    /// <summary>The write succeeded: the confirming button gives way to Done.</summary>
     [Parameter]
     public bool Done { get; set; }
 

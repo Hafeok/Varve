@@ -6,7 +6,7 @@
    declarations--source.html), read-only, exactly as the server wrote it. *@
 <PageTitle>Declaration of @Name · Varve</PageTitle>
 <ViewHead Title="Declaration" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (_declaration?.Facts.ManagementPosition is FeedPosition management)
-{<PositionStamp Label="management" Value="management.Value" Management="true" />}</ViewHead>
+{<PositionStamp Label="management position" Value="management.Value" Management="true" />}</ViewHead>
 
 @if (_failure is not null)
 {
