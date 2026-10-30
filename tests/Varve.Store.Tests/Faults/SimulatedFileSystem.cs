@@ -245,6 +245,23 @@ internal sealed class SimulatedFileSystem : IFileSystem
         }
     }
 
+    public bool DeleteEmptyDirectory(string path)
+    {
+        lock (_gate)
+        {
+            Live();
+            string normalised = Normalise(path);
+            string prefix = normalised + Path.DirectorySeparatorChar;
+
+            if (!_directories.Contains(normalised) || _files.Keys.Any(f => f.StartsWith(prefix, StringComparison.Ordinal)) || _directories.Any(d => d.StartsWith(prefix, StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            return _directories.Remove(normalised);
+        }
+    }
+
     public bool IsReadOnly(string path)
     {
         lock (_gate)

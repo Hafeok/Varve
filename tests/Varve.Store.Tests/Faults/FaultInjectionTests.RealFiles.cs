@@ -275,6 +275,8 @@ public static partial class FaultInjectionTests
 
         public void Delete(string path) => _disk.Delete(path);
 
+        public bool DeleteEmptyDirectory(string path) => _disk.DeleteEmptyDirectory(path);
+
         public bool IsReadOnly(string path) => _disk.IsReadOnly(path);
 
         public void MakeReadOnly(string path) => _disk.MakeReadOnly(path);
@@ -352,6 +354,12 @@ public static partial class FaultInjectionTests
         {
             mirror.Delete(path);
             _disk.Delete(path);
+        }
+
+        public bool DeleteEmptyDirectory(string path)
+        {
+            mirror.DeleteEmptyDirectory(path);
+            return _disk.DeleteEmptyDirectory(path);
         }
 
         public bool IsReadOnly(string path) => _disk.IsReadOnly(path);

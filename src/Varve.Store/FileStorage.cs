@@ -554,6 +554,7 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
                 try
                 {
                     _files.Delete(path);
+                    DeleteSetDirectory(name);
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
@@ -681,10 +682,23 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
                     }
 
                     _deferred.Remove(name);
+                    DeleteSetDirectory(new BlobName(name));
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
                 }
+            }
+        }
+
+        // An extent set's directory goes with its last file: a set is named
+        // once, written once and never again after it is retired, so nothing
+        // creates a file in it while it is removed (#61: the soak found every
+        // retired set's directory left behind, about three a minute).
+        private void DeleteSetDirectory(BlobName name)
+        {
+            if (name.Value.StartsWith("extents/", StringComparison.Ordinal) && name.Value.IndexOf('/', "extents/".Length) > 0)
+            {
+                _files.DeleteEmptyDirectory(Path.GetDirectoryName(PathOf(name))!);
             }
         }
 
