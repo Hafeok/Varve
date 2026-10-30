@@ -1,0 +1,242 @@
+@page "/datasets/{Name}/commits"
+@implements IAsyncDisposable
+@inject DatasetClients Datasets
+@inject VarveManagementClient Management
+@inject WebUiSettings Settings
+@inject TimeProvider Clock
+@inject IJSRuntime Js
+@* A dataset's commits (docs/ui/screens/commits--*.html): the latest page,
+   newest first, then the live tail (ADR 0129's follow over server-sent
+   events), each new commit marked for a few seconds. While the operator
+   reads lower down, the tail pauses and counts what arrived; back at the
+   top, it shows them. Only the commits the caller's grants let them read
+   are delivered (ADR 0107). The "read at" stamp is the newest position the
+   list holds: it advances with each commit the live tail shows, and while
+   the tail is paused it stays at what is being read, so it agrees with the
+   count of new ones waiting (#96, 2026-10-28). "Show 3 new" shows them and
+   returns to the top, where the tail runs (review F20). *@
+<PageTitle>Commits of @Name · Varve</PageTitle>
+<ViewHead Title="Commits" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (Newest is FeedPosition newest)
+{<PositionStamp Label="@(Name + " position")" Value="newest.Value" />}</ViewHead>
+
+@if (_failure is not null)
+{
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="ReadAgainAsync" />
+}
+
+@if (_page?.Problem is Problem problem)
+{
+    <ProblemView Problem="problem" Facts="_page.Facts" Dataset="@Name" />
+}
+else if (_page is not null || _head is not null)
+{
+    <Panel StaleSince="@LastAnswered" Title="Commits in your scope" Flush="@(_shown.Count > 0)">
+        <Head><Tail Paused="!_atTop" Pending="_waiting.Count" OnShow="ShowWaitingAsync" /></Head>
+        <ChildContent>
+            @if (_shown.Count > 0)
+            {
+                <Commits Records="_shown" Dataset="new DatasetName(Name)" Arrived="_arrived" />
+            }
+            else
+            {
+                <p>No commits touch the graphs your grants let you read. Commits to other graphs are not shown.</p>
+            }
+        </ChildContent>
+    </Panel>
+}
+
+@code {
+    private const int PageSize = 20;
+    private static readonly TimeSpan MarkedFor = TimeSpan.FromSeconds(4);
+
+    private readonly List<FeedRecord> _shown = [];
+    private readonly List<FeedRecord> _waiting = [];
+    private readonly HashSet<FeedPosition> _arrived = [];
+    private readonly CancellationTokenSource _closing = new();
+    private CancellationTokenSource? _following;
+    private VarveResult<CommitRange>? _page;
+    private FeedPosition? _head;
+    private DateTimeOffset? _lastRead;
+    private string? _failure;
+    private bool _atTop = true;
+    private DotNetObjectReference<CommitsPage>? _self;
+    private IJSObjectReference? _watch;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
+
+    // The newest position the list holds, or the head it was read at when it
+    // holds none. Commits waiting while paused are not in the list.
+    private FeedPosition? Newest => _shown.Count > 0 ? _shown.Max(record => record.Position) : _head;
+
+    /// <summary>The dataset's name, from the address.</summary>
+    [Parameter]
+    public string Name { get; set; } = "";
+
+    /// <inheritdoc />
+    protected override Task OnInitializedAsync() => ReadAsync();
+
+    // Read again (review F09): the follow is stopped, and the page and the
+    // tail start over from the head as it is now.
+    private async Task ReadAgainAsync()
+    {
+        if (_following is not null)
+        {
+            await _following.CancelAsync();
+        }
+
+        _shown.Clear();
+        _waiting.Clear();
+        _arrived.Clear();
+        await ReadAsync();
+    }
+
+    private async Task ReadAsync()
+    {
+        try
+        {
+            VarveResult<DatasetStatus> status = await Management.StatusAsync(new DatasetName(Name), _closing.Token);
+            _head = status.Value?.Head ?? new FeedPosition(0);
+
+            if (_head.Value.Value > 0)
+            {
+                _page = await Datasets.For(new DatasetName(Name)).ReadCommitsAsync(new FeedPosition(Math.Max(0, _head.Value.Value - PageSize)), _head.Value, _closing.Token);
+                _shown.AddRange(_page.Value?.Commits.Where(record => record.Kind == FeedRecordKind.Commit) ?? []);
+            }
+
+            _lastRead = Clock.GetUtcNow();
+            _failure = null;
+            _following?.Dispose();
+            _following = CancellationTokenSource.CreateLinkedTokenSource(_closing.Token);
+            _ = FollowAsync(_head.Value, _following.Token);
+        }
+        catch (HttpRequestException e)
+        {
+            _failure = e.Message;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _self = DotNetObjectReference.Create(this);
+            _watch = await Js.InvokeAsync<IJSObjectReference>("varveWebUi.watchTop", _self);
+        }
+    }
+
+    /// <summary>Whether the main column is at its top: the tail runs there, and pauses below.</summary>
+    [JSInvokable]
+    public void AtTop(bool top)
+    {
+        _atTop = top;
+
+        if (top && _waiting.Count > 0)
+        {
+            Show(_waiting);
+            _waiting.Clear();
+        }
+
+        StateHasChanged();
+    }
+
+    // The live tail, from the head the page was read at, until the screen closes.
+    private async Task FollowAsync(FeedPosition from, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Datasets.For(new DatasetName(Name)).FollowAsync(from, ArrivedAsync, new TabCheckpoint(), new FollowOptions(Clock), cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The screen closed, or is read again.
+        }
+        catch (Exception e) when (e is FollowRefusedException or HttpRequestException or Varve.Delta.ChangeFeedFormatException)
+        {
+            _failure = e.Message;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async ValueTask ArrivedAsync(FeedRecord record, CancellationToken cancellationToken)
+    {
+        if (record.Kind != FeedRecordKind.Commit)
+        {
+            return;
+        }
+
+        await InvokeAsync(() =>
+        {
+            if (_atTop)
+            {
+                Show([record]);
+            }
+            else
+            {
+                _waiting.Add(record);
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    // "Show n new": shows what waited, and returns to the top, where the tail
+    // runs; the stamp follows, since it is the newest position shown.
+    private async Task ShowWaitingAsync()
+    {
+        _atTop = true;
+        Show([.. _waiting]);
+        _waiting.Clear();
+        await Js.InvokeVoidAsync("varveWebUi.toTop");
+    }
+
+    // Shows commits that arrived, marked as new for a few seconds.
+    private void Show(IReadOnlyList<FeedRecord> records)
+    {
+        _shown.AddRange(records);
+        List<FeedPosition> marked = [.. records.Select(record => record.Position)];
+        _arrived.UnionWith(marked);
+        _ = SettleAsync(marked);
+    }
+
+    private async Task SettleAsync(List<FeedPosition> marked)
+    {
+        try
+        {
+            await Task.Delay(MarkedFor, Clock, _closing.Token);
+            await InvokeAsync(() =>
+            {
+                _arrived.ExceptWith(marked);
+                StateHasChanged();
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // The screen closed.
+        }
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        await _closing.CancelAsync();
+        _following?.Dispose();
+        _closing.Dispose();
+
+        if (_watch is not null)
+        {
+            try
+            {
+                await _watch.InvokeVoidAsync("dispose");
+                await _watch.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The page is gone.
+            }
+        }
+
+        _self?.Dispose();
+    }
+}

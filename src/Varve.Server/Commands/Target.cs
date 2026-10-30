@@ -273,7 +273,7 @@ internal sealed class Target
 
         if (!string.IsNullOrEmpty(token))
         {
-            return Varve.Protocol.Client.Model.BearerToken.Fixed(token);
+            return Varve.Protocol.Client.BearerTokens.Fixed(token);
         }
 
         string? authority = parsed.GetValue(Authority);

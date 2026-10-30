@@ -1,0 +1,16 @@
+@* A state word from the server as its badge, toned by the one mapping
+   (ADR 0206 point 5), or the given text when the server did not report it. *@
+@if (Word is null)
+{@Missing}
+else
+{<StateBadge Tone="Tones.OfState(Word)" Word="@Word" />}
+
+@code {
+    /// <summary>The word as the server wrote it, or null when it did not.</summary>
+    [Parameter]
+    public string? Word { get; set; }
+
+    /// <summary>What stands in for a word the server did not report.</summary>
+    [Parameter]
+    public string Missing { get; set; } = "—";
+}

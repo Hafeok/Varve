@@ -1,0 +1,7 @@
+{
+  "webui": {
+    "budgetBytes": 1920000,
+    "measuredBytes": 1822800,
+    "note": "Brotli-11, window 24, of _framework/ on a publish from a clean tree, 2026-10-28; the budget is that plus 5%, rounded up to 10 kB (ADR 0205). Raising it is an amendment to ADR 0205."
+  }
+}

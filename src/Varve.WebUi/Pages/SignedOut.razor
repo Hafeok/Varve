@@ -1,0 +1,13 @@
+@page "/signedout"
+@using Varve.WebUi.SignIn
+@inject SignInSession Session
+@* Where the issuer sends the tab after sign-out (ADR 0201): no token is held,
+   and no sign-in starts until the operator asks for one. *@
+<PageTitle>Signed out · Varve</PageTitle>
+<ViewHead Title="Signed out" />
+<p>Both planes are signed out in this tab.</p>
+<Button Kind="ButtonKind.Primary" OnClick="SignInAsync">Sign in</Button>
+
+@code {
+    private Task SignInAsync() => Session.StartAsync("/", silent: false, CancellationToken.None);
+}

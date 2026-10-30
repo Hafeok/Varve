@@ -2,6 +2,7 @@
   "parameters": {
     "Graph": "varve:manage/dataset/notes",
     "Position": 412,
-    "Source": "n:notes a varve:Dataset ;\n  varve:datasetName \"notes\" ;\n  varve:storage varve:ObjectStorage ."
+    "Source": "@prefix varve: <https://w3id.org/varve/ns#> .\n\n<https://w3id.org/varve/ns#manage/dataset/notes> {\n  <https://w3id.org/varve/ns#dataset/notes> a varve:Dataset ;\n    varve:datasetName \"notes\" ;\n    varve:storage varve:ObjectStorage .\n}\n",
+    "Full": "https://w3id.org/varve/ns#manage/dataset/notes"
   }
 }

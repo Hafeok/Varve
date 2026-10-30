@@ -1,0 +1,46 @@
+@* The server did not answer (docs/ui/README.md, States): directly below the
+   view head, above everything else, with the server's address, the one time
+   it last answered, and Read again; the last data stays below it, its panels
+   marked stale with that same time (review F09). The wording is here, once,
+   for every screen. *@
+<Notice Title="The server did not answer" Warn="true">
+    <ChildContent><code>@Server</code>: @Failure @if (LastRead is { } last)
+    {<text>Last read </text><code>@Times.Utc(last)</code><text>.</text>}
+    else
+    {<text>It has not answered yet.</text>}</ChildContent>
+    <Actions><Button Small="true" Disabled="_reading" OnClick="ReadAgainAsync">Read again</Button></Actions>
+</Notice>
+
+@code {
+    private bool _reading;
+
+    /// <summary>The server's address.</summary>
+    [Parameter, EditorRequired]
+    public string Server { get; set; } = "";
+
+    /// <summary>What happened, as the client said it.</summary>
+    [Parameter, EditorRequired]
+    public string Failure { get; set; } = "";
+
+    /// <summary>When it last answered, if it has.</summary>
+    [Parameter]
+    public DateTimeOffset? LastRead { get; set; }
+
+    /// <summary>Reads the screen again.</summary>
+    [Parameter, EditorRequired]
+    public EventCallback OnReadAgain { get; set; }
+
+    private async Task ReadAgainAsync()
+    {
+        _reading = true;
+
+        try
+        {
+            await OnReadAgain.InvokeAsync();
+        }
+        finally
+        {
+            _reading = false;
+        }
+    }
+}

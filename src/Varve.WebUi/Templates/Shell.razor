@@ -1,0 +1,81 @@
+@* Shell (docs/ui/components/Shell): the frame around every screen, the bar
+   (core mark, server address and the instance that answered, who is signed
+   in, once when both planes name the same agent, with the roles on hover or
+   focus, and a sign-in state per plane), the navigation rail, with a
+   dataset's own screens under a dataset selector, and the main column. An
+   agent IRI over 40 characters is truncated in the middle and keeps the
+   full IRI as its title and accessible name. Takes everything as
+   parameters; no data. *@
+<div class="vw-shell"><a class="vw-skip" href="#main">Skip to main content</a><header class="vw-shell__bar"><a class="vw-shell__brand" href=""><img src="img/varve-core.svg" alt=""> Varve</a><span class="vw-shell__server">@Server@if (Instance is not null)
+{<span class="vw-shell__instance">@Instance</span>}</span>@if (OneAgent() is string one)
+{<span class="vw-shell__who">Signed in as @Agent(one, "who-roles")<span class="vw-shell__roles" role="tooltip" id="who-roles">@string.Join(" ", Planes.Where(plane => plane.Agent is not null).Select(plane => plane.Name + ": " + (plane.Roles is { Count: > 0 } held ? string.Join(", ", held) : "no roles") + "."))</span></span>}@for (int i = 0; i < Planes.Count; i++)
+{
+PlaneState plane = Planes[i];
+string roles = "plane-" + i.ToString(System.Globalization.CultureInfo.InvariantCulture) + "-roles";
+<span class="@(plane.Absent ? "vw-plane vw-plane--absent" : "vw-plane")">@(plane.Name + " ")@if (plane.Anonymous)
+{<StateBadge Tone="Tone.Warn" Word="@plane.Word" />}
+else
+{<strong>@plane.Word</strong>}@if (plane.Agent is not null && OneAgent() is null)
+{<text> as </text>@Agent(plane.Agent, roles)<span class="vw-shell__roles" role="tooltip" id="@roles">@(plane.Roles is { Count: > 0 } held ? "Roles: " + string.Join(", ", held) : "No roles in this token")</span>}</span>
+}@BarActions</header><nav class="vw-shell__nav" aria-label="Main">@Groups(Navigation)@if (Dataset is not null && Datasets.Count > 0)
+{<label class="vw-shell__navgroup vw-label" for="nav-dataset">Dataset</label><select class="vw-shell__dataset" id="nav-dataset" @onchange="ChosenAsync">@foreach (string dataset in Datasets)
+{<option value="@dataset" selected="@(dataset == Dataset)">@dataset</option>}</select>@Groups(DatasetNavigation)}</nav><main class="vw-shell__main" id="main" tabindex="-1">@ChildContent</main></div>
+
+@code {
+    /// <summary>The server's base address.</summary>
+    [Parameter, EditorRequired]
+    public string Server { get; set; } = "";
+
+    /// <summary>The instance that answered, and its role in the system dataset: "varve-1 · system writer".</summary>
+    [Parameter]
+    public string? Instance { get; set; }
+
+    /// <summary>Each plane's sign-in state.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<PlaneState> Planes { get; set; } = [];
+
+    /// <summary>The navigation rail's groups.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<NavGroup> Navigation { get; set; } = [];
+
+    /// <summary>The datasets the selector offers.</summary>
+    [Parameter]
+    public IReadOnlyList<string> Datasets { get; set; } = [];
+
+    /// <summary>The dataset selected, whose own screens are listed under the selector.</summary>
+    [Parameter]
+    public string? Dataset { get; set; }
+
+    /// <summary>The selected dataset's own screens: History and Declarations.</summary>
+    [Parameter]
+    public IReadOnlyList<NavGroup> DatasetNavigation { get; set; } = [];
+
+    /// <summary>Raised with the dataset the operator selects.</summary>
+    [Parameter]
+    public EventCallback<string> OnDataset { get; set; }
+
+    /// <summary>Actions at the end of the bar: Sign out.</summary>
+    [Parameter]
+    public RenderFragment? BarActions { get; set; }
+
+    /// <summary>The screen.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? ChildContent { get; set; }
+
+    // The agent every signed-in plane names, when they name the same one.
+    private string? OneAgent()
+    {
+        List<string> agents = [.. Planes.Select(plane => plane.Agent).OfType<string>().Distinct(StringComparer.Ordinal)];
+        return agents.Count == 1 ? agents[0] : null;
+    }
+
+    // An agent IRI, focusable for its roles: over 40 characters, truncated in
+    // the middle, with the full IRI as its title and accessible name.
+    private static RenderFragment Agent(string iri, string described) => @<span class="vw-shell__agent" tabindex="0" aria-describedby="@described" title="@(iri.Length > 40 ? iri : null)">@if (iri.Length > 40) {<span aria-hidden="true">@(iri[..20] + "…" + iri[^19..])</span><span class="vw-visually-hidden">@iri</span>} else {@iri}</span>;
+
+    private static RenderFragment Groups(IReadOnlyList<NavGroup> groups) => @<text>@foreach (NavGroup group in groups)
+    {<div class="vw-shell__navgroup vw-label">@group.Name</div><ul>@foreach (NavEntry entry in group.Entries)
+    {<li><a href="@entry.Href" aria-current="@(entry.Current ? "page" : null)">@entry.Text</a></li>}</ul>}</text>;
+
+    private Task ChosenAsync(ChangeEventArgs e) => OnDataset.InvokeAsync(e.Value as string ?? "");
+}

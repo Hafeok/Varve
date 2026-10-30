@@ -19,7 +19,9 @@
 
     <!-- wasm-experimental, not Blazor. Constraint 3 is that Varve runs in a
          browser, not that it runs in a web framework, and Blazor would drag in
-         an ASP.NET Core package tail that has nothing to do with the claim. -->
+         an ASP.NET Core package tail that has nothing to do with the claim.
+         The Web UI makes a different claim, an application, and ADR 0200
+         admits Blazor for it with both routes measured. -->
     <!-- InvariantGlobalization requires a native relink of the runtime, which
          is what wasm-tools is for. Left on: the smoke app has no business
          downloading ICU, and the relink is the shape a real deployment uses. -->

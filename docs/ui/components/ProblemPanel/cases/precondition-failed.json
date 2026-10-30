@@ -6,7 +6,7 @@
     "Type": "https://w3id.org/varve/problems/precondition-failed",
     "TypeHref": "#",
     "RequestId": "0HN7R3K2M9Q4:00000007",
-    "Members": "<dt>Expected</dt><dd><span class=\"vw-position vw-position--management\"><span class=\"vw-position__label\">expected</span> <span class=\"vw-position__value\">412</span></span></dd><dt>Head</dt><dd><span class=\"vw-position vw-position--management\"><span class=\"vw-position__label\">head</span> <span class=\"vw-position__value\">415</span></span></dd>",
+    "Members": "<dt>Position</dt><dd><span class=\"vw-position vw-position--management\"><span class=\"vw-position__label\">expected management position</span> <span class=\"vw-position__value\">412</span></span> / <span class=\"vw-position vw-position--management\"><span class=\"vw-position__label\">now</span> <span class=\"vw-position__value\">415</span></span></dd><dt>Changed since you read it</dt><dd><code>https://w3id.org/varve/ns#manage/dataset/notes</code></dd>",
     "Actions": "<button class=\"vw-button vw-button--primary\" type=\"button\">Reload at head</button>"
   }
 }

@@ -1,0 +1,35 @@
+@* Panel (docs/ui/components/Panel): the container a resource renders in. A
+   table goes in flush, so its rows run edge to edge. Stale, under the
+   server-unreachable notice, it says when it was last read (review F09). *@
+<div class="@(StaleSince is null ? "vw-panel" : "vw-panel vw-panel--stale")">@if (Title is not null)
+{<div class="vw-panel__head"><h2 class="vw-panel__title" id="@TitleId">@Title</h2>@Head</div>}@if (StaleSince is not null)
+{<p class="vw-panel__stale">As last read at <code>@StaleSince</code>.</p>}@if (Flush)
+{@ChildContent}
+else
+{<div class="vw-panel__body">@ChildContent</div>}</div>
+
+@code {
+    /// <summary>The panel's section title, when it has a head.</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>The title's id, for a table in the panel to take its name from.</summary>
+    [Parameter]
+    public string? TitleId { get; set; }
+
+    /// <summary>Badges and actions in the head.</summary>
+    [Parameter]
+    public RenderFragment? Head { get; set; }
+
+    /// <summary>The body.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>A table or list that runs edge to edge, with no body padding.</summary>
+    [Parameter]
+    public bool Flush { get; set; }
+
+    /// <summary>When the server last answered, while it does not: the panel shows what it read then.</summary>
+    [Parameter]
+    public string? StaleSince { get; set; }
+}

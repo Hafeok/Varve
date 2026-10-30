@@ -7,6 +7,7 @@
 //   docker compose -f .github/zitadel/compose.yaml up -d --wait
 //   dotnet run eng/zitadel-seed.cs -- [--address http://localhost:8081]
 //       [--bootstrap .github/zitadel/bootstrap] [--output artifacts/zitadel-seed.json]
+//       [--webui http://127.0.0.1:5081/ui/]
 //
 // Through the management API, with the administrator's token that Zitadel's
 // first-instance setup wrote to the bootstrap directory:
@@ -16,7 +17,13 @@
 // - one service user with a client secret and JWT access tokens, granted
 //   `write`: the client-credentials flow;
 // - one human user with a fresh random password, granted `read`, and one
-//   native application allowed the device-code grant: the device-code flow.
+//   native application allowed the device-code grant: the device-code flow;
+// - for the Web UI (ADR 0201, amended 2026-10-28): a second project,
+//   `varve-manage`, the management plane's audience, with the role
+//   `operator` granted to the human user; a public user-agent application
+//   in a project of its own, auth method none, allowed the code, refresh and
+//   token-exchange grants, redirecting to `--webui`; and the instance's
+//   `oidcTokenExchange` feature.
 //
 // It writes what the tests need to the output file: the issuer, the audience
 // (the project), the role claim, the two clients, the human user, and the
@@ -34,6 +41,7 @@ using System.Text.Json.Nodes;
 string address = "http://localhost:8081";
 string bootstrap = ".github/zitadel/bootstrap";
 string output = "artifacts/zitadel-seed.json";
+string webUi = "http://127.0.0.1:5081/ui/";
 
 for (int i = 0; i + 1 < args.Length; i += 2)
 {
@@ -42,6 +50,7 @@ for (int i = 0; i + 1 < args.Length; i += 2)
         case "--address": address = args[i + 1].TrimEnd('/'); break;
         case "--bootstrap": bootstrap = args[i + 1]; break;
         case "--output": output = args[i + 1]; break;
+        case "--webui": webUi = args[i + 1].TrimEnd('/') + "/"; break;
         default:
             Console.Error.WriteLine("zitadel-seed: unknown option " + args[i]);
             return 2;
@@ -132,6 +141,43 @@ try
         ["accessTokenRoleAssertion"] = true,
     });
 
+    // The Web UI: the management plane's project, and the Web UI's own
+    // public client, which exchanges its sign-in token for each plane's.
+    JsonNode manage = await CallAsync(HttpMethod.Post, "management/v1/projects", new JsonObject { ["name"] = "varve-manage", ["projectRoleAssertion"] = true });
+    string manageId = (string)manage["id"]!;
+    await CallAsync(HttpMethod.Post, $"management/v1/projects/{manageId}/roles/_bulk", new JsonObject
+    {
+        ["roles"] = new JsonArray(new JsonObject { ["key"] = "operator", ["displayName"] = "operator" }),
+    });
+    await GrantAsync((string)human["userId"]!, manageId, "operator");
+
+    JsonNode webUiProject = await CallAsync(HttpMethod.Post, "management/v1/projects", new JsonObject { ["name"] = "varve-webui" });
+    JsonNode webUiApp = await CallAsync(HttpMethod.Post, $"management/v1/projects/{(string)webUiProject["id"]!}/apps/oidc", new JsonObject
+    {
+        ["name"] = "varve-webui",
+        ["redirectUris"] = new JsonArray(webUi + "signin"),
+        ["postLogoutRedirectUris"] = new JsonArray(webUi + "signedout"),
+        ["responseTypes"] = new JsonArray("OIDC_RESPONSE_TYPE_CODE"),
+        ["grantTypes"] = new JsonArray("OIDC_GRANT_TYPE_AUTHORIZATION_CODE", "OIDC_GRANT_TYPE_REFRESH_TOKEN", "OIDC_GRANT_TYPE_TOKEN_EXCHANGE"),
+        ["appType"] = "OIDC_APP_TYPE_USER_AGENT",
+        ["authMethodType"] = "OIDC_AUTH_METHOD_TYPE_NONE",
+        ["accessTokenType"] = "OIDC_TOKEN_TYPE_JWT",
+        ["accessTokenRoleAssertion"] = true,
+        ["devMode"] = true,
+    });
+
+    // Already on is "no changes", a 400; any other refusal fails the seed.
+    using (HttpRequestMessage feature = new(HttpMethod.Put, "v2/features/instance") { Content = new StringContent(new JsonObject { ["oidcTokenExchange"] = true }.ToJsonString(), System.Text.Encoding.UTF8, "application/json") })
+    using (HttpResponseMessage answered = await http.SendAsync(feature))
+    {
+        string text = await answered.Content.ReadAsStringAsync();
+
+        if (!answered.IsSuccessStatusCode && !text.Contains("No changes", StringComparison.Ordinal))
+        {
+            throw new SeedException($"PUT v2/features/instance is {(int)answered.StatusCode}: {text}");
+        }
+    }
+
     JsonObject seed = new()
     {
         ["issuer"] = address,
@@ -140,13 +186,21 @@ try
         ["scope"] = $"openid urn:zitadel:iam:org:project:id:{projectId}:aud urn:zitadel:iam:org:projects:roles",
         ["writer"] = new JsonObject { ["clientId"] = (string)secret["clientId"]!, ["clientSecret"] = (string)secret["clientSecret"]! },
         ["deviceClientId"] = (string)device["clientId"]!,
-        ["reader"] = new JsonObject { ["loginName"] = "varve-reader", ["password"] = password },
+        ["reader"] = new JsonObject { ["loginName"] = "varve-reader", ["password"] = password, ["userId"] = (string)human["userId"]! },
         ["loginClientToken"] = (await File.ReadAllTextAsync(loginPat)).Trim(),
+        ["webUi"] = new JsonObject
+        {
+            ["address"] = webUi,
+            ["clientId"] = (string)webUiApp["clientId"]!,
+            ["manageAudience"] = manageId,
+            ["dataScope"] = $"urn:zitadel:iam:org:project:id:{projectId}:aud",
+            ["manageScope"] = $"urn:zitadel:iam:org:project:id:{manageId}:aud",
+        },
     };
 
     Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
     await File.WriteAllTextAsync(output, seed.ToJsonString());
-    Console.WriteLine($"zitadel-seed: project {projectId} with roles read, write, admin; a writer service user; a reader human user; a device-code client. Written to {output}.");
+    Console.WriteLine($"zitadel-seed: project {projectId} with roles read, write, admin; a writer service user; a reader human user; a device-code client; the Web UI's management project {manageId} and exchanging client. Written to {output}.");
     return 0;
 }
 catch (SeedException error)

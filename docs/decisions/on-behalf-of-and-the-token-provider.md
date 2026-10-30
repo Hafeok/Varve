@@ -31,6 +31,10 @@ decisions:
     statement: "The access token is an opaque string and its expiry an instant, as the issuer gives them; they cross the client's boundary unwrapped, since the client reads neither and a wrapper would only rename them"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-15T00:00:00Z
+  - key: FixedProviderBesideTheDelegate
+    statement: "The fixed-token convenience is BearerTokens.Fixed in Varve.Protocol.Client, beside the BearerTokenProvider delegate it returns; the model holds no provider"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-28T00:00:00Z
 ---
 
 The rulings of [ADR 0127](../adr/0127-on-behalf-of-and-the-token-provider.md), one line each. The ADR is the

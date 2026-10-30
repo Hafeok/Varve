@@ -1,0 +1,57 @@
+{
+  "parameters": {
+    "Server": "https://varve.example/",
+    "Navigation": [
+      {
+        "Name": "Operate",
+        "Entries": [
+          {
+            "Text": "Datasets",
+            "Href": "datasets",
+            "Current": true
+          },
+          {
+            "Text": "Health",
+            "Href": "health",
+            "Current": false
+          }
+        ]
+      },
+      {
+        "Name": "History",
+        "Entries": [
+          {
+            "Text": "Commits",
+            "Href": "commits",
+            "Current": false
+          }
+        ]
+      }
+    ],
+    "ChildContent": "<p>Body.</p>",
+    "Planes": [
+      {
+        "Name": "Data plane",
+        "Word": "signed in",
+        "Anonymous": false,
+        "Absent": false,
+        "Agent": "https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0#AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ",
+        "Roles": [
+          "Notes.User"
+        ]
+      },
+      {
+        "Name": "Management",
+        "Word": "signed in",
+        "Anonymous": false,
+        "Absent": false,
+        "Agent": "https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0#AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ",
+        "Roles": [
+          "operator"
+        ]
+      }
+    ],
+    "Instance": "system writer",
+    "BarActions": "<button class=\"vw-button vw-button--small\" type=\"button\">Sign out</button>"
+  }
+}

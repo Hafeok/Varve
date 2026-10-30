@@ -1,0 +1,60 @@
+@* TermChip (docs/ui/components/TermChip): one RDF term, its kind shown by form.
+   Never render a term as bare text. *@
+@switch (Kind)
+{
+    case TermKind.Iri:
+        <span class="@Classes" title="@Full">@if (Href is not null)
+            {<a href="@Href">@Shown()</a>}
+            else
+            {@Shown()}</span>
+        break;
+    case TermKind.Literal:
+        <span class="@Classes"><span class="vw-term__value">@Text</span>@if (Type is not null)
+            {<span class="vw-term__type">@Type</span>}</span>
+        break;
+    case TermKind.Triple:
+        <span class="@Classes">@ChildContent</span>
+        break;
+    default:
+        <span class="@Classes">@Text</span>
+        break;
+}
+
+@code {
+    /// <summary>The term's kind.</summary>
+    [Parameter, EditorRequired]
+    public TermKind Kind { get; set; }
+
+    /// <summary>What is shown: an IRI's compact or full form, a literal's lexical form, a blank node's label.</summary>
+    [Parameter]
+    public string Text { get; set; } = "";
+
+    /// <summary>An IRI shown compactly: the full IRI, for the title and the accessible name.</summary>
+    [Parameter]
+    public string? Full { get; set; }
+
+    /// <summary>Where an IRI links to, when it is followed in the Web UI.</summary>
+    [Parameter]
+    public string? Href { get; set; }
+
+    /// <summary>A literal's datatype or language tag, as a caption.</summary>
+    [Parameter]
+    public string? Type { get; set; }
+
+    /// <summary>A triple term's three chips.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Whether the term is part of a change, in a diff.</summary>
+    [Parameter]
+    public Change Change { get; set; }
+
+    private string Classes => "vw-term vw-term--"
+        + Kind switch { TermKind.Iri => "iri", TermKind.Literal => "literal", TermKind.BlankNode => "bnode", _ => "triple" }
+        + Change switch { Change.Added => " vw-term--added", Change.Removed => " vw-term--removed", _ => "" };
+
+    // A compact IRI shows its compact form and is read as the full IRI.
+    private RenderFragment Shown() => Full is null
+        ? @<text>@Text</text>
+        : @<text><span aria-hidden="true">@Text</span><span class="vw-visually-hidden">@Full</span></text>;
+}

@@ -931,6 +931,28 @@ reads), the data explorer after SHACL and Inference, so validation reports
 and entailment provenance are in it. Every screen reads a resource the API
 already serves.
 
+### Part 1 — the operator console *(complete)*
+
+Released as `v0.1.0-preview.17` (#167; ADRs 0200–0206). Shipped:
+- **The screens:** datasets, a dataset (at its head or as of a position),
+  the fleet, commits followed live with a commit's delta, and grants and
+  declaration source.
+- **The acts:** checkpoint, close and open, each through a confirmation.
+- **The Web UI's own OIDC client,** with one token per plane.
+- **The server serving `/ui/`** under a Content Security Policy, or any
+  static host.
+- **The gates:** a download budget, and axe on every screen in CI.
+
+Open on #96:
+- Zitadel's management-plane token, by token exchange;
+- `If-Match` on the state route;
+- the declaration pages the reference screens add (agents and roles, graph
+  templates, shapes).
+
+### Part 2 — the data explorer
+
+After SHACL and Inference.
+
 ## Replication — before 1.0
 
 Issue #97 and the writer handover ADR hold the detail. In short: tier 1 followers on the same store (the follower itself built by Management

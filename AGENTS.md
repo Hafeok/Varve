@@ -205,7 +205,29 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 8, SHACL (#13), complete with part 2b (ADRs 0174–0176, filed
+Web UI part 1, the operator console (#167, part 1 of #96), complete as
+`v0.1.0-preview.17` (ADRs 0200–0206, filed unaccepted). **`Varve.WebUi`** is
+a Blazor WebAssembly client of the public API (0200), trimmed and
+interpreted. Its download is gated by `eng/browser-size.cs` (0205).
+- **Its design source is `docs/ui/`** (0206):
+  - every component's markup is pinned by its cases, and bUnit checks it;
+  - `VARVE0006` holds the levels apart (Atoms … Parts, Pages);
+  - only Pages use a client service, and a `.Model` type references none;
+  - new markup gets its case first.
+- **Sign-in is its own OIDC client** (0201): code with PKCE, one token per
+  plane (the code exchange for data, a refresh grant for the management
+  scope), tokens in the heap.
+- **Hosting** (0202): `Varve:WebUi:Path` serves it under `/ui/` with a
+  strict CSP.
+- **The client's reads** (0203): `Varve.Protocol.Client` answers
+  `VarveResult<T>`.
+- **Browser tests** (0204): `tests/Varve.WebUi.Browser.Tests` runs
+  Playwright and axe on the runner's Chrome, in the job `web ui in
+  Chromium`.
+- **Open on #96:** Zitadel's management token (token exchange), `If-Match`
+  on the state route, and part 2, the data explorer.
+
+Before that, milestone 8, SHACL (#13), complete with part 2b (ADRs 0174–0176, filed
 unaccepted). Each shapes binding keeps a **validation projection** in
 `Varve.Shacl.Store` (0174). It lives in the local cache only and is rebuilt
 by every instance from the head on a cold start. Its report at p equals

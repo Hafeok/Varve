@@ -17,6 +17,8 @@ Varve is an event-sourced RDF store. Its Web UI (`Varve.WebUi`) is a client of t
 - **Positions** are integers in `code`, with no thousands separator, so a copied position pastes into the CLI or a header unchanged. Selecting a stamp selects the whole number.
 - **Times** are ISO 8601 UTC in `code` (`2026-10-27T08:41:07Z`), with a relative time as a `caption` beside it ("2 min ago"). Never a relative time alone.
 - **IRIs** are shown whole in `code`, wrapping anywhere. Where a column is too narrow, truncate in the middle and keep the full IRI in the cell's accessible name and a copy button.
+- **One form per thing** (review F13). An agent is its full IRI everywhere, in commits, grants and the shell alike, never compacted. A declaration's IRIs are compact only with the prefixes the declaration itself defines, with the full IRI as the accessible name. A commit's cause is labelled "request id", as problem panels label it.
+- **Copy** copies a source exactly as the server served it, so it parses as served (review F24): a declaration is its whole TriG document, its `@prefix` lines and its graph's wrapper included; a graph from the graph store is that graph's statements.
 - **Errors** are problems: render the problem panel with the server's `title`, never a paraphrase, and the request id. No apologies, no "something went wrong".
 - **No emoji.** No exclamation marks.
 
@@ -28,16 +30,17 @@ Components are organised by atomic level, and the levels are a dependency rule: 
 |---|---|---|
 | Tokens | `tokens.json` | nothing |
 | Atoms | `Button`, `Field`, `StateBadge`, `PositionStamp`, `TermChip` | tokens |
-| Molecules | `KeyValue`, `LagMeter`, `Notice`, `ViewHead`, `Triple`, `AsOfBanner`, `CopyButton` | atoms |
+| Molecules | `KeyValue`, `LagMeter`, `Notice`, `ViewHead`, `Triple`, `AsOfBanner`, `CopyButton`, `Tabs` | atoms |
 | Organisms | `ResourceTable`, `CommitList`, `ProblemPanel`, `SourceBlock`, `ConfirmDialog`, `Panel` | molecules, atoms |
 | Templates | `Shell` and the screen layouts | organisms and below; no data |
 | Parts | domain-aware pieces that are not routed: the problem view, the read stamps, the drift note | templates and below; the client's model types and the tone mapping; Varve's wording |
-| Pages | the routed screens | everything; the only level that calls the API |
+| Pages | the routed screens, and the services they use (`Pages.Services`) | parts and below; the client's services |
+| App | the root component, the layout every screen renders in, and the services the shell reads (`ShellFacts`) | pages and below; the client's services. No level uses it |
 
 - **Lower levels are abstract.** Atoms, molecules, organisms and templates know nothing of Varve's domain. An atom takes words, tones and values as parameters. `StateBadge` takes a tone and a word; it does not know what `failed` means.
 - **Domain knowledge sits in parts.** The mapping from an API state or problem to a tone (the table under Colour) is one tested mapping that parts and pages call, never a lookup repeated per page or pushed down into an atom. Domain text is the same: the drift note's wording lives once, in a part, which a page passes into the dialog's slot; no molecule carries it.
-- **Never the same level.** A component uses only lower levels, never one of its own: parts don't use parts, and pages don't use pages. Where an organism shows what another organism renders (a problem in a dialog, a problem in a table's place), it takes a slot the page fills.
-- **Only pages read data.** Pages are the routed screens and the only level that calls the API. Everything below a page takes parameters, so every component renders from a fixture without a server.
+- **Never the same level, never higher.** A component uses only lower levels, never one of its own: parts don't use parts, pages don't use pages, and the app's root does not name its layout (the composition root hands it in). No type, component or not, names a type of a higher level. Where an organism shows what another organism renders (a problem in a dialog, a problem in a table's place), it takes a slot the page fills.
+- **Only pages and the app read data.** Pages are the routed screens, and the app, above them, is the root and the layout around every screen; they are the only levels that call the API. A type in no level never holds a service. Everything below a page takes parameters, so every component renders from a fixture without a server.
 - **A change to a lower level is a change to every screen.** Change tokens and atoms deliberately; a page may change freely.
 
 ## Colour
@@ -52,9 +55,9 @@ Two themes, light first. Every text token's note names the grounds it reads on; 
 | Tone | Tokens | Mark | Words from the API |
 |---|---|---|---|
 | ok | `ok`, `ok-soft` | filled disc | `open`, `ready`, `writer`, `applied`, within lag |
-| warn | `warn`, `warn-soft` | triangle | `rebuilding`, behind its lag bound, `not-ready` while starting, the drift note |
+| warn | `warn`, `warn-soft` | triangle | `rebuilding`, behind its lag bound, `not-ready` while starting, the drift note, anonymous mode |
 | critical | `critical`, `critical-soft` | square | `failed`, `superseded`, lease lost, `mismatch`, `not-ready` |
-| neutral | `surface-sunk`, `ink-muted` | hollow ring | `closed`, `follower`, `elsewhere`, anonymous mode |
+| neutral | `surface-sunk`, `ink-muted` | hollow ring | `closed`, `follower`, `elsewhere` |
 | past | `past`, `past-soft` | two bands | a view pinned as of a position |
 
 `ok` and `critical` differ in hue more than lightness; that is accepted because neither ever appears without its mark and word. Do not introduce a tone outside this table: a new state maps onto one of the five.
@@ -102,7 +105,7 @@ A screen renders all of these, from the same components:
 - **Empty:** the table's empty row, saying what would appear and how it gets there ("No datasets are declared. Declare one in TriG and run `varve apply`.").
 - **Forbidden (`403`)** and every other problem: the problem panel in place of the view's body, with the view head still showing what was requested.
 - **Signed out (`401`):** sign-in starts; no screen renders a `401`.
-- **Server unreachable:** a warn notice directly below the view head, above everything else, with the server address and the time of the last successful read; the last data stays visible below it, marked with its position.
+- **Server unreachable:** a warn notice directly below the view head, above everything else, with the server address, the one time of the last successful read, and "Read again"; the last data stays visible below it, marked with its position, and its panels are stale (`vw-panel--stale`), each saying "As last read at" that same time.
 - **Conflict on a write (`409`, `412`):** the problem panel inside the dialog that made the write, with `expectedPosition` and `headPosition` from its members, and the action to reload at the new position.
 
 ## Iconography

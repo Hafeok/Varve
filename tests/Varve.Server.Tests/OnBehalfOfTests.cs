@@ -13,7 +13,6 @@ using System.Threading.Tasks;
 using Varve.Delta;
 using Varve.Delta.Model;
 using Varve.Protocol.Client;
-using Varve.Protocol.Client.Model;
 using Xunit;
 
 namespace Varve.Server.Tests;
@@ -81,7 +80,7 @@ public sealed class OnBehalfOfTests : IAsyncLifetime
             ["roles"] = WriterRole,
         });
         using HttpClient http = OutboundHttp.CreateClient();
-        SparqlHttpClient client = new(http, new Uri(_server.Address, "datasets/d/"), ClientLimits.Default, BearerToken.Fixed(token), TimeProvider.System);
+        SparqlHttpClient client = new(http, new Uri(_server.Address, "datasets/d/"), ClientLimits.Default, BearerTokens.Fixed(token), TimeProvider.System);
 
         using (HttpResponseMessage update = await client.UpdateAsync("INSERT DATA { <http://ex/order/1> <http://ex/placedBy> <http://ex/customer/7> }", ifMatch: null, TestContext.Current.CancellationToken))
         {
@@ -123,7 +122,7 @@ public sealed class OnBehalfOfTests : IAsyncLifetime
             ["roles"] = WriterRole,
         });
         using HttpClient http = OutboundHttp.CreateClient();
-        SparqlHttpClient client = new(http, new Uri(_server.Address, "datasets/d/"), ClientLimits.Default, BearerToken.Fixed(token), TimeProvider.System);
+        SparqlHttpClient client = new(http, new Uri(_server.Address, "datasets/d/"), ClientLimits.Default, BearerTokens.Fixed(token), TimeProvider.System);
 
         using (HttpResponseMessage update = await client.UpdateAsync("INSERT DATA { <http://ex/import/1> <http://ex/p> 1 }", ifMatch: null, TestContext.Current.CancellationToken))
         {

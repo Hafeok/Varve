@@ -1,0 +1,39 @@
+@* Triple (docs/ui/components/Triple): a statement as a table row of three
+   term chips, with a sign column, whose sign is read out as its word, and a
+   note column. *@
+<tr class="@Classes"><td class="vw-triple__sign">@if (Sign is not null)
+{<span aria-hidden="true">@Sign</span><span class="vw-visually-hidden">@SignLabel</span>}</td><td>@Subject</td><td class="vw-triple__p">@Predicate</td><td>@Object</td><td class="vw-triple__note">@Note</td></tr>
+
+@code {
+    /// <summary>The subject's chip.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? Subject { get; set; }
+
+    /// <summary>The predicate's chip.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? Predicate { get; set; }
+
+    /// <summary>The object's chip.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? Object { get; set; }
+
+    /// <summary>What the row is.</summary>
+    [Parameter]
+    public TripleKind Kind { get; set; }
+
+    /// <summary>The note: the graph, when and how it was asserted, the rule that inferred it.</summary>
+    [Parameter]
+    public string? Note { get; set; }
+
+    private string Classes => Kind switch
+    {
+        TripleKind.Added => "vw-triple vw-triple--added",
+        TripleKind.Removed => "vw-triple vw-triple--removed",
+        TripleKind.Inferred => "vw-triple vw-triple--inferred",
+        _ => "vw-triple",
+    };
+
+    private string? Sign => Kind switch { TripleKind.Added => "+", TripleKind.Removed => "−", _ => null };
+
+    private string? SignLabel => Kind switch { TripleKind.Added => "added", TripleKind.Removed => "removed", _ => null };
+}

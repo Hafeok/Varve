@@ -1,0 +1,24 @@
+@* AsOfBanner (docs/ui/components/AsOfBanner): the view is pinned to a
+   historical position; directly below the view head, while the pin holds. *@
+<div class="vw-asof" role="status"><span><strong>Reading as of position @Text(Position)</strong>@if (CommittedAt is not null)
+{<text> · committed @CommittedAt</text>}. The head is @Text(Head).</span><Button Small="true" OnClick="OnReturn">Return to head</Button></div>
+
+@code {
+    /// <summary>The position the view is read at.</summary>
+    [Parameter, EditorRequired]
+    public long Position { get; set; }
+
+    /// <summary>The commit time at that position, ISO 8601 UTC, when known.</summary>
+    [Parameter]
+    public string? CommittedAt { get; set; }
+
+    /// <summary>The current head.</summary>
+    [Parameter, EditorRequired]
+    public long Head { get; set; }
+
+    /// <summary>Returns the view to the head.</summary>
+    [Parameter]
+    public EventCallback OnReturn { get; set; }
+
+    private static string Text(long value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+}

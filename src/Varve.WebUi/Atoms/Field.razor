@@ -1,0 +1,59 @@
+@* Field (docs/ui/components/Field): a labelled input set in code, with help
+   and error lines; the error sets aria-invalid, and both are referenced by
+   aria-describedby. *@
+<div class="vw-field"><label for="@Id">@Label</label><input id="@Id" inputmode="@InputMode" autocomplete="@(Exact ? "off" : null)" spellcheck="@(Exact ? "false" : null)" readonly="@ReadOnly" value="@Value" @oninput="InputAsync" aria-invalid="@(Error is null ? null : "true")" aria-describedby="@DescribedBy">@if (Help is not null)
+{
+<span class="vw-field__help" id="@(Id + "-help")">@Help</span>
+}@if (Error is not null)
+{
+<span class="vw-field__error" id="@(Id + "-err")">@Error</span>
+}</div>
+
+@code {
+    /// <summary>A stable id, unique on the page.</summary>
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    /// <summary>The label, in sentence case, naming what to enter.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? Label { get; set; }
+
+    /// <summary>The value.</summary>
+    [Parameter]
+    public string? Value { get; set; }
+
+    /// <summary>Raised on every keystroke.</summary>
+    [Parameter]
+    public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>A help line.</summary>
+    [Parameter]
+    public string? Help { get; set; }
+
+    /// <summary>What is wrong and what is expected, when the value is refused.</summary>
+    [Parameter]
+    public string? Error { get; set; }
+
+    /// <summary>The input mode hint, such as <c>numeric</c> for a position.</summary>
+    [Parameter]
+    public string? InputMode { get; set; }
+
+    /// <summary>A value that must match exactly: no autocomplete, no spellcheck.</summary>
+    [Parameter]
+    public bool Exact { get; set; }
+
+    /// <summary>A value shown for copying.</summary>
+    [Parameter]
+    public bool ReadOnly { get; set; }
+
+    private string? DescribedBy =>
+        (Help, Error) switch
+        {
+            (null, null) => null,
+            (not null, null) => Id + "-help",
+            (null, not null) => Id + "-err",
+            _ => Id + "-help " + Id + "-err",
+        };
+
+    private Task InputAsync(ChangeEventArgs e) => ValueChanged.InvokeAsync(e.Value as string ?? "");
+}

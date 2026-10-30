@@ -34,6 +34,7 @@ internal static class VarveDiagnostics
     internal const string HotPathDisciplineId = "VARVE0003";
     internal const string HotPathSignatureId = "VARVE0004";
     internal const string LayerDeclarationId = "VARVE0005";
+    internal const string ComponentLevelId = "VARVE0006";
 
     /// <summary>The guard sentence every rule with a [DesignDecision] path ends with.</summary>
     internal const string Guard =
@@ -99,6 +100,27 @@ internal static class VarveDiagnostics
             + "undeclared one from escaping the layering entirely (ADR 0064).",
         helpLinkUri: HelpLinkFor(LayerDeclarationId),
         customTags: WellKnownDiagnosticTags.CompilationEnd);
+
+    /// <summary>
+    /// VARVE0006. A Web UI component that uses a component of its own level or
+    /// a higher one, or a client type its level may not name (ADR 0206).
+    /// </summary>
+    internal static readonly DiagnosticDescriptor ComponentLevel = new(
+        id: ComponentLevelId,
+        title: "A Web UI component uses only lower levels, only pages use the client's services, and the client's model holds values only",
+        messageFormat: "'{0}' is in {1} and {2}. Decide: {3}. The level rule has no exception path: if two "
+            + "components of one level need each other, that is a design conversation, not an exception (ADR 0206).",
+        category: LayeringCategory,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description:
+            "The Web UI's levels are namespaces, Atoms < Molecules < Organisms < Templates < Parts < Pages. A "
+            + "component uses components of lower levels only, never its own. Types in Varve.Protocol.Client.Model "
+            + "are named only in Parts and Pages, and every other type under Varve.Protocol.Client, the services "
+            + "that call the server, only in Pages; a type in Varve.Protocol.Client.Model names none of those "
+            + "services, so the model cannot carry one to a part. The rule analyses Razor's generated code, and only this rule "
+            + "does (ADR 0206).",
+        helpLinkUri: HelpLinkFor(ComponentLevelId));
 
     private static string HelpLinkFor(string ruleId) =>
         "https://github.com/Hafeok/Varve/blob/main/docs/rules/" + ruleId + ".md";

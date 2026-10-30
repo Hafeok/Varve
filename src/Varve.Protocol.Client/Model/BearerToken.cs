@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
-using System.Threading.Tasks;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 
@@ -37,17 +36,6 @@ public readonly record struct BearerToken
     /// <summary>When the token expires.</summary>
     [DesignDecision(typeof(OnBehalfOfAndTheTokenProvider.TokenIsOpaqueAtTheBoundary), Scope = ExceptionScope.Boundary)]
     public DateTimeOffset ExpiresOn { get; }
-
-    /// <summary>
-    /// A provider that answers <paramref name="value"/> for every request, as
-    /// one that never expires: a token given on the command line, or a test's.
-    /// </summary>
-    [DesignDecision(typeof(OnBehalfOfAndTheTokenProvider.TokenIsOpaqueAtTheBoundary), Scope = ExceptionScope.Boundary)]
-    public static BearerTokenProvider Fixed(string value)
-    {
-        BearerToken token = new(value, DateTimeOffset.MaxValue);
-        return _ => ValueTask.FromResult<BearerToken?>(token);
-    }
 
     /// <summary>Renders without the token, which is a credential and never written anywhere.</summary>
     public override string ToString() => "bearer token, expires " + ExpiresOn.ToString("O", System.Globalization.CultureInfo.InvariantCulture);

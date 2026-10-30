@@ -1,0 +1,69 @@
+@page "/datasets/{Name}/templates"
+@inject VarveManagementClient Management
+@inject WebUiSettings Settings
+@inject TimeProvider Clock
+@* A dataset's graph templates, read-only (#96, 2026-10-28): each RFC 6570
+   template a grant expands for its caller, how it matches, and the grant
+   that uses it. Read from the grants resource, so a template no grant uses
+   is not shown; the declaration's source has every node. *@
+<PageTitle>Graph templates of @Name · Varve</PageTitle>
+<ViewHead Title="Graph templates" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (_grants?.Facts.ManagementPosition is FeedPosition management)
+{<PositionStamp Label="management position" Value="management.Value" Management="true" />}</ViewHead>
+
+@if (_failure is not null)
+{
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="OnParametersSetAsync" />
+}
+
+<ReadOnlyDeclarations />
+
+@if (_grants?.Problem is Problem problem)
+{
+    <ProblemView Problem="problem" Facts="_grants.Facts" Management="true" />
+}
+else if (_grants?.Value is GrantList grants)
+{
+    List<(GraphTemplate Template, GrantEntry Grant)> templates = [.. grants.Grants.SelectMany(grant => grant.Scope.Templates.Select(template => (template, grant)))];
+    <Panel StaleSince="@LastAnswered" Title="Graphs expanded for each caller" TitleId="templates-title" Flush="true">
+        <ResourceTable ColumnCount="3" LabelledBy="templates-title" Empty="templates.Count == 0">
+            <Columns>
+                <th scope="col">Template</th><th scope="col">Matches</th><th scope="col">Granted to</th>
+            </Columns>
+            <EmptyContent>No grant of this dataset uses a graph template.</EmptyContent>
+            <Rows>
+                @foreach ((GraphTemplate template, GrantEntry grant) in templates)
+                {
+                    <tr><td><code>@template.Value</code></td><td>@(grant.Scope.TemplateMatches.TryGetValue(template, out TemplateMatch match) ? match.Value : "—")</td><td class="vw-table__name">@(grant.Grantee?.Value ?? "—")<span class="vw-table__sub">@(grant.GranteeKind?.Value ?? "grantee")</span> <StateBadge Tone="Tone.Neutral" Word="@(grant.Permission?.Value ?? "—")" /></td></tr>
+                }
+            </Rows>
+        </ResourceTable>
+    </Panel>
+}
+
+@code {
+    private VarveResult<GrantList>? _grants;
+    private DateTimeOffset? _lastRead;
+    private string? _failure;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
+
+    /// <summary>The dataset's name, from the address.</summary>
+    [Parameter]
+    public string Name { get; set; } = "";
+
+    /// <inheritdoc />
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            _grants = await Management.GrantsAsync(new DatasetName(Name), null, CancellationToken.None);
+            _lastRead = Clock.GetUtcNow();
+            _failure = null;
+        }
+        catch (HttpRequestException e)
+        {
+            _failure = e.Message;
+        }
+    }
+}

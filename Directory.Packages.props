@@ -111,6 +111,27 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.14" Adr="0131" Scope="src/Varve.Protocol.Client/" />
   </ItemGroup>
 
+  <ItemGroup Label="The Web UI (ADR 0200)">
+    <!-- Blazor WebAssembly: the components, the WebAssembly host and their
+         Microsoft.Extensions and JSInterop closure, MIT, managed, trimming-
+         annotated, no native asset. Scoped to the Web UI and its tests: no
+         other project may reference it, so no src/ package gains a Blazor
+         reference (ADR 0200). At the runtime's version, as JwtBearer is:
+         10.0.13 and 10.0.14 exist, and the pinned 10.0.12 of the
+         Microsoft.Extensions abstractions would refuse their closure as a
+         downgrade under transitive pinning. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" Adr="0200" Scope="src/Varve.WebUi/, tests/Varve.WebUi.Tests/" />
+
+    <!-- The Web UI's component tests (ADR 0204): renders a Razor component with
+         parameters and compares its markup semantically. MIT, managed. Not
+         the latest: 2.12 and later want the Blazor packages at 10.0.13, above
+         the runtime version pinned here; 2.11.3 is the newest whose floor
+         (10.0.10) the pin meets. Moves with the 10.0.x pins. -->
+    <PackageVersion Include="bunit" Version="2.11.3" Adr="0204" Scope="tests/Varve.WebUi.Tests/" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.64.1" Adr="0204" Scope="tests/Varve.WebUi.Browser.Tests/" />
+    <PackageVersion Include="Deque.AxeCore.Playwright" Version="4.14.0" Adr="0204" Scope="tests/Varve.WebUi.Browser.Tests/" />
+  </ItemGroup>
+
   <ItemGroup Label="Samples only — never of a shipped package (ADR 0133)">
     <!-- What an application really uses, for the samples that show how one
          uses Varve. Scoped to samples/, and the register fails a reference

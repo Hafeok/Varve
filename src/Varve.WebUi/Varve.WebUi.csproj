@@ -1,0 +1,106 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <!-- Layer 6: a host and a composition root, never a library (ADRs 0060,
+         0200). The Web UI is a client of the public API with no endpoints of
+         its own (#96): it reaches the server through Varve.Protocol.Client
+         and nothing else. Published as static files, never packed. -->
+    <OutputType>Exe</OutputType>
+    <ArchLayer>6</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
+    <RootNamespace>Varve.WebUi</RootNamespace>
+    <IsPackable>false</IsPackable>
+
+    <!-- Shipped all the same, as a release asset of static files: the
+         native-asset gate walks its closure as it walks a package's
+         (ADR 0200, eng/native-assets.cs). -->
+    <VarveShipped>true</VarveShipped>
+
+    <!-- Transport addresses are System.Uri, as in the client it composes
+         (ADR 0004, amended 2026-10-08). -->
+    <VarveSpeaksHttp>true</VarveSpeaksHttp>
+
+    <!-- No inline script, so a CSP of script-src 'self' 'wasm-unsafe-eval'
+         holds (ADR 0202): index.html loads one external script, and publish
+         writes no import map into it. -->
+    <OverrideHtmlAssetPlaceholders>false</OverrideHtmlAssetPlaceholders>
+
+    <!-- Constraint 2. A trim or AOT warning here is a real finding about the
+         browser build, not noise. Blazor's own trim mode, partial: every
+         assembly marked trimmable is trimmed, Varve's libraries included,
+         and the app's assembly is kept. Full trimming measured the same size
+         once the app was kept, and without keeping it removed the components
+         the router makes from their Type (ADR 0200). -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+
+    <!-- The feature switches the browser size measurements used (ADR 0200):
+         nothing a page has no use for. No ICU and no time zone data are
+         below, at publish: each relinks the runtime too. -->
+    <EventSourceSupport>false</EventSourceSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <DebuggerSupport>false</DebuggerSupport>
+    <MetricsSupport>false</MetricsSupport>
+    <StackTraceSupport>false</StackTraceSupport>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true' or '$(WasmBuildingForNestedPublish)' == 'true'">
+    <!-- The runtime relinked to what the app uses, at publish only: it needs
+         the wasm-tools workload, which the jobs that publish install and the
+         build jobs do not (ADR 0200). InvariantTimezone and
+         InvariantGlobalization are here for the same reason: both are on the
+         runtime pack's list of properties that trigger a relink, so set on a
+         plain build they relink wherever the workload is installed (the
+         devcontainer, which has no Python for emscripten), and
+         InvariantTimezone makes restore require the workload. The
+         relink runs in a nested publish that clears _IsPublishing and sets
+         WasmBuildingForNestedPublish, so the condition names both. -->
+    <WasmBuildNative>true</WasmBuildNative>
+    <WasmNativeStrip>true</WasmNativeStrip>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <InvariantTimezone>true</InvariantTimezone>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- docs/ui/ is the design source (ADR 0206): its two stylesheets and the
+         core mark are linked into the bundle, one copy, never copied by a
+         build step (point 2). -->
+    <Content Include="../../docs/ui/tokens.css" Link="wwwroot/css/tokens.css" />
+    <Content Include="../../docs/ui/bundle.css" Link="wwwroot/css/bundle.css" />
+    <Content Include="../../docs/ui/assets/varve-core.svg" Link="wwwroot/img/varve-core.svg" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ADR 0003 permits InternalsVisibleTo toward *.Tests only. -->
+    <InternalsVisibleTo Include="Varve.WebUi.Tests" />
+  </ItemGroup>
+
+  <!-- The commit this build came from, as a constant: a problem's page is
+       linked at it (ProblemDocs). Written from SourceLink's SourceRevisionId,
+       because reading it back from an assembly attribute at run time would be
+       reflection, which shipped code never uses. -->
+  <Target Name="WriteBuildRevision" AfterTargets="InitializeSourceControlInformation" BeforeTargets="CoreCompile;CoreGenerateAssemblyInfo" DependsOnTargets="InitializeSourceControlInformation">
+    <PropertyGroup>
+      <_BuildRevisionFile>$(IntermediateOutputPath)BuildRevision.g.cs</_BuildRevisionFile>
+      <_BuildRevisionCommit Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(SourceRevisionId)', '^[0-9a-f]{40}$'))">$(SourceRevisionId)</_BuildRevisionCommit>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_BuildRevisionFile)" Overwrite="true" WriteOnlyWhenDifferent="true" Lines="// Generated by Varve.WebUi.csproj.;namespace Varve.WebUi%3B;internal static class BuildRevision { internal const string Commit = &quot;$(_BuildRevisionCommit)&quot;%3B }" />
+    <ItemGroup>
+      <Compile Include="$(_BuildRevisionFile)" />
+      <FileWrites Include="$(_BuildRevisionFile)" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <!-- Blazor WebAssembly (ADR 0200), scoped to this project and its tests in
+         the register. No DevServer: the server or a static host serves the
+         bundle. No authentication package: sign-in is this host's own
+         (ADR 0201). -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+  </ItemGroup>
+
+</Project>

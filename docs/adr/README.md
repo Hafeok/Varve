@@ -148,7 +148,7 @@ Decided by the maintainer on the 5c report.
 
 | # | Title | Status |
 |---:|---|---|
-| [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table; amended 2026-10-07 (the protocol seam's revisit condition; proposed) |
+| [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table; amended 2026-10-07 (the protocol seam's revisit condition; proposed); amended 2026-10-27 (a host may be a browser application; filed unaccepted, #167) |
 | [0061](0061-canonical-n-triples-is-rdf-1-2s.md) | Canonical N-Triples and N-Quads follow RDF 1.2; where 1.1 and 1.2 differ, 1.2 wins | Accepted |
 
 ## Adopting `DecisionDriven.Analyzers`
@@ -275,7 +275,7 @@ Filed by milestone Client and integration ([#93](https://github.com/Hafeok/Varve
 
 | # | Title | Status |
 |---:|---|---|
-| [0127](0127-on-behalf-of-and-the-token-provider.md) | On-behalf-of: the client's token provider, `azp` on the span, and the attribution rule; amends 0103 and 0112 | Filed unaccepted (Client and integration, #93) |
+| [0127](0127-on-behalf-of-and-the-token-provider.md) | On-behalf-of: the client's token provider, `azp` on the span, and the attribution rule; amends 0103 and 0112; amended 2026-10-27 (the fixed provider moves out of the model, unaccepted) | Filed unaccepted (Client and integration, #93) |
 | [0128](0128-varve-delta-and-the-read-forever-rule.md) | `Varve.Delta`: the delta format as a package of its own, read for ever; amends 0097, 0102 and 0103 | Filed unaccepted (Client and integration, #93) |
 | [0129](0129-following-the-commits-resource.md) | Following the commits resource: `FollowAsync`, a checkpoint the caller owns, at least once | Filed unaccepted (Client and integration, #93) |
 | [0130](0130-client-side-setup-and-system-graphs.md) | Client-side setup: a declared dataset, migrations recorded as data, and the first system graph | Filed unaccepted (Client and integration, #93); amended 2026-10-15 (ObjectStorage, filed unaccepted) |
@@ -387,10 +387,16 @@ Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)),
 
 ## Web UI, part 1 (#167)
 
-Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. 0206 lands first, in a docs-only pull request; 0200–0205 come with the milestone's.
+Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. 0206 lands first, in a docs-only pull request; 0200–0205 come with the milestone's. Amended by it, likewise unaccepted: 0060 (a host may be a browser application published as static files).
 
 | # | Title | Status |
 |---:|---|---|
+| [0200](0200-varve-webui-a-blazor-webassembly-host.md) | `Varve.WebUi`: a Blazor WebAssembly host at layer 6, and what Blazor costs | Filed unaccepted (Web UI part 1, #167) |
+| [0201](0201-the-web-uis-own-oidc-client.md) | The Web UI's own OIDC client: one token per plane | Filed unaccepted (Web UI part 1, #167) |
+| [0202](0202-serving-the-web-ui-and-its-content-security-policy.md) | Serving the Web UI under `/ui/`, and its Content Security Policy | Filed unaccepted (Web UI part 1, #167) |
+| [0203](0203-typed-reads-in-the-protocol-client.md) | Typed reads in `Varve.Protocol.Client`: health, problems, response facts and the management plane | Filed unaccepted (Web UI part 1, #167) |
+| [0204](0204-test-dependencies-for-the-web-ui.md) | Test dependencies for the Web UI: bUnit, Playwright on the runner's Chrome, axe-core | Filed unaccepted (Web UI part 1, #167) |
+| [0205](0205-the-web-uis-size-budget-and-no-aot.md) | The Web UI's size budget, and why it is not AOT-compiled | Filed unaccepted (Web UI part 1, #167) |
 | [0206](0206-the-web-ui-design-source.md) | The Web UI's design source, its levels, and the markup contract | Filed unaccepted (Web UI part 1, #167) |
 
 ## 1.0 readiness A — correctness and the read-forever contract (#129)

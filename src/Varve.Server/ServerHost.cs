@@ -542,6 +542,13 @@ internal static partial class ServerHost
             app.UseForwardedHeaders();
         }
 
+        // The Web UI is static files, public, before CORS, rate limits and
+        // tokens (ADR 0202).
+        if (!string.IsNullOrWhiteSpace(settings.WebUi.Path))
+        {
+            MapWebUi(app, settings.WebUi.Path, anonymous ? null : settings.Auth.Authority);
+        }
+
         // CORS first (ADR 0132): a preflight is answered before a token or a
         // rate limit is asked for, and every response after it, a problem
         // included, carries the headers a browser needs to show it. With no
