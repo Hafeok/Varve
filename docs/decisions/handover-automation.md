@@ -13,6 +13,8 @@ decisions:
     accepted-at: 2026-10-28T00:00:00Z
   - key: StaleTriggerAsksTheFailedInstance
     statement: "Before a takeover from an instance the record still names, the command asks it at its recorded address within five seconds; if it answers ready and holds the dataset as its writer, the trigger is stale and nothing is sent; no answer or not ready, and the takeover goes on"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-30T00:00:00Z
   - key: TakeoverCommandAsksEachServerForItself
     statement: "For each dataset the command sends the takeover, at the epoch that server reported, to the first --server that is a warm standby of it, skipping one that does not answer or refuses; with no dataset named it takes every dataset listed and _fleet"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -31,6 +33,8 @@ decisions:
     accepted-at: 2026-10-28T00:00:00Z
   - key: AzureDetectionIsAMetricAlertPerApp
     statement: "On Azure a crash is recovered by Container Apps' own restart; a metric alert per app on Replicas below 1 detects a replica that is gone, and a log search alert on the environment's readiness-probe failures detects one running but stuck not ready, both into one action group"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-30T00:00:00Z
   - key: AzureChainAlertSecureWebhookLogicAppJob
     statement: "The alert's action group calls a Consumption Logic App by Secure webhook, never its Logic Apps action; the Logic App starts the alerting app's own takeover job, whose fixed arguments name the failed app and the others"
     accepted-by: mailto:emil@okkels-klein.dk

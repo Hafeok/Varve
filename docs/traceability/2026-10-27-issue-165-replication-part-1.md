@@ -748,3 +748,15 @@ the pricing pages.
     arm passes, since its refresh adopts the seal itself.
 - **`HandoverScheduleTests` at nightly depth:** 1,000 schedules ran clean, in
   73 s.
+
+### Acceptance of ADR 0181's amendment, 2026-10-30
+
+A later session (Claude Code, model `claude-fable-5-1`), on the maintainer's
+instruction, added `accepted-by` and `accepted-at` to the two keys of
+handover-automation that the amendment of 2026-10-28 filed unaccepted:
+`StaleTriggerAsksTheFailedInstance` (point 2's stale trigger) and
+`AzureDetectionIsAMetricAlertPerApp` (point 6's signal). The acceptance is
+the maintainer's, who had read them; the session only wrote it at their
+direction, as the acceptance of 2026-10-28 above was written. The
+amendment's status text and the index row are left as filed. With it, the
+two keys may be cited (ADR 0066).
