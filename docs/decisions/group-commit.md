@@ -11,10 +11,6 @@ decisions:
     statement: "Each member of a batch keeps its own records, closing flag, position, header and header-chain link, and the bytes of log/ do not depend on where a batch began or ended"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-15T00:00:00Z
-  - key: AcknowledgedOnlyWhenTheBatchIsDurable
-    statement: "No member of a batch is acknowledged before the flush that makes the batch durable returns, and a failed write fails every member with none acknowledged"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-15T00:00:00Z
   - key: TimestampTakenAtStaging
     statement: "Each member's timestamp is taken when it is staged as max(clock, ts(previous member)), monotone within and across batches"
     accepted-by: mailto:emil@okkels-klein.dk

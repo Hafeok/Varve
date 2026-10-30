@@ -148,6 +148,12 @@ public readonly record struct ProblemType
     /// <summary><c>503</c>: a bulk load found one of its own spills damaged and ended with nothing committed; submit the same input again (ADR 0213).</summary>
     public static ProblemType LoadSpillDamaged { get; } = new("load-spill-damaged");
 
+    /// <summary><c>503</c>: the write may or may not have been committed: closed in the log with its flush unconfirmed, settled by the commits resource at <c>position</c> by the cause <c>requestId</c>; or forwarded, with the writer's answer lost, without a position (ADR 0214).</summary>
+    public static ProblemType CommitOutcomeUnknown { get; } = new("commit-outcome-unknown");
+
+    /// <summary><c>507</c>: the dataset's storage has no space for the write; nothing was committed, and the next write tries again (ADR 0214).</summary>
+    public static ProblemType StorageFull { get; } = new("storage-full");
+
     /// <summary><c>503</c>: as many reads in flight and queued as the server allows (ADR 0114).</summary>
     public static ProblemType ServerBusy { get; } = new("server-busy");
 

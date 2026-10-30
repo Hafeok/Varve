@@ -62,72 +62,90 @@ public sealed partial class Dataset
                 return Head;
             }
 
-            State state = _state;
-            long head = state.Head;
-            List<ScannedCommit> closed = [];
-            ValueTask Keep(ScannedCommit commit)
-            {
-                closed.Add(commit);
-                return ValueTask.CompletedTask;
-            }
-
-            if (head == 0)
-            {
-                await LogReader.ScanAsync(_storage.Log, Id, 0, Keep, _options.TornWindow, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                CommitEntry last = state.Commits.Entry(head);
-                byte[] previous = head == 1 ? LogFormat.Genesis() : state.Commits.Entry(head - 1).HeaderHash();
-                CommitLocation end = await LogReader.EndAsync(_storage.Log, Id, last.Location, head, previous, cancellationToken).ConfigureAwait(false);
-                LogStart start = new(end.Segment, end.Offset, head, last.HeaderHash());
-                await LogReader.ScanFromAsync(_storage.Log, Id, start, head, Keep, _options.TornWindow, cancellationToken).ConfigureAwait(false);
-            }
-
-            if (closed.Count == 0)
-            {
-                return Head;
-            }
-
-            CommitIndex commits = state.Commits;
-            long logBytes = state.LogBytesAt(head);
-            long p = head;
-
-            foreach (ScannedCommit commit in closed)
-            {
-                p++;
-
-                if (commit.Header.Kind == CommitKind.Erasure)
-                {
-                    throw new LogVerificationException(p, "Position " + p + " is an erasure commit, which needs erasure mode, and this version of Varve does not support erasure mode.");
-                }
-
-                DatasetSettings? changed = commit.Header.Kind == CommitKind.Settings ? Fold(commits.SettingsAt(p - 1), commit.Header) : null;
-                logBytes += commit.Bytes;
-                CommitEntry entry = new(commit.Header.TimestampTicks, commit.HeaderHash, commit.Location, commit.Header.CanonicalCount, commit.Header.BlankCount, logBytes);
-                commits = commits.Append(in entry, changed);
-            }
-
-            State partial = new(p, commits, state.Index, state.Checkpoints, null, state.Graphs);
-            IndexVersion index = state.Index;
-            GraphVersions graphs = state.Graphs;
-            p = head;
-
-            foreach (ScannedCommit commit in closed)
-            {
-                p++;
-                LoggedCommit full = commit.Full ?? await ReadLoggedAsync(partial, p, cancellationToken).ConfigureAwait(false);
-                index = index.Apply(full.Asserted, full.Retracted, partial.TermsOf(full, p), p);
-                graphs = graphs.Apply(full.Header.Kind, full.Asserted, full.Retracted, p);
-            }
-
-            _state = new State(p, commits, index, state.Checkpoints, null, graphs);
-            Signal();
+            await AdoptClosedAsync(long.MaxValue, cancellationToken).ConfigureAwait(false);
             return Head;
         }
         finally
         {
             _sequencer.Release();
         }
+    }
+
+    /// <summary>
+    /// Applies every commit the log has closed after the head, verified as an
+    /// open verifies them (I6), to the commit index, the default projection
+    /// and the graph versions; returns the scan, which says where the log's
+    /// tail is. A follower calls it for its writer's commits; a writer whose
+    /// append failed calls it for its own, which reached the log without being
+    /// acknowledged (ADR 0214 point 2), and only up to <paramref name="upTo"/>,
+    /// the last it flushed: a commit closed past it is not committed. Inside
+    /// the sequencer.
+    /// </summary>
+    private async ValueTask<LogScan> AdoptClosedAsync(long upTo, CancellationToken cancellationToken)
+    {
+        State state = _state;
+        long head = state.Head;
+        List<ScannedCommit> closed = [];
+        ValueTask Keep(ScannedCommit commit)
+        {
+            closed.Add(commit);
+            return ValueTask.CompletedTask;
+        }
+
+        LogScan scan;
+
+        if (head == 0)
+        {
+            scan = await LogReader.ScanAsync(_storage.Log, Id, 0, Keep, _options.TornWindow, upTo, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            CommitEntry last = state.Commits.Entry(head);
+            byte[] previous = head == 1 ? LogFormat.Genesis() : state.Commits.Entry(head - 1).HeaderHash();
+            CommitLocation end = await LogReader.EndAsync(_storage.Log, Id, last.Location, head, previous, cancellationToken).ConfigureAwait(false);
+            LogStart start = new(end.Segment, end.Offset, head, last.HeaderHash());
+            scan = await LogReader.ScanFromAsync(_storage.Log, Id, start, head, Keep, _options.TornWindow, upTo, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (closed.Count == 0)
+        {
+            return scan;
+        }
+
+        CommitIndex commits = state.Commits;
+        long logBytes = state.LogBytesAt(head);
+        long p = head;
+
+        foreach (ScannedCommit commit in closed)
+        {
+            p++;
+
+            if (commit.Header.Kind == CommitKind.Erasure)
+            {
+                throw new LogVerificationException(p, "Position " + p + " is an erasure commit, which needs erasure mode, and this version of Varve does not support erasure mode.");
+            }
+
+            DatasetSettings? changed = commit.Header.Kind == CommitKind.Settings ? Fold(commits.SettingsAt(p - 1), commit.Header) : null;
+            logBytes += commit.Bytes;
+            CommitEntry entry = new(commit.Header.TimestampTicks, commit.HeaderHash, commit.Location, commit.Header.CanonicalCount, commit.Header.BlankCount, logBytes);
+            commits = commits.Append(in entry, changed);
+        }
+
+        State partial = new(p, commits, state.Index, state.Checkpoints, null, state.Graphs);
+        IndexVersion index = state.Index;
+        GraphVersions graphs = state.Graphs;
+        p = head;
+
+        foreach (ScannedCommit commit in closed)
+        {
+            p++;
+            LoggedCommit full = commit.Full ?? await ReadLoggedAsync(partial, p, cancellationToken).ConfigureAwait(false);
+            index = index.Apply(full.Asserted, full.Retracted, partial.TermsOf(full, p), p);
+            graphs = graphs.Apply(full.Header.Kind, full.Asserted, full.Retracted, p);
+        }
+
+        _state = new State(p, commits, index, state.Checkpoints, null, graphs);
+        Signal();
+        return scan;
     }
 }

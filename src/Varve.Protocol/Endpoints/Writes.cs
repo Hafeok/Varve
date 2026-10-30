@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Varve.Protocol.Http;
@@ -337,6 +339,7 @@ internal static class Writes
         await AnswerCoreAsync(exchange, result, created, expected, conflicts).ConfigureAwait(false);
     }
 
+    [DesignDecision(typeof(FileBackendFailureInjection.StorageFullIs507), Scope = ExceptionScope.Boundary)]
     private static Task AnswerCoreAsync(Exchange exchange, CommitResult result, int created, Position? expected, CommitConflicts? conflicts)
     {
         HttpContext context = exchange.Context;
@@ -373,10 +376,32 @@ internal static class Writes
                 return ValidatorProblem.TryWriteAsync(context, result.Report)
                     ?? HttpProblems.WriteAsync(context, ProblemType.Rejected, result.Reason, members => members.String("report", Report(result)));
 
+            case CommitOutcome.Unavailable when result.OutcomeUnknownAt is { } at:
+                // Closed in the log and not confirmed durable: never 507, since
+                // the record may survive. The commit's cause is the request id,
+                // so the commits resource settles it once its head reaches the
+                // position (ADR 0214).
+                return OutcomeUnknownAsync(context, result.Reason, at);
+
+            case CommitOutcome.Unavailable when result.StorageFull:
+                // Nothing was written, and the dataset's next write tries the
+                // storage again (ADR 0214): a retry once there is space is right.
+                return HttpProblems.WriteAsync(context, ProblemType.StorageFull, result.Reason);
+
             default:
                 return QueryRun.WriteUnavailableAsync(exchange, result.Reason ?? "The dataset cannot commit now.");
         }
     }
+
+    // A write whose outcome is not known: the position to look at in the
+    // commits resource, and the request id, which is the commit's cause.
+    [DesignDecision(typeof(FileBackendFailureInjection.OutcomeUnknownIs503WithTheRequestId), Scope = ExceptionScope.Boundary)]
+    private static Task OutcomeUnknownAsync(HttpContext context, string? reason, Position at) =>
+        HttpProblems.WriteAsync(context, ProblemType.CommitOutcomeUnknown, reason, members =>
+        {
+            members.Number("position", at.Value);
+            members.String("requestId", context.TraceIdentifier);
+        });
 
     // The commits that caused a conflict (ADR 0126): newest first, each with
     // the graphs of the scope it touched — or, with no scope, those of its

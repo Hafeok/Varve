@@ -105,6 +105,11 @@ List<(string Name, string Description, Func<int> Run)> jobs =
             ? Run("dotnet", ["run", "eng/dco.cs", "--", "--commits", "tests/fixtures/dco/passing.txt", "--identities", "tests/fixtures/dco/identities.json"])
             : 1),
 
+    // The release gate's refusal of a red or stale Windows soak, proven on
+    // every run (ADR 0215, tests/fixtures/soak-freshness/README.md).
+    ("soak-freshness-fixtures", "the Windows soak's freshness check passes and refuses its fixtures as their names say",
+        () => Run("dotnet", ["run", "eng/soak-freshness.cs", "--", "--fixtures", "tests/fixtures/soak-freshness"])),
+
     ("required-checks", "every check ruleset 1 requires is a job that reports on pull requests",
         () => Run("dotnet", ["run", "eng/required-checks.cs"])),
 
@@ -166,6 +171,13 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     // without any gate seeing it. Their own restore: dotNetRDF is theirs alone.
     ("build-benchmarks", "the benchmark project builds; it is not run",
         () => Run("dotnet", ["build", "tests/Varve.Benchmarks/Varve.Benchmarks.csproj", "--configuration", "Release"])),
+
+    // The soak judge's failure path (ADR 0215): every fixture is judged as
+    // its name says, a run that misses with 1 and one it cannot judge with 2
+    // (tests/fixtures/soak-judge/README.md). The soak itself runs in the
+    // release gate, not here.
+    ("soak-judge-fixtures", "the soak judge passes, fails and refuses its fixtures as their names say",
+        () => Run("dotnet", ["run", "--project", "tests/Varve.Benchmarks/Varve.Benchmarks.csproj", "--configuration", "Release", "--no-build", "--", "--soak-judge-fixtures", "tests/fixtures/soak-judge"])),
 
     ("test-analyzers", "the analyzer rules and their fixtures",
         () => Test("Varve.Analyzers.Tests")),
