@@ -121,6 +121,35 @@ The maintainer's rulings during the step, verbatim:
 ### The soak
 
 The eight-hour Linux soak under the shipped configuration, `--soak 480
---policy --subjects 2000`, started at 12:50 UTC. Its first 240 minutes are
-the release gate's four hours, judged on their own. Its result, #61's cause
-and the judge's bounds follow in this record when the run ends.
+--policy --subjects 2000`, did not finish here: the container was restarted
+at minute 17.5, the meter crashed at minute 45.5 on a file deleted between
+its listing and its read (fixed: a vanished file counts as nothing), and the
+container was restarted again at minute 111. The 111-minute run answered
+#61: the working set does not grow. The samples outside the band were the
+collector's committed but unused memory. A second run found retired extent
+sets' empty directories accumulating, about 2.7 a minute, now removed with
+their last file. ADR 0215's amendment of 2026-10-30 has the numbers.
+
+The maintainer's rulings on it, verbatim:
+
+> Good result: #61's question is answered.
+> 1. The band: exclude the collector's committed-but-unused memory, and report it beside the band with its own ceiling in the judge (propose one, such as committed ≤ 2× the live heap after a full collection, plus a fixed margin). Drift catches growth only, above +10%. State the GC mode and settings the soak ran with, and make them the server image's.
+> 2. The derived-files bound: write its formula from the configuration (checkpoints kept, files per checkpoint, the maximum number of runs, sets in the chain) into ADR 0215. Set the bound from it, and show 97 inside it. Same for handles, if a formula exists.
+> 3. Long soaks: the 4-hour Linux soak in `release-gate.yml`. The 8-hour soak can't run on hosted runners (6-hour job limit), so amend ADR 0215: it runs in #164's Azure environment as a Container Apps job under the shipped configuration, before 1.0. I'll add it to #164.
+
+> Stop the local 4-hour soak; this container can't hold one, and your 111-minute run already answered #61. Instead:
+> 1. Push the held changes to #190 now: the meter fix (7f80222), the judge changes (committed memory under its own ceiling, growth-only drift, the derived-files and handle bounds from their formulas), and the ADR 0215 amendment for the 8-hour soak in #164's environment.
+> 2. Dispatch `release-gate.yml` on #190's branch with the 4-hour Linux soak, and link the run and its `--judge` verdict in #190's body. That's #190's soak evidence before it lands.
+
+What followed:
+- the judge excludes the collector's committed but unused memory (committed
+  less the heap) from the band and holds committed memory to twice the live
+  heap after a full collection plus 128 MB; drift misses only growth over
+  10%; it refuses a run under any collector but the shipped one;
+- the bounds on `derived/` files and handles come from the configuration
+  (`SoakBounds`): 97 of 182 files and 141 of 309 handles in the 111-minute
+  run, which the amended judge holds;
+- the shipped collector's settings moved into
+  `src/Varve.Server/ShippedRuntime.props`, which the server and the soak
+  both import;
+- the eight-hour soak runs in #164's Azure environment before 1.0.
