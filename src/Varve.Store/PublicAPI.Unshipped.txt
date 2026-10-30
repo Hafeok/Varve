@@ -737,3 +737,11 @@ static Varve.Store.Log.DerivedVersion.operator ==(Varve.Store.Log.DerivedVersion
 static Varve.Store.Log.DerivedVersion.operator >(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
 static Varve.Store.Log.DerivedVersion.operator >=(Varve.Store.Log.DerivedVersion left, Varve.Store.Log.DerivedVersion right) -> bool
 ~override Varve.Store.Log.DerivedVersion.Equals(object obj) -> bool
+Varve.Store.ClassificationSelector
+Varve.Store.ClassificationSelector.ClassificationSelector() -> void
+Varve.Store.ClassificationSelector.Select(Varve.Rdf.IQuadSource! source, Varve.Rdf.IRowClassification! classification, Varve.Rdf.RdfTerm! subject) -> Varve.Rdf.IQuadCursor!
+Varve.Store.IClassifier
+Varve.Store.IClassifier.Classify(Varve.Rdf.IQuadSource! pinned, Varve.Rdf.QuadDelta pending) -> Varve.Rdf.IRowClassification!
+Varve.Store.ISelector
+Varve.Store.ISelector.Select(Varve.Rdf.IQuadSource! source, Varve.Rdf.IRowClassification! classification, Varve.Rdf.RdfTerm! subject) -> Varve.Rdf.IQuadCursor!
+static Varve.Store.ClassificationSelector.Instance.get -> Varve.Store.ClassificationSelector!

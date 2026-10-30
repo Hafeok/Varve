@@ -58,6 +58,9 @@ shapes are fixed here, as stable public API. The key store is part 2's
    - **One implementation, `ClassificationSelector`**, is in `Varve.Store`. It
      is a function of the classification alone, so there is one definition
      of "a subject's data", as ADR 0023 wants of the key id.
+   - **Its cursor compares handles through the source's `TermComparer`.** ADR
+     0022 makes that the only correct equality. It allocates nothing, and
+     `SelectorComparesThroughTheSourceComparer` answers `VARVE0003` for it.
 4. **Access without erasure mode** is served by the selector over `G_head`:
    - `GET /datasets/{name}/access?subject=<IRI>&binding=<IRI>`, as N-Quads
      or TriG by negotiation;

@@ -35,10 +35,21 @@ position, and so does every write by one.
    is a classification from scratch at that position, replacing every open
    row, and its position is published only once it is applied, so a reader
    never sees a mixed classification.
+   - **A shapes graph that does not classify fails closed.** Every node then
+     belongs to a subject no scope names, so a row-restricted caller sees no
+     quad of the binding's graphs until a later commit repairs the shapes.
+     The problems are on readiness. An unrestricted caller is unaffected.
+     Unclassified would mean visible to every reader of the graphs, which is
+     the wrong way to fail.
 5. **`At(p)`** answers an `IRowClassification` at position p (ADR 0231).
    - **Above the floor**, it serves the rows valid at p.
    - **Below the floor**, it classifies from scratch over `AsOfAsync(p)`:
      correct, at a full classification's cost.
+   - **Lookups.** A graph's binding is decided once per graph handle. A
+     node's set is a lookup in an immutable interval array for the position.
+     A triple term's set is decided once per handle. None of them allocates
+     once made, which `ClassificationLookupsMemoisedPerHandle` answers for
+     `VARVE0003`.
    - **The floor** is where a cold start resets the projection, at the head.
      That is ADR 0174 point 7, because replaying history as-of would cost
      the square of it.

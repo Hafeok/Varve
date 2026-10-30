@@ -11,6 +11,10 @@ decisions:
     statement: "The projection answers a classification at any position: its rows above its floor, and from scratch over the as-of state below it"
   - key: ClassificationInTheLocalCacheVerified
     statement: "The state is one blob in the local derived store identifying its binding and verified in full by length and SHA-256 on read, a blob that does not verify being a miss and a rebuild"
+  - key: ClassificationFailsClosed
+    statement: "A generation whose shapes graph does not classify fails closed: every node belongs to a subject no scope names, so a row-restricted caller sees no quad of the binding's graphs, and the problems are on readiness"
+  - key: ClassificationLookupsMemoisedPerHandle
+    statement: "A classification decides a graph's binding once per graph handle, a node's set by a lookup of an immutable map for its position, and a triple term's set once per handle, none allocating once made"
   - key: ClassificationLagNeverUnready
     statement: "Each binding's lag is on readiness and never makes the dataset unready; only a row-restricted read above the projection waits once and is then 503 classification-behind"
 ---

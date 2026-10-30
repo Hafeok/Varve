@@ -67,6 +67,7 @@ public interface IRowClassification
     SubjectSetId SubjectsOf(BindingIndex binding, TermHandle node);
 
     /// <summary>The subjects of <paramref name="set"/>, as handles of the source.</summary>
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     ReadOnlySpan<TermHandle> Members(BindingIndex binding, SubjectSetId set);
 
     /// <summary>Whether <paramref name="predicate"/> is a public link of <paramref name="binding"/>; <c>rdf:type</c> always is.</summary>

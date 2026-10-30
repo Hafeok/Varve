@@ -9,6 +9,8 @@ decisions:
     statement: "IClassifier in Varve.Store gives the classification of the overlay of a pinned source and a pending delta, as a pure function of that state and the classifier's configuration"
   - key: SelectorIsTheClassification
     statement: "ISelector in Varve.Store selects the quads of a source whose about-set contains a subject, implemented once over the classification so that one definition of a subject's data serves access and erasure"
+  - key: SelectorComparesThroughTheSourceComparer
+    statement: "The selector's cursor compares a set's members with the subject through the source's TermComparer, which ADR 0022 makes the only correct equality, and allocates nothing doing so"
   - key: AccessWithoutErasureIsAdminOnly
     statement: "GET /datasets/{name}/access with a subject and a binding answers the selector over the head, Current scope only, to a dataset admin only"
 ---
