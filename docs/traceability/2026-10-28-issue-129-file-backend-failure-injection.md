@@ -153,3 +153,13 @@ What followed:
   `src/Varve.Server/ShippedRuntime.props`, which the server and the soak
   both import;
 - the eight-hour soak runs in #164's Azure environment before 1.0.
+
+### Acceptance, 2026-10-30
+
+A later session (Claude Code, model `claude-fable-5-1`), on the maintainer's
+instruction, added `accepted-by` and `accepted-at` to the 22 keys this
+branch files over main: file-backend-failure-injection (12 keys, ADR 0214)
+and the-soak-gate-judged (10 keys, ADR 0215). The acceptance is the
+maintainer's, who had read them and approved this head; the session only
+wrote it at their direction, as the acceptance of ADR 0213 on step 2 was
+written. The ADRs' status text and the index rows are left as filed.
