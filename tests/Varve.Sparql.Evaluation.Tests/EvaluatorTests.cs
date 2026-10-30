@@ -27,6 +27,33 @@ public class EvaluatorTests
         return builder.ToDataset();
     }
 
+    /// <summary>
+    /// The exception in ADR 0022's amendment of 2026-10-30, by a query
+    /// (#191): an in-memory dataset interns a triple term but not its parts,
+    /// so it denies a literal that occurs only inside one. A triple term
+    /// pattern naming that literal still finds it, because a source that
+    /// cannot take a triple term apart has it matched by value, with or
+    /// without the optimiser.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_term_only_inside_a_triple_term_is_found_by_a_triple_term_pattern_naming_it(bool optimise)
+    {
+        RdfTerm onlyHere = RdfTerm.Literal("only-here"u8);
+        InMemoryDatasetBuilder builder = new();
+        RdfTerm triple = RdfTerm.TripleTerm(Named("a"), Named("q"), onlyHere);
+        builder.Add(Named("s"), Named("p"), triple);
+        InMemoryDataset dataset = builder.ToDataset();
+        Assert.False(dataset.TryInternalise(onlyHere, out _));
+        Assert.True(dataset.TryInternalise(triple, out TermHandle handle));
+        Assert.False(((IQuadSource)dataset).TryGetTripleTermComponents(handle, out _, out _, out _));
+
+        Assert.Equal(["?s=<http://example.org/s> ?a=<http://example.org/a>"], Run("SELECT * { ?s :p <<( ?a :q \"only-here\" )>> }", dataset, Options(optimise)));
+        Assert.Equal(["?s=<http://example.org/s>"], Run("SELECT * { ?s :p <<( :a :q \"only-here\" )>> }", dataset, Options(optimise)));
+        Assert.Empty(Run("SELECT * { ?s :p <<( ?a :q \"elsewhere\" )>> }", dataset, Options(optimise)));
+    }
+
     [Fact]
     public void The_implicit_timezone_is_a_whole_number_of_minutes_within_fourteen_hours()
     {

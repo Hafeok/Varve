@@ -185,7 +185,12 @@ cases are outside the promise, because no consumer loses an answer to them:
 - **A part of a triple term the source cannot take apart by handle**
   (`TryGetTripleTermComponents` false). The evaluator matches that triple
   term by value, a denied part included
-  (`EvaluationHotPathScope.NestedPatternsExternalise`).
+  (`EvaluationHotPathScope.NestedPatternsExternalise`). A query proves it:
+  `EvaluatorTests.A_term_only_inside_a_triple_term_is_found_by_a_triple_term_pattern_naming_it`
+  puts `"only-here"` only inside a triple term of an `InMemoryDataset`,
+  which denies it, and `SELECT * { ?s :p <<( ?a :q "only-here" )>> }`
+  returns the answer, with the optimiser and without. With the evaluator's
+  by-value comparison of a denied part removed, it returns nothing.
 
 **The test.** `tests/QuadSourceContract.cs`, linked into each test project
 with a source of its own, is the standard test for a source

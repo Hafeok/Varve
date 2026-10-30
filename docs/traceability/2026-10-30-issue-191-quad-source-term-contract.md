@@ -91,3 +91,17 @@ the fix, and the amendment says it is latent.
 `IndexSource` has no case of its own; it is the source of every view the
 test does cover. No citation of the new ruling is added in code: it is
 unaccepted, and a citation would be `CS0618` until it is accepted.
+
+### Review: the triple-term exception, by a query
+
+> Good audit, and the PendingSource find is worth having even though it’s latent. One addition before I accept the ruling: prove the triple-term exception with a query, not an argument. Add an evaluator test against InMemoryDataset where the literal exists only inside a triple term, and the query names it inside a triple-term pattern, for example SELECT * { ?s ex:p <<( ?a ex:q "only-here" )>> }. It must return the answer. If it doesn’t, drop the exception: the source answers with a staged handle like any other, and the contract test covers it. Then post the new head.
+
+`EvaluatorTests.A_term_only_inside_a_triple_term_is_found_by_a_triple_term_pattern_naming_it`,
+with the optimiser and without. The dataset is checked to deny `"only-here"`
+and to be unable to take the triple term apart. `SELECT * { ?s :p <<( ?a :q
+"only-here" )>> }` returns `?s=<s> ?a=<a>`, the fully constant pattern
+returns `?s=<s>`, and a pattern naming a literal the triple term does not
+hold returns nothing. To show the test depends on the path the exception
+rests on, the session temporarily made `BgpOperator.UnifyTerm` answer false
+for a denied part (`PositionKind.Never`), instead of comparing it by value:
+both cases then failed. The change was reverted. The exception stands.

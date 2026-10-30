@@ -36,7 +36,8 @@ namespace Varve;
 /// <strong>A triple term's parts</strong> are checked when the source takes
 /// the triple term apart by handle (<see cref="IQuadSource.TryGetTripleTermComponents"/>).
 /// When it cannot, the evaluator matches the externalised triple term by
-/// value, and a part the source denies still matches there.
+/// value, and a part the source denies still matches there
+/// (<c>EvaluatorTests.A_term_only_inside_a_triple_term_is_found_by_a_triple_term_pattern_naming_it</c>).
 /// </para>
 /// <para>
 /// <strong>Completing</strong> is a match of every quad in every graph, which
