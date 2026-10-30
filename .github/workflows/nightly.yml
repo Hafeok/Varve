@@ -93,6 +93,8 @@ jobs:
           VARVE_EXTENT_FAULTS_FULL: "1"
           VARVE_CACHE_DAMAGE_STRIDE: "1"
           VARVE_EXTENT_DAMAGE_STRIDE: "1"
+          # The fence after a consolidation (#181).
+          VARVE_FENCE_SCHEDULES: "3000"
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
