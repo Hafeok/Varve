@@ -503,7 +503,7 @@ jobs:
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-build-${{ matrix.os }}
           path: ${{ github.workspace }}/artifacts/test-results
@@ -612,7 +612,7 @@ jobs:
           global-json-file: global.json
 
       - name: Log in to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -644,7 +644,7 @@ jobs:
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-auth-mock-oauth2
           path: ${{ github.workspace }}/artifacts/test-results
@@ -676,7 +676,7 @@ jobs:
           global-json-file: global.json
 
       - name: Log in to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -741,7 +741,7 @@ jobs:
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-storage-services
           path: ${{ github.workspace }}/artifacts/test-results
@@ -771,7 +771,7 @@ jobs:
           global-json-file: global.json
 
       - name: Log in to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -804,7 +804,7 @@ jobs:
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-fleet-services
           path: ${{ github.workspace }}/artifacts/test-results
@@ -843,7 +843,7 @@ jobs:
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-rec-generator-${{ matrix.rid }}
           path: ${{ github.workspace }}/artifacts/test-results
@@ -874,7 +874,7 @@ jobs:
           global-json-file: global.json
 
       - name: Log in to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -906,7 +906,7 @@ jobs:
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-auth-zitadel
           path: ${{ github.workspace }}/artifacts/test-results
@@ -953,7 +953,7 @@ jobs:
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-auth-providers
           path: ${{ github.workspace }}/artifacts/test-results
@@ -1027,7 +1027,7 @@ jobs:
           --output ${{ github.workspace }}/artifacts/server-aot
 
       - name: Log in to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1267,7 +1267,7 @@ jobs:
 
       - name: Upload the suite results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: container-protocol-trx-${{ matrix.rid }}
           path: ${{ github.workspace }}/artifacts/container-protocol
@@ -1277,7 +1277,7 @@ jobs:
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-container-${{ matrix.rid }}
           path: ${{ github.workspace }}/artifacts/test-results
@@ -1315,7 +1315,7 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-aspire-
 
       - name: Log in to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1339,7 +1339,7 @@ jobs:
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-aspire
           path: ${{ github.workspace }}/artifacts/test-results
@@ -1406,7 +1406,7 @@ jobs:
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-samples
           path: ${{ github.workspace }}/artifacts/test-results
@@ -1437,7 +1437,7 @@ jobs:
           global-json-file: global.json
 
       - name: Log in to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1471,7 +1471,7 @@ jobs:
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-samples-eventhubs
           path: ${{ github.workspace }}/artifacts/test-results
@@ -1669,7 +1669,7 @@ jobs:
         run: dotnet build tests/Varve.WasmSmoke --configuration Release
 
       - name: Upload the app bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: wasm-app-bundle
           path: tests/Varve.WasmSmoke/bin/Release/net10.0/browser-wasm/AppBundle
@@ -1783,7 +1783,7 @@ jobs:
 
       - name: Upload the test results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: conformance-trx-${{ matrix.os }}
           path: ${{ github.workspace }}/artifacts/conformance
@@ -1834,7 +1834,7 @@ jobs:
 
       - name: Upload the report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: decision-report
           path: ${{ github.workspace }}/artifacts/report
