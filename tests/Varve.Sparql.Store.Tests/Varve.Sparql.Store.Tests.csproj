@@ -18,6 +18,7 @@
   <ItemGroup>
     <!-- The harness's isomorphism check, test code (ADR 0030, ADR 0059). -->
     <Compile Include="../Varve.Conformance.Tests/Isomorphism.cs;../Varve.Conformance.Tests/ParsedQuad.cs" LinkBase="Conformance" />
+    <Compile Include="../QuadSourceContract.cs" Link="QuadSourceContract.cs" />
   </ItemGroup>
 
 </Project>

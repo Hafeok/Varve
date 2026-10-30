@@ -162,6 +162,19 @@ a gate nobody has tested. `eng/native-assets.cs` is pointed at a real restore
 graph that contains a native asset and at one that does not, and both outcomes
 are asserted.
 
+**Every quad source passes `tests/QuadSourceContract.cs`** (ADR 0022, amended
+2026-10-30; #191), linked into each test project with a source of its own. A
+query names its terms before it matches its patterns, and a constant the
+source denies compiles to a pattern that never runs. So a source that loads
+quads lazily and answers "no such term" before it has turns "not loaded yet"
+into an empty answer, which is #183. `QuadSourceContract.Holds` makes the
+source fresh for each term it yields, asks for that term first, completes the
+source with a match of every quad and the caller's own step for any other
+load, and fails when a term denied is in what the completed source yields. A
+new source, a projection's reserved graphs included, adds a case before it is
+read by anything; a lazy one makes its source behind at the lookup and
+reaching its position in the read's wait, the order #183 needed.
+
 ## 6. Failure injection — for everything that writes to disk
 
 A store that has only been tested on runs that never crashed has been tested on
