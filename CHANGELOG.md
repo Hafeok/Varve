@@ -78,6 +78,15 @@ accepted on the pull request (ADR 0066).
   decided ahead of inference, which this release does not ship. The TBox
   and rules graphs of a binding are readable by every reader of the
   dataset.
+- **Cached derived data is verified before use** (#146, #180, ADR 0213).
+  - Every derived kind carries a check per block, and damage is a cache
+    miss: the data is rebuilt from the log, never served.
+  - A read that meets damage partway through is re-run and resumed.
+  - Projections outside the store write through
+    `Dataset.WriteCheckedAsync` and read with `TryReadCheckedAsync`.
+  - The cost at REC M: checkpoints take about 18% longer. A subject's
+    quads read as of a commit inside the largest set is about 8% slower;
+    the other reads stay within 3%.
 
 #### Changed
 
@@ -114,11 +123,18 @@ accepted on the pull request (ADR 0066).
   behind** (#183), could answer with no rows, which reads as conforming.
   It now answers with the report at the position, or `503
   validation-behind` after one bounded wait (ADR 0174).
+- **A validator's view of a commit names a triple term that the commit
+  creates** (#191, ADR 0022, amended). Before, a term the commit's delta
+  yields could be denied. No read was found that lost an answer. A
+  contract test now runs over every quad source.
 
 #### Upgrading
 
-- **Datasets are unchanged:** storage format 1, delta format 1, derived
-  format 5 for extents.
+- **Datasets keep their log:** storage format 1, delta format 1.
+- **Derived data moves to format 6** for the checked kinds (ADR 0213),
+  and stays 5 for extents. Derived data is a cache of the log: what this
+  build does not read is rebuilt from the log, and an older build finds
+  the new files a cache miss.
 - **Code that built a `CommitRequest`** builds a `CommitRequestBuilder`.
 
 ## [0.1.0-preview.15] - 2026-10-23
