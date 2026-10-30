@@ -30,8 +30,8 @@ public readonly record struct DerivedVersion : IComparable<DerivedVersion>
     /// <summary>Derived format 4, what a reader record that does not say reads: one written before #133.</summary>
     public static DerivedVersion Format4 { get; } = new(4);
 
-    /// <summary>The newest derived version this build reads: 5, an extent's (ADR 0177).</summary>
-    public static DerivedVersion ThisBuildReads { get; } = new(5);
+    /// <summary>The newest derived version this build reads: 6, the checked kinds' (ADR 0213); 5 is an extent's (ADR 0177).</summary>
+    public static DerivedVersion ThisBuildReads { get; } = new(6);
 
     /// <summary>The version's number.</summary>
     public int Value { get; }

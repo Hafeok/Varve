@@ -5,7 +5,7 @@
 | **Type** | `https://w3id.org/varve/problems/not-ready` |
 | **Title** | The server is not ready. |
 | **Status** | `503` |
-| **Members** | `management`, `datasets`, `retention` |
+| **Members** | `management`, `datasets`, `retention`, `writesRefused` |
 
 `GET /health/ready` while a dataset that should be open is not, a projection is failed or behind `Varve:Health:ReadyLag`, or the host is draining; `datasets` lists each with its state, role and reason (ADR 0113).
 
@@ -17,6 +17,8 @@
 (`mismatch`), or its lag exceeds `Varve:Fleet:AllowedLag`.
 
 `retention`, present when a dataset in an object store has reader records, gives per dataset the bytes the store keeps of extent sets no catalog names and what each reader record holds of them (ADR 0162); it is reported for the operator and is never itself a reason to be unready.
+
+`writesRefused`, present when a dataset's last write was refused because its storage had no space, names each such dataset with [`storage-full`](storage-full.md) (ADR 0214). Reads go on and the dataset's next write tries the storage again by itself, so it is never itself a reason to be unready either; the ready answer carries the same object.
 
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,

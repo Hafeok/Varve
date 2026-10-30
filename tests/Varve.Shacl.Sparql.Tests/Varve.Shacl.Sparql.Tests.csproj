@@ -22,4 +22,8 @@
     <PackageReference Include="dotNetRdf.Shacl" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../QuadSourceContract.cs" Link="QuadSourceContract.cs" />
+  </ItemGroup>
+
 </Project>

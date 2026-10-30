@@ -73,6 +73,14 @@ internal sealed class ExtentSet
     /// </summary>
     internal bool Seekable => Array.TrueForAll(Orders, o => o.Extent!.Seekable);
 
+    /// <summary>
+    /// Whether every blob of the set is checked block by block (ADR 0213):
+    /// it is seekable, and its dictionary, written in the same version as
+    /// its commit index, is version 6. A set written while a reader of 5 or
+    /// older was announced is not, until maintenance rewrites it.
+    /// </summary>
+    internal bool Checked => Seekable && Terms.Header.Version == DerivedFormat.CheckedVersion;
+
     /// <summary>The graph-version index at the set's end (ADR 0125), beside its extents.</summary>
     internal BlobName Graphs => GraphsOf(Name);
 
@@ -154,7 +162,7 @@ internal sealed class ExtentSet
                 }
             }
 
-            LoadedRun? terms = await DerivedFormat.TryLoadAsync(store, TermsOf(name), dataset, DerivedFormat.KindExtentTerms, cancellationToken).ConfigureAwait(false);
+            LoadedRun? terms = await DerivedFormat.TryLoadAsync(store, TermsOf(name), dataset, DerivedFormat.KindExtentTerms, cancellationToken, shared: true).ConfigureAwait(false);
 
             if (terms is null)
             {
@@ -210,7 +218,8 @@ internal sealed class ExtentSet
         Func<IndexOrder, long, CancellationToken, ValueTask<IRowSource>> rows,
         TermSection[] terms,
         CancellationToken cancellationToken,
-        ushort version = DerivedFormat.ExtentVersion)
+        ushort version = DerivedFormat.ExtentVersion,
+        ushort termsVersion = DerivedFormat.CheckedVersion)
     {
         for (int o = 0; o < Store.Orders.Count; o++)
         {
@@ -220,7 +229,7 @@ internal sealed class ExtentSet
 
         await DerivedFormat.WriteRunAsync(
             store, TermsOf(name), DerivedFormat.KindExtentTerms, dataset, from, to, toHash,
-            (_, _) => new ValueTask<IKeySource>(new SectionSource(KeySection.Empty)), terms, blankCount, cancellationToken).ConfigureAwait(false);
+            (_, _) => new ValueTask<IKeySource>(new SectionSource(KeySection.Empty)), terms, blankCount, cancellationToken, termsVersion).ConfigureAwait(false);
     }
 
     /// <summary>The rows of one order and section, read from the set's extent.</summary>

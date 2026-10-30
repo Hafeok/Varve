@@ -95,9 +95,11 @@ public static class ProblemCatalogue
         new(ProblemType.TooManyLiveTails, 429, "The client holds too many live tails open.", "limit"),
         new(ProblemType.TooManyRequests, 429, "The client sent more requests than the endpoint allows in its window."),
         new(ProblemType.Unavailable, 503, "The dataset cannot answer now.", "reason"),
+        new(ProblemType.CommitOutcomeUnknown, 503, "The write may or may not have been committed.", "position", "requestId"),
+        new(ProblemType.StorageFull, 507, "The dataset's storage has no space for the write; nothing was committed."),
         new(ProblemType.ReadLimitExceeded, 503, "The read was cut by a server limit."),
         new(ProblemType.ShuttingDown, 503, "The server is shutting down."),
-        new(ProblemType.NotReady, 503, "The server is not ready.", "management", "datasets", "retention"),
+        new(ProblemType.NotReady, 503, "The server is not ready.", "management", "datasets", "retention", "writesRefused"),
         new(ProblemType.ServerBusy, 503, "The server has as many reads in flight as it allows.", "limit"),
         new(ProblemType.WriterSuperseded, 503, "A newer writer holds the dataset; this instance serves reads only."),
         new(ProblemType.ManagementBehind, 503, "The server has not applied the management position asked for.", "position", "appliedPosition"),
@@ -107,6 +109,7 @@ public static class ProblemCatalogue
         new(ProblemType.DeclarationInvalid, 422, "The management declarations are not valid.", "findings"),
         new(ProblemType.ReaderForgotten, 503, "This instance's reader record was forgotten; it attaches again."),
         new(ProblemType.ReadUnannouncedExtentGone, 503, "An unannounced read found an extent gone."),
+        new(ProblemType.LoadSpillDamaged, 503, "A bulk load's spill was damaged; nothing was committed."),
     ];
 
     private static readonly FrozenDictionary<string, ProblemShape> ByType = Index();

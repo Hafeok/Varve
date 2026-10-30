@@ -203,7 +203,7 @@ public sealed partial class Dataset
 
             foreach (CatalogEntry set in sets)
             {
-                CommitSegment? segment = await CommitIndexFormat.TryLoadAsync(storage.Derived, ExtentSet.CommitsOf(set.Name), id, cancellationToken).ConfigureAwait(false);
+                CommitSegment? segment = await CommitIndexFormat.TryLoadAsync(storage.Derived, ExtentSet.CommitsOf(set.Name), id, cancellationToken, shared: true).ConfigureAwait(false);
 
                 if (segment is null)
                 {

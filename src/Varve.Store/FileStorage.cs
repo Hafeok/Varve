@@ -287,7 +287,26 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
                 _activeLength += bytes.Length;
             }
 
-            await handle.WriteAsync(offset, bytes, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await handle.WriteAsync(offset, bytes, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // A write that failed, a full disk above all, may have written
+                // part of its bytes or none: the segment is as long as the file
+                // is, not as the write would have made it, so that the writer's
+                // recovery reads and appends after what is there (ADR 0214).
+                lock (_gate)
+                {
+                    if (segment.Value == _activeId && ReferenceEquals(handle, _active))
+                    {
+                        _activeLength = handle.Length;
+                    }
+                }
+
+                throw;
+            }
         }
 
         public ValueTask FlushAsync(SegmentId segment, CancellationToken cancellationToken)
@@ -301,6 +320,13 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
                 else if (!_segments.Contains(segment.Value))
                 {
                     throw new ArgumentOutOfRangeException(nameof(segment), segment.Value, "No such segment.");
+                }
+                else if (!IsSealed(segment.Value))
+                {
+                    // The open segment of a log this process has not yet
+                    // written: what an earlier process wrote to it, and may
+                    // not have flushed, is flushed (ADR 0214 point 2).
+                    Writable(segment.Value).Flush();
                 }
 
                 return ValueTask.CompletedTask;
@@ -528,6 +554,7 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
                 try
                 {
                     _files.Delete(path);
+                    DeleteSetDirectory(name);
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
@@ -655,10 +682,23 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
                     }
 
                     _deferred.Remove(name);
+                    DeleteSetDirectory(new BlobName(name));
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
                 }
+            }
+        }
+
+        // An extent set's directory goes with its last file: a set is named
+        // once, written once and never again after it is retired, so nothing
+        // creates a file in it while it is removed (#61: the soak found every
+        // retired set's directory left behind, about three a minute).
+        private void DeleteSetDirectory(BlobName name)
+        {
+            if (name.Value.StartsWith("extents/", StringComparison.Ordinal) && name.Value.IndexOf('/', "extents/".Length) > 0)
+            {
+                _files.DeleteEmptyDirectory(Path.GetDirectoryName(PathOf(name))!);
             }
         }
 
@@ -715,7 +755,15 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
             public ValueTask PublishAsync(CancellationToken cancellationToken)
             {
                 ObjectDisposedException.ThrowIf(_done, this);
-                handle.Flush();
+
+                // Flushed before the rename, unless its own header says it
+                // verifies itself to every reader that reads it (ADR 0213):
+                // torn by a power loss, it is then a miss, never an answer.
+                if (!VerifiesItself())
+                {
+                    handle.Flush();
+                }
+
                 handle.Dispose();
                 _done = true;
                 store.Publish(name, temporary, path);
@@ -732,6 +780,17 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
                 }
 
                 return ValueTask.CompletedTask;
+            }
+
+            private bool VerifiesItself()
+            {
+                if (_length < DerivedFormat.HeaderLength)
+                {
+                    return false;
+                }
+
+                Span<byte> tail = stackalloc byte[DerivedFormat.HeaderLength];
+                return handle.Read(_length - tail.Length, tail) == tail.Length && DerivedFormat.VerifiesItself(tail);
             }
         }
     }

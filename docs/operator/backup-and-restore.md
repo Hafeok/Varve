@@ -16,6 +16,19 @@ saves the replay. Every commit is flushed to the device before it is
 acknowledged (`Synchronised`, ADR 0073), so the log on disk is never behind
 what a client was told.
 
+**A full disk fails the write that met it, and nothing that was
+acknowledged** (ADR 0214). The commit that needed the space is refused with
+`507` and the problem type `storage-full`, and its client is not told it
+committed. The dataset keeps serving reads at the position it had, and
+`/health/ready` stays ready, naming the dataset under `writesRefused`. Free
+space; nothing needs restarting. The next write recovers the dataset's log
+itself, as an open would, and commits. Until there is space, each write is
+refused `storage-full` again. A full disk while the dataset opens fails the
+open; the next open with space succeeds. A checkpoint or maintenance write
+that meets a full disk fails on its own, and a later round retries it. Every
+release is gated on these outcomes, on Linux and Windows, at every allocation
+the backend makes.
+
 ## Taking a copy
 
 **Hot**: copy the directory while the server runs. The store is built for
@@ -119,7 +132,9 @@ varve storage readers list https://account.blob.core.windows.net/varve/people
 `varve storage` prints the catalog's version, the sets per permutation, each
 set's window and bytes, the sets no catalog names that the store still keeps,
 and each record with the bytes it retains. `/health/ready` reports the same as
-`retention`; it never turns unready because of it.
+`retention`, with `uncheckedSets`, the sets still read without their block
+checks because a follower of an earlier build is announced (ADR 0213, see
+[Upgrade](upgrade.md)); it never turns unready because of either.
 
 A record holds what it announces until its instance moves on, ends, starts
 again under the same id, or is forgotten. A reader that is gone — a replica

@@ -4,7 +4,6 @@
 
 using System;
 using System.Buffers;
-using System.IO;
 using System.Threading;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
@@ -52,6 +51,13 @@ internal sealed class KeySection
     private readonly long _startsAt;
     private readonly long _blockCount;
     private readonly long _length;
+
+    // Where the keys are read from once a block of this section's blob is
+    // found damaged (ADR 0213): the same keys, rebuilt from the log, in
+    // memory. Set before the section is shared, and the healed section kept
+    // once made; a read that races the first heal makes it again.
+    private Func<KeySection>? _healer;
+    private KeySection? _healed;
 
     private KeySection(ReadOnlyMemory<QuadKey> memory, IReadableBlob? blob, long offset, long count, Chunked<QuadKey> fences, Chunked<long> blocks, int stride, long startsAt, long length, Chunked<ulong>? checks = null)
     {
@@ -103,9 +109,67 @@ internal sealed class KeySection
         count == 0 ? Empty : new(ReadOnlyMemory<QuadKey>.Empty, blob, offset, count, fences, NoBlocks, SparseStride, startsAt, length);
 
     /// <summary>Reads and decodes block <paramref name="block"/> into the buffer; returns how many keys it holds.</summary>
-    /// <exception cref="IOException">The blob is shorter than its directory says, or a block does not decode.</exception>
+    /// <exception cref="DerivedDamageException">The blob is shorter than its directory says, or a block does not decode.</exception>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal int ReadBlock(long block, Span<QuadKey> buffer)
+    {
+        if (_healed is { } healed)
+        {
+            return healed.CopyBlock(block, buffer);
+        }
+
+        try
+        {
+            return ReadBlockFromBlob(block, buffer);
+        }
+        catch (DerivedDamageException) when (_healer is not null)
+        {
+            return Healed().CopyBlock(block, buffer);
+        }
+    }
+
+    /// <summary>
+    /// From now on, when a block of this section is found damaged, its keys
+    /// come from <paramref name="healer"/>: the section rebuilt from the log,
+    /// in memory, which holds the same keys (ADR 0213). Only for a section on
+    /// a blob.
+    /// </summary>
+    internal void HealWith(Func<KeySection> healer)
+    {
+        if (_blob is not null)
+        {
+            _healer = healer;
+        }
+    }
+
+    // The section rebuilt, made the first time a damaged block asks: a read
+    // of the log, off the hot path's rules, as a page missed in the cache is.
+    [DesignDecision(typeof(VerifiedDerivedData.DamageMidReadIsRerunAndResumed), Scope = ExceptionScope.HotPath)]
+    private KeySection Healed()
+    {
+        KeySection healed = _healer!();
+
+        if (healed.Count != Count || healed.OnBlob)
+        {
+            throw new InvalidOperationException("A key section rebuilt from the log holds " + healed.Count + " keys where the damaged one held " + Count + ".");
+        }
+
+        _healed = healed;
+        return healed;
+    }
+
+    // Block b of a section in memory, as a section on a blob reads it.
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private int CopyBlock(long block, Span<QuadKey> buffer)
+    {
+        long start = block * BlockKeys;
+        int count = (int)Math.Min(BlockKeys, Count - start);
+        Memory.Span.Slice((int)start, count).CopyTo(buffer);
+        return count;
+    }
+
+    [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
+    private int ReadBlockFromBlob(long block, Span<QuadKey> buffer)
     {
         long start = block * BlockKeys;
         int count = (int)Math.Min(BlockKeys, Count - start);
@@ -129,12 +193,12 @@ internal sealed class KeySection
 
         if (length > bytes.Length || length < 0 || _blob!.Read(new ByteOffset(_offset + at), bytes[..length]) != length)
         {
-            throw new IOException("A derived run is shorter than its directory says.");
+            throw new DerivedDamageException("A derived run is shorter than its directory says.");
         }
 
         if (_checks is not null && BlockCheck.Of(bytes[..length]) != _checks[block])
         {
-            throw new IOException("A block of an extent does not match its check; the extent is damaged.");
+            throw new DerivedDamageException("A key block of a derived run does not match its check; the run is damaged.");
         }
 
         KeyBlocks.Decode(bytes[..length], buffer[..count]);
@@ -300,7 +364,7 @@ internal sealed class KeySection
 
         if (_blob!.Read(new ByteOffset(_startsAt + (first * 8)), read) != read.Length)
         {
-            throw new IOException("A derived run is shorter than its directory says.");
+            throw new DerivedDamageException("A derived run is shorter than its directory says.");
         }
 
         for (int i = 0; i < stored; i++)
@@ -322,7 +386,7 @@ internal sealed class KeySection
 
         if (_blob!.Read(new ByteOffset(_offset + blockStart), bytes) != bytes.Length)
         {
-            throw new IOException("A derived run is shorter than its directory says.");
+            throw new DerivedDamageException("A derived run is shorter than its directory says.");
         }
 
         return new QuadKey(
@@ -487,6 +551,29 @@ internal sealed class Run
         }
 
         return orders;
+    }
+
+    /// <summary>
+    /// From now on, when a read finds this run's blob damaged, its keys and
+    /// its dictionary entries come from <paramref name="rebuild"/>: the run
+    /// rebuilt from the log for its window, made once, the first time any of
+    /// its sections asks (ADR 0213). A run is its window's net delta, so the
+    /// rebuilt one holds the same keys in every section, and a scan carries
+    /// on from where it was.
+    /// </summary>
+    [DesignDecision(typeof(VerifiedDerivedData.DamageMidReadIsRerunAndResumed), Scope = ExceptionScope.Boundary)]
+    internal void HealWith(Func<Run> rebuild)
+    {
+        Lazy<Run> healed = new(rebuild, LazyThreadSafetyMode.ExecutionAndPublication);
+
+        for (int order = 0; order < Orders.Count; order++)
+        {
+            int o = order;
+            _asserted[o].HealWith(() => healed.Value._asserted[o]);
+            _retracted[o].HealWith(() => healed.Value._retracted[o]);
+        }
+
+        Terms.HealWith(() => healed.Value.Terms);
     }
 
     /// <summary>

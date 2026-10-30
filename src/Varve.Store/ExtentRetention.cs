@@ -17,7 +17,15 @@ namespace Varve.Store;
 /// <param name="UnnamedSets">The sets no catalog names that the store still holds.</param>
 /// <param name="RetainedBytes">The bytes of those sets.</param>
 /// <param name="Readers">Each present reader record, and the bytes of the unnamed sets it holds.</param>
-public sealed record ExtentRetention(Log.CatalogVersion Version, int Sets, int UnnamedSets, long RetainedBytes, IReadOnlyList<ReaderRetention> Readers);
+public sealed record ExtentRetention(Log.CatalogVersion Version, int Sets, int UnnamedSets, long RetainedBytes, IReadOnlyList<ReaderRetention> Readers)
+{
+    /// <summary>
+    /// The named sets not yet checked block by block (ADR 0213): written while
+    /// a reader of derived format 5 or older was announced, and read
+    /// unchecked until maintenance rewrites them once no such reader remains.
+    /// </summary>
+    public int UncheckedSets { get; init; }
+}
 
 /// <summary>A reader record, and the bytes of the unnamed extent sets it holds.</summary>
 /// <param name="Announcement">What the record announces.</param>
