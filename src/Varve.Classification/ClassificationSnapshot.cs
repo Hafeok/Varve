@@ -8,7 +8,6 @@ using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Text;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
@@ -21,15 +20,16 @@ namespace Varve.Classification;
 
 /// <summary>
 /// The classification projection's state as one blob of the local cache
-/// (ADR 0233 point 6), verified in full on read: its length first, then the
-/// format, the binding's identity, the state, and a SHA-256 of everything
-/// before it. A blob that does not verify, or names another binding or
-/// format, is a miss and never a wrong row (#146).
+/// (ADR 0233 point 6), kept in the dataset's checked envelope (ADR 0213),
+/// which verifies every block and binds it to the dataset and the commit at
+/// its position: inside, the format, the binding's identity and the state.
+/// A blob that does not verify, or names another binding or format, is a
+/// miss and never a wrong row (#146). The mark is <c>VCP2</c>: a state
+/// written before the envelope, under <c>VCP1</c>, is never read as one.
 /// </summary>
 internal static class ClassificationSnapshot
 {
-    private const uint Magic = 0x31504356; // "VCP1"
-    private const int HashLength = 32;
+    private const uint Magic = 0x32504356; // "VCP2"
 
     internal sealed record State(
         long Position,
@@ -40,7 +40,12 @@ internal static class ClassificationSnapshot
         List<(long At, TermHandle[] Nodes)> Changed);
 
     /// <summary>The directory of a binding's states, <c>classification/{enc(binding)}/</c>.</summary>
-    internal static string Directory(ClassifierBinding binding) => "classification/" + Encode(binding.Binding.Lexical) + "/";
+    /// <remarks>
+    /// <c>enc</c> leaves <c>~</c>, which RFC 3986 calls unreserved, but no
+    /// backend takes it in a blob name, and the browser's is its own
+    /// generation separator; in the name it is <c>%7E</c>.
+    /// </remarks>
+    internal static string Directory(ClassifierBinding binding) => "classification/" + Encode(binding.Binding.Lexical).Replace("~", "%7E", StringComparison.Ordinal) + "/";
 
     /// <summary>The name of the state at <paramref name="position"/>: names sort by position.</summary>
     internal static string Name(ClassifierBinding binding, long position) =>
@@ -56,7 +61,6 @@ internal static class ClassificationSnapshot
         Dictionary<long, TermHandle[]> changed)
     {
         ArrayBufferWriter<byte> writer = new();
-        Long(writer, 0); // the length, filled in below
         UInt(writer, Magic);
         Identity(writer, binding);
         Long(writer, position);
@@ -109,33 +113,16 @@ internal static class ClassificationSnapshot
             Handles(writer, nodes);
         }
 
-        byte[] bytes = new byte[writer.WrittenCount + HashLength];
-        writer.WrittenSpan.CopyTo(bytes);
-        BinaryPrimitives.WriteInt64LittleEndian(bytes, bytes.Length);
-        SHA256.HashData(bytes.AsSpan(0, writer.WrittenCount), bytes.AsSpan(writer.WrittenCount));
-        return bytes;
+        return writer.WrittenSpan.ToArray();
     }
 
-    internal static bool TryRead(byte[] bytes, ClassifierBinding binding, out State state)
+    internal static bool TryRead(ReadOnlyMemory<byte> bytes, ClassifierBinding binding, out State state)
     {
         state = null!;
 
-        if (bytes.Length < 8 + HashLength || BinaryPrimitives.ReadInt64LittleEndian(bytes) != bytes.Length)
-        {
-            return false;
-        }
-
-        Span<byte> hash = stackalloc byte[HashLength];
-        SHA256.HashData(bytes.AsSpan(0, bytes.Length - HashLength), hash);
-
-        if (!hash.SequenceEqual(bytes.AsSpan(bytes.Length - HashLength)))
-        {
-            return false;
-        }
-
         ArrayBufferWriter<byte> identity = new();
         Identity(identity, binding);
-        Reader reader = new(bytes.AsMemory(8, bytes.Length - 8 - HashLength));
+        Reader reader = new(bytes);
 
         try
         {

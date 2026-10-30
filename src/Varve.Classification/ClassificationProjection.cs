@@ -203,7 +203,11 @@ public sealed class ClassificationProjection : IProjection
         }
     }
 
-    /// <summary>Writes the state to the local cache's <paramref name="store"/> (ADR 0233 point 6), deleting older states of the binding.</summary>
+    /// <summary>
+    /// Writes the state to the local cache's <paramref name="store"/> (ADR
+    /// 0233 point 6), in the dataset's checked envelope (ADR 0213), deleting
+    /// older states of the binding.
+    /// </summary>
     public async ValueTask SaveAsync(IDerivedStore store, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(store);
@@ -217,11 +221,7 @@ public sealed class ClassificationProjection : IProjection
         }
 
         BlobName name = new(ClassificationSnapshot.Name(Binding, position));
-        await using (IBlobWriter writer = await store.CreateAsync(name, cancellationToken).ConfigureAwait(false))
-        {
-            await writer.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
-            await writer.PublishAsync(cancellationToken).ConfigureAwait(false);
-        }
+        await _dataset.WriteCheckedAsync(store, name, new Position(position), bytes, cancellationToken).ConfigureAwait(false);
 
         string directory = ClassificationSnapshot.Directory(Binding);
         foreach (BlobName existing in await store.ListAsync(cancellationToken).ConfigureAwait(false))
@@ -235,9 +235,10 @@ public sealed class ClassificationProjection : IProjection
 
     /// <summary>
     /// Reads the newest state <see cref="SaveAsync"/> wrote for this binding:
-    /// whether one was read. A state that does not verify in full, names
-    /// another binding or format, or lies above the head is a miss: the
-    /// projection stays as it was, to be rebuilt (ADR 0233 point 6).
+    /// whether one was read. A state that does not verify (ADR 0213), that
+    /// is bound to another dataset or commit, or that names another binding
+    /// or format, is a miss: the projection stays as it was, to be rebuilt
+    /// (ADR 0233 point 6).
     /// </summary>
     public async ValueTask<bool> LoadAsync(IDerivedStore store, CancellationToken cancellationToken)
     {
@@ -258,19 +259,24 @@ public sealed class ClassificationProjection : IProjection
             return false;
         }
 
-        byte[] bytes;
-        using (IReadableBlob blob = await store.OpenAsync(name, cancellationToken).ConfigureAwait(false))
+        if (await _dataset.TryReadCheckedAsync(store, name, cancellationToken).ConfigureAwait(false) is not { } content)
         {
-            bytes = new byte[checked((int)blob.Length.Value)];
+            return false;
+        }
 
-            if (blob.Read(new ByteOffset(0), bytes) != bytes.Length)
+        ClassificationSnapshot.State state;
+
+        try
+        {
+            if (!ClassificationSnapshot.TryRead(content.Bytes, Binding, out state) || state.Position != content.Position.Value)
             {
                 return false;
             }
         }
-
-        if (!ClassificationSnapshot.TryRead(bytes, Binding, out ClassificationSnapshot.State state) || state.Position > _dataset.Head.Value)
+        catch (Exception error) when (error is not OperationCanceledException)
         {
+            // Bytes that verified and still do not decode are a miss as
+            // well, never an error (ADR 0213).
             return false;
         }
 

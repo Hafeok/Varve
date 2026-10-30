@@ -118,3 +118,29 @@ position, and so does every write by one.
 - **Layer ownership.** `Varve.Classification` (5); the server (6) feeds it.
 - **Analyzer rule.** None.
 - **Open questions owned.** Sharing the state as extents, with ADR 0174's.
+
+## Amendment, 2026-10-30 — the state in ADR 0213's checked envelope, and `~` in its name
+
+Filed by milestone 9, part 1 (#202, under #14), after this ADR's decision
+set was accepted, when ADR [0213](0213-cached-derived-data-is-verified-before-use.md)
+landed on main; unaccepted until the maintainer accepts it (ADR 0066).
+
+- **The envelope.** Point 6's state is written through
+  `Dataset.WriteCheckedAsync` and read through `TryReadCheckedAsync`:
+  ADR 0213's checked envelope, every 64 KiB block checked, bound to the
+  dataset and to the commit at its position. That replaces the state's own
+  length and SHA-256. Its layout inside is otherwise unchanged, under the
+  mark `VCP2`, so a `VCP1` state is a miss the first time it is opened. A
+  state whose position differs from the envelope's, or whose verified
+  bytes do not decode, is a miss as well, and the projection rebuilds from
+  the log. `ClassificationInTheLocalCacheVerified` still holds.
+- **`~` in the name.** `enc` leaves `~`, which RFC 3986 counts as
+  unreserved, but the file backend takes no `~` in a blob name, and the
+  browser's OPFS backend uses it as its generation separator. In the
+  state's directory, `classification/{enc(binding)}/`, a `~` of the
+  binding IRI is written `%7E`. The name stays a function of the binding
+  alone.
+- **`%` in a name.** The file and OPFS backends now take `%` in a blob
+  name. Before, they took only ASCII letters, digits, `-`, `_` and `.`, so
+  no state was ever saved on a file dataset (found by the REC benchmark;
+  fixed in `Varve.Store` with ADR 0174's half of the same defect).

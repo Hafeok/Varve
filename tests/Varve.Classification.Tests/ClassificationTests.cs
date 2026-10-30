@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CsCheck;
+using Varve.Classification.Model;
 using Varve.Rdf;
 using Varve.Store;
 using Varve.Store.Log;
@@ -149,9 +150,9 @@ public class ClassificationTests
     }
 
     /// <summary>
-    /// The saved state on a file dataset's local cache, whose blob names
-    /// carry <c>enc(binding)</c>: saved, listed, and read back after the
-    /// storage is reopened. A memory cache accepts any name, so the property
+    /// The saved state on a file dataset's local cache, in the checked
+    /// envelope, whose blob names carry <c>enc(binding)</c>: saved, listed,
+    /// and read back after the storage is reopened. A memory cache accepts any name, so the property
     /// above could not show this.
     /// </summary>
     [Fact]
@@ -161,7 +162,9 @@ public class ClassificationTests
         await using Dataset dataset = await CreateAsync(ct);
         await dataset.CommitAsync(Request(dataset, Shapes(true, true, false), [(IriOf(Ex + "a"), IriOf(TypeIri), IriOf(Ex + "Person"), Classified[0], true)]), ct);
         await dataset.CommitAsync(Request(dataset, null, [(IriOf(Ex + "x"), IriOf(Ex + "ownedBy"), IriOf(Ex + "a"), Classified[1], true)]), ct);
-        ClassificationProjection projection = new(dataset, Binding);
+        // A binding IRI with a '~', which enc leaves and no backend takes in a name.
+        ClassifierBinding binding = new(IriOf(Ex + "~team/binding"), ShapesGraph, Binding.Classifies);
+        ClassificationProjection projection = new(dataset, binding);
         await dataset.CatchUpAsync(projection, ct);
         string directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "varve-classification-" + Guid.NewGuid().ToString("N"));
 
@@ -174,13 +177,13 @@ public class ClassificationTests
             }
 
             await using FileStorage reopened = await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = TimeProvider.System }, ct);
-            ClassificationProjection loaded = new(dataset, Binding);
+            ClassificationProjection loaded = new(dataset, binding);
             Assert.True(await loaded.LoadAsync(reopened.Derived, ct));
             Assert.Equal(dataset.Head, loaded.Position);
 
             using DatasetView view = dataset.Pin();
             Assert.True(loaded.TryAt(view.Position, view, out IRowClassification reread));
-            Assert.Equal(Signature(ShapeClassifier.Scratch(view, Binding), view), Signature(reread, view));
+            Assert.Equal(Signature(ShapeClassifier.Scratch(view, binding), view), Signature(reread, view));
         }
         finally
         {

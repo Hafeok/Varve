@@ -240,7 +240,8 @@ public class ProjectionPropertyTests
     public async Task A_snapshot_reads_back_from_a_file_datasets_cache()
     {
         CancellationToken ct = TestContext.Current.CancellationToken;
-        ShapesBinding binding = Support.Binding(ValidationMode.Report);
+        // A binding IRI with a '~', which enc leaves and no backend takes in a name.
+        ShapesBinding binding = new(RdfTerm.Iri("http://example.com/~team/binding"u8), Support.ShapesGraph, GraphScope.All, ValidationMode.Report);
         await using Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, ct);
         await dataset.CommitAsync(Support.Request(dataset, "ex:S sh:targetClass ex:C0 ; sh:property [ sh:path ex:p0 ; sh:minCount 1 ] .", []), ct);
         await dataset.CommitAsync(Support.Request(dataset, null, [(Support.Ex("n0"), Support.Triples("ex:a a ex:b .")[0].P, Support.Ex("C0"), true)]), ct);
