@@ -28,7 +28,7 @@ decisions:
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-28T00:00:00Z
   - key: ManagementTokenByExchange
-    statement: "With Varve:Auth:ManageGrant exchange, the management token is the data access token exchanged by RFC 8693 from the public client, with no secret and no actor token, asking for a JWT and naming ManageAudience when set; the server's dual-audience refusal keeps it to one audience"
+    statement: "With Varve:Auth:ManageGrant exchange, opt-in per issuer, the sign-in asks for both planes and each plane's token is the sign-in's access token exchanged by RFC 8693 from the public client, with no secret and no actor token, asking for a JWT; the token naming both planes goes only to the issuer's token endpoint, is dropped once exchanged, and the client refuses to attach any token naming more than one audience"
 ---
 
 The rulings of [ADR 0201](../adr/0201-the-web-uis-own-oidc-client.md), one line each.

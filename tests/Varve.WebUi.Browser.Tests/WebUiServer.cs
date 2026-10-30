@@ -67,7 +67,7 @@ internal sealed class WebUiServer : IAsyncDisposable
         return (bundle, chrome);
     }
 
-    internal static async Task<WebUiServer> StartAsync(string bundle, IReadOnlyDictionary<string, string> settings, JsonObject webUiAuth)
+    internal static async Task<WebUiServer> StartAsync(string bundle, IReadOnlyDictionary<string, string> settings, JsonObject webUiAuth, string urls = "http://127.0.0.1:0")
     {
         // A copy, so its appsettings.json can be the test's own; the
         // compressed copies of the original are left out, so none is stale.
@@ -89,7 +89,7 @@ internal sealed class WebUiServer : IAsyncDisposable
         File.WriteAllText(Path.Combine(copy, "appsettings.json"), new JsonObject { ["Varve"] = new JsonObject { ["Server"] = "", ["Auth"] = webUiAuth } }.ToJsonString());
 
         Dictionary<string, string> all = new(settings) { ["Varve:WebUi:Path"] = copy };
-        string[] args = [.. all.Select(s => "--" + s.Key + "=" + s.Value), "--urls=http://127.0.0.1:0", "--Logging:LogLevel:Default=Warning"];
+        string[] args = [.. all.Select(s => "--" + s.Key + "=" + s.Value), "--urls=" + urls, "--Logging:LogLevel:Default=Warning"];
         TaskCompletionSource<StartedServer> ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
         Task<int> run = Task.Run(() => ServerHost.RunAsync(args, ready));
         Task first = await Task.WhenAny(ready.Task, run);

@@ -14,6 +14,8 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CsCheck;
+using Varve.Delta.Model;
+using Varve.Protocol.Client;
 using Varve.Protocol.Client.Model;
 using Varve.WebUi.SignIn;
 using Xunit;
@@ -244,47 +246,119 @@ public class SignInTests
     }
 
     [Fact]
-    public async Task With_exchange_the_management_token_is_the_data_token_exchanged_from_the_public_client()
+    public async Task With_exchange_the_sign_in_asks_for_both_planes_and_each_token_is_exchanged_from_the_public_client()
     {
         Issuer issuer = new();
-        Harness harness = new(issuer, Exchanging("urn:zitadel:iam:org:project:id:42:aud"));
+        Harness harness = new(issuer, Exchanging("urn:zitadel:iam:org:project:id:42:aud", "urn:zitadel:iam:org:project:id:7:aud"));
         await harness.Session.StartAsync("/", silent: false, CancellationToken.None);
+        Assert.Equal("openid offline_access api://varve/read api://varve-manage/operate", Query(harness.Browser.Left.Last())["scope"]);
         await harness.CallbackAsync(harness.Store.Pending!.State);
 
+        Assert.True(harness.Session.DataSignedIn);
         Assert.True(harness.Session.ManagementSignedIn);
-        Assert.Equal("manage-exchanged-1", (await harness.Session.Management(CancellationToken.None))!.Value.Value);
-        Assert.Equal("data-1", (await harness.Session.Data(CancellationToken.None))!.Value.Value);
+        Assert.Equal("data-exchanged-1", (await harness.Session.Data(CancellationToken.None))!.Value.Value);
+        Assert.Equal("manage-exchanged-2", (await harness.Session.Management(CancellationToken.None))!.Value.Value);
 
-        Dictionary<string, string> exchange = Assert.Single(issuer.TokenExchanges);
-        Assert.Equal("data-1", exchange["subject_token"]);
-        Assert.Equal("urn:ietf:params:oauth:token-type:access_token", exchange["subject_token_type"]);
-        Assert.Equal("urn:ietf:params:oauth:token-type:jwt", exchange["requested_token_type"]);
-        Assert.Equal("api://varve-manage/operate", exchange["scope"]);
-        Assert.Equal("urn:zitadel:iam:org:project:id:42:aud", exchange["audience"]);
-        Assert.Equal(Client, exchange["client_id"]);
-        Assert.DoesNotContain("client_secret", exchange.Keys);
-        Assert.DoesNotContain("actor_token", exchange.Keys);
+        // The sign-in's token, data-1, went to the token endpoint and nowhere else.
+        Assert.Equal(2, issuer.TokenExchanges.Count);
+        Assert.All(issuer.TokenExchanges, exchange =>
+        {
+            Assert.Equal("data-1", exchange["subject_token"]);
+            Assert.Equal("urn:ietf:params:oauth:token-type:access_token", exchange["subject_token_type"]);
+            Assert.Equal("urn:ietf:params:oauth:token-type:jwt", exchange["requested_token_type"]);
+            Assert.Equal(Client, exchange["client_id"]);
+            Assert.DoesNotContain("client_secret", exchange.Keys);
+            Assert.DoesNotContain("actor_token", exchange.Keys);
+        });
+        Assert.Equal(("api://varve/read", "urn:zitadel:iam:org:project:id:7:aud"), (issuer.TokenExchanges[0]["scope"], issuer.TokenExchanges[0]["audience"]));
+        Assert.Equal(("api://varve-manage/operate", "urn:zitadel:iam:org:project:id:42:aud"), (issuer.TokenExchanges[1]["scope"], issuer.TokenExchanges[1]["audience"]));
         Assert.Empty(issuer.Refreshes);
     }
 
     [Fact]
-    public async Task With_exchange_a_management_token_near_expiry_is_exchanged_again_from_a_fresh_data_token()
+    public async Task With_exchange_a_plane_near_expiry_is_renewed_by_refreshing_the_combined_token_and_exchanging_again()
     {
         Issuer issuer = new();
-        Harness harness = new(issuer, Exchanging(null));
+        Harness harness = new(issuer, Exchanging(null, null));
         await harness.Session.StartAsync("/", silent: false, CancellationToken.None);
         await harness.CallbackAsync(harness.Store.Pending!.State);
 
         harness.Clock.Advance(TimeSpan.FromSeconds(300 - 20));
         BearerToken? management = await harness.Session.Management(CancellationToken.None);
 
-        Assert.Equal("manage-exchanged-2", management!.Value.Value);
+        // The refresh asks for no scope, so it answers the sign-in's scopes:
+        // a token for both planes, exchanged for this plane's and not kept.
         Dictionary<string, string> refresh = Assert.Single(issuer.Refreshes);
-        Assert.Equal("api://varve/read", refresh["scope"]);
-        Assert.Equal("data-1", issuer.TokenExchanges[0]["subject_token"]);
-        Assert.Equal((await harness.Session.Data(CancellationToken.None))!.Value.Value, issuer.TokenExchanges[1]["subject_token"]);
-        Assert.DoesNotContain("audience", issuer.TokenExchanges[1].Keys);
+        Assert.DoesNotContain("scope", refresh.Keys);
+        Assert.Equal("refresh-1", refresh["refresh_token"]);
+        Dictionary<string, string> renewal = issuer.TokenExchanges[2];
+        Assert.Equal("data-1", renewal["subject_token"]);
+        Assert.Equal("api://varve-manage/operate", renewal["scope"]);
+        Assert.DoesNotContain("audience", renewal.Keys);
+        Assert.Equal("manage-exchanged-3", management!.Value.Value);
     }
+
+    [Fact]
+    public async Task With_exchange_a_data_exchange_the_issuer_refuses_is_a_failed_sign_in_that_keeps_nothing()
+    {
+        Issuer issuer = new() { RefuseTokenExchange = true };
+        Harness harness = new(issuer, Exchanging(null, null));
+        await harness.Session.StartAsync("/", silent: false, CancellationToken.None);
+        SignInOutcome outcome = await harness.CallbackAsync(harness.Store.Pending!.State);
+
+        Assert.False(outcome.SignedIn);
+        Assert.Contains("data plane", outcome.Failure, StringComparison.Ordinal);
+        Assert.False(harness.Session.DataSignedIn);
+        Assert.False(harness.Session.ManagementSignedIn);
+    }
+
+    [Theory]
+    [InlineData("""{"aud":"api://varve"}""", 1)]
+    [InlineData("""{"aud":["api://varve"]}""", 1)]
+    [InlineData("""{"aud":["api://varve","api://varve-manage"]}""", 2)]
+    [InlineData("""{"sub":"alice"}""", 0)]
+    public void The_audiences_are_read_from_the_payload_without_validating(string payload, int audiences) =>
+        Assert.Equal(audiences, OneAudience.Audiences(Jwt(payload)));
+
+    [Fact]
+    public void An_opaque_token_names_no_audience_the_client_can_read() =>
+        Assert.Equal(0, OneAudience.Audiences("Zm9vYmFy-opaque"));
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_token_naming_both_planes_fails_in_the_client_and_nothing_reaches_the_network(bool management)
+    {
+        string combined = Jwt("""{"aud":["api://varve","api://varve-manage"]}""");
+        Issuer issuer = new() { SignInAccess = combined, ManageAccess = combined };
+        Harness harness = new(issuer);
+        await harness.Session.StartAsync("/", silent: false, CancellationToken.None);
+        await harness.CallbackAsync(harness.Store.Pending!.State);
+        Network network = new();
+        using HttpClient http = new(network);
+        Uri server = new("https://varve.example/");
+
+        HttpRequestException refused = management
+            ? await Assert.ThrowsAsync<HttpRequestException>(() => new VarveManagementClient(http, server, ClientLimits.Default, harness.Session.Management, TimeProvider.System).DatasetsAsync(CancellationToken.None))
+            : await Assert.ThrowsAsync<HttpRequestException>(() => new DatasetClients(http, server, harness.Session.Data, TimeProvider.System).For(new DatasetName("notes")).ReadCommitsAsync(new FeedPosition(0), new FeedPosition(1), CancellationToken.None));
+
+        Assert.Contains("more than one audience", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(0, network.Sent);
+    }
+
+    [Fact]
+    public async Task A_token_naming_one_audience_is_attached()
+    {
+        Issuer issuer = new() { SignInAccess = Jwt("""{"aud":"api://varve"}""") };
+        Harness harness = new(issuer);
+        await harness.Session.StartAsync("/", silent: false, CancellationToken.None);
+        await harness.CallbackAsync(harness.Store.Pending!.State);
+
+        Assert.Equal(issuer.SignInAccess, (await harness.Session.Data(CancellationToken.None))!.Value.Value);
+    }
+
+    private static string Jwt(string payload) =>
+        "eyJhbGciOiJub25lIn0." + Base64Url.EncodeToString(Encoding.UTF8.GetBytes(payload)) + ".";
 
     [Theory]
     [InlineData(null, "Refresh")]
@@ -297,8 +371,20 @@ public class SignInTests
     public void An_unknown_management_grant_is_refused_by_name() =>
         Assert.Contains("Varve:Auth:ManageGrant", Assert.Throws<InvalidOperationException>(() => OidcOptions.From(IssuerAddress, Client, "d", "m", "password", null)).Message, StringComparison.Ordinal);
 
-    private static OidcOptions Exchanging(string? audience) =>
-        new(new Uri(IssuerAddress), Client, "api://varve/read", "api://varve-manage/operate", ManagementGrant.Exchange, audience);
+    private static OidcOptions Exchanging(string? manageAudience, string? dataAudience) =>
+        new(new Uri(IssuerAddress), Client, "api://varve/read", "api://varve-manage/operate", ManagementGrant.Exchange, manageAudience, dataAudience);
+
+    // Counts what would reach the network.
+    private sealed class Network : HttpMessageHandler
+    {
+        internal int Sent { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Sent++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+        }
+    }
 
     [Fact]
     public async Task Sign_out_drops_both_tokens_and_leaves_for_the_end_session_endpoint()
@@ -417,6 +503,12 @@ public class SignInTests
 
         internal bool RefuseRefresh { get; init; }
 
+        internal bool RefuseTokenExchange { get; init; }
+
+        internal string SignInAccess { get; init; } = "data-1";
+
+        internal string? ManageAccess { get; init; }
+
         internal Store? Store { get; set; }
 
         internal TimeProvider? Clock { get; set; }
@@ -455,7 +547,7 @@ public class SignInTests
                 Exchanges.Add(form);
                 return Json(new Dictionary<string, object>
                 {
-                    ["access_token"] = "data-1",
+                    ["access_token"] = SignInAccess,
                     ["expires_in"] = 300,
                     ["refresh_token"] = "refresh-1",
                     ["id_token"] = IdToken(Nonce ?? Store!.Taken!.Nonce),
@@ -465,9 +557,15 @@ public class SignInTests
             if (form["grant_type"] == "urn:ietf:params:oauth:grant-type:token-exchange")
             {
                 TokenExchanges.Add(form);
+
+                if (RefuseTokenExchange)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.BadRequest);
+                }
+
                 return Json(new Dictionary<string, object>
                 {
-                    ["access_token"] = "manage-exchanged-" + TokenExchanges.Count,
+                    ["access_token"] = (form["scope"] == "api://varve-manage/operate" ? "manage" : "data") + "-exchanged-" + TokenExchanges.Count,
                     ["issued_token_type"] = "urn:ietf:params:oauth:token-type:access_token",
                     ["token_type"] = "Bearer",
                     ["expires_in"] = 300,
@@ -482,10 +580,10 @@ public class SignInTests
             }
 
             _issued++;
-            string plane = form["scope"] == "api://varve-manage/operate" ? "manage" : "data";
+            string plane = form.GetValueOrDefault("scope") == "api://varve-manage/operate" ? "manage" : "data";
             return Json(new Dictionary<string, object>
             {
-                ["access_token"] = plane + "-" + (plane == "manage" ? _issued : _issued),
+                ["access_token"] = plane == "manage" && ManageAccess is { } manage ? manage : plane + "-" + _issued,
                 ["expires_in"] = 300,
                 ["refresh_token"] = "refresh-" + (_issued + 1),
             });

@@ -171,33 +171,50 @@ but ADR 0037 refuses MSAL.
   - Analyzer rule: none new. The sign-in types are outside the level
     namespaces, and VARVE0006 does not count them.
 
-## Amendment, 2026-10-28 — the management token by token exchange
+## Amendment, 2026-10-28 — both planes by token exchange
 
 Filed by Web UI part 1 (#167, milestone #96), unaccepted until the maintainer
 accepts it (ADR 0066). Decided by the maintainer on that milestone's pull
-request (#187, 2026-10-28): token exchange, as a generic RFC 8693 path, not
-issuer code.
+request (#187): token exchange as a generic RFC 8693 path, not issuer code
+(2026-10-28); and, for an issuer whose exchange only narrows, a sign-in that
+names both planes, under the conditions below (2026-10-30).
 
 1. **`Varve:Auth:ManageGrant`** is `refresh`, point 2's grant and the
    default, or `exchange`. Any other value refuses to start, naming the
-   setting.
-2. **With `exchange`,** the management plane's token is the data plane's
-   access token exchanged (RFC 8693 §2.1) for `ManageScope`.
+   setting. It is opt-in per issuer: `exchange` applies only where it is
+   configured, and Entra ID stays on `refresh`.
+2. **With `exchange`,** the sign-in asks for both planes' scopes, and each
+   plane's token is the sign-in's access token exchanged (RFC 8693 §2.1) for
+   that plane's scope. This replaces, for `exchange` only, point 2's "both
+   scopes are never asked for in one request".
    - It runs from the public client: `client_id`, with no client secret and
      no actor token.
-   - It names `audience` when `Varve:Auth:ManageAudience` is set.
+   - It names `audience` when `Varve:Auth:DataAudience` or
+     `Varve:Auth:ManageAudience` is set, for the data and the management
+     exchange.
    - It asks for `requested_token_type=urn:ietf:params:oauth:token-type:jwt`,
      because the server validates JWTs alone, and an issuer asked for an
      access token may answer an opaque one (Zitadel does).
-   - A management token near expiry is exchanged again from a data token
-     that is itself fresh: one near expiry is first renewed by point 2's
-     refresh grant.
-3. **One audience.** The exchanged token must name the management audience
-   alone. The server's refusal of a token naming both planes (ADR 0163
-   point 1) enforces it; the Web UI adds no check of its own.
-4. **Where the issuer answers no token,** the management plane is signed out
-   and the shell says why (point 4), as for a refused refresh.
-5. **The issuers' table** in `docs/operator/web-ui.md` says which issuers use
-   `refresh` and which use `exchange`.
+   - A data exchange the issuer refuses fails the sign-in and keeps nothing.
+     A refused management exchange signs the management plane out, with the
+     reason (point 4), as a refused refresh does.
+3. **A token naming both planes is sent only to the issuer's token endpoint,
+   never to the server.**
+   - **The combined token** (the sign-in's) is kept as briefly as possible:
+     it is a local of the sign-in, dropped once both exchanges are answered.
+   - **Renewal:** a plane's token near expiry is renewed by the refresh grant,
+     with no scope, for a fresh combined token, which is exchanged for that
+     plane and dropped. The refresh token stays the one long-lived
+     credential, as in point 2; only the combined token's window is shorter.
+   - **The client enforces it.** The bearer provider of each plane refuses a
+     token whose `aud` names more than one audience, before the request is
+     sent. It reads the claim without validating, which is enough for a
+     refusal. A token that is not a JWT names no audience it can read and is
+     left to the server.
+   - **The server's refusal** of a token naming both planes (ADR 0163
+     point 1) is unchanged and stays the guarantee; the client's check only
+     keeps such a token off the network.
+4. **The issuers' table** in `docs/operator/web-ui.md` says which issuers use
+   `refresh` and which use `exchange`, and what each needs.
 
 The ruling is `ManagementTokenByExchange`.

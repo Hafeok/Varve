@@ -216,6 +216,85 @@ public sealed class WebUiBrowserTests
         Assert.Empty(violations);
     }
 
+    // Zitadel by exchange (ADR 0201, amended 2026-10-28): the sign-in asks for
+    // both projects, each plane's token is exchanged from the answer, and the
+    // token naming both is sent to the token endpoint alone. Zitadel has no
+    // login UI here, so the test completes its auth request through the API a
+    // login UI uses, as the provider tests do.
+    [Fact]
+    public async Task Zitadel_signs_both_planes_in_by_exchange_and_the_token_naming_both_never_reaches_the_server()
+    {
+        (string bundle, string chrome) = WebUiServer.Required();
+        JsonNode seed = JsonNode.Parse(await System.IO.File.ReadAllTextAsync(Zitadel(), TestContext.Current.CancellationToken))!;
+        string issuer = (string)seed["issuer"]!;
+        JsonNode webUi = seed["webUi"]!;
+        const string Roles = " urn:zitadel:iam:org:projects:roles";
+        Uri address = new((string)webUi["address"]!);
+
+        await using WebUiServer server = await WebUiServer.StartAsync(
+            bundle,
+            new Dictionary<string, string>
+            {
+                ["Varve:Auth:Mode"] = "Oidc",
+                ["Varve:Auth:Authority"] = issuer,
+                ["Varve:Auth:RequireHttpsMetadata"] = "false",
+                ["Varve:Auth:Audiences:0"] = (string)seed["audience"]!,
+                ["Varve:Auth:Management:Audience"] = (string)webUi["manageAudience"]!,
+                ["Varve:Auth:RoleClaimType"] = (string)seed["roleClaim"]!,
+                // Zitadel names its role claim per project, and the server
+                // reads one role claim: the operator is named by agent IRI.
+                ["Varve:Manage:BootstrapOperators:0"] = issuer + "#" + (string)seed["reader"]!["userId"]!,
+            },
+            new JsonObject
+            {
+                ["Mode"] = "Oidc",
+                ["Authority"] = issuer,
+                ["ClientId"] = (string)webUi["clientId"]!,
+                ["DataScope"] = (string)webUi["dataScope"]! + Roles,
+                ["ManageScope"] = (string)webUi["manageScope"]! + Roles,
+                ["ManageGrant"] = "exchange",
+                ["DataAudience"] = (string)seed["audience"]!,
+                ["ManageAudience"] = (string)webUi["manageAudience"]!,
+            },
+            "http://" + address.Authority);
+        await server.DeclareAsync(Declarations);
+        using IPlaywright playwright = await Playwright.CreateAsync();
+        await using IBrowser browser = await playwright.Chromium.LaunchAsync(new() { ExecutablePath = chrome });
+        IPage page = await browser.NewPageAsync();
+        List<string> violations = Watch(page);
+        List<string> sentToServer = [];
+        List<(string Form, string Body)> tokens = [];
+        page.Request += (_, request) =>
+        {
+            if (request.Url.StartsWith(server.Address.AbsoluteUri, StringComparison.Ordinal) && request.Headers.TryGetValue("authorization", out string? bearer))
+            {
+                sentToServer.Add(bearer["Bearer ".Length..]);
+            }
+        };
+        page.Response += async (_, response) =>
+        {
+            if (response.Url == issuer + "/oauth/v2/token" && response.Request.Method == "POST")
+            {
+                tokens.Add((response.Request.PostData ?? "", await response.TextAsync()));
+            }
+        };
+
+        await page.GotoAsync(new Uri(address, "datasets").AbsoluteUri);
+        await page.WaitForURLAsync(url => url.Contains("authRequest=", StringComparison.Ordinal) && !url.Contains("prompt", StringComparison.Ordinal), new() { Timeout = 60_000 });
+        string request = Query(page.Url).First(pair => pair.Key is "authRequest" or "authRequestID").Value;
+        await page.GotoAsync(await ApproveAsync(issuer, seed, request));
+        await page.WaitForSelectorAsync("text=Sign out", new() { Timeout = 60_000 });
+        await page.WaitForSelectorAsync("td.vw-table__name", new() { Timeout = 60_000 });
+
+        Assert.Equal(["Data plane signed in", "Management signed in"], await Planes(page));
+        string combined = Access(tokens.Single(token => token.Form.Contains("grant_type=authorization_code", StringComparison.Ordinal)).Body);
+        Assert.Equal(2, tokens.Count(token => token.Form.Contains("token-exchange", StringComparison.Ordinal)));
+        Assert.NotEmpty(sentToServer);
+        Assert.DoesNotContain(combined, sentToServer);
+        Assert.All(sentToServer, token => Assert.Single(Audiences(token)));
+        Assert.Empty(violations);
+    }
+
     [Fact]
     public async Task A_token_for_both_planes_is_refused_by_both()
     {
@@ -262,7 +341,12 @@ public sealed class WebUiBrowserTests
                 ["Varve:Auth:Mode"] = "Oidc",
                 ["Varve:Auth:Authority"] = issuer,
                 ["Varve:Auth:RequireHttpsMetadata"] = "false",
+                // mock-oauth2-server gives the ID token the mapping's aud
+                // too, so the Web UI's sign-in token names the client, as an
+                // ID token must: one audience, which this data plane accepts
+                // beside api://varve, the audience the dual token names.
                 ["Varve:Auth:Audiences:0"] = "api://varve",
+                ["Varve:Auth:Audiences:1"] = "varve-webui",
                 ["Varve:Manage:BootstrapOperators:0"] = "varve.operator",
             },
             new JsonObject
@@ -278,6 +362,56 @@ public sealed class WebUiBrowserTests
     }
 
     // mock-oauth2-server's issuer (ADR 0100 layer b): VARVE_MOCK_OAUTH2 is its address.
+    // Zitadel (ADR 0100 layer c): VARVE_ZITADEL_SEED is the file eng/zitadel-seed.cs wrote.
+    private static string Zitadel()
+    {
+        string? seed = Environment.GetEnvironmentVariable("VARVE_ZITADEL_SEED");
+
+        if (string.IsNullOrEmpty(seed))
+        {
+            if ((Environment.GetEnvironmentVariable("VARVE_AUTH_LEGS_REQUIRED") ?? "").Split(',').Contains("zitadel", StringComparer.Ordinal))
+            {
+                Assert.Fail("The zitadel leg is required here and VARVE_ZITADEL_SEED is not set.");
+            }
+
+            Assert.Skip("The zitadel leg needs VARVE_ZITADEL_SEED (ADR 0100).");
+        }
+
+        return seed;
+    }
+
+    // The person signs in through the API a login UI uses, and the issuer
+    // answers where to send the browser back to.
+    private static async Task<string> ApproveAsync(string issuer, JsonNode seed, string request)
+    {
+        using HttpClient login = new(new HttpClientHandler { UseProxy = false });
+        login.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", (string)seed["loginClientToken"]!);
+        using HttpResponseMessage created = await login.PostAsync(new Uri(issuer + "/v2/sessions"), Body(new JsonObject
+        {
+            ["checks"] = new JsonObject
+            {
+                ["user"] = new JsonObject { ["loginName"] = (string)seed["reader"]!["loginName"]! },
+                ["password"] = new JsonObject { ["password"] = (string)seed["reader"]!["password"]! },
+            },
+        }), TestContext.Current.CancellationToken);
+        JsonNode session = JsonNode.Parse(await created.Content.ReadAsStringAsync(TestContext.Current.CancellationToken))!;
+        using HttpResponseMessage callback = await login.PostAsync(new Uri(issuer + "/v2/oidc/auth_requests/" + request), Body(new JsonObject
+        {
+            ["session"] = new JsonObject { ["sessionId"] = (string)session["sessionId"]!, ["sessionToken"] = (string)session["sessionToken"]! },
+        }), TestContext.Current.CancellationToken);
+        return (string)JsonNode.Parse(await callback.Content.ReadAsStringAsync(TestContext.Current.CancellationToken))!["callbackUrl"]!;
+    }
+
+    private static StringContent Body(JsonObject json) => new(json.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+
+    // The audiences a JWT names, read without validating.
+    private static List<string> Audiences(string jwt)
+    {
+        string part = jwt.Split('.')[1];
+        JsonNode? aud = JsonNode.Parse(Convert.FromBase64String(part.Replace('-', '+').Replace('_', '/').PadRight(part.Length + ((4 - (part.Length % 4)) % 4), '=')))!["aud"];
+        return aud is JsonArray many ? [.. many.Select(value => (string)value!)] : aud is null ? [] : [(string)aud!];
+    }
+
     private static string Mock()
     {
         string? address = Environment.GetEnvironmentVariable("VARVE_MOCK_OAUTH2");

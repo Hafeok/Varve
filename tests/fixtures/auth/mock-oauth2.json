@@ -29,7 +29,7 @@
           "match": "varve-webui",
           "claims": {
             "sub": "${subject}",
-            "aud": [ "api://varve", "varve-webui" ],
+            "aud": [ "varve-webui" ],
             "roles": [ "varve.read" ]
           }
         },

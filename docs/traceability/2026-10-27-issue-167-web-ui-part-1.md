@@ -1088,3 +1088,48 @@ Measured:
 - **The download:** 1,830.4 kB brotli-11, from a clean tree. That is 155.4 kB
   over slice 1's 1,675 kB, 7.6 kB over the acts, and within the 1,920,000-byte
   budget.
+
+### Acceptance, 2026-10-30 — Zitadel, both planes by exchange
+The maintainer ruled on #187: option 1, under conditions. As built:
+- **The rule.** The ADR 0201 amendment now reads: "A token naming both
+  planes is sent only to the issuer's token endpoint, never to the server."
+  The server's dual-audience refusal (ADR 0163 point 1) is unchanged, and its
+  test (`A_token_for_both_planes_is_refused_by_both`) still covers it.
+- **The client enforces it.** `OneAudience` sits in both planes' bearer
+  providers. It reads `aud` from the payload without validating, and refuses a
+  token naming more than one audience before the request is built. With a
+  combined token in hand, a call to either plane fails in the client and the
+  counting handler sees no request
+  (`A_token_naming_both_planes_fails_in_the_client_and_nothing_reaches_the_network`).
+- **The combined token is a local.** `CompleteAsync` exchanges it for the data
+  plane, then for the management plane, and keeps neither it nor a reference
+  to it. A plane near expiry is renewed by a refresh with no scope, which
+  gives a fresh combined token; that token is exchanged and dropped.
+- **Opt-in per issuer.** `refresh` stays the default; Entra ID and
+  mock-oauth2-server stay on it. `DataAudience` joins `ManageAudience`.
+  mock-oauth2-server's exchange needs a client assertion, so its leg cannot
+  use `exchange`. Its `varve-webui` mapping now names `varve-webui` alone.
+- **The guide.** The issuer table lists Zitadel as both planes through
+  exchange, tested on v4.19.4. It lists the two requirements (both project
+  audiences at sign-in, a JWT access token), the roles scope, and the
+  per-project role claim.
+- **The browser job** starts Zitadel and seeds it with the Web UI's
+  application (`eng/zitadel-seed.cs --webui`). The new test signs both planes
+  in through Zitadel's own login. It asserts:
+  - two exchanges;
+  - the combined token among no server request's `Authorization`;
+  - one audience in every token the server saw;
+  - no CSP violation.
+
+  The job's comment records why it is Linux only: the issuers are Linux
+  containers, and the bundle is the same on every OS.
+
+Measured:
+- **Tests:**
+
+  | Suite | Result |
+  |---|---|
+  | `Varve.WebUi.Tests` | 193 / 193 |
+  | `Varve.WebUi.Browser.Tests` | 7 / 7, both issuers, 53.9 s |
+- **Gates:** `decision-sets`, `ci-images`, `required-checks`, `status` and
+  `release-pending` pass; the Release build has zero warnings.

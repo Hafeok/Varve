@@ -1739,10 +1739,17 @@ jobs:
   # The Web UI in a browser (ADR 0204): the published bundle from the wasm
   # job, served in-process by Varve.Server and driven by Playwright on the
   # runner's Chrome. axe on every screen and dialog in both themes, the
-  # keyboard's first stops, and the anonymous and OIDC modes against
-  # mock-oauth2-server, the dual-audience refusal included. Outside eng/ci.cs
-  # for the reason the wasm job is: the devcontainer has no browser (ADR 0036).
-  # Linux only: the issuer is a Linux container.
+  # keyboard's first stops, and the anonymous and OIDC modes:
+  # mock-oauth2-server by the refresh grant, the dual-audience refusal
+  # included, and Zitadel by token exchange (ADR 0201, amended 2026-10-28).
+  # Outside eng/ci.cs for the reason the wasm job is: the devcontainer has no
+  # browser (ADR 0036).
+  #
+  # Linux only, on purpose; do not make it a matrix. Both issuers are Linux
+  # containers started by docker compose, which GitHub's Windows and macOS
+  # runners cannot run, and the Web UI is the same bundle on every OS: what
+  # the job tests is the bundle against a server and an issuer, not the
+  # runner. The maintainer ruled so on #187 (2026-10-30).
   webui-browser:
     name: web ui in Chromium
     runs-on: ubuntu-latest
@@ -1789,10 +1796,20 @@ jobs:
           docker compose --file .github/mock-oauth2/compose.yaml logs
           exit 1
 
+      - name: Start Zitadel
+        run: docker compose --file .github/zitadel/compose.yaml up --detach --wait
+
+      - name: Seed it
+        # --webui is where the Web UI's client may redirect: the browser test
+        # serves the Web UI there for this leg.
+        run: dotnet run eng/zitadel-seed.cs -- --output ${{ github.workspace }}/artifacts/zitadel-seed.json --webui http://127.0.0.1:5081/ui/
+
       - name: Test in headless Chromium
         env:
           VARVE_WEBUI: ${{ runner.temp }}/webui
           VARVE_MOCK_OAUTH2: http://localhost:8080
+          VARVE_ZITADEL_SEED: ${{ github.workspace }}/artifacts/zitadel-seed.json
+          VARVE_AUTH_LEGS_REQUIRED: zitadel
           VARVE_BROWSER_TESTS_REQUIRED: 1
         run: >
           dotnet test
@@ -1808,6 +1825,10 @@ jobs:
           dotnet run eng/test-durations.cs --
           ${{ github.workspace }}/artifacts/test-results/Varve.WebUi.Browser.Tests
           --label "Varve.WebUi.Browser.Tests on ubuntu-latest"
+
+      - name: Zitadel's log
+        if: failure()
+        run: docker compose --file .github/zitadel/compose.yaml logs zitadel
 
       - name: Upload the test results
         if: always()

@@ -48,6 +48,14 @@ internal sealed record SignInOutcome(bool SignedIn, bool Redirected, string? Ret
 ///   with the management scope alone. An issuer that will not redeem a
 ///   refresh token for another scope is not supported (ADR 0201); its plane
 ///   shows signed out.</item>
+///   <item>With <see cref="ManagementGrant.Exchange"/> (ADR 0201, amended
+///   2026-10-28), the sign-in asks for both planes' scopes. The token it
+///   answers names both planes, so it is sent only to the token endpoint:
+///   each plane's token is exchanged from it (RFC 8693), and it is dropped
+///   once both exchanges are done. A renewal refreshes it, exchanges again,
+///   and drops it again.</item>
+///   <item>Whatever the grant, a token naming more than one audience is never
+///   attached to a request (<see cref="OneAudience"/>).</item>
 ///   <item>A token within the client's skew of expiry is renewed by the same
 ///   grant, with that plane's scope. A rotated refresh token replaces the
 ///   old one.</item>
@@ -105,10 +113,10 @@ internal sealed class SignInSession : IDisposable
     internal string? Name { get; private set; }
 
     /// <summary>The data plane's token, renewed when it is within the skew of expiry.</summary>
-    internal BearerTokenProvider Data => cancellationToken => CurrentAsync(isManagement: false, cancellationToken);
+    internal BearerTokenProvider Data => async cancellationToken => OneAudience.Checked(await CurrentAsync(isManagement: false, cancellationToken).ConfigureAwait(false));
 
     /// <summary>The management plane's token, likewise.</summary>
-    internal BearerTokenProvider Management => cancellationToken => CurrentAsync(isManagement: true, cancellationToken);
+    internal BearerTokenProvider Management => async cancellationToken => OneAudience.Checked(await CurrentAsync(isManagement: true, cancellationToken).ConfigureAwait(false));
 
     /// <summary>
     /// Leaves for the issuer's authorisation endpoint, keeping the state, the
@@ -125,7 +133,7 @@ internal sealed class SignInSession : IDisposable
             new("response_type", "code"),
             new("client_id", _options.ClientId),
             new("redirect_uri", _redirect.AbsoluteUri),
-            new("scope", "openid offline_access " + _options.DataScope),
+            new("scope", "openid offline_access " + _options.DataScope + (Exchanging ? " " + _options.ManageScope : string.Empty)),
             new("state", pending.State),
             new("nonce", pending.Nonce),
             new("code_challenge", Pkce.Challenge(pending.Verifier)),
@@ -233,19 +241,35 @@ internal sealed class SignInSession : IDisposable
             return SignInOutcome.Failed("The ID token's nonce is not the one this sign-in sent.");
         }
 
-        _data = Bearer(answer, access);
         _refreshToken = Text(answer, "refresh_token");
         _idToken = id;
         Name = claims.Name;
         _management = null;
         ManagementAbsence = null;
 
-        if (_options.Grant == ManagementGrant.Exchange)
+        if (Exchanging)
         {
-            _management = await ExchangeAsync(_data.Value, cancellationToken).ConfigureAwait(false);
-            ManagementAbsence = _management is null ? "The issuer did not exchange the sign-in's token for the management scope." : null;
+            // The sign-in's token names both planes: it goes to the token
+            // endpoint alone, and is not kept past these two exchanges.
+            _data = await ExchangeAsync(access, _options.DataScope, _options.DataAudience, cancellationToken).ConfigureAwait(false);
+
+            if (_data is null)
+            {
+                _refreshToken = null;
+                _idToken = null;
+                Name = null;
+                return SignInOutcome.Failed("The issuer did not exchange the sign-in's token for the data plane's.");
+            }
+
+            _management = await ExchangeAsync(access, _options.ManageScope, _options.ManageAudience, cancellationToken).ConfigureAwait(false);
+            ManagementAbsence = _management is null ? "The issuer did not exchange the sign-in's token for the management plane's." : null;
+            Changed?.Invoke();
+            return new SignInOutcome(true, false, pending.ReturnPath, null);
         }
-        else if (_refreshToken is null)
+
+        _data = Bearer(answer, access);
+
+        if (_refreshToken is null)
         {
             ManagementAbsence = "The issuer gave no refresh token, so the management plane's token cannot be asked for.";
         }
@@ -309,9 +333,9 @@ internal sealed class SignInSession : IDisposable
                 return token;
             }
 
-            BearerToken? renewed = isManagement && _options.Grant == ManagementGrant.Exchange
-                ? await ExchangeFreshAsync(cancellationToken).ConfigureAwait(false)
-                : _refreshToken is null ? null : await RedeemAsync(isManagement ? _options.ManageScope : _options.DataScope, cancellationToken).ConfigureAwait(false);
+            BearerToken? renewed = _refreshToken is null ? null
+                : Exchanging ? await RenewByExchangeAsync(isManagement, cancellationToken).ConfigureAwait(false)
+                : await RedeemAsync(isManagement ? _options.ManageScope : _options.DataScope, cancellationToken).ConfigureAwait(false);
 
             if (isManagement)
             {
@@ -335,18 +359,26 @@ internal sealed class SignInSession : IDisposable
         }
     }
 
-    // The refresh-token grant for one plane's scope. A rotated refresh token
-    // replaces the old one.
-    private async Task<BearerToken?> RedeemAsync(string scope, CancellationToken cancellationToken)
+    private bool Exchanging => _options.Grant == ManagementGrant.Exchange;
+
+    // The refresh-token grant for one plane's scope, or, with no scope, for
+    // the scopes of the sign-in. A rotated refresh token replaces the old one.
+    private async Task<BearerToken?> RedeemAsync(string? scope, CancellationToken cancellationToken)
     {
         Discovery discovery = await DiscoverAsync(cancellationToken).ConfigureAwait(false);
-        using JsonDocument? answer = await TokenAsync(discovery,
+        List<KeyValuePair<string, string>> form =
         [
             new("grant_type", "refresh_token"),
             new("refresh_token", _refreshToken!),
             new("client_id", _options.ClientId),
-            new("scope", scope),
-        ], cancellationToken).ConfigureAwait(false);
+        ];
+
+        if (scope is not null)
+        {
+            form.Add(new("scope", scope));
+        }
+
+        using JsonDocument? answer = await TokenAsync(discovery, [.. form], cancellationToken).ConfigureAwait(false);
 
         if (answer is null || Text(answer, "access_token") is not { } access)
         {
@@ -357,39 +389,39 @@ internal sealed class SignInSession : IDisposable
         return Bearer(answer, access);
     }
 
-    // The management token by exchange, from a data token that is itself
-    // fresh: one near expiry is renewed first, by the refresh grant.
-    private async Task<BearerToken?> ExchangeFreshAsync(CancellationToken cancellationToken)
+    // A plane's token renewed under exchange: the refresh grant answers a
+    // fresh token for both planes, which is exchanged for this plane's and
+    // dropped. The refresh token stays the one long-lived credential.
+    private async Task<BearerToken?> RenewByExchangeAsync(bool isManagement, CancellationToken cancellationToken)
     {
-        if (_data is { } data && data.ExpiresOn - SparqlHttpClient.TokenExpirySkew <= _clock.GetUtcNow())
-        {
-            _data = _refreshToken is null ? null : await RedeemAsync(_options.DataScope, cancellationToken).ConfigureAwait(false);
-        }
+        BearerToken? combined = await RedeemAsync(null, cancellationToken).ConfigureAwait(false);
 
-        return _data is { } subject ? await ExchangeAsync(subject, cancellationToken).ConfigureAwait(false) : null;
+        return combined is { } subject
+            ? await ExchangeAsync(subject.Value, isManagement ? _options.ManageScope : _options.DataScope, isManagement ? _options.ManageAudience : _options.DataAudience, cancellationToken).ConfigureAwait(false)
+            : null;
     }
 
-    // Token exchange (RFC 8693 §2.1) of the data plane's access token for the
-    // management scope, from the public client: no client secret, no actor
+    // Token exchange (RFC 8693 §2.1) of the token naming both planes for one
+    // plane's scope, from the public client: no client secret, no actor
     // token. It asks for a JWT, the only token the server validates; an
     // issuer asked for an access token may answer an opaque one (Zitadel
-    // does). The audience is named when the settings name one. The token it
-    // answers must name the management audience alone; the server refuses one
-    // naming both planes (ADR 0163), so a wider token signs nothing in.
-    private async Task<BearerToken?> ExchangeAsync(BearerToken subject, CancellationToken cancellationToken)
+    // does). The audience is named when the settings name one. A token that
+    // still names more than one audience is never attached to a request
+    // (OneAudience), and the server refuses one naming both planes (ADR 0163).
+    private async Task<BearerToken?> ExchangeAsync(string subject, string scope, string? audience, CancellationToken cancellationToken)
     {
         Discovery discovery = await DiscoverAsync(cancellationToken).ConfigureAwait(false);
         List<KeyValuePair<string, string>> form =
         [
             new("grant_type", "urn:ietf:params:oauth:grant-type:token-exchange"),
             new("client_id", _options.ClientId),
-            new("subject_token", subject.Value),
+            new("subject_token", subject),
             new("subject_token_type", "urn:ietf:params:oauth:token-type:access_token"),
             new("requested_token_type", "urn:ietf:params:oauth:token-type:jwt"),
-            new("scope", _options.ManageScope),
+            new("scope", scope),
         ];
 
-        if (_options.ManageAudience is { } audience)
+        if (audience is not null)
         {
             form.Add(new("audience", audience));
         }

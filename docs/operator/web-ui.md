@@ -112,7 +112,8 @@ The bundle's `appsettings.json`, under `Varve:Auth` (ADR 0201):
 | `DataScope` | the scope whose token the data plane accepts (its audience is one of the server's `Auth:Audiences`) |
 | `ManageScope` | the scope whose token the management plane accepts (`Auth:Management:Audience`) |
 | `ManageGrant` | how the management plane's token is asked for: `refresh` (the default) or `exchange`; see the issuers below |
-| `ManageAudience` | with `exchange`, the `audience` the exchange names, where the issuer wants one (Zitadel: the management project's id) |
+| `ManageAudience` | with `exchange`, the `audience` the management exchange names, where the issuer wants one (Zitadel: the management project's id) |
+| `DataAudience` | with `exchange`, the `audience` the data exchange names, where the issuer wants one (Zitadel: the data project's id) |
 
 ```json
 {
@@ -136,18 +137,23 @@ The bundle's `appsettings.json`, under `Varve:Auth` (ADR 0201):
   `<web ui>/signedout`.
 - **One token per plane.** Each plane accepts only its own audience, and
   refuses a token naming both (ADR 0163).
-  - The data plane's token comes from the sign-in.
-  - The management plane's token comes, by `ManageGrant`, from either:
-    - **`refresh`:** a refresh-token grant that asks for `ManageScope` alone.
-      The issuer must let the Web UI's refresh token be redeemed for the
-      management scope.
-    - **`exchange`:** token exchange (RFC 8693) of the data plane's access
-      token for `ManageScope`, naming `ManageAudience` when it is set and
-      asking for a JWT.
+  - By `ManageGrant`, either:
+    - **`refresh`** (the default): the sign-in asks for `DataScope`, and its
+      token is the data plane's. The management plane's comes from a
+      refresh-token grant that asks for `ManageScope` alone. The issuer must
+      let the Web UI's refresh token be redeemed for the management scope.
+    - **`exchange`:** the sign-in asks for both scopes, and its token names
+      both planes. Each plane's token is that token exchanged (RFC 8693) for
+      the plane's scope, naming `DataAudience` or `ManageAudience` when set,
+      and asking for a JWT.
       - It runs from the public client, with no client secret and no actor
         token.
-      - The token it answers must name the management audience alone. The
-        server refuses one naming both planes.
+      - The token naming both planes goes only to the issuer's token
+        endpoint, never to the server. It is dropped once both exchanges are
+        answered. When a plane's token nears expiry, a refresh gives a fresh
+        one, which is exchanged again and dropped again.
+  - **The Web UI refuses to send** a token whose `aud` names more than one
+    audience, whatever the grant, and the server refuses one too.
   - Where the issuer gives no management token, the shell shows the
     management plane signed out, with the reason, and the data plane still
     works.
@@ -166,8 +172,29 @@ The bundle's `appsettings.json`, under `Varve:Auth` (ADR 0201):
 |---|---|---|---|
 | **Microsoft Entra ID** | a *single-page application* platform on the Web UI's registration, so the token endpoint answers CORS; a delegated scope on each API (`api://varve/access_as_user`, `api://varve-manage/access_as_user`), as in [Authenticate](authenticate.md) | `refresh` | yes: a refresh token is redeemed for another resource. Documented, not tested in CI |
 | **mock-oauth2-server** (tests) | `tests/fixtures/auth/mock-oauth2.json` maps the `varve-webui` client to the data audience, and `varve-webui-manage` to the management one | `refresh` | yes, and it answers CORS. Tested in CI by the browser tests |
-| **Zitadel** | a user agent application, auth method none, with the token-exchange grant; the instance's `oidcTokenExchange` feature on | `exchange` | **data plane only, for now.** A refresh never narrows a token's audience, and refuses a new scope (`invalid_scope`). The exchange runs from the public client with no secret and answers a one-audience JWT. But it only narrows: the token it starts from must already name the management project, which the data token does not (`invalid_target`). Whether the sign-in may ask for both audiences, so that each plane's token is exchanged from it, is pending a decision on #187. Until then, the management plane stays signed out |
+| **Zitadel** | a project per plane, and a user agent application with auth method none, JWT access tokens, and the authorization code, refresh token and token exchange grants; the instance's `oidcTokenExchange` feature on | `exchange` | yes, both planes through exchange. Tested in CI on v4.19.4 by the browser tests. See below |
 | **Keycloak, Auth0, Okta** | two audiences, as two client scopes or two APIs | per issuer | check which grant the issuer redeems for the management scope, refresh or exchange, before you rely on it |
+
+#### Zitadel
+
+A refresh never narrows a Zitadel token's audience, and its exchange only
+narrows: the token it starts from must already name the target project. So
+the Web UI uses `exchange`, and two things are required:
+- **The sign-in requests both project audiences.** Add
+  `urn:zitadel:iam:org:project:id:<project id>:aud` for each plane's project
+  to `DataScope` and `ManageScope`. Set `DataAudience` and `ManageAudience` to
+  the two project ids.
+- **The client asks for a JWT access token:** set the application's access
+  token type to JWT. The server cannot validate Zitadel's opaque tokens.
+
+For roles, add `urn:zitadel:iam:org:projects:roles` to both scopes. Zitadel
+names its role claim per project (`urn:zitadel:iam:org:project:<id>:roles`),
+and the server reads one `RoleClaimType`. So name the management operators by
+agent IRI (`<issuer>#<subject>`) in `Varve:Manage:BootstrapOperators`, or
+point `RoleClaimType` at one project's claim.
+
+`eng/zitadel-seed.cs` sets up exactly this against a test instance; read it
+for the API calls.
 
 ## Anonymous mode
 
