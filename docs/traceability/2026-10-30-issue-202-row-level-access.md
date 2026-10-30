@@ -569,3 +569,19 @@ to rows it reads.
   hand, never with `-s`.
 - The session mistyped its own identifier in the first commits' trailers, and
   rewrote them on its own unmerged branch before the pull request.
+
+### Acceptance, 2026-10-30
+
+A later session (Claude Code, model `claude-fable-5-1`), on the maintainer's
+instruction to approve every decision on this pull request, added
+`accepted-by` and `accepted-at` to the 55 keys this branch files over main:
+rows-data-subjects-and-visibility (9, ADR 0230),
+the-classifier-and-selector-contracts (5, ADR 0231),
+the-shape-derived-classifier (6, ADR 0232), the-classification-projection
+(7, ADR 0233), subject-scoped-grants-and-the-classifier-binding (7, ADR
+0234), the-row-scoped-quad-source (6, ADR 0235), the-row-level-write-rule
+(6, ADR 0236), rows-on-every-surface (6, ADR 0237) and
+inference-under-row-scoped-grants (3, ADR 0238). The acceptance is the
+maintainer's, who had read them and approved the head beneath; the session
+only wrote it at their direction, as the acceptance of ADRs 0127–0133 was
+written. The ADRs' status text and the index rows are left as filed.
