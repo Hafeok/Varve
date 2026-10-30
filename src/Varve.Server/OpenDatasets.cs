@@ -358,6 +358,28 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             return;
         }
 
+        // A read-only open of an object-storage dataset keeps its cache in the
+        // followers' directory. A follower's next open there is staged beside
+        // it, so reads go on; one that has taken an epoch in place, claimed or
+        // failing after the claim, holds that directory as a writer, and is
+        // closed before its next read-only open, as a file dataset's is.
+        if (entry.Storage == DatasetStorage.ObjectStorage && entry.State == DatasetState.Open && entry.OpenedToFollow && entry.Objects is { Epoch: not null } && role is DatasetRole.Follower or DatasetRole.Standby)
+        {
+            if (abdicate is { } released)
+            {
+                entry.ReleaseFor(released);
+
+                if (released == ReleaseReason.Placement)
+                {
+                    ReconcileLog.Abdicated(_logger, name);
+                }
+            }
+
+            await entry.ReleaseAsync().ConfigureAwait(false);
+            await OpenEntryAsync(name, entry, role, wait, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         Entry staged = new(entry.Storage);
         await OpenEntryAsync(name, staged, role, wait, cancellationToken).ConfigureAwait(false);
 
@@ -674,6 +696,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         /// <summary>Whether the start rule has decided this dataset's role in this process (ADR 0180 point 3).</summary>
         internal bool Started { get; set; }
 
+        /// <summary>Whether the dataset was opened to follow, read-only, in the followers' directory: a standby that claimed in place still is.</summary>
+        internal bool OpenedToFollow { get; private set; }
+
         /// <summary>Whether an advance has completed since the dataset was opened, and whether the last one succeeded (ADR 0180 point 6).</summary>
         internal bool AdvancedSinceOpen { get; private set; }
 
@@ -701,6 +726,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         {
             Dataset = dataset;
             Files = files;
+            OpenedToFollow = dataset.IsFollower;
             State = DatasetState.Open;
             Reason = null;
             AdvancedSinceOpen = false;
@@ -725,6 +751,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             State = staged.State;
             Reason = staged.Reason;
             Role = staged.Role;
+            OpenedToFollow = staged.OpenedToFollow;
             AdvancedSinceOpen = false;
             LastAdvanceFailed = false;
             staged.Dataset = null;

@@ -231,7 +231,13 @@ internal sealed partial class OpenDatasets
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
+            // A claim can win the record and fail after it, at the fence or
+            // the log's open: the epoch it holds is released for storage-error
+            // when the standby opens again, so a member that reaches the store
+            // claims it, and the record never names a writer that cannot write
+            // (ADR 0179 point 6).
             ReconcileLog.ClaimFailed(_logger, name, error.Message);
+            entry.ReleaseFor(ReleaseReason.StorageError);
             won = false;
         }
 

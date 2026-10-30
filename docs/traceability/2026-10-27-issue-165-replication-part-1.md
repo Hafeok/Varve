@@ -850,3 +850,54 @@ two keys may be cited (ADR 0066).
 - **preview.16** gains ADRs 0214 and 0215 in its basis, and notes for #190's
   failed-batch answers and full-disk recovery, the soak gate, the forwarded
   write, and #200's quad source fix (ADR 0022, amended).
+
+### `handover (services)` red on 138ce40: a failed claim kept its epoch
+
+`A_writer_whose_batch_fails_against_the_store_abdicates_and_the_warm_standby_takes_over`
+failed once in CI on Azurite: "b did not hold d as writer". b's log showed
+"did not open in its new role … `_followers/d/local` is open elsewhere".
+Locally it passed alone 20 times. It failed 2 runs in 12 with three copies
+running at once, a CI runner's load.
+
+**Read from the record at the failure:**
+1. After a abdicated for `storage-error`, a's own new standby was warm in
+   time. The ruling `ClaimAfterAReleaseByItsReason` has every warm member
+   race, a included, and a claimed epoch 2. Its writer record PUT went
+   through the test's proxy, which fails only `log/` PUTs.
+2. a's fence then failed: "Creating `d/log/…/00000003` failed 6 times". So
+   the claim failed holding epoch 2.
+3. b, which had read the release at epoch 1, lost its claim with the epoch
+   moved.
+4. Each loser then reopens as a standby. That met its own cache directory's
+   lease, because `SwitchAsync` stages the new open beside the old one, and
+   storage that has taken an epoch holds that directory as a writer.
+5. Nothing ever released epoch 2, so the record named a writer that could
+   not write.
+
+**Two defects, both fixed within the accepted rulings:**
+- **A claim that fails after winning the record releases it.**
+  `WriterSet.ClaimInPlaceAsync`'s failure path marks the epoch to release
+  for `storage-error` (ADR 0179 point 6) when the standby opens again.
+- **A standby whose storage took an epoch in place is closed before its
+  next read-only open,** as a file dataset is. That covers a claim, or a
+  claim failing after the record. `Entry.OpenedToFollow`, carried across
+  `Take`, marks an open in the followers' directory. A plain follower's
+  reopen past `MemtableLimit` is still staged beside the old one, so reads
+  go on. A first version closed it too, and its fleet case caught the gap.
+
+**The test,**
+`A_claim_that_fails_after_winning_the_record_releases_its_epoch_and_another_member_claims`:
+- a, alone, writes through the failing proxy, so its own standby claims and
+  fails.
+- The record must show a's later epoch released for `storage-error`.
+- b, started then, claims and writes.
+
+Each fix removed on its own fails it on both stores. With both fixes:
+- the old case passed 24 runs in 24 under the same load;
+- the CI job's handover set, three at a time, passed 9 of 9;
+- the server suite passed 183, with 6 skipped.
+
+**For the maintainer:** whether the member that released for `storage-error`
+or `local-disk-error` should race its own release is the ruling's to say. As
+it stands, the race converges: each failed claim releases again, until a
+member that reaches the store wins.

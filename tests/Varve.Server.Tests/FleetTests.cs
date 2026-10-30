@@ -446,6 +446,48 @@ public abstract class FleetCases : IAsyncDisposable
     }
 
     /// <summary>
+    /// A claim that wins the record and fails after it releases what it won
+    /// (ADR 0179 point 6): a writes d through a proxy that fails its log
+    /// writes, abdicates for storage-error, and its own standby, the only warm
+    /// member, claims the release. The record's PUT gets through, the fence's
+    /// does not, so the claim fails holding epoch 2, and the standby that
+    /// opens again releases it for storage-error. b, started then and reaching
+    /// the store directly, claims and writes. A failed claim that kept its
+    /// epoch would leave the record naming a writer that cannot write.
+    /// </summary>
+    [Fact]
+    public async Task A_claim_that_fails_after_winning_the_record_releases_its_epoch_and_another_member_claims()
+    {
+        FleetLocation container = await Store.NewAsync();
+        await using CountingProxy proxy = await CountingProxy.StartAsync(container.Upstream);
+        Server a = await StartAsync("a", container.Through(proxy.Address), writer: "a");
+        long declared = await DeclareAsync(a, "d", "a", "b");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+
+        proxy.Fail = (method, path) => method == "PUT" && path.Contains("/d/log/", StringComparison.Ordinal);
+        Assert.NotEqual(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/lost> <http://ex/p> 2 }")).StatusCode);
+
+        // a's own standby claims epoch 2, fails at the fence, and releases it.
+        string lease = string.Empty;
+
+        for (int attempt = 0; attempt < 300 && !System.Text.RegularExpressions.Regex.IsMatch(lease, @"epoch [2-9]\d*\s+abdication\s+by a\s.*released: storage-error"); attempt++)
+        {
+            await Task.Delay(100, Ct);
+            StringWriter output = new() { NewLine = "\n" };
+            await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
+            lease = output.ToString();
+        }
+
+        Assert.True(System.Text.RegularExpressions.Regex.IsMatch(lease, @"epoch [2-9]\d*\s+abdication\s+by a\s.*released: storage-error"), lease + "\n" + a.Log);
+
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, declared, "d", "writer");
+        HttpResponseMessage written = await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 3 }");
+        Assert.True(written.StatusCode == HttpStatusCode.NoContent, (int)written.StatusCode + " " + await written.Content.ReadAsStringAsync(Ct) + "\n" + b.Log);
+        Assert.Equal("2", await CountAsync(b, written.Headers.GetValues("Varve-Position").Single()));
+    }
+
+    /// <summary>
     /// The probe trigger (ADR 0179 point 6): a holds d and is killed, so it
     /// releases nothing. A takeover request naming epoch 1, sent to b, warm,
     /// is answered by b with epoch 2, and b writes. Sent again it is a no-op,
