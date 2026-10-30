@@ -51,10 +51,6 @@ decisions:
     statement: "A prefix grant is decided once per distinct graph handle the scoped source meets, by externalising the graph and comparing its IRI with the prefixes, and the decision is kept in a map for the source's lifetime, so a prefix check costs its allocation once per graph and never per quad"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-09T00:00:00Z
-  - key: RowLevelIsMilestone9
-    statement: "Graph-level is what the index key gives for free; row-level access per subject or classifier is milestone 9's beside erasure and is not approximated here"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-09T00:00:00Z
   - key: GoverningGraphSeam
     statement: "GraphScope takes a governing-graph mapping, and a graph with a governor is allowed exactly when its governor is, the decision memoised per graph handle; Varve.Rdf knows no rule that names a governor"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -65,3 +61,5 @@ The rulings of [ADR 0107](../adr/0107-graph-level-authorisation.md), filed unacc
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.
 
 Moved to a later set: `GrantsAreScopedByGraphSet` is superseded by ADR 0163, under which the mapping from principals to graph sets lives in the system dataset, in its set.
+
+Moved to a later set: `RowLevelIsMilestone9` is superseded by ADR 0230, under which row-level access is decided by a classifier binding and a grant's subject set, in its set.

@@ -240,3 +240,21 @@ is refused while private entries exist.
   - **Q7 is closed** by this decision: access is by key id, the scope defaults
     to `AllHistory`, and the default is a dataset setting because the call is the
     controller's.
+
+## Amendment, 2026-10-30 — the classifier without erasure mode, and the selector
+
+Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066). The rulings are ADRs [0230](0230-rows-data-subjects-and-visibility.md) and [0231](0231-the-classifier-and-selector-contracts.md)'s.
+
+- **The classifier's assignment is ADR 0230's.**
+  - Every occurrence in a quad of a classified graph is assigned to the
+    subjects of its subject node.
+  - It is assigned also to the subjects of a classified object, unless the
+    predicate is a public link.
+  - The contract is `IClassifier` (ADR 0231), usable with erasure mode off,
+    and row-level access uses it without encryption.
+- **The selector** is `ISelector`. It is implemented once over the
+  classification, so access without erasure mode and the key id's
+  definition agree on what a subject's data is.
+- **Q8's answer is decided** on the plan (2026-10-30) and lands with part 2
+  (#203): one joint key per subject set. Erasing either subject makes the
+  shared term unreadable for both.

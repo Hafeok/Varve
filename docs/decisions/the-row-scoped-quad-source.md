@@ -1,0 +1,21 @@
+---
+set: the-row-scoped-quad-source
+namespace: varve
+adr: 0235
+decisions:
+  - key: SubjectScopeAndRowScope
+    statement: "SubjectScope is a subject set as a value and RowScope maps a binding to one, a binding it does not name being all; CallerScope gains ReadableRows and WritableRows"
+  - key: RowScopedSourceFiltersQuadsPassesTerms
+    statement: "RowScopedQuadSource shows a quad exactly when the row rule allows it and passes every term member through, so it never denies a term"
+  - key: AllRowsSkipsTheWrapper
+    statement: "A RowScope of all is served by the inner source itself; the wrapper is skipped, not a no-op layer"
+  - key: RowDecisionIsTwoProbesPerQuad
+    statement: "A quad of a classified graph costs a memoised binding decision per graph handle, one probe of the subject's set and, unless the predicate is a public link or the object a literal, one probe of the object's, none allocating"
+  - key: SubjectSetDecisionMemoisedPerSet
+    statement: "Whether an interned subject set is within the caller's subject set is decided once per set id per source, and each member subject once, in maps filled through GetOrAdd"
+  - key: GraphFilterBeforeRowFilter
+    statement: "A row-restricted read wraps the graph-scoped source, so a quad of an unreadable graph never costs a probe"
+---
+
+The rulings of [ADR 0235](../adr/0235-the-row-scoped-quad-source-and-the-read-filters-cost.md), filed unaccepted by milestone 9, part 1 ([#202](https://github.com/Hafeok/Varve/issues/202), under #14)
+(ADR 0066). Every citation is `CS0618` until the maintainer accepts them.

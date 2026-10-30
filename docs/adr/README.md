@@ -393,6 +393,22 @@ Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), mile
 |---:|---|---|
 | [0206](0206-the-web-ui-design-source.md) | The Web UI's design source, its levels, and the markup contract | Filed unaccepted (Web UI part 1, #167) |
 
+## Milestone 9, part 1 — row-level access through the classifier (#202)
+
+Filed by milestone 9, part 1 ([#202](https://github.com/Hafeok/Varve/issues/202), under [#14](https://github.com/Hafeok/Varve/issues/14)), in 1.0 and stable, unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0230: readiness A holds 0213–0222 and readiness B from 0224. Amended by it, likewise unaccepted: 0003 (`Varve.Classification`), 0023 (the classifier's assignment, the selector), 0107 (rows beneath graphs), 0119 (three problem types), 0166 (the classifier binding, subject-scoped grants), 0173 and 0174 (the report withheld from row-restricted callers), 0190 (row-scoped grants, pending #171).
+
+| # | Title | Status |
+|---:|---|---|
+| [0230](0230-rows-data-subjects-and-visibility.md) | Rows, data subjects and visibility | Filed unaccepted (#202) |
+| [0231](0231-the-classifier-and-selector-contracts.md) | The classifier and selector contracts, without erasure mode | Filed unaccepted (#202) |
+| [0232](0232-the-shape-derived-classifier.md) | The shape-derived classifier, in `Varve.Classification` | Filed unaccepted (#202) |
+| [0233](0233-the-classification-projection.md) | The classification projection | Filed unaccepted (#202) |
+| [0234](0234-subject-scoped-grants-and-the-classifier-binding.md) | Subject-scoped grants and the classifier binding; amends 0166 | Filed unaccepted (#202) |
+| [0235](0235-the-row-scoped-quad-source-and-the-read-filters-cost.md) | The row-scoped quad source and the read filter's cost | Filed unaccepted (#202) |
+| [0236](0236-the-row-level-write-rule.md) | The row-level write rule | Filed unaccepted (#202) |
+| [0237](0237-rows-on-every-surface.md) | Rows on every surface; amends 0173 and 0174 | Filed unaccepted (#202) |
+| [0238](0238-inference-under-row-scoped-grants.md) | Inference under row-scoped grants; amends 0190, pending #171 | Filed unaccepted (#202) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

@@ -201,3 +201,16 @@ accepts it (ADR 0066).
 
 **The ledger.** The rulings are ADR 0174's `ValidationBehind` and
 `ReportGraphNotWritable`.
+
+## Amendment, 2026-10-30 — three problem types for rows
+
+Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066).
+
+The catalogue gains:
+- `row-not-writable` (403, ADR [0236](0236-the-row-level-write-rule.md));
+- `classification-behind` (503, with `binding`, `position` and
+  `projectedPosition`, ADR [0233](0233-the-classification-projection.md));
+- `entailment-not-available` (403, with `binding`, ADR
+  [0238](0238-inference-under-row-scoped-grants.md)).
+
+Each has its page in `docs/problems/`.
