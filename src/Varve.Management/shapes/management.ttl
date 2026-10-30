@@ -192,8 +192,8 @@ varve:NamedGrantShape
 
 varve:GraphSetShape
     a sh:NodeShape ;
-    rdfs:comment "The graph-set terms, on a grant or a shapes binding." ;
-    sh:targetClass varve:Grant , varve:ShapesBinding ;
+    rdfs:comment "The graph-set terms, on a grant, a shapes binding or a classifier binding." ;
+    sh:targetClass varve:Grant , varve:ShapesBinding , varve:ClassifierBinding ;
     sh:property [
         sh:path varve:allGraphs ;
         sh:maxCount 1 ;
@@ -320,8 +320,8 @@ varve:GraphTemplateShape
 
 varve:BindingShape
     a sh:NodeShape ;
-    rdfs:comment "A shapes or TBox binding: exactly one bound graph, an absolute IRI." ;
-    sh:targetClass varve:ShapesBinding , varve:TBoxBinding ;
+    rdfs:comment "A shapes, TBox or classifier binding: exactly one bound graph, an absolute IRI." ;
+    sh:targetClass varve:ShapesBinding , varve:TBoxBinding , varve:ClassifierBinding ;
     sh:property [
         sh:path varve:boundGraph ;
         sh:minCount 1 ;
@@ -371,3 +371,103 @@ varve:ShapesBindingGraphsShape
     sh:targetClass varve:ShapesBinding ;
     sh:node varve:NamesAGraphSet ;
     sh:message "a shapes binding names its graphs: varve:allGraphs true, varve:graph, varve:graphPrefix or varve:graphTemplate" .
+
+# ---- Classifier bindings and subject-scoped grants (ADR 0234) ------------
+
+varve:ClassifierBindingShape
+    a sh:NodeShape ;
+    rdfs:comment "A classifier binding: its annotated shapes graph, and the graphs it classifies, without a template." ;
+    sh:targetClass varve:ClassifierBinding ;
+    sh:property [
+        sh:path varve:graphTemplate ;
+        sh:maxCount 0 ;
+        sh:message "a classifier binding names its graphs without varve:graphTemplate: a template expands per caller, and a binding has none" ;
+    ] ;
+    sh:property [
+        sh:path varve:graph ;
+        sh:disjoint varve:boundGraph ;
+        sh:message "a classifier binding's graphs do not name its own shapes graph, which is never classified (ADR 0232)" ;
+    ] .
+
+varve:ClassifierBindingGraphsShape
+    a sh:NodeShape ;
+    rdfs:comment "A classifier binding names its graphs." ;
+    sh:targetClass varve:ClassifierBinding ;
+    sh:node varve:NamesAGraphSet ;
+    sh:message "a classifier binding names its graphs: varve:allGraphs true, varve:graph or varve:graphPrefix" .
+
+varve:SubjectTermsShape
+    a sh:NodeShape ;
+    rdfs:comment "A grant's subject terms: subjects and classes are IRIs, prefixes non-empty literals, templates and links declared nodes." ;
+    sh:targetClass varve:Grant ;
+    sh:property [
+        sh:path varve:subject ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^[A-Za-z][A-Za-z0-9+.-]*:" ;
+        sh:message "varve:subject is an absolute IRI" ;
+    ] ;
+    sh:property [
+        sh:path varve:subjectClass ;
+        sh:nodeKind sh:IRI ;
+        sh:pattern "^[A-Za-z][A-Za-z0-9+.-]*:" ;
+        sh:message "varve:subjectClass is an absolute IRI" ;
+    ] ;
+    sh:property [
+        sh:path varve:subjectPrefix ;
+        sh:nodeKind sh:Literal ;
+        sh:minLength 1 ;
+        sh:message "varve:subjectPrefix is a non-empty literal" ;
+    ] ;
+    sh:property [
+        sh:path varve:subjectTemplate ;
+        sh:class varve:SubjectTemplate ;
+        sh:message "a subject template is a varve:SubjectTemplate declared in the same graph" ;
+    ] ;
+    sh:property [
+        sh:path varve:subjectLink ;
+        sh:class varve:SubjectLink ;
+        sh:message "varve:subjectLink names a varve:SubjectLink declared in the same graph" ;
+    ] ;
+    sh:property [
+        sh:path varve:createUnder ;
+        sh:or ( [ sh:nodeKind sh:Literal ; sh:minLength 1 ] [ sh:class varve:SubjectTemplate ] ) ;
+        sh:message "varve:createUnder is a non-empty literal or a varve:SubjectTemplate" ;
+    ] .
+
+varve:SubjectTemplateShape
+    a sh:NodeShape ;
+    rdfs:comment "A subject template: one template string, and how it matches." ;
+    sh:targetClass varve:SubjectTemplate ;
+    sh:property [
+        sh:path varve:template ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:message "a subject template has exactly one varve:template, a plain string literal" ;
+    ] ;
+    sh:property [
+        sh:path varve:match ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:in ( varve:Exact varve:Prefix ) ;
+        sh:message "varve:match is varve:Exact or varve:Prefix" ;
+    ] .
+
+varve:SubjectLinkShape
+    a sh:NodeShape ;
+    rdfs:comment "A subject link: one predicate, and one target, the caller's agent or a template." ;
+    sh:targetClass varve:SubjectLink ;
+    sh:property [
+        sh:path varve:linkPredicate ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:message "a subject link names exactly one varve:linkPredicate, an absolute IRI" ;
+    ] ;
+    sh:property [
+        sh:path varve:linkTarget ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+        sh:or ( [ sh:hasValue varve:CallerAgent ] [ sh:class varve:SubjectTemplate ] ) ;
+        sh:message "a subject link names exactly one varve:linkTarget: varve:CallerAgent or a varve:SubjectTemplate" ;
+    ] .

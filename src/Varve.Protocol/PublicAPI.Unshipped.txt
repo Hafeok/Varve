@@ -420,6 +420,28 @@ Varve.Protocol.EventDeclarationMove
 static Varve.Protocol.EventDeclarationMove.ResumeAsync(Varve.Protocol.ProtocolOptions! options, Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
 Varve.Protocol.EventCatalogueValidator.EventCatalogueValidator(Varve.Protocol.Model.DatasetName dataset, System.Func<bool>! moved) -> void
 static Varve.Protocol.EventDeclarationMove.MovingSinceAsync(Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<long?>!
+Varve.Protocol.ClassificationBehindException
+Varve.Protocol.ClassificationBehindException.Binding.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.ClassificationBehindException.ClassificationBehindException() -> void
+Varve.Protocol.ClassificationBehindException.ClassificationBehindException(Varve.Rdf.RdfTerm! binding, Varve.Store.Log.Position position, Varve.Store.Log.Position projected) -> void
+Varve.Protocol.ClassificationBehindException.ClassificationBehindException(string! message) -> void
+Varve.Protocol.ClassificationBehindException.ClassificationBehindException(string! message, System.Exception! innerException) -> void
+Varve.Protocol.ClassificationBehindException.Position.get -> Varve.Store.Log.Position
+Varve.Protocol.ClassificationBehindException.Projected.get -> Varve.Store.Log.Position
+Varve.Protocol.IRowClassifications
+Varve.Protocol.IRowClassifications.At(Varve.Protocol.Model.DatasetName dataset, Varve.Store.DatasetView! view) -> Varve.Rdf.IRowClassification?
+Varve.Protocol.IRowClassifications.ChangedAt(Varve.Protocol.Model.DatasetName dataset, Varve.Store.Log.Position position) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.TermHandle>!
+Varve.Protocol.IRowClassifications.Classifier(Varve.Protocol.Model.DatasetName dataset) -> Varve.Store.IClassifier?
+Varve.Protocol.ProtocolOptions.RowClassifications.get -> Varve.Protocol.IRowClassifications?
+Varve.Protocol.ProtocolOptions.RowClassifications.init -> void
+Varve.Protocol.RowWriteGuard
+Varve.Protocol.RowWriteGuard.RowWriteGuard(Varve.Store.IClassifier! classifier, Varve.Rdf.RowScope! readable, Varve.Rdf.RowScope! writable) -> void
+Varve.Protocol.RowWriteGuard.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Rdf.QuadDelta delta) -> Varve.Store.Log.ValidationVerdict
+static Varve.Protocol.Model.ProblemType.ClassificationBehind.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.RowNotWritable.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.VarveEndpoints.MapAccess(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
+Varve.Protocol.Model.UpdatePreconditions.Classifier.get -> Varve.Store.IClassifier?
+Varve.Protocol.Model.UpdatePreconditions.Classifier.init -> void
 static Varve.Protocol.Model.ProblemType.StorageFull.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.CommitOutcomeUnknown.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.LoadSpillDamaged.get -> Varve.Protocol.Model.ProblemType

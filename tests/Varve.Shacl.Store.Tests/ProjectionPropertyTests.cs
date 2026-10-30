@@ -232,6 +232,41 @@ public class ProjectionPropertyTests
         Assert.Single(fixedUp.Report!.Results);
     }
 
+    /// <summary>
+    /// The saved state on a file dataset's local cache, whose blob names
+    /// carry <c>enc(binding)</c>: read back after the storage is reopened.
+    /// </summary>
+    [Fact]
+    public async Task A_snapshot_reads_back_from_a_file_datasets_cache()
+    {
+        CancellationToken ct = TestContext.Current.CancellationToken;
+        // A binding IRI with a '~', which enc leaves and no backend takes in a name.
+        ShapesBinding binding = new(RdfTerm.Iri("http://example.com/~team/binding"u8), Support.ShapesGraph, GraphScope.All, ValidationMode.Report);
+        await using Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, ct);
+        await dataset.CommitAsync(Support.Request(dataset, "ex:S sh:targetClass ex:C0 ; sh:property [ sh:path ex:p0 ; sh:minCount 1 ] .", []), ct);
+        await dataset.CommitAsync(Support.Request(dataset, null, [(Support.Ex("n0"), Support.Triples("ex:a a ex:b .")[0].P, Support.Ex("C0"), true)]), ct);
+        ValidationProjection first = new(dataset, binding);
+        await dataset.CatchUpAsync(first, ct);
+        string directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "varve-validation-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            await using (FileStorage storage = await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = TimeProvider.System }, ct))
+            {
+                await first.SaveAsync(storage.Derived, ct);
+            }
+
+            await using FileStorage reopened = await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = TimeProvider.System }, ct);
+            ValidationProjection second = new(dataset, binding);
+            Assert.True(await second.LoadAsync(reopened.Derived, ct));
+            Assert.Equal(dataset.Head, second.Position);
+        }
+        finally
+        {
+            System.IO.Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task A_loaded_snapshot_continues_and_another_bindings_is_ignored()
     {

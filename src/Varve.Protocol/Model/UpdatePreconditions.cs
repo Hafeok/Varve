@@ -51,6 +51,12 @@ public sealed class UpdatePreconditions
     public IReadOnlyList<Varve.Store.ICommitValidator> Validators { get; init; } = [];
 
     /// <summary>
+    /// The dataset's classifier, which the caller's row scopes are judged by
+    /// (ADRs 0235, 0236); none when the dataset has no classifier binding.
+    /// </summary>
+    public Varve.Store.IClassifier? Classifier { get; init; }
+
+    /// <summary>
     /// True when the client stated nothing: a conflict then comes from the
     /// executor's own inferred precondition, and the executor may re-pin and
     /// re-evaluate before answering it (ADR 0057, amended 2026-10-13).

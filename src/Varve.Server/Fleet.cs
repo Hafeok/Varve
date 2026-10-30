@@ -78,6 +78,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         Datasets = new OpenDatasets(settings, objects, _order, clock, logger, Moved);
         Instance = new WriterName(_instance.Value);
         Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
+        Classifications = new RowClassifications(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
     }
 
     /// <summary>How long a read of a report graph waits for its projection before <c>validation-behind</c> (ADR 0174).</summary>
@@ -85,6 +86,9 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
     /// <summary>The validation projections of the datasets held here (ADR 0174).</summary>
     internal ValidationProjections Projections { get; }
+
+    /// <summary>The classification projections of the datasets held here (ADR 0233).</summary>
+    internal RowClassifications Classifications { get; }
 
     // Whether a dataset's event declarations are moving or moved at the applied position (ADR 0167).
     private bool Moved(string dataset) =>
@@ -405,6 +409,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         foreach (DatasetEntry entry in Datasets.List())
         {
             Projections.Reconcile(entry.Name);
+            Classifications.Reconcile(entry.Name);
         }
     }
 
@@ -654,6 +659,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     public async ValueTask DisposeAsync()
     {
         await Projections.DisposeAsync().ConfigureAwait(false);
+        await Classifications.DisposeAsync().ConfigureAwait(false);
         await Datasets.DisposeAsync().ConfigureAwait(false);
         await _system.DisposeAsync().ConfigureAwait(false);
 

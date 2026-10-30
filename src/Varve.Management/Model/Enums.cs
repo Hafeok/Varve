@@ -61,6 +61,9 @@ public enum BindingKind : byte
 
     /// <summary>A TBox graph, for inference.</summary>
     TBox,
+
+    /// <summary>An annotated shapes graph, for row-level access (ADR 0234).</summary>
+    Classifier,
 }
 
 /// <summary>What a shapes binding does to a commit: <c>varve:validationMode</c> (ADR 0170).</summary>

@@ -232,3 +232,26 @@ accepts it (ADR 0066).
 
 **The ledger.** The rulings are ADR 0175's `ShapesAreTheRuntimeValidator`,
 `ResidualCheckInCode` and `CodeValidatorsAreTheOracle`.
+
+## Amendment, 2026-10-30 — the classifier binding and subject-scoped grants
+
+Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066). The rulings are ADR [0234](0234-subject-scoped-grants-and-the-classifier-binding.md)'s.
+
+- **Point 3.**
+  - `varve:ClassifierBinding` is no longer reserved. It has one
+    `varve:boundGraph` and a graph set.
+  - A grant gains `varve:subject`, `varve:subjectPrefix`,
+    `varve:subjectTemplate` (a `varve:SubjectTemplate`), `varve:subjectClass`,
+    `varve:subjectLink` (a `varve:SubjectLink` with `varve:linkPredicate` and
+    `varve:linkTarget`, which is `varve:CallerAgent` or a template), and, on
+    a write grant, `varve:createUnder`.
+  - `varve:KeyStoreBinding`, `varve:erasureMode` and `varve:privacy` stay
+    reserved for #203.
+- **Point 4's validator** refuses, beside what it refused, ADR 0234's P1 to
+  P5 and its other refusals.
+- **Point 5.** `GrantTable.ScopesOf` answers a `RowScope` per classifier
+  binding, readable and writable.
+- **Point 6.** The plan names row restrictions, and says when an apply widens
+  one.
+
+`BindingsReservedForErasure` moves to ADR 0234's set, superseded.

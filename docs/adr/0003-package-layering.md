@@ -182,3 +182,11 @@ named by ADR 0148. Nothing else here changes.
 
 **The ledger.** The rulings are ADR 0172's set (`DerivationAtLayerTwo`) and
 ADR 0169's (`ShaclStoreAtLayerFive`); this amendment adds none here.
+
+## Amendment, 2026-10-30 — `Varve.Classification`
+
+Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066). The ruling is ADR [0232](0232-the-shape-derived-classifier.md)'s `VarveClassificationAtLayerFive`.
+
+Layer 5 gains `Varve.Classification`: the shape-derived classifier and the
+classification projection. It references `Varve.Iri`, `Varve.Rdf` and
+`Varve.Store`.

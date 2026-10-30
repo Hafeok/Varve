@@ -105,6 +105,8 @@ public static class ProblemCatalogue
         new(ProblemType.ManagementBehind, 503, "The server has not applied the management position asked for.", "position", "appliedPosition"),
         new(ProblemType.DatasetBehind, 503, "This instance has not applied the dataset position asked for.", "position", "appliedPosition"),
         new(ProblemType.ValidationBehind, 503, "The validation report has not reached the position asked for.", "binding", "position", "projectedPosition"),
+        new(ProblemType.ClassificationBehind, 503, "The classification has not reached the position asked for.", "binding", "position", "projectedPosition"),
+        new(ProblemType.RowNotWritable, 403, "The request writes a row outside the writable subject set."),
         new(ProblemType.WriterMoved, 503, "The instance a write was forwarded to no longer writes the dataset.", "epoch", "requestId"),
         new(ProblemType.DeclarationInvalid, 422, "The management declarations are not valid.", "findings"),
         new(ProblemType.ReaderForgotten, 503, "This instance's reader record was forgotten; it attaches again."),
@@ -127,7 +129,7 @@ public static class ProblemCatalogue
         type == ProblemType.EventDeclarationInvalid || type == ProblemType.EventSchemaIncompatible
         || type == ProblemType.DeclarationInvalid || type == ProblemType.ManagementBehind || type == ProblemType.EventCatalogueMoved
         || type == ProblemType.ShapesViolated || type == ProblemType.BindingNotIncremental || type == ProblemType.ShapesInvalid
-        || type == ProblemType.GraphNotWritable;
+        || type == ProblemType.GraphNotWritable || type == ProblemType.RowNotWritable;
 
     /// <summary>The shape of <paramref name="type"/>, when it is catalogued.</summary>
     public static bool TryGet(ProblemType type, out ProblemShape? shape) => ByType.TryGetValue(type.Value, out shape);

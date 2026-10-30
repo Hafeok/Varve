@@ -1815,3 +1815,222 @@ The first run, before the fix to incremental validation's candidate targets
   A generation is a full validation, so the fix leaves it unchanged. S's
   cold start of 7.1 s against 4.3 s is one run's spread at a few seconds.
 - **Part 2a's 7.6 ms** were measured without those constraints.
+
+## Milestone 9, part 1 — the read filter's cost (ADR 0235)
+
+**Machine.** A cloud container: Intel Xeon @ 2.10 GHz, 4 cores, 15 GiB,
+Ubuntu 24.04.5 LTS, .NET SDK 10.0.403, runtime 10.0.14. Nothing else ran
+during the runs.
+
+BenchmarkDotNet's default job, out of process. `Program.cs` sets its build
+timeout to twenty minutes: the generated project builds the solution below
+it, and on this container that takes longer than the default two minutes,
+which had ended the first runs with no results. `WarningsNotAsErrors=CS0618`
+is needed while `TripleTermsFoundOncePerSection` is unaccepted.
+
+```bash
+WarningsNotAsErrors=CS0618 dotnet run -c Release --project tests/Varve.Benchmarks -- --filter 'Varve.Benchmarks.RowScopeRecBenchmarks.*'
+WarningsNotAsErrors=CS0618 dotnet run -c Release --project tests/Varve.Benchmarks -- --row-scope-breakdown M
+WarningsNotAsErrors=CS0618 dotnet run -c Release --project tests/Varve.Benchmarks -- --filter 'Varve.Benchmarks.ScanBenchmarks.FullScan*' 'Varve.Benchmarks.ScanBenchmarks.TenThousand*'
+```
+
+### At REC M, against graph-only scoping
+
+`RowScopeRecBenchmarks`. The REC portfolio at M, seed 20261015, generator
+output version 2, on the file backend: 5,108,319 quads, 5,053,193 of them in
+the site graphs. They are classified by the classification projection's
+cold start over the shapes of the next section (3,347 data subjects). The
+row scope composes over the graph scope of the site graphs, as the protocol
+composes it, so a row arm's cost over `FullScanGraphScoped` is the row
+filter's own. One data subject's scope shows 2,001,176 quads, and half the
+data subjects' 2,004,520: most of the portfolio's rows belong to no subject
+(points, which no link reaches) and are governed by their graph alone.
+
+Slower rows first, after the fix below:
+
+| Arm | Mean | ± error (99.9%) | Ratio to the view | Allocated |
+|---|---:|---:|---:|---:|
+| Row scope, half the data subjects, every predicate public | 621.9 ms | 103.3 | 1.76 | 1,067,768 B |
+| Row scope, half the data subjects | 596.1 ms | 30.0 | 1.68 | 1,068,208 B |
+| Row scope, one data subject | 581.0 ms | 87.0 | 1.64 | 1,068,208 B |
+| Graph scope, then a row scope of `all` | 423.9 ms | 99.9 | 1.20 | 416 B |
+| Graph scope of the site graphs | 394.7 ms | 69.4 | 1.12 | 416 B |
+| The view | 356.5 ms | 48.6 | 1.00 | 384 B |
+
+| 10,000 subject lookups | Mean | ± error | Per lookup over the graph scope |
+|---|---:|---:|---:|
+| Row scope, half the data subjects | 55.5 ms | 6.2 | 1.2 µs |
+| Graph scope of the site graphs | 43.1 ms | 2.4 | — |
+
+**The run before the fix** of the same benchmarks: the view 350.5 ms, the
+graph scope 422.2 ms (1.22), one data subject **4,016.0 ms (11.61)**, half
+3,766.0 ms (10.89), half with every predicate public 2,713.7 ms (7.84).
+
+**What it cost, part by part** (`--row-scope-breakdown M`, one load, each
+pass the median of five over the site graphs):
+
+| Per quad, over the graph-scoped scan | Before the fix | After |
+|---|---:|---:|
+| The graph-scoped scan itself | 74.7 ns | 74.1 ns |
+| + a plain hash lookup of the subject in a set of every node | +6.7 | +13.6 |
+| + `IsPublicLink(predicate)` | +2.9 | +23.8 |
+| + the view's `TryGetTripleTermComponents(object)` | **+1,080** | **+12.8** |
+| + the classification's `SubjectsOf(subject)` | +450 | +58.4 |
+| + `SubjectsOf` of the subject and the object | +1,359 | +67.8 |
+| The whole rule, half the data subjects | +729 | +65.6 |
+
+(The single passes are noisier than BenchmarkDotNet's runs; the "after"
+column's small rows vary by ±10 ns between passes.)
+
+**Reading it.**
+- **A caller with no row restriction pays nothing.** `Wrap` returns the
+  inner source. The `all` arm's 1.20 against the graph scope's 1.12 is
+  within the two arms' error.
+- **The defect the breakdown found.** A classification's `SubjectsOf` asks
+  the view for a node's triple-term parts whenever the projection does not
+  classify the node, because a triple term carries its components'
+  subjects (ADR 0230 point 1). On a file dataset the view answered by
+  reading the node's dictionary entry, two offsets and the entry, about
+  1.1 µs. Most subjects and objects of a scan are unclassified, so a
+  row-restricted scan cost eleven times the view. A term section now finds
+  its triple terms once and answers any other counter without a read (ADR
+  0235, amended 2026-10-30, `TripleTermsFoundOncePerSection`).
+- **After the fix the row filter costs about 40 ns a quad at M** over the
+  graph scope: 1.64 to 1.68 times the view, against 1.12 for graph-only
+  scoping. That is the classification's lookup of the subject's set and
+  the object's (a concurrent map of about 1.5 million nodes), and the
+  memoised decision of each set.
+- **The object half of about(q)** is within the error at M (the
+  every-predicate-public arm is not faster). Most objects are literals or
+  unclassified nodes, whose set is none, decided without a lookup.
+
+### On the synthetic million quads, and the gap from the plan's ~14 ns
+
+`ScanBenchmarks`: milestone 4's million-quad scan, in memory, over a
+synthetic classification of a hundred tenants (`TenantClassification`:
+every subject is in one tenant's set, decided by a modulo, so the
+classification's own lookup costs nothing here and the row filter's
+machinery is what is measured). Three runs, each with error bars: before
+the cursor fix (`perf(rdf): the row-scoped cursor resolves a graph's binding
+once per graph`), after it, and after the store's triple-term fix, with the
+two arms that take the cost apart.
+
+| Every quad | Before | After the cursor fix | Final | Per quad over the view, final |
+|---|---:|---:|---:|---:|
+| The view | 36.8 ± 1.1 ms | 37.7 ± 1.4 | 35.2 ± 1.8 | — |
+| A pass-through wrapper that decides nothing | — | — | 34.1 ± 1.5 | 0 |
+| Row scope restricting nothing | 35.7 ± 0.8 | 38.0 ± 1.6 | 34.6 ± 1.4 | 0 |
+| Graph scope, one IRI prefix | 53.4 ± 1.1 | 55.9 ± 1.1 | 47.9 ± 1.1 | 12.7 ns |
+| Graph scope, four IRIs | 59.5 ± 1.1 | 63.3 ± 1.3 | 52.3 ± 1.8 | 17.1 ns |
+| Row scope, every tenant (nothing hidden) | — | — | 66.5 ± 1.7 | 31.4 ns |
+| Row scope, one tenant | 71.3 ± 1.4 | 71.0 ± 1.5 | 67.2 ± 2.5 | 32.0 ns |
+| Row scope, half the tenants, subject only | 75.5 ± 1.5 | 67.1 ± 1.5 | 65.9 ± 2.0 | 30.7 ns |
+| Row scope, half the tenants | 76.0 ± 1.4 | 67.8 ± 1.3 | 70.9 ± 2.7 | 35.7 ns |
+
+| 10,000 subject lookups | Before | After the cursor fix | Final |
+|---|---:|---:|---:|
+| The view | 9.8 ± 0.4 ms | 8.9 ± 0.2 | 9.9 ± 0.3 |
+| Row scope, half the tenants | 14.8 ± 0.5 | 12.9 ± 0.3 | 15.0 ± 0.4 |
+
+**The gap from ~14 ns.** The plan estimated the row filter at about a
+graph scope's cost a quad (13.4 ns in milestone 7b). It costs 31 to 36 ns
+here:
+- **Being wrapped costs nothing measurable.** The pass-through arm equals
+  the view, so none of the gap is the extra cursor.
+- **The object half of about(q) is not the gap.** With every predicate
+  public, the rule skips the object's probe, and saves about 5 ns (65.9
+  against 70.9 ms, within two errors). At REC M it saves nothing.
+- **What the rule does per quad**: the graph's binding (now resolved once
+  per graph by the cursor), the subject's set, the subject set's memoised
+  decision (a `ConcurrentDictionary.GetOrAdd` with its state), the public
+  link check (a set lookup), and, for a non-public predicate, the object's
+  set and its decision. That is two to three memo lookups against the graph
+  scope's one, which is the 2× the table shows. The every-tenant arm, which
+  makes every lookup and hides nothing, costs what the restricted arms do,
+  so the work is the lookups, not the hiding.
+- **The cursor fix** removed the second lookup of the graph's binding per
+  quad. It took half the tenants from 76.0 to 67.8 ms. The one-tenant arm
+  did not move within its error.
+- **What would close the rest**: deciding a set by its dense id in an
+  array instead of a concurrent map. That is a further change to
+  `SubjectSetDecisionMemoisedPerSet` and is not made here.
+
+## Milestone 9, part 1 — the classification projection's lag and rebuild
+
+**Machine.** As above. Nothing else ran during the measurements.
+
+**Workload.** `--classification-projection <S|M>`
+(`ClassificationProjectionBench`). The REC portfolio, seed 20261015,
+**generator output version 2**, runs on the file backend: its history but the
+last 200 commits, as part 2b's. A classifier binding (ADR 0232) over the site
+graphs, with an annotated shapes graph of its own:
+- **data subjects:** every `rec:Company`, by `sh:targetClass`, which is a
+  tenant or a site's owner, and every `rec:Site`. The site stands in for the
+  owner, because the generator links no site to its owner;
+- **links:** `rec:leasee` and `rec:leasor`, so a lease belongs to its tenant
+  and its landlord; `rec:isPartOf`, so a level, a building and a room belong
+  to their site; and `rec:locatedIn`, so an asset belongs to its room's site;
+- **public:** `rdf:type`, the portfolio's one vocabulary-valued predicate.
+
+A point is reached by `rec:hasPoint` from its host only, the wrong way for a
+link, so points stay unclassified and are governed by their graph alone.
+At the head, S has 60,688 rows (distinct subjects in the site graphs). Of
+those, 20,535 are classified, 124 are data subjects, and there are 242
+distinct subject sets. M has 1,512,720 rows: 512,195 classified, 3,310 data
+subjects and 6,494 sets.
+
+The projection (ADR 0233) keeps up with the dataset:
+- **cold start:** `ResetAsync` at the head, one generation there, as a server
+  starts one with no saved state;
+- **lag:** the 200 held commits, each committed, then applied;
+- **rebuild for a shapes change:** three commits that add, remove and add
+  `rec:leaseOf` as a link, each a generation at the head. Each one
+  reclassifies every lease (141 at S, 3,221 at M), which gains or loses its
+  rooms' site;
+- **the saved state:** `SaveAsync` to the file dataset's own `derived/`, in
+  ADR 0213's checked envelope, then `LoadAsync` into a fresh projection.
+
+Each is one run, not BenchmarkDotNet, as in part 2b.
+
+```bash
+WarningsNotAsErrors=CS0618 dotnet run -c Release --project tests/Varve.Benchmarks -- --classification-projection S
+WarningsNotAsErrors=CS0618 dotnet run -c Release --project tests/Varve.Benchmarks -- --classification-projection M
+```
+
+Slower rows first:
+
+| REC | Rebuild for a shapes change (mean of 3, min–max) | Cold start at the head | Lag per commit: mean | median | p95 | max |
+|---|---:|---:|---:|---:|---:|---:|
+| M (25,005 commits, ≈5 M quads) | 10.60 s (8.88–11.54 s) | 9.85 s | 0.28 ms | 0.18 ms | 0.77 ms | 5.20 ms |
+| S (1,005 commits, ≈203 k quads) | 0.20 s (0.09–0.33 s) | 0.26 s | 0.22 ms | 0.12 ms | 0.59 ms | 4.53 ms |
+
+| REC | Saved state, in the envelope | `SaveAsync` | `LoadAsync`, verified |
+|---|---:|---:|---:|
+| M | 20,962,968 B | 162.2 ms | 226.8 ms |
+| S | 848,652 B | 27.5 ms | 43.9 ms |
+
+**Reading it.**
+- **A generation is a classification from scratch:** each data subject's
+  reverse closure along the links. Its cost is the classified rows' link
+  lookups, not a validation, so it is about a twentieth of part 2b's: 9.9 s
+  against 182 s for a cold start at M, and 10.6 s against 194 s for a
+  rebuild. At M it is about 40 times S, for 25 times the rows. A rebuild
+  costs about the same as a cold start, because both are one generation over
+  the same head.
+- **The lag is a commit's affected nodes'.** The held commits are events
+  that touch a few rows each. Their 200 commits reclassified 127 nodes in
+  all, and the mean is a tenth of part 2b's validation lag (0.28 ms against
+  3.02 ms at M). The commits that reach far, a building or a level, are in
+  the loaded history, not the held tail. Such a commit's `rec:isPartOf`
+  assertion reclassifies everything below it. The 5 ms maximum is one held
+  event's cost, not a measured worst case.
+- **The saved state** is about 41 bytes per classified row at M, with every
+  interval since the floor and every commit's changed nodes. Reading it back
+  verified is under a quarter of a second, about 2% of a cold start.
+- **The first run of this benchmark** found that a file dataset could not
+  save the state at all: the file backend took no `%` in a blob name, and
+  `enc(binding)` percent-encodes. Fixed with the validation projection's
+  half of the same defect (ADRs 0174 and 0233, amended 2026-10-30), and the
+  saved state is measured on the file backend.
+- **That first run** overlapped with the test suites, so its numbers are
+  replaced by this quiet run's; they agreed within 15% (the mean lag at M moved most, 0.25 to 0.28 ms).

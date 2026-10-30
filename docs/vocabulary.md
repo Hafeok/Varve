@@ -165,6 +165,14 @@ system writer records. Every node is an IRI. The code validator in
 | `varve:subClassOfInShapesGraph` | SHACL 1.2 Core §6.4's parameter: `rdfs:subClassOf` read from the shapes graph too | on a shapes binding, an `xsd:boolean`, false by default |
 | `varve:affectedReport` | the predicate of a shapes binding's commit attachment, `<<( binding varve:affectedReport "sha256:…" )>>`: the digest of the commit's affected report (ADR 0173) | in a triple term, in a commit's header |
 | `varve:validation/…` | `https://w3id.org/varve/ns#validation/{enc(binding IRI)}`: a shapes binding's validation report at the position read, computed by its projection and never written; read by a caller who reads every graph the binding validates (ADR 0174) | a graph name, of a data dataset |
+| `varve:ClassifierBinding` | a binding of an annotated shapes graph that classifies the graphs it names into rows of data subjects (ADRs 0230, 0234) | `rdf:type` of a binding node, with `varve:boundGraph` and a graph set |
+| `varve:dataSubject` | on a node shape of a classifier binding's shapes graph: its focus nodes are data subjects (ADR 0232) | `true`, an `xsd:boolean` |
+| `varve:subjectLink` | on a property shape with a predicate path: ownership flows along the predicate, object to subject (ADR 0232) | `true`, an `xsd:boolean` |
+| `varve:publicLink` | on a property shape with a predicate path: the predicate's object is not hidden with the row it names; `rdf:type` always is one (ADR 0230 point 3) | `true`, an `xsd:boolean` |
+| `varve:subject`, `varve:subjectPrefix`, `varve:subjectClass` | a grant's subject set: an IRI, a literal prefix, a class whose instances are in it (ADR 0234) | on a read or write grant; repeatable |
+| `varve:subjectTemplate`, `varve:SubjectTemplate` | a grant's subject set as a template over the caller, with `varve:template` and `varve:match` (ADR 0234) | on a read or write grant; repeatable |
+| `varve:subjectLink`, `varve:SubjectLink`, `varve:linkPredicate`, `varve:linkTarget`, `varve:CallerAgent` | a grant's subject set as the data subjects linked to the caller: `(s linkPredicate target)`, the target the caller's agent or a template (ADR 0234) | on a read or write grant; repeatable |
+| `varve:createUnder` | where a row-restricted writer may create rows: a literal prefix or a `varve:SubjectTemplate` (ADR 0236, W3) | on a write grant; repeatable |
 | `varve:bootstrapOperator` | an agent IRI or role value the system writer recorded as a bootstrap operator | in `varve:manage/bootstrap` |
 | `varve:managementPosition` | the datatype of the management position a commit records as an attachment, `"p"^^varve:managementPosition` (ADR 0165) | a datatype IRI, in a commit's header |
 | `varve:eventDeclarations` | where the dataset's event declarations are: `varve:Moving` (frozen in its catalogue graphs, being copied), `varve:Moved` (in this graph, for good) or `varve:InDataset` (in its catalogue graphs again, after a cancel); none while they are in its catalogue graphs and no move began (ADR 0167) | on the dataset node, at most one |
@@ -172,8 +180,8 @@ system writer records. Every node is an IRI. The code validator in
 | `varve:sourceGraph` | the graph a moved event type is rendered from, the one its catalogue graph's name carried: an IRI, or `varve:defaultGraph` (ADR 0167) | on an event type node in a dataset's graph, exactly one |
 
 Reserved, and refused until their milestones: `varve:Binding` (abstract),
-`varve:ClassifierBinding`, `varve:KeyStoreBinding` and `varve:erasureMode`
-(#14). The event catalogue's terms (below) are in a dataset's graph once it
+`varve:KeyStoreBinding`, `varve:erasureMode` and `varve:privacy` (erasure
+mode, #203). The event catalogue's terms (below) are in a dataset's graph once it
 says `varve:eventDeclarations varve:Moved` (ADR 0167), and refused in every
 other management graph.
 

@@ -623,6 +623,7 @@ internal static partial class ServerHost
             EventSource = settings.Events.Source,
             EventHubs = string.IsNullOrEmpty(settings.Events.EventHubs.Host) ? null : new EventHubsServer(settings.Events.EventHubs.Host, settings.Events.EventHubs.Hub!),
             ValidationReports = fleet.Projections,
+            RowClassifications = fleet.Classifications,
         };
         fleet.Resume = (name, cancellationToken) => EventDeclarationMove.ResumeAsync(options, fleet, name, cancellationToken);
 
@@ -714,6 +715,29 @@ internal static partial class ServerHost
             json.WriteEndObject();
         }
 
+        // Each binding's classification projection lag (ADR 0233): reported, and never a reason to be unready.
+        void Classification(Utf8JsonWriter json, string name)
+        {
+            if (!DatasetName.TryParse(name, out DatasetName dataset))
+            {
+                return;
+            }
+
+            SortedDictionary<string, long> lags = fleet.Classifications.LagOf(dataset);
+            if (lags.Count == 0)
+            {
+                return;
+            }
+
+            json.WriteStartObject("classification");
+            foreach ((string binding, long lag) in lags)
+            {
+                json.WriteNumber(binding, lag);
+            }
+
+            json.WriteEndObject();
+        }
+
         void Moving(Utf8JsonWriter json, string name)
         {
             if (moving.TryGetValue(name, out long since))
@@ -746,6 +770,7 @@ internal static partial class ServerHost
                     }
 
                     Validation(json, state.Name);
+                    Classification(json, state.Name);
                     json.WriteEndObject();
                 }
 
@@ -785,6 +810,7 @@ internal static partial class ServerHost
                 }
 
                 Validation(json, state.Name);
+                Classification(json, state.Name);
                 json.WriteEndObject();
             }
 
@@ -1023,6 +1049,9 @@ internal static partial class ServerHost
                 LoadSource = outbound.Load,
                 ReadScope = scope.Readable,
                 WriteScope = scope.Writable,
+                ReadRows = scope.ReadableRows,
+                WriteRows = scope.WritableRows,
+                Classifier = preconditions.Classifier,
             }, cancellationToken);
     }
 

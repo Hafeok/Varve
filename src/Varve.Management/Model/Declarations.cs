@@ -16,7 +16,11 @@ namespace Varve.Management.Model;
 /// <param name="Access">What it permits.</param>
 /// <param name="Graphs">The graphs it covers; every graph for admin and operator.</param>
 [DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
-public sealed record GrantDeclaration(RdfTerm Node, string? Dataset, Principal Grantee, GrantAccess Access, GraphSet Graphs);
+public sealed record GrantDeclaration(RdfTerm Node, string? Dataset, Principal Grantee, GrantAccess Access, GraphSet Graphs)
+{
+    /// <summary>The data subjects it covers (ADR 0234); every subject when it carries no subject terms.</summary>
+    public SubjectSet Subjects { get; init; } = SubjectSet.Everything;
+}
 
 /// <summary>
 /// A shapes or TBox binding. A shapes binding (ADR 0170) also states the graphs
@@ -25,8 +29,11 @@ public sealed record GrantDeclaration(RdfTerm Node, string? Dataset, Principal G
 /// </summary>
 public sealed record BindingDeclaration(RdfTerm Node, BindingKind Kind, RdfTerm BoundGraph)
 {
-    /// <summary>The graphs a shapes binding validates; null for a TBox binding.</summary>
+    /// <summary>The graphs a shapes binding validates; null for a TBox or classifier binding.</summary>
     public GraphSet? Validates { get; init; }
+
+    /// <summary>The graphs a classifier binding classifies (ADR 0234); null for any other binding.</summary>
+    public GraphSet? Classifies { get; init; }
 
     /// <summary>A shapes binding's mode.</summary>
     public ShapesMode Mode { get; init; }

@@ -186,12 +186,13 @@ internal static class GraphStoreEndpoint
         {
             context.Response.Headers.LastModified = Microsoft.Net.Http.Headers.HeaderUtilities.FormatDate(modified);
         }
-        IQuadSource source = exchange.Readable(view);
+        IQuadSource source;
         IQuadCursor? cursor;
         bool any;
 
         try
         {
+            source = exchange.Readable(view);
             cursor = Open(source, target);
             any = cursor is not null && cursor.MoveNext();
         }
@@ -199,6 +200,33 @@ internal static class GraphStoreEndpoint
         {
             context.Response.Headers.RetryAfter = "1";
             await HttpProblems.WriteAsync(context, ProblemType.ValidationBehind, behind.Message, BoundedReads.ValidationBehind(behind)).ConfigureAwait(false);
+            return;
+        }
+        catch (ClassificationBehindException behind)
+        {
+            context.Response.Headers.RetryAfter = "1";
+            await HttpProblems.WriteAsync(context, ProblemType.ClassificationBehind, behind.Message, BoundedReads.ClassificationBehind(behind)).ConfigureAwait(false);
+            return;
+        }
+
+        // A readable graph whose quads are all hidden by rows is an empty
+        // graph, not one that is not there (ADR 0237 point 2).
+        if (!any && cursor is not null && !exchange.Scope.ReadableRows.IsAll && target.Kind != TargetKind.Default
+            && Exists(GraphScopedQuadSource.Wrap(view, exchange.Scope.Readable), target))
+        {
+            cursor.Dispose();
+            context.Response.ContentType = syntax.MediaType;
+
+            if (syntax.Format is GraphFormat.RdfXml or GraphFormat.JsonLd && !HttpMethods.IsHead(context.Request.Method))
+            {
+                await BoundedReads.RunAsync(context, exchange.Options, (output, _) =>
+                {
+                    using GraphOutput empty = new(output, syntax.Format, exchange.Options.Limits);
+                    empty.Complete();
+                    return ValueTask.CompletedTask;
+                }).ConfigureAwait(false);
+            }
+
             return;
         }
 
@@ -293,7 +321,7 @@ internal static class GraphStoreEndpoint
         {
             // It read the graph alone: the graph is its scope (ADR 0126).
             request = new CommitRequestBuilder { ExpectedPosition = plan.Expected ?? view.Position, ExpectedGraphs = Writes.Scope(plan.Graphs), Metadata = Writes.Metadata(exchange), Validators = Writes.Validators(exchange) };
-            exists = Retract(view, target, request);
+            exists = Retract(exchange.VisibleRows(view), target, request);
         }
 
         if (!await Writes.PresenceHoldsAsync(exchange, plan, GraphOf(target), exists).ConfigureAwait(false))
@@ -332,7 +360,7 @@ internal static class GraphStoreEndpoint
                 Metadata = Writes.Metadata(exchange),
                 Validators = Writes.Validators(exchange),
             };
-            existed = replace ? Retract(view, target, request) : Exists(view, target);
+            existed = replace ? Retract(exchange.VisibleRows(view), target, request) : Exists(exchange.VisibleRows(view), target);
         }
 
         if (!await Writes.PresenceHoldsAsync(exchange, plan, GraphOf(target), existed).ConfigureAwait(false))
@@ -370,7 +398,7 @@ internal static class GraphStoreEndpoint
     }
 
     // Retracts every quad of the target graph, by handle. True when it held one.
-    private static bool Retract(DatasetView view, Target target, CommitRequestBuilder request)
+    private static bool Retract(IQuadSource view, Target target, CommitRequestBuilder request)
     {
         using IQuadCursor? cursor = Open(view, target);
         bool any = false;
@@ -396,7 +424,7 @@ internal static class GraphStoreEndpoint
         return any;
     }
 
-    private static bool Exists(DatasetView view, Target target)
+    private static bool Exists(IQuadSource view, Target target)
     {
         using IQuadCursor? cursor = Open(view, target);
         return cursor is not null && cursor.MoveNext();

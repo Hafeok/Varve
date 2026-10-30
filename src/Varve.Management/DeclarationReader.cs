@@ -101,6 +101,7 @@ public static class DeclarationReader
                 if (reader.Dataset(name) is { } declared)
                 {
                     datasets[name] = declared;
+                    findings.AddRange(RowPreconditions.Check(graph, declared));
                 }
 
                 findings.AddRange(ManagementShapes.Validate(graph, triples));
@@ -377,7 +378,12 @@ public static class DeclarationReader
                     continue;
                 }
 
-                grants.Add(new GrantDeclaration(node, dataset, principal, granted, graphs));
+                if (Subjects(node, granted) is not { } subjects)
+                {
+                    continue;
+                }
+
+                grants.Add(new GrantDeclaration(node, dataset, principal, granted, graphs) { Subjects = subjects });
             }
 
             return grants;
@@ -385,7 +391,7 @@ public static class DeclarationReader
 
         private IEnumerable<BindingDeclaration> Bindings()
         {
-            foreach ((RdfTerm type, BindingKind kind) in new[] { (ManagementVocabulary.ShapesBinding, BindingKind.Shapes), (ManagementVocabulary.TBoxBinding, BindingKind.TBox) })
+            foreach ((RdfTerm type, BindingKind kind) in new[] { (ManagementVocabulary.ShapesBinding, BindingKind.Shapes), (ManagementVocabulary.TBoxBinding, BindingKind.TBox), (ManagementVocabulary.ClassifierBinding, BindingKind.Classifier) })
             {
                 foreach (RdfTerm node in Typed(type))
                 {
@@ -403,12 +409,210 @@ public static class DeclarationReader
                         continue;
                     }
 
+                    if (kind == BindingKind.Classifier)
+                    {
+                        if (ClassifierBinding(node, bound[0]) is { } classifier)
+                        {
+                            yield return classifier;
+                        }
+
+                        continue;
+                    }
+
                     if (ShapesBinding(node, bound[0]) is { } shapes)
                     {
                         yield return shapes;
                     }
                 }
             }
+        }
+
+        /// <summary>A classifier binding's graphs (ADR 0234); null after a finding.</summary>
+        private BindingDeclaration? ClassifierBinding(RdfTerm node, RdfTerm shapesGraph)
+        {
+            if (Values(node, ManagementVocabulary.GraphTemplateProperty).Count > 0)
+            {
+                Stated(node, ManagementVocabulary.GraphTemplateProperty, "a classifier binding names its graphs without varve:graphTemplate: a template expands per caller, and a binding has none");
+                return null;
+            }
+
+            if (Graphs(node, wide: false, "a classifier binding") is not { } graphs)
+            {
+                return null;
+            }
+
+            foreach (RdfTerm graph in graphs.Graphs)
+            {
+                if (graph.Equals(shapesGraph))
+                {
+                    Stated(node, ManagementVocabulary.Graph, "a classifier binding's graphs do not name its own shapes graph, which is never classified (ADR 0232)");
+                    return null;
+                }
+            }
+
+            return new BindingDeclaration(node, BindingKind.Classifier, shapesGraph) { Classifies = graphs };
+        }
+
+        /// <summary>
+        /// A grant's subject terms (ADR 0234 point 2): every subject when it has
+        /// none; null after a finding.
+        /// </summary>
+        private SubjectSet? Subjects(RdfTerm node, GrantAccess access)
+        {
+            List<RdfTerm> subjects = Values(node, ManagementVocabulary.Subject);
+            List<RdfTerm> prefixes = Values(node, ManagementVocabulary.SubjectPrefix);
+            List<RdfTerm> templates = Values(node, ManagementVocabulary.SubjectTemplateProperty);
+            List<RdfTerm> classes = Values(node, ManagementVocabulary.SubjectClass);
+            List<RdfTerm> links = Values(node, ManagementVocabulary.SubjectLinkProperty);
+            List<RdfTerm> creates = Values(node, ManagementVocabulary.CreateUnder);
+
+            if (subjects.Count + prefixes.Count + templates.Count + classes.Count + links.Count + creates.Count == 0)
+            {
+                return SubjectSet.Everything;
+            }
+
+            if (access is GrantAccess.Admin or GrantAccess.Operator)
+            {
+                Residual(node, ManagementVocabulary.Subject, "admin and operator read and write every row: such a grant carries no subject terms (ADR 0234)");
+                return null;
+            }
+
+            if (creates.Count > 0 && access != GrantAccess.Write)
+            {
+                Residual(node, ManagementVocabulary.CreateUnder, "varve:createUnder is on a write grant: it says where its grantee may create rows (ADR 0236)");
+                return null;
+            }
+
+            if (Values(node, ManagementVocabulary.GraphTemplateProperty).Count > 0)
+            {
+                Residual(node, ManagementVocabulary.GraphTemplateProperty, "a grant with subject terms names its graphs without varve:graphTemplate, so that it can be checked to cover its bindings (ADR 0234, P2)");
+                return null;
+            }
+
+            bool ok = true;
+            List<RdfTerm> named = [];
+            List<RdfTerm> typed = [];
+            List<string> starts = [];
+            List<string> createStarts = [];
+            List<GraphTemplate> expanded = [];
+            List<GraphTemplate> createExpanded = [];
+            List<SubjectLinkDeclaration> linked = [];
+
+            foreach (RdfTerm subject in subjects)
+            {
+                ok &= Absolute(node, ManagementVocabulary.Subject, subject, "varve:subject is an absolute IRI", named);
+            }
+
+            foreach (RdfTerm @class in classes)
+            {
+                ok &= Absolute(node, ManagementVocabulary.SubjectClass, @class, "varve:subjectClass is an absolute IRI", typed);
+            }
+
+            foreach (RdfTerm prefix in prefixes)
+            {
+                ok &= NonEmpty(node, ManagementVocabulary.SubjectPrefix, prefix, starts);
+            }
+
+            foreach (RdfTerm template in templates)
+            {
+                ok &= SubjectTemplateOf(template, ManagementVocabulary.SubjectTemplateProperty, expanded);
+            }
+
+            foreach (RdfTerm create in creates)
+            {
+                ok &= create.Kind == RdfTermKind.Literal
+                    ? NonEmpty(node, ManagementVocabulary.CreateUnder, create, createStarts)
+                    : SubjectTemplateOf(create, ManagementVocabulary.CreateUnder, createExpanded);
+            }
+
+            foreach (RdfTerm link in links)
+            {
+                if (LinkOf(link) is { } read)
+                {
+                    linked.Add(read);
+                }
+                else
+                {
+                    ok = false;
+                }
+            }
+
+            return ok
+                ? new SubjectSet { Subjects = named, Prefixes = starts, Templates = expanded, Classes = typed, Links = linked, CreateUnder = createStarts, CreateUnderTemplates = createExpanded }
+                : null;
+        }
+
+        private bool Absolute(RdfTerm node, RdfTerm path, RdfTerm value, string message, List<RdfTerm> into)
+        {
+            if (value.Kind == RdfTermKind.Iri && IsAbsolute(value))
+            {
+                into.Add(value);
+                return true;
+            }
+
+            Stated(node, path, message);
+            return false;
+        }
+
+        private bool NonEmpty(RdfTerm node, RdfTerm path, RdfTerm value, List<string> into)
+        {
+            if (value.Kind == RdfTermKind.Literal && !value.Lexical.IsEmpty)
+            {
+                into.Add(Encoding.UTF8.GetString(value.Lexical));
+                return true;
+            }
+
+            Stated(node, path, ManagementVocabulary.LocalName(path) is { } name ? "varve:" + name + " is a non-empty literal" : "a non-empty literal");
+            return false;
+        }
+
+        private bool SubjectTemplateOf(RdfTerm node, RdfTerm path, List<GraphTemplate> into)
+        {
+            if (!Has(node, ManagementVocabulary.Type, ManagementVocabulary.SubjectTemplate))
+            {
+                Stated(node, path, "a subject template is a varve:SubjectTemplate declared in the same graph");
+                return false;
+            }
+
+            if (TemplateOf(node) is not { } template)
+            {
+                return false;
+            }
+
+            into.Add(template);
+            return true;
+        }
+
+        private SubjectLinkDeclaration? LinkOf(RdfTerm node)
+        {
+            if (!Has(node, ManagementVocabulary.Type, ManagementVocabulary.SubjectLink))
+            {
+                Stated(node, ManagementVocabulary.SubjectLinkProperty, "varve:subjectLink names a varve:SubjectLink declared in the same graph");
+                return null;
+            }
+
+            List<RdfTerm> predicates = Values(node, ManagementVocabulary.LinkPredicate);
+            List<RdfTerm> targets = Values(node, ManagementVocabulary.LinkTarget);
+
+            if (predicates.Count != 1 || predicates[0].Kind != RdfTermKind.Iri || !IsAbsolute(predicates[0]))
+            {
+                Stated(node, ManagementVocabulary.LinkPredicate, "a subject link names exactly one varve:linkPredicate, an absolute IRI");
+                return null;
+            }
+
+            if (targets.Count != 1)
+            {
+                Stated(node, ManagementVocabulary.LinkTarget, "a subject link names exactly one varve:linkTarget: varve:CallerAgent or a varve:SubjectTemplate");
+                return null;
+            }
+
+            if (targets[0].Equals(ManagementVocabulary.CallerAgent))
+            {
+                return new SubjectLinkDeclaration(predicates[0], null);
+            }
+
+            List<GraphTemplate> template = [];
+            return SubjectTemplateOf(targets[0], ManagementVocabulary.LinkTarget, template) ? new SubjectLinkDeclaration(predicates[0], template[0]) : null;
         }
 
         /// <summary>A shapes binding's graphs, mode and flags (ADR 0170); null after a finding.</summary>
@@ -597,6 +801,12 @@ public static class DeclarationReader
                 return null;
             }
 
+            return TemplateOf(node);
+        }
+
+        // A template's text and match, checked; shared by graph and subject templates.
+        private GraphTemplate? TemplateOf(RdfTerm node)
+        {
             string? template = Literal(node, ManagementVocabulary.Template, required: true);
             TemplateMatch match = One(node, ManagementVocabulary.Match) switch
             {

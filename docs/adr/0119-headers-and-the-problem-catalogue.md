@@ -246,3 +246,18 @@ Filed by 1.0 readiness A (#129), unaccepted until the maintainer accepts it
 
 **The ledger.** The rulings are ADR 0214's `StorageFullIs507` and
 `OutcomeUnknownIs503WithTheRequestId`.
+
+## Amendment, 2026-10-30 — problem types for rows
+
+Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066).
+
+The catalogue gains:
+- `row-not-writable` (403, ADR [0236](0236-the-row-level-write-rule.md));
+- `classification-behind` (503, with `binding`, `position` and
+  `projectedPosition`, ADR [0233](0233-the-classification-projection.md));
+- `entailment-not-available` (403, with `binding`, ADR
+  [0238](0238-inference-under-row-scoped-grants.md)), when its guard is built
+  over #171's surfaces. Until then no endpoint emits it, and the catalogue
+  does not list it.
+
+Each has its page in `docs/problems/` when it is catalogued.

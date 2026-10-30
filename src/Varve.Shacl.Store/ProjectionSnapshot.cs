@@ -31,7 +31,12 @@ internal static class ProjectionSnapshot
     private static ReadOnlySpan<byte> Magic => "VVP2"u8;
 
     /// <summary>The directory a binding's snapshots are written to: <c>validation/{enc(binding)}/</c>.</summary>
-    internal static string Directory(ShapesBinding binding) => "validation/" + Encode(binding.Binding.Lexical) + "/";
+    /// <remarks>
+    /// <c>enc</c> leaves <c>~</c>, which RFC 3986 calls unreserved, but no
+    /// backend takes it in a blob name, and the browser's is its own
+    /// generation separator; in the name it is <c>%7E</c>.
+    /// </remarks>
+    internal static string Directory(ShapesBinding binding) => "validation/" + Encode(binding.Binding.Lexical).Replace("~", "%7E", StringComparison.Ordinal) + "/";
 
     /// <summary>The name of the snapshot at <paramref name="position"/>: names sort by position.</summary>
     internal static string Name(ShapesBinding binding, long position) =>

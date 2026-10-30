@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
 using System.Buffers;
 using Varve.Delta;
 using Varve.Delta.Model;
@@ -22,6 +23,28 @@ internal static class DeltaLines
     /// <summary>A commit record, the empty line that ends it included.</summary>
     internal static void WriteCommit(IBufferWriter<byte> output, Commit commit, QuadDelta delta, TermNamer names) =>
         DeltaWriter.WriteCommit(output, Header(commit), delta, names);
+
+    /// <summary>
+    /// A commit record for a row-restricted caller: without the shapes
+    /// bindings' report attachments, which it may not read (ADR 0237 point 6,
+    /// ADR 0173 amended).
+    /// </summary>
+    internal static void WriteCommitWithoutReports(IBufferWriter<byte> output, Commit commit, QuadDelta delta, TermNamer names)
+    {
+        List<TermHandle> kept = [];
+
+        foreach (TermHandle attachment in commit.Attachments.Span)
+        {
+            if (!(names(attachment, out RdfTerm? term) && term.Kind == RdfTermKind.TripleTerm && term.Predicate is { } predicate && predicate.Lexical.SequenceEqual(AffectedReport)))
+            {
+                kept.Add(attachment);
+            }
+        }
+
+        DeltaWriter.WriteCommit(output, Header(commit) with { Attachments = kept.ToArray() }, delta, names);
+    }
+
+    private static ReadOnlySpan<byte> AffectedReport => "https://w3id.org/varve/ns#affectedReport"u8;
 
     /// <summary>A diff record, the empty line that ends it included.</summary>
     internal static void WriteDiff(IBufferWriter<byte> output, Position from, Position to, QuadDelta delta, TermNamer names) =>

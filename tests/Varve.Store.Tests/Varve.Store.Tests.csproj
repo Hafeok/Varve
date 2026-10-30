@@ -10,6 +10,8 @@
     <ProjectReference Include="../../src/Varve.Store.ObjectStorage/Varve.Store.ObjectStorage.csproj" />
     <ProjectReference Include="../../src/Varve.Store.Azure/Varve.Store.Azure.csproj" />
     <ProjectReference Include="../../src/Varve.Store.S3/Varve.Store.S3.csproj" />
+    <!-- The tier-1 follower gate of row-level access (ADR 0237 point 11): test only. -->
+    <ProjectReference Include="../../src/Varve.Classification/Varve.Classification.csproj" />
   </ItemGroup>
 
   <ItemGroup>
