@@ -139,9 +139,10 @@ system writer records. Every node is an IRI. The code validator in
 | `varve:Dataset` | a dataset's declaration | `rdf:type` of the dataset node |
 | `varve:datasetName` | the dataset's name, equal to its graph's `{name}` | on the dataset node, an `xsd:string` |
 | `varve:storage` | `varve:File`, `varve:Memory` or `varve:ObjectStorage` | on the dataset node |
-| `varve:placedOn` | the instance that writes the dataset; the system writer's when absent (ADR 0163 point 12) | on the dataset node, an `xsd:string` |
+| `varve:placedOn` | the dataset's preferred writer: the instance that claims it at a cold start and on a placement change; the system writer's when absent (ADRs 0163 point 12, 0180) | on the dataset node, an `xsd:string`, at most once |
+| `varve:standbyOn` | a standby of the dataset's writer set: an instance that follows it on the interval and may take it over when warm (ADR 0180) | on the dataset node, an `xsd:string`, any number; needs `varve:automaticHandover true`, and is never the `placedOn` |
 | `varve:defaultAccessScope` | `varve:AllHistory` or `varve:Current`, which the dataset's writer converges its settings to (ADR 0021) | on the dataset node |
-| `varve:automaticHandover` | the standby opt-in, recorded for Replication | on the dataset node, an `xsd:boolean` |
+| `varve:automaticHandover` | whether a warm member of the writer set may take the dataset over (ADR 0179); false when absent | on the dataset node, an `xsd:boolean` |
 | `varve:closed` | the dataset's declared state: every instance closes a closed dataset, and only a closed one is deleted | on the dataset node, an `xsd:boolean` |
 | `varve:Grant` | a grant | `rdf:type` of a grant node |
 | `varve:grantee` | the one principal a grant names | on a grant |

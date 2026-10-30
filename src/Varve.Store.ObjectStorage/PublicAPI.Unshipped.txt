@@ -255,3 +255,14 @@ override Varve.Store.ObjectStorage.Model.WriterAddress.GetHashCode() -> int
 static Varve.Store.ObjectStorage.Model.WriterAddress.operator !=(Varve.Store.ObjectStorage.Model.WriterAddress left, Varve.Store.ObjectStorage.Model.WriterAddress right) -> bool
 static Varve.Store.ObjectStorage.Model.WriterAddress.operator ==(Varve.Store.ObjectStorage.Model.WriterAddress left, Varve.Store.ObjectStorage.Model.WriterAddress right) -> bool
 ~override Varve.Store.ObjectStorage.Model.WriterAddress.Equals(object obj) -> bool
+Varve.Store.ObjectStorage.ObjectStorage.AdoptedEpoch.get -> Varve.Store.ObjectStorage.Model.WriterEpoch?
+Varve.Store.ObjectStorage.Model.ClaimTrigger.Abdication = 2 -> Varve.Store.ObjectStorage.Model.ClaimTrigger
+Varve.Store.ObjectStorage.Model.ClaimTrigger.Probe = 3 -> Varve.Store.ObjectStorage.Model.ClaimTrigger
+Varve.Store.ObjectStorage.Model.ReleaseReason.StorageError = 3 -> Varve.Store.ObjectStorage.Model.ReleaseReason
+Varve.Store.ObjectStorage.Model.ReleaseReason.LocalDiskError = 4 -> Varve.Store.ObjectStorage.Model.ReleaseReason
+Varve.Store.ObjectStorage.ObjectStorage.ClaimInPlaceAsync(Varve.Store.ObjectStorage.Model.WriterInstance instance, Varve.Store.ObjectStorage.Model.WriterAddress? address, Varve.Store.ObjectStorage.Model.IProbeRandomness! randomness, Varve.Store.ObjectStorage.Model.ClaimTrigger trigger, Varve.Store.ObjectStorage.Model.WriterEpoch from, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Store.ObjectStorage.Model.LocalCache
+Varve.Store.ObjectStorage.Model.LocalCache.ExtentPages = 2 -> Varve.Store.ObjectStorage.Model.LocalCache
+Varve.Store.ObjectStorage.Model.LocalCache.None = 0 -> Varve.Store.ObjectStorage.Model.LocalCache
+Varve.Store.ObjectStorage.Model.LocalCache.SegmentCopies = 1 -> Varve.Store.ObjectStorage.Model.LocalCache
+Varve.Store.ObjectStorage.ObjectStorage.CacheOff.get -> Varve.Store.ObjectStorage.Model.LocalCache

@@ -92,6 +92,7 @@ internal sealed class Target
 
     internal readonly Option<string?> Endpoint = new("--endpoint") { Description = "s3://: the S3-compatible service's endpoint." };
     internal readonly Option<string?> Region = new("--region") { Description = "s3://: the region the signature is for." };
+    internal readonly Option<string?> StsEndpoint = new("--sts-endpoint") { Description = "s3://: the STS endpoint web identity is exchanged at, a self-hosted server's own; Amazon's when absent." };
     internal readonly Option<string?> Authority = new("--authority") { Description = "The OIDC issuer a server's tokens come from, for a URL." };
     internal readonly Option<string?> ClientId = new("--client-id") { Description = "The OIDC client: with --client-secret the client credentials flow, alone the device code flow." };
     internal readonly Option<string?> ClientSecret = new("--client-secret") { Description = "The client's secret; VARVE_CLIENT_SECRET when absent." };
@@ -109,6 +110,7 @@ internal sealed class Target
         command.Options.Add(Unannounced);
         command.Options.Add(Endpoint);
         command.Options.Add(Region);
+        command.Options.Add(StsEndpoint);
         command.Options.Add(AllowEndpoint);
         command.Options.Add(AllowSource);
         command.Options.Add(AllowPrivate);
@@ -188,7 +190,7 @@ internal sealed class Target
     [DecisionDriven.DesignDecision(typeof(DecisionDriven.Ledger.Varve.StorageOperationsAndTheReadersCommand.ReadCommandsMayReadUnannounced), Scope = DecisionDriven.ExceptionScope.Boundary)]
     private async Task<Local> OpenObjectStoreAsync(string address, ParseResult parsed, CancellationToken cancellationToken)
     {
-        (IObjectStore store, ObjectName prefix) = ObjectLease.Open(address, parsed.GetValue(Endpoint), parsed.GetValue(Region));
+        (IObjectStore store, ObjectName prefix) = ObjectLease.Open(address, parsed.GetValue(Endpoint), parsed.GetValue(Region), parsed.GetValue(StsEndpoint));
         string cache = Directory.CreateTempSubdirectory("varve-read-").FullName;
         TimeProvider clock = TimeProvider.System;
         Varve.Store.ObjectStorage.ObjectStorage? storage = null;

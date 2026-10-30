@@ -19,6 +19,26 @@ public sealed partial class Dataset
     /// </summary>
     public bool IsFollower { get; private set; }
 
+    // The quads in the memtable when the follower opened: what its open
+    // replayed from the log above the catalog, before any advance.
+    private long _memtableAtOpen;
+
+    // Whether chunks the storage adopted may not have been applied yet:
+    // set from before a refresh until a scan completes (ADR 0164 point 2).
+    private bool _scanOwed;
+
+    /// <summary>
+    /// Whether this follower's memtable has grown by more than
+    /// <see cref="DatasetOptions.MemtableLimit"/> since it opened, by the
+    /// measure the writer's own flush compares with the limit (ADR 0164 point
+    /// 5): its host then opens it again from the writer's newest catalog, so
+    /// that a long-lived follower's memory stays bounded. Reads
+    /// pinned to this dataset keep it until they end. Counted from the open,
+    /// so a follower opened again on the same catalog is not due again until
+    /// it has applied as much once more.
+    /// </summary>
+    public bool ReopenDue => IsFollower && _state.Index.MemtableCount - _memtableAtOpen > _options.MemtableLimit.Value;
+
     /// <summary>
     /// Opens a dataset another process writes, as a follower (ADR 0164): an
     /// ordinary dataset at the head its storage holds now, whose
@@ -33,6 +53,7 @@ public sealed partial class Dataset
         ArgumentNullException.ThrowIfNull(storage);
         Dataset dataset = await OpenAsync(storage, options, cancellationToken).ConfigureAwait(false);
         dataset.IsFollower = true;
+        dataset._memtableAtOpen = dataset._state.Index.MemtableCount;
         return dataset;
     }
 
@@ -57,8 +78,16 @@ public sealed partial class Dataset
         {
             ObjectDisposedException.ThrowIf(_disposing, this);
 
-            if (_storage is ITailingStorage tailing && !await tailing.RefreshAsync(cancellationToken).ConfigureAwait(false))
+            // A refresh that adopted chunks and then failed, or a scan that
+            // failed, leaves them held by the storage and not yet applied: the
+            // next advance scans even when its refresh finds nothing new, or the
+            // follower would stay behind until the writer appended again.
+            bool owed = _scanOwed;
+            _scanOwed = true;
+
+            if (_storage is ITailingStorage tailing && !await tailing.RefreshAsync(cancellationToken).ConfigureAwait(false) && !owed)
             {
+                _scanOwed = false;
                 return Head;
             }
 
@@ -69,6 +98,67 @@ public sealed partial class Dataset
         {
             _sequencer.Release();
         }
+    }
+
+    /// <summary>
+    /// A follower becomes its dataset's writer in place (ADR 0179 point 8).
+    /// - It applies what the writer it followed closed.
+    /// - <paramref name="claim"/> claims the epoch on the storage and fences the
+    ///   log. It is the host's, which knows the backend.
+    /// - It applies what the claim adopted, and opens the log for appends at
+    ///   the head.
+    ///
+    /// Its projection, graph versions, commit index and cache stay what they
+    /// are, so it commits at once. False when <paramref name="claim"/> lost;
+    /// the dataset is then still a follower, but its storage may no longer
+    /// refresh, and the host opens it again.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The dataset is not a follower.</exception>
+    /// <exception cref="LogVerificationException">What the writer appended does not verify.</exception>
+    public async ValueTask<bool> TakeWriteAsync(Func<CancellationToken, ValueTask<bool>> claim, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+
+        if (!IsFollower)
+        {
+            throw new InvalidOperationException("Only a follower takes its dataset's writing over; a writer writes already.");
+        }
+
+        await _sequencer.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            ObjectDisposedException.ThrowIf(_disposing, this);
+
+            if (_storage is ITailingStorage tailing)
+            {
+                await tailing.RefreshAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            await AdoptClosedAsync(long.MaxValue, cancellationToken).ConfigureAwait(false);
+
+            if (!await claim(cancellationToken).ConfigureAwait(false))
+            {
+                return false;
+            }
+
+            // What the claim adopted, then the log opened at its end as a writer's open opens it.
+            LogScan scan = await AdoptClosedAsync(long.MaxValue, cancellationToken).ConfigureAwait(false);
+            _writer = await LogWriter.OpenAsync(_storage.Log, Id, scan, _options.SegmentBytes.Value, (int)_options.MaxRecordBytes.Value, cancellationToken).ConfigureAwait(false);
+            IsFollower = false;
+        }
+        finally
+        {
+            _sequencer.Release();
+        }
+
+        // The writer's open is an event of the deletion rule (ADR 0160), and so is this one.
+        if (_storage is IExtentReaders { DeletesExtents: true })
+        {
+            await DeleteUnnamedSetsAsync(poll: true, cancellationToken).ConfigureAwait(false);
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -109,6 +199,7 @@ public sealed partial class Dataset
 
         if (closed.Count == 0)
         {
+            _scanOwed = false;
             return scan;
         }
 
@@ -134,17 +225,35 @@ public sealed partial class Dataset
         State partial = new(p, commits, state.Index, state.Checkpoints, null, state.Graphs);
         IndexVersion index = state.Index;
         GraphVersions graphs = state.Graphs;
+        string? failed = state.Failed;
         p = head;
 
         foreach (ScannedCommit commit in closed)
         {
             p++;
             LoggedCommit full = commit.Full ?? await ReadLoggedAsync(partial, p, cancellationToken).ConfigureAwait(false);
-            index = index.Apply(full.Asserted, full.Retracted, partial.TermsOf(full, p), p);
+
+            // A failure here is the projection's, not the log's, as on the
+            // writer (§7): the follower's head goes on, and its projection
+            // stays failed at the position until it is rebuilt.
+            if (failed is null)
+            {
+                try
+                {
+                    ThrowIfFaulted(p);
+                    index = index.Apply(full.Asserted, full.Retracted, partial.TermsOf(full, p), p);
+                }
+                catch (Exception error) when (error is not OperationCanceledException)
+                {
+                    failed = "The default projection failed at position " + p + " and must be rebuilt: " + error.Message;
+                }
+            }
+
             graphs = graphs.Apply(full.Header.Kind, full.Asserted, full.Retracted, p);
         }
 
-        _state = new State(p, commits, index, state.Checkpoints, null, graphs);
+        _state = new State(p, commits, index, state.Checkpoints, failed, graphs);
+        _scanOwed = false;
         Signal();
         return scan;
     }

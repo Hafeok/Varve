@@ -661,6 +661,8 @@ internal static partial class ServerHost
         {
             Dataset? dataset = null;
             bool open = entry.State == DatasetState.Open && datasets.TryResolve(entry.Name, out dataset);
+            (bool tailing, bool warm) = datasets.StandbyOf(entry.Name);
+            (Exception? spill, Varve.Store.ObjectStorage.Model.LocalCache cache) = datasets.LocalHealthOf(entry.Name);
             health.Add(new DatasetHealth(
                 entry.Name.Value,
                 entry.State,
@@ -671,6 +673,10 @@ internal static partial class ServerHost
                 open && datasets.IsSuperseded(entry.Name),
                 entry.Role,
                 open ? dataset!.Retention : null,
+                tailing,
+                warm,
+                spill,
+                cache,
                 open && dataset!.StorageFull));
         }
 
@@ -686,10 +692,55 @@ internal static partial class ServerHost
             json.WriteNumber("position", management.Applied.Value);
             json.WriteNumber("lag", management.Lag);
             json.WriteString("bootstrap", management.Bootstrap switch { BootstrapState.Recorded => "recorded", BootstrapState.Absent => "absent", _ => "mismatch" });
+
+            // A standby of the system dataset's writer set (ADR 0179 point 13).
+            if (fleet.IsSystemStandby)
+            {
+                json.WriteBoolean("standby", true);
+                json.WriteBoolean("warm", fleet.IsSystemWarm);
+            }
+
             json.WriteEndObject();
         }
 
-        static string Role(DatasetRole role) => role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", _ => "elsewhere" };
+        // A standby's tailing and warm (ADR 0180 point 7), beside its binding
+        // lags; and a writer's failing spill and the local caches it turned
+        // off (ADR 0179 point 6): information, never a reason to be unready.
+        static void Standby(Utf8JsonWriter json, DatasetReadiness state)
+        {
+            if (state.Role == DatasetRole.Standby)
+            {
+                json.WriteBoolean("tailing", state.Tailing);
+                json.WriteBoolean("warm", state.Warm);
+            }
+
+            if (state.Spill is { } spill)
+            {
+                json.WriteStartObject("spill");
+                json.WriteString("state", "failing");
+                json.WriteString("kind", spill.GetType().Name);
+                json.WriteEndObject();
+            }
+
+            if (state.Cache != Varve.Store.ObjectStorage.Model.LocalCache.None)
+            {
+                json.WriteStartArray("cache");
+
+                if ((state.Cache & Varve.Store.ObjectStorage.Model.LocalCache.SegmentCopies) != 0)
+                {
+                    json.WriteStringValue("segment-copies");
+                }
+
+                if ((state.Cache & Varve.Store.ObjectStorage.Model.LocalCache.ExtentPages) != 0)
+                {
+                    json.WriteStringValue("extent-pages");
+                }
+
+                json.WriteEndArray();
+            }
+        }
+
+        static string Role(DatasetRole role) => role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", DatasetRole.Standby => "standby", _ => "elsewhere" };
 
         // Each binding's validation projection lag (ADR 0174): reported, and never a reason to be unready.
         void Validation(Utf8JsonWriter json, string name)
@@ -740,11 +791,17 @@ internal static partial class ServerHost
                     json.WriteString("role", Role(state.Role));
                     Moving(json, state.Name);
 
+                    if (state.Position is long position)
+                    {
+                        json.WriteNumber("position", position);
+                    }
+
                     if (state.Lag is long lag)
                     {
                         json.WriteNumber("lag", lag);
                     }
 
+                    Standby(json, state);
                     Validation(json, state.Name);
                     json.WriteEndObject();
                 }
@@ -779,11 +836,17 @@ internal static partial class ServerHost
                     json.WriteString("reason", state.Reason);
                 }
 
+                if (state.Position is long position)
+                {
+                    json.WriteNumber("position", position);
+                }
+
                 if (state.Lag is long lag)
                 {
                     json.WriteNumber("lag", lag);
                 }
 
+                Standby(json, state);
                 Validation(json, state.Name);
                 json.WriteEndObject();
             }

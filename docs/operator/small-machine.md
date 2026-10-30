@@ -25,20 +25,30 @@ or with the image:
 docker run --rm --read-only -v /srv/varve:/var/lib/varve -p 8080:8080 ghcr.io/hafeok/varve serve --anonymous
 ```
 
-## An object store on a NAS — only by identity, or on the same host
+## An object store on a NAS — only by identity
 
-The server takes no static key for an object store except on loopback
-(ADR 0137). So an S3-compatible store on a NAS is supported in exactly two
-shapes:
+**A single machine uses the file backend, on a directory** (above). An
+object store earns its place when several instances share one log. On one
+machine it only adds a server to run and a credential path to set up. An
+S3-compatible store is for a setup that already has an OIDC issuer for the
+store to trust, so that the server's web identity can be exchanged at the
+store's STS. [CI's storage legs](../../.github/storage/compose.yaml) are the
+worked example: RustFS, with a mock-oauth2-server as its OIDC provider, its
+outbound allow-list, and the `groups` claim mapped to a policy.
+
+The server takes no static key for an object store, not even on loopback
+(ADR 0137, amended 2026-10-27): the loopback key is the S3 adapter's, for
+tests that make their own buckets, and no server setting reaches it. So an
+S3-compatible store on a NAS, or on the Pi itself, is supported in one shape:
 
 - **The store speaks web identity.** The server assumes a role with
   `AssumeRoleWithWebIdentity`, its token in `AWS_WEB_IDENTITY_TOKEN_FILE` and
   the role in `AWS_ROLE_ARN`; `Varve:ObjectStorage:Provider` is
-  `S3Compatible` with the NAS's `Endpoint`, `Bucket` and `Region`.
-- **The store runs on the same host as the server**, reached on
-  `127.0.0.1` with its key — the loopback exception, meant for development.
+  `S3Compatible` with the NAS's `Endpoint`, `Bucket` and `Region`, and
+  `StsEndpoint` the store's own STS (for RustFS, its root URL, with an OIDC
+  provider configured on it, as CI's storage legs do).
 
-**A typical NAS deployment falls outside both**: an S3 server on the NAS,
+**A typical NAS deployment falls outside it**: an S3 server on the NAS,
 reached over the LAN with a static access key, is refused at start, naming
 ADR 0137. On such a NAS, use the file backend on the Pi's own SSD, and back it
 up to the NAS by copying the directory ([Back up and restore](backup-and-restore.md)).

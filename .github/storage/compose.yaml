@@ -7,7 +7,20 @@
 # Tests read VARVE_AZURITE=http://127.0.0.1:10000/devstoreaccount1 and
 # VARVE_RUSTFS=http://127.0.0.1:9000,varvetest,varvetestsecret. The RustFS key
 # is a loopback development key and nothing else (ADR 0137): it opens a
-# throwaway server bound to 127.0.0.1.
+# throwaway server bound to 127.0.0.1, and the tests make their buckets with
+# it.
+#
+# Everything else reaches RustFS as a server process does, by web identity
+# (ADR 0137, S3WebIdentityOnly; Replication part 1, #165). The issuer is a
+# mock-oauth2-server on 127.0.0.1:8090, which RustFS reaches inside the
+# compose network as http://issuer:8080/varve, and whose tokens for the client
+# varve-storage carry the group readwrite, a RustFS policy (issuer.json).
+# Tests read VARVE_RUSTFS_WEB_IDENTITY=http://127.0.0.1:9000/,
+# http://127.0.0.1:8090/varve/token,issuer:8080: RustFS's STS endpoint, the
+# issuer's token endpoint, and the host the token is minted for, so that its
+# issuer is the one RustFS discovered. RustFS 1.0 reaches a private address
+# only through RUSTFS_OUTBOUND_ALLOW_ORIGINS (rustfs#8023), and discovers the
+# issuer once at start, so it waits for the issuer to be healthy.
 #
 # RustFS is CI's S3-compatible server because the contract suite chose it
 # (ADR 0134, decision 6): it passed the storage contract suite and both race
@@ -34,10 +47,32 @@ services:
     ports:
       - "127.0.0.1:10000:10000"
 
+  issuer:
+    image: ghcr.io/hafeok/varve-ci/mock-oauth2-server:6.0.4@sha256:47374fe063995d9b6d39ebb6ea21eb5f765025bf0aa08b61b08b439eb91adaf0
+    environment:
+      JSON_CONFIG_PATH: /config/issuer.json
+    ports:
+      - "127.0.0.1:8090:8080"
+    volumes:
+      - ./issuer.json:/config/issuer.json:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/varve/.well-known/openid-configuration"]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+
   rustfs:
     image: ghcr.io/hafeok/varve-ci/rustfs:1.0.1@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
     environment:
       RUSTFS_ACCESS_KEY: varvetest
       RUSTFS_SECRET_KEY: varvetestsecret
+      RUSTFS_IDENTITY_OPENID_ENABLE: "on"
+      RUSTFS_IDENTITY_OPENID_CONFIG_URL: http://issuer:8080/varve/.well-known/openid-configuration
+      RUSTFS_IDENTITY_OPENID_CLIENT_ID: varve-storage
+      RUSTFS_IDENTITY_OPENID_GROUPS_CLAIM: groups
+      RUSTFS_OUTBOUND_ALLOW_ORIGINS: http://issuer:8080
     ports:
       - "127.0.0.1:9000:9000"
+    depends_on:
+      issuer:
+        condition: service_healthy

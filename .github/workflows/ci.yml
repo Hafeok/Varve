@@ -653,8 +653,11 @@ jobs:
   # The object-storage legs (ADR 0134): the storage contract suite and the
   # object-store contract, race properties included, against Azurite and the
   # S3-compatible server the suite chose, both started by compose on loopback
-  # ports and pinned by digest (ADR 0099). VARVE_STORAGE_LEGS_REQUIRED turns a
-  # leg's skip into a failure, so a container that did not start cannot pass.
+  # ports and pinned by digest (ADR 0099). The object-store contract runs on
+  # RustFS a second time by web identity alone, exchanged at RustFS's STS for
+  # a token of the issuer compose starts beside it (ADR 0137, #165).
+  # VARVE_STORAGE_LEGS_REQUIRED turns a leg's skip into a failure, so a
+  # container that did not start cannot pass.
   storage-services:
     name: storage (services)
     runs-on: ubuntu-latest
@@ -688,7 +691,10 @@ jobs:
           for attempt in $(seq 1 60); do
             azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
             rustfs=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:9000/ || true)
-            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && exit 0
+            # RustFS answers before it has discovered its issuer: ready once its STS exchanges a token.
+            token=$(curl --silent --header 'Host: issuer:8080' --data 'grant_type=client_credentials&client_id=varve-storage&client_secret=unchecked&scope=openid' http://127.0.0.1:8090/varve/token | jq -r '.access_token // empty' || true)
+            sts=$(curl --silent --output /dev/null --write-out '%{http_code}' --data-urlencode "WebIdentityToken=$token" --data 'Action=AssumeRoleWithWebIdentity&Version=2011-06-15&DurationSeconds=900' http://127.0.0.1:9000/ || true)
+            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$sts" = 200 ] && exit 0
             sleep 1
           done
           docker compose --file .github/storage/compose.yaml logs
@@ -704,7 +710,8 @@ jobs:
         env:
           VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
           VARVE_RUSTFS: http://127.0.0.1:9000,varvetest,varvetestsecret
-          VARVE_STORAGE_LEGS_REQUIRED: azurite,rustfs
+          VARVE_RUSTFS_WEB_IDENTITY: http://127.0.0.1:9000/,http://127.0.0.1:8090/varve/token,issuer:8080
+          VARVE_STORAGE_LEGS_REQUIRED: azurite,rustfs,rustfs-web-identity
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
@@ -748,8 +755,10 @@ jobs:
           if-no-files-found: warn
 
   # The fleet (ADRs 0163, 0164, 0168): two server processes on one Azurite
-  # container, the system writer and a follower that forwards. Its own job,
-  # the Fleet category, so the release gate can take it over (#129).
+  # container, the system writer and a follower that forwards, and the same
+  # cases on one RustFS bucket, which the processes reach by web identity
+  # alone (ADR 0137, #165). Its own job, the Fleet category, so the release
+  # gate can take it over (#129).
   fleet-services:
     name: fleet (services)
     runs-on: ubuntu-latest
@@ -782,7 +791,11 @@ jobs:
           docker compose --file .github/storage/compose.yaml up --detach
           for attempt in $(seq 1 60); do
             azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
-            [ "$azurite" = 403 ] && exit 0
+            rustfs=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:9000/ || true)
+            # RustFS answers before it has discovered its issuer: ready once its STS exchanges a token.
+            token=$(curl --silent --header 'Host: issuer:8080' --data 'grant_type=client_credentials&client_id=varve-storage&client_secret=unchecked&scope=openid' http://127.0.0.1:8090/varve/token | jq -r '.access_token // empty' || true)
+            sts=$(curl --silent --output /dev/null --write-out '%{http_code}' --data-urlencode "WebIdentityToken=$token" --data 'Action=AssumeRoleWithWebIdentity&Version=2011-06-15&DurationSeconds=900' http://127.0.0.1:9000/ || true)
+            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$sts" = 200 ] && exit 0
             sleep 1
           done
           docker compose --file .github/storage/compose.yaml logs
@@ -791,14 +804,25 @@ jobs:
       - name: Run the fleet
         env:
           VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
-          VARVE_STORAGE_LEGS_REQUIRED: azurite
+          VARVE_RUSTFS: http://127.0.0.1:9000,varvetest,varvetestsecret
+          VARVE_RUSTFS_WEB_IDENTITY: http://127.0.0.1:9000/,http://127.0.0.1:8090/varve/token,issuer:8080
+          VARVE_STORAGE_LEGS_REQUIRED: azurite,rustfs,rustfs-web-identity
         run: >
           dotnet test
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
           --configuration Release
           --filter-class Varve.Server.Tests.FleetTests
+          --filter-class Varve.Server.Tests.RustFsFleetTests
+          --filter-not-trait Measure=Handover
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+
+      - name: Fleet test durations
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+          --label "the fleet on Azurite and RustFS"
 
       - name: Upload the test results
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
@@ -807,6 +831,97 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: test-results-fleet-services
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
+
+  # The handover's measurements (ADR 0179, #165): the fleet cases that time a
+  # takeover, for each trigger on Azurite and on RustFS, written to the job
+  # summary on every run. The fleet job leaves them to this one.
+  handover-services:
+    name: handover (services)
+    runs-on: ubuntu-latest
+
+    # Its test containers come from this repository's private mirror (#118).
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start the object stores
+        run: |
+          docker compose --file .github/storage/compose.yaml up --detach
+          for attempt in $(seq 1 60); do
+            azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
+            rustfs=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:9000/ || true)
+            # RustFS answers before it has discovered its issuer: ready once its STS exchanges a token.
+            token=$(curl --silent --header 'Host: issuer:8080' --data 'grant_type=client_credentials&client_id=varve-storage&client_secret=unchecked&scope=openid' http://127.0.0.1:8090/varve/token | jq -r '.access_token // empty' || true)
+            sts=$(curl --silent --output /dev/null --write-out '%{http_code}' --data-urlencode "WebIdentityToken=$token" --data 'Action=AssumeRoleWithWebIdentity&Version=2011-06-15&DurationSeconds=900' http://127.0.0.1:9000/ || true)
+            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$sts" = 200 ] && exit 0
+            sleep 1
+          done
+          docker compose --file .github/storage/compose.yaml logs
+          exit 1
+
+      - name: Run the handover cases
+        env:
+          VARVE_HANDOVER_TIMES: ${{ runner.temp }}/handover-times.md
+          VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
+          VARVE_RUSTFS: http://127.0.0.1:9000,varvetest,varvetestsecret
+          VARVE_RUSTFS_WEB_IDENTITY: http://127.0.0.1:9000/,http://127.0.0.1:8090/varve/token,issuer:8080
+          VARVE_STORAGE_LEGS_REQUIRED: azurite,rustfs,rustfs-web-identity
+        run: >
+          dotnet test
+          --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+          --configuration Release
+          --filter-class Varve.Server.Tests.FleetTests
+          --filter-class Varve.Server.Tests.RustFsFleetTests
+          --filter-trait Measure=Handover
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+
+      - name: Takeover times
+        # ADR 0179's measurements, per run: each trigger on each store, from
+        # the event to the first commit the new writer answers, beside the
+        # two-app layout's write downtime on a restart (#165, #97). Also in
+        # the log, which the API reads where it cannot read a summary.
+        if: always()
+        env:
+          TIMES: ${{ runner.temp }}/handover-times.md
+        run: |
+          {
+            echo "## Takeover times, and the write downtime of a restart"
+            echo
+            echo "Each from the event to the new writer's first commit, with \`Varve:Fleet:FollowInterval\` at 200 ms. A restart's includes the process start; a platform's restart adds its own."
+            echo
+            echo "| Trigger | Store | ms |"
+            echo "|---|---|---:|"
+            if [ -f "$TIMES" ]; then sort "$TIMES"; else echo "| no case reported a time | | |"; fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: test-results-handover-services
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
 
@@ -1499,6 +1614,38 @@ jobs:
             az bicep build --file "$template" --stdout > /dev/null
             az bicep lint --file "$template"
           done
+
+  # The Kubernetes sample's manifests, validated strict against a pinned
+  # Kubernetes version and a pinned commit of the schemas (ADR 0181 point 8).
+  kubernetes-sample:
+    name: kubernetes sample
+    runs-on: ubuntu-latest
+
+    # kubeconform comes from this repository's private mirror (#118).
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate deploy/kubernetes
+        env:
+          SCHEMAS: https://raw.githubusercontent.com/yannh/kubernetes-json-schema/89a35a5e9a1412a692a2603d79c3786f602238a4/{{.NormalizedKubernetesVersion}}-standalone{{.StrictSuffix}}/{{.ResourceKind}}{{.KindSuffix}}.json
+        run: >
+          docker run --rm --volume "$PWD/deploy/kubernetes:/manifests:ro"
+          ghcr.io/hafeok/varve-ci/kubeconform@sha256:85dbef6b4b312b99133decc9c6fc9495e9fc5f92293d4ff3b7e1b30f5611823c
+          -strict -summary -kubernetes-version 1.34.0 -schema-location "$SCHEMAS" /manifests
 
   # repo-standard's native binary and its Action, end to end (ADR 0039).
   #

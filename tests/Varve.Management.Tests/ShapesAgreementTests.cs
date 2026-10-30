@@ -47,6 +47,9 @@ public sealed class ShapesAgreementTests
         HandoverNotBoolean,
         ClosedTwice,
         PlacedOnIri,
+        StandbyOnIri,
+        StandbyWithoutHandover,
+        StandbyIsPlacedOn,
         GrantNoGrantee,
         GrantTwoGrantees,
         GranteeLiteral,
@@ -94,7 +97,7 @@ public sealed class ShapesAgreementTests
     }
 
     /// <summary>Where the dataset's event declarations are (ADR 0167): 0 not stated, then varve:InDataset (a cancel), varve:Moving, varve:Moved.</summary>
-    private sealed record Declaration(bool Storage, bool Scope, bool Placed, int Roles, int Groups, bool Template, int ReadGrants, bool Admin, int Bindings, int Events);
+    private sealed record Declaration(bool Storage, bool Scope, bool Placed, int Roles, int Groups, bool Template, int ReadGrants, bool Admin, int Bindings, int Events, int Standbys = 0);
 
     private static readonly Gen<Declaration> Declarations =
         from storage in Gen.Bool
@@ -107,7 +110,8 @@ public sealed class ShapesAgreementTests
         from admin in Gen.Bool
         from bindings in Gen.Int[0, 2]
         from events in Gen.Int[0, 3]
-        select new Declaration(storage, scope, placed, roles, groups, template, reads, admin, bindings, events);
+        from standbys in Gen.Int[0, 2]
+        select new Declaration(storage, scope, placed, roles, groups, template, reads, admin, bindings, events, standbys);
 
     [Fact]
     public void A_valid_graph_conforms_and_the_code_finds_nothing()
@@ -260,7 +264,21 @@ public sealed class ShapesAgreementTests
         text.Append(fault == nameof(Seen.StorageInvalid) ? " ; varve:storage varve:read" : d.Storage ? " ; varve:storage varve:File" : string.Empty);
         text.Append(fault == nameof(Seen.AccessScopeInvalid) ? " ; varve:defaultAccessScope varve:File" : d.Scope ? " ; varve:defaultAccessScope varve:Current" : string.Empty);
         text.Append(fault == nameof(Seen.PlacedOnIri) ? " ; varve:placedOn <https://x/host>" : d.Placed ? " ; varve:placedOn \"varve-1\"" : string.Empty);
-        text.Append(fault == nameof(Seen.HandoverNotBoolean) ? " ; varve:automaticHandover \"yes\"" : " ; varve:automaticHandover false");
+        text.Append(fault == nameof(Seen.HandoverNotBoolean) ? " ; varve:automaticHandover \"yes\""
+            : d.Standbys > 0 && fault != nameof(Seen.StandbyWithoutHandover) ? " ; varve:automaticHandover true" : " ; varve:automaticHandover false");
+
+        for (int i = 0; i < d.Standbys; i++)
+        {
+            text.Append(" ; varve:standbyOn \"standby-").Append(i).Append('"');
+        }
+
+        text.Append(fault switch
+        {
+            nameof(Seen.StandbyOnIri) => " ; varve:standbyOn <https://x/standby>",
+            nameof(Seen.StandbyIsPlacedOn) => d.Placed ? " ; varve:standbyOn \"varve-1\"" : " ; varve:placedOn \"standby-x\" ; varve:standbyOn \"standby-x\"",
+            nameof(Seen.StandbyWithoutHandover) when d.Standbys == 0 => " ; varve:standbyOn \"standby-x\"",
+            _ => string.Empty,
+        });
         text.Append(fault == nameof(Seen.ClosedTwice) ? " ; varve:closed true , false" : string.Empty);
 
         // The move's state: a moved type needs varve:Moved, an event term out of place needs any other.

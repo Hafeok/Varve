@@ -39,6 +39,7 @@ internal static class Lease
         Option<long?> epoch = new("--epoch") { Description = "The epoch --take takes over from, as varve lease shows it." };
         Option<string?> endpoint = new("--endpoint") { Description = "s3://: the S3-compatible service's endpoint." };
         Option<string?> region = new("--region") { Description = "s3://: the region the signature is for." };
+        Option<string?> sts = new("--sts-endpoint") { Description = "s3://: the STS endpoint web identity is exchanged at, a self-hosted server's own; Amazon's when absent." };
         Command command = new("lease", "Inspect a dataset's lease or writer epoch; clear a stale owner file, or take an epoch over (ADRs 0116, 0136).");
         command.Arguments.Add(dataset);
         command.Options.Add(@break);
@@ -46,9 +47,10 @@ internal static class Lease
         command.Options.Add(epoch);
         command.Options.Add(endpoint);
         command.Options.Add(region);
+        command.Options.Add(sts);
         command.SetAction((parsed, cancellationToken) => Cli.GuardAsync(
             () => ObjectLease.IsAddress(parsed.GetValue(dataset)!)
-                ? ObjectLease.RunAsync(parsed.GetValue(dataset)!, parsed.GetValue(@break), parsed.GetValue(take), parsed.GetValue(epoch), parsed.GetValue(endpoint), parsed.GetValue(region), io, cancellationToken)
+                ? ObjectLease.RunAsync(parsed.GetValue(dataset)!, parsed.GetValue(@break), parsed.GetValue(take), parsed.GetValue(epoch), parsed.GetValue(endpoint), parsed.GetValue(region), parsed.GetValue(sts), io, cancellationToken)
                 : RunAsync(parsed.GetValue(dataset)!, parsed.GetValue(@break), parsed.GetValue(take), io, cancellationToken),
             parsed.InvocationConfiguration.Error));
         return command;

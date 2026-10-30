@@ -232,3 +232,19 @@ accepts it (ADR 0066).
 
 **The ledger.** The rulings are ADR 0175's `ShapesAreTheRuntimeValidator`,
 `ResidualCheckInCode` and `CodeValidatorsAreTheOracle`.
+
+## Amendment, 2026-10-27 — `varve:standbyOn`
+
+Filed by Replication part 1 (#165), unaccepted until the maintainer accepts
+it (ADR 0066). Ruled in [ADR 0180](0180-warm-standbys-and-the-writer-set.md).
+
+- **The dataset node gains `varve:standbyOn`.** Its values are literal
+  instance names, any number of them: the standbys of the dataset's writer
+  set.
+- **The shapes:**
+  - it is an `xsd:string`;
+  - a dataset with one declares `varve:automaticHandover true`;
+  - it is disjoint from `varve:placedOn`.
+- **`varve:placedOn` keeps `maxCount 1`**, and now means the preferred writer.
+- **`varve:automaticHandover` is acted on** (ADR 0179), no longer only
+  recorded.

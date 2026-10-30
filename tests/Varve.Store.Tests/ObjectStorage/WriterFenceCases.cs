@@ -151,6 +151,7 @@ internal static class WriterFenceCases
             Assert.NotEmpty(claimed);
             Assert.All(opened.Except(claimed), storage => Assert.True(storage.IsSuperseded));
             WriterRecord record = Assert.IsType<WriterRecord>(await Backend.ReadWriterAsync(store, prefix, T.Ct));
+
             // The history is exactly the claims that succeeded in the record,
             // each one claimant's, in ascending epochs. A claimant can win its
             // epoch in the record and be fenced by the next claim before its

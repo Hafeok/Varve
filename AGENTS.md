@@ -205,7 +205,38 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
-Milestone 8, SHACL (#13), complete with part 2b (ADRs 0174–0176, filed
+Replication (#97), part 1 within a store (#165; ADRs 0179–0181, 0136/0137/
+0163/0164/0166/0168 amended), complete; part 2, across copies, is #166.
+
+- **A dataset in an object store has a writer set** (0180): its `placedOn`
+  and `varve:standbyOn` instances, with `varve:automaticHandover true`.
+  - Standbys tail on the follow interval, and are warm once the default
+    projection has caught up.
+  - Placement works by events (`MemberDecision`), and the start rule never
+    takes a dataset from a healthy successor.
+- **Handover has two triggers** (0179):
+  - **Abdication**: the writer releases for `shutdown`, `placement`,
+    `storage-error` (`Dataset.AppendFailed`) or `local-disk-error`
+    (`Dataset.SpillBound`), answers what it held `503 writer-stepped-down`
+    (`Dataset.StepDown`), and a warm member races and claims in place
+    (`Dataset.TakeWriteAsync`, `ObjectStorage.ClaimInPlaceAsync`).
+  - **The takeover request**, `{"takeover":{"epoch":n}}`, is answered by the
+    receiving instance or refused `409 takeover-refused`.
+  - The system dataset hands over too.
+- **The fence refuses a lower epoch** that lists a later one's chunk, or a
+  log ending in a segment it sealed and consolidated (#181).
+- **Automation** (0181) is `varve manage takeover` (`Takeovers`). It is
+  idempotent, and treats a trigger as stale when the failed instance answers
+  ready and holds the dataset. `varve manage watch-kubernetes` drives it on
+  Kubernetes, and `deploy/azure/container-apps-handover/` on Azure.
+- **Active-active by dataset** is one writer set per region.
+- **What gates it:**
+  - `HandoverScheduleTests`, `PlacementEventTests` and the fence's property;
+  - a four-process active-active property in the fleet suite, on Azurite and
+    RustFS (by web identity);
+  - the handover (services) job's takeover and restart times.
+
+Before that, milestone 8, SHACL (#13), complete with part 2b (ADRs 0174–0176, filed
 unaccepted). Each shapes binding keeps a **validation projection** in
 `Varve.Shacl.Store` (0174). It lives in the local cache only and is rebuilt
 by every instance from the head on a cold start. Its report at p equals

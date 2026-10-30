@@ -163,3 +163,22 @@ replica.
   - `Varve.Server` (6): the directory and the configuration.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-27 — the directory across a handover
+
+Filed by Replication part 1 (#165), unaccepted until the maintainer accepts
+it (ADR 0066). Ruled in [ADR 0179](0179-writer-handover-within-a-store.md)
+point 12, which adds to point 5 and point 4 here.
+
+- **Point 5's "when an advance sees a newer epoch" is built.** The
+  object-storage follower reports the highest epoch it adopted
+  (`ObjectStorage.AdoptedEpoch`), and the route is marked stale when that
+  epoch is above the route's.
+- **A `NoWriter` route is not cached.** Each write in that state reads the
+  record once.
+- **A forward the writer refused with `writer-superseded` or
+  `writer-stepped-down` is answered `503 writer-moved`.** The original problem
+  type is the member `reason`, the route is marked stale, and the body is not
+  sent again. Such a batch was not committed.
+- **Point 9's automatic handover layout** is ADR 0181's, filed with the
+  automation.

@@ -107,6 +107,12 @@ internal static class UpdateRun
             await HttpProblems.WriteAsync(context, ProblemType.WriterSuperseded, superseded.Message).ConfigureAwait(false);
             return;
         }
+        catch (WriterSteppedDownException stepped)
+        {
+            // The writer released the dataset (ADR 0179 point 6): nothing was committed.
+            await HttpProblems.WriteAsync(context, ProblemType.WriterSteppedDown, stepped.Message, members => members.String("reason", stepped.Reason ?? "shutdown")).ConfigureAwait(false);
+            return;
+        }
         catch (Exception failed) when (failed is not OperationCanceledException)
         {
             // The executor's operation failure (an update that names a graph

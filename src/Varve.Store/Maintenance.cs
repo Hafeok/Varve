@@ -115,6 +115,73 @@ public sealed partial class Dataset
     private Task? _maintenanceTask;
     private bool _maintenanceAgain;
     private Exception? _maintenanceFailure;
+
+    // The last spill's failure, cleared by one that succeeds (ADR 0179 point 6).
+    private Exception? _spillFailure;
+
+    /// <summary>
+    /// Why the memtable's last spill to a local run failed, or none when it
+    /// succeeded: the writer goes on committing, and maintenance tries again
+    /// after the next commit. A host reports it, and a host whose dataset has
+    /// a standby releases the epoch for <c>local-disk-error</c> once the
+    /// memtable can no longer be bounded (ADR 0179 point 6).
+    /// </summary>
+    public Exception? SpillFailure => Volatile.Read(ref _spillFailure);
+
+    /// <summary>The entries in the memtable now, by the measure <see cref="DatasetOptions.MemtableLimit"/> bounds.</summary>
+    public Varve.Rdf.QuadCount MemtableEntries => new(_state.Index.MemtableCount);
+
+    /// <summary>
+    /// How many times <see cref="DatasetOptions.MemtableLimit"/> a memtable
+    /// may hold while its spills fail before the writer can no longer bound
+    /// its memory (ADR 0179 point 6).
+    /// </summary>
+    public const int SpillBoundFactor = 4;
+
+    private int _spillBound;
+
+    /// <summary>
+    /// Whether the writer's memory can no longer be bounded, and by which
+    /// measure, decided at the commit that crossed it and never on a timer
+    /// (ADR 0179 point 6): its spills fail, and its memtable holds more than
+    /// <see cref="SpillBoundFactor"/> times <see cref="DatasetOptions.MemtableLimit"/>,
+    /// or the process's memory load has reached the GC's high-load threshold,
+    /// which respects a container's limit. Once reached it stays reached; a
+    /// host whose dataset has a standby releases the epoch for
+    /// <c>local-disk-error</c>, so a small container hands over before the
+    /// out-of-memory killer acts.
+    /// </summary>
+    public SpillBound SpillBound => (SpillBound)Volatile.Read(ref _spillBound);
+
+    // At each commit: the spill bound, while spills fail.
+    private void CheckSpillBound(IndexVersion index)
+    {
+        if (Volatile.Read(ref _spillFailure) is null || Volatile.Read(ref _spillBound) != 0)
+        {
+            return;
+        }
+
+        SpillBound reached = index.MemtableCount > SpillBoundFactor * _options.MemtableLimit.Value ? SpillBound.Memtable
+            : MemoryLoadIsHigh() ? SpillBound.MemoryLoad
+            : SpillBound.None;
+
+        if (reached != SpillBound.None)
+        {
+            Interlocked.CompareExchange(ref _spillBound, (int)reached, 0);
+        }
+    }
+
+    private bool MemoryLoadIsHigh()
+    {
+        if (_options.MemoryLoadHigh is { } probe)
+        {
+            return probe();
+        }
+
+        // The last GC's view: memory load and threshold both against the container's limit where there is one.
+        GCMemoryInfo memory = GC.GetGCMemoryInfo();
+        return memory.HighMemoryLoadThresholdBytes > 0 && memory.MemoryLoadBytes >= memory.HighMemoryLoadThresholdBytes;
+    }
     private long _runSequence;
 
     /// <summary>
@@ -355,8 +422,30 @@ public sealed partial class Dataset
 
         // Streamed from the frozen runs: a flush holds no merged copy of them.
         Run[] memtable = frozen.Runs[disk..];
-        LoadedRun written = await WriteRunAsync(DerivedFormat.MergeOf(memtable, dropRetractions: disk == 0), memtable, cancellationToken).ConfigureAwait(false);
+        LoadedRun written = await SpillAsync(() => WriteRunAsync(DerivedFormat.MergeOf(memtable, dropRetractions: disk == 0), memtable, cancellationToken)).ConfigureAwait(false);
         return await SwapAsync(frozen.Runs, disk, frozen.Runs.Length, written, cancellationToken).ConfigureAwait(false);
+    }
+
+    // A run written to local storage, its failure kept for the host and
+    // cleared by the next that succeeds (ADR 0179 point 6).
+    private async ValueTask<LoadedRun> SpillAsync(Func<ValueTask<LoadedRun>> write)
+    {
+        try
+        {
+            if (_options.SpillFault?.Invoke() == true)
+            {
+                throw new System.IO.IOException("An injected fault of the memtable's spill.");
+            }
+
+            LoadedRun written = await write().ConfigureAwait(false);
+            Volatile.Write(ref _spillFailure, null);
+            return written;
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            Volatile.Write(ref _spillFailure, error);
+            throw;
+        }
     }
 
     // Merges the newest two disk runs into one on disk, streaming.
@@ -364,7 +453,7 @@ public sealed partial class Dataset
     {
         Run older = index.Runs[disk - 2];
         Run newer = index.Runs[disk - 1];
-        LoadedRun written = await WriteRunAsync(DerivedFormat.MergeOf([older, newer], dropRetractions: disk == 2), [older, newer], cancellationToken).ConfigureAwait(false);
+        LoadedRun written = await SpillAsync(() => WriteRunAsync(DerivedFormat.MergeOf([older, newer], dropRetractions: disk == 2), [older, newer], cancellationToken)).ConfigureAwait(false);
         return await SwapAsync(index.Runs, disk - 2, disk, written, cancellationToken).ConfigureAwait(false);
     }
 

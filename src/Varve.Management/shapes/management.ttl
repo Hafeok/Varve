@@ -107,7 +107,27 @@ varve:DatasetShape
         sh:path varve:eventDeclarations ;
         sh:in ( varve:InDataset varve:Moving varve:Moved ) ;
         sh:message "varve:eventDeclarations is varve:InDataset, varve:Moving or varve:Moved" ;
+    ] ;
+    sh:property [
+        sh:path varve:standbyOn ;
+        sh:datatype xsd:string ;
+        sh:message "this property's value is a plain string literal" ;
+    ] ;
+    sh:property [
+        sh:path varve:standbyOn ;
+        sh:disjoint varve:placedOn ;
+        sh:message "an instance is the preferred writer or a standby, not both (ADR 0180)" ;
     ] .
+
+varve:StandbyShape
+    a sh:NodeShape ;
+    rdfs:comment "Standbys take a dataset over automatically, so they need its opt-in (ADR 0180)." ;
+    sh:targetClass varve:Dataset ;
+    sh:or (
+        [ sh:property [ sh:path varve:standbyOn ; sh:maxCount 0 ] ]
+        [ sh:property [ sh:path varve:automaticHandover ; sh:hasValue true ] ]
+    ) ;
+    sh:message "a dataset with a varve:standbyOn declares varve:automaticHandover true (ADR 0180)" .
 
 # ---- Moving event declarations (ADR 0167) --------------------------------
 

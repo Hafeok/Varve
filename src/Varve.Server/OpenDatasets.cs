@@ -6,8 +6,11 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.Extensions.Logging;
 using Varve.Management.Model;
 using Varve.Protocol;
@@ -40,6 +43,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     private readonly ILogger _logger;
     private readonly GroupCommitOptions _groupCommit;
     private readonly ExtentMergePolicy _merges;
+    private readonly Varve.Rdf.QuadCount _memtableLimit;
     private readonly ObjectStores? _objects;
     private readonly ManagementOrder _order;
     private readonly WriterAddress? _address;
@@ -60,6 +64,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         _leaseWait = settings.Lease.WaitFor;
         _logger = logger;
         _address = settings.Fleet.InternalUrl is { } url ? new WriterAddress(url) : null;
+        _memtableLimit = new Varve.Rdf.QuadCount(settings.Store.MemtableLimit);
         _merges = new ExtentMergePolicy
         {
             Enabled = settings.Store.ExtentMerges.Enabled,
@@ -179,7 +184,6 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                 StorageKind.ObjectStorage => DatasetStorage.ObjectStorage,
                 _ => DatasetStorage.File,
             };
-            DatasetRole role = placement.RoleOf(declared, storage);
             Entry? entry;
             bool fresh = false;
 
@@ -193,7 +197,14 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                 }
             }
 
-            await ConvergeAsync(name, entry, role, declared, placement, fresh, cancellationToken).ConfigureAwait(false);
+            if (placement.HasWriterSet(declared, storage))
+            {
+                await ConvergeMemberAsync(name, entry, declared, placement, fresh, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await ConvergeAsync(name, entry, placement.RoleOf(declared, storage), declared, placement, fresh, cancellationToken).ConfigureAwait(false);
+            }
 
             if (entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && entry.Dataset is { } written)
             {
@@ -258,6 +269,16 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             return;
         }
 
+        if (entry.State == DatasetState.Open && entry.Role == DatasetRole.Follower && role == DatasetRole.Follower && !entry.AwaitingRelease && entry.Dataset is { ReopenDue: true })
+        {
+            // A follower that has applied more than MemtableLimit since its
+            // open is opened again from the writer's newest catalog (ADR 0164
+            // point 5); reads pinned to the old one finish on it.
+            ReconcileLog.Reopened(_logger, name);
+            await SwitchAsync(name, entry, DatasetRole.Follower, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         if (entry.State == DatasetState.Open && entry.Role == role && !entry.AwaitingRelease && !(role == DatasetRole.Writer && entry.Superseded))
         {
             return;
@@ -304,7 +325,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             {
                 if (entry.State != DatasetState.Open || entry.Role != DatasetRole.Follower)
                 {
-                    await SwitchAsync(name, entry, DatasetRole.Follower, wait: true, abdicate: false, cancellationToken).ConfigureAwait(false);
+                    await SwitchAsync(name, entry, DatasetRole.Follower, wait: true, abdicate: null, cancellationToken).ConfigureAwait(false);
                 }
 
                 entry.AwaitingRelease = true;
@@ -316,7 +337,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         // Placed elsewhere: abdicate with the reason, so the new writer
         // claims on seeing it (ADR 0136 point 6).
-        bool abdicate = entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && role != DatasetRole.Writer;
+        ReleaseReason? abdicate = entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && role != DatasetRole.Writer ? ReleaseReason.Placement : null;
 
         // A dataset that failed is tried again every round, without the
         // lease wait its first open had: its holder may have released it.
@@ -328,10 +349,32 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     // place, and only then is the old one released: a request resolves one
     // or the other, never neither. A file dataset's lease is one per
     // directory, so it is released before it is taken again.
-    private async Task SwitchAsync(string name, Entry entry, DatasetRole role, bool wait, bool abdicate, CancellationToken cancellationToken)
+    private async Task SwitchAsync(string name, Entry entry, DatasetRole role, bool wait, ReleaseReason? abdicate, CancellationToken cancellationToken)
     {
         if (entry.Storage == DatasetStorage.File)
         {
+            await entry.ReleaseAsync().ConfigureAwait(false);
+            await OpenEntryAsync(name, entry, role, wait, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        // A read-only open of an object-storage dataset keeps its cache in the
+        // followers' directory. A follower's next open there is staged beside
+        // it, so reads go on; one that has taken an epoch in place, claimed or
+        // failing after the claim, holds that directory as a writer, and is
+        // closed before its next read-only open, as a file dataset's is.
+        if (entry.Storage == DatasetStorage.ObjectStorage && entry.State == DatasetState.Open && entry.OpenedToFollow && entry.Objects is { Epoch: not null } && role is DatasetRole.Follower or DatasetRole.Standby)
+        {
+            if (abdicate is { } released)
+            {
+                entry.ReleaseFor(released);
+
+                if (released == ReleaseReason.Placement)
+                {
+                    ReconcileLog.Abdicated(_logger, name);
+                }
+            }
+
             await entry.ReleaseAsync().ConfigureAwait(false);
             await OpenEntryAsync(name, entry, role, wait, cancellationToken).ConfigureAwait(false);
             return;
@@ -347,10 +390,14 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             return;
         }
 
-        if (abdicate)
+        if (abdicate is { } reason)
         {
-            entry.ReleaseFor(ReleaseReason.Placement);
-            ReconcileLog.Abdicated(_logger, name);
+            entry.ReleaseFor(reason);
+
+            if (reason == ReleaseReason.Placement)
+            {
+                ReconcileLog.Abdicated(_logger, name);
+            }
         }
 
         Entry previous;
@@ -380,7 +427,23 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         foreach (Entry entry in entries)
         {
+            // A writer in an object store releases for shutdown: what is in
+            // flight is answered writer-stepped-down (ADR 0179 point 6).
+            entry.StepDownForShutdown();
             await entry.ReleaseAsync().ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// The highest writer epoch an open follower's storage has adopted, or
+    /// none: the writer directory compares it with its route's (ADR 0179
+    /// point 12).
+    /// </summary>
+    internal long? AdoptedEpochOf(DatasetName name)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(name.Value, out Entry? entry) ? entry.AdoptedEpoch : null;
         }
     }
 
@@ -410,7 +473,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         // The bounds are a durable backend's; the memory backend has no flush
         // for a batch to share, and writes each request alone (ADR 0124).
         // The event catalogue's check gates every write path (ADR 0145).
-        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, Validators = [new EventCatalogueValidator(new DatasetName(name), () => _moved(name)), new ReportGraphGuard()] };
+        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, MemtableLimit = _memtableLimit, Validators = [new EventCatalogueValidator(new DatasetName(name), () => _moved(name)), new ReportGraphGuard()] };
 
         try
         {
@@ -428,19 +491,21 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                     return;
                 }
 
-                if (role == DatasetRole.Follower && !await _objects.ExistsAsync(name, cancellationToken).ConfigureAwait(false))
+                bool follows = role is DatasetRole.Follower or DatasetRole.Standby;
+
+                if (follows && !await _objects.ExistsAsync(name, cancellationToken).ConfigureAwait(false))
                 {
                     entry.Fail("Its writer has not created it yet; it is followed once it has.");
                     return;
                 }
 
-                Backend objects = await _objects.OpenAsync(name, role == DatasetRole.Writer ? ObjectStorageAccess.Write : ObjectStorageAccess.ReadOnly, _address, cancellationToken).ConfigureAwait(false);
+                Backend objects = await _objects.OpenAsync(name, follows ? ObjectStorageAccess.ReadOnly : ObjectStorageAccess.Write, _address, cancellationToken).ConfigureAwait(false);
 
                 try
                 {
                     Dataset dataset;
 
-                    if (role == DatasetRole.Follower)
+                    if (follows)
                     {
                         dataset = await Dataset.OpenFollowerAsync(objects, options, cancellationToken).ConfigureAwait(false);
                     }
@@ -590,9 +655,13 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         [LoggerMessage(EventId = 5, Level = LogLevel.Warning, Message = "The dataset '{Name}' did not take its declared settings; tried again on the next round: {Reason}")]
         internal static partial void SettingsFailed(ILogger logger, string name, string reason);
+
+        [LoggerMessage(EventId = 7, Level = LogLevel.Information, Message = "The follower of '{Name}' applied more than its memtable limit since it opened, and opens again from the writer's newest catalog (ADR 0164).")]
+        internal static partial void Reopened(ILogger logger, string name);
     }
 
     /// <summary>One dataset's slot: its storage, its role, its state, and what it holds while open.</summary>
+    [Contract(typeof(WarmStandbysAndTheWriterSet.WarmIsDefaultProjectionCaughtUp), Role = "an open dataset, and whether it is a warm standby")]
     private sealed class Entry(DatasetStorage storage)
     {
         internal DatasetStorage Storage { get; } = storage;
@@ -614,17 +683,54 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         internal bool Superseded => Files is Backend { IsSuperseded: true };
 
+        internal long? AdoptedEpoch => Files is Backend { AdoptedEpoch: { } epoch } ? epoch.Value : null;
+
         /// <summary>The derived store on this machine, where a projection of the server's own keeps its state (ADR 0174): a file dataset's; none for memory or an object store.</summary>
         internal IDerivedStore? LocalDerived => Files is FileStorage files ? files.Derived : null;
 
         internal void Placed(DatasetRole role) => Role = role;
 
+        /// <summary>The writer set this instance last applied, to compare the next declaration with (ADR 0180 point 2); none before the first.</summary>
+        internal (string? PlacedOn, IReadOnlyList<string> StandbyOn)? Applied { get; set; }
+
+        /// <summary>Whether the start rule has decided this dataset's role in this process (ADR 0180 point 3).</summary>
+        internal bool Started { get; set; }
+
+        /// <summary>Whether the dataset was opened to follow, read-only, in the followers' directory: a standby that claimed in place still is.</summary>
+        internal bool OpenedToFollow { get; private set; }
+
+        /// <summary>Whether an advance has completed since the dataset was opened, and whether the last one succeeded (ADR 0180 point 6).</summary>
+        internal bool AdvancedSinceOpen { get; private set; }
+
+        internal bool LastAdvanceFailed { get; private set; }
+
+        /// <summary>The storage the dataset is open on, when it is an object store's.</summary>
+        internal Backend? Objects => Files as Backend;
+
+        /// <summary>
+        /// Whether this standby may claim the dataset (ADR 0180 point 6): it
+        /// tails on the interval, its last advance succeeded, its default
+        /// projection has caught up with what it applied, it is not due a
+        /// re-open, and it has advanced since it opened.
+        /// </summary>
+        internal bool Warm => Role == DatasetRole.Standby && State == DatasetState.Open && Dataset is { IsFollower: true, ReopenDue: false } dataset
+            && AdvancedSinceOpen && !LastAdvanceFailed && dataset.ProjectionPosition == dataset.Head;
+
+        internal void Advanced(bool succeeded)
+        {
+            AdvancedSinceOpen |= succeeded;
+            LastAdvanceFailed = !succeeded;
+        }
+
         internal void Opened(Dataset dataset, IAsyncDisposable? files)
         {
             Dataset = dataset;
             Files = files;
+            OpenedToFollow = dataset.IsFollower;
             State = DatasetState.Open;
             Reason = null;
+            AdvancedSinceOpen = false;
+            LastAdvanceFailed = false;
         }
 
         internal void Fail(string reason)
@@ -645,9 +751,20 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             State = staged.State;
             Reason = staged.Reason;
             Role = staged.Role;
+            OpenedToFollow = staged.OpenedToFollow;
+            AdvancedSinceOpen = false;
+            LastAdvanceFailed = false;
             staged.Dataset = null;
             staged.Files = null;
             return previous;
+        }
+
+        internal void StepDownForShutdown()
+        {
+            if (Files is Backend { ReleaseOnClose: ReleaseReason.Shutdown } && Dataset is { IsFollower: false } writer)
+            {
+                writer.StepDown(Commands.ObjectLease.Shown(ReleaseReason.Shutdown));
+            }
         }
 
         internal void ReleaseFor(ReleaseReason reason)
@@ -655,6 +772,12 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             if (Files is Backend objects)
             {
                 objects.ReleaseOnClose = reason;
+
+                // The requests in flight are answered writer-stepped-down from here (ADR 0179 point 6).
+                if (Dataset is { IsFollower: false } writer)
+                {
+                    writer.StepDown(Commands.ObjectLease.Shown(reason));
+                }
             }
         }
 
@@ -685,6 +808,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 /// whether it may claim at all, whether it writes the system dataset, and
 /// whether the fleet is one instance.
 /// </summary>
+[Contract(typeof(WarmStandbysAndTheWriterSet.WriterSetIsPlacedOnAndStandbyOn), Role = "where this instance stands in a dataset's writer set")]
 internal sealed record Placement(WriterInstance Instance, bool MayClaim, bool SystemWriter, bool FleetOfOne)
 {
     /// <summary>This instance's role in a declared dataset.</summary>
@@ -704,4 +828,18 @@ internal sealed record Placement(WriterInstance Instance, bool MayClaim, bool Sy
 
         return storage == DatasetStorage.ObjectStorage ? DatasetRole.Follower : DatasetRole.Elsewhere;
     }
+
+    /// <summary>
+    /// Whether a dataset has a writer set beyond its preferred writer (ADR
+    /// 0180 point 1): automatic handover, standbys, and an object store. A
+    /// fleet of one has none: it writes everything.
+    /// </summary>
+    internal bool HasWriterSet(DatasetDeclaration declared, DatasetStorage storage) =>
+        !FleetOfOne && storage == DatasetStorage.ObjectStorage && declared.AutomaticHandover && declared.StandbyOn.Count > 0;
+
+    /// <summary>Whether this instance is the dataset's preferred writer: its <c>placedOn</c>, or the system writer when none is declared.</summary>
+    internal bool IsPreferred(DatasetDeclaration declared) => declared.PlacedOn is { } placed ? placed == Instance.Value : SystemWriter;
+
+    /// <summary>Whether this instance is in the dataset's writer set, and may claim at all.</summary>
+    internal bool IsMember(DatasetDeclaration declared) => MayClaim && (IsPreferred(declared) || declared.StandbyOn.Contains(Instance.Value));
 }

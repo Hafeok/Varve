@@ -299,7 +299,7 @@ internal static class AdminEndpoints
         json.WriteString("state", StateName(entry.State));
         json.WriteString("storage", StorageName(entry.Storage));
         json.WriteString("origin", entry.Origin switch { DatasetOrigin.Configured => "configured", DatasetOrigin.Discovered => "discovered", DatasetOrigin.Declared => "declared", _ => "created" });
-        json.WriteString("role", entry.Role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", _ => "elsewhere" });
+        json.WriteString("role", entry.Role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", DatasetRole.Standby => "standby", _ => "elsewhere" });
 
         if (entry.Reason is not null)
         {

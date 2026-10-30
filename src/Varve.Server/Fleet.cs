@@ -6,6 +6,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -57,6 +58,10 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     private Snapshot _snapshot;
     private bool _placeholder;
     private bool _superseded;
+
+    // The system dataset's warm state, as a standby of it (ADR 0180 point 6).
+    private bool _systemAdvanced;
+    private bool _systemAdvanceFailed;
 
     private Fleet(ServerSettings settings, ObjectStores? objects, TimeProvider clock, ILogger logger, IHttpContextAccessor accessor, Dataset system, IAsyncDisposable? storage, ManagementRole role, bool placeholder)
     {
@@ -173,7 +178,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             return new Fleet(settings, null, clock, logger, accessor, memory, null, ManagementRole.Writer, placeholder: false);
         }
 
-        if (IsSystemWriter(settings, objects.Instance))
+        if (settings.Fleet.WriterSet is { } set ? await StartsSystemAsync(objects, set, cancellationToken).ConfigureAwait(false) : IsSystemWriter(settings, objects.Instance))
         {
             (Dataset system, Backend storage) = await ClaimSystemAsync(settings, objects, options, cancellationToken).ConfigureAwait(false);
             return new Fleet(settings, objects, clock, logger, accessor, system, storage, ManagementRole.Writer, placeholder: false);
@@ -190,6 +195,40 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
         return new Fleet(settings, objects, clock, logger, accessor, followed, tailing, ManagementRole.Follower, placeholder: false);
     }
+
+    // The start rule for the system dataset's writer set (ADR 0179 point 13,
+    // ADR 0180 point 3): the preferred writer claims an empty or released
+    // record; a member claims its own record, or one whose holder is not a
+    // member. Otherwise a member starts as a standby, and a non-member follows.
+    private static async Task<bool> StartsSystemAsync(ObjectStores objects, IReadOnlyList<string> set, CancellationToken cancellationToken)
+    {
+        string instance = objects.Instance.Value;
+
+        if (!set.Contains(instance, StringComparer.Ordinal))
+        {
+            return false;
+        }
+
+        WriterRecord? record = await objects.ReadWriterAsync(SystemName, cancellationToken).ConfigureAwait(false);
+
+        if (record is null || record.Released is not null)
+        {
+            return set[0] == instance;
+        }
+
+        return record.Holder.Value == instance || !set.Contains(record.Holder.Value, StringComparer.Ordinal);
+    }
+
+    /// <summary>Whether this instance is a standby of the system dataset: in its writer set, and not writing it.</summary>
+    internal bool IsSystemStandby => _settings.Fleet.WriterSet is { } set && set.Contains(_instance.Value, StringComparer.Ordinal) && _role != ManagementRole.Writer;
+
+    /// <summary>
+    /// Whether this instance is a warm standby of the system dataset (ADR
+    /// 0180 point 6): it follows it, its last advance succeeded and followed
+    /// one since it opened, and its projection has caught up.
+    /// </summary>
+    internal bool IsSystemWarm => IsSystemStandby && !_placeholder && System is { IsFollower: true } system
+        && _systemAdvanced && !_systemAdvanceFailed && system.ProjectionPosition == system.Head;
 
     private static bool IsSystemWriter(ServerSettings settings, WriterInstance instance) => settings.Fleet.Writer switch
     {
@@ -355,6 +394,147 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         return ShapesBindings.Describe(dataset, binding, table.Declarations, table.Position, Datasets.TryResolve(dataset, out Dataset? held) ? held : null);
     }
 
+    /// <inheritdoc />
+    public async ValueTask<Action<System.Text.Json.Utf8JsonWriter>?> DescribeHandoverAsync(DatasetName dataset, CancellationToken cancellationToken)
+    {
+        if (_objects is null
+            || !Volatile.Read(ref _snapshot).Table.Declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared)
+            || declared.Storage != StorageKind.ObjectStorage)
+        {
+            return null;
+        }
+
+        WriterRecord? record = await _objects.ReadWriterAsync(dataset.Value, cancellationToken).ConfigureAwait(false);
+        (_, bool warm) = Datasets.StandbyOf(dataset);
+        return json => WriteHandover(json, record, warm, declared);
+    }
+
+    // The writer epoch, warm, the writer set and the epoch history (ADR 0180
+    // point 7), in the lease command's names (ADR 0179 point 11).
+    private static void WriteHandover(System.Text.Json.Utf8JsonWriter json, WriterRecord? record, bool warm, DatasetDeclaration declared)
+    {
+        json.WriteNumber("epoch", record?.Epoch.Value ?? 0);
+        json.WriteBoolean("warm", warm);
+
+        if (record?.Released is { } released)
+        {
+            json.WriteString("released", Commands.ObjectLease.Shown(released));
+        }
+
+        json.WriteStartObject("writerSet");
+
+        if (declared.PlacedOn is { } placed)
+        {
+            json.WriteString("placedOn", placed);
+        }
+
+        json.WriteStartArray("standbyOn");
+
+        foreach (string standby in declared.StandbyOn)
+        {
+            json.WriteStringValue(standby);
+        }
+
+        json.WriteEndArray();
+        json.WriteBoolean("automaticHandover", declared.AutomaticHandover);
+        json.WriteEndObject();
+        json.WriteStartArray("history");
+
+        foreach (EpochClaim claim in record?.History ?? [])
+        {
+            json.WriteStartObject();
+            json.WriteNumber("epoch", claim.Epoch.Value);
+            json.WriteString("holder", claim.Holder.Value);
+            json.WriteString("trigger", Commands.ObjectLease.Shown(claim.Trigger));
+
+            // Where the holder answers: the automation asks it before a takeover (ADR 0181 point 2).
+            if (claim.Address is { } address)
+            {
+                json.WriteString("address", address.Value);
+            }
+
+            if (claim.Released is { } reason)
+            {
+                json.WriteString("released", Commands.ObjectLease.Shown(reason));
+            }
+
+            json.WriteEndObject();
+        }
+
+        json.WriteEndArray();
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<TakeoverOutcome?> TakeoverAsync(DatasetName? dataset, TakeoverEpoch epoch, CancellationToken cancellationToken)
+    {
+        if (_objects is null)
+        {
+            return null;
+        }
+
+        // Inside the advance, so that no round switches the dataset's storage under the claim.
+        await _advance.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            if (dataset is not { } name)
+            {
+                return await TakeOverSystemAsync(epoch, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (!Volatile.Read(ref _snapshot).Table.Declarations.Datasets.TryGetValue(name.Value, out DatasetDeclaration? declared))
+            {
+                return new TakeoverOutcome(TakeoverRefusal.HandoverOff, new TakeoverEpoch(0));
+            }
+
+            Placement placement = new(_instance, _mayClaim, _role == ManagementRole.Writer, IsFleetOfOne);
+            TakeoverOutcome outcome = await Datasets.TakeoverAsync(name.Value, epoch, declared, placement, cancellationToken).ConfigureAwait(false);
+
+            if (outcome.Refusal == TakeoverRefusal.None)
+            {
+                _routes.TryRemove(name.Value, out _);
+            }
+
+            return outcome;
+        }
+        finally
+        {
+            _advance.Release();
+        }
+    }
+
+    // The system dataset's takeover (ADR 0179 point 13), by the same rules.
+    private async Task<TakeoverOutcome> TakeOverSystemAsync(TakeoverEpoch from, CancellationToken cancellationToken)
+    {
+        WriterRecord? record = await _objects!.ReadWriterAsync(SystemName, cancellationToken).ConfigureAwait(false);
+        long now = record?.Epoch.Value ?? 0;
+
+        if (_settings.Fleet.WriterSet is not { } set)
+        {
+            return new TakeoverOutcome(TakeoverRefusal.HandoverOff, new TakeoverEpoch(now));
+        }
+
+        if (!set.Contains(_instance.Value, StringComparer.Ordinal))
+        {
+            return new TakeoverOutcome(TakeoverRefusal.NotInWriterSet, new TakeoverEpoch(now));
+        }
+
+        // A trigger late or repeated for an old epoch is a visible no-op, whoever holds the dataset now (ADR 0179 point 10).
+        if (record is null || now != from.Value)
+        {
+            return new TakeoverOutcome(TakeoverRefusal.EpochMoved, new TakeoverEpoch(now));
+        }
+
+        if (!IsSystemWarm || _systemStorage is not Backend storage)
+        {
+            return new TakeoverOutcome(TakeoverRefusal.Cold, new TakeoverEpoch(now));
+        }
+
+        bool won = await ClaimSystemInPlaceAsync(storage, record, ClaimTrigger.Probe, cancellationToken).ConfigureAwait(false);
+        now = (await _objects.ReadWriterAsync(SystemName, cancellationToken).ConfigureAwait(false))?.Epoch.Value ?? now;
+        return new TakeoverOutcome(won ? TakeoverRefusal.None : TakeoverRefusal.EpochMoved, new TakeoverEpoch(now));
+    }
+
     /// <summary>The highest management position <paramref name="dataset"/>'s log records, as this writer knows (ADR 0165).</summary>
     internal ManagementPosition Recorded(DatasetName dataset) => _order.Highest(dataset);
 
@@ -445,9 +625,21 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         if (_role == ManagementRole.Writer && (_superseded || _systemStorage is Backend { IsSuperseded: true }))
         {
             // A mistaken second writer, or a successor: this instance is
-            // superseded, reports it, and follows (ADR 0136).
-            FleetLog.Superseded(_logger);
-            _role = ManagementRole.Superseded;
+            // superseded, reports it, and follows (ADR 0136). A member of the
+            // writer set rejoins it as a standby instead (ADR 0179 point 10).
+            bool member = _settings.Fleet.WriterSet is { } set && set.Contains(_instance.Value, StringComparer.Ordinal);
+
+            if (member)
+            {
+                FleetLog.Rejoined(_logger);
+            }
+            else
+            {
+                FleetLog.Superseded(_logger);
+            }
+
+            _role = member ? ManagementRole.Follower : ManagementRole.Superseded;
+            _superseded = false;
             await SwapSystemAsync(null, null).ConfigureAwait(false);
             _placeholder = true;
         }
@@ -471,19 +663,88 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             try
             {
                 await System.AdvanceAsync(cancellationToken).ConfigureAwait(false);
+                _systemAdvanced = true;
+                _systemAdvanceFailed = false;
+
+                // A chunk of a newer epoch means the system writer changed (ADR 0179 point 12).
+                if (_systemStorage is Backend { AdoptedEpoch: { } adopted } && _routes.TryGetValue(SystemName, out WriterRoute route) && adopted.Value > route.Epoch)
+                {
+                    _routes.TryRemove(SystemName, out _);
+                }
             }
             catch (Exception error) when (error is not OperationCanceledException)
             {
                 // The grants stay at the last applied position (ADR 0163 point 8).
+                _systemAdvanceFailed = true;
                 FleetLog.AdvanceFailed(_logger, SystemName, error.Message);
             }
+
+            if (IsSystemStandby)
+            {
+                await RaceForSystemAsync(cancellationToken).ConfigureAwait(false);
+            }
         }
+    }
+
+    // A standby of the system dataset reads its writer record on the
+    // interval, and claims a release its reason lets it race for, in place
+    // (ADR 0179 point 13, ADR 0180 point 4). A loser follows again.
+    private async Task RaceForSystemAsync(CancellationToken cancellationToken)
+    {
+        if (_systemStorage is not Backend storage
+            || await _objects!.ReadWriterAsync(SystemName, cancellationToken).ConfigureAwait(false) is not { Released: { } reason } record
+            || !MemberDecision.ReleaseRace.Races(reason, _settings.Fleet.WriterSet![0] == _instance.Value, IsSystemWarm))
+        {
+            return;
+        }
+
+        await ClaimSystemInPlaceAsync(storage, record, ClaimTrigger.Abdication, cancellationToken).ConfigureAwait(false);
+    }
+
+    // The system dataset claimed in place from the epoch the record showed;
+    // a loser follows it again, since its storage may no longer refresh.
+    private async Task<bool> ClaimSystemInPlaceAsync(Backend storage, WriterRecord record, ClaimTrigger trigger, CancellationToken cancellationToken)
+    {
+        WriterAddress? address = _settings.Fleet.InternalUrl is { } url ? new WriterAddress(url) : null;
+        bool won;
+
+        try
+        {
+            won = await System.TakeWriteAsync(
+                claim => storage.ClaimInPlaceAsync(_instance, address, SystemProbeRandomness.Instance, trigger, record.Epoch, claim),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            FleetLog.AdvanceFailed(_logger, SystemName, error.Message);
+            won = false;
+        }
+
+        if (won)
+        {
+            _role = ManagementRole.Writer;
+            _routes.TryRemove(SystemName, out _);
+            string why = record.Released is { } reason ? Commands.ObjectLease.Shown(reason) : Commands.ObjectLease.Shown(trigger);
+            FleetLog.ClaimedSystem(_logger, storage.Epoch?.Value ?? 0, why);
+            return true;
+        }
+
+        (Dataset? followed, Backend? tailing) = await FollowSystemAsync(_objects!, new DatasetOptions { Clock = _clock, Name = SystemName }, cancellationToken).ConfigureAwait(false);
+
+        if (followed is not null)
+        {
+            await SwapSystemAsync(followed, tailing).ConfigureAwait(false);
+        }
+
+        return false;
     }
 
     private async Task SwapSystemAsync(Dataset? next, IAsyncDisposable? storage)
     {
         next ??= await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = _clock, Name = SystemName }).ConfigureAwait(false);
         Dataset previous = Interlocked.Exchange(ref _system, next);
+        _systemAdvanced = false;
+        _systemAdvanceFailed = false;
         IAsyncDisposable? previousStorage = Interlocked.Exchange(ref _systemStorage, storage);
         await previous.DisposeAsync().ConfigureAwait(false);
 
@@ -579,6 +840,12 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
             await dataset.AdvanceAsync(cancellationToken).ConfigureAwait(false);
             Volatile.Write(ref follow.Last, _clock.GetTimestamp());
+
+            // A chunk of a newer epoch means the writer changed: the route is read again (ADR 0179 point 12).
+            if (Datasets.AdoptedEpochOf(name) is { } adopted && _routes.TryGetValue(name.Value, out WriterRoute route) && adopted > route.Epoch)
+            {
+                _routes.TryRemove(name.Value, out _);
+            }
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
@@ -602,7 +869,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
         if (target.Dataset is { } dataset)
         {
-            if (Datasets.RoleOf(dataset) != DatasetRole.Follower)
+            if (Datasets.RoleOf(dataset) is not (DatasetRole.Follower or DatasetRole.Standby))
             {
                 // Written here, or not held here at all: served, or not found, here.
                 return WriterRoute.Local;
@@ -627,7 +894,13 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
         WriterRecord? record = await _objects!.ReadWriterAsync(name, cancellationToken).ConfigureAwait(false);
         WriterRoute route = RouteOf(record);
-        _routes[name] = route;
+
+        // No writer is never kept: the next write reads the record again, the request being the event (ADR 0179 point 12).
+        if (route.Kind != WriterRouteKind.NoWriter)
+        {
+            _routes[name] = route;
+        }
+
         return route;
     }
 
@@ -695,6 +968,12 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
         [LoggerMessage(EventId = 13, Level = LogLevel.Warning, Message = "Advancing '{Name}' failed; it serves what it applied: {Reason}")]
         internal static partial void AdvanceFailed(ILogger logger, string name, string reason);
+
+        [LoggerMessage(EventId = 15, Level = LogLevel.Warning, Message = "A newer writer holds the system dataset: this instance rejoins its writer set as a standby (ADR 0179 point 10).")]
+        internal static partial void Rejoined(ILogger logger);
+
+        [LoggerMessage(EventId = 16, Level = LogLevel.Information, Message = "This standby claimed the system dataset in place at epoch {Epoch}, on {Reason} (ADR 0179 point 13).")]
+        internal static partial void ClaimedSystem(ILogger logger, long epoch, string reason);
 
         [LoggerMessage(EventId = 14, Level = LogLevel.Information, Message = "Resumed the move of '{Name}''s event declarations to the management plane; moved: {Moved} (ADR 0167).")]
         internal static partial void MoveResumed(ILogger logger, string name, bool moved);

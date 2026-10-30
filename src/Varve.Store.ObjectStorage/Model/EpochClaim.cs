@@ -2,9 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
+
 namespace Varve.Store.ObjectStorage.Model;
 
 /// <summary>One claim in the epoch history: who claimed which epoch, why, where it fenced the log, and how it ended.</summary>
+[Contract(typeof(WriterHandoverWithinAStore.EveryHandoverIsVisible), Role = "one claim in the writer record's epoch history")]
 public sealed record EpochClaim
 {
     /// <summary>The epoch claimed.</summary>

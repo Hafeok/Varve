@@ -219,7 +219,7 @@ public sealed partial class Dataset
                     throw;
                 }
 
-                AppendFailed(error);
+                RecordAppendFailure(error);
                 _dictionary.Forget();
                 bool closed = _writer.Closed >= next;
 

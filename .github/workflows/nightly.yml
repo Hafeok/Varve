@@ -112,6 +112,11 @@ jobs:
           VARVE_EXTENT_FAULTS_FULL: "1"
           VARVE_CACHE_DAMAGE_STRIDE: "1"
           VARVE_EXTENT_DAMAGE_STRIDE: "1"
+          # Replication part 1 (#165): tier 1 under failure injection.
+          VARVE_FOLLOWER_FAULT_SCHEDULES: "2000"
+          VARVE_CLAIM_IN_PLACE_SCHEDULES: "1000"
+          VARVE_CACHE_FAULT_SCHEDULES: "1000"
+          VARVE_HANDOVER_SCHEDULES: "1000"
           # Verified derived data (ADR 0213, #146).
           VARVE_DERIVED_DAMAGE_STRIDE: "1"
           VARVE_MIDREAD_DAMAGE_STRIDE: "1"

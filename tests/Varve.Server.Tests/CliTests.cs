@@ -283,6 +283,35 @@ public sealed class CliTests : IDisposable
         }
     }
 
+    // The managed-identity endpoint is the platform's, another process: a
+    // stub at the HTTP boundary answers as Container Apps' does (ADR 0181 point 3).
+    [Fact]
+    public async Task a_managed_identity_token_is_asked_for_the_management_audience_with_the_platform_header()
+    {
+        System.Net.Http.HttpRequestMessage? asked = null;
+        using System.Net.Http.HttpClient http = new(new Endpoint(request =>
+        {
+            asked = request;
+            return "{\"access_token\":\"t0k\",\"expires_on\":\"1900000000\"}";
+        }));
+        Dictionary<string, string> environment = new() { ["IDENTITY_ENDPOINT"] = "http://localhost:42356/msi/token", ["IDENTITY_HEADER"] = "h3ad", ["AZURE_CLIENT_ID"] = "c1" };
+
+        string token = await Manage.ManagedIdentityTokenAsync(http, "api://varve-manage/.default", name => environment.GetValueOrDefault(name), TestContext.Current.CancellationToken);
+
+        Assert.Equal("t0k", token);
+        Assert.Equal("http://localhost:42356/msi/token?resource=api%3A%2F%2Fvarve-manage&api-version=2019-08-01&client_id=c1", asked!.RequestUri!.ToString());
+        Assert.Equal("h3ad", Assert.Single(asked.Headers.GetValues("X-IDENTITY-HEADER")));
+
+        Cli.CommandException missing = await Assert.ThrowsAsync<Cli.CommandException>(() => Manage.ManagedIdentityTokenAsync(http, "api://varve-manage", _ => null, TestContext.Current.CancellationToken));
+        Assert.Contains("IDENTITY_ENDPOINT", missing.Message, StringComparison.Ordinal);
+    }
+
+    private sealed class Endpoint(Func<System.Net.Http.HttpRequestMessage, string> answer) : System.Net.Http.HttpMessageHandler
+    {
+        protected override Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage request, System.Threading.CancellationToken cancellationToken) =>
+            Task.FromResult(new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new System.Net.Http.StringContent(answer(request)) });
+    }
+
     private static Task<RunningServer> StartServerAsync(TestIssuer issuer) => RunningServer.StartAsync(new Dictionary<string, string>
     {
         ["Varve:Auth:Mode"] = "Oidc",

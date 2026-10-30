@@ -16,18 +16,19 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using CsCheck;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Varve.Store.Azure;
 using Xunit;
 
 namespace Varve.Server.Tests;
 
 /// <summary>
-/// A fleet of two server processes on one Azurite container (ADRs 0163,
-/// 0164, 0168): the system writer and a follower that forwards. Writes and
+/// A fleet of two server processes on one container or bucket (ADRs 0163,
+/// 0164, 0168), on Azurite and on RustFS, which the processes reach by web
+/// identity (#165): the system writer and a follower that forwards. Writes and
 /// management writes through the follower are forwarded and answered by the
 /// writer, and read back from the follower at the position they returned; an
 /// idle followed dataset makes no request to the store; the data plane keeps
@@ -36,16 +37,19 @@ namespace Varve.Server.Tests;
 /// moves the writer with writes in flight, losing none that were answered.
 /// The fleet category, which the release gate may run apart (#129).
 /// </summary>
-[Trait("Category", "Fleet")]
-public sealed class FleetTests : IAsyncDisposable
+public abstract class FleetCases : IAsyncDisposable
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private readonly string _caches = Directory.CreateTempSubdirectory("varve-fleet-").FullName;
     private readonly List<Server> _servers = [];
 
+    private protected abstract FleetStore Store { get; }
+
     public async ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
+
         foreach (Server server in _servers)
         {
             await server.DisposeAsync();
@@ -57,12 +61,12 @@ public sealed class FleetTests : IAsyncDisposable
     [Fact]
     public async Task Writes_through_the_follower_are_forwarded_and_an_idle_dataset_makes_no_requests()
     {
-        Uri container = await ContainerAsync();
-        await using CountingProxy proxy = await CountingProxy.StartAsync(container);
+        FleetLocation container = await Store.NewAsync();
+        await using CountingProxy proxy = await CountingProxy.StartAsync(container.Upstream);
         Server a = await StartAsync("a", container);
         long declared = await DeclareAsync(a, "d");
         declared = Math.Max(declared, await DeclareAsync(a, "e"));
-        Server b = await StartAsync("b", proxy.Container(container));
+        Server b = await StartAsync("b", container.Through(proxy.Address));
         await WaitDeclaredAsync(b, declared, "d", "follower");
 
         // A data write to the follower is forwarded, and read back there at its position.
@@ -96,7 +100,7 @@ public sealed class FleetTests : IAsyncDisposable
     [Fact]
     public async Task The_data_plane_keeps_serving_with_the_system_writer_killed()
     {
-        Uri container = await ContainerAsync();
+        FleetLocation container = await Store.NewAsync();
         Server a = await StartAsync("a", container);
         long declared = await DeclareAsync(a, "d");
         Assert.Equal(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }")).StatusCode);
@@ -111,7 +115,7 @@ public sealed class FleetTests : IAsyncDisposable
         Assert.Contains("\"boolean\":true", await read.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
         HttpResponseMessage write = await Update(b, "d", "INSERT DATA { <http://ex/b> <http://ex/p> 2 }");
         Assert.Equal(HttpStatusCode.ServiceUnavailable, write.StatusCode);
-        Assert.Contains("writer-unreachable", await write.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        Assert.Contains("commit-outcome-unknown", await write.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
         HttpResponseMessage management = await Declare(b, "g");
         Assert.Equal(HttpStatusCode.ServiceUnavailable, management.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await b.Http.GetAsync(new Uri(b.Address, "health/live"), Ct)).StatusCode);
@@ -120,7 +124,7 @@ public sealed class FleetTests : IAsyncDisposable
     [Fact]
     public async Task A_mistaken_second_system_writer_shows_in_readiness_and_the_epoch_history()
     {
-        Uri container = await ContainerAsync();
+        FleetLocation container = await Store.NewAsync();
         Server a = await StartAsync("a", container);
         await DeclareAsync(a, "d");
 
@@ -150,7 +154,7 @@ public sealed class FleetTests : IAsyncDisposable
         await WaitReadyAsync(b, a, container);
 
         StringWriter output = new() { NewLine = "\n" };
-        Assert.Equal(0, await Varve.Server.Commands.Cli.RunAsync(["lease", container + "/_fleet"], new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct));
+        Assert.Equal(0, await Varve.Server.Commands.Cli.RunAsync(container.Lease("_fleet"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct));
         string record = output.ToString();
         Assert.Contains("epoch 1  restart  by a", record, StringComparison.Ordinal);
         Assert.Contains("epoch 2  restart  by b", record, StringComparison.Ordinal);
@@ -165,7 +169,7 @@ public sealed class FleetTests : IAsyncDisposable
     [Fact]
     public async Task A_placement_change_moves_the_writer_with_writes_in_flight_and_loses_none()
     {
-        Uri container = await ContainerAsync();
+        FleetLocation container = await Store.NewAsync();
         Server a = await StartAsync("a", container, writer: "a");
         long declared = await DeclareAsync(a, "d");
         Server b = await StartAsync("b", container, writer: "a");
@@ -204,7 +208,7 @@ public sealed class FleetTests : IAsyncDisposable
         // a now forwards to b, which writes.
         Assert.Equal(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 1 }")).StatusCode);
         StringWriter output = new() { NewLine = "\n" };
-        await Varve.Server.Commands.Cli.RunAsync(["lease", container + "/d"], new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
         Assert.Contains("placement", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
     }
@@ -221,7 +225,7 @@ public sealed class FleetTests : IAsyncDisposable
     [InlineData(true)]
     public async Task Event_declarations_move_through_a_non_writer_and_render_the_same_events(bool placedOnTheFollower)
     {
-        Uri container = await ContainerAsync();
+        FleetLocation container = await Store.NewAsync();
         Server a = await StartAsync("a", container, writer: "a");
         long declared = await DeclareAsync(a, "d");
         Server b = await StartAsync("b", container, writer: "a");
@@ -271,6 +275,923 @@ public sealed class FleetTests : IAsyncDisposable
         Assert.Contains("/types/Paid/versions/1/revisions/", after[before.Length..], StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A follower whose memtable grows past Varve:Store:MemtableLimit since its
+    /// open is opened again from the writer's newest catalog by the reconcile
+    /// round (ADR 0164 point 5), and answers as before: the same quads, at the
+    /// writer's position.
+    /// </summary>
+    [Fact]
+    public async Task A_follower_past_its_memtable_limit_opens_again_and_answers_the_same()
+    {
+        string[] small = ["--Varve:Store:MemtableLimit=40", "--Logging:LogLevel:Default=Information"];
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, "a", small);
+        long declared = await DeclareAsync(a, "d");
+        Server b = await StartAsync("b", container, "a", small);
+        await WaitDeclaredAsync(b, declared, "d", "follower");
+
+        StringBuilder triples = new();
+
+        for (int n = 0; n < 60; n++)
+        {
+            triples.Append("<http://ex/s").Append(n).Append("> <http://ex/p> ").Append(n).Append(" . ");
+        }
+
+        HttpResponseMessage written = await Update(a, "d", "INSERT DATA { " + triples + "}");
+        Assert.Equal(HttpStatusCode.NoContent, written.StatusCode);
+        string position = written.Headers.GetValues("Varve-Position").Single();
+        Assert.Equal("60", await CountAsync(b, position));
+
+        bool reopened = false;
+
+        for (int attempt = 0; attempt < 100 && !reopened; attempt++)
+        {
+            reopened = b.Log.Contains("opens again from the writer's newest catalog", StringComparison.Ordinal);
+            await Task.Delay(100, Ct);
+        }
+
+        Assert.True(reopened, "b never opened its follower again:\n" + b.Log);
+        Assert.Equal("60", await CountAsync(b, position));
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 1 }")).StatusCode);
+    }
+
+    /// <summary>
+    /// A rolling restart of a dataset with a writer set (ADR 0180 point 4): a
+    /// holds d and b is its standby, warm on readiness. a shuts down,
+    /// releasing for shutdown; b, warm, claims d in place and writes; a,
+    /// restarted, finds b holding the record, a member, and starts as b's
+    /// standby, forwarding writes to it. The takeover time is reported.
+    /// </summary>
+    [Fact]
+    [Trait("Measure", "Handover")]
+    public async Task A_rolling_restart_moves_the_writer_to_the_warm_standby_and_the_restarted_writer_stands_by()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, writer: "a");
+        long declared = await DeclareAsync(a, "d", "a", "b");
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, declared, "d", "standby");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        await WaitWarmAsync(b, "d");
+
+        Stopwatch takeover = Stopwatch.StartNew();
+        await a.StopAsync();
+        await WaitDeclaredAsync(b, declared, "d", "writer");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+        takeover.Stop();
+        Measured("abdication (shutdown): the writer's stop to the standby's first commit", takeover);
+
+        Server again = await StartAsync("a", container, writer: "a");
+        await WaitDeclaredAsync(again, declared, "d", "standby");
+        HttpResponseMessage forwarded = await Update(again, "d", "INSERT DATA { <http://ex/forwarded> <http://ex/p> 3 }");
+        Assert.Equal(HttpStatusCode.NoContent, forwarded.StatusCode);
+        Assert.Equal("3", await CountAsync(again, forwarded.Headers.GetValues("Varve-Position").Single()));
+
+        StringWriter output = new() { NewLine = "\n" };
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
+        Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("abdication", output.ToString(), StringComparison.Ordinal);
+
+        // The state resource: a's role, the epoch b claimed, the writer set and the history (ADR 0180 point 7).
+        await WaitWarmAsync(again, "d");
+        using JsonDocument state = JsonDocument.Parse(await again.Http.GetStringAsync(new Uri(again.Address, "manage/datasets/d/state"), Ct));
+        JsonElement root = state.RootElement;
+        Assert.Equal("standby", root.GetProperty("role").GetString());
+        Assert.True(root.GetProperty("warm").GetBoolean());
+        Assert.Equal(2, root.GetProperty("epoch").GetInt64());
+        Assert.Equal("a", root.GetProperty("writerSet").GetProperty("placedOn").GetString());
+        Assert.Equal(["b"], root.GetProperty("writerSet").GetProperty("standbyOn").EnumerateArray().Select(standby => standby.GetString()));
+        JsonElement[] history = [.. root.GetProperty("history").EnumerateArray()];
+        Assert.Equal(("a", "restart", "shutdown"), (history[0].GetProperty("holder").GetString(), history[0].GetProperty("trigger").GetString(), history[0].GetProperty("released").GetString()));
+        Assert.Equal(("b", "abdication"), (history[^1].GetProperty("holder").GetString(), history[^1].GetProperty("trigger").GetString()));
+    }
+
+    /// <summary>
+    /// The system dataset hands over too (ADR 0179 point 13): with
+    /// Varve:Fleet:Writer "a,b" and automatic handover, a writes it and b is
+    /// its standby. a shuts down; b, warm, claims it in place and answers
+    /// management writes itself; a, restarted, finds b holding it and stands
+    /// by, forwarding management writes to b.
+    /// </summary>
+    [Fact]
+    [Trait("Measure", "Handover")]
+    public async Task The_system_dataset_moves_to_its_warm_standby_when_its_writer_shuts_down()
+    {
+        string[] handover = ["--Varve:Fleet:AutomaticHandover=true"];
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, "a,b", handover);
+        long declared = await DeclareAsync(a, "d");
+        Server b = await StartAsync("b", container, "a,b", handover);
+        await WaitDeclaredAsync(b, declared, "d", "follower");
+        await WaitManagementAsync(b, "follower", warm: true);
+
+        Stopwatch takeover = Stopwatch.StartNew();
+        await a.StopAsync();
+        await WaitManagementAsync(b, "writer", warm: null);
+        long second = await DeclareAsync(b, "e");
+        takeover.Stop();
+        Measured("system dataset, abdication (shutdown): the writer's stop to the standby's first management commit", takeover);
+
+        Server again = await StartAsync("a", container, "a,b", handover);
+        await WaitManagementAsync(again, "follower", warm: true);
+        await WaitDeclaredAsync(again, second, "e", "follower");
+        Assert.True((await Declare(again, "f")).IsSuccessStatusCode, "a management write through the returning writer is forwarded to b");
+
+        StringWriter output = new() { NewLine = "\n" };
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("_fleet"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
+        Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("abdication", output.ToString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The storage-error abdication (ADR 0179 point 6): a writes d through a
+    /// proxy that starts failing its log writes, so a batch fails with every
+    /// retry spent. a releases the epoch for storage-error and stands by; b,
+    /// warm and reaching the store directly, claims in place and writes, and a
+    /// forwards to it. The epoch history shows the release and the claim.
+    /// </summary>
+    [Fact]
+    [Trait("Measure", "Handover")]
+    public async Task A_writer_whose_batch_fails_against_the_store_abdicates_and_the_warm_standby_takes_over()
+    {
+        FleetLocation container = await Store.NewAsync();
+        await using CountingProxy proxy = await CountingProxy.StartAsync(container.Upstream);
+        Server a = await StartAsync("a", container.Through(proxy.Address), writer: "a");
+        long declared = await DeclareAsync(a, "d", "a", "b");
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, declared, "d", "standby");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        await WaitWarmAsync(b, "d");
+
+        proxy.Fail = (method, path) => method == "PUT" && path.Contains("/d/log/", StringComparison.Ordinal);
+        Stopwatch takeover = Stopwatch.StartNew();
+        HttpResponseMessage failed = await Update(a, "d", "INSERT DATA { <http://ex/lost> <http://ex/p> 2 }");
+        Assert.NotEqual(HttpStatusCode.NoContent, failed.StatusCode);
+        Stopwatch afterRefusal = Stopwatch.StartNew();
+        await WaitDeclaredAsync(b, declared, "d", "writer");
+
+        HttpResponseMessage written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 3 }");
+        Assert.True(written.StatusCode == HttpStatusCode.NoContent, (int)written.StatusCode + " " + await written.Content.ReadAsStringAsync(Ct) + "\n" + a.Log);
+        takeover.Stop();
+        afterRefusal.Stop();
+        Measured("abdication (storage-error): the first failed write, retries included, to the first commit forwarded to the standby", takeover);
+        Measured("abdication (storage-error): the failed write's answer to the first commit forwarded to the standby", afterRefusal);
+        Assert.Equal("2", await CountAsync(b, written.Headers.GetValues("Varve-Position").Single()));
+
+        StringWriter output = new() { NewLine = "\n" };
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
+        Assert.Contains("storage-error", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A claim that wins the record and fails after it releases what it won
+    /// (ADR 0179 point 6): a writes d through a proxy that fails its log
+    /// writes, abdicates for storage-error, and its own standby, the only warm
+    /// member, claims the release. The record's PUT gets through, the fence's
+    /// does not, so the claim fails holding epoch 2, and the standby that
+    /// opens again releases it for storage-error. b, started then and reaching
+    /// the store directly, claims and writes. A failed claim that kept its
+    /// epoch would leave the record naming a writer that cannot write.
+    /// </summary>
+    [Fact]
+    public async Task A_claim_that_fails_after_winning_the_record_releases_its_epoch_and_another_member_claims()
+    {
+        FleetLocation container = await Store.NewAsync();
+        await using CountingProxy proxy = await CountingProxy.StartAsync(container.Upstream);
+        Server a = await StartAsync("a", container.Through(proxy.Address), writer: "a");
+        long declared = await DeclareAsync(a, "d", "a", "b");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+
+        proxy.Fail = (method, path) => method == "PUT" && path.Contains("/d/log/", StringComparison.Ordinal);
+        Assert.NotEqual(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/lost> <http://ex/p> 2 }")).StatusCode);
+
+        // a's own standby claims epoch 2, fails at the fence, and releases it.
+        string lease = string.Empty;
+
+        for (int attempt = 0; attempt < 300 && !System.Text.RegularExpressions.Regex.IsMatch(lease, @"epoch [2-9]\d*\s+abdication\s+by a\s.*released: storage-error"); attempt++)
+        {
+            await Task.Delay(100, Ct);
+            StringWriter output = new() { NewLine = "\n" };
+            await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
+            lease = output.ToString();
+        }
+
+        Assert.True(System.Text.RegularExpressions.Regex.IsMatch(lease, @"epoch [2-9]\d*\s+abdication\s+by a\s.*released: storage-error"), lease + "\n" + a.Log);
+
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, declared, "d", "writer");
+        HttpResponseMessage written = await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 3 }");
+        Assert.True(written.StatusCode == HttpStatusCode.NoContent, (int)written.StatusCode + " " + await written.Content.ReadAsStringAsync(Ct) + "\n" + b.Log);
+        Assert.Equal("2", await CountAsync(b, written.Headers.GetValues("Varve-Position").Single()));
+    }
+
+    /// <summary>
+    /// The probe trigger (ADR 0179 point 6): a holds d and is killed, so it
+    /// releases nothing. A takeover request naming epoch 1, sent to b, warm,
+    /// is answered by b with epoch 2, and b writes. Sent again it is a no-op,
+    /// epoch-moved; to a dataset without automatic handover it is
+    /// handover-off; to one whose writer set leaves b out, not-in-writer-set;
+    /// to the holder itself, which is no standby, cold.
+    /// The time from the kill to b's first write is reported.
+    /// </summary>
+    [Fact]
+    [Trait("Measure", "Handover")]
+    public async Task A_takeover_request_moves_a_killed_writer_s_dataset_to_the_warm_standby_and_refuses_the_rest()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, writer: "a");
+        long declared = await DeclareAsync(a, "d", "a", "b");
+        await DeclareAsync(a, "plain");
+        long last = await DeclareAsync(a, "other", "a", "c");
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, last, "d", "standby");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        await WaitWarmAsync(b, "d");
+
+        await AssertRefusedAsync(b, "d", 5, "epoch-moved", 1);
+        await AssertRefusedAsync(b, "plain", 1, "handover-off", 1);
+        await AssertRefusedAsync(b, "other", 1, "not-in-writer-set", 1);
+        await AssertRefusedAsync(a, "d", 1, "cold", 1);
+
+        Stopwatch downtime = Stopwatch.StartNew();
+        a.Kill();
+        HttpResponseMessage took = await Takeover(b, "d", 1);
+        string answer = await took.Content.ReadAsStringAsync(Ct);
+        Assert.True(took.StatusCode == HttpStatusCode.OK, (int)took.StatusCode + " " + answer + "\n" + b.Log);
+        using (JsonDocument body = JsonDocument.Parse(answer))
+        {
+            Assert.Equal(2, body.RootElement.GetProperty("epoch").GetInt64());
+        }
+
+        HttpResponseMessage written = await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }");
+        downtime.Stop();
+        Assert.Equal(HttpStatusCode.NoContent, written.StatusCode);
+        Assert.Equal("2", await CountAsync(b, written.Headers.GetValues("Varve-Position").Single()));
+        Measured("probe: the writer's kill, then the takeover request, to the standby's first commit", downtime);
+
+        await AssertRefusedAsync(b, "d", 1, "epoch-moved", 2);
+        StringWriter output = new() { NewLine = "\n" };
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
+        Assert.Contains("probe", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The automation's command (ADR 0181): with a killed, <c>varve manage
+    /// takeover --from a</c> names a, c and b, in that order. It skips a, which
+    /// does not answer, and c, which is no standby of d, and moves d to b and
+    /// other to c, each a warm standby of its dataset. plain, which declares
+    /// no handover, is left to a's restart. Run again, as a duplicated trigger
+    /// would, it finds every epoch held by another instance and does nothing.
+    /// </summary>
+    [Fact]
+    public async Task The_takeover_command_moves_every_dataset_the_failed_instance_holds_to_a_warm_standby_and_runs_again_as_a_no_op()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, writer: "a");
+        await DeclareAsync(a, "d", "a", "b");
+        await DeclareAsync(a, "plain");
+        long last = await DeclareAsync(a, "other", "a", "c");
+        Server b = await StartAsync("b", container, writer: "a");
+        Server c = await StartAsync("c", container, writer: "a");
+        await WaitDeclaredAsync(b, last, "d", "standby");
+        await WaitDeclaredAsync(c, last, "other", "standby");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(c, "other", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        await WaitWarmAsync(b, "d");
+        await WaitWarmAsync(c, "other");
+
+        a.Kill();
+        string[] command = ["manage", "takeover", "--from", "a", "--server", a.Address.ToString(), "--server", c.Address.ToString(), "--server", b.Address.ToString()];
+        (int exit, string output, string error) = await RunAsync(command);
+        Assert.True(exit == 0, output + error);
+        Assert.Contains("Taken over: d from epoch 1 by " + b.Address.ToString().TrimEnd('/') + ", at epoch 2.", output, StringComparison.Ordinal);
+        Assert.Contains("Taken over: other from epoch 1 by " + c.Address.ToString().TrimEnd('/') + ", at epoch 2.", output, StringComparison.Ordinal);
+        Assert.Contains("plain: does not declare automatic handover", output, StringComparison.Ordinal);
+        Assert.Contains("_fleet: does not declare automatic handover", output, StringComparison.Ordinal);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(c, "other", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+
+        (exit, output, error) = await RunAsync(command);
+        Assert.True(exit == 0, output + error);
+        Assert.Contains("d: epoch 2 is held by b, not a; nothing to take over.", output, StringComparison.Ordinal);
+        Assert.Contains("other: epoch 2 is held by c, not a; nothing to take over.", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("Taken over", output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The Kubernetes controller (ADR 0181 point 8), against an API server
+    /// that serves the pods a, b and c, all ready, and then streams what the
+    /// test sends:
+    /// - a is killed and its <c>Ready</c> turns <c>False</c>, and the
+    ///   controller takes over from a over b and c, which moves d to b and
+    ///   other to c;
+    /// - a repeat of that event, and a pod first seen not ready, start nothing;
+    /// - an <c>ERROR</c> event, the API server's 410 for a version too old,
+    ///   makes it list again.
+    /// Every request to the API server carries the token file's token.
+    /// </summary>
+    [Fact]
+    public async Task The_kubernetes_controller_takes_over_from_a_pod_that_turns_not_ready_and_from_nothing_else()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, writer: "a");
+        await DeclareAsync(a, "d", "a", "b");
+        long last = await DeclareAsync(a, "other", "a", "c");
+        Server b = await StartAsync("b", container, writer: "a");
+        Server c = await StartAsync("c", container, writer: "a");
+        await WaitDeclaredAsync(b, last, "d", "standby");
+        await WaitDeclaredAsync(c, last, "other", "standby");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(c, "other", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        await WaitWarmAsync(b, "d");
+        await WaitWarmAsync(c, "other");
+
+        string token = Path.Combine(_caches, "kubernetes-token");
+        await File.WriteAllTextAsync(token, "k8s-t0k3n\n", Ct);
+        await using FakeKubernetes api = await FakeKubernetes.StartAsync(["a", "b", "c"]);
+        Dictionary<string, Server> pods = new() { ["a"] = a, ["b"] = b, ["c"] = c };
+        ConcurrentQueue<(string Failed, string[] Others, bool Handled, string Output)> takeovers = new();
+        StringWriter log = new() { NewLine = "\n" };
+        using HttpClient varve = new();
+        using HttpClient kubernetes = new();
+        using CancellationTokenSource stop = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        Varve.Server.Commands.KubernetesController.Watcher watcher = new(kubernetes, new Uri(api.Address, "api/v1/namespaces/varve/pods?labelSelector=app%3Dvarve"), token, new Varve.Server.Commands.Io(log, log, new MemoryStream()));
+        Task watching = watcher.RunAsync(
+            async (failed, others, ct) =>
+            {
+                StringWriter output = new() { NewLine = "\n" };
+                string[] addresses = [.. others.Select(pod => pods[pod].Address.ToString().TrimEnd('/'))];
+                bool handled = await Varve.Server.Commands.Takeovers.FromAsync(varve, null, failed, addresses, [], new Varve.Server.Commands.Io(output, output, new MemoryStream()), ct);
+                takeovers.Enqueue((failed, others, handled, output.ToString()));
+                return handled;
+            },
+            stop.Token);
+
+        await api.WaitWatchingAsync(1);
+        a.Kill();
+        api.Send("MODIFIED", "a", ready: false, version: 2);
+        (string Failed, string[] Others, bool Handled, string Output) took = await NextAsync(takeovers, log);
+        Assert.Equal("a", took.Failed);
+        Assert.Equal(["b", "c"], took.Others);
+        Assert.True(took.Handled, took.Output);
+        Assert.Contains("Taken over: d from epoch 1 by " + b.Address.ToString().TrimEnd('/'), took.Output, StringComparison.Ordinal);
+        Assert.Contains("Taken over: other from epoch 1 by " + c.Address.ToString().TrimEnd('/'), took.Output, StringComparison.Ordinal);
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(c, "other", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+
+        // A repeat, a pod first seen not ready, and one that only turns ready start nothing.
+        api.Send("MODIFIED", "a", ready: false, version: 3);
+        api.Send("ADDED", "d-0", ready: false, version: 4);
+        api.Send("MODIFIED", "d-0", ready: true, version: 5);
+
+        // A version too old: the controller lists again, and watches from the list's version.
+        api.Send("ERROR", null, ready: false, version: 0);
+        await api.WaitWatchingAsync(2);
+        Assert.Equal(2, api.Lists);
+        Assert.Empty(takeovers);
+        Assert.All(api.Tokens, presented => Assert.Equal("Bearer k8s-t0k3n", presented));
+
+        await stop.CancelAsync();
+        await watching;
+    }
+
+    private static async Task<(string, string[], bool, string)> NextAsync(ConcurrentQueue<(string, string[], bool, string)> takeovers, StringWriter log)
+    {
+        for (int i = 0; i < 600; i++)
+        {
+            if (takeovers.TryDequeue(out (string, string[], bool, string) took))
+            {
+                return took;
+            }
+
+            await Task.Delay(50, Ct);
+        }
+
+        Assert.Fail("The controller took over from nothing: " + log);
+        return default;
+    }
+
+    /// <summary>
+    /// A Kubernetes API server for one namespace's pods, at the process
+    /// boundary: a list, then a watch that streams the events the test sends,
+    /// one JSON object a line, as the API server does.
+    /// </summary>
+    private sealed class FakeKubernetes : IAsyncDisposable
+    {
+        private readonly WebApplication _app;
+        private readonly string[] _pods;
+        private System.Threading.Channels.Channel<string> _events = System.Threading.Channels.Channel.CreateUnbounded<string>();
+        private int _watches;
+        private int _lists;
+
+        private FakeKubernetes(WebApplication app, string[] pods)
+        {
+            _app = app;
+            _pods = pods;
+        }
+
+        internal Uri Address { get; private set; } = null!;
+
+        internal int Lists => Volatile.Read(ref _lists);
+
+        internal ConcurrentQueue<string> Tokens { get; } = new();
+
+        internal static async Task<FakeKubernetes> StartAsync(string[] pods)
+        {
+            WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
+            builder.WebHost.UseKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 0));
+            builder.Logging.ClearProviders();
+            WebApplication app = builder.Build();
+            FakeKubernetes api = new(app, pods);
+
+            app.Run(async context =>
+            {
+                api.Tokens.Enqueue(context.Request.Headers.Authorization.ToString());
+                context.Response.ContentType = "application/json";
+
+                if (context.Request.Query["watch"] != "true")
+                {
+                    Interlocked.Increment(ref api._lists);
+                    await context.Response.WriteAsync("{\"kind\":\"PodList\",\"metadata\":{\"resourceVersion\":\"1\"},\"items\":[" + string.Join(",", api._pods.Select(pod => Pod(pod, true, 1))) + "]}", context.RequestAborted);
+                    return;
+                }
+
+                System.Threading.Channels.Channel<string> events = api._events;
+                Interlocked.Increment(ref api._watches);
+                await context.Response.StartAsync(context.RequestAborted);
+
+                try
+                {
+                    await foreach (string line in events.Reader.ReadAllAsync(context.RequestAborted))
+                    {
+                        await context.Response.WriteAsync(line + "\n", context.RequestAborted);
+                        await context.Response.Body.FlushAsync(context.RequestAborted);
+
+                        // The API server ends the watch after an error event.
+                        if (line.Contains("\"ERROR\"", StringComparison.Ordinal))
+                        {
+                            api._events = System.Threading.Channels.Channel.CreateUnbounded<string>();
+                            return;
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            });
+
+            await app.StartAsync();
+            api.Address = new Uri(app.Urls.First().TrimEnd('/') + "/");
+            return api;
+        }
+
+        internal void Send(string type, string? pod, bool ready, long version) =>
+            _events.Writer.TryWrite(type == "ERROR"
+                ? "{\"type\":\"ERROR\",\"object\":{\"kind\":\"Status\",\"code\":410,\"reason\":\"Expired\"}}"
+                : "{\"type\":\"" + type + "\",\"object\":" + Pod(pod!, ready, version) + "}");
+
+        internal async Task WaitWatchingAsync(int watches)
+        {
+            for (int i = 0; Volatile.Read(ref _watches) < watches; i++)
+            {
+                Assert.True(i < 600, "the controller never opened watch " + watches);
+                await Task.Delay(50, Ct);
+            }
+        }
+
+        private static string Pod(string name, bool ready, long version) =>
+            "{\"metadata\":{\"name\":\"" + name + "\",\"resourceVersion\":\"" + version.ToString(CultureInfo.InvariantCulture) + "\"},\"status\":{\"conditions\":[{\"type\":\"Ready\",\"status\":\"" + (ready ? "True" : "False") + "\"}]}}";
+
+        public async ValueTask DisposeAsync()
+        {
+            _events.Writer.TryComplete();
+            await _app.StopAsync();
+            await _app.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    /// A stale trigger (ADR 0181 point 2): a, the writer of d, is killed and
+    /// restarts on its cache, and reclaims d at once, as a restart after its
+    /// own crash does. The probe's trigger arrives after that. The command
+    /// finds the record's holder still a, asks a, and a answers ready and
+    /// holding d. So it takes nothing over, exits 0, and says why. b, warm,
+    /// would otherwise have taken d.
+    /// </summary>
+    [Fact]
+    public async Task A_trigger_that_arrives_after_the_writer_restarted_and_reclaimed_changes_nothing()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, writer: "a");
+        long declared = await DeclareAsync(a, "d", "a", "b");
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, declared, "d", "standby");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+
+        a.Kill();
+        Server again = await StartAsync("a", container, writer: "a");
+        await WaitDeclaredAsync(again, declared, "d", "writer");
+        await WaitWarmAsync(b, "d");
+
+        (int exit, string output, string error) = await RunAsync(["manage", "takeover", "d", "--from", "a", "--server", b.Address.ToString()]);
+        Assert.True(exit == 0, output + error);
+        Assert.Contains("d: a at ", output, StringComparison.Ordinal);
+        Assert.Contains("answers ready and holds epoch 2: the trigger is stale; nothing to take over.", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("Taken over", output, StringComparison.Ordinal);
+
+        // a still writes d at epoch 2, and b still stands by.
+        using JsonDocument state = JsonDocument.Parse(await b.Http.GetStringAsync(new Uri(b.Address, "manage/datasets/d/state"), Ct));
+        Assert.Equal("standby", state.RootElement.GetProperty("role").GetString());
+        Assert.Equal(2, state.RootElement.GetProperty("epoch").GetInt64());
+        Assert.Equal("a", state.RootElement.GetProperty("history").EnumerateArray().Last().GetProperty("holder").GetString());
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(again, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode);
+    }
+
+    // The active-active property's count; VARVE_ACTIVE_ACTIVE_SCHEDULES sets it nightly (docs/testing.md §8).
+    private static readonly int ActiveActiveSchedules = int.TryParse(Environment.GetEnvironmentVariable("VARVE_ACTIVE_ACTIVE_SCHEDULES"), out int n) ? n : 2;
+
+    private static readonly string[] Regions = ["r1a", "r1b", "r2a", "r2b"];
+
+    /// <summary>
+    /// Active-active by dataset within one store (#97 point 9, ADR 0180):
+    /// four processes as two regions of two. Dataset a's writer set is region
+    /// 1's, placed on r1a with r1b its standby, and b's is region 2's. Over
+    /// generated schedules, writes go through any instance and are forwarded
+    /// to the dataset's writer. The holder of either dataset crashes and
+    /// restarts, crashes and is taken over by its standby, or restarts
+    /// gracefully and hands over. After every step, each dataset has exactly
+    /// one writer among the live instances, in its own region, and its other
+    /// member is a warm standby. At the end:
+    /// - every acknowledged write is present;
+    /// - every write present was tried, and took exactly one position, as no
+    ///   two instances ever appended to one epoch;
+    /// - every claim in each dataset's epoch history is its own region's.
+    /// </summary>
+    [Fact]
+    public async Task Two_regions_write_their_own_datasets_hand_over_within_them_and_never_have_two_writers()
+    {
+        Store.RequireLeg();
+        Gen<(int Kind, int Arg)[]> schedules = Gen.Select(Gen.Int[0, 5], Gen.Int[0, 7]).Array[4, 12];
+        await schedules.SampleAsync(RunActiveActiveAsync, iter: ActiveActiveSchedules, print: schedule => string.Join(" ", schedule.Select(step => step.Kind + ":" + step.Arg)));
+    }
+
+    // Kinds: 0-2 a write of a or b through any instance; 3 the holder crashes
+    // and restarts, and reclaims; 4 the holder crashes, its standby is asked to
+    // take over, and it returns as the standby; 5 the holder restarts
+    // gracefully, releasing for shutdown, and its standby claims.
+    private async Task RunActiveActiveAsync((int Kind, int Arg)[] schedule)
+    {
+        FleetLocation container = await Store.NewAsync();
+        string run = Guid.NewGuid().ToString("N")[..8];
+        Dictionary<string, Server> live = [];
+        Dictionary<string, string[]> region = new() { ["a"] = ["r1a", "r1b"], ["b"] = ["r2a", "r2b"] };
+
+        async Task StartAsync(string name)
+        {
+            Server server = Server.Start(name, FreePort(), container, Path.Combine(_caches, run + "-" + name), "r1a", []);
+            live[name] = server;
+            await server.WaitLiveAsync();
+        }
+
+        try
+        {
+            await StartAsync("r1a");
+            await DeclareAsync(live["r1a"], "a", "r1a", "r1b");
+            long last = await DeclareAsync(live["r1a"], "b", "r2a", "r2b");
+
+            foreach (string name in Regions[1..])
+            {
+                await StartAsync(name);
+            }
+
+            foreach (string name in Regions)
+            {
+                await WaitDeclaredAsync(live[name], last, "b", name == "r2a" ? "writer" : name == "r2b" ? "standby" : "follower");
+            }
+
+            Dictionary<string, List<long>> positions = new() { ["a"] = [], ["b"] = [] };
+            Dictionary<string, HashSet<int>> acknowledged = new() { ["a"] = [], ["b"] = [] };
+            Dictionary<string, HashSet<int>> tried = new() { ["a"] = [], ["b"] = [] };
+            int marker = 0;
+
+            foreach (string dataset in region.Keys)
+            {
+                await SettleAsync(live, region, dataset);
+            }
+
+            foreach ((int kind, int arg) in schedule)
+            {
+                string dataset = arg % 2 == 0 ? "a" : "b";
+
+                if (kind <= 2)
+                {
+                    // Forwarded to the dataset's writer from any instance, either region's.
+                    Server through = live[Regions[arg / 2 % 4]];
+                    tried[dataset].Add(++marker);
+                    HttpResponseMessage written = await Update(through, dataset, "INSERT DATA { <http://ex/w" + marker + "> <http://ex/p> " + marker + " }");
+
+                    if (written.StatusCode == HttpStatusCode.NoContent)
+                    {
+                        acknowledged[dataset].Add(marker);
+                        positions[dataset].Add(long.Parse(written.Headers.GetValues("Varve-Position").Single(), CultureInfo.InvariantCulture));
+                    }
+                    else
+                    {
+                        // A route the last handover made stale: refused, and sent again by a client.
+                        Assert.True(written.StatusCode == HttpStatusCode.ServiceUnavailable, (int)written.StatusCode + " " + await written.Content.ReadAsStringAsync(Ct));
+                    }
+
+                    continue;
+                }
+
+                (string holder, long epoch) = await HolderAsync(live, dataset);
+                string standby = region[dataset].Single(member => member != holder);
+
+                switch (kind)
+                {
+                    case 3:
+                        live[holder].Kill();
+                        await live[holder].DisposeAsync();
+                        await StartAsync(holder);
+                        break;
+                    case 4:
+                        live[holder].Kill();
+                        await live[holder].DisposeAsync();
+                        HttpResponseMessage took = await Takeover(live[standby], dataset, epoch);
+                        Assert.True(took.StatusCode == HttpStatusCode.OK, (int)took.StatusCode + " " + await took.Content.ReadAsStringAsync(Ct));
+                        await StartAsync(holder);
+                        break;
+                    default:
+                        await live[holder].StopAsync();
+                        await live[holder].DisposeAsync();
+                        await StartAsync(holder);
+                        break;
+                }
+
+                await SettleAsync(live, region, dataset);
+            }
+
+            foreach (string dataset in region.Keys)
+            {
+                (string holder, _) = await HolderAsync(live, dataset);
+                Server writer = live[holder];
+                using HttpRequestMessage read = new(HttpMethod.Get, new Uri(writer.Address, "datasets/" + dataset + "/sparql?query=" + Uri.EscapeDataString("SELECT ?o { ?s <http://ex/p> ?o }")));
+                read.Headers.TryAddWithoutValidation("Varve-Min-Position", (positions[dataset].Count == 0 ? 0 : positions[dataset].Max()).ToString(CultureInfo.InvariantCulture));
+                read.Headers.TryAddWithoutValidation("Accept", "text/csv");
+                HttpResponseMessage response = await writer.Http.SendAsync(read, Ct);
+                string body = await response.Content.ReadAsStringAsync(Ct);
+                Assert.True(response.StatusCode == HttpStatusCode.OK, body);
+                HashSet<int> present = [.. body.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Skip(1).Select(value => int.Parse(value, CultureInfo.InvariantCulture))];
+
+                Assert.Subset(present, acknowledged[dataset]);
+                Assert.Subset(tried[dataset], present);
+                Assert.Equal(positions[dataset].Count, positions[dataset].Distinct().Count());
+
+                // One commit a write: the head is the writes present, as the declaration commits none.
+                long head = long.Parse(response.Headers.GetValues("Varve-Position").Single(), CultureInfo.InvariantCulture);
+                Assert.Equal(present.Count, head);
+
+                using JsonDocument state = JsonDocument.Parse(await writer.Http.GetStringAsync(new Uri(writer.Address, "manage/datasets/" + dataset + "/state"), Ct));
+                Assert.All(state.RootElement.GetProperty("history").EnumerateArray(), claim => Assert.Contains(claim.GetProperty("holder").GetString(), region[dataset]));
+            }
+        }
+        finally
+        {
+            foreach (Server server in live.Values)
+            {
+                await server.DisposeAsync();
+            }
+        }
+    }
+
+    // The epoch holder of a dataset, and its epoch, as any live instance's state resource reads the record.
+    private static async Task<(string Holder, long Epoch)> HolderAsync(Dictionary<string, Server> live, string dataset)
+    {
+        foreach (Server server in live.Values)
+        {
+            try
+            {
+                using JsonDocument state = JsonDocument.Parse(await server.Http.GetStringAsync(new Uri(server.Address, "manage/datasets/" + dataset + "/state"), Ct));
+                return (state.RootElement.GetProperty("history").EnumerateArray().Last().GetProperty("holder").GetString()!, state.RootElement.GetProperty("epoch").GetInt64());
+            }
+            catch (HttpRequestException)
+            {
+            }
+        }
+
+        Assert.Fail("no live instance answered " + dataset + "'s state");
+        return default;
+    }
+
+    // Until exactly one live member of the dataset's writer set reports it as
+    // writer, the other as a warm standby, and every other instance follows it.
+    private static async Task SettleAsync(Dictionary<string, Server> live, Dictionary<string, string[]> region, string dataset)
+    {
+        string seen = string.Empty;
+
+        for (int attempt = 0; attempt < 300; attempt++)
+        {
+            Dictionary<string, (string Role, bool Warm)> roles = [];
+
+            foreach ((string name, Server server) in live)
+            {
+                HttpResponseMessage response = await server.Http.GetAsync(new Uri(server.Address, "manage/datasets/" + dataset + "/state"), Ct);
+
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    using JsonDocument state = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
+                    roles[name] = (state.RootElement.GetProperty("role").GetString()!, state.RootElement.TryGetProperty("warm", out JsonElement warm) && warm.GetBoolean());
+                }
+            }
+
+            seen = string.Join(", ", roles.Select(role => role.Key + " " + role.Value.Role + (role.Value.Warm ? " warm" : string.Empty)));
+            string[] writers = [.. roles.Where(role => role.Value.Role == "writer").Select(role => role.Key)];
+
+            // Never two writers, settled or not; and never one outside the region.
+            Assert.True(writers.Length <= 1, dataset + " has two writers: " + seen);
+            Assert.All(writers, writer => Assert.Contains(writer, region[dataset]));
+
+            if (roles.Count == live.Count && writers.Length == 1
+                && region[dataset].All(member => member == writers[0] || roles[member] is ("standby", true))
+                && roles.Where(role => !region[dataset].Contains(role.Key)).All(role => role.Value.Role == "follower"))
+            {
+                return;
+            }
+
+            await Task.Delay(100, Ct);
+        }
+
+        Assert.Fail(dataset + " never settled: " + seen + "\n" + string.Join("\n", live.Values.Select(server => server.Instance + ":\n" + server.Log)));
+    }
+
+    private static async Task<(int Exit, string Output, string Error)> RunAsync(string[] args)
+    {
+        StringWriter output = new() { NewLine = "\n" };
+        StringWriter error = new() { NewLine = "\n" };
+        int exit = await Varve.Server.Commands.Cli.RunAsync(args, new Varve.Server.Commands.Io(output, error, new MemoryStream()), Ct);
+        return (exit, output.ToString(), error.ToString());
+    }
+
+    /// <summary>
+    /// The system dataset taken over on a probe (ADR 0179 point 13): its
+    /// writer a is killed, and b, warm in its writer set, takes it over on a
+    /// request to <c>_fleet</c>, then answers management writes.
+    /// </summary>
+    [Fact]
+    [Trait("Measure", "Handover")]
+    public async Task A_takeover_request_moves_the_system_dataset_of_a_killed_writer()
+    {
+        string[] handover = ["--Varve:Fleet:AutomaticHandover=true"];
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, "a,b", handover);
+        await DeclareAsync(a, "d");
+        Server b = await StartAsync("b", container, "a,b", handover);
+        await WaitManagementAsync(b, "follower", warm: true);
+
+        Stopwatch downtime = Stopwatch.StartNew();
+        a.Kill();
+        HttpResponseMessage took = await Takeover(b, "_fleet", 1);
+        Assert.True(took.StatusCode == HttpStatusCode.OK, (int)took.StatusCode + " " + await took.Content.ReadAsStringAsync(Ct) + "\n" + b.Log);
+        Assert.True((await Declare(b, "e")).IsSuccessStatusCode);
+        downtime.Stop();
+        Measured("system dataset, probe: the writer's kill, then the takeover request, to the standby's first management commit", downtime);
+        await WaitManagementAsync(b, "writer", warm: null);
+    }
+
+    /// <summary>
+    /// The default two-app layout keeps restart as its recovery (#97, ADR
+    /// 0181): a is the system writer and d's, with no standby, and b follows
+    /// and forwards. a stops and starts again on the same cache, and the
+    /// write downtime is the time from its stop to the first write b forwards
+    /// and a commits, beside the takeover times. It includes the process
+    /// start here; a platform's restart adds its own (#164 measures it).
+    /// </summary>
+    [Fact]
+    [Trait("Measure", "Handover")]
+    public async Task A_restart_of_the_writer_with_no_standby_answers_writes_through_the_follower_again()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container);
+        long declared = await DeclareAsync(a, "d");
+        Server b = await StartAsync("b", container);
+        await WaitDeclaredAsync(b, declared, "d", "follower");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(b, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+
+        Stopwatch downtime = Stopwatch.StartNew();
+        await a.StopAsync();
+        Server again = await StartAsync("a", container);
+        HttpResponseMessage write;
+        int refused = 0;
+
+        // b refuses while no writer answers, commit-outcome-unknown or writer-moved, and forwards once a holds d again.
+        while ((write = await Update(b, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }")).StatusCode != HttpStatusCode.NoContent)
+        {
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, write.StatusCode);
+            Assert.True(++refused < 600, "b never forwarded a write to the restarted writer\n" + b.Log + "\n" + again.Log);
+            await Task.Delay(50, Ct);
+        }
+
+        downtime.Stop();
+        Measured("restart (two-app layout, no standby): the writer's stop, its start again, to the first write the follower forwards", downtime);
+        Assert.Equal("2", await CountAsync(b, write.Headers.GetValues("Varve-Position").Single()));
+    }
+
+    private static Task<HttpResponseMessage> Takeover(Server server, string dataset, long epoch) =>
+        server.Http.PutAsync(new Uri(server.Address, "manage/datasets/" + dataset + "/state"), new StringContent("{\"takeover\":{\"epoch\":" + epoch.ToString(CultureInfo.InvariantCulture) + "}}", Encoding.UTF8, "application/json"), Ct);
+
+    private static async Task AssertRefusedAsync(Server server, string dataset, long epoch, string reason, long current)
+    {
+        HttpResponseMessage refused = await Takeover(server, dataset, epoch);
+        string body = await refused.Content.ReadAsStringAsync(Ct);
+        Assert.True(refused.StatusCode == HttpStatusCode.Conflict, (int)refused.StatusCode + " " + body);
+        using JsonDocument problem = JsonDocument.Parse(body);
+        Assert.EndsWith("/takeover-refused", problem.RootElement.GetProperty("type").GetString(), StringComparison.Ordinal);
+        Assert.Equal(reason, problem.RootElement.GetProperty("reason").GetString());
+        Assert.Equal(current, problem.RootElement.GetProperty("epoch").GetInt64());
+    }
+
+    // Until readiness reports the instance's system role, and as a standby whether it is warm (ADR 0179 point 13).
+    private static async Task WaitManagementAsync(Server server, string role, bool? warm)
+    {
+        string last = string.Empty;
+
+        for (int attempt = 0; attempt < 40; attempt++)
+        {
+            HttpResponseMessage ready = await server.Http.GetAsync(new Uri(server.Address, "health/ready"), Ct);
+            last = await ready.Content.ReadAsStringAsync(Ct);
+
+            using (JsonDocument body = JsonDocument.Parse(last))
+            {
+                if (body.RootElement.TryGetProperty("management", out JsonElement management)
+                    && management.GetProperty("role").GetString() == role
+                    && (warm is not { } wanted || (management.TryGetProperty("warm", out JsonElement reported) && reported.GetBoolean() == wanted)))
+                {
+                    return;
+                }
+            }
+
+            await Task.Delay(500, Ct);
+        }
+
+        Assert.Fail(server.Instance + " never reported the system role " + role + (warm is { } w ? ", warm " + w : string.Empty) + ": " + last + "\n" + server.Log);
+    }
+
+    // A handover time: a diagnostic message, and a row of the table the
+    // handover (services) job writes to its summary, when it names the file
+    // (ADR 0179, #165).
+    private void Measured(string what, Stopwatch elapsed)
+    {
+        string store = Store == FleetStore.Azurite ? "Azurite" : "RustFS";
+        TestContext.Current.SendDiagnosticMessage(what + ", " + store + ": " + elapsed.ElapsedMilliseconds + " ms");
+
+        if (Environment.GetEnvironmentVariable("VARVE_HANDOVER_TIMES") is { Length: > 0 } file)
+        {
+            File.AppendAllText(file, "| " + what + " | " + store + " | " + elapsed.ElapsedMilliseconds.ToString(CultureInfo.InvariantCulture) + " |\n");
+        }
+    }
+
+    // Until readiness reports the dataset's standby warm (ADR 0180 point 7).
+    private static async Task WaitWarmAsync(Server server, string dataset)
+    {
+        string last = string.Empty;
+
+        for (int attempt = 0; attempt < 40; attempt++)
+        {
+            HttpResponseMessage ready = await server.Http.GetAsync(new Uri(server.Address, "health/ready"), Ct);
+            last = await ready.Content.ReadAsStringAsync(Ct);
+
+            if (ready.StatusCode == HttpStatusCode.OK)
+            {
+                using JsonDocument body = JsonDocument.Parse(last);
+                JsonElement entry = body.RootElement.GetProperty("datasets").GetProperty(dataset);
+
+                if (entry.GetProperty("role").GetString() == "standby" && entry.GetProperty("tailing").GetBoolean() && entry.GetProperty("warm").GetBoolean())
+                {
+                    return;
+                }
+            }
+
+            await Task.Delay(1000, Ct);
+        }
+
+        Assert.Fail(server.Instance + " never reported " + dataset + "'s standby warm: " + last + "\n" + server.Log);
+    }
+
+    private static async Task<string> CountAsync(Server server, string atLeast)
+    {
+        using HttpRequestMessage read = new(HttpMethod.Get, new Uri(server.Address, "datasets/d/sparql?query=" + Uri.EscapeDataString("SELECT (COUNT(*) AS ?n) { ?s <http://ex/p> ?o }")));
+        read.Headers.TryAddWithoutValidation("Varve-Min-Position", atLeast);
+        read.Headers.TryAddWithoutValidation("Accept", "text/csv");
+        HttpResponseMessage response = await server.Http.SendAsync(read, Ct);
+        string body = await response.Content.ReadAsStringAsync(Ct);
+        Assert.True(response.StatusCode == HttpStatusCode.OK, (int)response.StatusCode + " " + body);
+        return body.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)[1];
+    }
+
     private static async Task<string> EventsAsync(Server server, string atLeast)
     {
         using HttpRequestMessage request = new(HttpMethod.Get, new Uri(server.Address, "datasets/d/events?from=0"));
@@ -284,10 +1205,10 @@ public sealed class FleetTests : IAsyncDisposable
 
     // ---- the fleet ----
 
-    private async Task<Server> StartAsync(string instance, Uri container, string writer = "a")
+    private async Task<Server> StartAsync(string instance, FleetLocation container, string writer = "a", params string[] extra)
     {
         int port = FreePort();
-        Server server = Server.Start(instance, port, container, Path.Combine(_caches, instance), writer);
+        Server server = Server.Start(instance, port, container, Path.Combine(_caches, instance), writer, extra);
         _servers.Add(server);
         await server.WaitLiveAsync();
         return server;
@@ -302,6 +1223,19 @@ public sealed class FleetTests : IAsyncDisposable
 
     private static Task<HttpResponseMessage> Declare(Server server, string dataset) =>
         server.Http.PutAsync(new Uri(server.Address, "manage/datasets/" + dataset), Trig(Declaration(dataset)), Ct);
+
+    // A dataset with a writer set (ADR 0180): placed on one instance, the others its standbys.
+    private static async Task<long> DeclareAsync(Server server, string dataset, string placedOn, params string[] standbys)
+    {
+        string trig = Declaration(dataset)
+            + " <urn:fleet:" + dataset + "> <https://w3id.org/varve/ns#placedOn> \"" + placedOn + "\" ;"
+            + " <https://w3id.org/varve/ns#automaticHandover> true"
+            + string.Concat(standbys.Select(standby => " ; <https://w3id.org/varve/ns#standbyOn> \"" + standby + "\""))
+            + " .";
+        HttpResponseMessage response = await server.Http.PutAsync(new Uri(server.Address, "manage/datasets/" + dataset), Trig(trig), Ct);
+        Assert.True(response.IsSuccessStatusCode, (int)response.StatusCode + " " + await response.Content.ReadAsStringAsync(Ct));
+        return long.Parse(response.Headers.GetValues("Varve-Position").Single(), CultureInfo.InvariantCulture);
+    }
 
     private static string Declaration(string dataset) =>
         "<urn:fleet:" + dataset + "> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"" + dataset + "\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#ObjectStorage> .";
@@ -334,7 +1268,7 @@ public sealed class FleetTests : IAsyncDisposable
         Assert.Fail(server.Instance + " did not hold " + dataset + " as " + role + " at system position " + position + ":\n" + server.Log);
     }
 
-    private static async Task WaitReadyAsync(Server server, Server other, Uri container)
+    private static async Task WaitReadyAsync(Server server, Server other, FleetLocation container)
     {
         string last = string.Empty;
 
@@ -353,37 +1287,12 @@ public sealed class FleetTests : IAsyncDisposable
         }
 
         StringWriter lease = new() { NewLine = "\n" };
-        await Varve.Server.Commands.Cli.RunAsync(["lease", container + "/d"], new Varve.Server.Commands.Io(lease, new StringWriter(), new MemoryStream()), Ct);
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(lease, new StringWriter(), new MemoryStream()), Ct);
         Assert.Fail(server.Instance + " did not become ready: " + last + "\nd's writer record:\n" + lease + "\n" + server.Instance + ":\n" + server.Log + "\n" + other.Instance + ":\n" + other.Log);
     }
 
     private static Task<HttpResponseMessage> Update(Server server, string dataset, string update) =>
         server.Http.PostAsync(new Uri(server.Address, "datasets/" + dataset + "/sparql"), new StringContent(update, Encoding.UTF8, "application/sparql-update"), Ct);
-
-    private static async Task<Uri> ContainerAsync()
-    {
-        string account = Environment.GetEnvironmentVariable("VARVE_AZURITE") ?? string.Empty;
-
-        if (account.Length == 0)
-        {
-            if ((Environment.GetEnvironmentVariable("VARVE_STORAGE_LEGS_REQUIRED") ?? string.Empty).Split(',').Contains("azurite"))
-            {
-                Assert.Fail("The azurite leg is required here (VARVE_STORAGE_LEGS_REQUIRED) and VARVE_AZURITE is not set.");
-            }
-
-            Assert.Skip("The fleet runs on Azurite and needs VARVE_AZURITE (ADR 0163).");
-        }
-
-        Uri container = new(account.TrimEnd('/') + "/f" + Guid.NewGuid().ToString("N")[..20]);
-        using HttpClient http = new();
-        using DevelopmentKeySigner signer = new(TimeProvider.System);
-        using HttpRequestMessage create = new(HttpMethod.Put, new Uri(container + "?restype=container"));
-        create.Headers.Add("x-ms-version", "2025-11-05");
-        await signer.SignAsync(create, Ct);
-        using HttpResponseMessage response = await http.SendAsync(create, Ct);
-        Assert.True(response.IsSuccessStatusCode, "The container was not created: " + response.StatusCode);
-        return container;
-    }
 
     private static int FreePort()
     {
@@ -422,7 +1331,7 @@ public sealed class FleetTests : IAsyncDisposable
             }
         }
 
-        internal static Server Start(string instance, int port, Uri container, string cache, string writer)
+        internal static Server Start(string instance, int port, FleetLocation container, string cache, string writer, string[] extra)
         {
             string address = "http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture);
             ProcessStartInfo start = new("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
@@ -432,8 +1341,7 @@ public sealed class FleetTests : IAsyncDisposable
                 "--urls=" + address,
                 "--Logging:LogLevel:Default=Warning",
                 "--Varve:Auth:Mode=Anonymous",
-                "--Varve:ObjectStorage:Provider=Azure",
-                "--Varve:ObjectStorage:ContainerUrl=" + container,
+                .. container.ServerArguments,
                 "--Varve:ObjectStorage:CachePath=" + cache,
                 "--Varve:ObjectStorage:Instance=" + instance,
                 "--Varve:Fleet:Writer=" + writer,
@@ -442,9 +1350,15 @@ public sealed class FleetTests : IAsyncDisposable
 
                 // One event source, so that every instance renders the same bytes (ADR 0143).
                 "--Varve:Events:Source=https://varve.example.org/",
+                .. extra,
             ])
             {
                 start.ArgumentList.Add(argument);
+            }
+
+            foreach ((string name, string value) in container.Environment)
+            {
+                start.Environment[name] = value;
             }
 
             Server server = new(instance, new Uri(address + "/"), Process.Start(start)!);
@@ -478,6 +1392,24 @@ public sealed class FleetTests : IAsyncDisposable
             Assert.Fail(Instance + " did not come up: " + Log);
         }
 
+        /// <summary>Stops the process as an orchestrator does, by SIGTERM, and waits for it to exit: the host drains and releases what it holds.</summary>
+        internal async Task StopAsync()
+        {
+            if (_process.HasExited)
+            {
+                return;
+            }
+
+            using (Process signal = Process.Start("kill", ["-TERM", _process.Id.ToString(CultureInfo.InvariantCulture)]))
+            {
+                await signal.WaitForExitAsync(Ct);
+            }
+
+            using CancellationTokenSource exit = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+            exit.CancelAfter(TimeSpan.FromSeconds(60));
+            await _process.WaitForExitAsync(exit.Token);
+        }
+
         internal void Kill()
         {
             if (!_process.HasExited)
@@ -508,7 +1440,7 @@ public sealed class FleetTests : IAsyncDisposable
     }
 
     /// <summary>
-    /// A loopback proxy in front of Azurite that counts the requests it
+    /// A loopback proxy in front of the store that counts the requests it
     /// passes, by path: what one server asks of the store.
     /// </summary>
     private sealed class CountingProxy : IAsyncDisposable
@@ -524,9 +1456,8 @@ public sealed class FleetTests : IAsyncDisposable
 
         internal Uri Address { get; }
 
-        internal static async Task<CountingProxy> StartAsync(Uri container)
+        internal static async Task<CountingProxy> StartAsync(Uri store)
         {
-            Uri azurite = new(container.GetLeftPart(UriPartial.Authority) + "/");
             WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
             builder.WebHost.UseKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 0));
             builder.Logging.ClearProviders();
@@ -538,7 +1469,14 @@ public sealed class FleetTests : IAsyncDisposable
             {
                 HttpRequest request = context.Request;
                 proxy!._seen.Enqueue((request.Method, request.Path.Value ?? string.Empty, request.QueryString.Value ?? string.Empty));
-                using HttpRequestMessage forward = new(new HttpMethod(request.Method), new Uri(azurite, request.Path.Value!.TrimStart('/') + request.QueryString.Value));
+
+                // A store that fails what the test names, as a store's 500.
+                if (proxy.Fail is { } fail && fail(request.Method, request.Path.Value ?? string.Empty))
+                {
+                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                    return;
+                }
+                using HttpRequestMessage forward = new(new HttpMethod(request.Method), new Uri(store, request.Path.Value!.TrimStart('/') + request.QueryString.Value));
                 MemoryStream body = new();
                 await request.Body.CopyToAsync(body, context.RequestAborted);
 
@@ -549,8 +1487,10 @@ public sealed class FleetTests : IAsyncDisposable
 
                 foreach ((string name, Microsoft.Extensions.Primitives.StringValues values) in request.Headers)
                 {
+                    // The host the client signed stays the host the store sees: S3's signature covers it.
                     if (name.Equals("Host", StringComparison.OrdinalIgnoreCase))
                     {
+                        forward.Headers.Host = values.ToString();
                         continue;
                     }
 
@@ -580,17 +1520,18 @@ public sealed class FleetTests : IAsyncDisposable
             return proxy;
         }
 
-        /// <summary>The container's address through this proxy.</summary>
-        internal Uri Container(Uri container) => new(Address, container.AbsolutePath.TrimStart('/'));
-
         internal void Reset() => _seen.Clear();
+
+        /// <summary>The requests the proxy answers 500 to, by method and path, instead of passing them on; none when null.</summary>
+        internal Func<string, string, bool>? Fail { get; set; }
 
         /// <summary>The requests whose path holds <paramref name="fragment"/>.</summary>
         internal int Count(string fragment) => _seen.Count(request => request.Path.Contains(fragment, StringComparison.Ordinal));
 
-        /// <summary>The LISTs under a prefix holding <paramref name="fragment"/>.</summary>
+        /// <summary>The LISTs under a prefix holding <paramref name="fragment"/>: Azure's <c>comp=list</c>, S3's <c>list-type=2</c>.</summary>
         internal int Lists(string fragment) => _seen.Count(request =>
-            request.Query.Contains("comp=list", StringComparison.Ordinal) && Uri.UnescapeDataString(request.Query).Contains(fragment.Trim('/'), StringComparison.Ordinal));
+            (request.Query.Contains("comp=list", StringComparison.Ordinal) || request.Query.Contains("list-type=", StringComparison.Ordinal))
+            && Uri.UnescapeDataString(request.Query).Contains(fragment.Trim('/'), StringComparison.Ordinal));
 
         public async ValueTask DisposeAsync()
         {
@@ -598,4 +1539,18 @@ public sealed class FleetTests : IAsyncDisposable
             await _app.DisposeAsync();
         }
     }
+}
+
+/// <summary>The fleet on one Azurite container.</summary>
+[Trait("Category", "Fleet")]
+public sealed class FleetTests : FleetCases
+{
+    private protected override FleetStore Store => FleetStore.Azurite;
+}
+
+/// <summary>The fleet on one RustFS bucket, the server processes reaching it by web identity (#165).</summary>
+[Trait("Category", "Fleet")]
+public sealed class RustFsFleetTests : FleetCases
+{
+    private protected override FleetStore Store => FleetStore.RustFs;
 }
