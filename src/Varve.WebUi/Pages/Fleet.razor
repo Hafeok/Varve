@@ -43,7 +43,10 @@ else if (_system?.Value is SystemPlane system)
 
     @if (_fleet?.Value is Declaration fleet)
     {
-        <SourceBlock Graph="varve:manage/fleet" Position="_fleet.Facts.ManagementPosition?.Value" Source="@System.Text.Encoding.UTF8.GetString(fleet.Content.Span)" />
+        string source = System.Text.Encoding.UTF8.GetString(fleet.Content.Span);
+        string graph = "https://w3id.org/varve/ns#manage/fleet";
+        string? compact = DeclaredPrefixes.Of(source).Compact(graph);
+        <SourceBlock Graph="@(compact ?? graph)" Full="@(compact is null ? null : graph)" Position="_fleet.Facts.ManagementPosition?.Value" Source="@source" />
     }
 }
 

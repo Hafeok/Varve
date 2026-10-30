@@ -1,12 +1,12 @@
 @using Varve.Delta.Model
 @* Commits from the change feed (docs/ui/components/CommitList): newest
-   first, each linked to its delta, named by its agent and its cause. A
+   first, each linked to its delta, named by its agent, its full IRI as
+   everywhere, and the request id that made it (review F13). A
    settings commit is the writer's own, from a management position; an
    erasure names no change. The wording is here, once. *@
 <CommitList Commits="Entries()" />
 
 @code {
-    private const string Writer = "urn:varve:writer:";
     private const string ManagementPosition = "https://w3id.org/varve/ns#managementPosition";
 
     /// <summary>The commits, oldest first, as the feed reads them.</summary>
@@ -51,12 +51,11 @@
     private static string What(FeedRecord record)
     {
         string agent = record.Agent is { } term ? Text(term) : "no agent";
-        string who = agent.StartsWith(Writer, StringComparison.Ordinal) ? agent[Writer.Length..] : agent;
         return record.CommitKind switch
         {
-            FeedCommitKind.Settings => who + " (settings)",
-            FeedCommitKind.Erasure => who + " (erasure)",
-            _ => who,
+            FeedCommitKind.Settings => agent + " (settings)",
+            FeedCommitKind.Erasure => agent + " (erasure)",
+            _ => agent,
         };
     }
 
@@ -69,14 +68,14 @@
 
         if (record.CommitKind == FeedCommitKind.Data)
         {
-            return record.Cause is { } cause ? when + " · cause " + Text(cause) : when;
+            return record.Cause is { } cause ? when + " · request id " + Text(cause) : when;
         }
 
         foreach (Varve.Rdf.RdfTerm attachment in record.Attachments)
         {
             if (System.Text.Encoding.UTF8.GetString(attachment.DatatypeIri) == ManagementPosition)
             {
-                return when + " · management " + Text(attachment);
+                return when + " · management position " + Text(attachment);
             }
         }
 

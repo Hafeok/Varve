@@ -54,7 +54,7 @@ public sealed class WebUiBrowserTests
         ("datasets/notes/commits", ".vw-tail"),
         ("datasets/notes/commits/1", "text=Delta in"),
         ("datasets/notes/grants", "text=Who may read"),
-        ("datasets/notes/declaration", ".vw-source"),
+        ("datasets/notes/grants?view=source", ".vw-source"),
         ("datasets/notes/agents", "text=Who the grants name"),
         ("datasets/notes/templates", "text=Graphs expanded for each caller"),
         ("datasets/notes/shapes", ".vw-source"),
@@ -99,6 +99,63 @@ public sealed class WebUiBrowserTests
         }
 
         Assert.True(findings.Count == 0, string.Join(Environment.NewLine, findings));
+    }
+
+    // Review F24: Copy copies the document exactly as the server served it,
+    // and what it copies parses as TriG, on every screen with a source. A
+    // declaration (the fleet, a dataset, its grants' source) is the whole
+    // document, its prefixes and its graph's wrapper included. A shapes graph
+    // is what the graph store serves for a graph: its statements, unwrapped.
+    [Fact]
+    public async Task What_copy_copies_parses_as_trig_on_every_screen_with_a_source()
+    {
+        (string bundle, string chrome) = WebUiServer.Required();
+        await using WebUiServer server = await AnonymousAsync(bundle);
+        using IPlaywright playwright = await Playwright.CreateAsync();
+        await using IBrowser browser = await playwright.Chromium.LaunchAsync(new() { ExecutablePath = chrome });
+        IPage page = await browser.NewPageAsync();
+        using HttpClient http = new();
+        List<string> copied = [];
+
+        // What each management screen's source is, as the server serves it.
+        Dictionary<string, string> served = new(StringComparer.Ordinal)
+        {
+            ["fleet"] = await http.GetStringAsync(new Uri(server.Address, "manage/fleet"), TestContext.Current.CancellationToken),
+            ["datasets/notes"] = await http.GetStringAsync(new Uri(server.Address, "manage/datasets/notes"), TestContext.Current.CancellationToken),
+            ["datasets/notes/grants?view=source"] = await http.GetStringAsync(new Uri(server.Address, "manage/datasets/notes"), TestContext.Current.CancellationToken),
+        };
+
+        foreach (string path in (string[])["fleet", "datasets/notes", "datasets/notes/grants?view=source", "datasets/notes/shapes"])
+        {
+            await page.GotoAsync(server.Ui + path);
+            await page.WaitForSelectorAsync(".vw-source pre", new() { Timeout = 60_000 });
+            await page.EvaluateAsync("() => { window.varveWebUi.copy = text => { window.__copied = text; return Promise.resolve(); }; }");
+
+            foreach (IElementHandle copy in await page.QuerySelectorAllAsync(".vw-source button:has-text('Copy')"))
+            {
+                await copy.ClickAsync();
+                string text = await page.EvaluateAsync<string>("window.__copied");
+                Varve.Rdf.InMemoryDataset? parsed = Varve.Management.ManagementTrig.TryParse(System.Text.Encoding.UTF8.GetBytes(text), null, out string? error);
+
+                Assert.True(parsed is not null, path + ": what Copy copies does not parse as TriG (" + error + "):" + Environment.NewLine + text);
+                using (Varve.Rdf.IQuadCursor inDefault = parsed!.Match(Varve.Rdf.TermHandle.None, Varve.Rdf.TermHandle.None, Varve.Rdf.TermHandle.None, Varve.Rdf.GraphPattern.DefaultGraph))
+                using (Varve.Rdf.IQuadCursor inNamed = parsed.Match(Varve.Rdf.TermHandle.None, Varve.Rdf.TermHandle.None, Varve.Rdf.TermHandle.None, Varve.Rdf.GraphPattern.AnyNamed))
+                {
+                    // The fleet declares nothing here, so its graph is empty.
+                    bool wrapped = !inDefault.MoveNext() && (path == "fleet" || inNamed.MoveNext());
+                    Assert.True(path.EndsWith("/shapes", StringComparison.Ordinal) || wrapped, path + ": what Copy copies is not wrapped in its graph:" + Environment.NewLine + text);
+                }
+
+                if (served.TryGetValue(path, out string? document))
+                {
+                    Assert.Equal(document, text);
+                }
+
+                copied.Add(path);
+            }
+        }
+
+        Assert.Equal(4, copied.Count);
     }
 
     [Fact]
@@ -201,7 +258,8 @@ public sealed class WebUiBrowserTests
         await page.WaitForSelectorAsync("text=Sign out", new() { Timeout = 60_000 });
         await page.WaitForSelectorAsync("td.vw-table__name", new() { Timeout = 60_000 });
 
-        Assert.Equal(["Data plane signed in", "Management signed in"], await Planes(page));
+        // Review F02: each plane names who is signed in, the agent the server names.
+        Assert.Equal(["Data plane signed in as " + issuer + "#alice", "Management signed in as " + issuer + "#alice"], await Planes(page));
         string scope = Query(authorizations[0].Url)["scope"];
         Assert.Equal("openid offline_access varve-webui-data", scope);
         Assert.Equal("none", Query(authorizations[0].Url)["prompt"]);
@@ -286,7 +344,9 @@ public sealed class WebUiBrowserTests
         await page.WaitForSelectorAsync("text=Sign out", new() { Timeout = 60_000 });
         await page.WaitForSelectorAsync("td.vw-table__name", new() { Timeout = 60_000 });
 
-        Assert.Equal(["Data plane signed in", "Management signed in"], await Planes(page));
+        // The agent the server names the operator by, iss#sub, on both planes.
+        string agent = issuer + "#" + (string)seed["reader"]!["userId"]!;
+        Assert.Equal(["Data plane signed in as " + agent, "Management signed in as " + agent], await Planes(page));
         string combined = Access(tokens.Single(token => token.Form.Contains("grant_type=authorization_code", StringComparison.Ordinal)).Body);
         Assert.Equal(2, tokens.Count(token => token.Form.Contains("token-exchange", StringComparison.Ordinal)));
         Assert.NotEmpty(sentToServer);

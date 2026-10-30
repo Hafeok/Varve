@@ -1,14 +1,22 @@
 @* SourceBlock (docs/ui/components/SourceBlock): a declaration as served,
    read-only, with its graph, the management position it was read at, and a
-   Copy button that copies the source as served. Unhighlighted. The source
+   Copy button that copies the whole document exactly as served, prefixes
+   and graph included, so it parses (review F24). Unhighlighted. The source
    scrolls inside itself, so it takes focus for the keyboard. *@
-<div class="vw-source"><div class="vw-source__head"><span class="vw-source__graph">@Graph</span>@if (Position is long position)
-{<PositionStamp Label="management position" Value="position" Management="true" />}<CopyButton Text="@Source" /></div><pre tabindex="0" role="region" aria-label="@Graph">@Source</pre></div>
+<div class="vw-source"><div class="vw-source__head">@if (Full is null)
+{<span class="vw-source__graph">@Graph</span>}
+else
+{<span class="vw-source__graph" title="@Full"><span aria-hidden="true">@Graph</span><span class="vw-visually-hidden">@Full</span></span>}@if (Position is long position)
+{<PositionStamp Label="management position" Value="position" Management="true" />}<CopyButton Text="@Source" /></div><pre tabindex="0" role="region" aria-label="@(Full ?? Graph)">@Source</pre></div>
 
 @code {
     /// <summary>The graph's IRI.</summary>
     [Parameter, EditorRequired]
     public string Graph { get; set; } = "";
+
+    /// <summary>The graph's full IRI, when <see cref="Graph"/> is compact: its accessible name.</summary>
+    [Parameter]
+    public string? Full { get; set; }
 
     /// <summary>The management position it was read at.</summary>
     [Parameter]

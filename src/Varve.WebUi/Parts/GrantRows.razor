@@ -1,9 +1,12 @@
 @* A dataset's grants as rows of the grants table (docs/ui/screens/
-   declarations--grants.html): the grantee as the server names it, its
-   permission, its scope in words, and the graph it is declared in. *@
+   declarations--grants.html): the grantee as the server names it, an agent
+   always by its full IRI, its permission, its scope in words, and the graph
+   it is declared in. A declaration's IRIs are compact only with the
+   prefixes the declaration itself defines, read as the full IRI (review
+   F13). *@
 @foreach (GrantEntry grant in Grants)
 {
-<tr><td class="vw-table__name">@(grant.Grantee?.Value ?? "—")<span class="vw-table__sub">@(grant.GranteeKind?.Value ?? "grantee")</span></td><td><StateBadge Tone="Tone.Neutral" Word="@(grant.Permission?.Value ?? "—")" /></td><td>@Scope(grant.Scope)</td><td><code>…/dataset/@Dataset.Value</code></td></tr>
+<tr><td class="vw-table__name">@(grant.Grantee?.Value ?? "—")<span class="vw-table__sub">@(grant.GranteeKind?.Value ?? "grantee")</span></td><td><StateBadge Tone="Tone.Neutral" Word="@(grant.Permission?.Value ?? "—")" /></td><td>@Scope(grant.Scope)</td><td>@Iri(DeclaredIn)</td></tr>
 }
 
 @code {
@@ -15,21 +18,41 @@
     [Parameter, EditorRequired]
     public DatasetName Dataset { get; set; }
 
-    private static RenderFragment Scope(GraphScope scope) => builder =>
+    /// <summary>The prefixes the declaration defines.</summary>
+    [Parameter]
+    public DeclaredPrefixes Prefixes { get; set; } = DeclaredPrefixes.None;
+
+    // The dataset's declaration graph (ADR 0166).
+    private string DeclaredIn => "https://w3id.org/varve/ns#manage/dataset/" + Dataset.Value;
+
+    // An IRI of the declaration as a chip: compact with a declared prefix, read as the full IRI.
+    private RenderFragment Iri(string iri) => Prefixes.Compact(iri) is { } compact
+        ? @<TermChip Kind="TermKind.Iri" Text="@compact" Full="@iri" />
+        : @<TermChip Kind="TermKind.Iri" Text="@iri" />;
+
+    private RenderFragment Scope(GraphScope scope) => builder =>
     {
         int sequence = 0;
         bool first = true;
 
-        void Phrase(string words, string? code)
+        void Phrase(string words, string? iri, bool template = false)
         {
             builder.AddContent(sequence++, (first ? "" : "; ") + words);
 
-            if (code is not null)
+            if (iri is not null)
             {
                 builder.AddContent(sequence++, " ");
-                builder.OpenElement(sequence++, "code");
-                builder.AddContent(sequence++, code);
-                builder.CloseElement();
+
+                if (template)
+                {
+                    builder.OpenElement(sequence++, "code");
+                    builder.AddContent(sequence++, iri);
+                    builder.CloseElement();
+                }
+                else
+                {
+                    builder.AddContent(sequence++, Iri(iri));
+                }
             }
 
             first = false;
@@ -57,7 +80,7 @@
 
         foreach (GraphTemplate template in scope.Templates)
         {
-            Phrase("graphs from template", template.Value);
+            Phrase("graphs from template", template.Value, template: true);
         }
     };
 }

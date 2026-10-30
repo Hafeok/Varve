@@ -151,7 +151,10 @@ else
 
     @if (_declaration?.Value is Declaration declaration)
     {
-        <SourceBlock Graph="@("varve:manage/dataset/" + Name)" Position="_declaration.Facts.ManagementPosition?.Value" Source="@System.Text.Encoding.UTF8.GetString(declaration.Content.Span)" />
+        string source = System.Text.Encoding.UTF8.GetString(declaration.Content.Span);
+        string graph = "https://w3id.org/varve/ns#manage/dataset/" + Name;
+        string? compact = DeclaredPrefixes.Of(source).Compact(graph);
+        <SourceBlock Graph="@(compact ?? graph)" Full="@(compact is null ? null : graph)" Position="_declaration.Facts.ManagementPosition?.Value" Source="@source" />
     }
 }
 

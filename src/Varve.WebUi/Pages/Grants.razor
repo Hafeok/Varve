@@ -3,12 +3,14 @@
 @inject WebUiSettings Settings
 @inject TimeProvider Clock
 @inject NavigationManager Navigation
-@* A dataset's grants (docs/ui/screens/declarations--grants.html), read-only.
-   Pinned with ?asof=p, they are read as of management position p: the
-   management log, a different axis from the dataset's (A6). *@
+@* A dataset's grants (docs/ui/screens/declarations--grants.html), read-only,
+   in two views of one screen (review F23): the table, and the source, the
+   whole declaration graph exactly as served (?view=source). Pinned with
+   ?asof=p, the table is read as of management position p: the management
+   log, a different axis from the dataset's (A6); the source is the head's. *@
 <PageTitle>Grants of @Name · Varve</PageTitle>
 <ViewHead Title="Grants" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (_asOf is FeedPosition pinned)
-{<PositionStamp Label="as of management position" Value="pinned.Value" Management="true" />}@if (_grants?.Facts.ManagementPosition is FeedPosition management)
+{<PositionStamp Label="as of management position" Value="pinned.Value" Management="true" />}@if ((Source ? _declaration?.Facts : _grants?.Facts)?.ManagementPosition is FeedPosition management)
 {<PositionStamp Label="management position" Value="management.Value" Management="true" />}</ViewHead>
 
 @if (_failure is not null)
@@ -16,7 +18,7 @@
     <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="OnParametersSetAsync" />
 }
 
-@if (_asOf is FeedPosition at)
+@if (_asOf is FeedPosition at && !Source)
 {
     <AsOfBanner Position="at.Value" Head="(_head?.Value ?? at.Value)" OnReturn="ReturnToHead" />
 }
@@ -25,7 +27,20 @@ else
     <ReadOnlyDeclarations />
 }
 
-@if (_grants?.Problem is Problem problem)
+<Tabs Label="Grants" Items="Views()" />
+
+@if (Source)
+{
+    @if (_declaration?.Problem is Problem notRead)
+    {
+        <ProblemView Problem="notRead" Facts="_declaration.Facts" Management="true" />
+    }
+    else if (_declaration?.Value is Declaration declaration)
+    {
+        <SourceBlock Graph="@(Prefixes().Compact(DeclarationGraph) ?? DeclarationGraph)" Full="@(Prefixes().Compact(DeclarationGraph) is null ? null : DeclarationGraph)" Position="_declaration.Facts.ManagementPosition?.Value" Source="@System.Text.Encoding.UTF8.GetString(declaration.Content.Span)" />
+    }
+}
+else if (_grants?.Problem is Problem problem)
 {
     <ProblemView Problem="problem" Facts="_grants.Facts" Management="true" />
 }
@@ -37,13 +52,14 @@ else if (_grants?.Value is GrantList grants)
                 <th scope="col">Grantee</th><th scope="col">Permission</th><th scope="col">Scope</th><th scope="col">Declared in</th>
             </Columns>
             <EmptyContent>No grant is declared for this dataset. Only operators reach it.</EmptyContent>
-            <Rows><GrantRows Grants="grants.Grants" Dataset="new DatasetName(Name)" /></Rows>
+            <Rows><GrantRows Grants="grants.Grants" Dataset="new DatasetName(Name)" Prefixes="Prefixes()" /></Rows>
         </ResourceTable>
     </Panel>
 }
 
 @code {
     private VarveResult<GrantList>? _grants;
+    private VarveResult<Declaration>? _declaration;
     private FeedPosition? _head;
     private FeedPosition? _asOf;
     private DateTimeOffset? _lastRead;
@@ -60,6 +76,24 @@ else if (_grants?.Value is GrantList grants)
     [SupplyParameterFromQuery(Name = "asof")]
     public long? AsOf { get; set; }
 
+    /// <summary>The view: the table, or <c>source</c>, from <c>?view=</c>.</summary>
+    [SupplyParameterFromQuery(Name = "view")]
+    public string? View { get; set; }
+
+    private bool Source => View == "source";
+
+    // The dataset's declaration graph (ADR 0166).
+    private string DeclarationGraph => "https://w3id.org/varve/ns#manage/dataset/" + Name;
+
+    private DeclaredPrefixes Prefixes() =>
+        _declaration?.Value is Declaration declaration ? DeclaredPrefixes.Of(System.Text.Encoding.UTF8.GetString(declaration.Content.Span)) : DeclaredPrefixes.None;
+
+    private IReadOnlyList<TabLink> Views()
+    {
+        string grants = "datasets/" + Uri.EscapeDataString(Name) + "/grants";
+        return [new TabLink("Table", grants + (_asOf is FeedPosition at ? "?asof=" + at.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) : ""), !Source), new TabLink("Source", grants + "?view=source", Source)];
+    }
+
     /// <inheritdoc />
     protected override async Task OnParametersSetAsync()
     {
@@ -69,7 +103,9 @@ else if (_grants?.Value is GrantList grants)
         {
             Task<VarveResult<GrantList>> grants = Management.GrantsAsync(new DatasetName(Name), _asOf, CancellationToken.None);
             Task<VarveResult<SystemPlane>> system = Management.SystemAsync(CancellationToken.None);
+            Task<VarveResult<Declaration>> declaration = Management.DeclarationAsync(new DatasetName(Name), CancellationToken.None);
             _grants = await grants;
+            _declaration = await declaration;
             _head = (await system).Value?.Tail;
             _lastRead = Clock.GetUtcNow();
             _failure = null;

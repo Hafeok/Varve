@@ -129,6 +129,15 @@ body.vw-root { margin: 0; }
 .vw-plane:hover .vw-plane__roles, .vw-plane__who:focus + .vw-plane__roles { display: block; }
 .vw-plane--quiet .vw-plane__roles { display: none !important; }
 
+/* ---------- Tabs: the views of one screen, as links ---------- */
+.vw-tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--rule); }
+.vw-tabs__tab {
+  padding: 6px var(--space-3); margin-bottom: -1px; border: 1px solid transparent; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  color: var(--ink); text-decoration: none;
+}
+.vw-tabs__tab:hover { background: var(--layer); }
+.vw-tabs__tab[aria-current="page"] { background: var(--surface); border-color: var(--rule); border-bottom-color: var(--surface); font-weight: 600; }
+
 /* ---------- View head: the title and the position it was read at ---------- */
 .vw-viewhead { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2) var(--space-4); }
 .vw-viewhead__title { margin: 0; font-size: 22px; line-height: 28px; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; margin-right: auto; }

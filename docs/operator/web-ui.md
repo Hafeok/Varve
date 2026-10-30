@@ -9,7 +9,7 @@ can do nothing the API and `varve` cannot.
 - a dataset's status, as of a position as well as at its head;
 - the fleet;
 - a dataset's commits, followed live, and one commit's delta;
-- the declarations: a dataset's grants and its declaration source.
+- the declarations: a dataset's grants, as a table and as the declaration's source, its agents and roles, its graph templates and its shapes.
 
 **What it does:** takes a checkpoint, and closes and opens a dataset. It
 asks before each, and closing needs the dataset's name typed.

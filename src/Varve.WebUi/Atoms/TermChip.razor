@@ -4,9 +4,9 @@
 {
     case TermKind.Iri:
         <span class="@Classes" title="@Full">@if (Href is not null)
-            {<a href="@Href">@Text</a>}
+            {<a href="@Href">@Shown()</a>}
             else
-            {@Text}</span>
+            {@Shown()}</span>
         break;
     case TermKind.Literal:
         <span class="@Classes"><span class="vw-term__value">@Text</span>@if (Type is not null)
@@ -52,4 +52,9 @@
     private string Classes => "vw-term vw-term--"
         + Kind switch { TermKind.Iri => "iri", TermKind.Literal => "literal", TermKind.BlankNode => "bnode", _ => "triple" }
         + Change switch { Change.Added => " vw-term--added", Change.Removed => " vw-term--removed", _ => "" };
+
+    // A compact IRI shows its compact form and is read as the full IRI.
+    private RenderFragment Shown() => Full is null
+        ? @<text>@Text</text>
+        : @<text><span aria-hidden="true">@Text</span><span class="vw-visually-hidden">@Full</span></text>;
 }

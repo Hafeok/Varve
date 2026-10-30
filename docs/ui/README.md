@@ -17,6 +17,8 @@ Varve is an event-sourced RDF store. Its Web UI (`Varve.WebUi`) is a client of t
 - **Positions** are integers in `code`, with no thousands separator, so a copied position pastes into the CLI or a header unchanged. Selecting a stamp selects the whole number.
 - **Times** are ISO 8601 UTC in `code` (`2026-10-27T08:41:07Z`), with a relative time as a `caption` beside it ("2 min ago"). Never a relative time alone.
 - **IRIs** are shown whole in `code`, wrapping anywhere. Where a column is too narrow, truncate in the middle and keep the full IRI in the cell's accessible name and a copy button.
+- **One form per thing** (review F13). An agent is its full IRI everywhere, in commits, grants and the shell alike, never compacted. A declaration's IRIs are compact only with the prefixes the declaration itself defines, with the full IRI as the accessible name. A commit's cause is labelled "request id", as problem panels label it.
+- **Copy** copies a source exactly as the server served it, so it parses as served (review F24): a declaration is its whole TriG document, its `@prefix` lines and its graph's wrapper included; a graph from the graph store is that graph's statements.
 - **Errors** are problems: render the problem panel with the server's `title`, never a paraphrase, and the request id. No apologies, no "something went wrong".
 - **No emoji.** No exclamation marks.
 
@@ -28,7 +30,7 @@ Components are organised by atomic level, and the levels are a dependency rule: 
 |---|---|---|
 | Tokens | `tokens.json` | nothing |
 | Atoms | `Button`, `Field`, `StateBadge`, `PositionStamp`, `TermChip` | tokens |
-| Molecules | `KeyValue`, `LagMeter`, `Notice`, `ViewHead`, `Triple`, `AsOfBanner`, `CopyButton` | atoms |
+| Molecules | `KeyValue`, `LagMeter`, `Notice`, `ViewHead`, `Triple`, `AsOfBanner`, `CopyButton`, `Tabs` | atoms |
 | Organisms | `ResourceTable`, `CommitList`, `ProblemPanel`, `SourceBlock`, `ConfirmDialog`, `Panel` | molecules, atoms |
 | Templates | `Shell` and the screen layouts | organisms and below; no data |
 | Parts | domain-aware pieces that are not routed: the problem view, the read stamps, the drift note | templates and below; the client's model types and the tone mapping; Varve's wording |

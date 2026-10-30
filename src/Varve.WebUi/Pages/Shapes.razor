@@ -82,7 +82,9 @@ else if (_bindings?.Value is ShapesBindingList bindings)
         }
     }
 
-    // The shapes graph as the graph store serves it, in Turtle.
+    // The shapes graph as the graph store serves it, in Turtle: a graph's own
+    // statements, with no graph wrapper (the graph store serves one even in
+    // TriG without it), copied exactly as served; Turtle parses as TriG.
     private async Task<Source> ReadAsync(Uri graph)
     {
         using HttpResponseMessage response = await Datasets.For(new DatasetName(Name)).GetGraphAsync(graph.OriginalString, "text/turtle", CancellationToken.None);
