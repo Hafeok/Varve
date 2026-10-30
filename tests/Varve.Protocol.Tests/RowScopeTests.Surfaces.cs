@@ -267,6 +267,55 @@ public partial class RowScopeTests
         }
     }
 
+    /// <summary>
+    /// The term-lookup contract (ADR 0022, amended; #191) over the read the
+    /// protocol serves a row-restricted caller: the row-scoped source over the
+    /// graph scope over a pinned view, classified by the projection at its
+    /// position, and below its floor, where the classification is computed on
+    /// demand from scratch. Neither denies a term a quad it shows holds,
+    /// whatever it has classified so far.
+    /// </summary>
+    [Fact]
+    public async Task The_row_scoped_read_never_denies_a_term_it_has_not_classified_yet()
+    {
+        await using Rows rows = new();
+        (_, Dataset dataset, RowScope scope) = await rows.AddAsync(
+        [
+            "GRAPH <http://ex/g/1> { <http://ex/a> a <http://ex/Person> }",
+            "GRAPH <http://ex/g/1> { <http://ex/x> <http://ex/ownedBy> <http://ex/a> }",
+            "GRAPH <http://ex/g/1> { <http://ex/x> <http://ex/label> \"shown\" }",
+            "GRAPH <http://ex/g/2> { <http://ex/b> a <http://ex/Person> }",
+            "GRAPH <http://ex/g/2> { <http://ex/y> <http://ex/ownedBy> <http://ex/b> }",
+            "GRAPH <http://ex/other> { <http://ex/c> <http://ex/knows> <http://ex/y> }",
+        ], 1);
+        await CommitAsync(dataset, ["GRAPH <http://ex/g/1> { <http://ex/x> <http://ex/knows> <http://ex/a> }"]);
+        using DatasetView view = dataset.Pin();
+
+        IQuadSource AtTheProjection()
+        {
+            ClassificationProjection projection = new(dataset, Binding);
+            dataset.CatchUpAsync(projection, P.Ct).AsTask().GetAwaiter().GetResult();
+            Assert.True(projection.TryAt(view.Position, view, out IRowClassification classified));
+            return RowScopedQuadSource.Wrap(GraphScopedQuadSource.Wrap(view, GraphScope.All), classified, scope);
+        }
+
+        IQuadSource BelowTheFloor()
+        {
+            ClassificationProjection projection = new(dataset, Binding);
+            using DatasetView head = dataset.Pin();
+            projection.ResetAsync(head, P.Ct).AsTask().GetAwaiter().GetResult();
+            DatasetView earlier = dataset.AsOfAsync(new Position(view.Position.Value - 1), P.Ct).AsTask().GetAwaiter().GetResult();
+            Assert.True(projection.TryAt(earlier.Position, earlier, out IRowClassification scratch));
+            return RowScopedQuadSource.Wrap(GraphScopedQuadSource.Wrap(earlier, GraphScope.All), scratch, scope);
+        }
+
+        RdfTerm hidden = Iri("http://ex/y");
+        IReadOnlyCollection<RdfTerm> current = QuadSourceContract.Holds(AtTheProjection, [hidden]);
+        Assert.Contains(Iri("http://ex/x"), current);
+        Assert.DoesNotContain(Iri("http://ex/b"), current);
+        Assert.Contains(Iri("http://ex/x"), QuadSourceContract.Holds(BelowTheFloor, [hidden]));
+    }
+
     private const string Sh = "http://www.w3.org/ns/shacl#";
     private const string ReportShapes = "http://ex/report-shapes";
     private const string ReportGraph = "https://w3id.org/varve/ns#validation/urn%3Areport";
