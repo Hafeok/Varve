@@ -105,6 +105,12 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 2 && args[0] == "--classification-projection")
+        {
+            ClassificationProjectionBench.RunAsync(args[1]).GetAwaiter().GetResult();
+            return;
+        }
+
         if (args.Length == 2 && args[0] == "--commit-index")
         {
             CommitIndexBench.RunAsync(int.Parse(args[1], CultureInfo.InvariantCulture)).GetAwaiter().GetResult();

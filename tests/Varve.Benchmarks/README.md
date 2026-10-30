@@ -1858,5 +1858,85 @@ measures.
 - **What it allocates** is the per-set decision table, per request, never
   per quad.
 - **Not measured here:** the classification projection's lag and cold start
-  on the REC portfolio at M, as part 2b measured validation's. That is the
-  next run of this section.
+  on the REC portfolio. The next section measures them.
+
+## Milestone 9, part 1 — the classification projection's lag and rebuild
+
+**Machine.** A cloud container: Intel Xeon @ 2.10 GHz, 4 cores, 15 GiB,
+Ubuntu 24.04.5 LTS, .NET SDK 10.0.403, runtime 10.0.14.
+
+**Workload.** `--classification-projection <S|M>`
+(`ClassificationProjectionBench`). The REC portfolio, seed 20261015,
+**generator output version 2**, runs on the file backend: its history but the
+last 200 commits, as part 2b's. A classifier binding (ADR 0232) over the site
+graphs, with an annotated shapes graph of its own:
+- **data subjects:** every `rec:Company`, by `sh:targetClass`, which is a
+  tenant or a site's owner, and every `rec:Site`. The site stands in for the
+  owner, because the generator links no site to its owner;
+- **links:** `rec:leasee` and `rec:leasor`, so a lease belongs to its tenant
+  and its landlord; `rec:isPartOf`, so a level, a building and a room belong
+  to their site; and `rec:locatedIn`, so an asset belongs to its room's site;
+- **public:** `rdf:type`, the portfolio's one vocabulary-valued predicate.
+
+A point is reached by `rec:hasPoint` from its host only, the wrong way for a
+link, so points stay unclassified and are governed by their graph alone.
+At the head, S has 60,688 rows (distinct subjects in the site graphs). Of
+those, 20,535 are classified, 124 are data subjects, and there are 242
+distinct subject sets. M has 1,512,720 rows: 512,195 classified, 3,310 data
+subjects and 6,494 sets.
+
+The projection (ADR 0233) keeps up with the dataset:
+- **cold start:** `ResetAsync` at the head, one generation there, as a server
+  starts one with no saved state;
+- **lag:** the 200 held commits, each committed, then applied;
+- **rebuild for a shapes change:** three commits that add, remove and add
+  `rec:leaseOf` as a link, each a generation at the head. Each one
+  reclassifies every lease (141 at S, 3,221 at M), which gains or loses its
+  rooms' site;
+- **the saved state:** `SaveAsync`, then `LoadAsync` into a fresh
+  projection, in a `MemoryStorage`'s derived store (see *Reading it*).
+
+Each is one run, not BenchmarkDotNet, as in part 2b.
+
+```bash
+WarningsNotAsErrors=CS0618 dotnet run -c Release --project tests/Varve.Benchmarks -- --classification-projection S
+WarningsNotAsErrors=CS0618 dotnet run -c Release --project tests/Varve.Benchmarks -- --classification-projection M
+```
+
+Slower rows first:
+
+| REC | Rebuild for a shapes change (mean of 3, min–max) | Cold start at the head | Lag per commit: mean | median | p95 | max |
+|---|---:|---:|---:|---:|---:|---:|
+| M (25,005 commits, ≈5 M quads) | 10.27 s (8.65–11.20 s) | 9.44 s | 0.25 ms | 0.18 ms | 0.67 ms | 4.12 ms |
+| S (1,005 commits, ≈203 k quads) | 0.24 s (0.11–0.38 s) | 0.22 s | 0.19 ms | 0.11 ms | 0.46 ms | 4.53 ms |
+
+| REC | Saved state | `SaveAsync` | `LoadAsync` |
+|---|---:|---:|---:|
+| M | 20,960,280 B | 172.3 ms | 179.6 ms |
+| S | 848,420 B | 29.6 ms | 31.7 ms |
+
+**Reading it.**
+- **A generation is a classification from scratch:** each data subject's
+  reverse closure along the links. Its cost is the classified rows' link
+  lookups, not a validation, so it is about a twentieth of part 2b's: 9.4 s
+  against 182 s for a cold start at M, and 10.3 s against 194 s for a
+  rebuild. At M it is about 40 times S, for 25 times the rows. A rebuild
+  costs about the same as a cold start, because both are one generation over
+  the same head.
+- **The lag is a commit's affected nodes'.** The held commits are events
+  that touch a few rows each. Their 200 commits reclassified 127 nodes in
+  all, and the mean is a tenth of part 2b's validation lag (0.25 ms against
+  3.02 ms at M). The commits that reach far, a building or a level, are in
+  the loaded history, not the held tail. Such a commit's `rec:isPartOf`
+  assertion reclassifies everything below it. The 4 ms maximum is one held
+  event's cost, not a measured worst case.
+- **The saved state** is about 41 bytes per classified row at M, with every
+  interval since the floor and every commit's changed nodes. Reading it back
+  is under 0.2 s, which is about 2% of a cold start.
+- **The file backend's `derived/` refuses the state's name.** Saving to
+  `FileStorage.Derived` throws `ArgumentException`. `enc(binding)`
+  percent-encodes the binding IRI (ADR 0233 point 6), and `FileStorage`
+  accepts only ASCII letters, digits, `-`, `_` and `.` in a blob name. The
+  validation projection's `validation/{enc(binding)}/` has the same name
+  shape. This run saves to memory instead. The defect is reported, not fixed
+  here.
