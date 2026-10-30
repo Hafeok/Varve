@@ -147,6 +147,9 @@ accepted on the pull request (ADR 0066).
   creates** (#191, ADR 0022, amended). Before, a term the commit's delta
   yields could be denied. No read was found that lost an answer. A
   contract test now runs over every quad source.
+- **An event move's cancel is answered once the management plane has
+  applied it** (#206, #207). Before, a state read right after the `422`
+  could still see `varve:Moving`.
 
 #### Upgrading
 
