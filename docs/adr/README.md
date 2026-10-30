@@ -387,6 +387,14 @@ Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replicati
 | [0180](0180-warm-standbys-and-the-writer-set.md) | Warm standbys and the writer set: `placedOn` ∪ `standbyOn`, placement by events, and what warm means | Filed unaccepted (#165) |
 | [0181](0181-handover-automation.md) | Handover automation: the orchestrator judges liveness, one idempotent command acts, and the two-app layout keeps restart | Filed unaccepted (#165) |
 
+## Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit
+
+Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set).
+
+| # | Title | Status |
+|---:|---|---|
+| [0190](0190-entailments-under-graph-level-grants.md) | Entailments under graph-level grants: premise sets, intra-graph by default, the ontology readable by the dataset's readers; amends 0107 | Filed unaccepted (Inference, #95) |
+
 ## Web UI, part 1 (#167)
 
 Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. 0206 lands first, in a docs-only pull request; 0200–0205 come with the milestone's.
