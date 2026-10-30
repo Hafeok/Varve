@@ -33,18 +33,19 @@
     // hides them without moving focus or the pointer (WCAG 1.4.13), until the
     // pointer or focus comes to a plane again.
     document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') {
-            document.querySelectorAll('.vw-plane').forEach(function (plane) {
-                plane.classList.add('vw-plane--quiet');
-            });
+        var bar = document.querySelector('.vw-shell__bar');
+
+        if (event.key === 'Escape' && bar) {
+            bar.classList.add('vw-quiet');
         }
     });
 
     function wake(event) {
-        var plane = event.target instanceof Element ? event.target.closest('.vw-plane') : null;
+        var target = event.target instanceof Element ? event.target.closest('.vw-shell__who, .vw-plane') : null;
+        var bar = target ? target.closest('.vw-shell__bar') : null;
 
-        if (plane) {
-            plane.classList.remove('vw-plane--quiet');
+        if (bar) {
+            bar.classList.remove('vw-quiet');
         }
     }
 

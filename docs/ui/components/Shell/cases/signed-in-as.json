@@ -35,7 +35,7 @@
         "Word": "signed in",
         "Anonymous": false,
         "Absent": false,
-        "Agent": "https://login.example/v2.0#owner",
+        "Agent": "https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0#AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ",
         "Roles": [
           "Notes.User"
         ]
@@ -45,10 +45,13 @@
         "Word": "signed in",
         "Anonymous": false,
         "Absent": false,
-        "Agent": "https://login.example/v2.0#owner",
-        "Roles": []
+        "Agent": "https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0#AAAAAAAAAAAAAAAAAAAAAIkzqFVrSaSaFHy782bbtaQ",
+        "Roles": [
+          "operator"
+        ]
       }
     ],
-    "Instance": "system writer"
+    "Instance": "system writer",
+    "BarActions": "<button class=\"vw-button vw-button--small\" type=\"button\">Sign out</button>"
   }
 }

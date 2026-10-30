@@ -271,8 +271,10 @@ public sealed class WebUiBrowserTests
         await page.WaitForSelectorAsync("text=Sign out", new() { Timeout = 60_000 });
         await page.WaitForSelectorAsync("td.vw-table__name", new() { Timeout = 60_000 });
 
-        // Review F02: each plane names who is signed in, the agent the server names.
-        Assert.Equal(["Data plane signed in as " + issuer + "#alice", "Management signed in as " + issuer + "#alice"], await Planes(page));
+        // Review F02: who is signed in, once, as the agent the server names,
+        // since both planes name the same one.
+        Assert.Equal(["Data plane signed in", "Management signed in"], await Planes(page));
+        Assert.Equal(issuer + "#alice", await page.Locator(".vw-shell__who .vw-shell__agent").TextContentAsync());
         string scope = Query(authorizations[0].Url)["scope"];
         Assert.Equal("openid offline_access varve-webui-data", scope);
         Assert.Equal("none", Query(authorizations[0].Url)["prompt"]);
@@ -372,7 +374,8 @@ public sealed class WebUiBrowserTests
 
         // The agent the server names the operator by, iss#sub, on both planes.
         string agent = issuer + "#" + (string)seed["reader"]!["userId"]!;
-        Assert.Equal(["Data plane signed in as " + agent, "Management signed in as " + agent], await Planes(page));
+        Assert.Equal(["Data plane signed in", "Management signed in"], await Planes(page));
+        Assert.Equal(agent, await page.Locator(".vw-shell__who .vw-shell__agent").TextContentAsync());
         string combined = Access(tokens.Single(token => token.Form.Contains("grant_type=authorization_code", StringComparison.Ordinal)).Body);
         Assert.Equal(2, tokens.Count(token => token.Form.Contains("token-exchange", StringComparison.Ordinal)));
         Assert.NotEmpty(sentToServer);

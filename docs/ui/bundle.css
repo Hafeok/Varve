@@ -118,16 +118,19 @@ body.vw-root { margin: 0; }
 }
 .vw-plane strong { color: var(--ink); font-weight: 600; }
 .vw-plane--absent strong { color: var(--warn); }
-/* Who is signed in, with their roles on hover or focus; Escape hides them (WCAG 1.4.13). */
-.vw-plane { position: relative; }
-.vw-plane__who code { font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
-.vw-plane__roles {
+/* Who is signed in: once when both planes name the same agent, else on each
+   plane. An IRI over 40 characters is truncated in the middle. The roles show
+   on hover or focus; Escape hides them (WCAG 1.4.13). */
+.vw-shell__who, .vw-plane { position: relative; }
+.vw-shell__who { font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.vw-shell__agent { font-family: var(--font-mono); font-size: 12px; color: var(--ink); white-space: nowrap; }
+.vw-shell__roles {
   display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 10;
-  padding: var(--space-1) var(--space-2); white-space: nowrap;
+  padding: var(--space-1) var(--space-2); white-space: nowrap; font-size: 12px; line-height: 16px;
   background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: var(--radius-sm); box-shadow: var(--shadow-overlay);
 }
-.vw-plane:hover .vw-plane__roles, .vw-plane__who:focus + .vw-plane__roles { display: block; }
-.vw-plane--quiet .vw-plane__roles { display: none !important; }
+.vw-shell__who:hover .vw-shell__roles, .vw-plane:hover .vw-shell__roles, .vw-shell__agent:focus + .vw-shell__roles { display: block; }
+.vw-shell__bar.vw-quiet .vw-shell__roles { display: none !important; }
 
 /* ---------- Tabs: the views of one screen, as links ---------- */
 .vw-tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--rule); }
@@ -300,6 +303,7 @@ body.vw-root { margin: 0; }
 .vw-notice--warn::before { border: 0; width: 9px; background: var(--warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); border-radius: 0; }
 .vw-notice__title { margin: 0; font-weight: 600; }
 .vw-notice__body { grid-column: 2; margin: 0; }
+.vw-notice > .vw-actions { grid-column: 2; }
 .vw-notice__body code { overflow-wrap: anywhere; }
 
 /* ---------- Problem panel: RFC 9457, rendered from its type ---------- */
