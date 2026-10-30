@@ -1,0 +1,11 @@
+{
+  "parameters": {
+    "Id": "dlg",
+    "Title": "Close notes?",
+    "Effect": "Every instance stops serving <strong>notes</strong> and its writer releases the dataset. Reads and writes answer <code>404</code> until it is opened again. Nothing is deleted.",
+    "Note": "<div class=\"vw-notice vw-notice--warn\"><p class=\"vw-notice__title\">The declaration will drift from Git</p><p class=\"vw-notice__body\">This changes the dataset's declaration on the server. Your declaration files in Git will differ until you update them; <code>varve apply --plan</code> will show the difference.</p></div>",
+    "ConfirmName": "notes",
+    "ConfirmLabel": "Close notes",
+    "Danger": true
+  }
+}

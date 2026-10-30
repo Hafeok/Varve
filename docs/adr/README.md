@@ -377,6 +377,22 @@ Filed by [#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 ([#15](https
 | [0177](0177-seek-dont-narrow-intervals-beside-the-key.md) | Seek, don't narrow: an extent's intervals beside its keys, derived format 5 | Filed unaccepted (#133) |
 | [0178](0178-the-format-5-upgrade-and-the-set-cap.md) | The format-5 upgrade, mixed-version instances, and the set cap | Filed unaccepted (#133) |
 
+## Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit
+
+Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set).
+
+| # | Title | Status |
+|---:|---|---|
+| [0190](0190-entailments-under-graph-level-grants.md) | Entailments under graph-level grants: premise sets, intra-graph by default, the ontology readable by the dataset's readers; amends 0107 | Filed unaccepted (Inference, #95) |
+
+## Web UI, part 1 (#167)
+
+Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. 0206 lands first, in a docs-only pull request; 0200–0205 come with the milestone's.
+
+| # | Title | Status |
+|---:|---|---|
+| [0206](0206-the-web-ui-design-source.md) | The Web UI's design source, its levels, and the markup contract | Filed unaccepted (Web UI part 1, #167) |
+
 ## 1.0 readiness A — correctness and the read-forever contract (#129)
 
 Filed by 1.0 readiness A ([#129](https://github.com/Hafeok/Varve/issues/129); [#146](https://github.com/Hafeok/Varve/issues/146), [#132](https://github.com/Hafeok/Varve/issues/132), [#61](https://github.com/Hafeok/Varve/issues/61)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0213. Superseded in part by 0213, likewise unaccepted: 0071 (publishing qualified), 0073 (the derived flush kept only where a reader cannot verify), 0161 (the `commits` blob in version 6), 0177 (a block that does not match is a miss; version 6 for the checked kinds), 0178 (rewrites generalised to any blob below the newest version). Amended by it: 0072 (derived version 6), 0119 (`load-spill-damaged`), 0174 (the snapshot in the checked envelope).

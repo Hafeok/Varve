@@ -1,0 +1,16 @@
+<!-- @dsCard group="Molecules" height=284 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../../bundle.css"><title>LagMeter — preview</title>
+<style>html,body{margin:0}body.vw-root{padding:16px}.cases{display:grid;gap:16px}.case{margin:0}.case figcaption{margin-bottom:4px;font-size:11px;line-height:16px;color:var(--ink-muted)}</style></head>
+<body class="vw-root">
+<!-- One figure per contract case in cases/: the markup inside each data-case
+     element is the case's, verbatim, and a test checks it (ADR 0206 point 6). -->
+<div class="cases">
+<figure class="case"><figcaption>none</figcaption><div data-case="none"><div class="vw-lag"><span class="vw-lag__value">0 behind</span><meter min="0" max="200" low="50" high="100" optimum="0" value="0">0 positions behind</meter><span class="vw-lag__bound">Bound 100 positions (ReadyLag)</span></div></div></figure>
+<figure class="case"><figcaption>over</figcaption><div data-case="over"><div class="vw-lag"><span class="vw-lag__value">164 behind</span><meter min="0" max="200" low="50" high="100" optimum="0" value="164">164 positions behind</meter><span class="vw-lag__bound">Bound 100 positions (ReadyLag) · not ready</span></div></div></figure>
+<figure class="case"><figcaption>within</figcaption><div data-case="within"><div class="vw-lag"><span class="vw-lag__value">72 behind</span><meter min="0" max="200" low="50" high="100" optimum="0" value="72">72 positions behind</meter><span class="vw-lag__bound">Bound 100 positions (ReadyLag)</span></div></div></figure>
+</div>
+</body>
+</html>
