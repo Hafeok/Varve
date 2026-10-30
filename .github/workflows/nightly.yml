@@ -154,7 +154,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [Varve.Derivation.Tests, Varve.Shacl.Tests, Varve.Shacl.Sparql.Tests, Varve.Shacl.Store.Tests]
+        project: [Varve.Derivation.Tests, Varve.Sparql.Entailment.Tests, Varve.Shacl.Tests, Varve.Shacl.Sparql.Tests, Varve.Shacl.Store.Tests]
 
     steps:
       - name: Line endings

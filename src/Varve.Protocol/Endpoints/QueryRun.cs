@@ -12,6 +12,8 @@ using Varve.Protocol.Model;
 using Varve.Rdf;
 using Varve.Sparql;
 using Varve.Sparql.Algebra;
+using Varve.Sparql.Entailment;
+using Varve.Sparql.Entailment.Model;
 using Varve.Sparql.Evaluation;
 using Varve.Sparql.Evaluation.Model;
 using Varve.Sparql.Results;
@@ -65,10 +67,22 @@ internal static class QueryRun
         await AnswerAsync(exchange, query!).ConfigureAwait(false);
     }
 
-    /// <summary>Negotiates, pins, evaluates and streams a parsed query.</summary>
+    /// <summary>Negotiates, pins, evaluates and streams a parsed query, under the regime asked or the dataset's default (ADR 0192).</summary>
     internal static async Task AnswerAsync(Exchange exchange, Query query)
     {
         HttpContext context = exchange.Context;
+        EntailmentBindings bindings = exchange.Options.Entailment?.Of(exchange.Name) ?? EntailmentBindings.None;
+        Microsoft.Extensions.Primitives.StringValues asked = context.Request.Headers[EntailmentHeader.Name];
+        EntailmentRegime regime = bindings.Default;
+
+        if (asked.Count > 0 && !EntailmentHeader.TryRead(asked, out regime))
+        {
+            await UnsupportedAsync(context, asked).ConfigureAwait(false);
+            return;
+        }
+
+        string? variant = regime == EntailmentRegime.Simple ? null : EntailmentHeader.Token(regime);
+        context.Response.Headers[EntailmentHeader.Name] = EntailmentHeader.Token(regime);
         bool graph = query is ConstructQuery or DescribeQuery;
         Offer<SparqlResultsFormat> results = default;
         Offer<GraphFormat> syntax = default;
@@ -85,7 +99,7 @@ internal static class QueryRun
         }
 
         if (await Reads.ResolveAsync(context, exchange.Dataset).ConfigureAwait(false) is not Position position
-            || await Reads.NotModifiedAsync(context, exchange.Dataset, position).ConfigureAwait(false))
+            || await Reads.NotModifiedAsync(context, exchange.Dataset, position, variant: variant).ConfigureAwait(false))
         {
             return;
         }
@@ -107,6 +121,8 @@ internal static class QueryRun
             return;
         }
 
+        // The answer at a position is one per regime (ADR 0192 point 3).
+        Preconditions.Describe(context.Response, view.Position, variant);
         context.Response.ContentType = graph ? syntax.MediaType : results.MediaType;
 
         if (HttpMethods.IsHead(context.Request.Method))
@@ -114,12 +130,15 @@ internal static class QueryRun
             return;
         }
 
-        SparqlEvaluator evaluator = new(exchange.Options.Evaluation);
+        SparqlEvaluator evaluator = new(regime == EntailmentRegime.Simple ? exchange.Options.Evaluation : exchange.Options.EntailedEvaluation);
         IQuadSource source = exchange.Readable(view);
 
         await BoundedReads.RunAsync(context, exchange.Options, async (output, cancellationToken) =>
         {
-            using QueryResults answer = evaluator.Evaluate(query, source, cancellationToken);
+            // The rewriting reads the caller's scoped view, the TBox graphs
+            // through it (ADRs 0190, 0193); simple entailment is the query as sent.
+            EntailedQuery entailed = EntailmentRewriter.Rewrite(query, source, bindings.Covers, regime, schemas: bindings.Schemas, cancellationToken: cancellationToken);
+            using QueryResults answer = evaluator.Evaluate(entailed.Query, entailed.Source, cancellationToken);
 
             switch (answer)
             {
@@ -151,6 +170,23 @@ internal static class QueryRun
             }
         }).ConfigureAwait(false);
     }
+
+    /// <summary>A <c>Varve-Entailment</c> the server does not serve, or one other than simple on an update: <c>400 entailment-unsupported</c>.</summary>
+    internal static Task UnsupportedAsync(HttpContext context, Microsoft.Extensions.Primitives.StringValues asked) =>
+        HttpProblems.WriteAsync(context, ProblemType.EntailmentUnsupported,
+            "Varve-Entailment is one of simple, rdf, rdfs and d, or one regime IRI in angle brackets; an update is evaluated under simple entailment.",
+            members =>
+            {
+                members.String("value", EntailmentHeader.Shown(asked));
+                System.Text.Json.Utf8JsonWriter json = members.Raw("supported");
+                json.WriteStartArray("supported");
+                foreach (string token in EntailmentHeader.Supported)
+                {
+                    json.WriteStringValue(token);
+                }
+
+                json.WriteEndArray();
+            });
 
     internal static Task WriteUnavailableAsync(Exchange exchange, string detail)
     {

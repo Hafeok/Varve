@@ -232,3 +232,25 @@ accepts it (ADR 0066).
 
 **The ledger.** The rulings are ADR 0175's `ShapesAreTheRuntimeValidator`,
 `ResidualCheckInCode` and `CodeValidatorsAreTheOracle`.
+
+## Amendment, 2026-10-27 — a TBox binding's terms
+
+Filed by Inference, part 1 (#170, under #95), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+A `varve:TBoxBinding` is no longer only recorded: ADR
+[0194](0194-the-tbox-binding-vocabulary.md) gives it its terms.
+- **Its terms.** `varve:boundGraph` names one or more TBox graphs. A graph set
+  is carried in point 3's terms. It takes `varve:profile` and
+  `varve:defaultEntailment`, and the reserved `varve:rulesGraph`,
+  `varve:crossGraph`, `varve:sameAs` and `varve:inconsistencyMode`, which are
+  refused until the part that gives them effect.
+- **What point 4's validator refuses**, beside what it refused: ADR 0194
+  point 4's list.
+- **Point 5's grants** give each caller its dataset's dataset-public graphs
+  (ADR 0190).
+- **Point 6's plan** lists them, widened and narrowed.
+
+**The ledger.** The rulings are ADR 0194's `TBoxBindingTerms`,
+`TBoxBindingRefusals`, `OneTBoxBindingPerGraph`, `DefaultIsTheDatasets` and
+`PlanListsDatasetPublicGraphs`.

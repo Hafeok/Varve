@@ -221,6 +221,31 @@ in [ADR 0213](0213-cached-derived-data-is-verified-before-use.md) point 5.
   any route that later runs a load answers with it.
 - The page, the catalogue entry and the README row follow the rules above.
 
+## Amendment, 2026-10-27 — `entailment-unsupported` and `entailment-refused`
+
+Filed by Inference, part 1 (#170, under #95), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+- **`entailment-unsupported`** (`400`, members `value` and `supported`). It
+  answers:
+  - a `Varve-Entailment` header this server does not serve: an unknown token
+    or IRI, more than one value, or a regime whose part has not landed;
+  - a regime other than simple on an update request.
+
+  The rules are those of ADR [0192](0192-entailment-regimes-over-http.md).
+- **`entailment-refused`** (`400`, member `reason`): the regime's
+  `QueryRequestRefused` (SPARQL 1.1 Entailment Regimes §1.4), such as a
+  query illegal under OWL 2 Direct semantics or an inconsistent ontology
+  under it (`reason` `inconsistent`). It is catalogued now and emitted by no
+  tier-1 regime: RDF, RDFS and D never refuse a query. #95's later parts
+  emit it.
+- `Varve-Entailment` is a request and a response header of the query
+  endpoints, beside `Varve-As-Of`. The `Vary` every dataset response
+  carries names it, problems included, so the list stays one list.
+
+**The ledger.** The rulings are ADR 0192's `EntailmentHeader` and
+`UpdatesAreSimple`.
+
 ## Amendment, 2026-10-28 — `storage-full` and `commit-outcome-unknown`
 
 Filed by 1.0 readiness A (#129), unaccepted until the maintainer accepts it

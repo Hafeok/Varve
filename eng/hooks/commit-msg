@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# The DCO sign-off as eng/dco.cs reads it, made when the commit is made
+# (ADR 0034 point 3, ADR 0087). An agent's commit is signed off by its
+# responsible human in eng/identities.json, never by the agent: `git commit -s`
+# in a session signs off as the session's own identity, which the gate refuses.
+# So the hook drops an agent's own sign-off and adds the one the gate accepts.
+# A human's commit is left as written.
+#
+# Activated by `git config core.hooksPath eng/hooks` (AGENTS.md; the
+# devcontainer's post-create.sh sets it).
+
+set -euo pipefail
+
+message="$1"
+root="$(git rev-parse --show-toplevel)"
+author="$(git var GIT_AUTHOR_IDENT | sed -E 's/^.*<([^>]*)>.*$/\1/')"
+
+# eng/dco.cs names the sign-off the gate accepts from this author. For a human
+# it is their own, and their message is left as they wrote it; an author in no
+# entry is refused by the gate in CI, with its own hint.
+trailer="$(dotnet run "$root/eng/dco.cs" -- --sign-off-for "$author" 2>/dev/null)" || exit 0
+case "$trailer" in
+    *"<$author>") exit 0 ;;
+    "Signed-off-by: "*) ;;
+    *) echo "commit-msg: eng/dco.cs named no sign-off for $author" >&2; exit 1 ;;
+esac
+
+# An agent's own sign-off goes; its responsible human's is added once.
+grep -viF "Signed-off-by: " "$message" > "$message.dco" || true
+grep -iF "Signed-off-by: " "$message" | grep -viF "<$author>" >> "$message.dco" || true
+mv "$message.dco" "$message"
+git interpret-trailers --in-place --if-exists addIfDifferent --trailer "$trailer" "$message"

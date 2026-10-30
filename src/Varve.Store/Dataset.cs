@@ -523,7 +523,7 @@ public sealed partial class Dataset : IAsyncDisposable
 
         IndexVersion held = state.Index;
         TermView terms = state.TermsAt(_dictionary, held.Runs, state.Head);
-        return new DatasetView(state.Head, new IndexSource(held, terms), terms, _metrics.Pinned(held.Release));
+        return new DatasetView(state.Head, new IndexSource(held, terms), terms, _metrics.Pinned(held.Release), state.Graphs);
     }
 
     /// <summary>
@@ -561,10 +561,10 @@ public sealed partial class Dataset : IAsyncDisposable
                 IndexVersion Below() =>
                     new(position, [.. below, RebuildFromLog(new BlobName(set.Name), set.From, position, retractions: true)], below.Length + 1);
 
-                return new DatasetView(position, new SoughtSource(within, insideTerms, Below), insideTerms, _metrics.Pinned(inside.Release));
+                return new DatasetView(position, new SoughtSource(within, insideTerms, Below), insideTerms, _metrics.Pinned(inside.Release), state.Graphs);
             }
 
-            return new DatasetView(position, new IndexSource(within, insideTerms), insideTerms, _metrics.Pinned(inside.Release));
+            return new DatasetView(position, new IndexSource(within, insideTerms), insideTerms, _metrics.Pinned(inside.Release), state.Graphs);
         }
 
         // A checkpoint dropped since the state was read is no longer open.
@@ -591,7 +591,7 @@ public sealed partial class Dataset : IAsyncDisposable
                 source = new QuadOverlay(source, tail);
             }
 
-            DatasetView view = new(position, source, terms, _metrics.Pinned(checkpoint is null ? null : checkpoint.Release));
+            DatasetView view = new(position, source, terms, _metrics.Pinned(checkpoint is null ? null : checkpoint.Release), state.Graphs);
             checkpoint = null;
             return view;
         }

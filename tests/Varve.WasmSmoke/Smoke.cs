@@ -62,6 +62,7 @@ internal static partial class Smoke
             report.Append(Sparql()).Append('\n');
             report.Append(await Evaluate()).Append('\n');
             report.Append(await Update()).Append('\n');
+            report.Append(Entailments()).Append('\n');
             SortedDictionary<string, string> observed = new(StringComparer.Ordinal);
             report.Append(Crypto(observed)).Append('\n');
             Expect(observed);
@@ -293,6 +294,18 @@ internal static partial class Smoke
         }
 
         return "update: " + update + "; " + json.Length + " bytes of results JSON; RDFC-1.0 under SHA-256 and SHA-384 as the AOT host gives it";
+    }
+
+    /// <summary>Inference, part 1 (#170): a query rewritten under RDFS and one under D, compared whole.</summary>
+    private static string Entailments()
+    {
+        string entailed = Entail();
+        if (!string.Equals(entailed, ExpectedEntailment, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("entailment: " + entailed);
+        }
+
+        return "entailment: " + entailed + ", rewritten against a TBox graph";
     }
 
     private static int Count(Varve.Store.DatasetView source)

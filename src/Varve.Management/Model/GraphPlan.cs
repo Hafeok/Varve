@@ -18,3 +18,13 @@ namespace Varve.Management.Model;
 [DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
 public sealed record GraphPlan(RdfTerm Graph, ManagementPosition Version, IReadOnlyList<string> Content, IReadOnlyList<string> Added, IReadOnlyList<string> Removed);
 
+
+/// <summary>
+/// A graph a dataset's TBox bindings make dataset-public (ADR 0190 point 5,
+/// ADR 0194 point 6), and what the apply changes about it.
+/// </summary>
+/// <param name="Dataset">The dataset.</param>
+/// <param name="Graph">The graph.</param>
+/// <param name="Change">Whether the apply makes it dataset-public, stops it being so, or leaves it so.</param>
+[DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
+public sealed record DatasetPublicGraph(string Dataset, RdfTerm Graph, DatasetPublicChange Change);

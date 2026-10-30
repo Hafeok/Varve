@@ -338,6 +338,14 @@ jobs:
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Derivation.Tests
 
+      - name: Test Varve.Sparql.Entailment
+        run: >
+          dotnet test
+          --project tests/Varve.Sparql.Entailment.Tests/Varve.Sparql.Entailment.Tests.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Entailment.Tests
+
       - name: Test Varve.Events
         run: >
           dotnet test

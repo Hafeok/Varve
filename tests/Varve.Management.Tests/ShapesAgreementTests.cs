@@ -72,6 +72,17 @@ public sealed class ShapesAgreementTests
         BindingValidatesItsShapes,
         BindingNamesNoGraph,
         BindingFlagNotBoolean,
+        TBoxWithoutBoundGraph,
+        TBoxBoundGraphDefault,
+        TBoxBoundGraphLiteral,
+        TBoxWithoutProfile,
+        TBoxTwoProfiles,
+        TBoxProfileInvalid,
+        TBoxNamesNoGraph,
+        TBoxWithTemplate,
+        TBoxDataNamesItsTBox,
+        TBoxDefaultTwice,
+        TBoxDefaultReserved,
         EventDeclarationsTwice,
         EventDeclarationsInvalid,
         EventDeclarationsOffTheDataset,
@@ -91,10 +102,14 @@ public sealed class ShapesAgreementTests
         TwoDatasets,
         OperatorInADatasetGraph,
         TemplateSyntax,
+        TBoxProfileReserved,
+        TBoxReservedTerm,
+        TBoxBindingsOverlap,
+        TBoxDefaultsDiffer,
     }
 
     /// <summary>Where the dataset's event declarations are (ADR 0167): 0 not stated, then varve:InDataset (a cancel), varve:Moving, varve:Moved.</summary>
-    private sealed record Declaration(bool Storage, bool Scope, bool Placed, int Roles, int Groups, bool Template, int ReadGrants, bool Admin, int Bindings, int Events);
+    private sealed record Declaration(bool Storage, bool Scope, bool Placed, int Roles, int Groups, bool Template, int ReadGrants, bool Admin, int Bindings, int Events, int TBoxBindings);
 
     private static readonly Gen<Declaration> Declarations =
         from storage in Gen.Bool
@@ -107,7 +122,8 @@ public sealed class ShapesAgreementTests
         from admin in Gen.Bool
         from bindings in Gen.Int[0, 2]
         from events in Gen.Int[0, 3]
-        select new Declaration(storage, scope, placed, roles, groups, template, reads, admin, bindings, events);
+        from tboxBindings in Gen.Int[0, 2]
+        select new Declaration(storage, scope, placed, roles, groups, template, reads, admin, bindings, events, tboxBindings);
 
     [Fact]
     public void A_valid_graph_conforms_and_the_code_finds_nothing()
@@ -125,7 +141,7 @@ public sealed class ShapesAgreementTests
     {
         Gen.Select(Declarations, Gen.Enum<Seen>()).Sample((declaration, fault) =>
         {
-            string body = Body(declaration with { Roles = Math.Max(1, declaration.Roles), Groups = Math.Max(1, declaration.Groups), Template = true, Bindings = Math.Max(1, declaration.Bindings) }, fault.ToString());
+            string body = Body(declaration with { Roles = Math.Max(1, declaration.Roles), Groups = Math.Max(1, declaration.Groups), Template = true, Bindings = Math.Max(1, declaration.Bindings), TBoxBindings = Math.Max(1, declaration.TBoxBindings) }, fault.ToString());
             List<DeclarationFinding> code = Code(body);
             List<ShaclResult> shapes = ShapeResults(body);
             Assert.True(code.Count > 0, fault + ": the code found nothing in\n" + body);
@@ -146,7 +162,7 @@ public sealed class ShapesAgreementTests
     {
         Gen.Select(Declarations, Gen.Enum<Unseen>()).Sample((declaration, fault) =>
         {
-            string body = Body(declaration with { Template = true }, fault.ToString());
+            string body = Body(declaration with { Template = true, TBoxBindings = Math.Max(1, declaration.TBoxBindings) }, fault.ToString());
             Assert.True(Code(body).Count > 0, fault + ": the code found nothing in\n" + body);
             Assert.Empty(ShapeResults(body));
         }, iter: Iterations);
@@ -164,7 +180,7 @@ public sealed class ShapesAgreementTests
         Gen.Select(Declarations, Gen.Int[-1, faults.Length - 1]).Sample((declaration, index) =>
         {
             string? fault = index < 0 ? null : faults[index];
-            string body = Body(declaration with { Roles = Math.Max(1, declaration.Roles), Groups = Math.Max(1, declaration.Groups), Template = true, Bindings = Math.Max(1, declaration.Bindings) }, fault);
+            string body = Body(declaration with { Roles = Math.Max(1, declaration.Roles), Groups = Math.Max(1, declaration.Groups), Template = true, Bindings = Math.Max(1, declaration.Bindings), TBoxBindings = Math.Max(1, declaration.TBoxBindings) }, fault);
             List<DeclarationFinding> oracle = Code(body);
             List<DeclarationFinding> runtime = Runtime(body);
             Assert.True(oracle.Count == 0 == (runtime.Count == 0), (fault ?? "valid") + ": the oracle found " + oracle.Count + ", the runtime " + runtime.Count + "\n" + body);
@@ -381,6 +397,53 @@ public sealed class ShapesAgreementTests
             } : " ; varve:allGraphs true");
             text.Append(first && fault == nameof(Seen.BindingFlagNotBoolean) ? " ; varve:allowFullEvaluation \"yes\"" : first ? " ; varve:subClassOfInShapesGraph true" : string.Empty);
             text.Append(" .\n");
+        }
+
+        // TBox bindings (ADR 0194): disjoint prefixes, the first stating the dataset's default.
+        for (int i = 0; i < d.TBoxBindings; i++)
+        {
+            bool first = i == 0;
+            text.Append("n:tbox").Append(i).Append(" a varve:TBoxBinding");
+            text.Append(first ? fault switch
+            {
+                nameof(Seen.TBoxWithoutBoundGraph) => string.Empty,
+                nameof(Seen.TBoxBoundGraphDefault) => " ; varve:boundGraph varve:defaultGraph",
+                nameof(Seen.TBoxBoundGraphLiteral) => " ; varve:boundGraph \"https://x/tbox0\"",
+                _ => " ; varve:boundGraph <https://x/tbox0>",
+            } : " ; varve:boundGraph <https://x/tbox" + i + "> , <https://x/tbox" + i + "b>");
+            text.Append(first ? fault switch
+            {
+                nameof(Seen.TBoxWithoutProfile) => string.Empty,
+                nameof(Seen.TBoxTwoProfiles) => " ; varve:profile varve:Rewriting , varve:OWL2RL",
+                nameof(Seen.TBoxProfileInvalid) => " ; varve:profile varve:read",
+                nameof(Unseen.TBoxProfileReserved) => " ; varve:profile varve:OWL2RL",
+                _ => " ; varve:profile varve:Rewriting",
+            } : " ; varve:profile varve:Rewriting");
+            text.Append(first ? fault switch
+            {
+                nameof(Seen.TBoxNamesNoGraph) => string.Empty,
+                nameof(Seen.TBoxWithTemplate) => " ; varve:graphPrefix \"https://x/t0/\" ; varve:graphTemplate n:tpl",
+                nameof(Seen.TBoxDataNamesItsTBox) => " ; varve:graph <https://x/tbox0>",
+                _ => " ; varve:graphPrefix \"https://x/t0/\" ; varve:graph <https://x/data0>",
+            } : " ; varve:graphPrefix \"https://x/t" + i + "/\"");
+            text.Append(first ? fault switch
+            {
+                nameof(Seen.TBoxDefaultTwice) => " ; varve:defaultEntailment <http://www.w3.org/ns/entailment/RDFS> , <http://www.w3.org/ns/entailment/D>",
+                nameof(Seen.TBoxDefaultReserved) => " ; varve:defaultEntailment <http://www.w3.org/ns/entailment/OWL-RDF-Based>",
+                _ => " ; varve:defaultEntailment <http://www.w3.org/ns/entailment/RDFS>",
+            } : string.Empty);
+            text.Append(first && fault == nameof(Unseen.TBoxReservedTerm) ? " ; varve:crossGraph true" : string.Empty);
+            text.Append(" .\n");
+        }
+
+        if (fault == nameof(Unseen.TBoxBindingsOverlap))
+        {
+            text.Append("n:tbox-over a varve:TBoxBinding ; varve:boundGraph <https://x/tbox-over> ; varve:profile varve:Rewriting ; varve:graph <https://x/t0/g> .\n");
+        }
+
+        if (fault == nameof(Unseen.TBoxDefaultsDiffer))
+        {
+            text.Append("n:tbox-other a varve:TBoxBinding ; varve:boundGraph <https://x/tbox-other> ; varve:profile varve:Rewriting ; varve:graphPrefix \"https://x/tz/\" ; varve:defaultEntailment <http://www.w3.org/ns/entailment/D> .\n");
         }
 
         if (fault == nameof(Unseen.BlankNode))

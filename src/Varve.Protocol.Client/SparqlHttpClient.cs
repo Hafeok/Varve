@@ -73,7 +73,16 @@ public sealed partial class SparqlHttpClient
     public Uri Dataset { get; }
 
     /// <summary>A query, <c>POST</c>ed as <c>application/sparql-query</c>, asking for <paramref name="accept"/>; <paramref name="asOf"/> is a <c>Varve-As-Of</c> selector.</summary>
-    public Task<HttpResponseMessage> QueryAsync(string query, string accept, string? asOf, CancellationToken cancellationToken)
+    public Task<HttpResponseMessage> QueryAsync(string query, string accept, string? asOf, CancellationToken cancellationToken) =>
+        QueryAsync(query, accept, asOf, null, cancellationToken);
+
+    /// <summary>
+    /// A query as <see cref="QueryAsync(string, string, string?, CancellationToken)"/> sends it,
+    /// answered under <paramref name="entailment"/>, a <c>Varve-Entailment</c>
+    /// value: <c>simple</c>, <c>rdf</c>, <c>rdfs</c> or <c>d</c>, or a regime IRI
+    /// in angle brackets (ADR 0192). None is the dataset's default.
+    /// </summary>
+    public Task<HttpResponseMessage> QueryAsync(string query, string accept, string? asOf, string? entailment, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
         HttpRequestMessage request = new(HttpMethod.Post, new Uri(Dataset, "sparql")) { Content = new StringContent(query, Encoding.UTF8, "application/sparql-query") };
@@ -82,6 +91,11 @@ public sealed partial class SparqlHttpClient
         if (asOf is not null)
         {
             request.Headers.TryAddWithoutValidation("Varve-As-Of", asOf);
+        }
+
+        if (entailment is not null)
+        {
+            request.Headers.TryAddWithoutValidation("Varve-Entailment", entailment);
         }
 
         return SendAsync(request, cancellationToken);

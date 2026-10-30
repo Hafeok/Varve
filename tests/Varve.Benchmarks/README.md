@@ -1815,3 +1815,141 @@ The first run, before the fix to incremental validation's candidate targets
   A generation is a full validation, so the fix leaves it unchanged. S's
   cold start of 7.1 s against 4.3 s is one run's spread at a few seconds.
 - **Part 2a's 7.6 ms** were measured without those constraints.
+
+## Inference, part 1 — RDFS rewriting, and the rewriting alone at three sizes
+
+**Machine.** Intel Xeon @ 2.10 GHz, 4 logical and 4 physical cores, 15 GiB,
+Ubuntu 24.04.5 LTS, a cloud container. .NET SDK 10.0.403, runtime 10.0.14,
+X64 RyuJIT `x86-64-v4`. BenchmarkDotNet 0.15.8, `WarmupCount 2`,
+`IterationCount 8`. The rewriting rows were first run in process (the
+generated project is red on `CS0618` until ADRs 0190–0194 are accepted);
+the rest out of process, with that warning kept a warning.
+
+**Workload.** `EntailmentBenchmarks`: a memory store with a TBox graph of
+five schema triples (`Student ⊑ Person ⊑ Agent ⊑ Thing`, `advisor ⊑ knows`,
+`knows` with domain `Person`), the schema fixed at every size, and N people
+in the default graph, each typed `Student` with one `advisor`; one in twenty
+also holds a bag of five members by `rdf:_1` … `rdf:_5`. Every count is
+checked against what the data entails before anything is timed. The queries
+read through one schema cache, as the server's do (ADR 0193 point 2).
+
+```bash
+WarningsNotAsErrors=CS0618 dotnet build tests/Varve.Benchmarks -c Release
+cd tests/Varve.Benchmarks && dotnet run -c Release --no-build -- --filter '*EntailmentBenchmarks*' --inProcess
+```
+
+**The gate: rewriting a query that names a class** (`?x a ex:Agent`,
+two `rdfs:subClassOf` steps above the asserted type), nothing evaluated.
+Cold is a first query: a fresh cache, the schema saturated by probes and the
+tables compiled. Warm is a later one, the schema from the cache. The
+meta-query `?c a rdfs:Class` adds the seek for the typed classes, one seek
+per distinct class.
+
+| People | Cold | Error | Warm | Error | `?c a rdfs:Class`, warm | Error | Allocated, cold / warm |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 10,000 | 1.42 ms | 0.11 ms | 39.0 µs | 4.4 µs | 47.8 µs | 5.1 µs | 1,640 / 53 KB |
+| 100,000 | 1.40 ms | 0.10 ms | 35.4 µs | 2.0 µs | 48.5 µs | 6.6 µs | 1,640 / 53 KB |
+| 1,000,000 | 1.55 ms | 0.27 ms | 35.4 µs | 4.7 µs | 50.1 µs | 9.3 µs | 1,640 / 53 KB |
+
+Flat across a hundredfold of data, within the error, and the allocation is
+the same to the kilobyte. The first build of this part, which read the
+schema by scanning for the shapes that act on it, took **2.9 s** to rewrite
+the same query at 100,000 people; the plan's probe design, which ships, takes
+1.4 ms cold.
+
+**The cache's hits and misses**, printed at the end of each run: every run
+saturated **1** schema, the first query's, and answered every later lookup
+from the cache: 4 lookups in a cold run's setup, 212,997 over a warm run's
+iterations, at each of the three sizes.
+
+**Queries, evaluated and counted**, the schema cached, on the pruned
+rewriting (ADR 0193 point 3), **out of process** so that every row runs,
+`?x a rdfs:Resource` at 1,000,000 people included (`WarningsNotAsErrors=CS0618`
+in the environment lets BenchmarkDotNet's generated project build):
+
+```bash
+cd tests/Varve.Benchmarks && WarningsNotAsErrors=CS0618 dotnet run -c Release --no-build -- --filter '*EntailmentBenchmarks*' --buildTimeout 1800
+```
+
+| Query | 10,000 | 100,000 | 1,000,000 |
+|---|---:|---:|---:|
+| `?x a ex:Student`, simple | 0.68 ms | 6.67 ms | 67.3 ms |
+| `?x a ex:Student`, RDFS | 5.46 ms | 117 ms | 1.61 s |
+| `?x a ex:Agent`, simple (no answer) | 2.5 µs | 2.5 µs | 2.5 µs |
+| `?x a ex:Agent`, RDFS | 15.2 ms | 238 ms | 3.35 s |
+| `?x ex:knows ?y`, RDFS (one sub-property) | 8.67 ms | 179 ms | 2.04 s |
+| `?s rdfs:member ?o`, simple (no answer) | 2.4 µs | 2.4 µs | 2.5 µs |
+| `?s rdfs:member ?o`, RDFS | 15.6 ms | 182 ms | 1.92 s |
+| `?x a rdfs:Resource`, RDFS | 163 ms | 2.58 s | 27.3 s |
+
+The rewriting alone, in the same run: 1.60, 1.61 and 1.58 ms cold, 28.0,
+36.2 and 37.8 µs warm, the same flat line as the table above.
+
+**The rewritten union, and what pruning removed.** Before pruning, every
+branch of `?x a ex:Student` read every typing triple of `ex:Student`; most
+added nothing. Counted on the same workload at N = 1,000 by evaluating each
+branch of the union alone:
+
+| Query | Branches before | Branches with rows, before | Branches after | Branches with rows, after |
+|---|---:|---:|---:|---:|
+| `?x a ex:Student` | 6 | 3, each the same N rows | 1 | 1 |
+| `?x a ex:Agent` | 8 | 2 | 3 | 2 |
+| `?x ex:knows ?y` | 5 | 1 | 3 | 1 |
+| `?s rdfs:member ?o` | 5 | 1 | 3 | 1 |
+
+`?x a ex:Student` under RDFS against simple, the worst shape:
+
+| People | Before pruning (in process) | After |
+|---:|---:|---:|
+| 10,000 | 29× | 8.0× |
+| 100,000 | 45× | 17.5× |
+| 1,000,000 | 61× | 24× |
+
+What is left is point 6's `Distinct` over each basic graph pattern's rows,
+which a simple count never builds: one branch, N rows, hashed. It grows a
+little faster than N, as the hash set outgrows the caches.
+
+**Reading it.**
+- **The rewriting is the schema's and the query's,** not the data's. What a
+  query under RDFS costs beyond that is its evaluation, which is
+  answer-sized: each row above counts N or 2.5% of N answers, and grows with
+  them.
+- **The only O(data) shapes** are `?s ?p ?o` and `?x a rdfs:Resource`,
+  whose answers are the data: every term of the graph is a resource. Their
+  cost is the answers': 27.3 s at 1,000,000 people. The schema's one O(data)
+  read is measured below.
+- **The container-membership pattern** finds its `rdf:_n` among the
+  distinct predicates, sought, not by a scan.
+
+### A triple about the vocabulary, written to
+
+**Workload.** `FullReadBenchmarks`: N people typed `ex:Student` in a data
+graph `ex:data`, `ex:Student rdfs:subClassOf ex:Person` in the TBox, and
+`rdf:type rdfs:subPropertyOf ex:classifiedAs` nowhere, in the data graph,
+or in the TBox. Each operation commits one more typing to the data graph,
+then asks `ASK { GRAPH ex:data { ex:p0 a ex:Person } }` under RDFS through a
+schema cache. A commit changes the data graph's version, so every query
+saturates its schema again. Out of process, `InvocationCount 4`.
+
+```bash
+cd tests/Varve.Benchmarks && WarningsNotAsErrors=CS0618 dotnet run -c Release --no-build -- --filter '*FullReadBenchmarks*' --buildTimeout 1800
+```
+
+| People | No such triple | In the data graph | In the TBox | Allocated with one |
+|---:|---:|---:|---:|---:|
+| 10,000 | 7.0 ms | 711 ms | 694 ms | 572 MB |
+| 100,000 | 6.7 ms | 8.87 s | 9.89 s | 5,698 MB |
+
+- **Without such a triple** a commit costs the probes of one saturation,
+  the same at both sizes.
+- **With one, the scoping graph is read whole** after every commit, at a
+  cost linear in the graph, and **the same wherever it is held**: the data
+  graph's schema is read merged with its binding's TBox. In a TBox the triple
+  makes every graph its binding covers pay, where in a data graph only that
+  graph does (`docs/operator/inference.md`).
+- `fullReads` named the graph each time: `ex:data` and `ex:tbox`.
+- **The first run of this benchmark ran out of memory at 100,000 people.**
+  The schema cache was bounded by count only, and kept a whole-graph schema
+  per commit. It is now bounded by the triples its schemas hold as well, and
+  one larger than the budget is answered and not kept: the cache answered no
+  lookup at 100,000 people, and kept nothing.

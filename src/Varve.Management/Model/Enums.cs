@@ -63,6 +63,26 @@ public enum BindingKind : byte
     TBox,
 }
 
+/// <summary>What an apply changes about a dataset-public graph (ADR 0194 point 6).</summary>
+public enum DatasetPublicChange : byte
+{
+    /// <summary>Dataset-public before the apply and after it.</summary>
+    Unchanged,
+
+    /// <summary>Dataset-public after the apply and not before: every reader of the dataset will read it.</summary>
+    Widened,
+
+    /// <summary>Dataset-public before the apply and not after: only its grants will say who reads it.</summary>
+    Narrowed,
+}
+
+/// <summary>What a TBox binding does: <c>varve:profile</c> (ADR 0194).</summary>
+public enum TBoxProfile : byte
+{
+    /// <summary><c>varve:Rewriting</c>: a query is rewritten against the TBox (tier 1); nothing is materialised.</summary>
+    Rewriting,
+}
+
 /// <summary>What a shapes binding does to a commit: <c>varve:validationMode</c> (ADR 0170).</summary>
 public enum ShapesMode : byte
 {

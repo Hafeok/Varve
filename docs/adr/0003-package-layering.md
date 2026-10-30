@@ -182,3 +182,23 @@ named by ADR 0148. Nothing else here changes.
 
 **The ledger.** The rulings are ADR 0172's set (`DerivationAtLayerTwo`) and
 ADR 0169's (`ShaclStoreAtLayerFive`); this amendment adds none here.
+
+## Amendment, 2026-10-27 — the inference packages
+
+Filed by Inference, part 1 (#170, under #95), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Three packages join the layers ([ADR 0191](0191-the-inference-packages-and-their-layers.md)):
+- **Layer 3: `Varve.Sparql.Entailment`.** The entailment regimes and query
+  rewriting, over the algebra, beside the evaluator and
+  `Varve.Shacl`, referencing neither.
+- **Layer 4: `Varve.Inference`.** The rule engine, over the evaluator and
+  `Varve.Shacl`.
+- **Layer 5: `Varve.Inference.Store`.** The projection and the tier-3
+  validator.
+
+The first is built by #170. The other two are built by #171 and join the
+table then. Nothing else here changes.
+
+**The ledger.** The rulings are ADR 0191's `EntailmentAtLayerThree`,
+`InferenceAtLayerFour` and `InferenceStoreAtLayerFive`.

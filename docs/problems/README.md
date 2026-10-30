@@ -12,6 +12,8 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`sparql-syntax`](sparql-syntax.md) | 400 | `line`, `column`, `offset` | The request does not parse. |
 | [`rdf-syntax`](rdf-syntax.md) | 400 |  | The RDF body does not parse. |
 | [`bad-request`](bad-request.md) | 400 |  | The request is not one the protocol accepts. |
+| [`entailment-unsupported`](entailment-unsupported.md) | 400 | `value`, `supported` | The server does not answer this request under that entailment regime. |
+| [`entailment-refused`](entailment-refused.md) | 400 | `reason` | The entailment regime refuses this query. |
 | [`operation-failed`](operation-failed.md) | 400 |  | An operation failed; nothing was committed. |
 | [`unauthorized`](unauthorized.md) | 401 |  | The request carries no valid bearer token. |
 | [`forbidden`](forbidden.md) | 403 |  | The caller does not hold the permission the request needs. |

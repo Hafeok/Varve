@@ -19,9 +19,9 @@ namespace Varve.Management.Model;
 public sealed record GrantDeclaration(RdfTerm Node, string? Dataset, Principal Grantee, GrantAccess Access, GraphSet Graphs);
 
 /// <summary>
-/// A shapes or TBox binding. A shapes binding (ADR 0170) also states the graphs
-/// it validates, as a grant states its graphs, and its mode; a TBox binding is
-/// recorded until Inference acts on it.
+/// A shapes binding (ADR 0170): its shapes graph, the graphs it validates, as a
+/// grant states its graphs, and its mode. A TBox binding is a
+/// <see cref="TBoxBindingDeclaration"/>.
 /// </summary>
 public sealed record BindingDeclaration(RdfTerm Node, BindingKind Kind, RdfTerm BoundGraph)
 {
@@ -38,6 +38,22 @@ public sealed record BindingDeclaration(RdfTerm Node, BindingKind Kind, RdfTerm 
     /// <summary><c>varve:subClassOfInShapesGraph</c>.</summary>
     [DesignDecision(typeof(TheShapesBindingVocabulary.BindingTerms), Scope = ExceptionScope.Boundary)]
     public bool SubClassOfInShapesGraph { get; init; }
+}
+
+/// <summary>
+/// A TBox binding (ADR 0194): the TBox graphs a query of its data graphs is
+/// rewritten against, and the dataset's default regime when it states one.
+/// </summary>
+/// <param name="Node">The binding's node, which names it.</param>
+/// <param name="TBoxGraphs">Its TBox graphs, one or more, in term order.</param>
+/// <param name="DataGraphs">Its data graphs, as declared: the TBox graphs and every <c>varve:</c> graph are never among them.</param>
+/// <param name="Profile">What it does.</param>
+[DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
+[Contract(typeof(TheTboxBindingVocabulary.TBoxBindingTerms), Role = "a TBox binding as read")]
+public sealed record TBoxBindingDeclaration(RdfTerm Node, IReadOnlyList<RdfTerm> TBoxGraphs, GraphSet DataGraphs, TBoxProfile Profile)
+{
+    /// <summary>The regime IRI of <c>varve:defaultEntailment</c>, or none when it is not stated.</summary>
+    public RdfTerm? DefaultEntailment { get; init; }
 }
 
 /// <summary>One dataset's declarations (ADR 0163).</summary>
@@ -71,8 +87,14 @@ public sealed class DatasetDeclaration
     /// <summary>The dataset's grants.</summary>
     public IReadOnlyList<GrantDeclaration> Grants { get; init; } = [];
 
-    /// <summary>The dataset's bindings.</summary>
+    /// <summary>The dataset's shapes bindings.</summary>
     public IReadOnlyList<BindingDeclaration> Bindings { get; init; } = [];
+
+    /// <summary>The dataset's TBox bindings (ADR 0194), whose graph sets do not overlap.</summary>
+    public IReadOnlyList<TBoxBindingDeclaration> TBoxBindings { get; init; } = [];
+
+    /// <summary>The dataset's default regime (ADR 0194 point 3): the IRI its TBox bindings state, or none.</summary>
+    public RdfTerm? DefaultEntailment { get; init; }
 }
 
 /// <summary>A finding of the code validator: what is wrong, at which node and path (ADR 0166).</summary>

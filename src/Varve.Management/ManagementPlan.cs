@@ -41,6 +41,13 @@ public sealed class ManagementPlan
     /// <summary>The owned graphs, in IRI order.</summary>
     public IReadOnlyList<GraphPlan> Graphs { get; }
 
+    /// <summary>
+    /// Every graph the desired declarations' TBox bindings make dataset-public,
+    /// and every graph they stop making so, by dataset and then graph (ADR
+    /// 0194 point 6). What the apply widens is shown before it is applied.
+    /// </summary>
+    public IReadOnlyList<DatasetPublicGraph> DatasetPublic { get; init; } = [];
+
     /// <summary>Whether applying it would change nothing.</summary>
     public bool IsEmpty
     {
@@ -91,7 +98,72 @@ public sealed class ManagementPlan
                 have.FindAll(line => !wanted.Contains(line))));
         }
 
-        return new ManagementPlan(position, plans);
+        return new ManagementPlan(position, plans) { DatasetPublic = DatasetPublicChanges(desired, graphs, current) };
+    }
+
+    /// <summary>
+    /// The dataset-public graphs under the declarations of
+    /// <paramref name="current"/> with <paramref name="owned"/> replaced by
+    /// their content in <paramref name="desired"/>, against those of
+    /// <paramref name="current"/>.
+    /// </summary>
+    private static List<DatasetPublicGraph> DatasetPublicChanges(IQuadSource desired, SortedSet<RdfTerm> owned, IQuadSource current)
+    {
+        SortedDictionary<RdfTerm, List<DeclarationReader.Triple>> before = DeclarationReader.Graphs(current);
+        SortedDictionary<RdfTerm, List<DeclarationReader.Triple>> after = new(before, TermOrder.Instance);
+        SortedDictionary<RdfTerm, List<DeclarationReader.Triple>> wanted = DeclarationReader.Graphs(desired);
+
+        foreach (RdfTerm graph in owned)
+        {
+            if (wanted.TryGetValue(graph, out List<DeclarationReader.Triple>? triples))
+            {
+                after[graph] = triples;
+            }
+            else
+            {
+                after.Remove(graph);
+            }
+        }
+
+        SortedDictionary<string, SortedSet<RdfTerm>> had = PublicByDataset(DeclarationReader.Read(before));
+        SortedDictionary<string, SortedSet<RdfTerm>> will = PublicByDataset(DeclarationReader.Read(after));
+        SortedSet<string> datasets = new(had.Keys, StringComparer.Ordinal);
+        datasets.UnionWith(will.Keys);
+        List<DatasetPublicGraph> changes = [];
+
+        foreach (string dataset in datasets)
+        {
+            SortedSet<RdfTerm> was = had.TryGetValue(dataset, out SortedSet<RdfTerm>? a) ? a : new(TermOrder.Instance);
+            SortedSet<RdfTerm> now = will.TryGetValue(dataset, out SortedSet<RdfTerm>? b) ? b : new(TermOrder.Instance);
+            SortedSet<RdfTerm> all = new(was, TermOrder.Instance);
+            all.UnionWith(now);
+
+            foreach (RdfTerm graph in all)
+            {
+                DatasetPublicChange change = !now.Contains(graph) ? DatasetPublicChange.Narrowed
+                    : was.Contains(graph) ? DatasetPublicChange.Unchanged : DatasetPublicChange.Widened;
+                changes.Add(new DatasetPublicGraph(dataset, graph, change));
+            }
+        }
+
+        return changes;
+
+        static SortedDictionary<string, SortedSet<RdfTerm>> PublicByDataset(Declarations declarations)
+        {
+            SortedDictionary<string, SortedSet<RdfTerm>> map = new(StringComparer.Ordinal);
+
+            foreach ((string name, DatasetDeclaration dataset) in declarations.Datasets)
+            {
+                IReadOnlyList<RdfTerm> graphs = GrantTable.DatasetPublicGraphs(dataset);
+
+                if (graphs.Count > 0)
+                {
+                    map[name] = new SortedSet<RdfTerm>(graphs, TermOrder.Instance);
+                }
+            }
+
+            return map;
+        }
     }
 
     /// <summary>The graphs a source names, which a declaration file owns.</summary>
@@ -151,6 +223,23 @@ public sealed class ManagementPlan
         StringBuilder text = new();
         text.Append("System position ").Append(Position).Append('\n');
 
+        // What the apply widens is shown before what it changes (ADR 0190 point 5).
+        if (DatasetPublic.Count > 0)
+        {
+            text.Append("Dataset-public graphs, read by every reader of their dataset:\n");
+
+            foreach (DatasetPublicGraph graph in DatasetPublic)
+            {
+                text.Append("  ").Append(graph.Dataset).Append(" <").Append(Encoding.UTF8.GetString(graph.Graph.Lexical)).Append('>');
+                text.Append(graph.Change switch
+                {
+                    DatasetPublicChange.Widened => " (widened: dataset-public after this apply)\n",
+                    DatasetPublicChange.Narrowed => " (narrowed: no longer dataset-public after this apply)\n",
+                    _ => "\n",
+                });
+            }
+        }
+
         foreach (GraphPlan graph in Graphs)
         {
             text.Append('<').Append(Encoding.UTF8.GetString(graph.Graph.Lexical)).Append("> at version ").Append(graph.Version);
@@ -191,6 +280,23 @@ public sealed class ManagementPlan
                 Lines(json, "content", graph.Content);
                 Lines(json, "added", graph.Added);
                 Lines(json, "removed", graph.Removed);
+                json.WriteEndObject();
+            }
+
+            json.WriteEndArray();
+            json.WriteStartArray("datasetPublic");
+
+            foreach (DatasetPublicGraph graph in DatasetPublic)
+            {
+                json.WriteStartObject();
+                json.WriteString("dataset", graph.Dataset);
+                json.WriteString("graph", Encoding.UTF8.GetString(graph.Graph.Lexical));
+                json.WriteString("change", graph.Change switch
+                {
+                    DatasetPublicChange.Widened => "widened",
+                    DatasetPublicChange.Narrowed => "narrowed",
+                    _ => "unchanged",
+                });
                 json.WriteEndObject();
             }
 
@@ -239,7 +345,27 @@ public sealed class ManagementPlan
                     Lines(graph, "removed")));
             }
 
-            return new ManagementPlan(new ManagementPosition(root.GetProperty("position").GetInt64()), graphs);
+            // A plan saved before ADR 0194 has no list: it was made with no TBox binding in effect.
+            List<DatasetPublicGraph> datasetPublic = [];
+
+            if (root.TryGetProperty("datasetPublic", out JsonElement list))
+            {
+                foreach (JsonElement graph in list.EnumerateArray())
+                {
+                    datasetPublic.Add(new DatasetPublicGraph(
+                        graph.GetProperty("dataset").GetString()!,
+                        RdfTerm.Iri(Encoding.UTF8.GetBytes(graph.GetProperty("graph").GetString()!)),
+                        graph.GetProperty("change").GetString() switch
+                        {
+                            "widened" => DatasetPublicChange.Widened,
+                            "narrowed" => DatasetPublicChange.Narrowed,
+                            "unchanged" => DatasetPublicChange.Unchanged,
+                            var other => throw new FormatException("A dataset-public change is widened, narrowed or unchanged, not " + other + "."),
+                        }));
+                }
+            }
+
+            return new ManagementPlan(new ManagementPosition(root.GetProperty("position").GetInt64()), graphs) { DatasetPublic = datasetPublic };
         }
         catch (Exception error) when (error is JsonException or KeyNotFoundException or InvalidOperationException or FormatException or ArgumentException)
         {

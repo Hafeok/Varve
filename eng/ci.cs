@@ -208,10 +208,13 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-derivation", "Varve.Derivation: paths, their reverse and their anchors against a relational oracle, components and refused cycles by reachability, propagation as the least fixpoint",
         () => Test("Varve.Derivation.Tests")),
 
+    ("test-sparql-entailment", "Varve.Sparql.Entailment: rewriting equals the forward-chained closure under RDF, RDFS and D, in the default graph, a named graph and under GRAPH ?g, the answer conditions, literals by value",
+        () => Test("Varve.Sparql.Entailment.Tests")),
+
     ("test-events", "Varve.Events: rendering replayed byte for byte, the number rule, schema golden files, compatibility, the catalogue's three views, AsyncAPI 3.0, the declaration shapes' agreement with the code",
         () => Test("Varve.Events.Tests")),
 
-    ("test-management", "Varve.Management: the vocabulary's reader and code validator, grants over a caller with templates, the plan's idempotence",
+    ("test-management", "Varve.Management: the vocabulary's reader and code validator, grants over a caller with templates, the plan's idempotence, TBox bindings and the graphs an apply makes dataset-public",
         () => Test("Varve.Management.Tests")),
 
     ("test-xsd", "Varve.Xsd, and its properties; the evaluation suites gate it too",

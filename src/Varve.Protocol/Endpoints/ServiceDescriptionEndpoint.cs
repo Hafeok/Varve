@@ -13,6 +13,8 @@ using Varve.Protocol.Http;
 using Varve.Rdf;
 using Varve.Sparql;
 using Varve.Sparql.Algebra;
+using Varve.Sparql.Entailment;
+using Varve.Sparql.Entailment.Model;
 using Varve.Sparql.Evaluation;
 using Varve.Sparql.Evaluation.Model;
 using Varve.Store;
@@ -94,6 +96,7 @@ internal static class ServiceDescriptionEndpoint
         }
 
         string service = ServiceAddress(exchange);
+        EntailmentBindings bindings = exchange.Options.Entailment?.Of(exchange.Name) ?? EntailmentBindings.None;
         SparqlEvaluator evaluator = new(exchange.Options.Evaluation);
         IQuadSource source = exchange.Readable(view);
 
@@ -101,7 +104,7 @@ internal static class ServiceDescriptionEndpoint
         {
             using GraphOutput written = new(output, syntax.Format, exchange.Options.Limits);
 
-            foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in Describe(service, view.Position, exchange.Options.Limits))
+            foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in Describe(service, view.Position, exchange.Options.Limits, bindings.Default))
             {
                 written.Write(s, p, o);
             }
@@ -128,6 +131,15 @@ internal static class ServiceDescriptionEndpoint
                     written.Write(dataset, Iri(Sd + "namedGraph"), graph);
                     written.Write(graph, Iri(Rdf + "type"), Iri(Sd + "NamedGraph"));
                     written.Write(graph, Iri(Sd + "name"), name!);
+
+                    // A graph a TBox binding covers is answered under each tier-1 regime against its TBox (ADR 0192 point 5).
+                    if (Covered(bindings, name!))
+                    {
+                        foreach (EntailmentRegime regime in Enum.GetValues<EntailmentRegime>())
+                        {
+                            written.Write(graph, Iri(Sd + "entailmentRegime"), EntailmentRegimes.Iri(regime));
+                        }
+                    }
 
                     // A catalogue graph the caller reads is linked as one (ADR 0144).
                     if (EventCatalogue.TryGetSourceGraph(name!, out _))
@@ -165,8 +177,21 @@ internal static class ServiceDescriptionEndpoint
         return at >= 0 ? prefix[..at] + "/manage" + prefix[at..] : prefix + "manage/datasets/" + Model.DatasetName.Default.Value + "/";
     }
 
+    private static bool Covered(EntailmentBindings bindings, RdfTerm graph)
+    {
+        foreach (TBoxCover cover in bindings.Covers)
+        {
+            if (cover.Covers(graph))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>The description's fixed part: everything but the named graphs.</summary>
-    internal static List<(RdfTerm, RdfTerm, RdfTerm)> Describe(string service, Position position, ProtocolLimits limits)
+    internal static List<(RdfTerm, RdfTerm, RdfTerm)> Describe(string service, Position position, ProtocolLimits limits, EntailmentRegime defaultRegime)
     {
         string prefix = service[..^"sparql".Length];
         RdfTerm self = Iri(service);
@@ -180,10 +205,11 @@ internal static class ServiceDescriptionEndpoint
             (self, Iri(Sd + "supportedLanguage"), Iri(Sd + "SPARQL10Query")),
             (self, Iri(Sd + "supportedLanguage"), Iri(Sd + "SPARQL11Query")),
             (self, Iri(Sd + "supportedLanguage"), Iri(Sd + "SPARQL11Update")),
-            (self, Iri(Sd + "defaultEntailmentRegime"), Iri("http://www.w3.org/ns/entailment/Simple")),
+            (self, Iri(Sd + "defaultEntailmentRegime"), EntailmentRegimes.Iri(defaultRegime)),
             (self, Iri(Sd + "feature"), Iri(Varve + "VersionParameter")),
+            (self, Iri(Sd + "feature"), Iri(Varve + "EntailmentHeader")),
             (self, Iri(Rdfs + "comment"), Literal(
-                "A Varve dataset. Blank nodes are written with labels stable for the dataset's lifetime; a label sent back is a fresh node (ADR 0098). Varve-As-Of reads the past; Varve-Position names the position every response describes, and ETag the position or, for a graph, the graph's version; If-Match on a write is its expected position, on a graph its version; Varve-If-Graphs-Match names the graphs an update read and their versions.")),
+                "A Varve dataset. Blank nodes are written with labels stable for the dataset's lifetime; a label sent back is a fresh node (ADR 0098). Varve-As-Of reads the past; Varve-Position names the position every response describes, and ETag the position or, for a graph, the graph's version; If-Match on a write is its expected position, on a graph its version; Varve-If-Graphs-Match names the graphs an update read and their versions. Varve-Entailment asks a query's regime: simple, rdf, rdfs or d (ADR 0192).")),
         ];
 
         foreach (string format in (ReadOnlySpan<string>)["SPARQL_Results_JSON", "SPARQL_Results_XML", "SPARQL_Results_CSV", "SPARQL_Results_TSV", "N-Triples", "Turtle", "N-Quads", "TriG", "RDF_XML", "JSON-LD"])

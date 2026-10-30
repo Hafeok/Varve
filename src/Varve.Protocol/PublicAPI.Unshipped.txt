@@ -420,6 +420,35 @@ Varve.Protocol.EventDeclarationMove
 static Varve.Protocol.EventDeclarationMove.ResumeAsync(Varve.Protocol.ProtocolOptions! options, Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
 Varve.Protocol.EventCatalogueValidator.EventCatalogueValidator(Varve.Protocol.Model.DatasetName dataset, System.Func<bool>! moved) -> void
 static Varve.Protocol.EventDeclarationMove.MovingSinceAsync(Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<long?>!
+Varve.Protocol.EntailmentBindings
+Varve.Protocol.EntailmentBindings.Covers.get -> System.Collections.Generic.IReadOnlyList<Varve.Sparql.Entailment.TBoxCover!>!
+Varve.Protocol.EntailmentBindings.Default.get -> Varve.Sparql.Entailment.Model.EntailmentRegime
+Varve.Protocol.EntailmentBindings.EntailmentBindings(System.Collections.Generic.IReadOnlyList<Varve.Sparql.Entailment.TBoxCover!>! covers, Varve.Sparql.Entailment.Model.EntailmentRegime defaultRegime) -> void
+Varve.Protocol.IEntailmentBindings
+Varve.Protocol.IEntailmentBindings.Of(Varve.Protocol.Model.DatasetName dataset) -> Varve.Protocol.EntailmentBindings!
+Varve.Protocol.ProtocolOptions.Entailment.get -> Varve.Protocol.IEntailmentBindings?
+Varve.Protocol.ProtocolOptions.Entailment.init -> void
+static Varve.Protocol.EntailmentBindings.None.get -> Varve.Protocol.EntailmentBindings!
+static Varve.Protocol.Model.ProblemType.EntailmentUnsupported.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.EntailmentRefused.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.EntailmentBindings.Schemas.get -> Varve.Sparql.Entailment.SchemaCache?
+Varve.Protocol.IManagementPlane.DescribeTBoxBinding(Varve.Protocol.Model.DatasetName dataset, Varve.Rdf.RdfTerm! binding) -> Varve.Protocol.Model.TBoxBindingDescription?
+Varve.Protocol.Model.TBoxBindingDescription
+Varve.Protocol.Model.TBoxBindingDescription.<Clone>$() -> Varve.Protocol.Model.TBoxBindingDescription!
+Varve.Protocol.Model.TBoxBindingDescription.Declaration.get -> Varve.Management.Model.TBoxBindingDeclaration!
+Varve.Protocol.Model.TBoxBindingDescription.Declaration.init -> void
+Varve.Protocol.Model.TBoxBindingDescription.Deconstruct(out Varve.Management.Model.TBoxBindingDeclaration! Declaration, out Varve.Management.Model.ManagementPosition Position, out Varve.Sparql.Entailment.Model.FullReadGraphs? FullReads) -> void
+Varve.Protocol.Model.TBoxBindingDescription.Equals(Varve.Protocol.Model.TBoxBindingDescription? other) -> bool
+Varve.Protocol.Model.TBoxBindingDescription.FullReads.get -> Varve.Sparql.Entailment.Model.FullReadGraphs?
+Varve.Protocol.Model.TBoxBindingDescription.FullReads.init -> void
+Varve.Protocol.Model.TBoxBindingDescription.Position.get -> Varve.Management.Model.ManagementPosition
+Varve.Protocol.Model.TBoxBindingDescription.Position.init -> void
+Varve.Protocol.Model.TBoxBindingDescription.TBoxBindingDescription(Varve.Management.Model.TBoxBindingDeclaration! Declaration, Varve.Management.Model.ManagementPosition Position, Varve.Sparql.Entailment.Model.FullReadGraphs? FullReads) -> void
+override Varve.Protocol.Model.TBoxBindingDescription.Equals(object? obj) -> bool
+override Varve.Protocol.Model.TBoxBindingDescription.GetHashCode() -> int
+override Varve.Protocol.Model.TBoxBindingDescription.ToString() -> string!
+static Varve.Protocol.Model.TBoxBindingDescription.operator !=(Varve.Protocol.Model.TBoxBindingDescription? left, Varve.Protocol.Model.TBoxBindingDescription? right) -> bool
+static Varve.Protocol.Model.TBoxBindingDescription.operator ==(Varve.Protocol.Model.TBoxBindingDescription? left, Varve.Protocol.Model.TBoxBindingDescription? right) -> bool
 static Varve.Protocol.Model.ProblemType.StorageFull.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.CommitOutcomeUnknown.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.LoadSpillDamaged.get -> Varve.Protocol.Model.ProblemType

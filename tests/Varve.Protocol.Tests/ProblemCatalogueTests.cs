@@ -54,7 +54,7 @@ public class ProblemCatalogueTests
     /// in bulk yet. Removed from here by the slice that makes each emittable.
     /// </summary>
     private static readonly ImmutableArray<ProblemType> NotYetEmittable =
-        [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone, ProblemType.LoadSpillDamaged];
+        [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone, ProblemType.LoadSpillDamaged, ProblemType.EntailmentRefused];
 
     /// <summary>
     /// Types whose trigger holds state across requests, exercised in
@@ -172,6 +172,12 @@ public class ProblemCatalogueTests
                 [ProblemType.SparqlSyntax] = () => P.Query(Sparql, "SELECT"),
                 [ProblemType.RdfSyntax] = () => Put("datasets/d/graphs?default", "not n-triples", "application/n-triples"),
                 [ProblemType.BadRequest] = () => P.Get(Sparql + "?query=ASK%7B%7D&query=ASK%7B%7D"),
+                [ProblemType.EntailmentUnsupported] = () =>
+                {
+                    HttpRequestMessage request = P.Get(Sparql + "?query=ASK%7B%7D");
+                    request.Headers.TryAddWithoutValidation("Varve-Entailment", "owl2-rl");
+                    return request;
+                },
                 [ProblemType.OperationFailed] = () => P.Update(Sparql, "LOAD <http://ex/nowhere>"),
                 [ProblemType.AgentRequired] = () => Put("manage/datasets/d/settings", "{\"defaultAccessScope\":\"Current\"}", "application/json"),
                 [ProblemType.GraphNotWritable] = () => P.Update(Sparql, "INSERT DATA { GRAPH <http://ex/other> { <http://ex/a> <http://ex/p> 1 } }"),
@@ -234,7 +240,7 @@ public class ProblemCatalogueTests
                 Assert.Equal(shape.Title, root.GetProperty("title").GetString());
                 Assert.Equal(shape.Status, root.GetProperty("status").GetInt32());
                 Assert.Equal(P.Header(response, "Varve-Request-Id"), root.GetProperty("instance").GetString());
-                Assert.Equal("Accept,Varve-As-Of,Authorization", string.Join(",", response.Headers.Vary));
+                Assert.Equal("Accept,Varve-As-Of,Authorization,Varve-Entailment", string.Join(",", response.Headers.Vary));
 
                 foreach (JsonProperty member in root.EnumerateObject())
                 {

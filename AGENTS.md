@@ -31,7 +31,7 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 | 0 | `Varve.Iri`, `Varve.Xsd`, `Varve.Json.Canonical` (ADR 0147) |
 | 1 | `Varve.Rdf` — model and the abstract quad source contract |
 | 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser); `Varve.Derivation` (dependency graphs, regular paths, propagation — ADR 0172, amending 0003) |
-| 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128) |
+| 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128), `Varve.Sparql.Entailment` (entailment regimes by query rewriting — ADR 0191) |
 | 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143); `Varve.Shacl.Sparql` (SHACL-SPARQL over the evaluator, through `Varve.Shacl`'s extension contract — ADR 0148); `Varve.Management` (the management plane's declarations and grants, by dependency — ADR 0166) |
 | 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Shacl.Store` (commit-time gating under a shapes binding — ADR 0169) |
 | 6 | hosts — every executable, and only executables: the server, the CLI, the smoke apps, the benchmarks (ADR 0060) |
@@ -136,7 +136,12 @@ Conventional commits, one logical change each, and three things in each:
 - **`Signed-off-by:`** — DCO, from every session without exception; it names the
   human who may contribute the code: for a session's commit, its responsible
   human in `eng/identities.json` or a delegate. Enforced by `eng/dco.cs`
-  (ADR 0087).
+  (ADR 0087). A session never uses `git commit -s`: that signs off as the
+  session's own identity, which the gate refuses. `eng/hooks/commit-msg` adds
+  the right sign-off; it needs `git config core.hooksPath eng/hooks`, which
+  every clone requires: the devcontainer sets it, a cloud session's bootstrap
+  must, and `eng/dco.cs` warns locally when it is not set.
+  `dotnet run eng/dco.cs -- --sign-off-for <email>` prints the sign-off.
 - **A signature**, for human committers. Cloud AI sessions are exempt by ruleset
   bypass; ADR 0034 records why, as a stated deviation.
 
@@ -193,6 +198,7 @@ dotnet run eng/land.cs -- <pr> --main              # then fast-forward main to i
 dotnet build Varve.slnx -c Release                 # zero warnings, or it is broken
 dotnet run eng/dependency-register.cs -- --base origin/main
 git submodule update --init --recursive            # needed for conformance
+git config core.hooksPath eng/hooks                # required in every clone, a session's included: the DCO sign-off
 ```
 
 Every gate is also a job in `eng/ci.cs`. `eng/` is the home of the Varve-specific

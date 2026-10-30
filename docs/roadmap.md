@@ -543,6 +543,7 @@ landing decides the number. Only released and in-flight numbers are shown.
 | 8 | SHACL, part 1: the standalone validator, SHACL-SPARQL, XPath regular expressions in `Varve.Xsd`, the event declaration shapes | `preview.9` | — (#87 landed) | issue #120 (landed) |
 | 8 | SHACL, part 2a: commit-time gating under a shapes binding, incremental validation, `Varve.Derivation` | `preview.12` | part 1, Management plane part 1 | issue #138 (landed) |
 | 8 | SHACL, part 2b: the validation projection, shapes for the declarations, the REC gate | `preview.14` | part 2a, Object storage (REC shapes) | issue #13 (this pull request) |
+| — | Inference, part 1: RDFS, RDF and D by query rewriting, regimes over HTTP, the TBox binding | `preview.17` | 8, Management plane | issue #170 (this pull request) |
 | — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | next free | 8 | issue #95 |
 | — | **Web UI**: operator console, then data explorer | next free | Management plane (console); 8 and Inference (explorer) | issue #96 |
 | — | **Replication**: three tiers, handover, promotion, fleet-level active-active | next free | Object storage, Extent maintenance, Commit path, Management plane | issue #97 |

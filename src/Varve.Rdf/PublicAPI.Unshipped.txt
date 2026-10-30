@@ -292,3 +292,34 @@ Varve.Rdf.GraphScope.Governor.get -> Varve.Rdf.GraphGovernor?
 Varve.Rdf.GraphScope.WithGovernor(Varve.Rdf.GraphGovernor! governor) -> Varve.Rdf.GraphScope!
 virtual Varve.Rdf.GraphGovernor.Invoke(Varve.Rdf.RdfTerm! graph, out Varve.Rdf.RdfTerm? governor) -> bool
 Varve.Rdf.GraphScope.Prefixes.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Rdf.GraphScope.IsEmpty.get -> bool
+Varve.Rdf.GraphScope.WithDatasetPublic(System.ReadOnlySpan<Varve.Rdf.RdfTerm!> graphs) -> Varve.Rdf.GraphScope!
+Varve.Rdf.DistinctTerms
+Varve.Rdf.GraphScopedQuadSource.TryDistinctObjects(Varve.Rdf.TermHandle predicate, Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? objects) -> bool
+Varve.Rdf.GraphScopedQuadSource.TryDistinctPredicates(Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? predicates) -> bool
+Varve.Rdf.IDistinctTermSource
+Varve.Rdf.IDistinctTermSource.TryDistinctObjects(Varve.Rdf.TermHandle predicate, Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? objects) -> bool
+Varve.Rdf.IDistinctTermSource.TryDistinctPredicates(Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? predicates) -> bool
+Varve.Rdf.ITermCursor
+Varve.Rdf.ITermCursor.Current.get -> Varve.Rdf.TermHandle
+Varve.Rdf.ITermCursor.MoveNext() -> bool
+static Varve.Rdf.DistinctTerms.Objects(Varve.Rdf.IQuadSource! source, Varve.Rdf.TermHandle predicate, Varve.Rdf.GraphPattern graph) -> System.Collections.Generic.List<Varve.Rdf.TermHandle>!
+static Varve.Rdf.DistinctTerms.Predicates(Varve.Rdf.IQuadSource! source, Varve.Rdf.GraphPattern graph) -> System.Collections.Generic.List<Varve.Rdf.TermHandle>!
+Varve.Rdf.QuadOverlay.TryDistinctObjects(Varve.Rdf.TermHandle predicate, Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? objects) -> bool
+Varve.Rdf.QuadOverlay.TryDistinctPredicates(Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? predicates) -> bool
+Varve.Rdf.IGraphVersionSource
+Varve.Rdf.IGraphVersionSource.TryGetGraphVersion(Varve.Rdf.GraphPattern graph, out Varve.Rdf.GraphVersion version) -> bool
+Varve.Rdf.GraphVersion
+Varve.Rdf.GraphVersion.GraphVersion() -> void
+Varve.Rdf.GraphVersion.GraphVersion(long Value) -> void
+Varve.Rdf.GraphVersion.Value.get -> long
+Varve.Rdf.GraphVersion.Value.init -> void
+static Varve.Rdf.GraphVersion.Empty.get -> Varve.Rdf.GraphVersion
+Varve.Rdf.GraphVersion.Deconstruct(out long Value) -> void
+Varve.Rdf.GraphVersion.Equals(Varve.Rdf.GraphVersion other) -> bool
+override Varve.Rdf.GraphVersion.GetHashCode() -> int
+static Varve.Rdf.GraphVersion.operator !=(Varve.Rdf.GraphVersion left, Varve.Rdf.GraphVersion right) -> bool
+static Varve.Rdf.GraphVersion.operator ==(Varve.Rdf.GraphVersion left, Varve.Rdf.GraphVersion right) -> bool
+~override Varve.Rdf.GraphVersion.Equals(object obj) -> bool
+~override Varve.Rdf.GraphVersion.ToString() -> string
+Varve.Rdf.GraphScopedQuadSource.TryGetGraphVersion(Varve.Rdf.GraphPattern graph, out Varve.Rdf.GraphVersion version) -> bool

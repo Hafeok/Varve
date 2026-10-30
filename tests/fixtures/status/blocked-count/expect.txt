@@ -1,0 +1,2 @@
+# The list holds two blocked cases; README says one.
+the cases blocked as out of scope are 1, and
