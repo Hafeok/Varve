@@ -259,6 +259,20 @@ public class ScanBenchmarks
     public long FullScanRowScopedHalfSubjectOnly() =>
         Count(new RowScopedQuadSource(_view!, _rowsAllPublic!, Tenants(50)), TermHandle.None, TermHandle.None, GraphPattern.Any);
 
+    /// <summary>
+    /// Every quad through a wrapper that forwards each one and decides
+    /// nothing: the cost of being wrapped at all, a cursor's dispatch per
+    /// quad, which every scoped source pays before its own check.
+    /// </summary>
+    [Benchmark]
+    public long FullScanPassThrough() =>
+        Count(new PassThroughSource(_view!), TermHandle.None, TermHandle.None, GraphPattern.Any);
+
+    /// <summary>Every quad through a row scope of every tenant: the whole rule, every lookup made, nothing hidden.</summary>
+    [Benchmark]
+    public long FullScanRowScopedEveryTenant() =>
+        Count(new RowScopedQuadSource(_view!, _rows!, Tenants(100)), TermHandle.None, TermHandle.None, GraphPattern.Any);
+
     /// <summary>The 10,000 subject lookups through a row scope of half the tenants.</summary>
     [Benchmark]
     public long TenThousandSubjectLookupsRowScopedHalf()
@@ -378,4 +392,49 @@ internal sealed class TenantClassification : IRowClassification
     public ReadOnlySpan<TermHandle> Members(BindingIndex binding, SubjectSetId set) => _members[set.Value];
 
     public bool IsPublicLink(BindingIndex binding, TermHandle predicate) => _allPublic;
+}
+
+/// <summary>A source that forwards every call and every quad, for the cost of a wrapper alone.</summary>
+internal sealed class PassThroughSource(IQuadSource inner) : IQuadSource
+{
+    public System.Collections.Generic.IEqualityComparer<TermHandle> TermComparer => inner.TermComparer;
+
+    public bool TryInternalise(RdfTerm term, out TermHandle handle) => inner.TryInternalise(term, out handle);
+
+    public bool TryExternalise(TermHandle handle, [System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out RdfTerm term) => inner.TryExternalise(handle, out term);
+
+    public bool TryGetTripleTermComponents(TermHandle handle, out TermHandle subject, out TermHandle predicate, out TermHandle @object) =>
+        inner.TryGetTripleTermComponents(handle, out subject, out predicate, out @object);
+
+    public bool TryGetInlineValue(TermHandle handle, out InlineValue value) => inner.TryGetInlineValue(handle, out value);
+
+    public bool Contains(in Quad quad) => inner.Contains(in quad);
+
+    public IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
+        new Cursor(inner.Match(subject, predicate, @object, graph));
+
+    public CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
+        inner.Estimate(subject, predicate, @object, graph);
+
+    private sealed class Cursor(IQuadCursor inner) : IQuadCursor
+    {
+        public Quad Current => inner.Current;
+
+        public bool MoveNext()
+        {
+            while (inner.MoveNext())
+            {
+                Quad quad = inner.Current;
+
+                if (!quad.Graph.IsNone || quad.Graph.IsNone)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public void Dispose() => inner.Dispose();
+    }
 }
