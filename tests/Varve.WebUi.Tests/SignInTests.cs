@@ -17,6 +17,7 @@ using CsCheck;
 using Varve.Delta.Model;
 using Varve.Protocol.Client;
 using Varve.Protocol.Client.Model;
+using Varve.WebUi.Pages.Services;
 using Varve.WebUi.SignIn;
 using Xunit;
 

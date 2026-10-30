@@ -99,6 +99,16 @@ internal sealed record Caller(string Agent, IReadOnlyList<string> Roles)
     }
 }
 
+/// <summary>
+/// Who each plane's token names, as the layout passes it down to the parts
+/// that say it (a 403's "Signed in as"): values only, so a part reads who is
+/// signed in without reaching the sign-in session, which holds the client's
+/// token providers (ADR 0206 point 4, amended 2026-10-30).
+/// </summary>
+/// <param name="Data">Who the data plane's token names.</param>
+/// <param name="Management">Who the management plane's token names.</param>
+internal sealed record SignedIn(Caller? Data, Caller? Management);
+
 /// <summary>A JWT's payload, read without validating.</summary>
 internal static class Jwt
 {

@@ -7,7 +7,7 @@ using System.Net.Http;
 using Varve.Protocol.Client;
 using Varve.Protocol.Client.Model;
 
-namespace Varve.WebUi;
+namespace Varve.WebUi.Pages.Services;
 
 /// <summary>
 /// A data-plane client per dataset (ADR 0203), with the data plane's token when

@@ -17,7 +17,7 @@
 <Shell Server="@Settings.Server.AbsoluteUri" Instance="@Facts.Instance" Planes="Planes" Navigation="Groups()" Datasets="Offered()" Dataset="@Selected()" DatasetNavigation="DatasetGroups()" OnDataset="Choose">
     <BarActions>@if (_session is { DataSignedIn: true })
     {<Button Small="true" OnClick="SignOutAsync">Sign out</Button>}</BarActions>
-    <ChildContent>@Body</ChildContent>
+    <ChildContent><CascadingValue Value="Signed()">@Body</CascadingValue></ChildContent>
 </Shell>
 
 @code {
@@ -47,6 +47,9 @@
         Settings.Anonymous || _session is null
             ? [new PlaneState("Data plane", "anonymous", Anonymous: true, Absent: false), new PlaneState("Management", "anonymous", Anonymous: true, Absent: false)]
             : [Plane("Data plane", _session.DataSignedIn, _session.DataCaller), Plane("Management", _session.ManagementSignedIn, _session.ManagementCaller)];
+
+    // Who is signed in, for the parts that say it.
+    private SignedIn? Signed() => _session is null ? null : new SignedIn(_session.DataCaller, _session.ManagementCaller);
 
     private static PlaneState Plane(string name, bool signedIn, Varve.WebUi.SignIn.Caller? caller) =>
         new(name, signedIn ? "signed in" : "signed out", Anonymous: false, Absent: !signedIn, caller?.Agent, caller?.Roles);

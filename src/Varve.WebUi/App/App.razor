@@ -3,17 +3,19 @@
 @* The router (ADR 0200). After a navigation inside the Web UI, focus moves to
    the new page's h1, so a keyboard or screen reader user lands on what
    changed (WCAG 2.4.3). A page loaded fresh keeps the browser's start, so
-   the first Tab reaches the skip link (2.4.1). *@
+   the first Tab reaches the skip link (2.4.1). The layout is a component of
+   this level, which a component never names (ADR 0206 point 4), so the
+   composition root hands its type in. *@
 <Router AppAssembly="typeof(App).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Parts.MainLayout)" />
+        <RouteView RouteData="routeData" DefaultLayout="Layout" />
         @if (_navigated)
         {
             <FocusOnNavigate RouteData="routeData" Selector="h1" />
         }
     </Found>
     <NotFound>
-        <LayoutView Layout="typeof(Parts.MainLayout)">
+        <LayoutView Layout="Layout">
             <PageTitle>Not found · Varve</PageTitle>
             <ViewHead Title="Not found" />
             <p>The Web UI has no screen at this address.</p>
@@ -23,6 +25,10 @@
 
 @code {
     private bool _navigated;
+
+    /// <summary>The layout every screen renders in, from the composition root.</summary>
+    [Parameter, EditorRequired]
+    public Type Layout { get; set; } = null!;
 
     /// <inheritdoc />
     protected override void OnInitialized() => Navigation.LocationChanged += Navigated;

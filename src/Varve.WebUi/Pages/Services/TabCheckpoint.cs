@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Varve.Delta.Model;
 using Varve.Protocol.Client;
 
-namespace Varve.WebUi;
+namespace Varve.WebUi.Pages.Services;
 
 /// <summary>
 /// A live tail's checkpoint for one screen's life (ADR 0129): the tail resumes

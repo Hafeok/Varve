@@ -34,12 +34,13 @@ Components are organised by atomic level, and the levels are a dependency rule: 
 | Organisms | `ResourceTable`, `CommitList`, `ProblemPanel`, `SourceBlock`, `ConfirmDialog`, `Panel` | molecules, atoms |
 | Templates | `Shell` and the screen layouts | organisms and below; no data |
 | Parts | domain-aware pieces that are not routed: the problem view, the read stamps, the drift note | templates and below; the client's model types and the tone mapping; Varve's wording |
-| Pages | the routed screens | everything; the only level that calls the API |
+| Pages | the routed screens, and the services they use (`Pages.Services`) | parts and below; the client's services |
+| App | the root component, the layout every screen renders in, and the services the shell reads (`ShellFacts`) | pages and below; the client's services. No level uses it |
 
 - **Lower levels are abstract.** Atoms, molecules, organisms and templates know nothing of Varve's domain. An atom takes words, tones and values as parameters. `StateBadge` takes a tone and a word; it does not know what `failed` means.
 - **Domain knowledge sits in parts.** The mapping from an API state or problem to a tone (the table under Colour) is one tested mapping that parts and pages call, never a lookup repeated per page or pushed down into an atom. Domain text is the same: the drift note's wording lives once, in a part, which a page passes into the dialog's slot; no molecule carries it.
-- **Never the same level.** A component uses only lower levels, never one of its own: parts don't use parts, and pages don't use pages. Where an organism shows what another organism renders (a problem in a dialog, a problem in a table's place), it takes a slot the page fills.
-- **Only pages read data.** Pages are the routed screens and the only level that calls the API. Everything below a page takes parameters, so every component renders from a fixture without a server. The shell's own facts, the instance that answered and the datasets the selector offers, are read by `ShellFacts`, a session service the layout reads as it reads the sign-in; the `Shell` template still takes them as parameters.
+- **Never the same level, never higher.** A component uses only lower levels, never one of its own: parts don't use parts, pages don't use pages, and the app's root does not name its layout (the composition root hands it in). No type, component or not, names a type of a higher level. Where an organism shows what another organism renders (a problem in a dialog, a problem in a table's place), it takes a slot the page fills.
+- **Only pages and the app read data.** Pages are the routed screens, and the app, above them, is the root and the layout around every screen; they are the only levels that call the API. A type in no level never holds a service. Everything below a page takes parameters, so every component renders from a fixture without a server.
 - **A change to a lower level is a change to every screen.** Change tokens and atoms deliberately; a page may change freely.
 
 ## Colour

@@ -12,7 +12,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Varve.Protocol.Client;
-using Varve.WebUi.Parts;
+using Varve.WebUi.App;
 using Xunit;
 
 namespace Varve.WebUi.Tests;

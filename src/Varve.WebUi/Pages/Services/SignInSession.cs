@@ -11,8 +11,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Varve.Protocol.Client;
 using Varve.Protocol.Client.Model;
+using Varve.WebUi.SignIn;
 
-namespace Varve.WebUi.SignIn;
+namespace Varve.WebUi.Pages.Services;
 
 /// <summary>Where a sign-in in flight is kept across the redirect: session storage in the browser.</summary>
 internal interface ISignInStore

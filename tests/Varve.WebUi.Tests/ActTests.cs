@@ -13,6 +13,7 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Varve.Protocol.Client;
 using Varve.WebUi.Pages;
+using Varve.WebUi.Pages.Services;
 using Xunit;
 
 namespace Varve.WebUi.Tests;

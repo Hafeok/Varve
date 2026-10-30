@@ -12,15 +12,15 @@ using System.Threading.Tasks;
 using Varve.Protocol.Client;
 using Varve.Protocol.Client.Model;
 
-namespace Varve.WebUi;
+namespace Varve.WebUi.App;
 
 /// <summary>
 /// What the shell shows that is not the screen's (review F01, F22): the
 /// instance that answered, with its role in the system dataset, and the
-/// datasets the navigation's selector offers. A session service the layout
-/// reads, as it reads the sign-in: read again on every navigation, since
-/// behind one address each read may reach another instance. No component
-/// below a page calls the API; this does, for the shell.
+/// datasets the navigation's selector offers. The app's own service (ADR 0206
+/// point 4, amended 2026-10-30), which the layout reads: read again on every
+/// navigation, since behind one address each read may reach another
+/// instance.
 /// </summary>
 public sealed class ShellFacts(VarveManagementClient management)
 {

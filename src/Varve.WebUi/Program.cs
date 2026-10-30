@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -11,12 +12,16 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 using Varve.Protocol.Client;
 using Varve.WebUi;
+using Varve.WebUi.App;
+using Varve.WebUi.Pages.Services;
 using Varve.WebUi.SignIn;
 
 // The composition root (ADR 0060): the server's address and its mode, the
 // clients of Varve.Protocol.Client the screens read through, and the clock.
 WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault(args);
-builder.RootComponents.Add<App>("#app");
+// The app's root takes its layout from here: a component never names one of
+// its own level (ADR 0206 point 4), and this composition root is no level.
+builder.RootComponents.Add(typeof(App), "#app", ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(App.Layout)] = typeof(MainLayout) }));
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 Uri server = ServerAddress.From(builder.Configuration["Varve:Server"], new Uri(builder.HostEnvironment.BaseAddress));

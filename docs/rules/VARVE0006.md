@@ -1,10 +1,10 @@
-# VARVE0006 — A Web UI component uses only lower levels, only pages use the client's services, and the client's model holds values only
+# VARVE0006 — A Web UI component uses only lower levels, only pages and the app use the client's services, and the client's model holds values only
 
 | | |
 |---|---|
 | **Category** | `Varve.Layering` |
 | **Tier** | 1 (error) |
-| **Motivated by** | [ADR 0206](../adr/0206-the-web-ui-design-source.md) point 4, `TheWebUiDesignSource.AtomicLevelsAreADependencyRule` and `.OnlyPagesCallTheApi`; the brand book's levels, [`docs/ui/README.md`](../ui/README.md) |
+| **Motivated by** | [ADR 0206](../adr/0206-the-web-ui-design-source.md) point 4 and its amendment of 2026-10-30, `TheWebUiDesignSource.AtomicLevelsAreADependencyRule`, `.OnlyPagesCallTheApi`, `.TheAppIsTheTopLevel` and `.NoTypeOutsideTheLevelsHoldsAService`; the brand book's levels, [`docs/ui/README.md`](../ui/README.md) |
 
 ## Principle
 
@@ -12,7 +12,7 @@ The Web UI's components are organised by atomic level, and the levels are a
 dependency rule: the stable dependency principle applied inside one host. The
 lowest levels have the most dependents and change least, and they know
 nothing of Varve's domain. Parts hold the domain. Only pages, the routed
-screens, read the server. A rule that exists only in a document is not a
+screens, and the app above them read the server. A rule that exists only in a document is not a
 rule, so this is the analyzer that makes it one.
 
 ## What it reports
@@ -24,9 +24,15 @@ The levels are namespaces, lowest first:
 4. `Varve.WebUi.Templates`
 5. `Varve.WebUi.Parts`
 6. `Varve.WebUi.Pages`
+7. `Varve.WebUi.App`: the root component, the layout every screen renders in,
+   and the services the shell reads. It renders the pages, and no level uses
+   it, so it is the top.
+
+A namespace below a level is that level: the services a page uses,
+`Varve.WebUi.Pages.Services`, are of the page level.
 
 For every name that resolves to a type, it makes three checks: the first two
-in the level namespaces, the third in the client's model.
+in the Web UI, the third in the client's model.
 
 1. **The level order.** A component, a type implementing
    `Microsoft.AspNetCore.Components.IComponent`, may be used only from a
@@ -34,15 +40,24 @@ in the level namespaces, the third in the client's model.
    - it must be in a level namespace lower than the user's;
    - its own level is refused too, so parts don't use parts and pages don't use
      pages;
-   - a type of the same level that is not a component, such as a record a list
-     takes, is not counted;
-   - nor is a type naming itself.
+   - a type that is not a component, such as a record a list takes, may be of
+     the user's own level or lower, never higher: a type of a higher level may
+     hold what this level must not reach;
+   - a type naming itself is not counted;
+   - there is no exemption at the top: the app's root does not name its
+     layout, which is of its own level. The composition root, `Program`,
+     which is in no Web UI namespace, hands it the layout's type.
 2. **Services against models.**
    - A type in `Varve.Protocol.Client.Model` (a problem body, a position, a
-     status) is named only in `Parts` and `Pages`.
-   - Any other type under `Varve.Protocol.Client` is named only in `Pages`.
-     Those are the services that call the server: `SparqlHttpClient`,
+     status) is named only in `Parts`, `Pages` and `App`.
+   - Any other type under `Varve.Protocol.Client` is named only in `Pages` and
+     `App`. Those are the services that call the server: `SparqlHttpClient`,
      `VarveHealthClient` and the rest.
+   - **A type of the Web UI in no level** (`Varve.WebUi`, `Varve.WebUi.SignIn`
+     and the like) names no service, though it may name the model. Otherwise
+     it would be a way round the levels: a part names it, and reaches the
+     server through it. The Web UI is the assembly that declares the levels;
+     its tests reference them, are not the Web UI, and are not held to this.
 
 3. **The model holds values only.** A type in `Varve.Protocol.Client.Model`
    names no other type under `Varve.Protocol.Client`. Without this check, the
@@ -53,8 +68,18 @@ in the level namespaces, the third in the client's model.
    `BearerTokenProvider`. That moved to `BearerTokens.Fixed`, beside the
    delegate (ADR 0127's amendment of 2026-10-27).
 
-Types outside the level namespaces, such as `App` and `Tones`, are not checked.
-A compilation without Blazor's `IComponent` makes only the third check.
+**The hole this closed (#187, 2026-10-30).** Until then, types outside the
+level namespaces were not checked at all. `ShellFacts`, in `Varve.WebUi`, held
+the management client, and `MainLayout`, then a part, named it: a part read
+the server, and the rule said nothing. The violating sample
+`A_type_in_no_level_naming_a_service_is_reported` is that type, and
+`A_level_naming_a_type_of_a_higher_level_is_reported` is the part naming it.
+`ShellFacts` and `MainLayout` are now `App`'s, and the services pages use are
+`Pages.Services`'.
+
+A type outside the Web UI's namespaces, such as the composition root
+`Program`, is not checked. A compilation without Blazor's `IComponent` makes
+only the third check.
 
 ## Generated code, and only for this rule
 
@@ -89,6 +114,12 @@ each parameter it sets, so one tag is one report.
   (words, tones, numbers, slots).
 - **A component reads the server:** it is a page. Pages are the routed screens;
   the data flows down from them as parameters.
+- **The shell needs what no screen reads:** it is the app's. `MainLayout` reads
+  it through a service in `Varve.WebUi.App`, and passes it down as
+  parameters, or as a cascading value of a type the lower level may name.
+- **A type outside the levels needs a service:** it is a service holder. Put it
+  in the level that uses it: `Pages.Services` for a page's, `App` for the
+  shell's.
 
 ## Exception path
 

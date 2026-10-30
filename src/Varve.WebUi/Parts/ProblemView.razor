@@ -1,5 +1,4 @@
 @using Varve.WebUi.SignIn
-@inject IServiceProvider Services
 @* A problem from the client, as a ProblemPanel (docs/ui/components/ProblemPanel):
    its positions as stamps that name their log, an expected position and the
    head as one "expected / now" pair, the graphs a conflict names, every other
@@ -115,14 +114,11 @@
         return names;
     }
 
-    // On a 403, the agent the request's token names (review F02).
-    private string? SignedInAs()
-    {
-        if (Problem.Status != System.Net.HttpStatusCode.Forbidden || Services.GetService(typeof(SignInSession)) is not SignInSession session)
-        {
-            return null;
-        }
+    // Who is signed in, from the layout; none in anonymous mode.
+    [CascadingParameter]
+    private SignedIn? Signed { get; set; }
 
-        return (Management ? session.ManagementCaller : session.DataCaller)?.Agent;
-    }
+    // On a 403, the agent the request's token names (review F02).
+    private string? SignedInAs() =>
+        Problem.Status == System.Net.HttpStatusCode.Forbidden ? (Management ? Signed?.Management : Signed?.Data)?.Agent : null;
 }
