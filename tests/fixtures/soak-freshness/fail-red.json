@@ -1,0 +1,7 @@
+{
+  "now": "2026-10-28T09:00:00Z",
+  "jobs": [
+    { "name": "windows soak / soak (windows-latest)", "conclusion": "failure", "completed_at": "2026-10-25T07:40:00Z", "html_url": "https://github.com/Hafeok/Varve/actions/runs/2/job/21" },
+    { "name": "windows soak / soak (windows-latest)", "conclusion": "success", "completed_at": "2026-10-18T07:40:00Z", "html_url": "https://github.com/Hafeok/Varve/actions/runs/3/job/31" }
+  ]
+}

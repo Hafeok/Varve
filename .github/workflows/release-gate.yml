@@ -1,0 +1,225 @@
+# The release gate (ADR 0214 point 6, ADR 0215 point 6): what a release must
+# pass beyond ci.yml, which the land gate cannot wait for.
+#
+#   faults   the file backend's four faults at every point, on simulated and
+#            on real files, on Linux and Windows (ADR 0214).
+#   soak     the soak under the shipped runtime configuration, judged by
+#            Varve.Benchmarks --soak-judge (ADR 0215): four hours on Linux at
+#            a release.
+#   windows soak, fresh
+#            a release refuses when the latest Windows soak on main's nightly
+#            is red or older than eight days (eng/soak-freshness.cs).
+#
+# Called by release.yml at the commit under release, beside ci.yml, and by
+# nightly.yml once a week for the Windows soak alone.
+
+name: Release gate
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit under test
+        type: string
+        required: true
+      faults:
+        description: Run the faults at full depth
+        type: boolean
+        default: true
+      soak-os:
+        description: The runner the soak runs on; empty for none
+        type: string
+        default: ubuntu-latest
+      soak-minutes:
+        description: How long the soak runs
+        type: number
+        default: 240
+      windows-soak-fresh:
+        description: Refuse unless the latest Windows soak on main is green and at most eight days old
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  faults:
+    name: faults (${{ matrix.os }})
+    if: inputs.faults
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build
+        run: dotnet build tests/Varve.Store.Tests/Varve.Store.Tests.csproj --configuration Release
+
+      - name: Temporary folder on the runner's temporary drive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+
+      - name: The faults at every point
+        # Every variable of the faults in docs/testing.md section 8, at 1.
+        timeout-minutes: 280
+        env:
+          VARVE_FAULT_RECOVERY_STRIDE: "1"
+          VARVE_FAULT_PROCESS_STRIDE: "1"
+          VARVE_FAULT_BATCH_STRIDE: "1"
+          VARVE_FAULT_POWER_STRIDE: "1"
+          VARVE_FAULT_TORN_STRIDE: "1"
+          VARVE_FAULT_SECTOR_STRIDE: "1"
+          VARVE_FAULT_DISKFULL_STRIDE: "1"
+          VARVE_FAULT_REAL_POWER_STRIDE: "1"
+          VARVE_FAULT_KILL_STRIDE: "1"
+        run: >
+          dotnet test
+          --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
+          --configuration Release
+          --no-build
+          --filter-namespace Varve.Store.Tests.Faults
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/faults
+          --hangdump
+          --hangdump-timeout 240m
+
+      - name: Fault test durations
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/faults
+          --label "The faults at every point on ${{ matrix.os }}"
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-gate-faults-${{ matrix.os }}
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
+
+  soak:
+    name: soak (${{ inputs.soak-os }})
+    if: inputs.soak-os != ''
+    runs-on: ${{ inputs.soak-os }}
+    # The soak, the build before it, and the judge after it, inside GitHub's
+    # six-hour limit for a job.
+    timeout-minutes: 340
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build the soak
+        run: dotnet build tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release
+
+      - name: Soak under the shipped runtime configuration
+        # ADR 0110: workstation concurrent GC, ConserveMemory 5, from
+        # src/Varve.Server/ShippedRuntime.props, which the benchmark imports
+        # as the server does; the soak prints what the runtime reports and the
+        # judge refuses any other (ADR 0215). A vocabulary the writer fills by
+        # minute 30.
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/soak
+          dotnet run --project tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release --no-build -- \
+            --soak ${{ inputs.soak-minutes }} --policy --subjects 2000 | tee artifacts/soak/soak.csv
+
+      - name: Judge the soak
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "### Soak, ${{ inputs.soak-minutes }} minutes on ${{ inputs.soak-os }}"
+            echo
+            echo '```'
+            dotnet run --project tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release --no-build -- --soak-judge artifacts/soak/soak.csv
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the soak's samples
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: soak-${{ inputs.soak-os }}
+          path: artifacts/soak
+          if-no-files-found: warn
+
+  windows-soak-fresh:
+    name: windows soak, fresh
+    if: inputs.windows-soak-fresh
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: The latest Windows soak on main is green and at most eight days old
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: dotnet run eng/soak-freshness.cs -- --repository ${{ github.repository }} --days 8

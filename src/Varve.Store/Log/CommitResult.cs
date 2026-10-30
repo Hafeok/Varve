@@ -13,12 +13,14 @@ namespace Varve.Store.Log;
 /// <summary>The answer to a commit request. A <see cref="CommitOutcome.Conflict"/> is a normal answer, not an error.</summary>
 public readonly struct CommitResult : IEquatable<CommitResult>
 {
-    private CommitResult(CommitOutcome outcome, long position, IReadOnlyList<RdfTerm>? report, string? reason)
+    private CommitResult(CommitOutcome outcome, long position, IReadOnlyList<RdfTerm>? report, string? reason, bool storageFull = false, long unknownAt = 0)
     {
         Outcome = outcome;
         Position = new Position(position);
         Report = report ?? [];
         Reason = reason;
+        StorageFull = storageFull;
+        OutcomeUnknownAt = unknownAt > 0 ? new Position(unknownAt) : null;
     }
 
     /// <summary>How it ended.</summary>
@@ -37,6 +39,25 @@ public readonly struct CommitResult : IEquatable<CommitResult>
     [DesignDecision(typeof(StoreLogSurfaces.UnavailableReasonIsDisplayText), Scope = ExceptionScope.Boundary)]
     public string? Reason { get; }
 
+    /// <summary>
+    /// When unavailable, whether because the storage had no space for the
+    /// commit (ADR 0214): nothing was written, and the next write tries again
+    /// once there is space. Over HTTP, <c>507 storage-full</c>.
+    /// </summary>
+    [DesignDecision(typeof(FileBackendFailureInjection.FullDiskFailsTheCommitAndTheNextWriteRecovers), Scope = ExceptionScope.Boundary)]
+    public bool StorageFull { get; }
+
+    /// <summary>
+    /// When unavailable, the position at which the commit was written and
+    /// closed when the flush that would make it durable did not return (ADR
+    /// 0214): the commit may or may not be in the log. It is settled once the
+    /// head reaches the position, by whether the commit there carries this
+    /// request's cause. Over HTTP, <c>503 commit-outcome-unknown</c>. Null
+    /// otherwise.
+    /// </summary>
+    [DesignDecision(typeof(FileBackendFailureInjection.ClosedAndUnflushedIsNotKnown), Scope = ExceptionScope.Boundary)]
+    public Position? OutcomeUnknownAt { get; }
+
     internal static CommitResult Committed(long position) => new(CommitOutcome.Committed, position, null, null);
 
     internal static CommitResult NoChange(long head) => new(CommitOutcome.NoChange, head, null, null);
@@ -47,9 +68,13 @@ public readonly struct CommitResult : IEquatable<CommitResult>
 
     internal static CommitResult Unavailable(long head, string reason) => new(CommitOutcome.Unavailable, head, null, reason);
 
+    internal static CommitResult NoSpace(long head, string reason) => new(CommitOutcome.Unavailable, head, null, reason, storageFull: true);
+
+    internal static CommitResult OutcomeUnknown(long head, long position, string reason) => new(CommitOutcome.Unavailable, head, null, reason, unknownAt: position);
+
     /// <inheritdoc />
     public bool Equals(CommitResult other) =>
-        Outcome == other.Outcome && Position == other.Position && ReferenceEquals(Report, other.Report) && Reason == other.Reason;
+        Outcome == other.Outcome && Position == other.Position && ReferenceEquals(Report, other.Report) && Reason == other.Reason && StorageFull == other.StorageFull && OutcomeUnknownAt == other.OutcomeUnknownAt;
 
     /// <inheritdoc />
     public override bool Equals(object? obj) => obj is CommitResult other && Equals(other);

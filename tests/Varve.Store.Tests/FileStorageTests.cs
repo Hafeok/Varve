@@ -138,6 +138,42 @@ public sealed class FileStorageTests
         Assert.Equal("*\n", await File.ReadAllTextAsync(ignore, T.Ct));
     }
 
+    /// <summary>
+    /// A retired extent set takes its directory with it (#61): the soak found
+    /// every merged or dropped set's directory left behind, empty, about three
+    /// a minute. Checkpoints are taken and dropped, which merges each dropped
+    /// set into the next, and what is left under <c>derived/extents</c> is
+    /// one directory a set the catalog names, none of them empty.
+    /// </summary>
+    [Fact]
+    public async Task a_retired_extent_set_leaves_no_directory_behind()
+    {
+        await using TemporaryDirectory directory = new();
+        string extents = Path.Combine(directory.Path, "derived", "extents");
+
+        await using (FileStorage storage = await FileStorage.OpenAsync(directory.Directory, TemporaryDirectory.Options, T.Ct))
+        await using (Dataset dataset = await Dataset.CreateAsync(storage, T.Id, T.Options(), T.Ct))
+        {
+            for (int i = 1; i <= 8; i++)
+            {
+                await dataset.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("s" + i), T.Iri("p"), T.Literal("o" + i)), T.Ct);
+                await dataset.CheckpointAsync(new Position(i), T.Ct);
+            }
+
+            for (int i = 1; i <= 6; i++)
+            {
+                await dataset.DropCheckpointAsync(new Position(i), T.Ct);
+            }
+
+            await dataset.MaintainAsync(T.Ct);
+            Assert.Equal([new Position(7), new Position(8)], dataset.Checkpoints);
+        }
+
+        string[] sets = Directory.GetDirectories(extents);
+        Assert.All(sets, set => Assert.NotEmpty(Directory.GetFiles(set)));
+        Assert.InRange(sets.Length, 1, 2);
+    }
+
     [Fact]
     public async Task a_dataset_on_disk_has_the_layout_of_the_storage_format()
     {
