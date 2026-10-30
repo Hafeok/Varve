@@ -296,6 +296,12 @@ public sealed partial class Dataset
         // a format-4 set's rewrite waits for no older reader (ADR 0178).
         await NoteOlderReadersAsync(cancellationToken).ConfigureAwait(false);
 
+        // A set found damaged is written again from the log before any merge (ADR 0213).
+        if (RepairDue(state) && await RepairDamagedSetAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return true;
+        }
+
         if (ExtentMergeDue(state) && await MergeExtentsAsync(cancellationToken).ConfigureAwait(false))
         {
             return true;
@@ -371,10 +377,10 @@ public sealed partial class Dataset
             + "." + Interlocked.Increment(ref _runSequence).ToString(CultureInfo.InvariantCulture));
         byte[] hash = _state.Commits.Entry(to).HeaderHash();
 
-        await DerivedFormat.WriteRunAsync(_storage.Derived, name, DerivedFormat.KindRun, Id, from, to, hash, sources, TermsOf(runs), _state.Commits.Entry(to).BlankCount, cancellationToken).ConfigureAwait(false);
+        await DerivedFormat.WriteRunAsync(_storage.Derived, name, DerivedFormat.KindRun, Id, from, to, hash, sources, TermsOf(runs), _state.Commits.Entry(to).BlankCount, cancellationToken, DerivedFormat.CheckedVersion).ConfigureAwait(false);
 
-        return await DerivedFormat.TryLoadAsync(_storage.Derived, name, Id, DerivedFormat.KindRun, cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("A run just written to derived/ does not read back.");
+        return Healing(await DerivedFormat.TryLoadAsync(_storage.Derived, name, Id, DerivedFormat.KindRun, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("A run just written to derived/ does not read back."));
     }
 
     // Replaces runs [first, end) of the version they were read from with the
@@ -642,7 +648,7 @@ public sealed partial class Dataset
                     && run.Run.Terms.From == state.CanonicalAt(run.Header.From)
                     && run.Run.Terms.To == state.CanonicalAt(run.Header.To))
                 {
-                    adopted = run.Run;
+                    adopted = Healing(run.Run);
                     adoptedName = name.Value;
                     break;
                 }
@@ -712,7 +718,7 @@ public sealed partial class Dataset
                     && loaded.Run.Terms.From == state.CanonicalAt(entry.From)
                     && loaded.Run.Terms.To == state.CanonicalAt(entry.To))
                 {
-                    run = loaded.Run;
+                    run = Healing(loaded.Run);
                 }
                 else
                 {

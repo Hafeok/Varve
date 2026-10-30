@@ -13,6 +13,7 @@
   <ItemGroup>
     <!-- The REC portfolio generator (ADR 0141), linked as the benchmarks link it: test-only, never shipped. -->
     <Compile Include="../Varve.Rec.Tests/RecPortfolio.cs;../Varve.Rec.Tests/SplitMix64.cs" LinkBase="Rec" />
+    <Compile Include="../QuadSourceContract.cs" Link="QuadSourceContract.cs" />
   </ItemGroup>
 
   <ItemGroup>

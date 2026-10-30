@@ -166,6 +166,19 @@ a gate nobody has tested.
   in `tests/fixtures/dependency-register/`, restored for real from nuget.org
   where it needs a restore, and required to fail for its own reason.
 
+**Every quad source passes `tests/QuadSourceContract.cs`** (ADR 0022, amended
+2026-10-30; #191), linked into each test project with a source of its own. A
+query names its terms before it matches its patterns, and a constant the
+source denies compiles to a pattern that never runs. So a source that loads
+quads lazily and answers "no such term" before it has turns "not loaded yet"
+into an empty answer, which is #183. `QuadSourceContract.Holds` makes the
+source fresh for each term it yields, asks for that term first, completes the
+source with a match of every quad and the caller's own step for any other
+load, and fails when a term denied is in what the completed source yields. A
+new source, a projection's reserved graphs included, adds a case before it is
+read by anything; a lazy one makes its source behind at the lookup and
+reaching its position in the read's wait, the order #183 needed.
+
 ## 6. Failure injection — for everything that writes to disk
 
 A store that has only been tested on runs that never crashed has been tested on
@@ -276,9 +289,13 @@ on `main`) sets every depth below.
 | `VARVE_FAULT_BATCH_STRIDE`, `_SEED` | `FaultInjectionTests.BatchedCrash.a_crash_inside_a_batch_recovers_to_the_last_closed_commit`: the same inside batches, with three power-loss images an operation | 2 (about 6,500 and 7,000 points) | 1 (about 13,000 and 14,000) |
 | `VARVE_FAULT_POWER_STRIDE`, `_SEED` | `FaultInjectionTests.PowerLoss.a_power_loss_with_writes_reordered_up_to_the_flush_recovers`: power lost at every *n*th operation, six images each | 2 (about 4,300 and 3,900 points) | 1 (about 8,600 and 7,900) |
 | `VARVE_OBJECT_FAULT_SWEEP_STRIDE`, `_SEED` | `Objects.ObjectFaultTests.after_a_fault_at_any_request_the_dataset_reopens_at_the_last_closed_commit_with_nothing_lost_or_doubled`: each of four faults at every *n*th request of the workload (not `VARVE_OBJECT_FAULT_SEEDS`, the workloads hunted) | 2 (532 of 1,068 points) | 1 (all) |
-| `VARVE_CACHE_DAMAGE_STRIDE` | `Objects.ObjectCacheTests.a_commit_index_blob_cut_short_or_with_its_verified_bytes_zeroed_is_a_miss`: reopens a cache whose commit index blob is cut or has a verified byte zeroed, one case in *n* | 8, from case seed mod 8 (69 of 552 cases) | 1 (all 552) |
+| `VARVE_CACHE_DAMAGE_STRIDE` | `Objects.ObjectCacheTests.a_commit_index_blob_with_any_byte_zeroed_flipped_or_cut_is_a_miss` (#146, ADR 0213): reopens a cache whose version-6 commit index blob has one byte zeroed, flipped, or is cut there, at every byte of its entries, directory and header, one case in *n*; any position read differently fails it (#126's 985 of 1,920 zeroed entries did on format 4) | 8, from case seed mod 8 (791 of 6,324 cases, about 12 s) | 1 (all 6,324, about 65 s) |
 | `VARVE_CACHE_DAMAGE_SEED` | the same: the seed that chooses which eighth | a new one each run | n/a at stride 1 |
-| `VARVE_EXTENT_DAMAGE_STRIDE`, `_SEED` | `ExtentDamageTests.an_order_extent_with_a_byte_zeroed_flipped_or_cut_never_serves_a_different_answer` (#133): a format-5 extent with one byte zeroed, flipped, or the blob cut there, at every position of the middle set's six order extents, opened again from the log and the extents and read at every position by scan and by lookup | 16, from case seed mod 16 (962 of 15,384 cases, about 5 s) | 1 (all, about 42 s) |
+| `VARVE_EXTENT_DAMAGE_STRIDE`, `_SEED` | `ExtentDamageTests.an_order_extent_with_a_byte_zeroed_flipped_or_cut_is_a_miss_never_a_different_answer_or_a_failed_read` (#133, #146): a format-5 extent with one byte zeroed, flipped, or the blob cut there, at every position of the middle set's six order extents, opened again from the log and the extents and read at every position by scan and by lookup; a failed read fails it too | 16, from case seed mod 16 (962 of 15,384 cases, about 9 s) | 1 (all, about 62 s) |
+| `VARVE_DERIVED_DAMAGE_STRIDE`, `_SEED` | `DerivedDamageTests.every_kind_with_a_byte_zeroed_flipped_or_cut_is_a_miss_never_a_different_answer_or_a_failed_read` (#146, ADR 0213): every byte of every derived blob but the order extents (runs, state, graph indexes, catalog, the commit index, and each set's dictionary, commit index and graph index) zeroed, flipped or cut; every position's scan, lookups, graph versions and time lookups | 16 (1,894 of 30,302 cases, about 9 s) | 1 (all, about 2 min) |
+| `VARVE_MIDREAD_DAMAGE_STRIDE`, `_SEED` | `MidReadDamageTests.on_files_…` and `on_objects_damage_at_any_block_a_read_reads_is_answered_from_the_log` (ADR 0213 point 4): damage at every block a read reads, after the open, alone, two at once and all at once; the streamed answer equals the undamaged one byte for byte | 4 (45 of 177 on files, 59 of 234 on objects, about 4 s) | 1 (all, about 11 s) |
+| `VARVE_ENVELOPE_DAMAGE_STRIDE`, `_SEED` | `CheckedBlobTests.an_envelope_reads_back_whole_and_any_damage_is_a_miss`: a checked envelope (kind 9) with one byte zeroed, flipped or cut, at every byte of its directory and header and every 97th of its bytes | 4 (1,154 cases, about 1 s) | 1 (4,621, about 3 s) |
+| `VARVE_SPILL_DAMAGE_STRIDE`, `_SEED` | `SpillDamageTests.a_damaged_spill_fails_its_load_with_nothing_committed`: a bulk load's spills damaged at each of their first 600 bytes while it runs; it fails with `BulkLoadSpillDamagedException` and nothing committed | 4 (150 loads, about 7 s) | 1 (600, about 24 s) |
 | `VARVE_FENCE_SCHEDULES` | `Objects.ObjectEpochPropertyTests.a_stalled_claimant_never_fences_past_a_newer_epoch_whatever_was_sealed_or_consolidated_meanwhile` (#181): a claimant stalled before its listing or its fence's create, while the next epoch commits, seals, consolidates and deletes, and may stop at any of its writes; the chunks left never fall in epoch, and a holds nothing once the next epoch fenced | 300 schedules, about 3 s | 3,000, about 30 s (run clean at development) |
 
 The nightly run also sets section 7's release-gate depths for Extent

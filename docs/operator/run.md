@@ -229,4 +229,8 @@ expires, so a long `feed --follow` outlives one token (ADR 0127).
 [Authenticate](authenticate.md) says where the token comes from. A directory
 must not be opened by a command while a server holds it: the lease refuses
 the second opener (ADR 0075), so stop the server, or close the dataset through
-the admin API, before `load`ing into its directory.
+the admin API, before `load`ing into its directory. A load whose own spill,
+a temporary file it sorts its input into, is found damaged when read back
+ends before its commit with `varve: load-spill-damaged: …` and exit code 1:
+nothing of it was committed, and running the same `load` again is right
+([`load-spill-damaged`](../problems/load-spill-damaged.md), ADR 0213).

@@ -14,16 +14,17 @@ using Xunit;
 namespace Varve.Store.Tests;
 
 /// <summary>
-/// A dataset written by the previous release, derived format 3 (ADR 0139:
-/// it migrates as it runs): it opens on its full checkpoints, serves at every
-/// position what the log alone gives, starts a chain of extent sets at its
-/// first checkpoint under this release, and lets its full checkpoints be
-/// dropped — all without a change to any answer.
+/// A dataset written by an older release, derived format 3. Its full
+/// checkpoints carry no block checks, so this release cannot verify them and
+/// they are a cache miss (ADR 0213, superseding ADR 0139's migration as it
+/// runs): it opens from the log, serves at every position what the log alone
+/// gives, and starts a chain of extent sets at its first checkpoint under
+/// this release — all without a change to any answer.
 /// </summary>
 public sealed class Format3Tests
 {
     [Fact]
-    public async Task a_dataset_written_by_the_previous_release_opens_and_serves_identical_results_at_every_position()
+    public async Task a_dataset_written_by_an_older_release_opens_and_serves_identical_results_at_every_position()
     {
         string fixture = Path.Combine(Root(), "testdata", "derived-format-3");
         CheckSums(fixture);
@@ -48,23 +49,20 @@ public sealed class Format3Tests
         await using FileStorage storage = await written.OpenAsync();
         await using Dataset dataset = await Dataset.OpenAsync(storage, T.Options(), T.Ct);
 
-        // The full checkpoints load as they were written.
-        Assert.Equal([new Position(40), new Position(80), new Position(120)], dataset.Checkpoints);
+        // The full checkpoints are a miss: the dataset reads the log instead.
+        Assert.Empty(dataset.Checkpoints);
         Assert.Equal(expected, await ViewsAsync(dataset));
 
-        // The first checkpoint under this release starts the chain of sets;
-        // the full ones keep serving beside it, then are dropped.
+        // The first checkpoint under this release starts the chain of sets.
         await dataset.CheckpointAsync(new Position(100), T.Ct);
-        Assert.Equal([new Position(40), new Position(80), new Position(100), new Position(120)], dataset.Checkpoints);
+        Assert.Equal([new Position(100)], dataset.Checkpoints);
         Assert.Equal(expected, await ViewsAsync(dataset));
 
-        foreach (long full in new long[] { 40, 80 })
-        {
-            await dataset.DropCheckpointAsync(new Position(full), T.Ct);
-            Assert.Equal(expected, await ViewsAsync(dataset));
-        }
-
-        Assert.Equal(expected, await ViewsAsync(dataset));
+        // Opened again, it opens on the set.
+        await dataset.DisposeAsync();
+        await using Dataset again = await Dataset.OpenAsync(storage, T.Options(), T.Ct);
+        Assert.Equal([new Position(100)], again.Checkpoints);
+        Assert.Equal(expected, await ViewsAsync(again));
     }
 
     private static async Task<List<SortedSet<string>>> ViewsAsync(Dataset dataset)

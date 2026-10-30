@@ -145,6 +145,9 @@ public readonly record struct ProblemType
     /// <summary><c>503</c>: a read opened unannounced found an extent its catalog names gone (ADR 0160).</summary>
     public static ProblemType ReadUnannouncedExtentGone { get; } = new("read-unannounced-extent-gone");
 
+    /// <summary><c>503</c>: a bulk load found one of its own spills damaged and ended with nothing committed; submit the same input again (ADR 0213).</summary>
+    public static ProblemType LoadSpillDamaged { get; } = new("load-spill-damaged");
+
     /// <summary><c>503</c>: as many reads in flight and queued as the server allows (ADR 0114).</summary>
     public static ProblemType ServerBusy { get; } = new("server-busy");
 

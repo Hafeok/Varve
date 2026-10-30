@@ -409,7 +409,7 @@ internal sealed class BulkPipeline
             {
                 // The first failure is the one reported; the parser is let
                 // through so that it meets it on its next call.
-                Interlocked.CompareExchange(ref _failure, ExceptionDispatchInfo.Capture(failure), null);
+                Interlocked.CompareExchange(ref _failure, ExceptionDispatchInfo.Capture(failure is DerivedDamageException damage ? BulkLoadSpillDamagedException.Of(damage) : failure), null);
             }
 
             buffer.Reset();
