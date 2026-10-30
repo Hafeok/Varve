@@ -112,3 +112,43 @@ must pay nothing, as ADR 0107 point 4 has for `all` graphs.
 - **Analyzer rule.** None new. `VARVE0003` checks the hot path, answered
   above.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-30 — a term that is not a triple term costs no entry read
+
+Filed by milestone 9, part 1 (#202, under #14), after this ADR's decision
+set was accepted; unaccepted until the maintainer accepts it (ADR 0066).
+Records decision `TripleTermsFoundOncePerSection` in this ADR's set.
+
+**What was measured.** REC M on the file backend, the read filter of point
+4 over the site graphs: 803 ns a quad for the whole rule, against 75 for
+the graph-scoped scan, eleven times the view under BenchmarkDotNet. Taken
+apart (`--row-scope-breakdown`), almost all of it was one call. A
+classification's `SubjectsOf` asks the view for a node's triple-term parts
+whenever the projection does not classify the node, because a triple term
+carries its components' subjects (ADR 0230 point 1). The view answered by
+reading the node's dictionary entry, two offsets and the entry, about
+1.1 µs a call on a file dataset. The projection leaves most nodes
+unclassified, so a scan made that call for most subjects and most objects.
+The lookup of the node's own set was 7 ns.
+
+**The decision.**
+- **A term section finds its triple terms once.** On the first lookup of
+  a triple term's parts it holds, it makes one pass over its entries in
+  chunks, reading each entry's kind byte after its id, and keeps the
+  counters of its triple terms, ascending. There are usually none.
+- **Every later lookup is a search of them.** A counter that is not among
+  them is not a triple term, and no entry is read for it. A counter that
+  is among them is read as before.
+- **A section is immutable**, so the pass is once per section for its
+  lifetime. Two threads may both make it; they find the same counters.
+- **The layout, the format and the reads' results do not change.** Only
+  how fast a term that is not a triple term is answered changes.
+
+**The alternatives.**
+- **A memo per handle in the classification.** It still pays the first
+  read of every node, which a full scan touches once each.
+- **Classifying triple terms in the projection.** That means detecting
+  them as commits are applied, at the same cost per new term, and
+  reclassifying a triple term whenever a component's set changes.
+- **An eager pass when a run is opened.** It reads every dictionary at
+  start-up, whether a triple term is ever asked for or not.
