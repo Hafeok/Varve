@@ -66,6 +66,9 @@ internal static class Soak
 {
     internal static async Task RunAsync(TimeSpan duration, SoakOptions options)
     {
+        // The process's own handles, before the dataset opens: the base of the
+        // handles bound (ADR 0215), whatever the platform counts as a handle.
+        int handlesBefore = Handles();
         string directory = Directory.CreateTempSubdirectory("varve-soak-").FullName;
         FileStorage storage = await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = TimeProvider.System });
         DatasetOptions datasetOptions = new()
@@ -73,12 +76,14 @@ internal static class Soak
             Clock = TimeProvider.System,
             MemtableLimit = new QuadCount(options.MemtableLimit),
             Maintenance = options.Maintenance ? MaintenanceMode.Background : MaintenanceMode.Off,
-            Checkpoints = options.Policy ? new CheckpointPolicy { EveryCommits = 1_000, Keep = 12 } : CheckpointPolicy.Never,
+            Checkpoints = options.Policy ? new CheckpointPolicy { EveryCommits = 1_000, Keep = SoakBounds.KeepCheckpoints } : CheckpointPolicy.Never,
         };
         StoreDatasetType dataset = await StoreDatasetType.CreateAsync(storage, new DatasetId(Guid.NewGuid()), datasetOptions);
         using CancellationTokenSource stop = new(duration);
         long commits = 0, reads = 0, asOf = 0, checkpoints = 0, checkpointsInWindow = 0;
         Console.WriteLine("# soak " + duration.TotalMinutes.ToString(CultureInfo.InvariantCulture) + " min, " + options);
+        Console.WriteLine(GarbageCollection());
+        Console.WriteLine("# handles before the dataset " + handlesBefore.ToString(CultureInfo.InvariantCulture));
 
         // The writer: batches of 50 over a vocabulary of ten million possible
         // quads, a third of them retractions, pausing 25 ms between commits; the
@@ -211,7 +216,8 @@ internal static class Soak
             GC.Collect();
             GCMemoryInfo gc = GC.GetGCMemoryInfo(GCKind.Any);
             using Process self = Process.GetCurrentProcess();
-            int handles = Directory.Exists("/proc/self/fd") ? Directory.GetFiles("/proc/self/fd").Length : self.HandleCount;
+            int handles = Handles();
+            int segments = Directory.GetFiles(Path.Combine(directory, "log")).Length;
             string[] derivedFiles = Directory.GetFiles(Path.Combine(directory, "derived"), "*", SearchOption.AllDirectories);
             long derivedBytes = derivedFiles.Sum(SizeOf);
             long directories = derivedFiles.Where(f => !IsCheckpoint(f)).Sum(DirectoryLength);
@@ -254,7 +260,8 @@ internal static class Soak
                 Mb(checkpointDirectories),
                 Mb(gc.PromotedBytes),
                 Mb(Math.Max(0, self.PrivateMemorySize64 - gc.TotalCommittedBytes)),
-                Mb(DatasetsOwn(directories, checkpointDirectories, dataset.Head.Value))));
+                Mb(DatasetsOwn(directories, checkpointDirectories, dataset.Head.Value)),
+                segments.ToString(CultureInfo.InvariantCulture)));
         }
 
         await writer;
@@ -288,7 +295,7 @@ internal static class Soak
     internal const string Header =
         "minutes,commits,head,quads,managed MB,heap MB,fragmented MB,committed MB,LOH MB,working set MB,private MB,peak working set MB,peak heap MB,"
         + "open handles,derived files,derived MB,pins,as-of reads,checkpoints,checkpoint in window,allocated GB,directories MB,checkpoint directories MB,"
-        + "promoted MB,native MB,own MB";
+        + "promoted MB,native MB,own MB,log segments";
 
     /// <summary>
     /// The dataset's own (ADR 0082): what grows with the dataset and nothing
@@ -308,6 +315,29 @@ internal static class Soak
     private static bool IsCheckpoint(string path) =>
         path.Replace('\\', '/').Contains("/derived/checkpoints/", StringComparison.Ordinal)
         || path.Replace('\\', '/').Contains("/derived/extents/", StringComparison.Ordinal);
+
+    // The process's open handles: file descriptors where /proc has them, the
+    // kernel's handle count elsewhere.
+    private static int Handles()
+    {
+        using Process self = Process.GetCurrentProcess();
+        return Directory.Exists("/proc/self/fd") ? Directory.GetFiles("/proc/self/fd").Length : self.HandleCount;
+    }
+
+    /// <summary>
+    /// The collector the run had, as the runtime reports it, on the line
+    /// <see cref="SoakJudge"/> reads: the mode, whether collections are
+    /// concurrent, and ConserveMemory, from the runtimeconfig the shipped
+    /// props give or from the environment (ADR 0110, ADR 0215).
+    /// </summary>
+    internal static string GarbageCollection()
+    {
+        string conserve = AppContext.GetData("System.GC.ConserveMemory") as string
+            ?? Environment.GetEnvironmentVariable("DOTNET_GCConserveMemory")
+            ?? "0";
+        bool concurrent = System.Runtime.GCSettings.LatencyMode != System.Runtime.GCLatencyMode.Batch;
+        return "# gc " + (System.Runtime.GCSettings.IsServerGC ? "server" : "workstation") + ", " + (concurrent ? "concurrent" : "not concurrent") + ", ConserveMemory " + conserve;
+    }
 
     // A file listed a moment ago may be gone: a temporary file renamed into
     // place, or a file maintenance deleted. It counts as nothing.

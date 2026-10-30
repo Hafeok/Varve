@@ -36,14 +36,25 @@ writer's rate fills well before minute 30. From then on, the dataset's own
 should be flat. A run is valid only if the quad count is flat from minute
 30, within 5%; the judge refuses to judge one that is not.
 
-**2. The configuration is the shipped one,** as ADR 0110 states:
-`DOTNET_gcServer=0`, `DOTNET_gcConcurrent=1`, `DOTNET_GCConserveMemory=5`.
+**2. The configuration is the shipped one,** as ADR 0110 states: the
+workstation collector, concurrent collections, `ConserveMemory` 5. The three
+settings live in one file, `src/Varve.Server/ShippedRuntime.props`, which
+`Varve.Server` imports, so the tool, the AOT binary and the container image
+carry them, and which `Varve.Benchmarks` imports, so the soak runs under
+exactly what the image ships. The soak prints the collector the runtime
+reports; the judge refuses to judge a run under any other.
 
 **3. The gate, for a run of any length** (restating `FlatWithinABand`):
-- every 30-second sample of the working set, less the dataset's own, from
-  minute 30 to the end lies within ±25% of those samples' median;
-- the median of the last ten minutes is within 10% of minutes 30–40;
-- open handles and `derived/` files stay within fixed bounds.
+- every 30-second sample of the working set, less the dataset's own and less
+  the collector's committed but unused memory, from minute 30 to the end lies
+  within ±25% of those samples' median;
+- the median of the last ten minutes is no more than 10% over minutes 30–40:
+  growth is what the gate is for, and a working set that shrinks holds;
+- the collector's committed memory, which it returns on its own schedule and
+  so is not judged in the band, is reported beside it and stays at most twice
+  the live heap after a full collection plus 128 MB;
+- open handles and `derived/` files stay within the bounds the configuration
+  gives (the amendment of 2026-10-30 states them).
 
 **4. The soak reports its working set by cause,** one CSV column each:
 - the collector's view (`GC.GetGCMemoryInfo`: committed, heap,
@@ -52,7 +63,9 @@ should be flat. A run is valid only if the quad count is flat from minute
 - native memory: the process's private bytes less the collector's committed
   memory;
 - the dataset's own (ADR 0082), and beside it the term dictionary's
-  in-memory index, which #61 named as the candidate addition.
+  in-memory index, which #61 named as the candidate addition;
+- the log's segments, and before the table the process's handles before the
+  dataset opened, which the handles bound starts from.
 
 **5. A judge.** `Varve.Benchmarks --soak-judge <csv>` applies point 3 and
 exits non-zero on a miss, naming the sample, the window and the bound it
@@ -75,8 +88,11 @@ band, one that leaks handles, and one whose dataset never settles.
   nightly is red, or older than eight days. A step reads the nightly's runs
   through the Actions API with the job's own token and names the run it
   judged. Eight days is a week's schedule and a day of slack.
-- **One eight-hour run** on Linux is reported in the pull request, to bound
-  the slope over a day's operation.
+- **An eight-hour soak runs before 1.0 in #164's Azure environment,** as a
+  Container Apps job under the shipped configuration, judged by the same
+  script, to bound the slope over a day's operation. Hosted runners stop a
+  job at six hours, and this pull request's container did not hold a run
+  past two (the amendment of 2026-10-30).
 
 ## Alternatives considered
 
@@ -91,8 +107,8 @@ band, one that leaks handles, and one whose dataset never settles.
 ## Consequences
 
 - #61 closes when a release gate's four-hour soak passes under this ADR, if
-  it does. The pull request reports the eight-hour run and what #61's
-  question found.
+  it does. The pull request reports what #61's question found; the
+  eight-hour run follows in #164's environment before 1.0.
 - `docs/testing.md` gains the soak's place in the release gate, and the
   operator guide states the gate and the configuration it is judged under.
 
@@ -101,7 +117,71 @@ band, one that leaks handles, and one whose dataset never settles.
 - **Checked against the accepted ADRs.** Touches **0082** (amended), **0110**
   (superseded in part), **0124** and **0158** (the workload's commits and
   merges).
-- **Layer ownership.** `tests/Varve.Benchmarks` and the workflows; no `src/`
-  change unless the soak finds a leak, which then gets its own fix and test.
+- **Layer ownership.** `tests/Varve.Benchmarks` and the workflows. The soak
+  found one leak, retired extent sets' empty directories, fixed in the file
+  backend with its own test; and the shipped runtime configuration moved
+  into a props file the server and the soak share.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-30 — the soak measured, and its bounds
+
+**#61's question is answered: the working set does not grow.** A soak under
+the shipped configuration, `--soak 480 --policy --subjects 2000`, ran 111
+minutes in this pull request's container before the container was
+restarted. From minute 30 to 111:
+- the working set less the dataset's own had a median of 122 MB and drifted
+  −6.0% from minutes 30–40 to the last ten;
+- the quads were steady at 666,329;
+- the live heap after a full collection stayed between 9 and 18 MB, and
+  native memory at about 193 MB;
+- the dataset's own grew from 12 to 34 MB, as ADR 0082 expects.
+
+Twelve samples were 26–48% over the median. They were the collector's
+committed memory, 94 MB in those samples against 60 elsewhere, while the
+live heap stayed at 13: memory the collector had committed and not used.
+Point 3 therefore judges the band without it and puts it under a ceiling of
+its own. Committed less twice the live heap peaked at 97 MB; the margin of
+128 MB is that with a third to spare. Without it, the band holds with no
+sample outside, and the drift is −17.9%, which a growth-only check passes.
+
+**One thing grew that is not the dataset's own,** and is fixed. A retired
+extent set's files were deleted and its directory was not: in a second run,
+132 of the 138 directories under `derived/extents` were empty after 49.5
+minutes, about 2.7 a minute, some 1,300 over eight hours. The file backend
+now removes a set's directory with its last file
+(`FileStorageTests.a_retired_extent_set_leaves_no_directory_behind`). The
+judge counted files, so it did not see them.
+
+**The bounds** (`tests/Varve.Benchmarks/SoakBounds.cs`), from the soak's
+configuration: twelve checkpoints kept, the default merge policy's fan-out
+of 4, a memtable of 20,000 quads, a commit cache of 4,096.
+
+| Term | Bound | Measured peak |
+|---|---|---:|
+| Fixed files and their temporaries | 6 + 2 | 7 |
+| Extent sets, 9 files each | 12 kept + 1 before the drop + 1 merge output + 4 retired held open = 18 sets, 162 files | 9 sets |
+| Disk runs | ⌈log₄(live quads ÷ 20,000)⌉ + 2 = 5 at 666,000 quads | 5 |
+| Commit-index blobs | ⌊log₂(commits ÷ 4,096)⌋ + 2: 7 at 236,000 commits, 9 at a million | 4 |
+| **Derived files** | **182 at the 111-minute run's end** | **97** |
+| Handles | before the dataset + derived files + 1 + segments + 64 for the runtime's own | 141 |
+
+The fourth set term is a platform's: where a file a reader has open cannot
+be deleted, the inputs of the latest change stay until the views that hold
+them close, a fan-out of sets at most. Linux deletes them at once. The
+runtime's allowance of 64 handles covers the thread pool's threads and
+events; Linux showed 7, and Windows counts a handle per thread and per
+event, so the weekly Windows soak is the measure of it. The 111-minute run
+did not record its handles before the dataset; a second run had 60 of them
+then and 67 at most besides the store's.
+
+Judged by the amended script, with the collector line and those 60 handles
+added to its output and two log segments, the 111-minute run holds: 163
+samples from minute 30, a median of 78 MB less the collector's unused, drift
+−17.9%, the collector's unused at most 109 MB, handles at most 141 of 309,
+derived files at most 97 of 182.
+
+**The eight-hour soak** cannot run on hosted runners, which stop a job at six
+hours, and this container did not hold a run past two hours: it was
+restarted three times during the step. Point 6 now runs it in #164's Azure
+environment before 1.0.
