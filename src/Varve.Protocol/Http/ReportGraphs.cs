@@ -140,12 +140,33 @@ internal sealed class ReportGraphs : IQuadSource
 
         // A term only a report holds: the reports the projection has reached, read without waiting.
         bool added = false;
+        bool unread = false;
         for (int i = 0; i < _graphs.Count; i++)
         {
             added |= !_read[i] && Read(i, wait: false);
+            unread |= !_read[i];
         }
 
-        return added && _current.TryInternalise(term, out handle);
+        if (added && _current.TryInternalise(term, out handle))
+        {
+            return true;
+        }
+
+        // A report not reached yet may hold the term (#183). "No such term"
+        // would let the read decide that a pattern naming it matches nothing,
+        // before the report graph is matched and waited for, and answer an
+        // empty report, which reads as conforming. The term is named instead,
+        // staged as the report will stage it when read: it matches nothing in
+        // the data, and a match of the report graph still waits for the
+        // report, or is validation-behind.
+        if (unread && term.Kind != RdfTermKind.BlankNode)
+        {
+            handle = Stage(term);
+            return true;
+        }
+
+        handle = default;
+        return false;
     }
 
     public bool TryExternalise(TermHandle handle, [MaybeNullWhen(false)] out RdfTerm term) => _current.TryExternalise(handle, out term);
