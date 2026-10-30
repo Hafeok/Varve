@@ -105,6 +105,11 @@ accepted on the pull request (ADR 0066).
   - a segment holding only fence chunks opens;
   - a reader record whose write was applied but whose answer was lost is
     not forgotten.
+  - a writer whose log already ends in a later epoch is superseded
+    before it fences, including when the newest segment is consolidated
+    (#181, ADR 0136 decision 2). Before, the lower epoch could keep the
+    log while the writer record named the higher one. Nothing was lost or
+    written twice.
 - **A binding's report graph, read while its projection was a commit
   behind** (#183), could answer with no rows, which reads as conforming.
   It now answers with the report at the position, or `503
