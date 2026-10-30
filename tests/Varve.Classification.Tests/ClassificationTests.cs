@@ -148,6 +148,46 @@ public class ClassificationTests
         TestContext.Current.SendDiagnosticMessage($"{positions} positions compared");
     }
 
+    /// <summary>
+    /// The saved state on a file dataset's local cache, whose blob names
+    /// carry <c>enc(binding)</c>: saved, listed, and read back after the
+    /// storage is reopened. A memory cache accepts any name, so the property
+    /// above could not show this.
+    /// </summary>
+    [Fact]
+    public async Task The_saved_state_reads_back_from_a_file_datasets_cache()
+    {
+        CancellationToken ct = TestContext.Current.CancellationToken;
+        await using Dataset dataset = await CreateAsync(ct);
+        await dataset.CommitAsync(Request(dataset, Shapes(true, true, false), [(IriOf(Ex + "a"), IriOf(TypeIri), IriOf(Ex + "Person"), Classified[0], true)]), ct);
+        await dataset.CommitAsync(Request(dataset, null, [(IriOf(Ex + "x"), IriOf(Ex + "ownedBy"), IriOf(Ex + "a"), Classified[1], true)]), ct);
+        ClassificationProjection projection = new(dataset, Binding);
+        await dataset.CatchUpAsync(projection, ct);
+        string directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "varve-classification-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            await using (FileStorage storage = await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = TimeProvider.System }, ct))
+            {
+                await projection.SaveAsync(storage.Derived, ct);
+                Assert.Contains(await storage.Derived.ListAsync(ct), static n => n.Value.StartsWith("classification/", StringComparison.Ordinal) && n.Value.Contains('%', StringComparison.Ordinal));
+            }
+
+            await using FileStorage reopened = await FileStorage.OpenAsync(new DatasetDirectory(directory), new FileStorageOptions { Clock = TimeProvider.System }, ct);
+            ClassificationProjection loaded = new(dataset, Binding);
+            Assert.True(await loaded.LoadAsync(reopened.Derived, ct));
+            Assert.Equal(dataset.Head, loaded.Position);
+
+            using DatasetView view = dataset.Pin();
+            Assert.True(loaded.TryAt(view.Position, view, out IRowClassification reread));
+            Assert.Equal(Signature(ShapeClassifier.Scratch(view, Binding), view), Signature(reread, view));
+        }
+        finally
+        {
+            System.IO.Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task A_reset_at_the_head_puts_the_floor_there_and_classifies_below_it_from_scratch()
     {
