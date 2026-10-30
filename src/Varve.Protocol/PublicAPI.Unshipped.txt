@@ -442,3 +442,4 @@ static Varve.Protocol.Model.ProblemType.RowNotWritable.get -> Varve.Protocol.Mod
 static Varve.Protocol.VarveEndpoints.MapAccess(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
 Varve.Protocol.Model.UpdatePreconditions.Classifier.get -> Varve.Store.IClassifier?
 Varve.Protocol.Model.UpdatePreconditions.Classifier.init -> void
+static Varve.Protocol.Model.ProblemType.LoadSpillDamaged.get -> Varve.Protocol.Model.ProblemType

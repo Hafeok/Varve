@@ -155,6 +155,81 @@ The four modes partition every quad, and a test asserts it: for any graph
 handle exactly one of `DefaultGraph` and `AnyNamed` accepts it, and `Any`
 accepts it either way.
 
+## Amendment, 2026-10-30 — "no such term" is a promise about every quad the source will yield
+
+Filed for [#191](https://github.com/Hafeok/Varve/issues/191), after
+[#183](https://github.com/Hafeok/Varve/issues/183), unaccepted until the
+maintainer accepts it (ADR 0066). The decision above is unchanged. What
+changes is what `TryInternalise`'s false may mean.
+
+As written, false let a read-only source report "that a term it has never
+seen cannot appear in any quad it holds". That is safe for a source that
+holds everything it will serve when it is made. It is not safe for one that
+fills what it serves later. The query compiler turns a denied constant into a
+pattern that never runs (`PatternPosition.OfNever`, `Compiler.cs`; the
+optimiser's estimates likewise), and it does this before it matches any
+pattern. A source that denies a term before it has loaded the quads holding
+it therefore answers an empty result, and that is a wrong answer, not an
+error. `ReportGraphs` did exactly that for a validation report its projection
+had not reached yet: `200` with no rows, which reads as "everything
+conforms" (#183, fixed by #186).
+
+**The ruling (`DenialCoversQuadsNotYetLoaded`).** False means that no quad
+the source will ever yield, for this view, holds the term, including quads it
+has not loaded yet. A source that cannot know yet answers true with a handle
+it stages for the term, which matches nothing until the term is there. Two
+cases are outside the promise, because no consumer loses an answer to them:
+
+- **A blank node.** A source looks up no blank node by label (ADR 0044), and
+  a query names none: a blank node in a pattern is a variable.
+- **A part of a triple term the source cannot take apart by handle**
+  (`TryGetTripleTermComponents` false). The evaluator matches that triple
+  term by value, a denied part included
+  (`EvaluationHotPathScope.NestedPatternsExternalise`). A query proves it:
+  `EvaluatorTests.A_term_only_inside_a_triple_term_is_found_by_a_triple_term_pattern_naming_it`
+  puts `"only-here"` only inside a triple term of an `InMemoryDataset`,
+  which denies it, and `SELECT * { ?s :p <<( ?a :q "only-here" )>> }`
+  returns the answer, with the optimiser and without. With the evaluator's
+  by-value comparison of a denied part removed, it returns nothing.
+
+**The test.** `tests/QuadSourceContract.cs`, linked into each test project
+with a source of its own, is the standard test for a source
+(`docs/testing.md` §5). For each term the completed source yields, it makes
+the source fresh, asks for that term first, completes it with a match of
+every quad, and fails if the term was denied. Asking on a fresh source is
+the point: a lookup that loads something, such as naming a report graph,
+would otherwise hide a denial that a query asking in another order sees.
+With #186 reverted, it fails against `ReportGraphs` with its projection
+behind at the lookup and reaching the position in the read's wait. On
+`main` it passes.
+
+**The audit.** Every `IQuadSource` in `src/`:
+
+| Source | Verdict | Why |
+|---|---|---|
+| `ReportGraphs` (Protocol) | **Violated; fixed by #186** | It reads reports lazily. A term only an unread report holds was denied before the waiting read reached it. It is now staged while a report is unread. |
+| `PendingSource` under `QuadOverlay` (Store, what a validator reads) | **Violated; fixed here** | A triple term the commit creates is not in the head's dictionary, and was looked up there only. It is now found among the commit's allocations by its parts, each looked up in this source, so a part the commit creates is found too. Latent: a query names a triple term by its parts, and SHACL matches an absent constant by value, so no read was found that lost an answer. |
+| `QuadOverlay` (Rdf, ADR 0017) | Holds, given its base does | Its delta holds the base's handles, and it looks terms up in the base. |
+| `GraphScopedQuadSource` (Rdf) | Holds | It looks terms up in the source it wraps, and yields a subset of it. |
+| `InMemoryDataset` (Rdf) | Holds | It is immutable (ADR 0067), and every term in a quad is interned. A triple term's parts are not, and it does not take one apart, so they are outside the promise. |
+| `DatasetView`, pinned (Store) | Holds | The dictionary at its position: runs that hold every entry up to it, held open by the view. A denial is a term allocated later. |
+| `DatasetView`, as-of (Store) | Holds | The checkpoint and the log tail are loaded before the view is handed out, and the tail's terms are in its dictionary. An as-of view inside an extent set's window reads that set's terms the same way. |
+| The follower's views (Store, ADR 0164) | Holds | A follower's `Pin` and `AsOfAsync` are a dataset's own. An advance replaces the state the next view reads, never a view already handed out. |
+| `IndexSource` (Store) | Holds | It is the pinned view's source, and the bulk validator's, whose dictionary includes the bulk run's terms. |
+| `StagingView` (Store, ADR 0058) | Holds | It yields its view's quads, and names staged terms besides, which no quad of the view holds. |
+| `DefaultGraphView`, `ReadRecorder` (Sparql.Store) | Hold | They look terms up in the source they wrap. The recorder notes the IRIs it could not name, and denies only what its source denies. |
+| `DataGraphSource` (Shacl.Store) | Holds | It looks terms up in the whole state, and yields a subset of it. |
+| `PreboundSource` (Shacl.Sparql) | Holds | It names the terms a query pre-binds by their handles, and every other one by the data source. |
+
+Each has a case in the contract test, apart from `IndexSource`, which is
+exercised through the views. Inference part 2's sources
+([#171](https://github.com/Hafeok/Varve/issues/171)) — the closure's
+reserved graphs, `varve:implicit`, and the vocabulary constants it stages —
+adopt it, the closure held behind as `ReportGraphs`' projection is.
+
+**The ledger.** `DenialCoversQuadsNotYetLoaded` is added to this ADR's set,
+unaccepted.
+
 ## Consequences
 
 **`TermHandle` being 64 bits, like `TermId`, is deliberate alignment and not a

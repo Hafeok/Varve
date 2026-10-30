@@ -94,6 +94,11 @@ jobs:
           VARVE_EXTENT_FAULTS_FULL: "1"
           VARVE_CACHE_DAMAGE_STRIDE: "1"
           VARVE_EXTENT_DAMAGE_STRIDE: "1"
+          # Verified derived data (ADR 0213, #146).
+          VARVE_DERIVED_DAMAGE_STRIDE: "1"
+          VARVE_MIDREAD_DAMAGE_STRIDE: "1"
+          VARVE_ENVELOPE_DAMAGE_STRIDE: "1"
+          VARVE_SPILL_DAMAGE_STRIDE: "1"
           # The fence after a consolidation (#181).
           VARVE_FENCE_SCHEDULES: "3000"
         run: >

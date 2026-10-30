@@ -15,16 +15,8 @@ decisions:
     statement: "A format-5 extent's asserted and retracted sections are format 4's byte for byte, and a read of the present reads them and nothing else"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-26T00:00:00Z
-  - key: EveryBlockIsChecked
-    statement: "A format-5 extent's directory carries a 64-bit check of every key block and of every column block of 128 rows, and a block is checked when it is read; damage is a failed read or a cache miss, never a different answer"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-26T00:00:00Z
   - key: EveryWriterWritesFormat5
     statement: "A checkpoint, a merge and a drop write their set in format 5 from the same rows format 4 had, whatever their inputs' format, except where ADR 0178 keeps format 4 for an older reader; a merge stays a pure function of its inputs' rows"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-26T00:00:00Z
-  - key: Format5ForExtentsOnly
-    statement: "Derived version 5 is an extent's alone; the dictionary extent, the graph-version index, the commit index, the catalog, runs and the projection's state are still written as version 4"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-26T00:00:00Z
   - key: AnEstimateInsideASetMayBeEstimated

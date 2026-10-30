@@ -8,6 +8,8 @@ Completes ADR [0018](0018-storage-abstraction.md)'s "durability is declared,
 not assumed" for the file backend, and states, for every level, what survives
 power loss. The browser's level is 6c's.
 
+**Superseded in part 2026-10-27 by [ADR 0213](0213-cached-derived-data-is-verified-before-use.md)**: `FlushBeforeVisible` moves to its set; a derived blob written in a self-verifying format that every announced reader reads is renamed into place without the flush. Filed unaccepted.
+
 ## Context
 
 ADR 0018 declared three levels — `Synchronised`, `Committed`, `None` — and ADR

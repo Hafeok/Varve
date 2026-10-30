@@ -14,6 +14,8 @@ point 4 (the cache headers).
 [0126](0126-graph-versions-over-http.md): point 9's members of `409` and
 `412`, and `412`'s title; see the end.
 
+**Amended 2026-10-27** (ADR 0068), by #146 under [ADR 0213](0213-cached-derived-data-is-verified-before-use.md): `load-spill-damaged` joins the catalogue; see the end. Filed unaccepted.
+
 ## Context
 
 ADR 0096 gave every dataset response `ETag` and `Varve-Position` and a
@@ -201,6 +203,18 @@ accepts it (ADR 0066).
 
 **The ledger.** The rulings are ADR 0174's `ValidationBehind` and
 `ReportGraphNotWritable`.
+
+## Amendment, 2026-10-27 — `load-spill-damaged`
+
+Filed by #146, unaccepted until the maintainer accepts it (ADR 0066); ruled
+in [ADR 0213](0213-cached-derived-data-is-verified-before-use.md) point 5.
+
+- **`load-spill-damaged`, `503`.** A bulk load's spill failed its check.
+  The load ended before its commit, and nothing of it is visible. The input
+  can be resubmitted as it is.
+- No HTTP route runs a bulk load today. `varve load` names the type, and
+  any route that later runs a load answers with it.
+- The page, the catalogue entry and the README row follow the rules above.
 
 ## Amendment, 2026-10-30 — problem types for rows
 

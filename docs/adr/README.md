@@ -38,7 +38,7 @@ or depart from `docs/brief.md`, each says so in its Context.
 | [0019](0019-erasure-by-crypto-shredding.md) | Erasure by crypto-shredding | **Superseded by 0023** |
 | [0020](0020-cipher-for-erasure-mode.md) | Cipher for erasure mode | **Superseded by 0028** |
 | [0021](0021-dataset-settings-as-a-commit-kind.md) | Dataset settings as a commit kind | Accepted |
-| [0022](0022-quad-source-term-handle.md) | The quad source contract over an opaque term handle | Accepted |
+| [0022](0022-quad-source-term-handle.md) | The quad source contract over an opaque term handle | Accepted; amended 2026-10-30 (a denied term is in no quad the source will yield, loaded or not; filed unaccepted, #191) |
 | [0023](0023-erasure-and-access-requests.md) | Erasure by crypto-shredding, and access requests | Accepted |
 
 ## Milestone 3a — the model and the syntax
@@ -392,6 +392,14 @@ Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), mile
 | # | Title | Status |
 |---:|---|---|
 | [0206](0206-the-web-ui-design-source.md) | The Web UI's design source, its levels, and the markup contract | Filed unaccepted (Web UI part 1, #167) |
+
+## 1.0 readiness A — correctness and the read-forever contract (#129)
+
+Filed by 1.0 readiness A ([#129](https://github.com/Hafeok/Varve/issues/129); [#146](https://github.com/Hafeok/Varve/issues/146), [#132](https://github.com/Hafeok/Varve/issues/132), [#61](https://github.com/Hafeok/Varve/issues/61)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0213. Superseded in part by 0213, likewise unaccepted: 0071 (publishing qualified), 0073 (the derived flush kept only where a reader cannot verify), 0161 (the `commits` blob in version 6), 0177 (a block that does not match is a miss; version 6 for the checked kinds), 0178 (rewrites generalised to any blob below the newest version). Amended by it: 0072 (derived version 6), 0119 (`load-spill-damaged`), 0174 (the snapshot in the checked envelope).
+
+| # | Title | Status |
+|---:|---|---|
+| [0213](0213-cached-derived-data-is-verified-before-use.md) | Cached derived data is verified before use: a check per block, and damage is a miss | Filed unaccepted (#146) |
 
 ## Milestone 9, part 1 — row-level access through the classifier (#202)
 

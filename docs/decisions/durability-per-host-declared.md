@@ -15,10 +15,6 @@ decisions:
     statement: "The file backend flushes no directory, because no managed API opens one; a lost entry of a new segment is a segment never created"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-05T07:32:09Z
-  - key: FlushBeforeVisible
-    statement: "A derived blob is flushed before it is renamed into place, a segment's header before its first record, and the manifest before any segment exists"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-05T07:32:09Z
 ---
 
 The rulings of [ADR 0073](../adr/0073-durability-per-host-declared.md), filed unaccepted by session 6a

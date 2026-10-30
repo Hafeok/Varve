@@ -18,6 +18,8 @@ Amends **0107** (the report graph's read rule), **0119** (`validation-behind`,
 and `graph-not-writable` as a validator type), **0130** point 5 (a computed
 system graph) and **0155** (the additive members), each by a dated amendment.
 
+**Amended 2026-10-27** (ADR 0068), by #146 under [ADR 0213](0213-cached-derived-data-is-verified-before-use.md): the projection's snapshot is written in the checked envelope; see the end. Filed unaccepted.
+
 ## Context
 
 ADR 0169 gates a commit on the focus nodes its delta affects, and ADR 0173
@@ -184,6 +186,20 @@ projection (spec §7, ADR 0016).
 - **Open questions owned.** Sharing the projection as extents, owned by the
   object storage track. A local derived store for object-storage datasets,
   owned by milestone 8's follow-up.
+
+## Amendment, 2026-10-27 — the snapshot is a checked envelope
+
+Filed by #146, unaccepted until the maintainer accepts it (ADR 0066); ruled
+in [ADR 0213](0213-cached-derived-data-is-verified-before-use.md) point 6.
+
+- **The projection's snapshot is written through `CheckedBlob`**, kind 9,
+  in 64 KiB blocks each checked. It is bound to the dataset, and to the
+  position and header hash it was built at.
+- **What counts as a miss:** a snapshot that does not verify, one bound to
+  another dataset or another commit, or one whose decoding raises any
+  exception at all. Each is a miss, and the projection rebuilds from the
+  log, as on a cold start.
+- **A `VVP1` snapshot is a miss** the first time this build opens it.
 
 ## Amendment, 2026-10-30 — the report graph and row-restricted callers
 
