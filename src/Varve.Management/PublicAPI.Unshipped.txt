@@ -261,3 +261,41 @@ static Varve.Management.ManagementVocabulary.MovedState.get -> Varve.Rdf.RdfTerm
 static Varve.Management.ManagementVocabulary.MovingState.get -> Varve.Rdf.RdfTerm!
 static Varve.Management.ManagementVocabulary.SourceGraphProperty.get -> Varve.Rdf.RdfTerm!
 static Varve.Management.ManagementVocabulary.InDatasetState.get -> Varve.Rdf.RdfTerm!
+Varve.Management.Model.BindingDeclaration.Classifies.get -> Varve.Management.Model.GraphSet?
+Varve.Management.Model.BindingDeclaration.Classifies.init -> void
+Varve.Management.Model.BindingKind.Classifier = 2 -> Varve.Management.Model.BindingKind
+Varve.Management.Model.GrantDeclaration.Subjects.get -> Varve.Management.Model.SubjectSet!
+Varve.Management.Model.GrantDeclaration.Subjects.init -> void
+Varve.Management.Model.SubjectLinkDeclaration
+Varve.Management.Model.SubjectLinkDeclaration.<Clone>$() -> Varve.Management.Model.SubjectLinkDeclaration!
+Varve.Management.Model.SubjectLinkDeclaration.Deconstruct(out Varve.Rdf.RdfTerm! Predicate, out Varve.Management.Model.GraphTemplate? Target) -> void
+Varve.Management.Model.SubjectLinkDeclaration.Equals(Varve.Management.Model.SubjectLinkDeclaration? other) -> bool
+Varve.Management.Model.SubjectLinkDeclaration.Predicate.get -> Varve.Rdf.RdfTerm!
+Varve.Management.Model.SubjectLinkDeclaration.Predicate.init -> void
+Varve.Management.Model.SubjectLinkDeclaration.SubjectLinkDeclaration(Varve.Rdf.RdfTerm! Predicate, Varve.Management.Model.GraphTemplate? Target) -> void
+Varve.Management.Model.SubjectLinkDeclaration.Target.get -> Varve.Management.Model.GraphTemplate?
+Varve.Management.Model.SubjectLinkDeclaration.Target.init -> void
+Varve.Management.Model.SubjectSet
+Varve.Management.Model.SubjectSet.All.get -> bool
+Varve.Management.Model.SubjectSet.All.init -> void
+Varve.Management.Model.SubjectSet.Classes.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Management.Model.SubjectSet.Classes.init -> void
+Varve.Management.Model.SubjectSet.CreateUnder.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Management.Model.SubjectSet.CreateUnder.init -> void
+Varve.Management.Model.SubjectSet.CreateUnderTemplates.get -> System.Collections.Generic.IReadOnlyList<Varve.Management.Model.GraphTemplate!>!
+Varve.Management.Model.SubjectSet.CreateUnderTemplates.init -> void
+Varve.Management.Model.SubjectSet.Links.get -> System.Collections.Generic.IReadOnlyList<Varve.Management.Model.SubjectLinkDeclaration!>!
+Varve.Management.Model.SubjectSet.Links.init -> void
+Varve.Management.Model.SubjectSet.Prefixes.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Management.Model.SubjectSet.Prefixes.init -> void
+Varve.Management.Model.SubjectSet.SubjectSet() -> void
+Varve.Management.Model.SubjectSet.Subjects.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Management.Model.SubjectSet.Subjects.init -> void
+Varve.Management.Model.SubjectSet.Templates.get -> System.Collections.Generic.IReadOnlyList<Varve.Management.Model.GraphTemplate!>!
+Varve.Management.Model.SubjectSet.Templates.init -> void
+override Varve.Management.Model.SubjectLinkDeclaration.Equals(object? obj) -> bool
+override Varve.Management.Model.SubjectLinkDeclaration.GetHashCode() -> int
+override Varve.Management.Model.SubjectLinkDeclaration.ToString() -> string!
+static Varve.Management.Model.SubjectLinkDeclaration.operator !=(Varve.Management.Model.SubjectLinkDeclaration? left, Varve.Management.Model.SubjectLinkDeclaration? right) -> bool
+static Varve.Management.Model.SubjectLinkDeclaration.operator ==(Varve.Management.Model.SubjectLinkDeclaration? left, Varve.Management.Model.SubjectLinkDeclaration? right) -> bool
+static Varve.Management.Model.SubjectSet.Everything.get -> Varve.Management.Model.SubjectSet!
