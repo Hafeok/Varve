@@ -158,6 +158,7 @@ public class ScanBenchmarks
     private TermHandle _predicate;
     private TermHandle[] _subjects = [];
     private TenantClassification? _rows;
+    private TenantClassification? _rowsAllPublic;
 
     [GlobalSetup]
     public void Setup()
@@ -169,6 +170,7 @@ public class ScanBenchmarks
         _subjects = [.. Enumerable.Range(0, 10_000).Select(i => _view.TryInternalise(quads[i * 97].S, out TermHandle h) ? h : TermHandle.None)];
 
         _rows = new TenantClassification(_view, _subjects);
+        _rowsAllPublic = new TenantClassification(_view, _subjects, allPublic: true);
         long count = Count(TermHandle.None, TermHandle.None, GraphPattern.Any);
 
         if (count != StoreDataset.Quads)
@@ -247,6 +249,15 @@ public class ScanBenchmarks
     [Benchmark]
     public long FullScanRowScopedHalf() =>
         Count(new RowScopedQuadSource(_view!, _rows!, Tenants(50)), TermHandle.None, TermHandle.None, GraphPattern.Any);
+
+    /// <summary>
+    /// As <see cref="FullScanRowScopedHalf"/>, every predicate a public link:
+    /// the subject's probe alone, so the difference is the object half of
+    /// about(q).
+    /// </summary>
+    [Benchmark]
+    public long FullScanRowScopedHalfSubjectOnly() =>
+        Count(new RowScopedQuadSource(_view!, _rowsAllPublic!, Tenants(50)), TermHandle.None, TermHandle.None, GraphPattern.Any);
 
     /// <summary>The 10,000 subject lookups through a row scope of half the tenants.</summary>
     [Benchmark]
@@ -346,8 +357,11 @@ internal sealed class TenantClassification : IRowClassification
     internal static readonly RdfTerm Binding = RdfTerm.Iri("http://example.org/binding"u8);
     private readonly TermHandle[][] _members;
 
-    internal TenantClassification(DatasetView view, TermHandle[] subjects)
+    private readonly bool _allPublic;
+
+    internal TenantClassification(DatasetView view, TermHandle[] subjects, bool allPublic = false)
     {
+        _allPublic = allPublic;
         TermHandle[] tenants = [.. subjects.Take(100)];
         _members = [[], .. tenants.Select(t => new[] { t })];
         Tenants = [.. tenants.Select(t => view.TryExternalise(t, out RdfTerm? term) ? term : throw new InvalidOperationException("A tenant has no name."))];
@@ -363,5 +377,5 @@ internal sealed class TenantClassification : IRowClassification
 
     public ReadOnlySpan<TermHandle> Members(BindingIndex binding, SubjectSetId set) => _members[set.Value];
 
-    public bool IsPublicLink(BindingIndex binding, TermHandle predicate) => false;
+    public bool IsPublicLink(BindingIndex binding, TermHandle predicate) => _allPublic;
 }

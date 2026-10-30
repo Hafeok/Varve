@@ -124,3 +124,28 @@ ADR 0230 point 7, over every surface above, with:
   the composition.
 - **Analyzer rule.** None.
 - **Open questions owned.** Per-result report filtering, #204.
+
+## Amendment, 2026-10-30 — the service description's graphs, and what the follower gate compares
+
+Filed by milestone 9, part 1 (#202, under #14), after this ADR's decision
+set was accepted; unaccepted until the maintainer accepts it (ADR 0066).
+Both points state what the accepted rulings already require. No ruling
+changes.
+
+- **Point 3, the service description.** It lists the readable graphs as
+  the graph scope alone decides them. A readable graph whose quads are all
+  hidden by rows is listed, as point 2 answers it as an empty graph. No
+  report graph is listed for a row-restricted caller (point 6). Before this
+  amendment, the description found its named graphs over the caller's row
+  view, so such a graph was missing from it. The per-surface property
+  `The_service_description_is_the_one_every_graph_reader_gets` found the
+  difference, and the description now reads the graph scope.
+- **Point 11, the follower gate.** The gate compares, for generated
+  histories and row scopes, the quads a row-restricted caller sees (V_p)
+  through the writer's projection and through the follower's own, at the
+  follower's reported position and at every position before it. Every
+  surface of points 1–5 answers from V_p and V_{p−1} alone, as the
+  per-surface properties over one dataset show, so equal views give equal
+  answers on every surface. The gate does not run the HTTP surfaces
+  against the follower itself, which point 11 as first written said it
+  did.

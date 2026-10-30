@@ -64,19 +64,8 @@ internal static class ClassificationProjectionBench
         (FileDataset dataset, List<RecChange> held) = await RecShapes.LoadAsync(size, 20261015, Held);
         await using (dataset)
         {
-            CommitRequestBuilder shapes = new();
-            Subject(shapes, "Company", "Company");
-            Subject(shapes, "Site", "Site");
-            Link(shapes, "Leasee", "leasee", "subjectLink");
-            Link(shapes, "Leasor", "leasor", "subjectLink");
-            Link(shapes, "PartOf", "isPartOf", "subjectLink");
-            Link(shapes, "LocatedIn", "locatedIn", "subjectLink");
-            shapes.Assert(Iri(Shapes + "Type"), Type, Iri(Sh + "PropertyShape"), ShapesGraphIri)
-                .Assert(Iri(Shapes + "Type"), Iri(Sh + "path"), Type, ShapesGraphIri)
-                .Assert(Iri(Shapes + "Type"), Iri(VarveNs + "publicLink"), True, ShapesGraphIri);
-            await dataset.Dataset.CommitAsync(shapes);
-
-            ClassifierBinding binding = new(Iri("https://example.org/rec/rows"), ShapesGraphIri, GraphScope.Of([], ["https://example.org/rec/graph/"], DefaultGraphAccess.Excluded));
+            await dataset.Dataset.CommitAsync(ClassifierShapes());
+            ClassifierBinding binding = RecBinding;
             ClassificationProjection projection = new(dataset.Dataset, binding);
 
             Stopwatch clock = Stopwatch.StartNew();
@@ -137,10 +126,8 @@ internal static class ClassificationProjectionBench
 
             Report(projection, "after the shapes changes");
 
-            // The file backend's derived/ refuses the state's name: enc(binding)
-            // percent-encodes the binding IRI, and FileStorage takes only
-            // letters, digits, '-', '_' and '.' in a name. In memory, then.
-            IDerivedStore cache = new MemoryStorage().Derived;
+            // The file dataset's own local cache, as the server saves to it.
+            IDerivedStore cache = dataset.Storage.Derived;
             long savedAt = Stopwatch.GetTimestamp();
             await projection.SaveAsync(cache, default);
             double save = Stopwatch.GetElapsedTime(savedAt).TotalMilliseconds;
@@ -220,6 +207,25 @@ internal static class ClassificationProjectionBench
 
         return string.Create(CultureInfo.InvariantCulture,
             $"{nodes.Count:N0} rows in the site graphs, {classified:N0} classified, {subjects:N0} data subjects, {sets.Count:N0} distinct subject sets");
+    }
+
+    /// <summary>The classifier binding over REC's site graphs.</summary>
+    internal static ClassifierBinding RecBinding { get; } = new(Iri("https://example.org/rec/rows"), ShapesGraphIri, GraphScope.Of([], ["https://example.org/rec/graph/"], DefaultGraphAccess.Excluded));
+
+    /// <summary>The annotated shapes: companies and sites are data subjects; leases, topology and assets belong to them.</summary>
+    internal static CommitRequestBuilder ClassifierShapes()
+    {
+        CommitRequestBuilder shapes = new();
+        Subject(shapes, "Company", "Company");
+        Subject(shapes, "Site", "Site");
+        Link(shapes, "Leasee", "leasee", "subjectLink");
+        Link(shapes, "Leasor", "leasor", "subjectLink");
+        Link(shapes, "PartOf", "isPartOf", "subjectLink");
+        Link(shapes, "LocatedIn", "locatedIn", "subjectLink");
+        shapes.Assert(Iri(Shapes + "Type"), Type, Iri(Sh + "PropertyShape"), ShapesGraphIri)
+            .Assert(Iri(Shapes + "Type"), Iri(Sh + "path"), Type, ShapesGraphIri)
+            .Assert(Iri(Shapes + "Type"), Iri(VarveNs + "publicLink"), True, ShapesGraphIri);
+        return shapes;
     }
 
     private static void Subject(CommitRequestBuilder shapes, string name, string @class)
