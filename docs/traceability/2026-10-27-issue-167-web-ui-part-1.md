@@ -1215,3 +1215,17 @@ Measured:
   | VARVE0006's analyzer tests | 45 / 45 |
   | `Varve.WebUi.Browser.Tests` | 8 / 8, both issuers |
 - **The download:** 1,848.1 kB brotli, within the 1,920,000-byte budget.
+
+### Acceptance of the later keys, 2026-10-30
+
+A later session (Claude Code, model `claude-fable-5-1`), on the maintainer's
+instruction to accept every decision on this pull request, added
+`accepted-by` and `accepted-at` to the six keys filed unaccepted since the
+earlier acceptances: `StateChangeCarriesIfMatch`,
+`ShapesBindingsByManagementQuery` and `GrantReadKeepsClaimTypeAndMatch`
+(typed-reads-in-the-protocol-client, ADR 0203); `TheAppIsTheTopLevel` and
+`NoTypeOutsideTheLevelsHoldsAService` (the-web-ui-design-source, ADR 0206);
+and `ManagementTokenByExchange` (the-web-uis-own-oidc-client, ADR 0201).
+The acceptance is the maintainer's, who had read them and approved the head
+beneath; the session only wrote it at their direction. The ADRs' status
+text and the index rows are left as filed.

@@ -41,10 +41,16 @@ decisions:
     accepted-at: 2026-10-28T00:00:00Z
   - key: StateChangeCarriesIfMatch
     statement: "SetStateAsync takes the version of the declaration graph the caller read and sends it as If-Match, so a close or an open never overwrites a newer declaration blind"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-30T00:00:00Z
   - key: ShapesBindingsByManagementQuery
     statement: "ShapesBindingsAsync reads a dataset's shapes bindings and the shapes graphs they bind through the management plane's SPARQL endpoint, with the dataset's name escaped into the graph's IRI"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-30T00:00:00Z
   - key: GrantReadKeepsClaimTypeAndMatch
     statement: "A grant read keeps a group grantee's claim type as a ClaimType and each graph template's match as a TemplateMatch, in GraphScope.TemplateMatches beside the templates"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-30T00:00:00Z
 ---
 
 The rulings of [ADR 0203](../adr/0203-typed-reads-in-the-protocol-client.md), one line each. Filed
