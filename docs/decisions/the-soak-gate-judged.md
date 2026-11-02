@@ -4,9 +4,9 @@ namespace: varve
 adr: 0215
 decisions:
   - key: BoundedVocabulary
-    statement: "The soak runs with a vocabulary its writer fills before minute 30, --subjects 2000, and a run whose quad count is not within 5% of its median from minute 30 is not judged"
+    statement: "The soak runs over a fixed vocabulary, --subjects 2000, that a load before the clock brings to the size the workload keeps it at, each quad asserted with the two thirds the workload holds it present, through commits with no readers; the timed run then starts with the unchanged workload on every OS, and a run whose quad count is not within 5% of its median from minute 30 is not judged"
     accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-30T00:00:00Z
+    accepted-at: 2026-11-02T00:00:00Z
   - key: FlatWithinABand
     statement: "The soak gate holds when every 30-second sample from minute 30 to the end of the working set, less the dataset's own and less the collector's committed but unused memory, lies within plus or minus a quarter of those samples' median, the median of the last ten minutes is no more than a tenth over minutes thirty to forty, and handles and derived files stay within the bounds the configuration gives; moved from ADR 0110 by ADR 0215's supersession in part, restated for a run of any length"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -48,3 +48,10 @@ decisions:
 The rulings of [ADR 0215](../adr/0215-the-soak-gate-run-and-judged.md),
 filed unaccepted by 1.0 readiness A for #61 (ADR 0066). `FlatWithinABand`
 moves here from ADR 0110's set under its key, restated (ADR 0068 point 4).
+
+`BoundedVocabulary` is restated by the amendment of 2026-11-02: the writer's
+rate filled the vocabulary before minute 30 on Linux and not on the first
+weekly Windows runner, so the steady size is reached by a load before the
+clock, and the rate is no longer part of the ruling. The 5% rule from minute
+30 stays as it was. Accepted again by the maintainer on 2026-11-02 at their
+direction.

@@ -54,16 +54,26 @@ internal sealed record SoakOptions(
 }
 
 /// <summary>
-/// The one-hour soak of milestones 6a and 6c: commits, pins, as-of reads, tier
-/// merges and checkpoints at once, on the file backend with background
-/// maintenance. Every 30 seconds it collects garbage and prints a row: the
-/// managed heap and how the collector holds it, the process's working set and
-/// private bytes, and the highest working set a one-second sampler saw since
-/// the last row — so that a peak is attributed to the window it happened in.
-/// Run once and reported; not in CI.
+/// The soak of milestones 6a and 6c, run by the release gate (ADR 0215):
+/// commits, pins, as-of reads, tier merges and checkpoints at once, on the
+/// file backend with background maintenance. Before the clock starts, the
+/// dataset is brought to the size the workload keeps it at (<see cref="LoadAsync"/>);
+/// then every 30 seconds it collects garbage and prints a row: the managed
+/// heap and how the collector holds it, the process's working set and private
+/// bytes, and the highest working set a one-second sampler saw since the last
+/// row — so that a peak is attributed to the window it happened in.
 /// </summary>
 internal static class Soak
 {
+    /// <summary>The predicates of the vocabulary; its objects are <see cref="Objects"/>, its subjects the option.</summary>
+    internal const int Predicates = 10;
+
+    /// <summary>The objects of the vocabulary.</summary>
+    internal const int Objects = 50;
+
+    /// <summary>The load's commits: asserts per commit, before the clock.</summary>
+    internal const int LoadBatch = 1_000;
+
     internal static async Task RunAsync(TimeSpan duration, SoakOptions options)
     {
         // The process's own handles, before the dataset opens: the base of the
@@ -85,9 +95,24 @@ internal static class Soak
         Console.WriteLine(GarbageCollection());
         Console.WriteLine("# handles before the dataset " + handlesBefore.ToString(CultureInfo.InvariantCulture));
 
-        // The writer: batches of 50 over a vocabulary of ten million possible
-        // quads, a third of them retractions, pausing 25 ms between commits; the
-        // dataset grows toward that bound for the whole hour.
+        // The load, before the clock (ADR 0215 point 1, amended 2026-11-02):
+        // the dataset at the size the workload keeps it, so that the timed run
+        // is steady from its first minute on any runner, however slow.
+        Stopwatch loading = Stopwatch.StartNew();
+        commits = await LoadAsync(dataset, options);
+        long loaded = 0;
+
+        using (DatasetView view = dataset.Pin())
+        {
+            loaded = view.Estimate(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any).Count.Value;
+        }
+
+        Console.WriteLine("# loaded " + loaded.ToString(CultureInfo.InvariantCulture) + " quads in " + commits.ToString(CultureInfo.InvariantCulture) + " commits, "
+            + loading.Elapsed.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture) + " s, before the clock");
+
+        // The writer: batches of 50 over the vocabulary, a third of them
+        // retractions, pausing 25 ms between commits; the dataset stays at the
+        // size the load brought it to, two thirds of the vocabulary present.
         Task writer = Task.Run(async () =>
         {
             Random random = new(1);
@@ -98,9 +123,7 @@ internal static class Soak
 
                 for (int i = 0; i < 50; i++)
                 {
-                    RdfTerm s = RdfTerm.Iri(System.Text.Encoding.UTF8.GetBytes("http://example.org/s" + random.Next(options.Subjects)));
-                    RdfTerm p = RdfTerm.Iri(System.Text.Encoding.UTF8.GetBytes("http://example.org/p" + random.Next(10)));
-                    RdfTerm o = RdfTerm.Literal(System.Text.Encoding.UTF8.GetBytes("v" + random.Next(50)));
+                    (RdfTerm s, RdfTerm p, RdfTerm o) = Quad(random.Next(options.Subjects), random.Next(Predicates), random.Next(Objects));
                     _ = random.Next(3) == 0 ? request.Retract(s, p, o) : request.Assert(s, p, o);
                 }
 
@@ -121,7 +144,7 @@ internal static class Soak
                 {
                     using (DatasetView view = dataset.Pin())
                     {
-                        view.TryInternalise(RdfTerm.Iri(System.Text.Encoding.UTF8.GetBytes("http://example.org/p" + random.Next(10))), out TermHandle predicate);
+                        view.TryInternalise(RdfTerm.Iri(System.Text.Encoding.UTF8.GetBytes("http://example.org/p" + random.Next(Predicates))), out TermHandle predicate);
                         using IQuadCursor cursor = view.Match(TermHandle.None, predicate, TermHandle.None, GraphPattern.Any);
 
                         while (cursor.MoveNext())
@@ -285,6 +308,65 @@ internal static class Soak
 
         Directory.Delete(directory, recursive: true);
     }
+
+    /// <summary>
+    /// The load before the clock (ADR 0215 point 1, amended 2026-11-02): every
+    /// quad of the vocabulary asserted with the probability the timed workload
+    /// keeps it present, two thirds, in commits of <see cref="LoadBatch"/> with
+    /// no readers and no pause. The walk the writer then runs, two asserts to
+    /// a retraction over the same vocabulary, holds each quad present two
+    /// thirds of the time, so the load is the walk's steady state, reached at
+    /// once instead of after three vocabularies' worth of operations. Commits,
+    /// not the bulk loader: the loader appends one commit and one run, and the
+    /// timed workload's log, runs and checkpoints are what the gate measures.
+    /// Returns the load's commits.
+    /// </summary>
+    internal static async Task<long> LoadAsync(StoreDatasetType dataset, SoakOptions options)
+    {
+        Random random = new(2);
+        CommitRequestBuilder request = new();
+        int pending = 0;
+        long commits = 0;
+
+        for (int s = 0; s < options.Subjects; s++)
+        {
+            for (int p = 0; p < Predicates; p++)
+            {
+                for (int o = 0; o < Objects; o++)
+                {
+                    if (random.Next(3) == 0)
+                    {
+                        continue;
+                    }
+
+                    (RdfTerm subject, RdfTerm predicate, RdfTerm literal) = Quad(s, p, o);
+                    request.Assert(subject, predicate, literal);
+
+                    if (++pending == LoadBatch)
+                    {
+                        await dataset.CommitAsync(request);
+                        request = new();
+                        pending = 0;
+                        commits++;
+                    }
+                }
+            }
+        }
+
+        if (pending > 0)
+        {
+            await dataset.CommitAsync(request);
+            commits++;
+        }
+
+        return commits;
+    }
+
+    /// <summary>The vocabulary's quad at the subject, predicate and object given, as the writer and the load name them.</summary>
+    internal static (RdfTerm Subject, RdfTerm Predicate, RdfTerm Object) Quad(int subject, int predicate, int literal) =>
+        (RdfTerm.Iri(System.Text.Encoding.UTF8.GetBytes("http://example.org/s" + subject.ToString(CultureInfo.InvariantCulture))),
+         RdfTerm.Iri(System.Text.Encoding.UTF8.GetBytes("http://example.org/p" + predicate.ToString(CultureInfo.InvariantCulture))),
+         RdfTerm.Literal(System.Text.Encoding.UTF8.GetBytes("v" + literal.ToString(CultureInfo.InvariantCulture))));
 
     /// <summary>
     /// The CSV's columns, which <see cref="SoakJudge"/> reads by name. The

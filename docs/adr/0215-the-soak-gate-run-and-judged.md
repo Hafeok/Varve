@@ -15,6 +15,9 @@ of any length with a bounded vocabulary (ADR 0068 point 4).
 **Amends** [ADR 0082](0082-the-soak-gate.md) by dated amendment: the soak is
 run by CI and judged by a script, not by hand.
 
+**Amended 2026-11-02:** point 1's steady size is reached by a load before the
+clock, not by the writer's rate (see the end).
+
 Records decision set [`the-soak-gate-judged`](../decisions/the-soak-gate-judged.md).
 
 ## Context
@@ -185,3 +188,40 @@ derived files at most 97 of 182.
 hours, and this container did not hold a run past two hours: it was
 restarted three times during the step. Point 6 now runs it in #164's Azure
 environment before 1.0.
+
+## Amendment, 2026-11-02 — the load before the clock
+
+**Point 1 assumed the writer's rate.** It said the writer fills the
+vocabulary "well before minute 30". The first weekly Windows soak, the
+nightly of 2026-10-31 (run 41192568259), showed that it does not on every
+runner: that runner committed about 1,200 quads a second, half the Linux
+rate, the dataset stood at 586,804 quads at minute 30 against a steady
+667,000, and the judge refused the run as not steady, as point 1 says it
+must. The release gate then refused v0.1.0-preview.16 (#175), and would
+refuse every release, on a soak whose only fault was its runner's speed.
+Slower hardware will always break an assumption about a rate, so the rate
+is taken out of the gate:
+
+- **A load phase before the clock.** The soak first brings the dataset to
+  the size the workload keeps it at, then starts the timed run with the
+  unchanged workload. The workload asserts two quads for each it retracts
+  over a fixed vocabulary, so it holds each quad present two thirds of the
+  time; the load asserts each quad of the vocabulary with that probability,
+  in commits of a thousand with no readers and no pause, and the timed run
+  begins in the walk's steady state instead of three vocabularies' worth of
+  operations away from it. The load goes through commits, not the bulk
+  loader: the loader appends one commit and one run, and the log, the runs
+  and the checkpoints the timed workload builds are what the gate measures.
+  The soak prints what the load brought the dataset to, before its table.
+  The same workload runs on every OS.
+- **The judge keeps the validity rule.** The dataset is within ±5% of its
+  steady size across the whole judged window, from minute 30 of the timed
+  run to the end, or there is no verdict. What the rule catches now is the
+  dataset's own drift, not the runner's speed.
+- **A fixture for each case:** `holds-loaded`, a run filled before the
+  clock and steady from its first sample, is judged; `cannot-drifting`,
+  filled and steady until minute 40 and then growing to 8% over its median,
+  is not.
+
+`BoundedVocabulary` is restated in the decision set by this amendment.
+`--subjects 2000` stays the vocabulary for both runners.
