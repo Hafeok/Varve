@@ -316,6 +316,36 @@ public partial class RowScopeTests
         Assert.Contains(Iri("http://ex/x"), QuadSourceContract.Holds(BelowTheFloor, [hidden]));
     }
 
+    /// <summary>
+    /// The case the write probe found on Windows CI: a Graph Store write that
+    /// re-asserts a quad the writer cannot see. The commit's effective delta
+    /// drops it, so judged on that delta alone the write was accepted where
+    /// the quad was, and refused where it was not, which told the writer the
+    /// quad was there. Judged on the requested quads (ADR 0236,
+    /// <c>RequestedAndEffectiveBothChecked</c>), it is the one 403 both ways.
+    /// </summary>
+    [Theory]
+    [InlineData("POST")]
+    [InlineData("PUT")]
+    public async Task A_graph_store_write_re_asserting_a_hidden_quad_is_refused_as_if_it_were_absent(string method)
+    {
+        await using Rows rows = new();
+        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(rows.Datasets, accessScopes: rows, rowClassifications: rows, stopping: P.Ct);
+        (string whole, _, _) = await rows.AddAsync(["GRAPH <http://ex/g/1> { <http://ex/y> a <http://ex/Person> }"], 0, writes: true);
+        (string part, _, _) = await rows.AddAsync([], 0, writes: true);
+
+        foreach (string name in (string[])[whole, part])
+        {
+            HttpRequestMessage write = new(new HttpMethod(method), new Uri("datasets/" + name + "/graphs?graph=" + Uri.EscapeDataString("http://ex/g/1"), UriKind.Relative))
+            {
+                Content = new StringContent("<http://ex/y> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://ex/Person> .\n", Encoding.UTF8, "application/n-triples"),
+            };
+            HttpResponseMessage response = await host.Client.SendAsync(write, P.Ct);
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Contains("row-not-writable", await response.Content.ReadAsStringAsync(P.Ct), StringComparison.Ordinal);
+        }
+    }
+
     private const string Sh = "http://www.w3.org/ns/shacl#";
     private const string ReportShapes = "http://ex/report-shapes";
     private const string ReportGraph = "https://w3id.org/varve/ns#validation/urn%3Areport";

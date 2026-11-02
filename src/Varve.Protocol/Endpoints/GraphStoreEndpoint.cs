@@ -348,6 +348,7 @@ internal static class GraphStoreEndpoint
     {
         CommitRequestBuilder request;
         bool existed;
+        bool writable;
 
         using (DatasetView view = exchange.Dataset.Pin())
         {
@@ -361,10 +362,17 @@ internal static class GraphStoreEndpoint
                 Validators = Writes.Validators(exchange),
             };
             existed = replace ? Retract(exchange.VisibleRows(view), target, request) : Exists(exchange.VisibleRows(view), target);
+            writable = RequestedRowsWritable(exchange, view, target, triples, replace);
         }
 
         if (!await Writes.PresenceHoldsAsync(exchange, plan, GraphOf(target), existed).ConfigureAwait(false))
         {
+            return;
+        }
+
+        if (!writable)
+        {
+            await Writes.RowNotWritableAsync(exchange).ConfigureAwait(false);
             return;
         }
 
@@ -395,6 +403,88 @@ internal static class GraphStoreEndpoint
 
         ConflictEvidence? evidence = request.ExpectedPosition is Position since ? new ConflictEvidence(since, request.ExpectedGraphs) : null;
         await Writes.AnswerAsync(exchange, result, created ? StatusCodes.Status201Created : StatusCodes.Status204NoContent, plan.Expected, evidence, GraphOf(target), tagGraph: true).ConfigureAwait(false);
+    }
+
+    // The row-level write rule over the requested quads (ADR 0236,
+    // RequestedAndEffectiveBothChecked): every body triple as asserted and,
+    // for a PUT, every quad of the graph the caller sees as retracted, before
+    // the sequencer drops what the head already holds. Judged over a staging
+    // view of the pin, as SPARQL Update judges its requested delta, so that a
+    // body re-asserting a quad the caller cannot see is refused as it would
+    // be were the quad absent: the commit's effective delta would leave it
+    // out, and the outcome would tell the caller the quad is there.
+    private static bool RequestedRowsWritable(Exchange exchange, DatasetView view, Target target, List<BodyTriple> triples, bool replace)
+    {
+        if (exchange.Scope.WritableRows.IsAll || exchange.Options.RowClassifications?.Classifier(exchange.Name) is not { } classifier)
+        {
+            return true;
+        }
+
+        StagingView staging = view.Stage();
+        Dictionary<string, TermHandle> blanks = new(StringComparer.Ordinal);
+        TermHandle graph = target.Kind == TargetKind.Default ? TermHandle.None : staging.Stage(target.Graph!);
+        HashSet<Quad> asserted = [];
+
+        foreach (BodyTriple triple in triples)
+        {
+            asserted.Add(new Quad(Staged(staging, triple.Subject, blanks), Staged(staging, triple.Predicate, blanks), Staged(staging, triple.Object, blanks), graph));
+        }
+
+        List<Quad> retracted = [];
+
+        if (replace)
+        {
+            using IQuadCursor? cursor = Open(exchange.VisibleRows(view), target);
+
+            while (cursor is not null && cursor.MoveNext())
+            {
+                Quad quad = cursor.Current;
+
+                // Retracted and asserted again is kept: neither, in the delta.
+                if (!asserted.Remove(quad))
+                {
+                    retracted.Add(quad);
+                }
+            }
+        }
+
+        Quad[] adds = [.. asserted];
+        Quad[] removes = [.. retracted];
+        QuadDelta delta = QuadDelta.Create(adds, removes);
+
+        try
+        {
+            new RowWriteRule(staging, classifier.Classify(staging, QuadDelta.Empty), new QuadOverlay(staging, delta), classifier.Classify(staging, delta), exchange.Scope.ReadableRows, exchange.Scope.WritableRows)
+                .Check(adds, removes);
+            return true;
+        }
+        catch (RowNotWritableException)
+        {
+            return false;
+        }
+    }
+
+    // A body term's handle in the staging view: a blank node fresh per label
+    // in the request, as the commit makes it.
+    private static TermHandle Staged(StagingView staging, RdfTerm term, Dictionary<string, TermHandle> blanks)
+    {
+        switch (term.Kind)
+        {
+            case RdfTermKind.BlankNode:
+                string label = System.Text.Encoding.UTF8.GetString(term.Lexical);
+
+                if (!blanks.TryGetValue(label, out TermHandle blank))
+                {
+                    blank = staging.StageBlank();
+                    blanks[label] = blank;
+                }
+
+                return blank;
+            case RdfTermKind.TripleTerm:
+                return staging.StageTriple(Staged(staging, term.Subject!, blanks), Staged(staging, term.Predicate!, blanks), Staged(staging, term.Object!, blanks));
+            default:
+                return staging.Stage(term);
+        }
     }
 
     // Retracts every quad of the target graph, by handle. True when it held one.
