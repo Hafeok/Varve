@@ -14,34 +14,34 @@ basis:
   - adr: "0224"
   - adr: "0225"
 sbom:
-  - image: ghcr.io/hafeok/varve sha256:2e9c8f0355012a7a0b0c9c2fcd1ef2238b5b592bc51d85660949f5b5d70ec83c
-  - nupkg: Varve.Aspire sha256:e04a5a22ce3f318a4e3ab5a2015b0f63df92fd0a66563a6442b4367bf1b24d5d
-  - nupkg: Varve.Delta sha256:298d0cf564b4eec262f03cd1dd4db3cc7885b513ef8599cf91f3c8daabfa773c
-  - nupkg: Varve.Derivation sha256:aea6beb23c2037a364c91ea6ce18a0c0b77e86fedd69101e487f6ffc660fa79c
-  - nupkg: Varve.Events sha256:3d3c24656f9dc3c9825fc0491e893726211ef577797d7d57c197cef9241982f6
-  - nupkg: Varve.Iri sha256:91f7b39601de6e50242991e0ce535e208a3c594a547389d41cbe27984f81073a
-  - nupkg: Varve.Json.Canonical sha256:a9ee72e02cc8fb9ee949e6d23f27ebab06e2ff9927d48f8b9388b54049165fa9
-  - nupkg: Varve.JsonLd sha256:3cc59ceb28bc73d506a4808a93c9a46f948bd12190c966818e0558ca89fc588e
-  - nupkg: Varve.Management sha256:cf523a5407edb876eddec14fb0f763c8d84e1ac6c0d8edc89aad335ee3d2b51a
-  - nupkg: Varve.Protocol sha256:958e88c87de99283384ef8ca52dfe5872c3bcd3063d64a17f75342459ac77d0f
-  - nupkg: Varve.Protocol.Client sha256:f728b31a068e5b1df591f8bb3de8d48871c9eb9a3826df1f8db01c66807ae11d
-  - nupkg: Varve.Rdf sha256:fab5bbd2fbc5499cf97c3d3483b16f7f7ff2cd745b32c5bee22e4d0eea3e9341
-  - nupkg: Varve.RdfXml sha256:b19a2ab469739575a9c977f16f54795753247f9b5a5fbe0bfab2899ed37a5183
-  - nupkg: Varve.Shacl sha256:d0a6d97e3e4d9f114f62beb492adf52619e5aa99d1113a74d9dc2cfada73c5a0
-  - nupkg: Varve.Shacl.Sparql sha256:9f268cf916c45b45e9790bdf71a9f2532837baefe5450d7da4999ebae0452061
-  - nupkg: Varve.Shacl.Store sha256:ebaa04a9d2f2a73be0744c3948bd637930bca3cb468fbd1d10a8ebad7d25b666
-  - nupkg: Varve.Sparql sha256:af212bc9d82f67c85b702e8a9116040826bbd6581b68c2422f35f7a2f8526cf9
-  - nupkg: Varve.Sparql.Evaluation sha256:40e065624b0c9f147cdb941c3fd804f5a18d77e18992f339359fd295eab306f2
-  - nupkg: Varve.Sparql.Results sha256:c79b45912d7b6c2d4260804a9b1dd46e298839b744c50a840552a4c4f38da395
-  - nupkg: Varve.Sparql.Store sha256:fb2d32e98adbfe75159b91abfad1205e7e4be7380ac3bd1df05733b90d25484e
-  - nupkg: Varve.Store sha256:25dc83b97bc8243aaa7271907a9bc5689aa4ecc0b0ea83e70b0b6865b995df85
-  - nupkg: Varve.Store.Azure sha256:c977b37387c9a79bbc1b3f48b1b1a132fbc571853c938da15f7a83a31b40b2dd
-  - nupkg: Varve.Store.Browser sha256:3dbbbb042762b9d75cd14cc5ecf9825e502daeb5764e2c99dafabfcf8f13ece8
-  - nupkg: Varve.Store.ObjectStorage sha256:ef950e133abd4fcb5453d21b1842e4ffc652a3aff1b1d3b3618ca3eacce01225
-  - nupkg: Varve.Store.S3 sha256:efe05bf2642ea8b1913d22a60b1922831c44e84166f561556bd165d6356d8323
-  - nupkg: Varve.Turtle sha256:3eabdfaae6dd06a4bc47adc13d3173f012084ae77bcfc39cdd082053a3de904f
-  - nupkg: Varve.Xsd sha256:d75ff814cceeedf01d67330167e492cf81e8960aa5198570c83ca6878678e739
-  - tool: Varve.Server sha256:7d8f221624d6338f7986c7f9b5a9edf977752156b7bd93a2d25ab9b235063322
+  - image: ghcr.io/hafeok/varve sha256:d89c8d33e4dfce5225a9639ca1640f988b5bd34bb7f14105ae940998328fc824
+  - nupkg: Varve.Aspire sha256:f4cbe5abf01344e749adf89fdf4b43bfce9f4a3fd412da4702f2106c9404348e
+  - nupkg: Varve.Delta sha256:66aef6e1f041fa19652f23204ce9de272de8e7868597ae26ffef2dc9d67e1419
+  - nupkg: Varve.Derivation sha256:51418b3012dbe25aa5577a0580df2478bb37a5de5405ce42b17d49446e0458bd
+  - nupkg: Varve.Events sha256:3b4919c269e37b00925eba33c25faca99a4f60b7225df5af7d8a3f5c58bf5e6c
+  - nupkg: Varve.Iri sha256:7066017d5f71443887d7330dde25d93156e52253310475232147e5346ed7bcb7
+  - nupkg: Varve.Json.Canonical sha256:9ffb41f2ce64a70ed24a56dd12cfd5adfb6b9fc5f3b4f807c7c58ca1292b69bb
+  - nupkg: Varve.JsonLd sha256:f34d1d853665d0df4cac60a690208e108b62b38481b023c18a4b0fdaa9bb21bf
+  - nupkg: Varve.Management sha256:b97b0316fd6b433809667230c95466f953ab6acb51f5cc2feab57ceb87a8e329
+  - nupkg: Varve.Protocol sha256:ea609fcc74386691bb308565e32139bcda6e1602baf39271a42bb265e2c00fb5
+  - nupkg: Varve.Protocol.Client sha256:780c203264b7de7ffb27431bc2c2196bd062aebae865f72bcf25a47e358a85bd
+  - nupkg: Varve.Rdf sha256:0401e188dda0f01dcc14c9f429c88005031ed0788cee4fd0af8decb61ea73c8a
+  - nupkg: Varve.RdfXml sha256:da1f5186ce8444ab58c7f6db17cf54d3c42cf7c650527c35f74c0eaae0687f27
+  - nupkg: Varve.Shacl sha256:c0903d8adf43aa317dc5639d827e92792958e3ac53cad0b846d4c0a99cecadb8
+  - nupkg: Varve.Shacl.Sparql sha256:e5f4dfba940ff4f929ccf41ce629f904f8893ee96656e7af3ce8e951234bb906
+  - nupkg: Varve.Shacl.Store sha256:d14890441c7e9de6b7abee6312db42053ef82595e962c71fa000b5e14354afc8
+  - nupkg: Varve.Sparql sha256:a59ac80bd036059b2adb46b2c19ea8dac6a3fadda6e2a7fdd3e9cb65fbf45776
+  - nupkg: Varve.Sparql.Evaluation sha256:9cd5bf0295503036fc9cdc07815567ada074c69c39a37001744ec77799e0408c
+  - nupkg: Varve.Sparql.Results sha256:4148dd62b20f34fbd73c863c560de8cea54e59313e08f2a6e60837c9caaa4e71
+  - nupkg: Varve.Sparql.Store sha256:80c40f90d422193e8b9ebb4b47878c3da969e0dfec859f19f32443c830716173
+  - nupkg: Varve.Store sha256:6775a604cb53bfcecaba8e9002e0fbe2a4d0244cf49d54ac50922a9809405a73
+  - nupkg: Varve.Store.Azure sha256:9784c914734fa50a076ad22843edcb6f1dcc8cc477122ad679dbb4c0f71c3cb9
+  - nupkg: Varve.Store.Browser sha256:3ef557375e1f1fbf087ed0d65599705867e961504f571a945d7921d39dbf7ab0
+  - nupkg: Varve.Store.ObjectStorage sha256:6a615f49efe0774e840593a68ca08336662e4b838ce576dacd0c99ffc1867e65
+  - nupkg: Varve.Store.S3 sha256:06ef9c5347eb665740624815c39da677c7eaee0434aa3396ad35a11686d13d88
+  - nupkg: Varve.Turtle sha256:7249fc9ae6d77da76d8f6412aad0385b545a276ab84e058f4fbfd8a74292d1f2
+  - nupkg: Varve.Xsd sha256:df6c506d8e0e8934af6e8a26321370e9d12528874141e0cdd66fe9a56fa07504
+  - tool: Varve.Server sha256:70c4773495cd92eef1c9908d18f491b6dcabb7645cd927be911185e5faf0b78e
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
   ### Supply chain transparency (#119, in 1.0 by #15)
