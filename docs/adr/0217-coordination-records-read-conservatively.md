@@ -2,7 +2,7 @@
 
 ## Status
 
-**Filed unaccepted by 1.0 readiness A (#129, its second deliverable),
+**Accepted — filed unaccepted by 1.0 readiness A (#129, its second deliverable),
 2026-11-02** (ADR 0066). Acceptance is the maintainer's act on the pull
 request. The plan it follows was approved on #129 on 2026-10-27.
 
