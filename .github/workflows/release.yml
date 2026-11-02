@@ -18,9 +18,12 @@
 #          leaves no tag.
 #   release gate
 #          release-gate.yml, at the same commit: the file backend's faults at
-#          every point, the four-hour soak on Linux, and the latest Windows
-#          soak on main's nightly green and at most eight days old (ADR 0214,
-#          ADR 0215). A release that fails it is not cut either.
+#          every point and the four-hour soak on Linux, inline, and the latest
+#          Windows soak on main's nightly green and at most eight days old
+#          (ADR 0214, ADR 0215). A preview, 0.x.y-preview.N, runs neither long
+#          gate inline: main's latest runs of them must be green and fresh
+#          instead (ADR 0215, amended 2026-11-02). A release that fails it is
+#          not cut either.
 #   cut    the gates App, with a token minted from the `gates` environment,
 #          creates the annotated tag "<version> — <title>", pushes it, and
 #          closes the issues the basis names. Never
@@ -134,6 +137,8 @@ jobs:
   # What a release must pass beyond ci.yml (ADR 0214, ADR 0215): the
   # file backend's faults at every point, the four-hour soak on Linux, and a
   # Windows soak on main's nightly that is green and at most eight days old.
+  # For a preview, main's latest runs of the first two instead of running
+  # them here.
   release-gate:
     name: release gate
     needs: plan
@@ -144,6 +149,7 @@ jobs:
     uses: ./.github/workflows/release-gate.yml
     with:
       ref: ${{ needs.plan.outputs.sha }}
+      version: ${{ needs.plan.outputs.version }}
 
   cut:
     name: cut
