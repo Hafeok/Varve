@@ -7,6 +7,8 @@ decisions:
     statement: "A row-restricted writer's quads in a classified graph have a subject whose subjects are non-empty and within its writable set before and after, or no row before and after respectively"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-30T00:00:00Z
+  - key: RowLeftIsOneTheWriterReads
+    statement: "W2's row left after a row-restricted write is the rows the writer reads at the staged position, so a row left only in quads hidden by their objects is no row left and does not refuse the write"
   - key: CreationAtFreshBlankOrCreateUnder
     statement: "A subject without a row may be created by a row-restricted writer only as a fresh blank node of the request or an IRI under its createUnder prefixes"
     accepted-by: mailto:emil@okkels-klein.dk

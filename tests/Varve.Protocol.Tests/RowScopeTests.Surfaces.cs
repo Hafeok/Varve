@@ -346,6 +346,51 @@ public partial class RowScopeTests
         }
     }
 
+    /// <summary>
+    /// The two cases the per-surface write probe found (ADR 0236, amended
+    /// 2026-11-02), each as one write sent to a dataset that holds a quad
+    /// hidden by its object and to the same dataset without it:
+    /// <list type="bullet">
+    /// <item>W2: un-typing the writer's own data subject <c>a</c>, whose row
+    /// keeps <c>a knows b</c>, hidden because <c>b</c> is <c>c</c>'s. Judged
+    /// on every row left, it was refused where that quad was;</item>
+    /// <item>W4: linking to <c>o</c>, whose only row is <c>o knows b</c>,
+    /// hidden the same way. Judged on every row, <c>o</c> had one where that
+    /// quad was and none where it was not.</item>
+    /// </list>
+    /// The outcome is the same both ways: 204 for the first, the one 403 for
+    /// the second.
+    /// </summary>
+    [Theory]
+    [InlineData("DELETE DATA { GRAPH <http://ex/g/2> { <http://ex/a> a <http://ex/Person> } }", HttpStatusCode.NoContent)]
+    [InlineData("INSERT DATA { GRAPH <http://ex/g/1> { <http://ex/a> <http://ex/knows> <http://ex/o> } }", HttpStatusCode.Forbidden)]
+    public async Task A_row_left_or_an_object_row_is_judged_on_what_the_writer_reads(string update, HttpStatusCode expected)
+    {
+        await using Rows rows = new();
+        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(rows.Datasets, accessScopes: rows, rowClassifications: rows, stopping: P.Ct);
+        string[] shown =
+        [
+            "GRAPH <http://ex/g/2> { <http://ex/a> a <http://ex/Person> }",
+            "GRAPH <http://ex/g/2> { <http://ex/c> a <http://ex/Person> }",
+            "GRAPH <http://ex/g/2> { <http://ex/b> <http://ex/ownedBy> <http://ex/c> }",
+        ];
+        string[] hidden =
+        [
+            "GRAPH <http://ex/g/2> { <http://ex/a> <http://ex/knows> <http://ex/b> }",
+            "GRAPH <http://ex/g/2> { <http://ex/o> <http://ex/knows> <http://ex/b> }",
+        ];
+
+        // Set 1 is the subject a alone: c, and b with it, are hidden.
+        (string whole, _, _) = await rows.AddAsync([.. shown, .. hidden], 1, writes: true);
+        (string part, _, _) = await rows.AddAsync([.. shown], 1, writes: true);
+
+        foreach (string name in (string[])[whole, part])
+        {
+            HttpResponseMessage response = await host.Client.SendAsync(P.Update("datasets/" + name + "/sparql", update), P.Ct);
+            Assert.True(expected == response.StatusCode, name + ": " + (int)response.StatusCode + " " + await response.Content.ReadAsStringAsync(P.Ct));
+        }
+    }
+
     private const string Sh = "http://www.w3.org/ns/shacl#";
     private const string ReportShapes = "http://ex/report-shapes";
     private const string ReportGraph = "https://w3id.org/varve/ns#validation/urn%3Areport";

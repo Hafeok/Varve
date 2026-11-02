@@ -148,41 +148,36 @@ public partial class RowScopeTests
     }
 
     /// <summary>
-    /// ADR 0236's property over HTTP, the probe case: the same write, by
-    /// SPARQL Update (INSERT DATA, DELETE DATA) or the Graph Store (POST,
-    /// PUT, DELETE of a graph), has the same outcome over a dataset and over
-    /// the same dataset without every quad the writer does not see; a
-    /// refusal is the one 403 row-not-writable, and what the writer sees
-    /// after the write is the same over both.
+    /// ADR 0236's property over HTTP, the probe case, on every surface that
+    /// commits for a caller: the same write has the same outcome over a
+    /// dataset and over the same dataset without every quad the writer does
+    /// not see; a refusal is the one 403 row-not-writable; and what the writer
+    /// sees after the write is the same over both. The writes' quads are,
+    /// half the time, quads the dataset holds, hidden ones among them, so
+    /// that each surface re-asserts and retracts hidden quads that exist as
+    /// well as quads that do not. The surfaces:
+    /// <list type="bullet">
+    /// <item>SPARQL Update: INSERT DATA, DELETE DATA (the fast path of ADR
+    /// 0120 is not taken under a row restriction), INSERT … WHERE {},
+    /// DELETE WHERE, DELETE/INSERT … WHERE, and CLEAR, DROP, COPY, MOVE and
+    /// ADD of a graph;</item>
+    /// <item>the Graph Store: POST to a named graph, to the default graph and
+    /// to the store (a graph the server names), PUT and DELETE.</item>
+    /// </list>
+    /// No other surface commits for a caller: the management plane writes
+    /// the system dataset, an event move is a dataset admin's, and
+    /// <c>varve update</c> and <c>varve load</c> run with the dataset's files,
+    /// not as a caller.
     /// </summary>
-    [Fact]
-    public async Task A_row_restricted_writes_outcome_never_depends_on_a_quad_it_does_not_see()
+    [Theory]
+    [MemberData(nameof(WriteSurfaceCases))]
+    public async Task A_row_restricted_writes_outcome_never_depends_on_a_quad_it_does_not_see(string surface)
     {
         await using Rows rows = new();
         await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(rows.Datasets, accessScopes: rows, rowClassifications: rows, stopping: P.Ct);
-        Gen<Func<string, HttpRequestMessage>> update = Gen.Select(Gen.Bool, Quad.List[1, 2], (insert, quads) =>
-        {
-            string text = (insert ? "INSERT DATA { " : "DELETE DATA { ") + string.Join(" ", quads) + " }";
-            return (Func<string, HttpRequestMessage>)(name => P.Update("datasets/" + name + "/sparql", text));
-        });
-        Gen<Func<string, HttpRequestMessage>> graphStore = Gen.Select(Gen.OneOfConst("POST", "PUT", "DELETE"), Gen.OneOfConst("http://ex/g/1", "http://ex/g/2"), Quad.List[0, 2], (method, graph, quads) =>
-        {
-            string body = string.Concat(quads.Select(static q => Triple(q) + "\n"));
-            return (Func<string, HttpRequestMessage>)(name =>
-            {
-                HttpRequestMessage request = new(new HttpMethod(method), new Uri("datasets/" + name + "/graphs?graph=" + Uri.EscapeDataString(graph), UriKind.Relative));
-
-                if (method != "DELETE")
-                {
-                    request.Content = new StringContent(body, Encoding.UTF8, "application/n-triples");
-                }
-
-                return request;
-            });
-        });
         int refused = 0;
 
-        await Gen.Select(Quad.List[0, 10], Gen.OneOf(update, graphStore), Gen.Int[0, 7]).SampleAsync(async (quads, write, set) =>
+        await Gen.Select(Quad.List[0, 10], Writes[surface], Gen.Int[0, 7]).SampleAsync(async (quads, write, set) =>
         {
             (string whole, Dataset dataset, RowScope scope) = await rows.AddAsync(quads, set, writes: true);
             List<string> seen;
@@ -193,10 +188,10 @@ public partial class RowScopeTests
             }
 
             (string part, Dataset partial, _) = await rows.AddAsync(seen, set, writes: true);
-            HttpResponseMessage first = await host.Client.SendAsync(write(whole), P.Ct);
-            HttpResponseMessage second = await host.Client.SendAsync(write(part), P.Ct);
+            HttpResponseMessage first = await host.Client.SendAsync(write.Make(quads, whole), P.Ct);
+            HttpResponseMessage second = await host.Client.SendAsync(write.Make(quads, part), P.Ct);
             string firstBody = await first.Content.ReadAsStringAsync(P.Ct);
-            Assert.Equal(first.StatusCode, second.StatusCode);
+            Assert.True(first.StatusCode == second.StatusCode, write.Surface + ": " + (int)first.StatusCode + " over the dataset, " + (int)second.StatusCode + " without the hidden quads");
             Assert.Equal(Problem(firstBody), Problem(await second.Content.ReadAsStringAsync(P.Ct)));
 
             if (first.StatusCode == HttpStatusCode.Forbidden)
@@ -205,13 +200,98 @@ public partial class RowScopeTests
                 refused++;
             }
 
-            Assert.Equal(await SeenAsync(dataset, scope), await SeenAsync(partial, scope));
+            Assert.Equal(Minted(await SeenAsync(dataset, scope)), Minted(await SeenAsync(partial, scope)));
             rows.Remove(whole);
             rows.Remove(part);
         }, iter: Iterations);
 
-        Assert.True(refused > 0, "no generated write was refused");
+        // A surface no generated write is refused on would prove little. A
+        // retraction of only what the writer sees is never refused, and the
+        // default graph and a graph the server names are in no binding, so
+        // only their graph governs them (ADR 0230 point 5).
+        Assert.True(
+            refused > 0 || surface is "DELETE WHERE" or "graph operation" or "Graph Store DELETE" or "Graph Store POST, default graph" or "Graph Store POST, store",
+            surface + ": no generated write was refused");
     }
+
+    /// <summary>The write surfaces, one case each.</summary>
+    public static TheoryData<string> WriteSurfaceCases => [.. Writes.Keys.Order(StringComparer.Ordinal)];
+
+    /// <summary>A write the probe sends to both datasets, made from the dataset's own quads.</summary>
+    private sealed record ProbeWrite(string Surface, Func<IReadOnlyList<string>, string, HttpRequestMessage> Make);
+
+    // A quad of a write: half the time one the dataset holds, hidden or not;
+    // otherwise a generated one, which it may or may not hold.
+    private static readonly Gen<(int Pick, string Fresh)> Chosen = Gen.Select(Gen.Int[0, 1_000], Quad, static (p, f) => (p, f));
+
+    private static string Resolve((int Pick, string Fresh) chosen, IReadOnlyList<string> data) =>
+        data.Count > 0 && chosen.Pick % 2 == 0 ? data[chosen.Pick / 2 % data.Count] : chosen.Fresh;
+
+    private static readonly string[] WriteGraphs = ["http://ex/g/1", "http://ex/g/2", "http://ex/other"];
+
+    private static readonly Dictionary<string, Gen<ProbeWrite>> Writes = new(StringComparer.Ordinal)
+    {
+        ["INSERT DATA"] = Gen.Select(Chosen.List[1, 3], static chosen => Sparql("INSERT DATA", data => "INSERT DATA { " + string.Join(" ", chosen.Select(c => Resolve(c, data))) + " }")),
+        ["DELETE DATA"] = Gen.Select(Chosen.List[1, 3], static chosen => Sparql("DELETE DATA", data => "DELETE DATA { " + string.Join(" ", chosen.Select(c => Resolve(c, data))) + " }")),
+        ["INSERT WHERE"] = Gen.Select(Chosen.List[1, 2], static chosen => Sparql("INSERT WHERE", data => "INSERT { " + string.Join(" ", chosen.Select(c => Resolve(c, data))) + " } WHERE {}")),
+        ["DELETE WHERE"] = Gen.Select(Gen.OneOfConst(WriteGraphs), Gen.OneOfConst(Ex + "ownedBy", Ex + "knows", Ex + "label", "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"), static (g, p) => Sparql("DELETE WHERE", _ => "DELETE WHERE { GRAPH <" + g + "> { ?s <" + p + "> ?o } }")),
+        ["DELETE/INSERT WHERE"] = Gen.Select(Gen.OneOfConst(Ex + "ownedBy", Ex + "knows", Ex + "label"), Gen.OneOfConst(Ex + "ownedBy", Ex + "knows"), static (p, q) => Sparql("DELETE/INSERT WHERE", _ => "DELETE { GRAPH ?g { ?s <" + p + "> ?o } } INSERT { GRAPH ?g { ?o <" + q + "> ?s } } WHERE { GRAPH ?g { ?s <" + p + "> ?o FILTER(isIRI(?o)) } }")),
+        ["graph operation"] = Gen.Select(Gen.OneOfConst("CLEAR GRAPH", "DROP GRAPH", "COPY", "MOVE", "ADD"), Gen.OneOfConst(WriteGraphs), Gen.OneOfConst(WriteGraphs), static (op, a, b) => Sparql("graph operation", _ => op.EndsWith("GRAPH", StringComparison.Ordinal) ? op + " <" + a + ">" : op + " <" + a + "> TO <" + b + ">")),
+        ["Graph Store POST"] = GraphStoreWrite("POST"),
+        ["Graph Store POST, default graph"] = GraphStoreWrite("POST default"),
+        ["Graph Store POST, store"] = GraphStoreWrite("POST store"),
+        ["Graph Store PUT"] = GraphStoreWrite("PUT"),
+        ["Graph Store DELETE"] = GraphStoreWrite("DELETE"),
+    };
+
+    private static Gen<ProbeWrite> GraphStoreWrite(string method) =>
+        Gen.Select(Gen.OneOfConst(WriteGraphs), Chosen.List[0, 2], (graph, chosen) => GraphStore(method, graph, chosen));
+
+    private static ProbeWrite Sparql(string surface, Func<IReadOnlyList<string>, string> text) =>
+        new(surface, (data, name) => P.Update("datasets/" + name + "/sparql", text(data)));
+
+    // A Graph Store write. A body quad drawn from the dataset names its own
+    // graph as the target, so that a re-assertion lands where the quad is.
+    private static ProbeWrite GraphStore(string method, string graph, List<(int Pick, string Fresh)> chosen)
+    {
+        string surface = method switch
+        {
+            "POST default" => "Graph Store POST, default graph",
+            "POST store" => "Graph Store POST, store",
+            _ => "Graph Store " + method,
+        };
+
+        return new(surface, (data, name) =>
+        {
+            List<string> quads = [.. chosen.Select(c => Resolve(c, data))];
+            string target = quads.Count > 0 ? GraphOfQuad(quads[0]) : graph;
+            string address = method switch
+            {
+                "POST default" => "datasets/" + name + "/graphs?default",
+                "POST store" => "datasets/" + name + "/graphs",
+                _ => "datasets/" + name + "/graphs?graph=" + Uri.EscapeDataString(target),
+            };
+            HttpRequestMessage request = new(new HttpMethod(method.Split(' ')[0]), new Uri(address, UriKind.Relative));
+
+            if (method != "DELETE")
+            {
+                request.Content = new StringContent(string.Concat(quads.Select(static q => Triple(q) + "\n")), Encoding.UTF8, "application/n-triples");
+            }
+
+            return request;
+        });
+    }
+
+    private static string GraphOfQuad(string quad)
+    {
+        int open = quad.IndexOf('<', StringComparison.Ordinal);
+        return quad[(open + 1)..quad.IndexOf('>', open)];
+    }
+
+    // A graph the server names for a POST to the store differs between the
+    // two datasets; its name is not what the property compares.
+    private static HashSet<string> Minted(HashSet<string> lines) =>
+        [.. lines.Select(static l => System.Text.RegularExpressions.Regex.Replace(l, "<[^>]*/datasets/[^>]*>", "<minted>"))];
 
     // The writer's view at the head, classified from scratch.
     private static async Task<HashSet<string>> SeenAsync(Dataset dataset, RowScope scope)

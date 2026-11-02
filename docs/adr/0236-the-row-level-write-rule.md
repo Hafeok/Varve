@@ -129,3 +129,64 @@ pairs over generated classifier bindings and grants. They include:
   `Varve.Protocol` (5), and composed by the server (6).
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-02 — the row left and the object's row are the ones the writer reads; every write surface
+
+Filed by milestone 9, part 1 (#202, under #14), after this ADR's decision
+set was accepted; unaccepted until the maintainer accepts it (ADR 0066).
+Records decision `RowLeftIsOneTheWriterReads`.
+
+**What was found.** The write probe of this ADR's property, run surface by
+surface, found two writes whose outcome told the writer a hidden quad was
+there.
+- **A Graph Store `POST` or `PUT` re-asserting a hidden quad** (on Windows
+  CI, seed `a965ib0IWPT9`). The Graph Store judged the effective delta
+  only, which drops a quad the head already holds. That broke
+  `RequestedAndEffectiveBothChecked` as written; the Graph Store now
+  judges the requested quads too, as SPARQL Update does. No ruling
+  changes.
+- **W2 judged on every row left.** The writer's own data subject `a` has
+  a row that is visible except for `a knows b`, which is hidden because
+  `b` is another subject's. W1 holds, since subjects(a) = {a}. A write
+  that un-types `a` left that quad, with an empty subject set, so W2
+  refused it. Over the same dataset without the hidden quad, `a` had no
+  row left, and the write was accepted. "Why the outcome depends only on
+  what W reads" above misses this: W1 holding does not make every quad of
+  the row visible, because a quad is also about its object.
+
+**The decision.**
+- **W2's row left is the rows W reads at p′.** A row left only in quads W
+  does not read is no row left. This is the new key.
+- **W4's object row is one W reads at p′**, as `ObjectsLinkToReadableRows`
+  already says. The code had looked for any row. That is a defect fix,
+  with no new ruling.
+- **Why this is still what W may do.** After a write by W, a subject set
+  changes only by members of Ws ⊆ R. A quad hidden before keeps a member
+  outside R, so it stays hidden and cannot fall to an empty,
+  graph-governed set. So the rows W reads after the write are the same
+  over the dataset and over it without what W does not see. What the
+  write does to `a knows b`, which goes from being about {a, c} to being
+  about {c}, re-relates a row of W's own subject. That is the effect
+  "Effects on other rows are not checked" already accepts. A row left
+  that W reads, with an empty set, is still refused. For example,
+  un-typing `a` while `a label "x"` stays would leave that quad about no
+  subject and readable by every reader of the graph.
+- **W1 is unchanged.** Before the write, a subject whose set is non-empty
+  and within R has a visible row: its type, or a link within R. The case
+  that remains is the collision this ADR already states, under W's own
+  `createUnder` prefixes.
+
+**Every surface that commits for a caller** is under the property:
+- SPARQL Update: `INSERT DATA`, `DELETE DATA`, `INSERT … WHERE`,
+  `DELETE WHERE`, `DELETE/INSERT … WHERE`, and `CLEAR`, `DROP`, `COPY`,
+  `MOVE` and `ADD`. ADR 0120's `INSERT DATA` fast path is not taken under
+  a row restriction.
+- The Graph Store: `POST` to a named graph, to the default graph and to
+  the store, `PUT` and `DELETE`.
+
+No other surface commits for a caller:
+- the management plane writes the system dataset;
+- an event move is a dataset admin's, and its one commit to the dataset
+  is a probe the sequencer refuses;
+- `varve update` and `varve load` run with the dataset's files, not as a
+  caller.

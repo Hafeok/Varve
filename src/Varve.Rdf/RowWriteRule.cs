@@ -31,6 +31,7 @@ public sealed class RowWriteRule
     private readonly IRowClassification _afterRows;
     private readonly RowScope _writable;
     private readonly RowScopedQuadSource _visibleBefore;
+    private readonly RowsTheWriterReads _visibleAfter;
     private readonly SubjectDecider?[] _writeBefore;
     private readonly SubjectDecider?[] _writeAfter;
     private readonly SubjectDecider?[] _readAfter;
@@ -56,6 +57,7 @@ public sealed class RowWriteRule
         _afterRows = afterRows;
         _writable = writable;
         _visibleBefore = new RowScopedQuadSource(before, beforeRows, readable);
+        _visibleAfter = new RowsTheWriterReads(new RowScopedQuadSource(after, afterRows, readable));
         _writeBefore = Deciders(before, beforeRows, writable);
         _writeAfter = Deciders(after, afterRows, writable);
         _readAfter = Deciders(after, afterRows, readable);
@@ -149,7 +151,10 @@ public sealed class RowWriteRule
             return false;
         }
 
-        if (HasRow(_after, _afterRows, binding, subject))
+        // W2's row left is the one the writer reads at p′ (ADR 0236,
+        // amended 2026-11-02): a row left only in quads hidden by their
+        // objects would make the outcome tell that they are there.
+        if (_visibleAfter.HasRow(_afterRows, binding, subject))
         {
             SubjectSetId set = _afterRows.SubjectsOf(binding, subject);
             return !set.IsNone && after.Allows(set);
@@ -176,7 +181,8 @@ public sealed class RowWriteRule
                 return _after.TryGetTripleTermComponents(@object, out TermHandle s, out _, out TermHandle o)
                     && ObjectReadable(binding, s) && ObjectReadable(binding, o);
             default:
-                if (HasRow(_after, _afterRows, binding, @object))
+                // W4's row is one the writer reads at p′, as W2's is.
+                if (_visibleAfter.HasRow(_afterRows, binding, @object))
                 {
                     return _readAfter[binding.Value] is not { } reader || reader.Allows(_afterRows.SubjectsOf(binding, @object));
                 }
@@ -216,5 +222,17 @@ public sealed class RowWriteRule
         }
 
         return deciders;
+    }
+
+    /// <summary>
+    /// The state after the write as the writer reads it: where W2 looks for
+    /// the row left and W4 for the object's row, so that a row left only in
+    /// quads hidden by their objects counts as none, as it would were those
+    /// quads absent.
+    /// </summary>
+    [Contract(typeof(TheRowLevelWriteRule.RowLeftIsOneTheWriterReads), Role = "the rows W2 and W4 look for after the write")]
+    private sealed class RowsTheWriterReads(RowScopedQuadSource visible)
+    {
+        internal bool HasRow(IRowClassification rows, BindingIndex binding, TermHandle node) => RowWriteRule.HasRow(visible, rows, binding, node);
     }
 }
