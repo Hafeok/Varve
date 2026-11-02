@@ -977,7 +977,7 @@ navigation still lands on what changed (2.4.3).
 
 ### Close-out
 
-- **The descriptor** is `releases/v0.1.0-preview.17.yaml`. Its basis is
+- **The descriptor** is `releases/v0.1.0-preview.19.yaml`. Its basis is
   #167, with ADRs 0200–0206. It is `.17` because two open pull requests, Inference part
   1 and supply chain transparency, both propose `.16`. `eng/release.cs`
   orders by precedence and needs no contiguity.

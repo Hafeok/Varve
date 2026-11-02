@@ -206,7 +206,7 @@ and a dependency; `GOVERNANCE.md` has who decides.
 ## State
 
 Web UI part 1, the operator console (#167, part 1 of #96), complete as
-`v0.1.0-preview.17` (ADRs 0200–0206, filed unaccepted). **`Varve.WebUi`** is
+`v0.1.0-preview.19` (ADRs 0200–0206, filed unaccepted). **`Varve.WebUi`** is
 a Blazor WebAssembly client of the public API (0200), trimmed and
 interpreted. Its download is gated by `eng/browser-size.cs` (0205).
 - **Its design source is `docs/ui/`** (0206):

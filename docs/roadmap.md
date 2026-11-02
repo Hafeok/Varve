@@ -933,7 +933,7 @@ already serves.
 
 ### Part 1 — the operator console *(complete)*
 
-Released as `v0.1.0-preview.17` (#167; ADRs 0200–0206). Shipped:
+Released as `v0.1.0-preview.19` (#167; ADRs 0200–0206). Shipped:
 - **The screens:** datasets, a dataset (at its head or as of a position),
   the fleet, commits followed live with a commit's delta, and grants and
   declaration source.
