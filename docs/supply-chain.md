@@ -59,8 +59,8 @@ cut ([ADR 0102](adr/0102-a-release-is-a-descriptor.md)), so the SBOM you
 download can be checked against a line a human approved:
 
 ```sh
-sha256sum Varve.Rdf.0.1.0-preview.16.spdx.json
-grep 'nupkg: Varve.Rdf ' releases/v0.1.0-preview.16.yaml
+sha256sum Varve.Rdf.0.1.0-preview.17.spdx.json
+grep 'nupkg: Varve.Rdf ' releases/v0.1.0-preview.17.yaml
 ```
 
 ## Where it came from
@@ -78,11 +78,11 @@ Sigstore. No signing key exists to be stolen.
 To verify a package as the release published it:
 
 ```sh
-gh release download v0.1.0-preview.16 --repo Hafeok/Varve --pattern 'Varve.Rdf.*'
-gh attestation verify Varve.Rdf.0.1.0-preview.16.nupkg --owner hafeok \
-  --source-ref refs/tags/v0.1.0-preview.16 --predicate-type https://slsa.dev/provenance/v1
-gh attestation verify Varve.Rdf.0.1.0-preview.16.nupkg --owner hafeok \
-  --source-ref refs/tags/v0.1.0-preview.16 --predicate-type https://spdx.dev/Document/v2.3
+gh release download v0.1.0-preview.17 --repo Hafeok/Varve --pattern 'Varve.Rdf.*'
+gh attestation verify Varve.Rdf.0.1.0-preview.17.nupkg --owner hafeok \
+  --source-ref refs/tags/v0.1.0-preview.17 --predicate-type https://slsa.dev/provenance/v1
+gh attestation verify Varve.Rdf.0.1.0-preview.17.nupkg --owner hafeok \
+  --source-ref refs/tags/v0.1.0-preview.17 --predicate-type https://spdx.dev/Document/v2.3
 ```
 
 `--source-ref` requires the attestation to come from the release's tag. The
@@ -93,8 +93,8 @@ they never pass for a release.
 And the image:
 
 ```sh
-gh attestation verify oci://ghcr.io/hafeok/varve:v0.1.0-preview.16 --owner hafeok \
-  --source-ref refs/tags/v0.1.0-preview.16 --predicate-type https://spdx.dev/Document/v2.3
+gh attestation verify oci://ghcr.io/hafeok/varve:v0.1.0-preview.17 --owner hafeok \
+  --source-ref refs/tags/v0.1.0-preview.17 --predicate-type https://spdx.dev/Document/v2.3
 ```
 
 **About the copy on nuget.org.** It is the same package plus nuget.org's
@@ -112,7 +112,7 @@ After every release, CI checks the link between the two copies:
 You can do the same:
 
 ```sh
-dotnet nuget verify --all Varve.Rdf.0.1.0-preview.16.nupkg
+dotnet nuget verify --all Varve.Rdf.0.1.0-preview.17.nupkg
 ```
 
 **Varve does not author-sign its packages.** That needs a long-lived

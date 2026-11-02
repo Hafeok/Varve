@@ -193,7 +193,7 @@ This pull request is step 1. Steps 2 and 3 are their own.
   is byte-identical across runs. All 29 checked with the SPDX project's
   `pyspdxtools` are valid, and a deliberately broken copy is rejected. The
   image SBOM's digest came out the same under Syft 1.54.0 and 1.55.0.
-- **The descriptor's lines** are `eng/sbom.cs`'s at `0.1.0-preview.16` and
+- **The descriptor's lines** are `eng/sbom.cs`'s at `0.1.0-preview.17` and
   2026-10-27, with Syft v1.54.0, the version `publish.yml` pins.
 
 **The whole pipeline** (`dotnet run eng/ci.cs -- --base origin/main`) passes

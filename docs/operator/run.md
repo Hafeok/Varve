@@ -35,9 +35,9 @@ Each release attaches the packages as attested, their `SHA256SUMS`, every
 SBOM and the VEX document. Before installing the tool, for example:
 
 ```sh
-gh release download v0.1.0-preview.16 --repo Hafeok/Varve --pattern 'Varve.Server.*'
-gh attestation verify Varve.Server.0.1.0-preview.16.nupkg --owner hafeok
-gh attestation verify oci://ghcr.io/hafeok/varve:v0.1.0-preview.16 --owner hafeok
+gh release download v0.1.0-preview.17 --repo Hafeok/Varve --pattern 'Varve.Server.*'
+gh attestation verify Varve.Server.0.1.0-preview.17.nupkg --owner hafeok
+gh attestation verify oci://ghcr.io/hafeok/varve:v0.1.0-preview.17 --owner hafeok
 ```
 
 [`docs/supply-chain.md`](../supply-chain.md) has the rest: what each SBOM
