@@ -2,7 +2,7 @@
 
 ## Status
 
-**Filed unaccepted by milestone 9, part 1 (#202, under #14), 2026-10-30**
+**Accepted — filed unaccepted by milestone 9, part 1 (#202, under #14), 2026-10-30**
 (ADR 0066). Acceptance is the maintainer's act on the pull request. Decided
 on the plan in #14 (2026-10-30), questions 2 and 3, and decision 6. **Amends
 ADR [0023](0023-erasure-and-access-requests.md)** by a dated amendment in

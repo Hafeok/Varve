@@ -2,7 +2,7 @@
 
 ## Status
 
-**Filed unaccepted by milestone 9, part 1 (#202, under #14), 2026-10-30**
+**Accepted — filed unaccepted by milestone 9, part 1 (#202, under #14), 2026-10-30**
 (ADR 0066). Acceptance is the maintainer's act on the pull request. Decided
 by the maintainer on the plan in #14 (2026-10-30), decisions 1 and 3, and the
 gap closed the same day: links into a hidden row. **Amends ADR

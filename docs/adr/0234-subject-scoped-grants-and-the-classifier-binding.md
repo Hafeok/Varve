@@ -2,7 +2,7 @@
 
 ## Status
 
-**Filed unaccepted by milestone 9, part 1 (#202, under #14), 2026-10-30**
+**Accepted — filed unaccepted by milestone 9, part 1 (#202, under #14), 2026-10-30**
 (ADR 0066). Acceptance is the maintainer's act on the pull request. Decided
 on the plan in #14 (2026-10-30), question 1 and decision 3. **Amends ADR
 [0166](0166-varve-management-and-the-vocabulary.md)** by a dated amendment in

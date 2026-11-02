@@ -2,7 +2,7 @@
 
 ## Status
 
-**Filed unaccepted by milestone 9, part 1 (#202, under #14), 2026-10-30**
+**Accepted — filed unaccepted by milestone 9, part 1 (#202, under #14), 2026-10-30**
 (ADR 0066). Acceptance is the maintainer's act on the pull request. Decided
 on the plan in #14 (2026-10-30), question 2. **Amends ADR
 [0003](0003-package-layering.md)**'s package table: a new layer-5 package.
