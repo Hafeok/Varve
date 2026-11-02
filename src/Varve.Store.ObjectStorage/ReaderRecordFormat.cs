@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Store.Log;
 using Varve.Store.ObjectStorage.Model;
 
@@ -58,6 +60,7 @@ internal static class ReaderRecordFormat
     }
 
     /// <summary>A record's bytes as the deletion rule reads them: one that does not read holds everything.</summary>
+    [DesignDecision(typeof(CoordinationRecordsReadConservatively.AReaderRecordOfAnUnknownFormatHoldsEverything), Scope = ExceptionScope.Boundary)]
     public static ReaderRecord Read(ReaderId name, ReadOnlySpan<byte> bytes)
     {
         try

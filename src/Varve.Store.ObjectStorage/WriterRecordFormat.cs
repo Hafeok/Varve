@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Store.ObjectStorage.Model;
 
 namespace Varve.Store.ObjectStorage;
@@ -33,7 +35,7 @@ internal static class WriterRecordFormat
 
             if (record.Released is { } released)
             {
-                json.WriteString("released", Name(released));
+                json.WriteString("released", Name(released, record.ReleasedText));
             }
 
             json.WriteStartArray("history");
@@ -43,7 +45,12 @@ internal static class WriterRecordFormat
                 json.WriteStartObject();
                 json.WriteNumber("epoch", claim.Epoch.Value);
                 json.WriteString("holder", claim.Holder.Value);
-                json.WriteString("trigger", claim.Trigger == ClaimTrigger.Operator ? "operator" : "restart");
+                json.WriteString("trigger", claim.Trigger switch
+                {
+                    ClaimTrigger.Operator => "operator",
+                    ClaimTrigger.Restart => "restart",
+                    _ => claim.TriggerText ?? throw new ArgumentOutOfRangeException(nameof(record), claim.Trigger, "An unknown trigger is written only as it was read."),
+                });
                 json.WriteString("at", claim.ClaimedAt.Value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
 
                 if (claim.Fence is { } fence)
@@ -58,7 +65,7 @@ internal static class WriterRecordFormat
 
                 if (claim.Released is { } reason)
                 {
-                    json.WriteString("released", Name(reason));
+                    json.WriteString("released", Name(reason, claim.ReleasedText));
                 }
 
                 json.WriteEndObject();
@@ -71,7 +78,17 @@ internal static class WriterRecordFormat
         return buffer.WrittenSpan.ToArray();
     }
 
-    /// <exception cref="InvalidDataException">The bytes are not a writer record this version reads.</exception>
+    /// <summary>
+    /// Reads a writer record conservatively (ADR 0217): a format this version
+    /// does not read is <see cref="WriterRecordFormatUnknownException"/>, on
+    /// which nothing is written; a trigger or a release reason it does not know
+    /// is held as <see cref="ClaimTrigger.Unknown"/> or <see cref="ReleaseReason.Unknown"/>,
+    /// with its text kept, and never acted on.
+    /// </summary>
+    /// <exception cref="WriterRecordFormatUnknownException">The record is of a format this version does not read.</exception>
+    /// <exception cref="InvalidDataException">The bytes are not a writer record.</exception>
+    [DesignDecision(typeof(CoordinationRecordsReadConservatively.AnUnknownWriterRecordFormatIsNeverWritten), Scope = ExceptionScope.Boundary)]
+    [DesignDecision(typeof(CoordinationRecordsReadConservatively.AnUnknownValueIsHeldNeverActedOn), Scope = ExceptionScope.Boundary)]
     public static WriterRecord Read(ReadOnlySpan<byte> bytes)
     {
         try
@@ -79,9 +96,9 @@ internal static class WriterRecordFormat
             using JsonDocument document = JsonDocument.Parse(bytes.ToArray());
             JsonElement root = document.RootElement;
 
-            if (root.GetProperty("format").GetInt32() != Version)
+            if (root.GetProperty("format").GetInt32() is int format && format != Version)
             {
-                throw new InvalidDataException("The writer record is of format " + root.GetProperty("format").GetInt32() + "; this version of Varve reads format " + Version + ".");
+                throw new WriterRecordFormatUnknownException(format, Version);
             }
 
             List<EpochClaim> history = [];
@@ -96,13 +113,15 @@ internal static class WriterRecordFormat
                     {
                         "restart" => ClaimTrigger.Restart,
                         "operator" => ClaimTrigger.Operator,
-                        string other => throw new InvalidDataException("The writer record names a trigger '" + other + "' this version does not know."),
+                        string => ClaimTrigger.Unknown,
                         null => throw new InvalidDataException("A claim in the writer record has no trigger."),
                     },
+                    TriggerText = claim.GetProperty("trigger").GetString(),
                     ClaimedAt = new ClaimTime(DateTimeOffset.Parse(claim.GetProperty("at").GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind)),
                     Fence = claim.TryGetProperty("fence", out JsonElement fence) ? new LogSlot(fence.GetString()!) : null,
                     Address = claim.TryGetProperty("address", out JsonElement address) ? new WriterAddress(address.GetString()!) : null,
                     Released = claim.TryGetProperty("released", out JsonElement released) ? Reason(released.GetString()) : null,
+                    ReleasedText = claim.TryGetProperty("released", out JsonElement releasedText) ? releasedText.GetString() : null,
                 });
             }
 
@@ -111,6 +130,7 @@ internal static class WriterRecordFormat
                 Epoch = new WriterEpoch(root.GetProperty("epoch").GetInt64()),
                 Holder = new WriterInstance(root.GetProperty("holder").GetString()!),
                 Released = root.TryGetProperty("released", out JsonElement reason) ? Reason(reason.GetString()) : null,
+                ReleasedText = root.TryGetProperty("released", out JsonElement reasonText) ? reasonText.GetString() : null,
                 History = history,
             };
         }
@@ -120,12 +140,12 @@ internal static class WriterRecordFormat
         }
     }
 
-    private static string Name(ReleaseReason reason) => reason switch
+    private static string Name(ReleaseReason reason, string? text) => reason switch
     {
         ReleaseReason.Shutdown => "shutdown",
         ReleaseReason.OperatorTakeover => "operator-takeover",
         ReleaseReason.Placement => "placement",
-        _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, "No such reason."),
+        _ => text ?? throw new ArgumentOutOfRangeException(nameof(reason), reason, "An unknown reason is written only as it was read."),
     };
 
     private static ReleaseReason Reason(string? name) => name switch
@@ -133,6 +153,7 @@ internal static class WriterRecordFormat
         "shutdown" => ReleaseReason.Shutdown,
         "operator-takeover" => ReleaseReason.OperatorTakeover,
         "placement" => ReleaseReason.Placement,
-        _ => throw new InvalidDataException("The writer record names a release reason '" + name + "' this version does not know."),
+        null => throw new InvalidDataException("The writer record names a release with no reason."),
+        _ => ReleaseReason.Unknown,
     };
 }

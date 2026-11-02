@@ -18,4 +18,10 @@ public enum ReleaseReason
     /// observes this release (ADR 0163 point 12).
     /// </summary>
     Placement,
+
+    /// <summary>
+    /// A reason a later version wrote that this one does not know: the epoch
+    /// is released, and nothing is done for the reason (ADR 0217).
+    /// </summary>
+    Unknown,
 }

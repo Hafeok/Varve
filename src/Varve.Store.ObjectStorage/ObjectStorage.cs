@@ -682,7 +682,10 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
             }
             else if (await ConditionalWrites.ReadWholeAsync(options.Store, names.Writer, cancellationToken).ConfigureAwait(false) is { } read)
             {
-                record = WriterRecordFormat.Read(read.Bytes.Span);
+                // A record of a format this version does not read leaves a
+                // follower knowing no writer: it reads on and forwards to
+                // nobody (ADR 0217).
+                record = TryReadWriter(read.Bytes.Span);
             }
 
             long epoch = write && !lost ? record!.Epoch.Value : 0;
@@ -711,6 +714,19 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
         {
             await local.DisposeAsync().ConfigureAwait(false);
             throw;
+        }
+    }
+
+    [DesignDecision(typeof(CoordinationRecordsReadConservatively.AnUnknownWriterRecordFormatIsNeverWritten), Scope = ExceptionScope.Boundary)]
+    private static WriterRecord? TryReadWriter(ReadOnlySpan<byte> bytes)
+    {
+        try
+        {
+            return WriterRecordFormat.Read(bytes);
+        }
+        catch (WriterRecordFormatUnknownException)
+        {
+            return null;
         }
     }
 

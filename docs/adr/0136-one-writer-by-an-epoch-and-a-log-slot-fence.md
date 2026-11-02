@@ -259,3 +259,14 @@ failure-injection workload gains two modes for it,
 `HttpAppliedThenCancelled` and `HttpAppliedThenTimedOut`, at every request,
 and treats a reader declared forgotten as a failure, since the workload
 forgets none.
+
+## Amendment, 2026-11-02 — a record this version does not fully read
+
+Filed by 1.0 readiness A (#129) under [ADR 0217](0217-coordination-records-read-conservatively.md),
+unaccepted until the maintainer accepts it (ADR 0066).
+
+A writer record of a format this version does not read is never written on:
+an open for write and a takeover refuse with `WriterRecordFormatUnknownException`,
+and a read-only open goes on as a follower that knows no writer. A trigger or
+a release reason it does not know, under a format it does read, is held as
+`Unknown` with its text, written back as read, and never acted on.

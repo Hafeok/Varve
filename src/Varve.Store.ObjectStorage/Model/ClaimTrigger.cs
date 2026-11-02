@@ -12,4 +12,10 @@ public enum ClaimTrigger
 
     /// <summary>An operator took the writer epoch over, naming the epoch they took it from.</summary>
     Operator,
+
+    /// <summary>
+    /// A trigger a later version wrote that this one does not know. It is held
+    /// as written and never acted on (ADR 0217).
+    /// </summary>
+    Unknown,
 }
