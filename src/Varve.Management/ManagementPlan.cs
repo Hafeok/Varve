@@ -215,6 +215,7 @@ public sealed class ManagementPlan
 
     /// <summary>Reads a saved plan.</summary>
     /// <exception cref="InvalidDataException">The bytes are not a plan this version reads.</exception>
+    [DesignDecision(typeof(TheFormatInventory.SavedPlansAreVersionedNotReadForever), Scope = ExceptionScope.Boundary)]
     public static ManagementPlan FromJson(ReadOnlySpan<byte> utf8)
     {
         try
@@ -224,7 +225,10 @@ public sealed class ManagementPlan
 
             if (root.GetProperty("format").GetInt32() != Format)
             {
-                throw new InvalidDataException("The plan is of format " + root.GetProperty("format").GetInt32() + "; this version of Varve reads format " + Format + ".");
+                // Versioned and positional, not read forever (ADR 0216): the
+                // plan names positions a later format may mean otherwise.
+                throw new InvalidDataException("The plan is of format " + root.GetProperty("format").GetInt32() + "; this version of Varve reads format " + Format
+                    + ". Plan again with this version (varve apply --out) and apply that plan.");
             }
 
             List<GraphPlan> graphs = [];

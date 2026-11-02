@@ -107,6 +107,13 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     // The release gate's refusal of a red or stale Windows soak, proven on
     // every run (ADR 0215, tests/fixtures/soak-freshness/README.md).
+    // The format inventory against the code and its fixtures (ADR 0216,
+    // docs/formats/README.md), and the gate's own failure path.
+    ("formats", "the format inventory matches the version constants in the code, and every fixture under testdata/formats/ verifies",
+        () => Run("dotnet", ["run", "eng/formats.cs"])),
+    ("formats-fixtures", "the format gate passes and refuses its fixtures as their names say",
+        () => Run("dotnet", ["run", "eng/formats.cs", "--", "--fixtures", "tests/fixtures/formats"])),
+
     ("soak-freshness-fixtures", "the Windows soak's freshness check passes and refuses its fixtures as their names say",
         () => Run("dotnet", ["run", "eng/soak-freshness.cs", "--", "--fixtures", "tests/fixtures/soak-freshness"])),
 
