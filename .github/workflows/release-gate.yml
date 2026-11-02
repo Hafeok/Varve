@@ -1,17 +1,23 @@
 # The release gate (ADR 0214 point 6, ADR 0215 point 6): what a release must
 # pass beyond ci.yml, which the land gate cannot wait for.
 #
+#   mode     a preview, 0.x.y-preview.N, does not run the long gates inline;
+#            any other release does (ADR 0215, amended 2026-11-02:
+#            eng/release-freshness.cs --mode).
 #   faults   the file backend's four faults at every point, on simulated and
-#            on real files, on Linux and Windows (ADR 0214).
+#            on real files, on Linux and Windows (ADR 0214). Inline only.
 #   soak     the soak under the shipped runtime configuration, judged by
-#            Varve.Benchmarks --soak-judge (ADR 0215): four hours on Linux at
-#            a release.
-#   windows soak, fresh
+#            Varve.Benchmarks --soak-judge (ADR 0215): four hours on Linux.
+#            Inline only.
+#   fresh on main
 #            a release refuses when the latest Windows soak on main's nightly
-#            is red or older than eight days (eng/soak-freshness.cs).
+#            is red or older than eight days; a preview also when the latest
+#            Linux soak is (eight days), or the latest store at full depth on
+#            either runner, which holds the faults at every point (three
+#            days) (eng/release-freshness.cs).
 #
-# Called by release.yml at the commit under release, beside ci.yml, and by
-# nightly.yml once a week for the Windows soak alone.
+# Called by release.yml at the commit under release, beside ci.yml, with the
+# release's version; and by nightly.yml for its soaks, without one.
 
 name: Release gate
 
@@ -22,6 +28,10 @@ on:
         description: The commit under test
         type: string
         required: true
+      version:
+        description: The release's version; a preview checks main's runs instead of running the faults and the Linux soak. Empty for a caller that is not a release
+        type: string
+        default: ""
       faults:
         description: Run the faults at full depth
         type: boolean
@@ -34,8 +44,8 @@ on:
         description: How long the soak runs
         type: number
         default: 240
-      windows-soak-fresh:
-        description: Refuse unless the latest Windows soak on main is green and at most eight days old
+      fresh-on-main:
+        description: Refuse unless main's latest runs the version needs are green and fresh (the Windows soak; for a preview, the Linux soak and the store at full depth too)
         type: boolean
         default: true
 
@@ -49,9 +59,34 @@ env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
+  mode:
+    name: release gate mode
+    runs-on: ubuntu-latest
+    outputs:
+      inline: ${{ steps.mode.outputs.inline }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Inline, or fresh from main
+        id: mode
+        env:
+          VERSION: ${{ inputs.version }}
+        run: dotnet run eng/release-freshness.cs -- --mode --version "$VERSION"
+
   faults:
     name: faults (${{ matrix.os }})
-    if: inputs.faults
+    needs: mode
+    if: inputs.faults && needs.mode.outputs.inline == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 300
     strategy:
@@ -133,7 +168,8 @@ jobs:
 
   soak:
     name: soak (${{ inputs.soak-os }})
-    if: inputs.soak-os != ''
+    needs: mode
+    if: inputs.soak-os != '' && needs.mode.outputs.inline == 'true'
     runs-on: ${{ inputs.soak-os }}
     # The soak, the build before it, and the judge after it, inside GitHub's
     # six-hour limit for a job.
@@ -198,9 +234,9 @@ jobs:
           path: artifacts/soak
           if-no-files-found: warn
 
-  windows-soak-fresh:
-    name: windows soak, fresh
-    if: inputs.windows-soak-fresh
+  fresh-on-main:
+    name: fresh on main
+    if: inputs.fresh-on-main
     runs-on: ubuntu-latest
 
     permissions:
@@ -219,7 +255,8 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: The latest Windows soak on main is green and at most eight days old
+      - name: Main's latest runs the version needs are green and fresh
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: dotnet run eng/soak-freshness.cs -- --repository ${{ github.repository }} --days 8
+          VERSION: ${{ inputs.version }}
+        run: dotnet run eng/release-freshness.cs -- --repository ${{ github.repository }} --version "$VERSION"

@@ -18,6 +18,10 @@ run by CI and judged by a script, not by hand.
 **Amended 2026-11-02:** point 1's steady size is reached by a load before the
 clock, not by the writer's rate (see the end).
 
+**Amended 2026-11-02:** a preview checks main's latest runs of the long gates
+instead of running them inline, and the nightly runs the Linux soak (see the
+end, "the long gates on main"). Amends ADR 0214 point 6 to match.
+
 Records decision set [`the-soak-gate-judged`](../decisions/the-soak-gate-judged.md).
 
 ## Context
@@ -77,7 +81,9 @@ band, one that leaks handles, and one whose dataset never settles.
 
 **6. Where and how long.**
 - **The release gate** (ADR 0214's `release-gate.yml`) runs the soak for
-  **four hours on Linux** and judges it. Four hours is enough because:
+  **four hours on Linux** and judges it, for a release that is not a
+  preview; a preview checks the nightly's latest Linux soak instead (the
+  amendment of 2026-11-02). Four hours is enough because:
   - ADR 0110 point 5 shows the collector settles by minute 30, so everything
     after that is steady-state evidence;
   - it puts three and a half hours of steady state behind the drift window,
@@ -86,7 +92,8 @@ band, one that leaks handles, and one whose dataset never settles.
     their merges, so each maintenance cycle repeats hundreds of times. A
     leak of 0.1 MB a cycle would show as more than the 10% band;
   - it fits GitHub's six-hour job limit with room for the build.
-- **The nightly** runs the same soak on **Windows once a week.**
+- **The nightly** runs the same soak on **Windows once a week,** and on
+  Linux every night (the amendment of 2026-11-02).
 - **The release gate refuses** when the latest Windows soak on `main`'s
   nightly is red, or older than eight days. A step reads the nightly's runs
   through the Actions API with the job's own token and names the run it
@@ -225,3 +232,68 @@ is taken out of the gate:
 
 `BoundedVocabulary` is restated in the decision set by this amendment.
 `--subjects 2000` stays the vocabulary for both runners.
+
+## Amendment, 2026-11-02 — the long gates on main, and a preview checks them
+
+**Inline four-hour gates serialise every release behind the previous one.**
+The release gate ran the faults at full depth and the four-hour Linux soak
+on the commit under release. `release.yml` admits one release run at a time
+on a ref, so each release waited four hours and more for its own gate, and
+the next waited behind it, however small the change between them: a preview
+with a one-line fix took as long to cut as 1.0. A preview is cut often, and
+its purpose is to put main's state in front of users; the evidence that
+main's state holds is the same evidence whether it is gathered on the
+release commit or on main the night before. So:
+
+- **The long gates run on main.** The nightly's store job at full depth
+  already ran every fault at every point on Linux and on Windows (ADR 0214
+  point 6), and it stays the faults' run. The nightly now also runs the
+  four-hour soak on Linux, through `release-gate.yml` as the Windows soak
+  does. A dispatch of the nightly on main runs either alone (`run`: `store
+  at full depth`, `linux soak`, `windows soak`), so evidence can be gathered
+  before a release without waiting for the night. `release-gate.yml` has no
+  trigger of its own.
+- **A preview checks them.** For a `0.x.y-preview.N` descriptor, the release
+  gate runs neither inline. It refuses unless the latest completed run on
+  main's nightly of each is green and within its window: the Linux soak,
+  eight days, as the Windows soak; the store at full depth on each runner,
+  three days. A skipped job is not a run. `eng/release-freshness.cs`, which
+  generalises the Windows soak's check of point 6, judges it and names each
+  run it judged.
+- **Every other release runs both inline,** on the release commit, as
+  before: 1.0.0, and every later minor and major release, and a preview of
+  any of them. The Windows soak is checked for freshness for every release,
+  as point 6 says.
+- **Fixtures for both paths.** `tests/fixtures/release-freshness/` holds a
+  preview whose evidence is all fresh, and previews refused for a red Linux
+  soak, a missing one, faults four days old and a Windows soak nine days
+  old; a preview whose newest store jobs were skipped and whose earlier ones
+  are fresh; and releases that run inline (1.0.0, 1.2.0, 1.1.0-preview.1, no
+  release) and need only the Windows soak, one refused for it. The
+  pipeline's `release-freshness-fixtures` job runs them on every build.
+
+**Three days for the faults.** They run every night, so a fresh run is at
+most a day old on a normal morning. Three days lets two nights fail to run,
+a runner outage or a nightly cancelled for an unrelated leg, without
+blocking a preview, and refuses at the third, when main has moved for half a
+week without the faults. A red run refuses at once, whatever its age.
+
+**What fits the jobs' limits.** Measured on the nightly of 2026-11-01 (run
+41294147201) and the Windows soak of 2026-10-31 (run 41192568259):
+
+| Run | Job | Took | Its timeout |
+|---|---|---:|---:|
+| The faults, in the store at full depth | Linux | 25.5 min | the step's 150 |
+| | Windows | 36 min | the step's 150 |
+| The four-hour soak, build and judge | Windows | 242 min | 340 |
+
+The load before the clock of the amendment above adds well under a minute
+(41 s in its fixture). The faults fit every night many times over. The soak
+is about 245 minutes on either runner, so it does not fit a 300-minute job
+with #219's warning at 80% of a job's timeout (82%); the soak job keeps its
+340 minutes in `release-gate.yml`, under GitHub's six-hour limit, where it
+is 72%. Within that job it fits a nightly schedule as well as a weekly one,
+so the Linux soak runs nightly: a red or cancelled night is replaced by the
+next one instead of blocking previews for a week, and a preview cut on any
+morning has a soak of main's previous day behind it. #219's five-hour leg is
+a job of its own and does not share the soak's limit.
