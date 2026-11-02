@@ -283,6 +283,10 @@ internal static class EventMoves
                     continue;
                 }
 
+                // Answered once the plane has applied the cancel, as the freeze and
+                // the copy are, so the state read after the answer is in-dataset.
+                await AppliedAsync(move, cancel.Position, cancellationToken).ConfigureAwait(false);
+
                 return Refused(ProblemType.EventDeclarationInvalid, "The move was cancelled: the catalogue does not translate one-to-one into the dataset's declarations (ADR 0167). " + problem.Detail + ".", members =>
                 {
                     members.String("declaration", Encoding.UTF8.GetString(problem.Declaration.Lexical));
