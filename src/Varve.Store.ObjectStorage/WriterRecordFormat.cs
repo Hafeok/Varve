@@ -26,7 +26,9 @@ internal static class WriterRecordFormat
     {
         ArrayBufferWriter<byte> buffer = new();
 
-        using (Utf8JsonWriter json = new(buffer, new JsonWriterOptions { Indented = true }))
+        // One line ending on every platform: the record's bytes are its format's, not
+        // the OS's (ADR 0216). Indented JSON otherwise takes Environment.NewLine.
+        using (Utf8JsonWriter json = new(buffer, new JsonWriterOptions { Indented = true, NewLine = "\n" }))
         {
             json.WriteStartObject();
             json.WriteNumber("format", Version);
