@@ -12,7 +12,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [0.1.0-preview.18] - 2026-10-30
+## [0.1.0-preview.20] - 2026-10-30
 
 **Row-level access through the classifier — the first part of milestone 9**
 
@@ -1723,8 +1723,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.18...HEAD
-[0.1.0-preview.18]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...v0.1.0-preview.18
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.20...HEAD
+[0.1.0-preview.20]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...v0.1.0-preview.20
 [0.1.0-preview.15]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...v0.1.0-preview.15
 [0.1.0-preview.14]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.13...v0.1.0-preview.14
 [0.1.0-preview.13]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.12...v0.1.0-preview.13
