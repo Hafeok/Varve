@@ -32,13 +32,17 @@ decisions:
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-30T00:00:00Z
   - key: FourHoursOnLinuxAtARelease
-    statement: "A release runs the soak for four hours on Linux under the shipped runtime configuration in release-gate.yml and is not cut unless the judge holds"
+    statement: "A release that is not a preview, 1.0.0 and every later one, runs the soak for four hours on Linux under the shipped runtime configuration in release-gate.yml and is not cut unless the judge holds; the nightly runs the same soak on Linux every night, and a dispatch on main runs it alone"
     accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-30T00:00:00Z
+    accepted-at: 2026-11-02T00:00:00Z
   - key: WindowsWeeklyAndFresh
     statement: "The nightly runs the soak on Windows once a week, and a release refuses when the latest Windows soak on main's nightly is red or older than eight days"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-30T00:00:00Z
+  - key: PreviewsCheckMainsLatestRuns
+    statement: "A preview, 0.x.y-preview.N, runs neither the faults nor the Linux soak inline: release-gate.yml refuses it unless the latest completed run on main's nightly of the Linux soak is green and at most eight days old, of the store at full depth on Linux and on Windows, which holds the faults at every point, green and at most three days old, and of the Windows soak as for every release; eng/release-freshness.cs judges it, and its fixtures prove the preview and the inline path on every pipeline run"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-02T00:00:00Z
   - key: EightHoursInAzureBeforeVersionOne
     statement: "An eight-hour soak under the shipped configuration runs before 1.0 in #164's Azure environment as a Container Apps job, since hosted runners stop a job at six hours, and is judged by the same script"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -55,3 +59,8 @@ weekly Windows runner, so the steady size is reached by a load before the
 clock, and the rate is no longer part of the ruling. The 5% rule from minute
 30 stays as it was. Accepted again by the maintainer on 2026-11-02 at their
 direction.
+
+`FourHoursOnLinuxAtARelease` is restated by the amendment of 2026-11-02, and
+`PreviewsCheckMainsLatestRuns` is filed by it: a preview checks main's runs
+of the long gates instead of running them, since four hours inline put every
+release behind the one before it. Both await the maintainer's acceptance.

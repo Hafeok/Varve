@@ -18,9 +18,16 @@
 # No container: the suites here run in process. The services legs keep their
 # own job in ci.yml and its images in .github/ci-images.yaml.
 #
-# Once a week, on its own schedule, it runs only the soak on Windows, through
-# the release gate's workflow (ADR 0215 point 6): a release refuses when that
-# soak is red or older than eight days.
+# Every night it also runs the four-hour soak on Linux, through the release
+# gate's workflow, and once a week, on its own schedule, the soak on Windows
+# alone (ADR 0215 point 6). A release refuses when the Windows soak is red or
+# older than eight days; a preview also when the Linux soak is, or when the
+# store at full depth, which holds the faults at every point, is red or older
+# than three days (eng/release-freshness.cs).
+#
+# A dispatch on main runs one part when evidence is needed before a release:
+# `run` is the night's whole run, the store at full depth, the Linux soak or
+# the Windows soak.
 name: Nightly
 
 on:
@@ -32,10 +39,15 @@ on:
     - cron: "17 4 * * 6"
   workflow_dispatch:
     inputs:
-      windows-soak:
-        description: Run the Windows soak instead of the full-depth suites
-        type: boolean
-        default: false
+      run:
+        description: What to run on main
+        type: choice
+        default: night
+        options:
+          - night
+          - store at full depth
+          - linux soak
+          - windows soak
 
 permissions:
   contents: read
@@ -49,7 +61,7 @@ env:
 jobs:
   store:
     name: store, full depth (${{ matrix.os }})
-    if: github.ref == 'refs/heads/main' && github.event.schedule != '17 4 * * 6' && !inputs.windows-soak
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'store at full depth')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -151,7 +163,7 @@ jobs:
 
   long:
     name: long properties (${{ matrix.project }})
-    if: github.ref == 'refs/heads/main' && github.event.schedule != '17 4 * * 6' && !inputs.windows-soak
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night')
     runs-on: ubuntu-latest
     timeout-minutes: 300
     env:
@@ -207,9 +219,26 @@ jobs:
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
 
+  # The four-hour soak on Linux, every night (ADR 0215 point 6, amended
+  # 2026-11-02): a preview checks its latest run here instead of running it.
+  # About 245 minutes, inside the soak job's 340 (release-gate.yml).
+  linux-soak:
+    name: linux soak
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'linux soak')
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/release-gate.yml
+    with:
+      ref: ${{ github.sha }}
+      faults: false
+      soak-os: ubuntu-latest
+      soak-minutes: 240
+      fresh-on-main: false
+
   windows-soak:
     name: windows soak
-    if: github.ref == 'refs/heads/main' && (github.event.schedule == '17 4 * * 6' || inputs.windows-soak)
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '17 4 * * 6' || inputs.run == 'windows soak')
     # What the called workflow's jobs ask for: a run whose called job asks for
     # more than its caller grants never starts.
     permissions:
@@ -221,4 +250,4 @@ jobs:
       faults: false
       soak-os: windows-latest
       soak-minutes: 240
-      windows-soak-fresh: false
+      fresh-on-main: false
