@@ -22,7 +22,9 @@ namespace Varve.Benchmarks;
 /// median of the last ten minutes is no more than 10% over minutes 30–40.
 /// Handles and <c>derived/</c> files stay within bounds the configuration
 /// gives (<see cref="SoakBounds"/>). A run whose dataset is not steady from
-/// minute 30, or whose collector is not the shipped one, is not judged.
+/// minute 30 — the load before the clock (<see cref="Soak.LoadAsync"/>)
+/// brings it to its size, so a drift out of ±5% afterwards is the dataset's
+/// — or whose collector is not the shipped one, is not judged.
 /// Exit 0 holds, 1 misses, 2 cannot judge.
 /// </summary>
 [DesignDecision(typeof(TheSoakGateJudged.FlatWithinABand), Scope = ExceptionScope.Boundary)]
@@ -166,7 +168,7 @@ internal static class SoakJudge
         if (counts.Length == 0 || counts.Any(q => Math.Abs(q - settled) > SteadyQuads * settled))
         {
             return new Verdict(2, ["the dataset is not steady from minute 30: quads " + (counts.Length == 0 ? "none" : counts.Min().ToString("F0", CultureInfo.InvariantCulture) + " to " + counts.Max().ToString("F0", CultureInfo.InvariantCulture))
-                + " against " + (SteadyQuads * 100).ToString("F0", CultureInfo.InvariantCulture) + "% of their median; choose a smaller vocabulary (ADR 0215 point 1)"]);
+                + " against " + (SteadyQuads * 100).ToString("F0", CultureInfo.InvariantCulture) + "% of their median; the load before the clock did not reach the workload's size, or the dataset drifted after it (ADR 0215 point 1, amended 2026-11-02)"]);
         }
 
         bool holds = true;
