@@ -5,12 +5,6 @@
   "jobs": [
     {
       "name": "linux soak / soak (ubuntu-latest)",
-      "conclusion": "failure",
-      "completed_at": "2026-11-12T07:10:00Z",
-      "html_url": "https://github.com/Hafeok/Varve/actions/runs/31/job/311"
-    },
-    {
-      "name": "linux soak / soak (ubuntu-latest)",
       "conclusion": "success",
       "completed_at": "2026-11-12T07:10:00Z",
       "html_url": "https://github.com/Hafeok/Varve/actions/runs/30/job/301"
@@ -30,8 +24,11 @@
     {
       "name": "windows soak / soak (windows-latest)",
       "conclusion": "success",
-      "completed_at": "2026-11-07T08:20:00Z",
-      "html_url": "https://github.com/Hafeok/Varve/actions/runs/25/job/251"
+      "completed_at": "2026-11-03T08:20:00Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/20/job/201"
     }
+  ],
+  "evidence": [
+    "- The Windows soak: **green**, [the job](https://github.com/Hafeok/Varve/actions/runs/20/job/201), finished 2026-11-03"
   ]
 }

@@ -324,9 +324,10 @@ fragmenting. The soak gate is judged under this configuration, with its
 drift measured against minutes 30–40, after the collector has reached its
 working size (ADR 0082, amended and superseded in part by ADR 0110). Every
 release from 1.0.0 runs that soak for four hours on Linux and judges it by
-script, a preview needs the nightly's Linux soak green within eight days
-instead, and a release is refused unless the weekly Windows soak passed
-within eight days (ADR 0215).
+script, and is refused unless the weekly Windows soak passed within eight
+days and while a red or invalid soak's issue is open. A preview is informed
+by the nightly's soaks and not refused on them, and its release notes say
+what they were (ADR 0215, amended 2026-11-03).
 
 `DOTNET_GCHeapHardLimit`, `DOTNET_gcServer` and the rest still apply as to
 any .NET process and override what ships: in a container the runtime bounds

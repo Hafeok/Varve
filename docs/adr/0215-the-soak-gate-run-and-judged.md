@@ -26,6 +26,11 @@ end, "the long gates on main"). Amends ADR 0214 point 6 to match.
 memory against commits, and point 4's dataset's own is retired with ADR
 0082's model of it (see the end, "memory against commits"; #222).
 
+**Amended 2026-11-03:** for a preview the soaks inform and never gate; the
+faults stay its gate, read by job; a red or invalid soak opens an issue
+labelled `soak`, and a release that is not a preview is refused while one is
+open (see the end, "the soaks inform previews"). The maintainer's decision.
+
 Records decision set [`the-soak-gate-judged`](../decisions/the-soak-gate-judged.md).
 
 ## Context
@@ -390,3 +395,73 @@ jobs, proves it on every build.
 
 `FlatWithinABand` and `WorkingSetByCause` are restated in the decision set
 by this amendment and await the maintainer's acceptance.
+
+## Amendment, 2026-11-03 — the soaks inform previews
+
+**The maintainer's decision.** Previews were blocked for two days by the
+soak, and not by a leak: the judge's model of the dataset's own charged 144
+bytes a commit that the process no longer held, so three valid four-hour
+soaks of 2026-11-02 missed (the amendment above; the slope fix is #223, now
+merged). A preview puts main's state in front of users, and a gate that can
+be wrong about its own model stopped that without finding anything. So, for
+previews, the soaks inform and never gate:
+
+1. **A preview is not refused on the soaks.** `eng/release-freshness.cs`
+   prints main's latest Linux and Windows soak as `inform:` lines, whatever
+   their verdict or age. The release records them: the GitHub Release's
+   notes carry main's latest soak on each runner and store at full depth on
+   each, with their verdicts (`green`, `red`, `invalid` or `none` for a
+   soak; `green`, `red`, `cancelled` or `none` for a store job), links to the
+   jobs and their dates, and the open soak issues. `publish.yml` writes them
+   when it creates the release, with `release-freshness.cs --evidence` and
+   the job's own token, exactly as they are then. **The descriptor is
+   unchanged**: nothing is pasted by hand and nothing waits on a soak. The
+   release gate's `fresh on main` job prints the same evidence to its step
+   summary for every release.
+2. **The faults stay a preview's gate, read by job.** The newest completed
+   `store, full depth` job on each runner must be green and at most three
+   days old, judged by the job's own conclusion and never its run's, so a
+   green job in a run cancelled by another job's timeout counts (#219;
+   `pass-preview-faults-in-a-cancelled-run`).
+3. **A red or invalid soak opens one issue.** The nightly's `soak issue` job
+   runs when a soak ran and did not succeed, cancelled included. It reads
+   the soak's `verdict.txt` from the run's `soak-<os>` artefact (`invalid`
+   when there is none, because the soak never reached its judge), and with
+   the workflow's own token (`issues: write`) comments on the open issue
+   labelled `soak`, or creates the label and the issue, with the verdict,
+   the OS, the run and the judge's output.
+4. **A release that is not a preview,** 1.0.0 and every later one, runs the
+   faults and the Linux soak inline as before, and is refused while any
+   issue labelled `soak` is open (the issues API, pull requests excluded;
+   `fresh on main` gains `issues: read`). The Windows soak's freshness check
+   (`WindowsWeeklyAndFresh`) stays for these releases, narrowed to them: the
+   Windows soak never runs inline, so without it a 1.0 would ship with no
+   Windows soak behind it.
+5. **Verdicts are read from jobs.** `release-gate.yml`'s soak job judges in
+   "Judge the soak", which writes the judge's output to
+   `artifacts/soak/judge.txt` and the step summary, its verdict to
+   `artifacts/soak/verdict.txt` (exit 0 `green`, 1 `red`, any other
+   `invalid`), records the exit as a step output and does not fail. Three
+   steps follow: "The soak holds the gate" (exit 0), "The soak misses the
+   gate" (exit 1, fails the job) and "The soak was not judged" (any other,
+   fails the job), so an inline soak still fails its release on red or
+   invalid. A soak job's verdict is `green` when it succeeded, `red` when
+   "The soak misses the gate" failed, `invalid` for any other completed job
+   that did not succeed (not judged, crashed, cancelled, timed out), and
+   `none` when main has none. A job from before these steps is `red` when
+   its "Judge the soak" failed, so the soaks of 2026-11-02 read as what they
+   were.
+
+**Fixtures for both paths.** In `tests/fixtures/release-freshness/`, the
+preview cases that were refused for the soaks pass and inform: a red Linux
+soak, a missing one, an invalid one shown by its steps, a cancelled Windows
+soak and one nine days old, and an open soak issue. The fault refusals stay:
+four days old, red, none. Releases that are not previews are refused while a
+soak issue is open and pass without one. A case tells red from invalid by
+steps, and one reads the jobs of 2026-11-02; each case may name lines its
+printed evidence must contain.
+
+`PreviewsCheckMainsLatestRuns` and `WindowsWeeklyAndFresh` are restated in
+the decision set by this amendment, and `ARedOrInvalidSoakOpensAnIssue`,
+`NoReleaseWhileASoakIssueIsOpen` and `TheReleaseNotesHoldMainsEvidence` are
+added; all await the maintainer's acceptance.

@@ -8,13 +8,19 @@
 #            on real files, on Linux and Windows (ADR 0214). Inline only.
 #   soak     the soak under the shipped runtime configuration, judged by
 #            Varve.Benchmarks --soak-judge (ADR 0215): four hours on Linux.
-#            Inline only.
+#            Inline only. The judge's verdict is a step of its own, so the
+#            Actions API tells a red soak ("The soak misses the gate") from
+#            one that was not judged, and artifacts/soak holds judge.txt and
+#            verdict.txt (green, red or invalid) for the nightly's soak issue.
 #   fresh on main
-#            a release refuses when the latest Windows soak on main's nightly
-#            is red or older than eight days; a preview also when the latest
-#            Linux soak is (eight days), or the latest store at full depth on
-#            either runner, which holds the faults at every point (three
-#            days) (eng/release-freshness.cs).
+#            a preview is refused unless the latest store at full depth on
+#            each runner, which holds the faults at every point, is green and
+#            at most three days old; main's soaks inform it and never refuse
+#            it (ADR 0215, amended 2026-11-03). Any other release is refused
+#            when the latest Windows soak on main's nightly is red or older
+#            than eight days, or while an issue labelled soak is open. Every
+#            release prints main's evidence to the step summary
+#            (eng/release-freshness.cs).
 #
 # Called by release.yml at the commit under release, beside ci.yml, with the
 # release's version; and by nightly.yml for its soaks, without one.
@@ -45,7 +51,7 @@ on:
         type: number
         default: 240
       fresh-on-main:
-        description: Refuse unless main's latest runs the version needs are green and fresh (the Windows soak; for a preview, the Linux soak and the store at full depth too)
+        description: Refuse unless main's latest runs the version needs are green and fresh (for a preview, the store at full depth; otherwise the Windows soak, and no open soak issue)
         type: boolean
         default: true
 
@@ -215,16 +221,55 @@ jobs:
             --soak ${{ inputs.soak-minutes }} --policy --subjects 2000 | tee artifacts/soak/soak.csv
 
       - name: Judge the soak
+        # Records the judge's exit and does not fail: the three steps after it
+        # say which verdict it was, by name, so the release gate reads a red
+        # soak from the jobs API (ADR 0215, amended 2026-11-03). The judge
+        # exits 0 when the soak holds, 1 when it misses, 2 when it cannot
+        # judge.
+        id: judge
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          dotnet run --project tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release --no-build -- \
+            --soak-judge artifacts/soak/soak.csv > artifacts/soak/judge.txt 2>&1
+          code=$?
+          case "$code" in
+            0) verdict=green ;;
+            1) verdict=red ;;
+            *) verdict=invalid ;;
+          esac
+          echo "$verdict" > artifacts/soak/verdict.txt
           {
-            echo "### Soak, ${{ inputs.soak-minutes }} minutes on ${{ inputs.soak-os }}"
+            echo "### Soak, ${{ inputs.soak-minutes }} minutes on ${{ inputs.soak-os }}: $verdict"
             echo
             echo '```'
-            dotnet run --project tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release --no-build -- --soak-judge artifacts/soak/soak.csv
+            cat artifacts/soak/judge.txt
             echo '```'
+            echo
+            echo "The judge exited $code."
           } | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "exit=$code" >> "$GITHUB_OUTPUT"
+
+      - name: The soak holds the gate
+        if: steps.judge.outputs.exit == '0'
+        shell: bash
+        run: echo "The judge holds (ADR 0215)."
+
+      - name: The soak misses the gate
+        if: steps.judge.outputs.exit == '1'
+        shell: bash
+        run: |
+          echo "::error::the soak misses the gate (ADR 0215); the judge's output is in the step summary and artifacts/soak/judge.txt"
+          exit 1
+
+      - name: The soak was not judged
+        if: steps.judge.outputs.exit != '0' && steps.judge.outputs.exit != '1'
+        shell: bash
+        env:
+          CODE: ${{ steps.judge.outputs.exit }}
+        run: |
+          echo "::error::the judge could not judge the soak (exit $CODE), so it is invalid (ADR 0215); see artifacts/soak/judge.txt"
+          exit 1
 
       - name: Upload the soak's samples
         if: always()
@@ -239,9 +284,12 @@ jobs:
     if: inputs.fresh-on-main
     runs-on: ubuntu-latest
 
+    # actions: read for main's nightly runs, issues: read for the open soak
+    # issues.
     permissions:
       contents: read
       actions: read
+      issues: read
 
     steps:
       - name: Checkout
@@ -255,7 +303,7 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Main's latest runs the version needs are green and fresh
+      - name: Main's latest runs, the faults gating a preview and the soaks informing it
         env:
           GITHUB_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
