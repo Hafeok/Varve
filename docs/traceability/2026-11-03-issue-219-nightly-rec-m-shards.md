@@ -94,8 +94,9 @@ The work is the issue's Solution:
   issue references, DCO, required checks, CI images, release freshness
   fixtures and status pass; `actionlint` 1.7.7 is clean on `nightly.yml`;
   the Shacl.Store tests pass at a pull request's depth. One shard
-  (`1/100`, the whole history and one comparison) was run end to end at
-  nightly depth.
+  (`1/100`, the whole history and one comparison, at position 250) was run
+  end to end at nightly depth and passed in 55 minutes, the replay's 53 as
+  estimated.
 - **Not verified:** the shards' time on GitHub's runners, until the next
   night; whether the budget step runs after a job is cancelled at its
   limit (it runs on `always()`, and is meant to fire before the limit).
