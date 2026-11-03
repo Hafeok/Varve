@@ -1,0 +1,2 @@
+src/Thing.cs Version
+src/Thing.cs ExtentVersion

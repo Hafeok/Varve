@@ -13,14 +13,30 @@
 # The long properties and the REC gate's long runs (#13) run here too, with
 # VARVE_LONG_PROPERTIES set: the land gate runs their sized iteration counts,
 # and this runs them in full. A failure is a defect to fix on main, never a
-# reason to lower the land gate's counts.
+# reason to lower the land gate's counts. REC M's 100 compared positions run
+# as shards of their own, side by side (#219).
+#
+# Every leg has a budget (#219): its durations step fails, saying so, when the
+# leg has used more than 80% of its time limit, so a leg that grows is red the
+# night it passes 80%, never cancelled the night it passes 100%. The soaks are
+# not budgeted here: their length is their parameter.
 #
 # No container: the suites here run in process. The services legs keep their
 # own job in ci.yml and its images in .github/ci-images.yaml.
 #
-# Once a week, on its own schedule, it runs only the soak on Windows, through
-# the release gate's workflow (ADR 0215 point 6): a release refuses when that
-# soak is red or older than eight days.
+# Every night it also runs the four-hour soak on Linux, through the release
+# gate's workflow, and once a week, on its own schedule, the soak on Windows
+# alone (ADR 0215 point 6). A preview is refused when the store at full
+# depth, which holds the faults at every point, is red or older than three
+# days; the soaks inform it and never refuse it. A release that is not a
+# preview is refused when the Windows soak is red or older than eight days,
+# or while an issue labelled soak is open (eng/release-freshness.cs; ADR
+# 0215, amended 2026-11-03). A soak that is red or invalid opens that issue,
+# or comments on it (soak issue, below).
+#
+# A dispatch on main runs one part when evidence is needed before a release:
+# `run` is the night's whole run, the store at full depth, the Linux soak or
+# the Windows soak.
 name: Nightly
 
 on:
@@ -32,10 +48,15 @@ on:
     - cron: "17 4 * * 6"
   workflow_dispatch:
     inputs:
-      windows-soak:
-        description: Run the Windows soak instead of the full-depth suites
-        type: boolean
-        default: false
+      run:
+        description: What to run on main
+        type: choice
+        default: night
+        options:
+          - night
+          - store at full depth
+          - linux soak
+          - windows soak
 
 permissions:
   contents: read
@@ -49,12 +70,14 @@ env:
 jobs:
   store:
     name: store, full depth (${{ matrix.os }})
-    if: github.ref == 'refs/heads/main' && github.event.schedule != '17 4 * * 6' && !inputs.windows-soak
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'store at full depth')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        # The test step's limit, and its budget's (#219).
+        timeout: [150]
 
     steps:
       - name: Line endings
@@ -87,12 +110,16 @@ jobs:
           "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
           "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
 
+      - name: Start the budget's clock
+        shell: bash
+        run: echo "VARVE_LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Test Varve.Store at full depth
         # The pull request's depth runs in the build job; this is the rest.
         # Each value covers the whole of its search (docs/testing.md §8). The
         # crash during recovery at stride 1 runs alone for most of an hour on
         # Windows with no other test ending, so the hang dump waits longer.
-        timeout-minutes: 150
+        timeout-minutes: ${{ matrix.timeout }}
         env:
           VARVE_FAULT_RECOVERY_STRIDE: "1"
           VARVE_FAULT_PROCESS_STRIDE: "1"
@@ -111,6 +138,11 @@ jobs:
           VARVE_EXTENT_FAULTS_FULL: "1"
           VARVE_CACHE_DAMAGE_STRIDE: "1"
           VARVE_EXTENT_DAMAGE_STRIDE: "1"
+          # Replication part 1 (#165): tier 1 under failure injection.
+          VARVE_FOLLOWER_FAULT_SCHEDULES: "2000"
+          VARVE_CLAIM_IN_PLACE_SCHEDULES: "1000"
+          VARVE_CACHE_FAULT_SCHEDULES: "1000"
+          VARVE_HANDOVER_SCHEDULES: "1000"
           # Verified derived data (ADR 0213, #146).
           VARVE_DERIVED_DAMAGE_STRIDE: "1"
           VARVE_MIDREAD_DAMAGE_STRIDE: "1"
@@ -134,6 +166,8 @@ jobs:
           dotnet run eng/test-durations.cs --
           ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
           --label "Varve.Store.Tests at full depth on ${{ matrix.os }}"
+          --started ${{ env.VARVE_LEG_STARTED }}
+          --timeout-minutes ${{ matrix.timeout }}
 
       - name: Upload the test results
         if: always()
@@ -145,17 +179,27 @@ jobs:
 
   long:
     name: long properties (${{ matrix.project }})
-    if: github.ref == 'refs/heads/main' && github.event.schedule != '17 4 * * 6' && !inputs.windows-soak
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night')
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: ${{ matrix.timeout }}
     env:
       VARVE_LONG_PROPERTIES: "1"
     strategy:
       fail-fast: false
       matrix:
         project: [Varve.Derivation.Tests, Varve.Shacl.Tests, Varve.Shacl.Sparql.Tests, Varve.Shacl.Store.Tests]
+        # The leg's limit, and its budget's (#219).
+        timeout: [300]
+        include:
+          # Every test of the project but REC M, which the rec-m job runs in
+          # shards (#219). A class or test added later runs here.
+          - project: Varve.Shacl.Store.Tests
+            filter: --filter-not-method Varve.Shacl.Store.Tests.RecGateTests.REC_M_standalone_commit_time_and_projection_agree_at_100_positions
 
     steps:
+      - name: Start the budget's clock
+        run: echo "VARVE_LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Line endings
         shell: bash
         run: git config --global core.autocrlf false
@@ -184,6 +228,7 @@ jobs:
           --configuration Release
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/${{ matrix.project }}
+          ${{ matrix.filter }}
 
       - name: Test durations
         if: always()
@@ -191,6 +236,8 @@ jobs:
           dotnet run eng/test-durations.cs --
           ${{ github.workspace }}/artifacts/test-results/${{ matrix.project }}
           --label "${{ matrix.project }}, long"
+          --started ${{ env.VARVE_LEG_STARTED }}
+          --timeout-minutes ${{ matrix.timeout }}
 
       - name: Upload the test results
         if: always()
@@ -200,18 +247,196 @@ jobs:
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
 
+  # REC M through the gate and the projection (ADR 0176), in shards (#219).
+  # Its time is the standalone validation it compares against, about four
+  # minutes a position at REC M's full size, at 100 positions: one leg took
+  # 143 to 251 minutes on the same code, by the runner it drew, and later
+  # nights were cancelled at 300. Each shard takes the whole history through
+  # the gate and the projection, as one leg did, and compares every shard-th
+  # of the 100 positions, so the shards together compare each once. The shards are the matrix's own jobs, numbered by the
+  # runner (strategy.job-index of strategy.job-total), so adding one to the
+  # list is the whole change; a test that is not this one runs in `long`.
+  rec-m:
+    name: long properties (Varve.Shacl.Store.Tests, REC M ${{ strategy.job-index }}/${{ strategy.job-total }})
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night')
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout }}
+    env:
+      VARVE_LONG_PROPERTIES: "1"
+      VARVE_REC_M_SHARD: ${{ strategy.job-index }}/${{ strategy.job-total }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # One entry a shard; the shard is the job's index, not this value.
+        shard: [0, 1, 2, 3]
+        # The leg's limit, and its budget's.
+        timeout: [300]
+
+    steps:
+      - name: Start the budget's clock
+        run: echo "VARVE_LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        # REC 4.1.0's shapes are vendored under testdata/rec; no submodule.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Test REC M, shard ${{ env.VARVE_REC_M_SHARD }}
+        run: >
+          dotnet test
+          --project tests/Varve.Shacl.Store.Tests/Varve.Shacl.Store.Tests.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/rec-m
+          --filter-method Varve.Shacl.Store.Tests.RecGateTests.REC_M_standalone_commit_time_and_projection_agree_at_100_positions
+
+      - name: Test durations
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/rec-m
+          --label "Varve.Shacl.Store.Tests, REC M shard ${{ env.VARVE_REC_M_SHARD }}"
+          --started ${{ env.VARVE_LEG_STARTED }}
+          --timeout-minutes ${{ matrix.timeout }}
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test-results-nightly-rec-m-${{ strategy.job-index }}
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
+
+  # The four-hour soak on Linux, every night (ADR 0215 point 6, amended
+  # 2026-11-02): a preview checks its latest run here instead of running it.
+  # About 245 minutes, inside the soak job's 340 (release-gate.yml).
+  linux-soak:
+    name: linux soak
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'linux soak')
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+    uses: ./.github/workflows/release-gate.yml
+    with:
+      ref: ${{ github.sha }}
+      faults: false
+      soak-os: ubuntu-latest
+      soak-minutes: 240
+      fresh-on-main: false
+
   windows-soak:
     name: windows soak
-    if: github.ref == 'refs/heads/main' && (github.event.schedule == '17 4 * * 6' || inputs.windows-soak)
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '17 4 * * 6' || inputs.run == 'windows soak')
     # What the called workflow's jobs ask for: a run whose called job asks for
     # more than its caller grants never starts.
     permissions:
       contents: read
       actions: read
+      issues: read
     uses: ./.github/workflows/release-gate.yml
     with:
       ref: ${{ github.sha }}
       faults: false
       soak-os: windows-latest
       soak-minutes: 240
-      windows-soak-fresh: false
+      fresh-on-main: false
+
+  # A soak that ran and did not hold opens one issue labelled soak, or
+  # comments on the one open, with its verdict, its run and the judge's
+  # output (ADR 0215, amended 2026-11-03). The verdict is the soak's
+  # verdict.txt: red when the judge missed, invalid when it could not judge;
+  # invalid too when there is none, because the soak crashed, was cancelled
+  # or timed out before its judge. A release that is not a preview is refused
+  # while the issue is open; a preview is not. always(), so that a soak
+  # cancelled with its run is reported as well; a soak that was skipped or
+  # held is not.
+  soak-issue:
+    name: soak issue
+    needs: [linux-soak, windows-soak]
+    if: >-
+      always() && github.ref == 'refs/heads/main' && (
+      needs.linux-soak.result == 'failure' || needs.linux-soak.result == 'cancelled' ||
+      needs.windows-soak.result == 'failure' || needs.windows-soak.result == 'cancelled')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+
+    steps:
+      - name: Open or update the soak issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LINUX: ${{ needs.linux-soak.result }}
+          WINDOWS: ${{ needs.windows-soak.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/soak-issue.md"
+          : > "$body"
+          verdicts=""
+          for leg in "ubuntu-latest Linux $LINUX" "windows-latest Windows $WINDOWS"; do
+            read -r os name result <<< "$leg"
+            if [ "$result" != "failure" ] && [ "$result" != "cancelled" ]; then
+              continue
+            fi
+            dir="$RUNNER_TEMP/soak-$os"
+            mkdir -p "$dir"
+            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" -n "soak-$os" -D "$dir" || echo "no soak-$os artefact in this run"
+            verdict=invalid
+            if [ -f "$dir/verdict.txt" ]; then
+              verdict=$(tr -d '[:space:]' < "$dir/verdict.txt")
+            fi
+            verdicts="$verdicts $name $verdict;"
+            {
+              echo "### The $name soak: $verdict"
+              echo
+              echo "- Run: $RUN_URL (the soak's job: $result)"
+              echo "- On: \`$GITHUB_SHA\`"
+              echo
+              if [ -f "$dir/judge.txt" ]; then
+                lines=$(wc -l < "$dir/judge.txt")
+                echo "The judge's output (\`judge.txt\` in the run's \`soak-$os\` artefact$([ "$lines" -gt 200 ] && echo ", its first 200 of $lines lines")):"
+                echo
+                echo '```text'
+                head -n 200 "$dir/judge.txt" | cut -c 1-400
+                echo '```'
+              else
+                echo "The judge did not run: the soak did not reach it. See the run's log."
+              fi
+              echo
+            } >> "$body"
+          done
+          echo "A release that is not a preview is refused while an issue labelled \`soak\` is open; a preview is informed and not refused (ADR 0215, amended 2026-11-03). Close this issue when the cause is fixed, or judged not to be a leak." >> "$body"
+          cat "$body" >> "$GITHUB_STEP_SUMMARY"
+          verdicts="${verdicts%;}"
+
+          if ! gh label list --repo "$GITHUB_REPOSITORY" --search soak --json name --jq '.[].name' | grep -qx soak; then
+            gh label create soak --repo "$GITHUB_REPOSITORY" --color B60205 \
+              --description "A soak on main was red or invalid (ADR 0215); a release that is not a preview waits on it"
+          fi
+
+          number=$(gh issue list --repo "$GITHUB_REPOSITORY" --label soak --state open --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --label soak \
+              --title "A soak on main is red or invalid:$verdicts" --body-file "$body"
+          fi

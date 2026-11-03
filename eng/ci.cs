@@ -112,10 +112,17 @@ List<(string Name, string Description, Func<int> Run)> jobs =
             ? Run("dotnet", ["run", "eng/dco.cs", "--", "--commits", "tests/fixtures/dco/passing.txt", "--identities", "tests/fixtures/dco/identities.json"])
             : 1),
 
-    // The release gate's refusal of a red or stale Windows soak, proven on
-    // every run (ADR 0215, tests/fixtures/soak-freshness/README.md).
-    ("soak-freshness-fixtures", "the Windows soak's freshness check passes and refuses its fixtures as their names say",
-        () => Run("dotnet", ["run", "eng/soak-freshness.cs", "--", "--fixtures", "tests/fixtures/soak-freshness"])),
+    // The format inventory against the code and its fixtures (ADR 0216,
+    // docs/formats/README.md), and the gate's own failure path.
+    ("formats", "the format inventory matches the version constants in the code, and every fixture under testdata/formats/ verifies",
+        () => Run("dotnet", ["run", "eng/formats.cs"])),
+    ("formats-fixtures", "the format gate passes and refuses its fixtures as their names say",
+        () => Run("dotnet", ["run", "eng/formats.cs", "--", "--fixtures", "tests/fixtures/formats"])),
+
+    // The release gate's refusal of stale or red evidence from main, preview and not, proven on
+    // every run (ADR 0215, tests/fixtures/release-freshness/README.md).
+    ("release-freshness-fixtures", "the release gate's freshness check, preview and not, passes and refuses its fixtures as their names say",
+        () => Run("dotnet", ["run", "eng/release-freshness.cs", "--", "--fixtures", "tests/fixtures/release-freshness"])),
 
     ("required-checks", "every check ruleset 1 requires is a job that reports on pull requests",
         () => Run("dotnet", ["run", "eng/required-checks.cs"])),

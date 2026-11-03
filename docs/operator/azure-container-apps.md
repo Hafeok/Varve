@@ -64,6 +64,12 @@ two apps on one container (ADRs 0163, 0168):
   assignment, on S3 a prefix-scoped policy. Whichever of #110 and #105 lands
   second reconciles this grant with the reader contract.
 
+**Its recovery is a restart.** When `varve-writer`'s replica fails,
+Container Apps restarts it, and writes are refused with `503` until it is
+back. Measured from the stop to the first write forwarded again, that is
+2.0–3.2 s plus the platform's own restart, where a warm standby's takeover
+is 0.3–0.9 s ([Restart or handover](fleet.md#restart-or-handover-choosing-the-layout)).
+
 Clients reach `varve`; a write costs one extra hop inside the environment.
 The internal address carries the caller's token, so it stays inside the
 environment's network, or is `https`. Datasets are not parameters of the
@@ -74,8 +80,9 @@ A new revision of `varve-writer` is a clean handover: it claims the epoch,
 the old revision is superseded, its `/health/ready` turns false
 (`superseded`), and it leaves the load balancer before it is stopped. While
 `varve-writer` is down, `varve` keeps serving reads under the grants it last
-applied, and answers writes `503 unavailable` with the reason
-`writer-unreachable`. Every claim is in the writer record:
+applied, and answers writes
+[`503 commit-outcome-unknown`](../problems/commit-outcome-unknown.md), since
+it cannot tell whether a write it forwarded arrived (ADR 0214). Every claim is in the writer record:
 
 ```sh
 varve lease https://{account}.blob.core.windows.net/datasets/people

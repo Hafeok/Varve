@@ -5,6 +5,7 @@
 // Test durations from a run's TRX.
 //
 //   dotnet run eng/test-durations.cs -- <trx-file-or-directory> [--top <n>] [--label <text>]
+//                                       [--started <unix-seconds> --timeout-minutes <n>]
 //
 // Writes the slowest tests of a run, and the classes that held the run's
 // parallel slots, to standard output and to the job summary. #126: the store
@@ -22,9 +23,16 @@
 // It reads every *.trx under a directory, so a step that writes several (a
 // re-run, a filter run twice) is read as one run.
 //
-// Exit codes: 0 written, 2 could not run. No TRX at all is reported and exits
-// 0: the step that should have written it has already failed, and a second red
-// step would say nothing new.
+// The budget (#219): with --started, the Unix time at which the leg's time
+// limit began counting, and --timeout-minutes, that limit, it also writes the
+// leg's elapsed time against the limit, and fails when the leg has used more
+// than 80% of it. A leg that creeps towards its limit is red, with the reason,
+// on the night it passes 80%, not cancelled without a word on the night it
+// passes 100%. The budget is judged whether or not a TRX was written.
+//
+// Exit codes: 0 written, 1 over budget, 2 could not run. No TRX at all is
+// reported and exits 0 (or 1 over budget): the step that should have written
+// it has already failed, and a second red step would say nothing new.
 //
 // See docs/testing.md, "How long the tests take".
 
@@ -43,6 +51,8 @@ if (args.Length == 0)
 string input = args[0];
 int top = 20;
 string? label = null;
+long? started = null;
+int? timeoutMinutes = null;
 for (int i = 1; i < args.Length - 1; i++)
 {
     switch (args[i])
@@ -53,6 +63,15 @@ for (int i = 1; i < args.Length - 1; i++)
         case "--label":
             label = args[i + 1];
             break;
+        case "--started" when long.TryParse(args[i + 1], NumberStyles.None, CultureInfo.InvariantCulture, out long at) && at > 0:
+            started = at;
+            break;
+        case "--timeout-minutes" when int.TryParse(args[i + 1], NumberStyles.None, CultureInfo.InvariantCulture, out int limit) && limit > 0:
+            timeoutMinutes = limit;
+            break;
+        case "--started" or "--timeout-minutes":
+            Console.Error.WriteLine($"{args[i]} takes a positive whole number, not '{args[i + 1]}'.");
+            return 2;
         default:
             break;
     }
@@ -68,11 +87,19 @@ var output = new StringBuilder();
 output.AppendLine(CultureInfo.InvariantCulture, $"### Test durations{(label is null ? "" : $" — {label}")}");
 output.AppendLine();
 
+if ((started is null) != (timeoutMinutes is null))
+{
+    Console.Error.WriteLine("--started and --timeout-minutes go together: the budget needs both.");
+    return 2;
+}
+
 if (files.Length == 0)
 {
     output.AppendLine(CultureInfo.InvariantCulture, $"No TRX under `{input}`: the test step did not write one.");
+    output.AppendLine();
+    bool overNoTrx = Budget(output);
     Emit(output.ToString());
-    return 0;
+    return overNoTrx ? 1 : 0;
 }
 
 var results = new List<Result>();
@@ -151,8 +178,37 @@ foreach (IGrouping<string, Result> group in results
         $"| {Cell(Short(group.Key))} | {group.Count()} | {Minutes(classBusy)} | {Offset(from)} | {Offset(to)} |");
 }
 
+output.AppendLine();
+bool over = Budget(output);
 Emit(output.ToString());
-return 0;
+return over ? 1 : 0;
+
+// The leg's elapsed time against 80% of its limit: whether it is over.
+bool Budget(StringBuilder text)
+{
+    if (started is not { } from || timeoutMinutes is not { } limit)
+    {
+        return false;
+    }
+
+    TimeSpan elapsed = DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeSeconds(from);
+    TimeSpan budget = TimeSpan.FromMinutes(limit * 0.8);
+    double share = elapsed.TotalMinutes / limit;
+    string leg = label ?? input;
+    text.AppendLine(CultureInfo.InvariantCulture,
+        $"Budget: {Minutes(elapsed)} of the {limit}-minute limit ({share * 100:0}%); 80% is {Minutes(budget)}.");
+    if (elapsed <= budget)
+    {
+        return false;
+    }
+
+    string message = string.Create(CultureInfo.InvariantCulture,
+        $"{leg} took {Minutes(elapsed)}, {share * 100:0}% of its {limit}-minute limit, past the 80% budget of {Minutes(budget)}. Find where the time went in the tables above, then make the slow tests cheaper or shard the leg (docs/testing.md section 8, #219); never lower an iteration count to fit the clock.");
+    text.AppendLine();
+    text.AppendLine("**Over budget.** " + message);
+    Console.WriteLine("::error title=Over the time budget::" + message);
+    return true;
+}
 
 string Offset(DateTimeOffset? at) =>
     at is { } value && runStart is { } origin

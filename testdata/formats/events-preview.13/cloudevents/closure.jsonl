@@ -1,0 +1,1 @@
+{"data":{"carrier":"Post"},"datacontenttype":"application/json","dataschema":"https://varve.example.org/datasets/orders/events/types/Shipped/versions/1/revisions/1","id":"2 https://example.org/s/1","sequence":"00000000000000000002.000000","source":"https://varve.example.org/datasets/orders","specversion":"1.0","time":"2026-10-15T12:00:02.0000000Z","type":"Shipped"}

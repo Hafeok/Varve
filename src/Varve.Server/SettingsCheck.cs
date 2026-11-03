@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
+using System.Linq;
 using System.Net;
 using Microsoft.Extensions.Configuration;
 
@@ -28,9 +29,9 @@ internal static class SettingsCheck
     internal static ImmutableArray<string> KnownKeys { get; } =
     [
         "DatasetsRoot",
-        "Fleet:Writer", "Fleet:InternalUrl", "Fleet:FollowInterval", "Fleet:AllowedLag",
+        "Fleet:Writer", "Fleet:AutomaticHandover", "Fleet:InternalUrl", "Fleet:FollowInterval", "Fleet:AllowedLag",
         "Manage:BootstrapOperators:*", "Manage:Urls",
-        "ObjectStorage:Provider", "ObjectStorage:ContainerUrl", "ObjectStorage:Endpoint", "ObjectStorage:Bucket", "ObjectStorage:Region",
+        "ObjectStorage:Provider", "ObjectStorage:ContainerUrl", "ObjectStorage:Endpoint", "ObjectStorage:Bucket", "ObjectStorage:Region", "ObjectStorage:StsEndpoint",
         "ObjectStorage:CachePath", "ObjectStorage:CacheBytes", "ObjectStorage:Instance", "ObjectStorage:ReaderId",
         "Auth:Mode", "Auth:Authority", "Auth:Audiences:*", "Auth:SubjectClaim", "Auth:ApplicationClaim", "Auth:RoleClaimType", "Auth:RequireHttpsMetadata", "Auth:Production",
         "Auth:Management:Audience",
@@ -44,7 +45,7 @@ internal static class SettingsCheck
         "Telemetry:QueryText",
         "Cors:AllowedOrigins:*", "Cors:MaxAge",
         "Store:GroupCommit:MaxRecords", "Store:GroupCommit:MaxBytes",
-        "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes",
+        "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes", "Store:MemtableLimit",
         "Events:Source", "Events:EventHubs:Host", "Events:EventHubs:Hub",
     ];
 
@@ -247,6 +248,11 @@ internal static class SettingsCheck
             errors.Add("Varve:Store:ExtentMerges: FanOut is 2 to 16, and MaxSetBytes 1 MiB or more (ADR 0159).");
         }
 
+        if (settings.Store.MemtableLimit < 1)
+        {
+            errors.Add("Varve:Store:MemtableLimit is at least 1: the memtable's bound in entries, a quad or a new term each (ADR 0070).");
+        }
+
         // The follower's record is the id with "-follower" (ObjectStores), so
         // that one must be valid too.
         if (settings.ObjectStorage.ReaderId is { } reader && !Varve.Store.Log.ReaderId.IsValid(reader + "-follower"))
@@ -333,6 +339,22 @@ internal static class SettingsCheck
         if (fleet.Writer is { } writer && (writer.Length == 0 || writer.AsSpan().IndexOfAny(" \t\r\n") >= 0))
         {
             errors.Add("Varve:Fleet:Writer is true, false, or an instance name.");
+        }
+
+        if (fleet.Writer is { } list && list.Contains(',', StringComparison.Ordinal) && !fleet.AutomaticHandover)
+        {
+            errors.Add("Varve:Fleet:Writer names one instance unless Varve:Fleet:AutomaticHandover is true; then it is the system dataset's writer set, the preferred writer first (ADR 0179 point 13).");
+        }
+
+        if (fleet.AutomaticHandover && fleet.WriterSet is { } set
+            && (set.Count == 0 || set.Any(name => string.Equals(name, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(name, "false", StringComparison.OrdinalIgnoreCase)) || set.Distinct(StringComparer.Ordinal).Count() != set.Count))
+        {
+            errors.Add("Varve:Fleet:Writer, with Varve:Fleet:AutomaticHandover true, is the system dataset's writer set: distinct instance names separated by commas, the preferred writer first (ADR 0179 point 13).");
+        }
+
+        if (fleet.AutomaticHandover && fleet.WriterSet is null)
+        {
+            errors.Add("Varve:Fleet:AutomaticHandover needs Varve:Fleet:Writer to name the system dataset's writer set (ADR 0179 point 13).");
         }
 
         if (fleet.InternalUrl is { } url
@@ -461,6 +483,12 @@ internal static class SettingsCheck
                 if (string.IsNullOrWhiteSpace(store.Region))
                 {
                     errors.Add("Varve:ObjectStorage:Region names the region the signature is for.");
+                }
+
+                if (store.StsEndpoint is { Length: > 0 } sts
+                    && (!Uri.TryCreate(sts, UriKind.Absolute, out Uri? stsUri) || !SecureOrLoopback(stsUri) || stsUri.Query.Length > 0 || stsUri.UserInfo.Length > 0))
+                {
+                    errors.Add("Varve:ObjectStorage:StsEndpoint is the STS endpoint's absolute https address, with no query or user information (http only on loopback; ADR 0137).");
                 }
 
                 break;

@@ -39,9 +39,15 @@ public sealed class DatasetOptions
     public IReadOnlyList<ICommitValidator> Validators { get; init; } = [];
 
     /// <summary>
-    /// How many quads, asserted and retracted, the default projection holds in
-    /// memory before maintenance writes them to <c>derived/</c> as a run
-    /// (ADR 0070). Below it, opening replays them from the log.
+    /// How much the default projection holds in memory before maintenance
+    /// writes it to <c>derived/</c> as a run (ADR 0070); below it, opening
+    /// replays it from the log. It is counted in **memtable entries**: one
+    /// per quad asserted or retracted, and one per term the memtable's
+    /// dictionary adds. Measured on .NET 10, an entry holds about 215 bytes
+    /// for a quad's six order keys and about 90 for a short term, so the
+    /// default of 1,000,000 is roughly 100 to 220 MiB. A follower is opened
+    /// again once its memtable has grown by this much since it opened (ADR
+    /// 0164 point 5), so it bounds a follower's memory too.
     /// </summary>
     public QuadCount MemtableLimit { get; init; } = new(1_000_000);
 
@@ -112,6 +118,16 @@ public sealed class DatasetOptions
 
     /// <summary>Test seam: throws from the default projection at the positions it returns true for.</summary>
     internal Func<long, bool>? DefaultProjectionFault { get; set; }
+
+    /// <summary>Test seam: true fails the next spill of the memtable to a local run, as a failing disk would.</summary>
+    internal Func<bool>? SpillFault { get; set; }
+
+    /// <summary>
+    /// Test seam: whether the process's memory load has reached the GC's
+    /// high-load threshold; unset, the GC's own measure, which respects a
+    /// container's memory limit (ADR 0179 point 6).
+    /// </summary>
+    internal Func<bool>? MemoryLoadHigh { get; set; }
 }
 
 /// <summary>
@@ -145,6 +161,10 @@ public sealed partial class Dataset : IAsyncDisposable
     private TaskCompletionSource _headAdvanced = NewSignal();
     private volatile State _state;
     private string? _broken;
+
+    // Set when a batch's append failed against the storage (ADR 0124 point 3).
+    private volatile bool _appendFailed;
+    private volatile string? _steppedDown;
     private volatile bool _disposing;
 
     // An append failed, so the writer's idea of the log's tail is not to be
@@ -203,6 +223,32 @@ public sealed partial class Dataset : IAsyncDisposable
     public bool IsFailed => _state.Failed is not null;
 
     /// <summary>
+    /// Whether a batch's append failed against the storage, with its retries
+    /// spent, so that the writer refuses every later commit until the dataset
+    /// is opened again (ADR 0124 point 3). A host whose dataset has a standby
+    /// releases the writer epoch then, for <c>storage-error</c>, so that the
+    /// standby need not wait for the re-open (ADR 0179 point 6).
+    /// </summary>
+    public bool AppendFailed => _appendFailed;
+
+    /// <summary>
+    /// Steps the writer down for <paramref name="reason"/>, as its host does
+    /// when it releases the writer epoch (ADR 0179 point 6): every commit not
+    /// yet appended, queued or later, is refused with
+    /// <see cref="WriterSteppedDownException"/>, and nothing in it is written.
+    /// A batch already being appended finishes. Reads go on.
+    /// </summary>
+    /// <param name="reason">The release reason as the writer record names it.</param>
+    public void StepDown(string reason)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(reason);
+        _steppedDown = reason;
+    }
+
+    /// <summary>Why the writer stepped down, or null while it commits (<see cref="StepDown"/>).</summary>
+    public string? SteppedDown => _steppedDown;
+
+    /// <summary>
     /// The position the default projection has applied (spec §7): the head,
     /// since a commit's records and its projection are one step of the
     /// sequencer, except where the projection failed and the head went on
@@ -227,6 +273,8 @@ public sealed partial class Dataset : IAsyncDisposable
 
     /// <summary>Test seam: the storage the dataset was opened on.</summary>
     internal IStorage StorageForTests() => _storage;
+
+    internal long MemtableForTests() => _state.Index.MemtableCount;
 
     /// <summary>Test seam: the bytes of the log's records after <paramref name="from"/> up to <paramref name="to"/>.</summary>
     internal long LogBytesBetween(long from, long to) => _state.LogBytesAt(to) - _state.LogBytesAt(from);

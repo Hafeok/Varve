@@ -30,6 +30,20 @@ internal sealed class S3Server(string leg, string variable)
     /// <summary>A fresh bucket on the server, and the store over it.</summary>
     public async Task<S3ObjectStore> BucketAsync()
     {
+        (Uri endpoint, S3Bucket bucket, S3DevelopmentKey key) = await NewBucketAsync();
+
+        return S3ObjectStore.Create(new S3ObjectStoreOptions
+        {
+            Endpoint = endpoint,
+            Bucket = bucket,
+            DevelopmentKey = key,
+            Clock = TimeProvider.System,
+        });
+    }
+
+    /// <summary>A fresh bucket on the server, made with its test key.</summary>
+    public async Task<(Uri Endpoint, S3Bucket Bucket, S3DevelopmentKey Key)> NewBucketAsync()
+    {
         string[] parts = ServiceLegs.Require(leg, variable).Split(',');
         Uri endpoint = new(parts[0]);
         S3Bucket bucket = new(ServiceLegs.Run());
@@ -42,13 +56,7 @@ internal sealed class S3Server(string leg, string variable)
             Assert.True(response.IsSuccessStatusCode, leg + " refused CreateBucket with " + (int)response.StatusCode + ": " + await response.Content.ReadAsStringAsync(T.Ct));
         }
 
-        return S3ObjectStore.Create(new S3ObjectStoreOptions
-        {
-            Endpoint = endpoint,
-            Bucket = bucket,
-            DevelopmentKey = new S3DevelopmentKey(parts[1], parts[2]),
-            Clock = TimeProvider.System,
-        });
+        return (endpoint, bucket, new S3DevelopmentKey(parts[1], parts[2]));
     }
 }
 

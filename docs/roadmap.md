@@ -947,6 +947,16 @@ targets the management route. Moved into 1.0 by the maintainer on
 loss with more than restoring a copy. The 1.0 definition's "No replication"
 exclusion is removed by an amendment to #15 and the roadmap's 1.0 section.
 
+**Part 1, within a store (#165), shipped in `v0.1.0-preview.16`** (ADRs
+0179–0181). It has tier-1 followers completed, writer handover by abdication
+or a takeover request, warm standbys and the writer set, the automation on
+Kubernetes and Azure, and active-active by dataset within one store. Handover
+is tested over generated schedules of triggers, partitions and concurrent
+candidates. A takeover took 0.3–0.9 s where a restart took 2.0–3.2 s.
+**Part 2, across copies (#166)**, holds `varve storage verify` and the
+compatibility page (#117), tier 3 log shipping, promotion with its rehearsal,
+tier 2 geo-replication, and active-active across copies.
+
 ## 9 — Erasure mode and row-level access
 
 As issue #14 states, together with row-level access through the erasure

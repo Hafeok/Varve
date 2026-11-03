@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Store.Log;
 using Varve.Store.ObjectStorage.Model;
 
@@ -28,7 +30,9 @@ internal static class ReaderRecordFormat
     {
         ArrayBufferWriter<byte> buffer = new();
 
-        using (Utf8JsonWriter json = new(buffer, new JsonWriterOptions { Indented = true }))
+        // One line ending on every platform: the record's bytes are its format's, not
+        // the OS's (ADR 0216). Indented JSON otherwise takes Environment.NewLine.
+        using (Utf8JsonWriter json = new(buffer, new JsonWriterOptions { Indented = true, NewLine = "\n" }))
         {
             json.WriteStartObject();
             json.WriteNumber("format", Version);
@@ -58,6 +62,7 @@ internal static class ReaderRecordFormat
     }
 
     /// <summary>A record's bytes as the deletion rule reads them: one that does not read holds everything.</summary>
+    [DesignDecision(typeof(CoordinationRecordsReadConservatively.AReaderRecordOfAnUnknownFormatHoldsEverything), Scope = ExceptionScope.Boundary)]
     public static ReaderRecord Read(ReaderId name, ReadOnlySpan<byte> bytes)
     {
         try

@@ -1,0 +1,94 @@
+# The handover controller (ADR 0181 point 8): Varve's own image running
+# `varve manage watch-kubernetes`. It watches the fleet's pods through the API
+# server, with its service account's token and no timer, and when one's Ready
+# condition turns False after kubelet's failureThreshold, it takes over from
+# that pod over the others, as `varve manage takeover --from` does, with the
+# operator role by workload identity. A late, duplicated or false trigger is a
+# no-op (ADR 0181 point 2). Replace each {…}.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: varve-handover
+  namespace: varve
+  annotations:
+    # Federated with the operator's identity: its token is exchanged at the
+    # identity provider for the operator role on the management audience.
+    azure.workload.identity/client-id: "{operatorClientId}"
+---
+# The controller may read and watch the fleet's pods in this namespace, and
+# nothing else in the cluster.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: varve-handover
+  namespace: varve
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: varve-handover
+  namespace: varve
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: varve-handover
+subjects:
+  - kind: ServiceAccount
+    name: varve-handover
+    namespace: varve
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: varve-handover
+  namespace: varve
+spec:
+  # One watcher: a second would send each takeover twice, which is safe but
+  # pointless (ADR 0181 point 2).
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: varve-handover
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: varve-handover
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: varve-handover
+      containers:
+        - name: watch
+          image: ghcr.io/hafeok/varve@sha256:{digest}
+          args:
+            - manage
+            - watch-kubernetes
+            - --selector
+            - app.kubernetes.io/name=varve
+            - --address
+            - "http://{pod}.varve-headless.varve.svc.cluster.local:8080"
+            - --authority
+            - "https://login.microsoftonline.com/{tenant}/v2.0"
+            - --client-id
+            - "{operatorClientId}"
+            - --client-assertion
+            - /var/run/secrets/azure/tokens/azure-identity-token
+            - --scope
+            - "api://varve-manage/.default"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]

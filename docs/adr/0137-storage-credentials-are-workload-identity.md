@@ -8,6 +8,11 @@ by the maintainer on the Object storage plan, 2026-10-15: three Azure token
 sources and no others; for an S3-compatible store web identity plus the
 loopback key, and nothing else; no key file on a private network.
 
+**Amended 2026-10-27** (ADR 0068), by Replication part 1 (#165), unaccepted
+until the maintainer accepts it (ADR 0066): the server names a self-hosted
+store's STS endpoint, and RustFS in CI is reached by web identity; see the
+end.
+
 ## Context
 
 ADR 0037 refuses API keys for Varve's callers, permanently: a key is a
@@ -114,3 +119,51 @@ one.
   `Varve.Store.S3`, layer 5. Validation: `Varve.Server`, layer 6.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-27 — a self-hosted store's STS, and RustFS by web identity
+
+Filed by Replication part 1 (#165), unaccepted until the maintainer accepts
+it (ADR 0066). It adds a setting under the ruling `S3WebIdentityOnly` and no
+ruling of its own; no ruling of this ADR changes.
+
+- **Decision 4 said "the server's own [STS] for a self-hosted one", and the
+  server could not name it.** `S3ObjectStoreOptions.StsEndpoint` existed, but
+  the server built its options without it, so a server process could
+  exchange web identity only at `sts.amazonaws.com`. It now reads
+  `Varve:ObjectStorage:StsEndpoint`, and `varve lease`, `varve storage` and
+  the read commands take `--sts-endpoint`.
+  - The address is `https`, or `http` only on loopback, with no query and
+    no user information, as for the endpoint; anything else refuses the
+    start (exit 2, ADR 0115).
+  - Unset, it is Amazon's, as before.
+- **The server process takes no key, loopback included.** The Consequences
+  above say its settings hold "on loopback an S3 test key". As built, they
+  never have: the key is a library option, `S3DevelopmentKey`, which tests use
+  to make their buckets and which no server setting reaches. This amendment
+  records that and keeps it: what a server process does with a store, it does
+  by the workload's identity.
+- **RustFS in CI is reached by web identity.** RustFS implements
+  `AssumeRoleWithWebIdentity` at its root. The storage compose starts a
+  mock-oauth2-server beside it as the OIDC provider RustFS trusts. RustFS
+  maps the token's `groups` claim to its `readwrite` policy, and checks the
+  audience against the client id it was configured with.
+  - The object-store contract, its race properties included, runs on RustFS a
+    second time signed only with the temporary credentials RustFS's STS
+    returns (`RustFsWebIdentityObjectStoreContractTests`).
+  - The fleet's server processes run on a RustFS bucket as they do on Azurite
+    (`RustFsFleetTests`). That makes true what ADRs 0163 and 0168 list in their
+    gates, and what preview.13's known issue said was missing.
+  - A forged token is refused by RustFS's STS with `403`, which the adapter
+    reports as an `IOException` naming this ADR.
+- **What RustFS 1.0 needs**, stated in `.github/storage/compose.yaml` and
+  learned from the spike:
+  - the issuer is discovered once, at start, so RustFS waits for it to be
+    healthy;
+  - a private-address issuer must be listed in `RUSTFS_OUTBOUND_ALLOW_ORIGINS`
+    (rustfs/rustfs#8023);
+  - the token's issuer must be the address RustFS discovered, so the tests ask
+    the issuer for the token under that host;
+  - RustFS reads no role ARN; `AWS_ROLE_ARN` still names one, unsecret,
+    because the adapter takes the pair from the environment.
+
+**The ledger.** No ruling is added; the setting serves `S3WebIdentityOnly`.

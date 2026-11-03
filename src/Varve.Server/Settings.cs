@@ -104,6 +104,13 @@ internal sealed class StoreSettings
     public GroupCommitSettings GroupCommit { get; set; } = new();
 
     public ExtentMergeSettings ExtentMerges { get; set; } = new();
+
+    /// <summary>
+    /// The memtable's bound, in entries: a quad or a new term each (ADR 0070).
+    /// It bounds a writer's memory before a spill, and a follower's before it
+    /// is opened again (ADR 0164 point 5).
+    /// </summary>
+    public long MemtableLimit { get; set; } = 1_000_000;
 }
 
 /// <summary>
@@ -208,6 +215,18 @@ internal sealed class FleetSettings
     /// </summary>
     public string? Writer { get; set; }
 
+    /// <summary>
+    /// Whether the system dataset hands over (ADR 0179 point 13): then
+    /// <see cref="Writer"/> is its writer set, instance names separated by
+    /// commas, the preferred writer first and its standbys after it.
+    /// </summary>
+    public bool AutomaticHandover { get; set; }
+
+    /// <summary>The system dataset's writer set under automatic handover, the preferred writer first; none without it.</summary>
+    internal IReadOnlyList<string>? WriterSet => AutomaticHandover && Writer is { Length: > 0 } names
+        ? names.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+        : null;
+
     /// <summary>The address other instances forward writes to, recorded at claim; required on an instance that may claim in an object-store fleet.</summary>
     public string? InternalUrl { get; set; }
 
@@ -249,6 +268,12 @@ internal sealed class ObjectStorageSettings
 
     /// <summary>S3-compatible: the region the signature names.</summary>
     public string? Region { get; set; }
+
+    /// <summary>
+    /// S3-compatible: the STS endpoint the workload's web identity is
+    /// exchanged at, a self-hosted server's own; Amazon's when unset (ADR 0137).
+    /// </summary>
+    public string? StsEndpoint { get; set; }
 
     /// <summary>The local directory datasets cache in, a directory per dataset under it.</summary>
     public string? CachePath { get; set; }
