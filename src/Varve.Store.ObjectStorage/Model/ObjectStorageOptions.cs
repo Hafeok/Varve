@@ -10,6 +10,9 @@ namespace Varve.Store.ObjectStorage.Model;
 /// <summary>How to open a dataset in an object store.</summary>
 public sealed class ObjectStorageOptions
 {
+    /// <summary>A test's seam: fails a local cache's next write when it answers true (#146).</summary>
+    internal System.Func<LocalCache, bool>? CacheFault { get; init; }
+
     /// <summary>The object store: an adapter for one provider (ADR 0134).</summary>
     public required IObjectStore Store { get; init; }
 

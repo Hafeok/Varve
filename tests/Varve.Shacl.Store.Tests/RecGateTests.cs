@@ -84,7 +84,14 @@ public class RecGateTests
         TestContext.Current.SendDiagnosticMessage($"REC S: {last} commits through the gate and the projection, {compared} positions compared, in {elapsed.TotalSeconds:F1} s, {comparing.TotalSeconds:F1} s of it comparing");
     }
 
-    /// <summary>REC M, long only: 100 positions spread over the history, the last among them.</summary>
+    /// <summary>
+    /// REC M, long only: 100 positions spread over the history, the last
+    /// among them. Every run takes the whole history through the gate and
+    /// the projection; <c>VARVE_REC_M_SHARD</c>, <c>k/n</c> with
+    /// <c>0 ≤ k &lt; n</c>, compares only the <c>i</c>th of the 100 positions
+    /// with <c>i mod n = k</c>, so that <c>n</c> runs side by side compare
+    /// each position once (#219). Unset, one run compares all 100.
+    /// </summary>
     [Fact]
     public async Task REC_M_standalone_commit_time_and_projection_agree_at_100_positions()
     {
@@ -93,15 +100,71 @@ public class RecGateTests
             Assert.Skip("REC M through the gate and the projection: set VARVE_LONG_PROPERTIES.");
         }
 
+        (int shard, int shards) = Shard(Environment.GetEnvironmentVariable("VARVE_REC_M_SHARD"));
         long last = RecPortfolio.Shape(RecSize.M).Commits + 1;
-        HashSet<long> positions = [last];
-        for (int i = 1; i < 100; i++)
+        HashSet<long> positions = RecMPositions(shard, shards);
+        (int compared, TimeSpan elapsed, TimeSpan comparing) = await RunAsync(RecSize.M, positions.Contains, TestContext.Current.CancellationToken);
+        Assert.Equal(positions.Count, compared);
+        TestContext.Current.SendDiagnosticMessage($"REC M, shard {shard}/{shards}: {last} commits through the gate and the projection, {compared} positions compared, in {elapsed.TotalSeconds:F1} s, {comparing.TotalSeconds:F1} s of it comparing");
+    }
+
+    /// <summary>The shards of REC M's 100 positions are disjoint and together are all of them, whatever their number.</summary>
+    [Fact]
+    public void The_REC_M_shards_compare_each_of_the_100_positions_once()
+    {
+        HashSet<long> all = RecMPositions(0, 1);
+        Assert.Equal(100, all.Count);
+        Assert.Contains(RecPortfolio.Shape(RecSize.M).Commits + 1L, all);
+        for (int shards = 1; shards <= 12; shards++)
         {
-            positions.Add(Math.Max(2, last * i / 100));
+            List<long> union = [];
+            for (int shard = 0; shard < shards; shard++)
+            {
+                union.AddRange(RecMPositions(shard, shards));
+            }
+
+            Assert.Equal(all.Order(), union.Order());
         }
 
-        (int compared, TimeSpan elapsed, TimeSpan comparing) = await RunAsync(RecSize.M, positions.Contains, TestContext.Current.CancellationToken);
-        TestContext.Current.SendDiagnosticMessage($"REC M: {last} commits through the gate and the projection, {compared} positions compared, in {elapsed.TotalSeconds:F1} s, {comparing.TotalSeconds:F1} s of it comparing");
+        Assert.Equal((0, 1), Shard(null));
+        Assert.Equal((2, 4), Shard("2/4"));
+    }
+
+    /// <summary>The <c>i</c>th of REC M's 100 positions, spread over the history and the last among them, for each <c>i mod shards = shard</c>.</summary>
+    internal static HashSet<long> RecMPositions(int shard, int shards)
+    {
+        long last = RecPortfolio.Shape(RecSize.M).Commits + 1;
+        HashSet<long> positions = [];
+        for (int i = 1; i <= 100; i++)
+        {
+            if (i % shards == shard)
+            {
+                positions.Add(i == 100 ? last : Math.Max(2, last * i / 100));
+            }
+        }
+
+        return positions;
+    }
+
+    /// <summary>
+    /// <c>k/n</c>, the shard of REC M's positions a run compares: all of
+    /// them, 0/1, when unset; a value that does not read is a failure, never
+    /// a run that compares nothing.
+    /// </summary>
+    internal static (int Shard, int Shards) Shard(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return (0, 1);
+        }
+
+        string[] parts = value.Split('/');
+        int shard = -1, shards = 0;
+        bool read = parts.Length == 2
+            && int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out shard)
+            && int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out shards);
+        Assert.True(read && shards is >= 1 and <= 100 && shard < shards, "VARVE_REC_M_SHARD is k/n with 0 <= k < n <= 100, not '" + value + "'.");
+        return (shard, shards);
     }
 
     /// <summary>

@@ -285,6 +285,10 @@ public sealed partial class Dataset
                     // waits for a reopen (ADR 0124 point 3).
                     _broken = "An append failed; reopen the dataset to recover: " + error.Message;
 
+                    // A writer whose append failed, and not because it was
+                    // superseded, abdicates for storage-error (ADR 0179).
+                    _appendFailed = error is not WriterSupersededException;
+
                     foreach (Member member in members)
                     {
                         member.Pending.Answer.TrySetException(member.Error ?? error);
@@ -294,7 +298,12 @@ public sealed partial class Dataset
                 }
 
                 bool full = StorageSpace.IsFull(error);
-                AppendFailed(error);
+                RecordAppendFailure(error);
+
+                // A full disk recovers in place at the next write; any other
+                // failed append waits for a reopen, and its writer abdicates
+                // for storage-error (ADR 0179).
+                _appendFailed = !full;
 
                 // Each member is answered by the log, before anyone is (ADR
                 // 0214 point 2): committed when closed and flushed; not known
@@ -357,6 +366,7 @@ public sealed partial class Dataset
 
             _state = new State(staging.Head, commits, staging.Index, state.Checkpoints, staging.Failed, staging.Graphs);
             Signal();
+            CheckSpillBound(staging.Index);
 
             if (staging.Failed is null && MaintenanceDue(_state))
             {
@@ -436,7 +446,7 @@ public sealed partial class Dataset
     // An append, or a bulk load's, failed. On a full disk the writer is
     // suspect until the next write recovers it; any other failure waits for
     // a reopen (ADR 0124 point 3).
-    private void AppendFailed(Exception error)
+    private void RecordAppendFailure(Exception error)
     {
         _storageFull = StorageSpace.IsFull(error);
         _broken = _storageFull ? NoSpaceReason : "An append failed; reopen the dataset to recover: " + error.Message;
@@ -530,6 +540,13 @@ public sealed partial class Dataset
         CommitKind kind = pending.Kind;
         CommitRequestBuilder? request = pending.Request;
         CommitMetadata metadata = pending.Metadata;
+
+        // A writer that stepped down appends nothing more (ADR 0179 point 6);
+        // thrown, it answers this commit alone, with nothing staged.
+        if (_steppedDown is { } reason)
+        {
+            throw new WriterSteppedDownException(reason, "The writer released the dataset for " + reason + " and commits nothing more; send the write again.");
+        }
 
         if (_disposing)
         {

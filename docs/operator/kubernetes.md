@@ -89,3 +89,39 @@ changing it moves the writer with no restart ([The fleet](fleet.md#who-writes-a-
 
 When `varve-0` restarts, management writes are unavailable until it is back;
 reads, and data writes to the datasets other pods write, go on.
+
+## Handover: the sample in `deploy/kubernetes/`
+
+[`deploy/kubernetes/`](../../deploy/kubernetes/) is the sketch above made
+whole, with handover (ADRs 0179–0181). CI validates both files with
+kubeconform, strict, against Kubernetes 1.34.
+
+- **`fleet.yaml`.** Every pod is a member of the system dataset's writer
+  set, `Varve:Fleet:Writer: varve-0,varve-1,varve-2`, with
+  `Varve:Fleet:AutomaticHandover: true`. Declare datasets with `placedOn` and
+  `standbyOn` among the pods ([The fleet](fleet.md#standbys-a-writer-set)).
+  A rolling restart then moves each writer to its warm standby: the stopping
+  pod releases for shutdown, in its termination grace.
+- **`handover.yaml`.** A crashed, hung or partitioned writer releases
+  nothing, so a controller turns kubelet's verdict into a takeover. It is
+  Varve's own image, running `varve manage watch-kubernetes`:
+  - **It watches the fleet's pods** through the API server, by their label
+    selector, with its service account's token. It keeps no timer of its
+    own. When a pod's `Ready` turns from `True` to anything else, after the
+    readiness probe's `failureThreshold`, it takes over from that pod over
+    the others' addresses. A pod deleted while ready counts too; a pod
+    first seen not ready, or one that only turns ready, does not.
+  - **The takeover is `varve manage takeover`'s**, in the same process
+    ([The fleet](fleet.md#taking-over-from-a-failed-writer)). A late or
+    duplicated trigger, or one for a pod whose writer already moved by
+    abdication, finds nothing to do.
+  - **Its identity** is the `varve-handover` service account. In the
+    cluster it may `get`, `list` and `watch` pods in the namespace, and
+    nothing else. Its federated token is exchanged at the identity provider
+    for the operator role on the management audience.
+  - **A watch the API server ends** is opened again from the last version
+    seen; one it refuses as too old (`410`) starts from a fresh list. A
+    watch that fails is opened again after two seconds.
+
+Replace each `{…}`: the image digest, the storage account, the tenant, and
+the client ids of the store's and the operator's identities.

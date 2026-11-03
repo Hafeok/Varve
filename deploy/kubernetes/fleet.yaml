@@ -1,0 +1,143 @@
+# A Varve fleet on Kubernetes with handover (ADRs 0163, 0168, 0179, 0180,
+# 0181; docs/operator/kubernetes.md). Three pods, each one instance, all
+# members of the system dataset's writer set; datasets name their placedOn
+# and standbyOn among varve-0, varve-1 and varve-2. Replace each {…}.
+# kubeconform validates this file in CI (ADR 0181 point 8).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: varve
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: varve
+  namespace: varve
+  annotations:
+    # Federated with the store's identity: no key (ADR 0137).
+    azure.workload.identity/client-id: "{storeClientId}"
+---
+# Each pod's own address, its Varve:Fleet:InternalUrl. It carries callers'
+# tokens: keep it inside the cluster network, or serve it over TLS.
+apiVersion: v1
+kind: Service
+metadata:
+  name: varve-headless
+  namespace: varve
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: varve
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+# Clients, spread over every pod; any pod accepts a write and forwards it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: varve
+  namespace: varve
+spec:
+  selector:
+    app.kubernetes.io/name: varve
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: varve
+  namespace: varve
+spec:
+  serviceName: varve-headless
+  replicas: 3
+  # A rolling restart moves each writer to its warm standby: the stopping pod
+  # releases for shutdown (ADR 0179 point 5).
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: varve
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: varve
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: varve
+      # The shutdown release runs in the stop's grace.
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: varve
+          image: ghcr.io/hafeok/varve@sha256:{digest}
+          args: [serve]
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: VARVE__OBJECTSTORAGE__INSTANCE
+              value: "$(POD_NAME)"
+            # The system dataset's writer set, preferred writer first (ADR 0180).
+            - name: VARVE__FLEET__WRITER
+              value: "varve-0,varve-1,varve-2"
+            - name: VARVE__FLEET__AUTOMATICHANDOVER
+              value: "true"
+            - name: VARVE__FLEET__INTERNALURL
+              value: "http://$(POD_NAME).varve-headless.varve.svc.cluster.local:8080"
+            - name: VARVE__OBJECTSTORAGE__PROVIDER
+              value: Azure
+            - name: VARVE__OBJECTSTORAGE__CONTAINERURL
+              value: "https://{account}.blob.core.windows.net/datasets"
+            - name: VARVE__OBJECTSTORAGE__CACHEPATH
+              value: /var/cache/varve
+            - name: VARVE__AUTH__MODE
+              value: Oidc
+            - name: VARVE__AUTH__AUTHORITY
+              value: "https://login.microsoftonline.com/{tenant}/v2.0"
+            - name: VARVE__AUTH__AUDIENCES__0
+              value: "api://varve"
+            - name: VARVE__AUTH__MANAGEMENT__AUDIENCE
+              value: "api://varve-manage"
+            - name: VARVE__AUTH__PRODUCTION
+              value: "true"
+            - name: VARVE__MANAGE__BOOTSTRAPOPERATORS__0
+              value: Varve.Operator
+          # The orchestrator judges liveness, never Varve (ADR 0181 point 1):
+          # not ready while opening, behind, failed, superseded or draining.
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            periodSeconds: 10
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            periodSeconds: 5
+            failureThreshold: 60
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              memory: 2Gi
+          volumeMounts:
+            - name: cache
+              mountPath: /var/cache/varve
+      volumes:
+        # The page cache and the local derived data: rebuilt from the store.
+        - name: cache
+          emptyDir: {}

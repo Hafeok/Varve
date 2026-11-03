@@ -342,3 +342,19 @@ it to the writer of its dataset (ADR 0168).
   - `Varve.Server` (6): the fleet, the configuration, the composition.
 - **Analyzer rule.** None new.
 - **Open questions owned.** None. Event schemas are ADR 0167's (part 2).
+
+## Amendment, 2026-10-27 — the writer set's start rule and placement events; readiness
+
+Filed by Replication part 1 (#165), unaccepted until the maintainer accepts
+it (ADR 0066). Ruled in [ADR 0180](0180-warm-standbys-and-the-writer-set.md).
+
+- **Point 12, for a dataset with a writer set** (`varve:standbyOn`, which needs
+  `varve:automaticHandover true`):
+  - placement is acted on as a change between consecutive declarations, never
+    as a state;
+  - at start, a member claims only an empty or released record when it is the
+    preferred writer, a record it holds itself, or one a non-member holds.
+
+  Every other dataset keeps point 12 unchanged.
+- **Point 13.** A dataset entry gains `position`, and for a standby `tailing`
+  and `warm`. `role` may be `standby`. A standby that is not warm stays ready.

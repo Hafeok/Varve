@@ -1,17 +1,29 @@
 # The release gate (ADR 0214 point 6, ADR 0215 point 6): what a release must
 # pass beyond ci.yml, which the land gate cannot wait for.
 #
+#   mode     a preview, 0.x.y-preview.N, does not run the long gates inline;
+#            any other release does (ADR 0215, amended 2026-11-02:
+#            eng/release-freshness.cs --mode).
 #   faults   the file backend's four faults at every point, on simulated and
-#            on real files, on Linux and Windows (ADR 0214).
+#            on real files, on Linux and Windows (ADR 0214). Inline only.
 #   soak     the soak under the shipped runtime configuration, judged by
-#            Varve.Benchmarks --soak-judge (ADR 0215): four hours on Linux at
-#            a release.
-#   windows soak, fresh
-#            a release refuses when the latest Windows soak on main's nightly
-#            is red or older than eight days (eng/soak-freshness.cs).
+#            Varve.Benchmarks --soak-judge (ADR 0215): four hours on Linux.
+#            Inline only. The judge's verdict is a step of its own, so the
+#            Actions API tells a red soak ("The soak misses the gate") from
+#            one that was not judged, and artifacts/soak holds judge.txt and
+#            verdict.txt (green, red or invalid) for the nightly's soak issue.
+#   fresh on main
+#            a preview is refused unless the latest store at full depth on
+#            each runner, which holds the faults at every point, is green and
+#            at most three days old; main's soaks inform it and never refuse
+#            it (ADR 0215, amended 2026-11-03). Any other release is refused
+#            when the latest Windows soak on main's nightly is red or older
+#            than eight days, or while an issue labelled soak is open. Every
+#            release prints main's evidence to the step summary
+#            (eng/release-freshness.cs).
 #
-# Called by release.yml at the commit under release, beside ci.yml, and by
-# nightly.yml once a week for the Windows soak alone.
+# Called by release.yml at the commit under release, beside ci.yml, with the
+# release's version; and by nightly.yml for its soaks, without one.
 
 name: Release gate
 
@@ -22,6 +34,10 @@ on:
         description: The commit under test
         type: string
         required: true
+      version:
+        description: The release's version; a preview checks main's runs instead of running the faults and the Linux soak. Empty for a caller that is not a release
+        type: string
+        default: ""
       faults:
         description: Run the faults at full depth
         type: boolean
@@ -34,8 +50,8 @@ on:
         description: How long the soak runs
         type: number
         default: 240
-      windows-soak-fresh:
-        description: Refuse unless the latest Windows soak on main is green and at most eight days old
+      fresh-on-main:
+        description: Refuse unless main's latest runs the version needs are green and fresh (for a preview, the store at full depth; otherwise the Windows soak, and no open soak issue)
         type: boolean
         default: true
 
@@ -49,9 +65,34 @@ env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
+  mode:
+    name: release gate mode
+    runs-on: ubuntu-latest
+    outputs:
+      inline: ${{ steps.mode.outputs.inline }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Inline, or fresh from main
+        id: mode
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: dotnet run eng/release-freshness.cs -- --mode --version "$RELEASE_VERSION"
+
   faults:
     name: faults (${{ matrix.os }})
-    if: inputs.faults
+    needs: mode
+    if: inputs.faults && needs.mode.outputs.inline == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 300
     strategy:
@@ -125,7 +166,7 @@ jobs:
 
       - name: Upload the test results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-gate-faults-${{ matrix.os }}
           path: ${{ github.workspace }}/artifacts/test-results
@@ -133,7 +174,8 @@ jobs:
 
   soak:
     name: soak (${{ inputs.soak-os }})
-    if: inputs.soak-os != ''
+    needs: mode
+    if: inputs.soak-os != '' && needs.mode.outputs.inline == 'true'
     runs-on: ${{ inputs.soak-os }}
     # The soak, the build before it, and the judge after it, inside GitHub's
     # six-hour limit for a job.
@@ -179,33 +221,75 @@ jobs:
             --soak ${{ inputs.soak-minutes }} --policy --subjects 2000 | tee artifacts/soak/soak.csv
 
       - name: Judge the soak
+        # Records the judge's exit and does not fail: the three steps after it
+        # say which verdict it was, by name, so the release gate reads a red
+        # soak from the jobs API (ADR 0215, amended 2026-11-03). The judge
+        # exits 0 when the soak holds, 1 when it misses, 2 when it cannot
+        # judge.
+        id: judge
         shell: bash
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          dotnet run --project tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release --no-build -- \
+            --soak-judge artifacts/soak/soak.csv > artifacts/soak/judge.txt 2>&1
+          code=$?
+          case "$code" in
+            0) verdict=green ;;
+            1) verdict=red ;;
+            *) verdict=invalid ;;
+          esac
+          echo "$verdict" > artifacts/soak/verdict.txt
           {
-            echo "### Soak, ${{ inputs.soak-minutes }} minutes on ${{ inputs.soak-os }}"
+            echo "### Soak, ${{ inputs.soak-minutes }} minutes on ${{ inputs.soak-os }}: $verdict"
             echo
             echo '```'
-            dotnet run --project tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release --no-build -- --soak-judge artifacts/soak/soak.csv
+            cat artifacts/soak/judge.txt
             echo '```'
+            echo
+            echo "The judge exited $code."
           } | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "exit=$code" >> "$GITHUB_OUTPUT"
+
+      - name: The soak holds the gate
+        if: steps.judge.outputs.exit == '0'
+        shell: bash
+        run: echo "The judge holds (ADR 0215)."
+
+      - name: The soak misses the gate
+        if: steps.judge.outputs.exit == '1'
+        shell: bash
+        run: |
+          echo "::error::the soak misses the gate (ADR 0215); the judge's output is in the step summary and artifacts/soak/judge.txt"
+          exit 1
+
+      - name: The soak was not judged
+        if: steps.judge.outputs.exit != '0' && steps.judge.outputs.exit != '1'
+        shell: bash
+        env:
+          CODE: ${{ steps.judge.outputs.exit }}
+        run: |
+          echo "::error::the judge could not judge the soak (exit $CODE), so it is invalid (ADR 0215); see artifacts/soak/judge.txt"
+          exit 1
 
       - name: Upload the soak's samples
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: soak-${{ inputs.soak-os }}
           path: artifacts/soak
           if-no-files-found: warn
 
-  windows-soak-fresh:
-    name: windows soak, fresh
-    if: inputs.windows-soak-fresh
+  fresh-on-main:
+    name: fresh on main
+    if: inputs.fresh-on-main
     runs-on: ubuntu-latest
 
+    # actions: read for main's nightly runs, issues: read for the open soak
+    # issues.
     permissions:
       contents: read
       actions: read
+      issues: read
 
     steps:
       - name: Checkout
@@ -219,7 +303,8 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: The latest Windows soak on main is green and at most eight days old
+      - name: Main's latest runs, the faults gating a preview and the soaks informing it
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: dotnet run eng/soak-freshness.cs -- --repository ${{ github.repository }} --days 8
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: dotnet run eng/release-freshness.cs -- --repository ${{ github.repository }} --version "$RELEASE_VERSION"

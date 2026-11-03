@@ -48,12 +48,16 @@ decisions:
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-30T00:00:00Z
   - key: RunInTheReleaseGateAndNightly
-    statement: "The faults run at every point in release-gate.yml, which release.yml calls at the commit under release and which a release must pass, and in the nightly's store job; a pull request runs a seeded share of each"
+    statement: "The faults run at every point in the nightly's store job on Linux and Windows, and in release-gate.yml, which release.yml calls at the commit under release and which a release must pass, for a release that is not a preview; a preview, 0.x.y-preview.N, needs the nightly's latest store job on each runner green and at most three days old instead (ADR 0215, amended 2026-11-02); a pull request runs a seeded share of each"
     accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-30T00:00:00Z
+    accepted-at: 2026-11-02T00:00:00Z
 ---
 
 The rulings of [ADR 0214](../adr/0214-file-backend-failure-injection.md),
 filed unaccepted by 1.0 readiness A for #129 (ADR 0066).
 `AcknowledgedOnlyWhenTheBatchIsDurable` moves here from ADR 0124's set under
 its key, restated (ADR 0068 point 4).
+
+`RunInTheReleaseGateAndNightly` is restated by ADR 0215's amendment of
+2026-11-02, which narrows the release gate's inline run of the faults to
+releases that are not previews. It awaits the maintainer's acceptance.

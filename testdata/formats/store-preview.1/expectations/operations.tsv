@@ -1,0 +1,356 @@
+1	+	<http://example.org/s1> <http://example.org/p1> "v1" <http://example.org/g1> .
+1	+	<http://example.org/s1> <http://example.org/q> <http://example.org/o1> .
+2	+	<http://example.org/s2> <http://example.org/p2> "v2" <http://example.org/g2> .
+2	+	<http://example.org/s2> <http://example.org/q> <http://example.org/o2> .
+3	+	<http://example.org/s3> <http://example.org/p0> "v3" <http://example.org/g0> .
+3	+	<http://example.org/s3> <http://example.org/q> <http://example.org/o3> .
+4	+	<http://example.org/s4> <http://example.org/p1> "v4" <http://example.org/g1> .
+4	+	<http://example.org/s4> <http://example.org/q> <http://example.org/o4> .
+5	+	<http://example.org/s5> <http://example.org/p2> "v5" <http://example.org/g2> .
+5	+	<http://example.org/s5> <http://example.org/q> <http://example.org/o0> .
+5	-	<http://example.org/s1> <http://example.org/p1> "v1" <http://example.org/g1> .
+6	+	<http://example.org/s6> <http://example.org/p0> "v6" <http://example.org/g0> .
+6	+	<http://example.org/s6> <http://example.org/q> <http://example.org/o1> .
+6	-	<http://example.org/s2> <http://example.org/p2> "v2" <http://example.org/g2> .
+7	+	<http://example.org/s7> <http://example.org/p1> "v7" <http://example.org/g1> .
+7	+	<http://example.org/s7> <http://example.org/q> <http://example.org/o2> .
+7	-	<http://example.org/s3> <http://example.org/p0> "v3" <http://example.org/g0> .
+8	+	<http://example.org/s8> <http://example.org/p2> "v8" <http://example.org/g2> .
+8	+	<http://example.org/s8> <http://example.org/q> <http://example.org/o3> .
+8	-	<http://example.org/s4> <http://example.org/p1> "v4" <http://example.org/g1> .
+9	+	<http://example.org/s9> <http://example.org/p0> "v9" <http://example.org/g0> .
+9	+	<http://example.org/s9> <http://example.org/q> <http://example.org/o4> .
+9	-	<http://example.org/s5> <http://example.org/p2> "v5" <http://example.org/g2> .
+10	+	<http://example.org/s10> <http://example.org/p1> "v10" <http://example.org/g1> .
+10	+	<http://example.org/s10> <http://example.org/q> <http://example.org/o0> .
+10	-	<http://example.org/s6> <http://example.org/p0> "v6" <http://example.org/g0> .
+11	+	<http://example.org/s11> <http://example.org/p2> "v11" <http://example.org/g2> .
+11	+	<http://example.org/s0> <http://example.org/q> <http://example.org/o1> .
+11	-	<http://example.org/s7> <http://example.org/p1> "v7" <http://example.org/g1> .
+12	+	<http://example.org/s12> <http://example.org/p0> "v12" <http://example.org/g0> .
+12	+	<http://example.org/s1> <http://example.org/q> <http://example.org/o2> .
+12	-	<http://example.org/s8> <http://example.org/p2> "v8" <http://example.org/g2> .
+13	+	<http://example.org/s13> <http://example.org/p1> "v13" <http://example.org/g1> .
+13	+	<http://example.org/s2> <http://example.org/q> <http://example.org/o3> .
+13	-	<http://example.org/s9> <http://example.org/p0> "v9" <http://example.org/g0> .
+14	+	<http://example.org/s14> <http://example.org/p2> "v14" <http://example.org/g2> .
+14	+	<http://example.org/s3> <http://example.org/q> <http://example.org/o4> .
+14	-	<http://example.org/s10> <http://example.org/p1> "v10" <http://example.org/g1> .
+15	+	<http://example.org/s15> <http://example.org/p0> "v15" <http://example.org/g0> .
+15	+	<http://example.org/s4> <http://example.org/q> <http://example.org/o0> .
+15	-	<http://example.org/s11> <http://example.org/p2> "v11" <http://example.org/g2> .
+16	+	<http://example.org/s16> <http://example.org/p1> "v16" <http://example.org/g1> .
+16	+	<http://example.org/s5> <http://example.org/q> <http://example.org/o1> .
+16	-	<http://example.org/s12> <http://example.org/p0> "v12" <http://example.org/g0> .
+17	+	<http://example.org/s0> <http://example.org/p2> "v17" <http://example.org/g2> .
+17	+	<http://example.org/s6> <http://example.org/q> <http://example.org/o2> .
+17	-	<http://example.org/s13> <http://example.org/p1> "v13" <http://example.org/g1> .
+18	+	<http://example.org/s1> <http://example.org/p0> "v18" <http://example.org/g0> .
+18	+	<http://example.org/s7> <http://example.org/q> <http://example.org/o3> .
+18	-	<http://example.org/s14> <http://example.org/p2> "v14" <http://example.org/g2> .
+19	+	<http://example.org/s2> <http://example.org/p1> "v19" <http://example.org/g1> .
+19	+	<http://example.org/s8> <http://example.org/q> <http://example.org/o4> .
+19	-	<http://example.org/s15> <http://example.org/p0> "v15" <http://example.org/g0> .
+20	+	<http://example.org/s3> <http://example.org/p2> "v20" <http://example.org/g2> .
+20	+	<http://example.org/s9> <http://example.org/q> <http://example.org/o0> .
+20	-	<http://example.org/s16> <http://example.org/p1> "v16" <http://example.org/g1> .
+21	+	<http://example.org/s4> <http://example.org/p0> "v21" <http://example.org/g0> .
+21	+	<http://example.org/s10> <http://example.org/q> <http://example.org/o1> .
+21	-	<http://example.org/s0> <http://example.org/p2> "v17" <http://example.org/g2> .
+22	+	<http://example.org/s5> <http://example.org/p1> "v22" <http://example.org/g1> .
+22	+	<http://example.org/s0> <http://example.org/q> <http://example.org/o2> .
+22	-	<http://example.org/s1> <http://example.org/p0> "v18" <http://example.org/g0> .
+23	+	<http://example.org/s6> <http://example.org/p2> "v23" <http://example.org/g2> .
+23	+	<http://example.org/s1> <http://example.org/q> <http://example.org/o3> .
+23	-	<http://example.org/s2> <http://example.org/p1> "v19" <http://example.org/g1> .
+24	+	<http://example.org/s7> <http://example.org/p0> "v24" <http://example.org/g0> .
+24	+	<http://example.org/s2> <http://example.org/q> <http://example.org/o4> .
+24	-	<http://example.org/s3> <http://example.org/p2> "v20" <http://example.org/g2> .
+25	+	<http://example.org/s8> <http://example.org/p1> "v25" <http://example.org/g1> .
+25	+	<http://example.org/s3> <http://example.org/q> <http://example.org/o0> .
+25	-	<http://example.org/s4> <http://example.org/p0> "v21" <http://example.org/g0> .
+26	+	<http://example.org/s9> <http://example.org/p2> "v26" <http://example.org/g2> .
+26	+	<http://example.org/s4> <http://example.org/q> <http://example.org/o1> .
+26	-	<http://example.org/s5> <http://example.org/p1> "v22" <http://example.org/g1> .
+27	+	<http://example.org/s10> <http://example.org/p0> "v27" <http://example.org/g0> .
+27	+	<http://example.org/s5> <http://example.org/q> <http://example.org/o2> .
+27	-	<http://example.org/s6> <http://example.org/p2> "v23" <http://example.org/g2> .
+28	+	<http://example.org/s11> <http://example.org/p1> "v28" <http://example.org/g1> .
+28	+	<http://example.org/s6> <http://example.org/q> <http://example.org/o3> .
+28	-	<http://example.org/s7> <http://example.org/p0> "v24" <http://example.org/g0> .
+29	+	<http://example.org/s12> <http://example.org/p2> "v29" <http://example.org/g2> .
+29	+	<http://example.org/s7> <http://example.org/q> <http://example.org/o4> .
+29	-	<http://example.org/s8> <http://example.org/p1> "v25" <http://example.org/g1> .
+30	+	<http://example.org/s13> <http://example.org/p0> "v30" <http://example.org/g0> .
+30	+	<http://example.org/s8> <http://example.org/q> <http://example.org/o0> .
+30	-	<http://example.org/s9> <http://example.org/p2> "v26" <http://example.org/g2> .
+31	+	<http://example.org/s14> <http://example.org/p1> "v31" <http://example.org/g1> .
+31	+	<http://example.org/s9> <http://example.org/q> <http://example.org/o1> .
+31	-	<http://example.org/s10> <http://example.org/p0> "v27" <http://example.org/g0> .
+32	+	<http://example.org/s15> <http://example.org/p2> "v32" <http://example.org/g2> .
+32	+	<http://example.org/s10> <http://example.org/q> <http://example.org/o2> .
+32	-	<http://example.org/s11> <http://example.org/p1> "v28" <http://example.org/g1> .
+33	+	<http://example.org/s16> <http://example.org/p0> "v33" <http://example.org/g0> .
+33	+	<http://example.org/s0> <http://example.org/q> <http://example.org/o3> .
+33	-	<http://example.org/s12> <http://example.org/p2> "v29" <http://example.org/g2> .
+34	+	<http://example.org/s0> <http://example.org/p1> "v34" <http://example.org/g1> .
+34	+	<http://example.org/s1> <http://example.org/q> <http://example.org/o4> .
+34	-	<http://example.org/s13> <http://example.org/p0> "v30" <http://example.org/g0> .
+35	+	<http://example.org/s1> <http://example.org/p2> "v35" <http://example.org/g2> .
+35	+	<http://example.org/s2> <http://example.org/q> <http://example.org/o0> .
+35	-	<http://example.org/s14> <http://example.org/p1> "v31" <http://example.org/g1> .
+36	+	<http://example.org/s2> <http://example.org/p0> "v36" <http://example.org/g0> .
+36	+	<http://example.org/s3> <http://example.org/q> <http://example.org/o1> .
+36	-	<http://example.org/s15> <http://example.org/p2> "v32" <http://example.org/g2> .
+37	+	<http://example.org/s3> <http://example.org/p1> "v37" <http://example.org/g1> .
+37	+	<http://example.org/s4> <http://example.org/q> <http://example.org/o2> .
+37	-	<http://example.org/s16> <http://example.org/p0> "v33" <http://example.org/g0> .
+38	+	<http://example.org/s4> <http://example.org/p2> "v38" <http://example.org/g2> .
+38	+	<http://example.org/s5> <http://example.org/q> <http://example.org/o3> .
+38	-	<http://example.org/s0> <http://example.org/p1> "v34" <http://example.org/g1> .
+39	+	<http://example.org/s5> <http://example.org/p0> "v39" <http://example.org/g0> .
+39	+	<http://example.org/s6> <http://example.org/q> <http://example.org/o4> .
+39	-	<http://example.org/s1> <http://example.org/p2> "v35" <http://example.org/g2> .
+40	+	<http://example.org/s6> <http://example.org/p1> "v40" <http://example.org/g1> .
+40	+	<http://example.org/s7> <http://example.org/q> <http://example.org/o0> .
+40	-	<http://example.org/s2> <http://example.org/p0> "v36" <http://example.org/g0> .
+41	+	<http://example.org/s7> <http://example.org/p2> "v41" <http://example.org/g2> .
+41	+	<http://example.org/s8> <http://example.org/q> <http://example.org/o1> .
+41	-	<http://example.org/s3> <http://example.org/p1> "v37" <http://example.org/g1> .
+42	+	<http://example.org/s8> <http://example.org/p0> "v42" <http://example.org/g0> .
+42	+	<http://example.org/s9> <http://example.org/q> <http://example.org/o2> .
+42	-	<http://example.org/s4> <http://example.org/p2> "v38" <http://example.org/g2> .
+43	+	<http://example.org/s9> <http://example.org/p1> "v43" <http://example.org/g1> .
+43	+	<http://example.org/s10> <http://example.org/q> <http://example.org/o3> .
+43	-	<http://example.org/s5> <http://example.org/p0> "v39" <http://example.org/g0> .
+44	+	<http://example.org/s10> <http://example.org/p2> "v44" <http://example.org/g2> .
+44	+	<http://example.org/s0> <http://example.org/q> <http://example.org/o4> .
+44	-	<http://example.org/s6> <http://example.org/p1> "v40" <http://example.org/g1> .
+45	+	<http://example.org/s11> <http://example.org/p0> "v45" <http://example.org/g0> .
+45	+	<http://example.org/s1> <http://example.org/q> <http://example.org/o0> .
+45	-	<http://example.org/s7> <http://example.org/p2> "v41" <http://example.org/g2> .
+46	+	<http://example.org/s12> <http://example.org/p1> "v46" <http://example.org/g1> .
+46	+	<http://example.org/s2> <http://example.org/q> <http://example.org/o1> .
+46	-	<http://example.org/s8> <http://example.org/p0> "v42" <http://example.org/g0> .
+47	+	<http://example.org/s13> <http://example.org/p2> "v47" <http://example.org/g2> .
+47	+	<http://example.org/s3> <http://example.org/q> <http://example.org/o2> .
+47	-	<http://example.org/s9> <http://example.org/p1> "v43" <http://example.org/g1> .
+48	+	<http://example.org/s14> <http://example.org/p0> "v48" <http://example.org/g0> .
+48	+	<http://example.org/s4> <http://example.org/q> <http://example.org/o3> .
+48	-	<http://example.org/s10> <http://example.org/p2> "v44" <http://example.org/g2> .
+49	+	<http://example.org/s15> <http://example.org/p1> "v49" <http://example.org/g1> .
+49	+	<http://example.org/s5> <http://example.org/q> <http://example.org/o4> .
+49	-	<http://example.org/s11> <http://example.org/p0> "v45" <http://example.org/g0> .
+50	+	<http://example.org/s16> <http://example.org/p2> "v50" <http://example.org/g2> .
+50	+	<http://example.org/s6> <http://example.org/q> <http://example.org/o0> .
+50	-	<http://example.org/s12> <http://example.org/p1> "v46" <http://example.org/g1> .
+51	+	<http://example.org/s0> <http://example.org/p0> "v51" <http://example.org/g0> .
+51	+	<http://example.org/s7> <http://example.org/q> <http://example.org/o1> .
+51	-	<http://example.org/s13> <http://example.org/p2> "v47" <http://example.org/g2> .
+52	+	<http://example.org/s1> <http://example.org/p1> "v52" <http://example.org/g1> .
+52	+	<http://example.org/s8> <http://example.org/q> <http://example.org/o2> .
+52	-	<http://example.org/s14> <http://example.org/p0> "v48" <http://example.org/g0> .
+53	+	<http://example.org/s2> <http://example.org/p2> "v53" <http://example.org/g2> .
+53	+	<http://example.org/s9> <http://example.org/q> <http://example.org/o3> .
+53	-	<http://example.org/s15> <http://example.org/p1> "v49" <http://example.org/g1> .
+54	+	<http://example.org/s3> <http://example.org/p0> "v54" <http://example.org/g0> .
+54	+	<http://example.org/s10> <http://example.org/q> <http://example.org/o4> .
+54	-	<http://example.org/s16> <http://example.org/p2> "v50" <http://example.org/g2> .
+55	+	<http://example.org/s4> <http://example.org/p1> "v55" <http://example.org/g1> .
+55	+	<http://example.org/s0> <http://example.org/q> <http://example.org/o0> .
+55	-	<http://example.org/s0> <http://example.org/p0> "v51" <http://example.org/g0> .
+56	+	<http://example.org/s5> <http://example.org/p2> "v56" <http://example.org/g2> .
+56	+	<http://example.org/s1> <http://example.org/q> <http://example.org/o1> .
+56	-	<http://example.org/s1> <http://example.org/p1> "v52" <http://example.org/g1> .
+57	+	<http://example.org/s6> <http://example.org/p0> "v57" <http://example.org/g0> .
+57	+	<http://example.org/s2> <http://example.org/q> <http://example.org/o2> .
+57	-	<http://example.org/s2> <http://example.org/p2> "v53" <http://example.org/g2> .
+58	+	<http://example.org/s7> <http://example.org/p1> "v58" <http://example.org/g1> .
+58	+	<http://example.org/s3> <http://example.org/q> <http://example.org/o3> .
+58	-	<http://example.org/s3> <http://example.org/p0> "v54" <http://example.org/g0> .
+59	+	<http://example.org/s8> <http://example.org/p2> "v59" <http://example.org/g2> .
+59	+	<http://example.org/s4> <http://example.org/q> <http://example.org/o4> .
+59	-	<http://example.org/s4> <http://example.org/p1> "v55" <http://example.org/g1> .
+60	+	<http://example.org/s9> <http://example.org/p0> "v60" <http://example.org/g0> .
+60	+	<http://example.org/s5> <http://example.org/q> <http://example.org/o0> .
+60	-	<http://example.org/s5> <http://example.org/p2> "v56" <http://example.org/g2> .
+61	+	<http://example.org/s10> <http://example.org/p1> "v61" <http://example.org/g1> .
+61	+	<http://example.org/s6> <http://example.org/q> <http://example.org/o1> .
+61	-	<http://example.org/s6> <http://example.org/p0> "v57" <http://example.org/g0> .
+62	+	<http://example.org/s11> <http://example.org/p2> "v62" <http://example.org/g2> .
+62	+	<http://example.org/s7> <http://example.org/q> <http://example.org/o2> .
+62	-	<http://example.org/s7> <http://example.org/p1> "v58" <http://example.org/g1> .
+63	+	<http://example.org/s12> <http://example.org/p0> "v63" <http://example.org/g0> .
+63	+	<http://example.org/s8> <http://example.org/q> <http://example.org/o3> .
+63	-	<http://example.org/s8> <http://example.org/p2> "v59" <http://example.org/g2> .
+64	+	<http://example.org/s13> <http://example.org/p1> "v64" <http://example.org/g1> .
+64	+	<http://example.org/s9> <http://example.org/q> <http://example.org/o4> .
+64	-	<http://example.org/s9> <http://example.org/p0> "v60" <http://example.org/g0> .
+65	+	<http://example.org/s14> <http://example.org/p2> "v65" <http://example.org/g2> .
+65	+	<http://example.org/s10> <http://example.org/q> <http://example.org/o0> .
+65	-	<http://example.org/s10> <http://example.org/p1> "v61" <http://example.org/g1> .
+66	+	<http://example.org/s15> <http://example.org/p0> "v66" <http://example.org/g0> .
+66	+	<http://example.org/s0> <http://example.org/q> <http://example.org/o1> .
+66	-	<http://example.org/s11> <http://example.org/p2> "v62" <http://example.org/g2> .
+67	+	<http://example.org/s16> <http://example.org/p1> "v67" <http://example.org/g1> .
+67	+	<http://example.org/s1> <http://example.org/q> <http://example.org/o2> .
+67	-	<http://example.org/s12> <http://example.org/p0> "v63" <http://example.org/g0> .
+68	+	<http://example.org/s0> <http://example.org/p2> "v68" <http://example.org/g2> .
+68	+	<http://example.org/s2> <http://example.org/q> <http://example.org/o3> .
+68	-	<http://example.org/s13> <http://example.org/p1> "v64" <http://example.org/g1> .
+69	+	<http://example.org/s1> <http://example.org/p0> "v69" <http://example.org/g0> .
+69	+	<http://example.org/s3> <http://example.org/q> <http://example.org/o4> .
+69	-	<http://example.org/s14> <http://example.org/p2> "v65" <http://example.org/g2> .
+70	+	<http://example.org/s2> <http://example.org/p1> "v70" <http://example.org/g1> .
+70	+	<http://example.org/s4> <http://example.org/q> <http://example.org/o0> .
+70	-	<http://example.org/s15> <http://example.org/p0> "v66" <http://example.org/g0> .
+71	+	<http://example.org/s3> <http://example.org/p2> "v71" <http://example.org/g2> .
+71	+	<http://example.org/s5> <http://example.org/q> <http://example.org/o1> .
+71	-	<http://example.org/s16> <http://example.org/p1> "v67" <http://example.org/g1> .
+72	+	<http://example.org/s4> <http://example.org/p0> "v72" <http://example.org/g0> .
+72	+	<http://example.org/s6> <http://example.org/q> <http://example.org/o2> .
+72	-	<http://example.org/s0> <http://example.org/p2> "v68" <http://example.org/g2> .
+73	+	<http://example.org/s5> <http://example.org/p1> "v73" <http://example.org/g1> .
+73	+	<http://example.org/s7> <http://example.org/q> <http://example.org/o3> .
+73	-	<http://example.org/s1> <http://example.org/p0> "v69" <http://example.org/g0> .
+74	+	<http://example.org/s6> <http://example.org/p2> "v74" <http://example.org/g2> .
+74	+	<http://example.org/s8> <http://example.org/q> <http://example.org/o4> .
+74	-	<http://example.org/s2> <http://example.org/p1> "v70" <http://example.org/g1> .
+75	+	<http://example.org/s7> <http://example.org/p0> "v75" <http://example.org/g0> .
+75	+	<http://example.org/s9> <http://example.org/q> <http://example.org/o0> .
+75	-	<http://example.org/s3> <http://example.org/p2> "v71" <http://example.org/g2> .
+76	+	<http://example.org/s8> <http://example.org/p1> "v76" <http://example.org/g1> .
+76	+	<http://example.org/s10> <http://example.org/q> <http://example.org/o1> .
+76	-	<http://example.org/s4> <http://example.org/p0> "v72" <http://example.org/g0> .
+77	+	<http://example.org/s9> <http://example.org/p2> "v77" <http://example.org/g2> .
+77	+	<http://example.org/s0> <http://example.org/q> <http://example.org/o2> .
+77	-	<http://example.org/s5> <http://example.org/p1> "v73" <http://example.org/g1> .
+78	+	<http://example.org/s10> <http://example.org/p0> "v78" <http://example.org/g0> .
+78	+	<http://example.org/s1> <http://example.org/q> <http://example.org/o3> .
+78	-	<http://example.org/s6> <http://example.org/p2> "v74" <http://example.org/g2> .
+79	+	<http://example.org/s11> <http://example.org/p1> "v79" <http://example.org/g1> .
+79	+	<http://example.org/s2> <http://example.org/q> <http://example.org/o4> .
+79	-	<http://example.org/s7> <http://example.org/p0> "v75" <http://example.org/g0> .
+80	+	<http://example.org/s12> <http://example.org/p2> "v80" <http://example.org/g2> .
+80	+	<http://example.org/s3> <http://example.org/q> <http://example.org/o0> .
+80	-	<http://example.org/s8> <http://example.org/p1> "v76" <http://example.org/g1> .
+81	+	<http://example.org/s13> <http://example.org/p0> "v81" <http://example.org/g0> .
+81	+	<http://example.org/s4> <http://example.org/q> <http://example.org/o1> .
+81	-	<http://example.org/s9> <http://example.org/p2> "v77" <http://example.org/g2> .
+82	+	<http://example.org/s14> <http://example.org/p1> "v82" <http://example.org/g1> .
+82	+	<http://example.org/s5> <http://example.org/q> <http://example.org/o2> .
+82	-	<http://example.org/s10> <http://example.org/p0> "v78" <http://example.org/g0> .
+83	+	<http://example.org/s15> <http://example.org/p2> "v83" <http://example.org/g2> .
+83	+	<http://example.org/s6> <http://example.org/q> <http://example.org/o3> .
+83	-	<http://example.org/s11> <http://example.org/p1> "v79" <http://example.org/g1> .
+84	+	<http://example.org/s16> <http://example.org/p0> "v84" <http://example.org/g0> .
+84	+	<http://example.org/s7> <http://example.org/q> <http://example.org/o4> .
+84	-	<http://example.org/s12> <http://example.org/p2> "v80" <http://example.org/g2> .
+85	+	<http://example.org/s0> <http://example.org/p1> "v85" <http://example.org/g1> .
+85	+	<http://example.org/s8> <http://example.org/q> <http://example.org/o0> .
+85	-	<http://example.org/s13> <http://example.org/p0> "v81" <http://example.org/g0> .
+86	+	<http://example.org/s1> <http://example.org/p2> "v86" <http://example.org/g2> .
+86	+	<http://example.org/s9> <http://example.org/q> <http://example.org/o1> .
+86	-	<http://example.org/s14> <http://example.org/p1> "v82" <http://example.org/g1> .
+87	+	<http://example.org/s2> <http://example.org/p0> "v87" <http://example.org/g0> .
+87	+	<http://example.org/s10> <http://example.org/q> <http://example.org/o2> .
+87	-	<http://example.org/s15> <http://example.org/p2> "v83" <http://example.org/g2> .
+88	+	<http://example.org/s3> <http://example.org/p1> "v88" <http://example.org/g1> .
+88	+	<http://example.org/s0> <http://example.org/q> <http://example.org/o3> .
+88	-	<http://example.org/s16> <http://example.org/p0> "v84" <http://example.org/g0> .
+89	+	<http://example.org/s4> <http://example.org/p2> "v89" <http://example.org/g2> .
+89	+	<http://example.org/s1> <http://example.org/q> <http://example.org/o4> .
+89	-	<http://example.org/s0> <http://example.org/p1> "v85" <http://example.org/g1> .
+90	+	<http://example.org/s5> <http://example.org/p0> "v90" <http://example.org/g0> .
+90	+	<http://example.org/s2> <http://example.org/q> <http://example.org/o0> .
+90	-	<http://example.org/s1> <http://example.org/p2> "v86" <http://example.org/g2> .
+91	+	<http://example.org/s6> <http://example.org/p1> "v91" <http://example.org/g1> .
+91	+	<http://example.org/s3> <http://example.org/q> <http://example.org/o1> .
+91	-	<http://example.org/s2> <http://example.org/p0> "v87" <http://example.org/g0> .
+92	+	<http://example.org/s7> <http://example.org/p2> "v92" <http://example.org/g2> .
+92	+	<http://example.org/s4> <http://example.org/q> <http://example.org/o2> .
+92	-	<http://example.org/s3> <http://example.org/p1> "v88" <http://example.org/g1> .
+93	+	<http://example.org/s8> <http://example.org/p0> "v93" <http://example.org/g0> .
+93	+	<http://example.org/s5> <http://example.org/q> <http://example.org/o3> .
+93	-	<http://example.org/s4> <http://example.org/p2> "v89" <http://example.org/g2> .
+94	+	<http://example.org/s9> <http://example.org/p1> "v94" <http://example.org/g1> .
+94	+	<http://example.org/s6> <http://example.org/q> <http://example.org/o4> .
+94	-	<http://example.org/s5> <http://example.org/p0> "v90" <http://example.org/g0> .
+95	+	<http://example.org/s10> <http://example.org/p2> "v95" <http://example.org/g2> .
+95	+	<http://example.org/s7> <http://example.org/q> <http://example.org/o0> .
+95	-	<http://example.org/s6> <http://example.org/p1> "v91" <http://example.org/g1> .
+96	+	<http://example.org/s11> <http://example.org/p0> "v96" <http://example.org/g0> .
+96	+	<http://example.org/s8> <http://example.org/q> <http://example.org/o1> .
+96	-	<http://example.org/s7> <http://example.org/p2> "v92" <http://example.org/g2> .
+97	+	<http://example.org/s12> <http://example.org/p1> "v97" <http://example.org/g1> .
+97	+	<http://example.org/s9> <http://example.org/q> <http://example.org/o2> .
+97	-	<http://example.org/s8> <http://example.org/p0> "v93" <http://example.org/g0> .
+98	+	<http://example.org/s13> <http://example.org/p2> "v98" <http://example.org/g2> .
+98	+	<http://example.org/s10> <http://example.org/q> <http://example.org/o3> .
+98	-	<http://example.org/s9> <http://example.org/p1> "v94" <http://example.org/g1> .
+99	+	<http://example.org/s14> <http://example.org/p0> "v99" <http://example.org/g0> .
+99	+	<http://example.org/s0> <http://example.org/q> <http://example.org/o4> .
+99	-	<http://example.org/s10> <http://example.org/p2> "v95" <http://example.org/g2> .
+100	+	<http://example.org/s15> <http://example.org/p1> "v100" <http://example.org/g1> .
+100	+	<http://example.org/s1> <http://example.org/q> <http://example.org/o0> .
+100	-	<http://example.org/s11> <http://example.org/p0> "v96" <http://example.org/g0> .
+101	+	<http://example.org/s16> <http://example.org/p2> "v101" <http://example.org/g2> .
+101	+	<http://example.org/s2> <http://example.org/q> <http://example.org/o1> .
+101	-	<http://example.org/s12> <http://example.org/p1> "v97" <http://example.org/g1> .
+102	+	<http://example.org/s0> <http://example.org/p0> "v102" <http://example.org/g0> .
+102	+	<http://example.org/s3> <http://example.org/q> <http://example.org/o2> .
+102	-	<http://example.org/s13> <http://example.org/p2> "v98" <http://example.org/g2> .
+103	+	<http://example.org/s1> <http://example.org/p1> "v103" <http://example.org/g1> .
+103	+	<http://example.org/s4> <http://example.org/q> <http://example.org/o3> .
+103	-	<http://example.org/s14> <http://example.org/p0> "v99" <http://example.org/g0> .
+104	+	<http://example.org/s2> <http://example.org/p2> "v104" <http://example.org/g2> .
+104	+	<http://example.org/s5> <http://example.org/q> <http://example.org/o4> .
+104	-	<http://example.org/s15> <http://example.org/p1> "v100" <http://example.org/g1> .
+105	+	<http://example.org/s3> <http://example.org/p0> "v105" <http://example.org/g0> .
+105	+	<http://example.org/s6> <http://example.org/q> <http://example.org/o0> .
+105	-	<http://example.org/s16> <http://example.org/p2> "v101" <http://example.org/g2> .
+106	+	<http://example.org/s4> <http://example.org/p1> "v106" <http://example.org/g1> .
+106	+	<http://example.org/s7> <http://example.org/q> <http://example.org/o1> .
+106	-	<http://example.org/s0> <http://example.org/p0> "v102" <http://example.org/g0> .
+107	+	<http://example.org/s5> <http://example.org/p2> "v107" <http://example.org/g2> .
+107	+	<http://example.org/s8> <http://example.org/q> <http://example.org/o2> .
+107	-	<http://example.org/s1> <http://example.org/p1> "v103" <http://example.org/g1> .
+108	+	<http://example.org/s6> <http://example.org/p0> "v108" <http://example.org/g0> .
+108	+	<http://example.org/s9> <http://example.org/q> <http://example.org/o3> .
+108	-	<http://example.org/s2> <http://example.org/p2> "v104" <http://example.org/g2> .
+109	+	<http://example.org/s7> <http://example.org/p1> "v109" <http://example.org/g1> .
+109	+	<http://example.org/s10> <http://example.org/q> <http://example.org/o4> .
+109	-	<http://example.org/s3> <http://example.org/p0> "v105" <http://example.org/g0> .
+110	+	<http://example.org/s8> <http://example.org/p2> "v110" <http://example.org/g2> .
+110	+	<http://example.org/s0> <http://example.org/q> <http://example.org/o0> .
+110	-	<http://example.org/s4> <http://example.org/p1> "v106" <http://example.org/g1> .
+111	+	<http://example.org/s9> <http://example.org/p0> "v111" <http://example.org/g0> .
+111	+	<http://example.org/s1> <http://example.org/q> <http://example.org/o1> .
+111	-	<http://example.org/s5> <http://example.org/p2> "v107" <http://example.org/g2> .
+112	+	<http://example.org/s10> <http://example.org/p1> "v112" <http://example.org/g1> .
+112	+	<http://example.org/s2> <http://example.org/q> <http://example.org/o2> .
+112	-	<http://example.org/s6> <http://example.org/p0> "v108" <http://example.org/g0> .
+113	+	<http://example.org/s11> <http://example.org/p2> "v113" <http://example.org/g2> .
+113	+	<http://example.org/s3> <http://example.org/q> <http://example.org/o3> .
+113	-	<http://example.org/s7> <http://example.org/p1> "v109" <http://example.org/g1> .
+114	+	<http://example.org/s12> <http://example.org/p0> "v114" <http://example.org/g0> .
+114	+	<http://example.org/s4> <http://example.org/q> <http://example.org/o4> .
+114	-	<http://example.org/s8> <http://example.org/p2> "v110" <http://example.org/g2> .
+115	+	<http://example.org/s13> <http://example.org/p1> "v115" <http://example.org/g1> .
+115	+	<http://example.org/s5> <http://example.org/q> <http://example.org/o0> .
+115	-	<http://example.org/s9> <http://example.org/p0> "v111" <http://example.org/g0> .
+116	+	<http://example.org/s14> <http://example.org/p2> "v116" <http://example.org/g2> .
+116	+	<http://example.org/s6> <http://example.org/q> <http://example.org/o1> .
+116	-	<http://example.org/s10> <http://example.org/p1> "v112" <http://example.org/g1> .
+117	+	<http://example.org/s15> <http://example.org/p0> "v117" <http://example.org/g0> .
+117	+	<http://example.org/s7> <http://example.org/q> <http://example.org/o2> .
+117	-	<http://example.org/s11> <http://example.org/p2> "v113" <http://example.org/g2> .
+118	+	<http://example.org/s16> <http://example.org/p1> "v118" <http://example.org/g1> .
+118	+	<http://example.org/s8> <http://example.org/q> <http://example.org/o3> .
+118	-	<http://example.org/s12> <http://example.org/p0> "v114" <http://example.org/g0> .
+119	+	<http://example.org/s0> <http://example.org/p2> "v119" <http://example.org/g2> .
+119	+	<http://example.org/s9> <http://example.org/q> <http://example.org/o4> .
+119	-	<http://example.org/s13> <http://example.org/p1> "v115" <http://example.org/g1> .
+120	+	<http://example.org/s1> <http://example.org/p0> "v120" <http://example.org/g0> .
+120	+	<http://example.org/s10> <http://example.org/q> <http://example.org/o0> .
+120	-	<http://example.org/s14> <http://example.org/p2> "v116" <http://example.org/g2> .

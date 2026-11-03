@@ -310,3 +310,5 @@ override Varve.Management.Model.DatasetPublicGraph.GetHashCode() -> int
 override Varve.Management.Model.DatasetPublicGraph.ToString() -> string!
 static Varve.Management.Model.DatasetPublicGraph.operator !=(Varve.Management.Model.DatasetPublicGraph? left, Varve.Management.Model.DatasetPublicGraph? right) -> bool
 static Varve.Management.Model.DatasetPublicGraph.operator ==(Varve.Management.Model.DatasetPublicGraph? left, Varve.Management.Model.DatasetPublicGraph? right) -> bool
+Varve.Management.Model.DatasetDeclaration.StandbyOn.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Management.Model.DatasetDeclaration.StandbyOn.init -> void

@@ -146,7 +146,13 @@ one.
 
    The tag starts `publish.yml`, which runs its gates, reads the notes from
    the descriptor, publishes to nuget.org, and has the gates App create the
-   GitHub Release, marked prerelease when the version is one.
+   GitHub Release, marked prerelease when the version is one. The release's
+   notes are the descriptor's summary and, after it, main's evidence as it
+   stands then: the latest Linux and Windows soaks and the store at full
+   depth on each runner, with their verdicts and links, and the open soak
+   issues (`eng/release-freshness.cs --evidence`; ADR 0215, amended
+   2026-11-03). The descriptor does not carry them, and `CHANGELOG.md`
+   projects the summary alone.
 
 **The head guard.** A release is cut only at a commit that carries a
 successful `agent review` check run from the gates App, which that App posts
