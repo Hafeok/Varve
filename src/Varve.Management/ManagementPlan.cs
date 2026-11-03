@@ -286,9 +286,24 @@ public sealed class ManagementPlan
             }
 
             json.WriteEndArray();
+
+            // Only when the apply names dataset-public graphs: a plan with none
+            // is format 1 as v0.1.0-preview.10 wrote it, byte for byte (ADR 0216).
+            if (DatasetPublic.Count > 0)
+            {
+                WriteDatasetPublic(json, DatasetPublic);
+            }
+
+            json.WriteEndObject();
+        }
+
+        return buffer.WrittenSpan.ToArray();
+
+        static void WriteDatasetPublic(Utf8JsonWriter json, IReadOnlyList<DatasetPublicGraph> datasetPublic)
+        {
             json.WriteStartArray("datasetPublic");
 
-            foreach (DatasetPublicGraph graph in DatasetPublic)
+            foreach (DatasetPublicGraph graph in datasetPublic)
             {
                 json.WriteStartObject();
                 json.WriteString("dataset", graph.Dataset);
@@ -303,10 +318,7 @@ public sealed class ManagementPlan
             }
 
             json.WriteEndArray();
-            json.WriteEndObject();
         }
-
-        return buffer.WrittenSpan.ToArray();
 
         static void Lines(Utf8JsonWriter json, string name, IReadOnlyList<string> lines)
         {

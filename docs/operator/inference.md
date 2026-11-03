@@ -74,7 +74,8 @@ Applying a binding can therefore widen who reads a graph. `varve apply --plan`
 says so before anything is applied: it lists, per dataset, every graph the
 bindings make dataset-public, marking those the apply **widens** (public after
 it, not before) and **narrows**. The saved plan's JSON carries the list as
-`datasetPublic`.
+`datasetPublic`, written only when the apply names one: a plan without is
+format 1 as earlier releases wrote it.
 
 ```text
 System position 41
