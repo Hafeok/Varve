@@ -14,14 +14,15 @@ namespace Varve.Server.Tests;
 /// <c>varve lease</c> shows each trigger and release reason by the name the
 /// writer record gives it (ADRs 0136, 0179): the same names
 /// <c>WriterRecordFormatTests</c> holds the record to, so the epoch history
-/// an operator reads is the one the record holds.
+/// an operator reads is the one the record holds. <c>Unknown</c> has no name
+/// of its own: the record holds the text it was read with (ADR 0217).
 /// </summary>
 public sealed class LeaseNamesTests
 {
     [Fact]
     public void lease_shows_every_trigger_and_reason_by_the_records_name()
     {
-        Assert.Equal(["restart", "operator", "abdication", "probe"], Enum.GetValues<ClaimTrigger>().Select(ObjectLease.Shown));
-        Assert.Equal(["shutdown", "operator-takeover", "placement", "storage-error", "local-disk-error"], Enum.GetValues<ReleaseReason>().Select(ObjectLease.Shown));
+        Assert.Equal(["restart", "operator", "abdication", "probe"], Enum.GetValues<ClaimTrigger>().Where(t => t != ClaimTrigger.Unknown).Select(ObjectLease.Shown));
+        Assert.Equal(["shutdown", "operator-takeover", "placement", "storage-error", "local-disk-error"], Enum.GetValues<ReleaseReason>().Where(r => r != ReleaseReason.Unknown).Select(ObjectLease.Shown));
     }
 }
