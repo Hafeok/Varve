@@ -57,7 +57,7 @@ classification is a projection, verified in the local cache and kept by
 every follower. `v0.1.0-preview.15` before it made an as-of read
 inside an extent set cost its matches, not the set
 ([#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 by
-[#15](https://github.com/Hafeok/Varve/issues/15))**: a read at a position
+[#15](https://github.com/Hafeok/Varve/issues/15)): a read at a position
 inside a set's window seeks the set — derived format 5 keeps each extent's
 positions in columns beside its keys and its rows within as a key section —
 so an as-of lookup at REC M costs a third of a lookup at the head where it

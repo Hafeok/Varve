@@ -52,7 +52,7 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
     private readonly ObjectNames _names;
     private readonly TimeProvider _clock;
     private readonly string _cache;
-    private readonly long _epoch;
+    private long _epoch;
     private readonly Lock _lock = new();
     private readonly SemaphoreSlim _writing = new(1, 1);
     private readonly SemaphoreSlim _downloading = new(1, 1);
@@ -68,6 +68,9 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
     // fence compares with in place of that segment's last chunk.
     private long _listedTail;
     private (int Segment, long Slot)? _start;
+
+    /// <summary>Whether the segment copies still work (#146); the storage shares it with its derived store.</summary>
+    internal LocalCacheHealth Cache { get; set; } = new();
 
     private ObjectSegmentStore(IObjectStore store, ObjectNames names, TimeProvider clock, string cache, long epoch, List<Segment> segments, ReadOnlyMemory<byte> manifest)
     {
@@ -367,7 +370,6 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
             }
         }
 
-        SafeFileHandle copy = await CopyAsync(source, cancellationToken).ConfigureAwait(false);
         long end = Math.Min(source.ConsolidatedLength, offset.Value + Math.Min(length.Value, int.MaxValue));
 
         if (offset.Value >= end)
@@ -376,21 +378,57 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
         }
 
         byte[] bytes = new byte[end - offset.Value];
+
+        if (await CopyAsync(source, cancellationToken).ConfigureAwait(false) is { } copy)
+        {
+            try
+            {
+                int filled = 0;
+
+                while (filled < bytes.Length)
+                {
+                    int read = RandomAccess.Read(copy, bytes.AsSpan(filled), offset.Value + filled);
+
+                    if (read == 0)
+                    {
+                        throw new IOException("The cached copy of segment " + source.Id + " is shorter than the segment.");
+                    }
+
+                    filled += read;
+                }
+
+                return bytes;
+            }
+            catch (Exception error) when (LocalCacheHealth.IsLocal(error))
+            {
+                // A copy that cannot be read is a miss (#146): the store has the segment.
+                Cache.TurnOff(LocalCache.SegmentCopies);
+            }
+        }
+
+        await ReadFromStoreAsync(source, offset.Value, bytes, cancellationToken).ConfigureAwait(false);
+        return bytes;
+    }
+
+    // A consolidated segment's bytes from the store, by ranged reads: with
+    // the segment copies off (#146), every read of one.
+    private async ValueTask ReadFromStoreAsync(Segment segment, long offset, byte[] bytes, CancellationToken cancellationToken)
+    {
         int filled = 0;
 
         while (filled < bytes.Length)
         {
-            int read = RandomAccess.Read(copy, bytes.AsSpan(filled), offset.Value + filled);
+            ObjectRead read = await _store.ReadAsync(_names.Segment(segment.Id), new ByteOffset(offset + filled), new ByteCount(bytes.Length - filled), cancellationToken).ConfigureAwait(false)
+                ?? throw new IOException("Segment " + segment.Id + " was listed as consolidated and is gone from the store.");
 
-            if (read == 0)
+            if (read.Bytes.IsEmpty)
             {
-                throw new IOException("The cached copy of segment " + source.Id + " is shorter than the segment.");
+                throw new IOException("Segment " + segment.Id + " in the store is shorter than it was listed.");
             }
 
-            filled += read;
+            read.Bytes.Span.CopyTo(bytes.AsSpan(filled));
+            filled += read.Bytes.Length;
         }
-
-        return bytes;
     }
 
     public ValueTask<ReadOnlyMemory<byte>> ReadManifestAsync(CancellationToken cancellationToken) => new(_manifest);
@@ -512,7 +550,7 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
             }
 
             // The local copy, from what is in hand rather than downloaded again.
-            WriteCopy(segment.Id, bytes);
+            TryWriteCopy(segment.Id, bytes);
 
             lock (_lock)
             {
@@ -571,6 +609,30 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
     /// and nothing is written. True when anything was adopted.
     /// </summary>
     /// <exception cref="LogVerificationException">A chunk does not verify or does not follow.</exception>
+    /// <summary>
+    /// The highest writer epoch in a chunk header this store holds: what a
+    /// follower's refresh has seen of the writers since its open (ADR 0179
+    /// point 12). 0 when it holds no chunk with a header, as when it adopted
+    /// only consolidated segments.
+    /// </summary>
+    public long AdoptedEpoch
+    {
+        get
+        {
+            lock (_lock)
+            {
+                long epoch = 0;
+
+                foreach (Segment segment in _segments)
+                {
+                    epoch = Math.Max(epoch, segment.Epoch);
+                }
+
+                return epoch;
+            }
+        }
+    }
+
     public async ValueTask<bool> RefreshAsync(CancellationToken cancellationToken)
     {
         if (Writes)
@@ -651,6 +713,59 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
         _writing.Dispose();
         _downloading.Dispose();
         _consolidating.Dispose();
+    }
+
+    /// <summary>
+    /// A follower's store becomes the writer's, in place (ADR 0179 point 8):
+    /// it adopts every chunk the writer it followed made, by the same probe a
+    /// refresh makes, then takes <paramref name="epoch"/>, already claimed in
+    /// the writer record, and fences the next slot with it, as a writer's open
+    /// does. A fence that finds a later epoch leaves it superseded. When the
+    /// newest segment is consolidated, it lists the log and reads its tail,
+    /// as the write-open does, so both reach one verdict (#181).
+    /// </summary>
+    public async ValueTask ClaimInPlaceAsync(long epoch, CancellationToken cancellationToken)
+    {
+        if (Writes)
+        {
+            throw new InvalidOperationException("A writer's store holds its epoch already.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(epoch, 1L);
+        await RefreshAsync(cancellationToken).ConfigureAwait(false);
+        bool consolidated;
+
+        lock (_lock)
+        {
+            _epoch = epoch;
+            consolidated = _segments.Count > 0 && _segments[^1].Consolidated;
+        }
+
+        // The refresh holds no listing, and a consolidated segment no chunk:
+        // the listing comes after the refresh, so it holds every chunk the
+        // refresh adopted that has not been deleted since.
+        if (consolidated)
+        {
+            IReadOnlyList<ObjectEntry> entries = await _store.ListAsync(_names.Log, cancellationToken).ConfigureAwait(false);
+            List<(int Segment, int Chunk)> listed = [];
+
+            foreach (ObjectEntry entry in entries)
+            {
+                if (_names.TryParse(entry.Name, out int segment, out int chunk) && chunk >= 0)
+                {
+                    listed.Add((segment, chunk));
+                }
+            }
+
+            long tail = await ListedTailEpochAsync(_store, _names, [.. listed], cancellationToken).ConfigureAwait(false);
+
+            lock (_lock)
+            {
+                _listedTail = tail;
+            }
+        }
+
+        await FenceAsync(cancellationToken).ConfigureAwait(false);
     }
 
     // The fence (ADR 0136): the slot after the last that exists, in log
@@ -1005,7 +1120,7 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
             }
         }
 
-        WriteCopy(segment.Id, whole.Bytes.Span);
+        TryWriteCopy(segment.Id, whole.Bytes.Span);
 
         lock (_lock)
         {
@@ -1086,8 +1201,15 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
         throw new ArgumentOutOfRangeException(nameof(id), id, "No such segment.");
     }
 
-    private async ValueTask<SafeFileHandle> CopyAsync(Segment segment, CancellationToken cancellationToken)
+    // The local copy of a consolidated segment, made from the store on a
+    // miss; none once the copies are off (#146).
+    private async ValueTask<SafeFileHandle?> CopyAsync(Segment segment, CancellationToken cancellationToken)
     {
+        if (Cache.IsOff(LocalCache.SegmentCopies))
+        {
+            return null;
+        }
+
         lock (_lock)
         {
             if (_copies.TryGetValue(segment.Id, out SafeFileHandle? open))
@@ -1106,23 +1228,57 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
             {
                 ObjectRead read = await ConditionalWrites.ReadWholeAsync(_store, _names.Segment(segment.Id), cancellationToken).ConfigureAwait(false)
                     ?? throw new IOException("Segment " + segment.Id + " was listed as consolidated and is gone from the store.");
-                WriteCopy(segment.Id, read.Bytes.Span);
+
+                if (!TryWriteCopy(segment.Id, read.Bytes.Span))
+                {
+                    return null;
+                }
             }
 
-            lock (_lock)
+            try
             {
-                if (!_copies.TryGetValue(segment.Id, out SafeFileHandle? handle))
+                lock (_lock)
                 {
-                    handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
-                    _copies[segment.Id] = handle;
-                }
+                    if (!_copies.TryGetValue(segment.Id, out SafeFileHandle? handle))
+                    {
+                        handle = File.OpenHandle(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+                        _copies[segment.Id] = handle;
+                    }
 
-                return handle;
+                    return handle;
+                }
+            }
+            catch (Exception error) when (LocalCacheHealth.IsLocal(error))
+            {
+                Cache.TurnOff(LocalCache.SegmentCopies);
+                return null;
             }
         }
         finally
         {
             _downloading.Release();
+        }
+    }
+
+    // A copy written, or the copies turned off when the disk refuses it
+    // (#146): the cache is a miss, never a stop. False when it was not.
+    private bool TryWriteCopy(int segment, ReadOnlySpan<byte> bytes)
+    {
+        if (Cache.IsOff(LocalCache.SegmentCopies))
+        {
+            return false;
+        }
+
+        try
+        {
+            Cache.Check(LocalCache.SegmentCopies);
+            WriteCopy(segment, bytes);
+            return true;
+        }
+        catch (Exception error) when (LocalCacheHealth.IsLocal(error))
+        {
+            Cache.TurnOff(LocalCache.SegmentCopies);
+            return false;
         }
     }
 

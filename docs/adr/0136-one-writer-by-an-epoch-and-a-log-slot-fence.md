@@ -259,3 +259,41 @@ failure-injection workload gains two modes for it,
 `HttpAppliedThenCancelled` and `HttpAppliedThenTimedOut`, at every request,
 and treats a reader declared forgotten as a failure, since the workload
 forgets none.
+
+## Amendment, 2026-10-27 — handover's triggers and release reasons, a claim made before the open, and supersession per dataset
+
+Filed by Replication part 1 (#165), unaccepted until the maintainer accepts
+it (ADR 0066). Ruled in [ADR 0179](0179-writer-handover-within-a-store.md).
+
+- **Two more triggers.** The epoch history's `trigger` may be `abdication`, a
+  standby's claim after a release, or `probe`, a standby's claim on a
+  takeover request. `restart` and `operator` are unchanged.
+- **Two more release reasons.**
+  - `storage-error`: a batch failed against the store and the release could
+    still be written.
+  - `local-disk-error`: local storage the writer needs to keep committing
+    has failed, namely the memtable's spill, past the bound ADR 0179 point 6
+    states. A failed write to the derived cache is never a release reason
+    (#146).
+
+  A fault deterministic over the log is never a release reason.
+- **A write-open may take a claim already made.** It is guarded by the epoch
+  named, then adopts and fences as point 2 says. This is how a warm standby
+  claims in place.
+- **Point 5 per dataset.** On a dataset with automatic handover (ADR 0180), a
+  superseded writer re-opens as a follower and is eligible again once warm.
+  On every other dataset point 5 stands.
+- **The record stays `format: 1`.** A reader of format 1 reads members by
+  name. An unknown trigger or reason was refused before this amendment, so a
+  build before it refuses a record written after a handover. The release
+  notes say so.
+## Amendment, 2026-11-02 — a record this version does not fully read
+
+Filed by 1.0 readiness A (#129) under [ADR 0217](0217-coordination-records-read-conservatively.md),
+unaccepted until the maintainer accepts it (ADR 0066).
+
+A writer record of a format this version does not read is never written on:
+an open for write and a takeover refuse with `WriterRecordFormatUnknownException`,
+and a read-only open goes on as a follower that knows no writer. A trigger or
+a release reason it does not know, under a format it does read, is held as
+`Unknown` with its text, written back as read, and never acted on.

@@ -233,6 +233,22 @@ accepts it (ADR 0066).
 **The ledger.** The rulings are ADR 0175's `ShapesAreTheRuntimeValidator`,
 `ResidualCheckInCode` and `CodeValidatorsAreTheOracle`.
 
+## Amendment, 2026-10-27 — `varve:standbyOn`
+
+Filed by Replication part 1 (#165), unaccepted until the maintainer accepts
+it (ADR 0066). Ruled in [ADR 0180](0180-warm-standbys-and-the-writer-set.md).
+
+- **The dataset node gains `varve:standbyOn`.** Its values are literal
+  instance names, any number of them: the standbys of the dataset's writer
+  set.
+- **The shapes:**
+  - it is an `xsd:string`;
+  - a dataset with one declares `varve:automaticHandover true`;
+  - it is disjoint from `varve:placedOn`.
+- **`varve:placedOn` keeps `maxCount 1`**, and now means the preferred writer.
+- **`varve:automaticHandover` is acted on** (ADR 0179), no longer only
+  recorded.
+
 ## Amendment, 2026-10-30 — the classifier binding and subject-scoped grants
 
 Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066). The rulings are ADR [0234](0234-subject-scoped-grants-and-the-classifier-binding.md)'s.
@@ -255,3 +271,15 @@ Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer 
   one.
 
 `BindingsReservedForErasure` moves to ADR 0234's set, superseded.
+
+## Amendment, 2026-11-02 — a saved plan is versioned, not read forever
+
+Filed by 1.0 readiness A (#129) under [ADR 0216](0216-the-format-inventory.md),
+unaccepted until the maintainer accepts it (ADR 0066).
+
+A `varve apply --out` plan names management positions, which a later format
+may mean otherwise, so it is versioned and positional, not read forever. A
+release reads the formats it can; a plan of a format it does not read is
+refused, and the message tells the operator to plan again with this version
+and apply that plan. Format 1, as v0.1.0-preview.10 wrote it, is the fixture
+`testdata/formats/plan-preview.10`.

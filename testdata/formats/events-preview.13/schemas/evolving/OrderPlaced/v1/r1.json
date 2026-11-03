@@ -1,0 +1,1 @@
+{"$id":"https://varve.example.org/datasets/golden/events/types/OrderPlaced/versions/1/revisions/1","$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":true,"properties":{"order":{"format":"iri","type":"string"},"total":{"type":"number"}},"required":["order","total"],"title":"OrderPlaced","type":"object","x-varve-version":1}

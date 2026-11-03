@@ -1,0 +1,43 @@
+{
+  "version": "v0.1.0-preview.16",
+  "inline": false,
+  "now": "2026-11-03T09:00:00Z",
+  "jobs": [
+    {
+      "name": "long properties (Varve.Shacl.Store.Tests)",
+      "conclusion": "cancelled",
+      "completed_at": "2026-11-02T14:56:16Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/41424545800/job/125207858049"
+    },
+    {
+      "name": "store, full depth (windows-latest)",
+      "conclusion": "success",
+      "completed_at": "2026-11-02T10:31:31Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/41424545800/job/125207857842"
+    },
+    {
+      "name": "store, full depth (ubuntu-latest)",
+      "conclusion": "success",
+      "completed_at": "2026-11-02T10:19:59Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/41424545800/job/125207858443"
+    },
+    {
+      "name": "windows soak",
+      "conclusion": "skipped",
+      "completed_at": "2026-11-02T09:55:13Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/41424545800/job/125207859327"
+    },
+    {
+      "name": "linux soak / soak (ubuntu-latest)",
+      "conclusion": "success",
+      "completed_at": "2026-11-02T17:11:20Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/41450438151/job/1"
+    },
+    {
+      "name": "windows soak / soak (windows-latest)",
+      "conclusion": "success",
+      "completed_at": "2026-11-02T14:09:34Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/41426223592/job/1"
+    }
+  ]
+}

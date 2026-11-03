@@ -299,3 +299,5 @@ override Varve.Management.Model.SubjectLinkDeclaration.ToString() -> string!
 static Varve.Management.Model.SubjectLinkDeclaration.operator !=(Varve.Management.Model.SubjectLinkDeclaration? left, Varve.Management.Model.SubjectLinkDeclaration? right) -> bool
 static Varve.Management.Model.SubjectLinkDeclaration.operator ==(Varve.Management.Model.SubjectLinkDeclaration? left, Varve.Management.Model.SubjectLinkDeclaration? right) -> bool
 static Varve.Management.Model.SubjectSet.Everything.get -> Varve.Management.Model.SubjectSet!
+Varve.Management.Model.DatasetDeclaration.StandbyOn.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Varve.Management.Model.DatasetDeclaration.StandbyOn.init -> void

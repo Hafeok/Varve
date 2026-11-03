@@ -1,0 +1,13 @@
+{
+  "version": "v1.2.0",
+  "inline": true,
+  "now": "2026-11-12T09:00:00Z",
+  "jobs": [
+    {
+      "name": "windows soak / soak (windows-latest)",
+      "conclusion": "success",
+      "completed_at": "2026-11-07T08:20:00Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/25/job/251"
+    }
+  ]
+}

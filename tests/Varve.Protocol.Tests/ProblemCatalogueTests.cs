@@ -60,15 +60,16 @@ public class ProblemCatalogueTests
     /// Types whose trigger holds state across requests, exercised in
     /// <c>GovernanceTests</c> (the live-tail bound) and <c>Varve.Server.Tests</c>
     /// (the concurrent-read limit, which is the host's rate limiter; and a
-    /// writer superseded by a second server on the same object store, ADR 0136),
-    /// <c>ReportGraphTests</c> (a validation projection behind, ADR 0174), and
-    /// <c>RowScopeTests</c> (a row-restricted write refused, and a
-    /// classification projection behind, ADRs 0233 and 0236).
+    /// writer superseded by a second server on the same object store, ADR 0136,
+    /// and a takeover refused, ADR 0179), <c>ReportGraphTests</c> (a
+    /// validation projection behind, ADR 0174), and <c>RowScopeTests</c> (a
+    /// row-restricted write refused, and a classification projection behind,
+    /// ADRs 0233 and 0236).
     /// </summary>
     private static readonly ImmutableArray<ProblemType> TestedElsewhere =
     [
         ProblemType.TooManyLiveTails, ProblemType.ServerBusy, ProblemType.WriterSuperseded, ProblemType.EventNotRendered,
-        ProblemType.ManagementBehind, ProblemType.DatasetBehind, ProblemType.ValidationBehind,
+        ProblemType.ManagementBehind, ProblemType.DatasetBehind, ProblemType.ValidationBehind, ProblemType.TakeoverRefused,
         ProblemType.RowNotWritable, ProblemType.ClassificationBehind,
     ];
 
@@ -130,6 +131,11 @@ public class ProblemCatalogueTests
             new DatasetOptions { Clock = TimeProvider.System, Validators = [new EventCatalogueFreeze(new DatasetName("frozen"))] }, P.Ct);
         datasets.Add("frozen", frozen);
 
+        // ADR 0179 point 6: a writer that stepped down refuses what it has not appended.
+        Dataset stepped = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+        stepped.StepDown("placement");
+        datasets.Add("stepped", stepped);
+
         // ADR 0214: a dataset whose disk is full refuses a write as storage-full.
         FullStorage fullStorage = new(new MemoryStorage());
         Dataset full = await Dataset.CreateAsync(fullStorage, new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
@@ -154,6 +160,7 @@ public class ProblemCatalogueTests
 
         await using (dataset)
         await using (frozen)
+        await using (stepped)
         await using (full)
         await using (unflushed)
         await using (ProtocolTestHost host = await ProtocolTestHost.StartAsync(
@@ -190,6 +197,7 @@ public class ProblemCatalogueTests
                 [ProblemType.UnsupportedMediaType] = () => new HttpRequestMessage(HttpMethod.Post, new Uri(Sparql, UriKind.Relative)) { Content = new StringContent("ASK {}", Encoding.UTF8, "text/plain") },
                 [ProblemType.Rejected] = () => P.Update(Sparql, "INSERT DATA { <http://ex/secret> <http://ex/p> 1 }"),
                 [ProblemType.EventDeclarationInvalid] = () => P.Update(Sparql, "INSERT DATA { GRAPH <" + Catalogue + "> { <http://ex/stray> <http://ex/p> 1 } }"),
+                [ProblemType.WriterSteppedDown] = () => P.Update("datasets/stepped/sparql", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"),
                 [ProblemType.EventCatalogueMoved] = () => P.Update("datasets/frozen/sparql", "INSERT DATA { GRAPH <" + Catalogue + "> { <http://ex/stray> <http://ex/p> 1 } }"),
                 [ProblemType.EventSchemaIncompatible] = () => P.Update(Sparql,
                     "DELETE DATA { GRAPH <" + Catalogue + "> { <http://ex/types/T/at> <https://w3id.org/varve/ns#fieldDatatype> <http://www.w3.org/2001/XMLSchema#dateTime> } } ; "

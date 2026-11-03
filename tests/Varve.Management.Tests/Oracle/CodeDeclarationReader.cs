@@ -269,6 +269,42 @@ internal static class CodeDeclarationReader
             string? placed = Literal(node, ManagementVocabulary.PlacedOn, required: false);
             bool handover = Boolean(node, ManagementVocabulary.AutomaticHandover) ?? false;
             bool closed = Boolean(node, ManagementVocabulary.Closed) ?? false;
+
+            // ADR 0180's standbys, added to the oracle with the term: plain
+            // strings, never the preferred writer, and only with the opt-in.
+            List<string> standbys = [];
+
+            foreach (Triple triple in Triples)
+            {
+                if (!triple.Subject.Equals(node) || !triple.Predicate.Equals(ManagementVocabulary.StandbyOn))
+                {
+                    continue;
+                }
+
+                RdfTerm value = triple.Object;
+
+                if (value.Kind != RdfTermKind.Literal || !value.Language.IsEmpty || (value.Datatype is { } datatype && !datatype.Lexical.SequenceEqual("http://www.w3.org/2001/XMLSchema#string"u8)))
+                {
+                    Find(node, ManagementVocabulary.StandbyOn, "this property's value is a plain string literal");
+                    continue;
+                }
+
+                string standby = Encoding.UTF8.GetString(value.Lexical);
+
+                if (standby == placed)
+                {
+                    Find(node, ManagementVocabulary.StandbyOn, "an instance is the preferred writer or a standby, not both (ADR 0180)");
+                }
+
+                standbys.Add(standby);
+            }
+
+            if (Triples.Exists(t => t.Subject.Equals(node) && t.Predicate.Equals(ManagementVocabulary.StandbyOn)) && !handover)
+            {
+                Find(node, ManagementVocabulary.StandbyOn, "a dataset with a varve:standbyOn declares varve:automaticHandover true (ADR 0180)");
+            }
+
+            standbys.Sort(StringComparer.Ordinal);
             EventDeclarationState events = EventState(node);
             List<GrantDeclaration> grants = Grants(name);
             List<BindingDeclaration> bindings = [.. Bindings()];
@@ -287,6 +323,7 @@ internal static class CodeDeclarationReader
                 Node = node,
                 Storage = storage,
                 PlacedOn = placed,
+                StandbyOn = standbys,
                 DefaultAccessScope = scope,
                 AutomaticHandover = handover,
                 Closed = closed,

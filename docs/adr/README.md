@@ -377,6 +377,16 @@ Filed by [#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 ([#15](https
 | [0177](0177-seek-dont-narrow-intervals-beside-the-key.md) | Seek, don't narrow: an extent's intervals beside its keys, derived format 5 | Filed unaccepted (#133) |
 | [0178](0178-the-format-5-upgrade-and-the-set-cap.md) | The format-5 upgrade, mixed-version instances, and the set cap | Filed unaccepted (#133) |
 
+## Replication, part 1 (#165)
+
+Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replication ([#97](https://github.com/Hafeok/Varve/issues/97)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0179; part 2 (#166) holds 0183–0186, and 0182 is unused, because the RustFS spike needed no fallback. Amended by it, likewise unaccepted: 0136 (triggers, release reasons, a claim made before the open, supersession per dataset); 0137 (a self-hosted store's STS, and RustFS by web identity); 0163 (the writer set's start rule and placement events; readiness); 0164 (a standby's interval beside `FollowOnDemand`; the epoch a refresh saw; point 5 built); 0166 (`varve:standbyOn`); 0168 (the directory across a handover).
+
+| # | Title | Status |
+|---:|---|---|
+| [0179](0179-writer-handover-within-a-store.md) | Writer handover within a store: two triggers, an epoch claimed in the writer record, a log slot as the fence | Filed unaccepted (#165) |
+| [0180](0180-warm-standbys-and-the-writer-set.md) | Warm standbys and the writer set: `placedOn` ∪ `standbyOn`, placement by events, and what warm means | Filed unaccepted (#165) |
+| [0181](0181-handover-automation.md) | Handover automation: the orchestrator judges liveness, one idempotent command acts, and the two-app layout keeps restart | Filed unaccepted (#165) |
+
 ## Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit
 
 Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set).
@@ -458,7 +468,7 @@ carries a condition of its own that is not measurable by a build.
 | [0071](0071-synchronous-reads-over-asynchronous-storage.md) | A host where no synchronous read exists. | milestone 6c, the browser |
 | [0034](0034-commit-signing-and-the-sandbox-exception.md) | A route appears by which a sandbox commit is signed by a key the project controls, or by GitHub itself. Two are identified and neither is available: GraphQL `createCommitOnBranch`, blocked by the session proxy rather than by GitHub, and a per-installation signing key. The REST contents API was tested and is **not** one — it produces unsigned commits. | whenever it fires |
 
-## 1.0 readiness A — the file backend's faults and the soak
+## 1.0 readiness A — the file backend's faults, the soak, and the formats
 
 Filed by 1.0 readiness A ([#129](https://github.com/Hafeok/Varve/issues/129); [#61](https://github.com/Hafeok/Varve/issues/61)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Amended by them: 0073 (a full disk; the faults on real files), 0082 (run by the release gate and judged by a script), 0119 (`storage-full`). Superseded in part by 0214: 0124 (point 3 and `AcknowledgedOnlyWhenTheBatchIsDurable` move, restated: a failed batch answered by the log, and a full disk recovered by the next write). Superseded in part by 0215: 0110 (`FlatWithinABand` moves, restated).
 
@@ -466,6 +476,8 @@ Filed by 1.0 readiness A ([#129](https://github.com/Hafeok/Varve/issues/129); [#
 |---|---|---|
 | [0214](0214-file-backend-failure-injection.md) | File-backend failure injection: four faults, at every point, on simulated and on real files | Filed unaccepted (#129) |
 | [0215](0215-the-soak-gate-run-and-judged.md) | The soak gate, run and judged: a bounded vocabulary, four hours, a judge, and Windows weekly | Filed unaccepted (#61) |
+| [0216](0216-the-format-inventory.md) | The format inventory: fixtures written by the releases that introduced them, and the format gate | Filed unaccepted (#129) |
+| [0217](0217-coordination-records-read-conservatively.md) | Coordination records read conservatively: an unknown format is never written on, an unknown value never acted on | Filed unaccepted (#129) |
 
 ## Open questions recorded, not resolved
 
