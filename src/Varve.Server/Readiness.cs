@@ -18,10 +18,10 @@ namespace Varve.Server;
 /// head, its projection, whether it failed, and whether its storage no longer
 /// holds the writer epoch (ADR 0136).
 /// </summary>
-internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed, bool Superseded = false, DatasetRole Role = DatasetRole.Writer, Varve.Store.ExtentRetention? Retention = null, bool StorageFull = false);
+internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed, bool Superseded = false, DatasetRole Role = DatasetRole.Writer, Varve.Store.ExtentRetention? Retention = null, bool Tailing = false, bool Warm = false, Exception? Spill = null, Varve.Store.ObjectStorage.Model.LocalCache Cache = Varve.Store.ObjectStorage.Model.LocalCache.None, bool StorageFull = false);
 
 /// <summary>One dataset's line in the readiness answer.</summary>
-internal readonly record struct DatasetReadiness(string Name, string State, string? Reason, long? Lag, DatasetRole Role = DatasetRole.Writer);
+internal readonly record struct DatasetReadiness(string Name, string State, string? Reason, long? Lag, DatasetRole Role = DatasetRole.Writer, long? Position = null, bool Tailing = false, bool Warm = false, Exception? Spill = null, Varve.Store.ObjectStorage.Model.LocalCache Cache = Varve.Store.ObjectStorage.Model.LocalCache.None);
 
 /// <summary>
 /// The readiness decision (ADR 0113), pure, so that its property can be
@@ -33,6 +33,7 @@ internal readonly record struct DatasetReadiness(string Name, string State, stri
 /// operators differ from the recorded ones, or its management lag exceeds
 /// the allowed one.
 /// </summary>
+[Contract(typeof(WarmStandbysAndTheWriterSet.ReadinessReportsTheStandby), Role = "readiness, with each standby's tailing and warm")]
 internal static class Readiness
 {
     /// <summary>
@@ -163,7 +164,9 @@ internal static class Readiness
                     break;
             }
 
-            states.Add(line with { Role = dataset.Role });
+            // The applied position of an open dataset: what a follower has applied, not the writer's head (ADR 0180 point 7).
+            // A standby not warm is still ready: warm decides only whether it may take the dataset over (ADR 0180 point 7).
+            states.Add(line with { Role = dataset.Role, Position = dataset.State == DatasetState.Open ? dataset.Head : null, Tailing = dataset.Tailing, Warm = dataset.Warm, Spill = dataset.Spill, Cache = dataset.Cache });
         }
 
         return (ready, states);

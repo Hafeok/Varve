@@ -43,6 +43,9 @@ internal sealed class ObjectHarness : IAsyncDisposable
 
     public ManualClock Clock { get; } = ManualClock.Epoch();
 
+    /// <summary>A fault of the local caches every storage this harness opens shares (#146); none when null.</summary>
+    public Func<LocalCache, bool>? CacheFault { get; set; }
+
     public ObjectStorageOptions Options(
         ObjectStorageAccess access = ObjectStorageAccess.Write, string? instance = null, long? cacheBytes = null, ReaderId? reader = null, ReaderAnnouncing announcing = ReaderAnnouncing.Required)
     {
@@ -60,6 +63,7 @@ internal sealed class ObjectHarness : IAsyncDisposable
             CacheBytes = new ByteCount(cacheBytes ?? 8L << 30),
             Reader = reader,
             Announcing = announcing,
+            CacheFault = CacheFault is { } fault ? kind => fault(kind) : null,
         };
     }
 

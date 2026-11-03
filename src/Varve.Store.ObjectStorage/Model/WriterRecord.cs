@@ -24,4 +24,8 @@ public sealed record WriterRecord
 
     /// <summary>Every claim, oldest first; the last is the current epoch's.</summary>
     public required IReadOnlyList<EpochClaim> History { get; init; }
+
+    // The release reason as the record spelled it, kept when this version
+    // does not know it (ADR 0217).
+    internal string? ReleasedText { get; init; }
 }

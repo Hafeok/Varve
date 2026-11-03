@@ -1,0 +1,31 @@
+{
+  "version": "v0.1.0-preview.17",
+  "inline": false,
+  "now": "2026-11-12T09:00:00Z",
+  "jobs": [
+    {
+      "name": "linux soak / soak (ubuntu-latest)",
+      "conclusion": "success",
+      "completed_at": "2026-11-12T07:10:00Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/30/job/301"
+    },
+    {
+      "name": "store, full depth (ubuntu-latest)",
+      "conclusion": "success",
+      "completed_at": "2026-11-12T03:10:00Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/30/job/301"
+    },
+    {
+      "name": "windows soak / soak (windows-latest)",
+      "conclusion": "success",
+      "completed_at": "2026-11-07T08:20:00Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/25/job/251"
+    },
+    {
+      "name": "store, full depth (windows-latest)",
+      "conclusion": "success",
+      "completed_at": "2026-11-08T03:20:00Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/26/job/261"
+    }
+  ]
+}

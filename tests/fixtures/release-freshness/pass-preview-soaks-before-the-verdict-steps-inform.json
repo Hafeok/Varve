@@ -1,0 +1,71 @@
+{
+  "version": "v0.1.0-preview.17",
+  "inline": false,
+  "now": "2026-11-03T09:00:00Z",
+  "jobs": [
+    {
+      "name": "store, full depth (windows-latest)",
+      "conclusion": "success",
+      "completed_at": "2026-11-02T10:31:31Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/41424545800/job/125207857842"
+    },
+    {
+      "name": "store, full depth (ubuntu-latest)",
+      "conclusion": "success",
+      "completed_at": "2026-11-02T10:19:59Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/41424545800/job/125207858443"
+    },
+    {
+      "name": "linux soak / soak (ubuntu-latest)",
+      "conclusion": "failure",
+      "completed_at": "2026-11-02T17:11:20Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/41450438151/job/125294233565",
+      "steps": [
+        {
+          "name": "Build the soak",
+          "conclusion": "success"
+        },
+        {
+          "name": "Soak under the shipped runtime configuration",
+          "conclusion": "success"
+        },
+        {
+          "name": "Judge the soak",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Upload the soak's samples",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "windows soak / soak (windows-latest)",
+      "conclusion": "failure",
+      "completed_at": "2026-11-02T14:09:34Z",
+      "html_url": "https://github.com/Hafeok/Varve/actions/runs/41426223592/job/125213370087",
+      "steps": [
+        {
+          "name": "Build the soak",
+          "conclusion": "success"
+        },
+        {
+          "name": "Soak under the shipped runtime configuration",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Judge the soak",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Upload the soak's samples",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "evidence": [
+    "- The Linux soak: **red**, [the job](https://github.com/Hafeok/Varve/actions/runs/41450438151/job/125294233565), finished 2026-11-02",
+    "- The Windows soak: **invalid**, [the job](https://github.com/Hafeok/Varve/actions/runs/41426223592/job/125213370087), finished 2026-11-02"
+  ]
+}

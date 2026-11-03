@@ -2,8 +2,8 @@
 
 ## Status
 
-**Filed unaccepted by 1.0 readiness A (#61, under #129), 2026-10-28** (ADR
-0066). Acceptance is the maintainer's act on the pull request. The plan it
+**Accepted — filed unaccepted by 1.0 readiness A (#61, under #129), 2026-10-28** (ADR
+0066). Accepted by the maintainer in 97b39fee. Acceptance is the maintainer's act on the pull request. The plan it
 follows was approved on #129 on 2026-10-27, with this answer: Linux in the
 release gate; Windows weekly in the nightly; and the release gate refuses
 when the latest Windows soak is red or older than eight days.
@@ -14,6 +14,22 @@ of any length with a bounded vocabulary (ADR 0068 point 4).
 
 **Amends** [ADR 0082](0082-the-soak-gate.md) by dated amendment: the soak is
 run by CI and judged by a script, not by hand.
+
+**Amended 2026-11-02:** point 1's steady size is reached by a load before the
+clock, not by the writer's rate (see the end).
+
+**Amended 2026-11-02:** a preview checks main's latest runs of the long gates
+instead of running them inline, and the nightly runs the Linux soak (see the
+end, "the long gates on main"). Amends ADR 0214 point 6 to match.
+
+**Amended 2026-11-03:** point 3's band is replaced by a fit of the process's
+memory against commits, and point 4's dataset's own is retired with ADR
+0082's model of it (see the end, "memory against commits"; #222).
+
+**Amended 2026-11-03:** for a preview the soaks inform and never gate; the
+faults stay its gate, read by job; a red or invalid soak opens an issue
+labelled `soak`, and a release that is not a preview is refused while one is
+open (see the end, "the soaks inform previews"). The maintainer's decision.
 
 Records decision set [`the-soak-gate-judged`](../decisions/the-soak-gate-judged.md).
 
@@ -74,7 +90,9 @@ band, one that leaks handles, and one whose dataset never settles.
 
 **6. Where and how long.**
 - **The release gate** (ADR 0214's `release-gate.yml`) runs the soak for
-  **four hours on Linux** and judges it. Four hours is enough because:
+  **four hours on Linux** and judges it, for a release that is not a
+  preview; a preview checks the nightly's latest Linux soak instead (the
+  amendment of 2026-11-02). Four hours is enough because:
   - ADR 0110 point 5 shows the collector settles by minute 30, so everything
     after that is steady-state evidence;
   - it puts three and a half hours of steady state behind the drift window,
@@ -83,7 +101,8 @@ band, one that leaks handles, and one whose dataset never settles.
     their merges, so each maintenance cycle repeats hundreds of times. A
     leak of 0.1 MB a cycle would show as more than the 10% band;
   - it fits GitHub's six-hour job limit with room for the build.
-- **The nightly** runs the same soak on **Windows once a week.**
+- **The nightly** runs the same soak on **Windows once a week,** and on
+  Linux every night (the amendment of 2026-11-02).
 - **The release gate refuses** when the latest Windows soak on `main`'s
   nightly is red, or older than eight days. A step reads the nightly's runs
   through the Actions API with the job's own token and names the run it
@@ -185,3 +204,264 @@ derived files at most 97 of 182.
 hours, and this container did not hold a run past two hours: it was
 restarted three times during the step. Point 6 now runs it in #164's Azure
 environment before 1.0.
+
+## Amendment, 2026-11-02 — the load before the clock
+
+**Point 1 assumed the writer's rate.** It said the writer fills the
+vocabulary "well before minute 30". The first weekly Windows soak, the
+nightly of 2026-10-31 (run 41192568259), showed that it does not on every
+runner: that runner committed about 1,200 quads a second, half the Linux
+rate, the dataset stood at 586,804 quads at minute 30 against a steady
+667,000, and the judge refused the run as not steady, as point 1 says it
+must. The release gate then refused v0.1.0-preview.16 (#175), and would
+refuse every release, on a soak whose only fault was its runner's speed.
+Slower hardware will always break an assumption about a rate, so the rate
+is taken out of the gate:
+
+- **A load phase before the clock.** The soak first brings the dataset to
+  the size the workload keeps it at, then starts the timed run with the
+  unchanged workload. The workload asserts two quads for each it retracts
+  over a fixed vocabulary, so it holds each quad present two thirds of the
+  time; the load asserts each quad of the vocabulary with that probability,
+  in commits of a thousand with no readers and no pause, and the timed run
+  begins in the walk's steady state instead of three vocabularies' worth of
+  operations away from it. The load goes through commits, not the bulk
+  loader: the loader appends one commit and one run, and the log, the runs
+  and the checkpoints the timed workload builds are what the gate measures.
+  The soak prints what the load brought the dataset to, before its table.
+  The same workload runs on every OS.
+- **The judge keeps the validity rule.** The dataset is within ±5% of its
+  steady size across the whole judged window, from minute 30 of the timed
+  run to the end, or there is no verdict. What the rule catches now is the
+  dataset's own drift, not the runner's speed.
+- **A fixture for each case:** `holds-loaded`, a run filled before the
+  clock and steady from its first sample, is judged; `cannot-drifting`,
+  filled and steady until minute 40 and then growing to 8% over its median,
+  is not.
+
+`BoundedVocabulary` is restated in the decision set by this amendment.
+`--subjects 2000` stays the vocabulary for both runners.
+
+## Amendment, 2026-11-02 — the long gates on main, and a preview checks them
+
+**Inline four-hour gates serialise every release behind the previous one.**
+The release gate ran the faults at full depth and the four-hour Linux soak
+on the commit under release. `release.yml` admits one release run at a time
+on a ref, so each release waited four hours and more for its own gate, and
+the next waited behind it, however small the change between them: a preview
+with a one-line fix took as long to cut as 1.0. A preview is cut often, and
+its purpose is to put main's state in front of users; the evidence that
+main's state holds is the same evidence whether it is gathered on the
+release commit or on main the night before. So:
+
+- **The long gates run on main.** The nightly's store job at full depth
+  already ran every fault at every point on Linux and on Windows (ADR 0214
+  point 6), and it stays the faults' run. The nightly now also runs the
+  four-hour soak on Linux, through `release-gate.yml` as the Windows soak
+  does. A dispatch of the nightly on main runs either alone (`run`: `store
+  at full depth`, `linux soak`, `windows soak`), so evidence can be gathered
+  before a release without waiting for the night. `release-gate.yml` has no
+  trigger of its own.
+- **A preview checks them.** For a `0.x.y-preview.N` descriptor, the release
+  gate runs neither inline. It refuses unless the latest completed run on
+  main's nightly of each is green and within its window: the Linux soak,
+  eight days, as the Windows soak; the store at full depth on each runner,
+  three days. A skipped job is not a run. `eng/release-freshness.cs`, which
+  generalises the Windows soak's check of point 6, judges it and names each
+  run it judged.
+- **Every other release runs both inline,** on the release commit, as
+  before: 1.0.0, and every later minor and major release, and a preview of
+  any of them. The Windows soak is checked for freshness for every release,
+  as point 6 says.
+- **Fixtures for both paths.** `tests/fixtures/release-freshness/` holds a
+  preview whose evidence is all fresh, and previews refused for a red Linux
+  soak, a missing one, faults four days old and a Windows soak nine days
+  old; a preview whose newest store jobs were skipped and whose earlier ones
+  are fresh; and releases that run inline (1.0.0, 1.2.0, 1.1.0-preview.1, no
+  release) and need only the Windows soak, one refused for it. The
+  pipeline's `release-freshness-fixtures` job runs them on every build.
+
+**Three days for the faults.** They run every night, so a fresh run is at
+most a day old on a normal morning. Three days lets two nights fail to run,
+a runner outage or a nightly cancelled for an unrelated leg, without
+blocking a preview, and refuses at the third, when main has moved for half a
+week without the faults. A red run refuses at once, whatever its age.
+
+**What fits the jobs' limits.** Measured on the nightly of 2026-11-01 (run
+41294147201) and the Windows soak of 2026-10-31 (run 41192568259):
+
+| Run | Job | Took | Its timeout |
+|---|---|---:|---:|
+| The faults, in the store at full depth | Linux | 25.5 min | the step's 150 |
+| | Windows | 36 min | the step's 150 |
+| The four-hour soak, build and judge | Windows | 242 min | 340 |
+
+The load before the clock of the amendment above adds well under a minute
+(41 s in its fixture). The faults fit every night many times over. The soak
+is about 245 minutes on either runner, so it does not fit a 300-minute job
+with #219's warning at 80% of a job's timeout (82%); the soak job keeps its
+340 minutes in `release-gate.yml`, under GitHub's six-hour limit, where it
+is 72%. Within that job it fits a nightly schedule as well as a weekly one,
+so the Linux soak runs nightly: a red or cancelled night is replaced by the
+next one instead of blocking previews for a week, and a preview cut on any
+morning has a soak of main's previous day behind it. #219's five-hour leg is
+a job of its own and does not share the soak's limit.
+
+## Amendment, 2026-11-03 — memory against commits
+
+**The band judged a model, not the process.** Point 3 judged the working set
+less the dataset's own, and ADR 0082 counts in the dataset's own a table of
+commits at 144 bytes a commit. ADR 0089 paged that table out of memory: the
+commit index keeps at most twice its cache of 4,096 entries resident, 80
+bytes each, and 8 bytes of fences per 128 commits. So the dataset's own grew
+by about 0.27 MB a minute that the process did not hold, and three valid
+four-hour soaks of 2026-11-02, each with the dataset steady at 667,000 quads,
+missed:
+
+| Run | OS | Old judge | Why |
+|---|---|---|---|
+| Release run 41413295525, inline (`land/release-v0.1.0-preview.16`) | Linux | misses | working set less own, median 67.1 MB, fell 47% as own grew |
+| Nightly 41450438151, on `main` | Linux | misses | median 72.1 MB, fell 45% |
+| Nightly 41426223592, on `main` | Windows | misses | median −7.6 MB: own outgrew a working set Windows trims |
+
+On Windows the subtraction had no meaning at all: the OS trims an idle
+process's working set to its standby list, to 42 MB at minute 120 with 50 MB
+of private bytes, while own had reached 34 MB. And a band of ±25% of a median
+near zero is no band. The process did grow, by about 50 bytes a commit on
+both OSes, which the model's 144 bytes hid: #222 bounds what is resident per
+commit. Until it does, that growth is a known cost the gate states, rather
+than one a model absorbs. So:
+
+- **What is measured is the process's memory, directly,** with nothing
+  subtracted: the working set on Linux (and macOS), private bytes on Windows,
+  which the OS cannot trim. The soak prints `# os <name>` before its table;
+  a run without the line is judged as the judge's OS, which in CI is the
+  soak's own runner.
+- **It is fitted against commits,** by least squares over every sample from
+  minute 30 to the end. The fit has two tests:
+  - **The slope is at most 60 bytes a commit.** The three runs measured 47.9
+    (Linux inline), 49.4 (Linux on `main`) and 50.2 (Windows); the allowance
+    is a fifth over the largest. It is the store's known cost per commit,
+    named for #222, which lowers it. At a sustained 100 commits a second it
+    is about 500 MB a day, so the allowance is a measured cost to remove,
+    not a bound to keep.
+  - **Every sample lies within ±25% of the fit's intercept,** widened at
+    that sample by the collector's committed but unused memory, which it
+    returns on its own schedule and which stays under its own ceiling
+    (`CommittedUnderItsOwnCeiling`, unchanged). The intercept is the
+    process's memory at no commits, 120 MB on Linux and 43 MB on Windows,
+    so the band is relative to a quantity well above zero. Without the
+    widening, six Windows samples lie up to 16.5 MB off the line against
+    ±10.7; each is a sample where the collector held 14–28 MB committed over
+    its heap.
+- **What stays:** the collector's ceiling, twice the live heap plus 128 MB;
+  the handles and `derived/` files bounds; the dataset steady within ±5%
+  from minute 30; the shipped collector or no verdict. The drift test is
+  gone: a slope is what a drift was a proxy for.
+- **The dataset's own is retired** from the soak's output, with ADR 0082's
+  model of it (its amendment of this date). The runs' and checkpoints'
+  directories are reported as they are.
+
+**Replayed** over the three runs' artefacts (`soak-ubuntu-latest` of
+41413295525 and 41450438151, `soak-windows-latest` of 41426223592, the last
+with the `# os windows` line its soak did not yet print), the new judge
+holds all three:
+
+| Run | Measured | Intercept | Slope, bytes a commit | Off the line at most | Band |
+|---|---|---:|---:|---:|---:|
+| Linux inline | working set | 119.5 MB | 47.9 | 17.5 MB | ±29.9 MB |
+| Linux on `main` | working set | 123.6 MB | 49.4 | 15.3 MB | ±30.9 MB |
+| Windows on `main` | private bytes | 42.9 MB | 50.2 | 16.5 MB | ±10.7 MB and the collector's unused |
+
+**Why it still catches a leak.** A leak is memory that grows with time or
+with work while the dataset does not, and the workload's commits are its
+work: any such growth shows as slope. Two fixtures prove it:
+`misses-slope`, a working set on a line of 80 bytes a commit, and
+`misses-hourly-leak`, today's 45 bytes a commit, within the allowance, and 4
+MB more at the top of every hour, which the fit measures as 76 bytes a
+commit. `holds-windows-trimmed` is today's Windows run in shape: private
+bytes on a line of 50 bytes a commit with the collector's bursts above it,
+and a working set trimmed below it, judged on private bytes. `misses-drift`
+is replaced by `misses-slope`, and `misses-committed` keeps its working set
+flat, so that it misses on the collector's ceiling alone.
+
+**A preview's freshness and a cancelled nightly.** The nightly of 2026-11-02
+(run 41424545800) was cancelled when #219's five-hour leg overran, and its
+store jobs at full depth were green on both runners. `eng/release-freshness.cs`
+judges each check on the newest completed job of its name by the job's own
+conclusion, and never reads the run's, so it accepts those jobs as fresh
+faults. The fixture `pass-preview-faults-in-a-cancelled-run`, from that run's
+jobs, proves it on every build.
+
+`FlatWithinABand` and `WorkingSetByCause` are restated in the decision set
+by this amendment and await the maintainer's acceptance.
+
+## Amendment, 2026-11-03 — the soaks inform previews
+
+**The maintainer's decision.** Previews were blocked for two days by the
+soak, and not by a leak: the judge's model of the dataset's own charged 144
+bytes a commit that the process no longer held, so three valid four-hour
+soaks of 2026-11-02 missed (the amendment above; the slope fix is #223, now
+merged). A preview puts main's state in front of users, and a gate that can
+be wrong about its own model stopped that without finding anything. So, for
+previews, the soaks inform and never gate:
+
+1. **A preview is not refused on the soaks.** `eng/release-freshness.cs`
+   prints main's latest Linux and Windows soak as `inform:` lines, whatever
+   their verdict or age. The release records them: the GitHub Release's
+   notes carry main's latest soak on each runner and store at full depth on
+   each, with their verdicts (`green`, `red`, `invalid` or `none` for a
+   soak; `green`, `red`, `cancelled` or `none` for a store job), links to the
+   jobs and their dates, and the open soak issues. `publish.yml` writes them
+   when it creates the release, with `release-freshness.cs --evidence` and
+   the job's own token, exactly as they are then. **The descriptor is
+   unchanged**: nothing is pasted by hand and nothing waits on a soak. The
+   release gate's `fresh on main` job prints the same evidence to its step
+   summary for every release.
+2. **The faults stay a preview's gate, read by job.** The newest completed
+   `store, full depth` job on each runner must be green and at most three
+   days old, judged by the job's own conclusion and never its run's, so a
+   green job in a run cancelled by another job's timeout counts (#219;
+   `pass-preview-faults-in-a-cancelled-run`).
+3. **A red or invalid soak opens one issue.** The nightly's `soak issue` job
+   runs when a soak ran and did not succeed, cancelled included. It reads
+   the soak's `verdict.txt` from the run's `soak-<os>` artefact (`invalid`
+   when there is none, because the soak never reached its judge), and with
+   the workflow's own token (`issues: write`) comments on the open issue
+   labelled `soak`, or creates the label and the issue, with the verdict,
+   the OS, the run and the judge's output.
+4. **A release that is not a preview,** 1.0.0 and every later one, runs the
+   faults and the Linux soak inline as before, and is refused while any
+   issue labelled `soak` is open (the issues API, pull requests excluded;
+   `fresh on main` gains `issues: read`). The Windows soak's freshness check
+   (`WindowsWeeklyAndFresh`) stays for these releases, narrowed to them: the
+   Windows soak never runs inline, so without it a 1.0 would ship with no
+   Windows soak behind it.
+5. **Verdicts are read from jobs.** `release-gate.yml`'s soak job judges in
+   "Judge the soak", which writes the judge's output to
+   `artifacts/soak/judge.txt` and the step summary, its verdict to
+   `artifacts/soak/verdict.txt` (exit 0 `green`, 1 `red`, any other
+   `invalid`), records the exit as a step output and does not fail. Three
+   steps follow: "The soak holds the gate" (exit 0), "The soak misses the
+   gate" (exit 1, fails the job) and "The soak was not judged" (any other,
+   fails the job), so an inline soak still fails its release on red or
+   invalid. A soak job's verdict is `green` when it succeeded, `red` when
+   "The soak misses the gate" failed, `invalid` for any other completed job
+   that did not succeed (not judged, crashed, cancelled, timed out), and
+   `none` when main has none. A job from before these steps is `red` when
+   its "Judge the soak" failed, so the soaks of 2026-11-02 read as what they
+   were.
+
+**Fixtures for both paths.** In `tests/fixtures/release-freshness/`, the
+preview cases that were refused for the soaks pass and inform: a red Linux
+soak, a missing one, an invalid one shown by its steps, a cancelled Windows
+soak and one nine days old, and an open soak issue. The fault refusals stay:
+four days old, red, none. Releases that are not previews are refused while a
+soak issue is open and pass without one. A case tells red from invalid by
+steps, and one reads the jobs of 2026-11-02; each case may name lines its
+printed evidence must contain.
+
+`PreviewsCheckMainsLatestRuns` and `WindowsWeeklyAndFresh` are restated in
+the decision set by this amendment, and `ARedOrInvalidSoakOpensAnIssue`,
+`NoReleaseWhileASoakIssueIsOpen` and `TheReleaseNotesHoldMainsEvidence` are
+added; all await the maintainer's acceptance.

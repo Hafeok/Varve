@@ -1,0 +1,15 @@
+Commit 1 0 Data 2026-10-07T12:00:00.0000000Z agent=Iri|https://issuer.example/#alice|| cause=Literal|0HN:1|http://www.w3.org/2001/XMLSchema#string| scope=none problem=
+  Assert Iri|http://ex/s|| Iri|http://ex/p|| Literal|o \u{e9}|http://www.w3.org/1999/02/22-rdf-syntax-ns#langString|en Iri|http://ex/g||
+  Assert BlankNode|b1|| Iri|http://ex/p|| Literal|1|http://www.w3.org/2001/XMLSchema#integer| none
+  Retract Iri|http://ex/s|| Iri|http://ex/p|| Iri|http://ex/o|| none
+Commit 2 0 Settings 2026-10-07T12:00:01.0000000Z agent=Iri|http://ex/admin|| cause=none scope=none problem=
+Commit 3 0 Data 2026-10-07T12:00:02.5000000Z agent=Iri|https://issuer.example/#bob|| cause=Literal|0HN:7|http://www.w3.org/2001/XMLSchema#string| scope=Iri|http://ex/g|| problem=
+  attachment Iri|http://ex/report/1||
+  Assert Iri|http://ex/s|| Iri|http://ex/p|| Literal|line\u{a}break|http://www.w3.org/2001/XMLSchema#string| Iri|http://ex/g||
+  Assert Iri|http://ex/s|| Iri|http://ex/p|| Literal|tab\u{9}and quote "|http://ex/dt| none
+Commit 4 0 Erasure 2026-10-07T12:00:03.0000000Z agent=none cause=none scope=none problem=
+Commit 5 0 Data 2026-10-07T12:00:04.0000000Z agent=none cause=none scope=none problem=
+Diff 3 0 Data 0001-01-01T00:00:00.0000000Z agent=none cause=none scope=none problem=
+  Assert BlankNode|b1|| Iri|http://ex/p|| Literal|1|http://www.w3.org/2001/XMLSchema#integer| none
+  Retract Iri|http://ex/s|| Iri|http://ex/p|| Iri|http://ex/o|| none
+Error 0 0 Data 0001-01-01T00:00:00.0000000Z agent=none cause=none scope=none problem=https://w3id.org/varve/problems/read-limit-exceeded

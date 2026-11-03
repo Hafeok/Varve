@@ -1,0 +1,1 @@
+{"$id":"https://varve.example.org/datasets/golden/events/types/Ponged/versions/7/revisions/1","$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":true,"properties":{"at":{"format":"date-time","type":"string"},"who":{"type":"string"}},"required":["at"],"title":"Ponged","type":"object","x-varve-version":7}

@@ -2,8 +2,8 @@
 
 ## Status
 
-**Filed unaccepted by 1.0 readiness A (#146, under #129), 2026-10-27** (ADR
-0066). Acceptance is the maintainer's act on the pull request. The plan it
+**Accepted — filed unaccepted by 1.0 readiness A (#146, under #129), 2026-10-27** (ADR
+0066). Accepted by the maintainer in 70d991c. Acceptance is the maintainer's act on the pull request. The plan it
 follows was approved on #129 on 2026-10-27, with answers that this ADR
 records:
 - spills stay in scope under a problem type of their own;
