@@ -1,0 +1,10 @@
+position 42
+graph https://varve.example.org/management/datasets version 40
+  content <https://varve.example.org/datasets/orders> <https://w3id.org/varve#storage> "file" .
+  added <https://varve.example.org/datasets/orders> <https://w3id.org/varve#storage> "file" .
+  removed <https://varve.example.org/datasets/orders> <https://w3id.org/varve#storage> "memory" .
+graph https://varve.example.org/management/grants version 0
+  content <https://varve.example.org/grants/1> <https://w3id.org/varve#role> "reader" .
+  content <https://varve.example.org/grants/1> <https://w3id.org/varve#agent> <https://issuer.example/#alice> .
+  added <https://varve.example.org/grants/1> <https://w3id.org/varve#agent> <https://issuer.example/#alice> .
+  added <https://varve.example.org/grants/1> <https://w3id.org/varve#role> "reader" .

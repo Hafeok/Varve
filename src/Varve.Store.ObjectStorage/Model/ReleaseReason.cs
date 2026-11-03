@@ -27,4 +27,9 @@ public enum ReleaseReason
     /// bound: the memtable's spills (ADR 0179 point 6).
     /// </summary>
     LocalDiskError,
+    /// <summary>
+    /// A reason a later version wrote that this one does not know: the epoch
+    /// is released, and nothing is done for the reason (ADR 0217).
+    /// </summary>
+    Unknown,
 }

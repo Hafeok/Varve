@@ -452,7 +452,7 @@ carries a condition of its own that is not measurable by a build.
 | [0071](0071-synchronous-reads-over-asynchronous-storage.md) | A host where no synchronous read exists. | milestone 6c, the browser |
 | [0034](0034-commit-signing-and-the-sandbox-exception.md) | A route appears by which a sandbox commit is signed by a key the project controls, or by GitHub itself. Two are identified and neither is available: GraphQL `createCommitOnBranch`, blocked by the session proxy rather than by GitHub, and a per-installation signing key. The REST contents API was tested and is **not** one — it produces unsigned commits. | whenever it fires |
 
-## 1.0 readiness A — the file backend's faults and the soak
+## 1.0 readiness A — the file backend's faults, the soak, and the formats
 
 Filed by 1.0 readiness A ([#129](https://github.com/Hafeok/Varve/issues/129); [#61](https://github.com/Hafeok/Varve/issues/61)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Amended by them: 0073 (a full disk; the faults on real files), 0082 (run by the release gate and judged by a script), 0119 (`storage-full`). Superseded in part by 0214: 0124 (point 3 and `AcknowledgedOnlyWhenTheBatchIsDurable` move, restated: a failed batch answered by the log, and a full disk recovered by the next write). Superseded in part by 0215: 0110 (`FlatWithinABand` moves, restated).
 
@@ -460,6 +460,8 @@ Filed by 1.0 readiness A ([#129](https://github.com/Hafeok/Varve/issues/129); [#
 |---|---|---|
 | [0214](0214-file-backend-failure-injection.md) | File-backend failure injection: four faults, at every point, on simulated and on real files | Filed unaccepted (#129) |
 | [0215](0215-the-soak-gate-run-and-judged.md) | The soak gate, run and judged: a bounded vocabulary, four hours, a judge, and Windows weekly | Filed unaccepted (#61) |
+| [0216](0216-the-format-inventory.md) | The format inventory: fixtures written by the releases that introduced them, and the format gate | Filed unaccepted (#129) |
+| [0217](0217-coordination-records-read-conservatively.md) | Coordination records read conservatively: an unknown format is never written on, an unknown value never acted on | Filed unaccepted (#129) |
 
 ## Open questions recorded, not resolved
 

@@ -385,3 +385,25 @@ prefix through `PrefixedObjectStore`, with the real adapter beneath.
 
 The results of a run, emulator beside live, go into a report under
 `docs/reports/`, with every difference found linked to an issue.
+
+## 10. Formats — what a release wrote, read by every later one
+
+Every format a release writes that another reads has a fixture written by the
+release that introduced it, from its published packages
+([ADR 0216](adr/0216-the-format-inventory.md), [`docs/formats/`](formats/README.md),
+[`testdata/formats/`](../testdata/formats/README.md)). On every build:
+
+- each fixture is read by current code and compared with what its generator
+  issued: the log at every position, alone and with its derived files; the
+  object store's chunks, records and derived files; the delta record by
+  record; the event schemas and CloudEvents byte for byte, by rendering the
+  same inputs; the saved plan graph by graph;
+- current code writes each fixture's workload, and the bytes must equal the
+  fixture of the format's current version, or the format changed without a
+  new version;
+- `eng/formats.cs` (`formats` in `eng/ci.cs`) checks the inventory against the
+  version constants in the code and every fixture's sums, and its own
+  fixtures (`formats-fixtures`) prove each refusal;
+- coordination records a later version could write are read conservatively
+  ([ADR 0217](adr/0217-coordination-records-read-conservatively.md)), tested on
+  preview.10's record with its format or its values changed.

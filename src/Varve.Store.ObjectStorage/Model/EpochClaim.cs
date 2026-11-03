@@ -39,4 +39,13 @@ public sealed record EpochClaim
 
     /// <summary>Why the epoch was released, when it was.</summary>
     public ReleaseReason? Released { get; init; }
+
+    // The trigger and the reason as the record spelled them, kept when this
+    // version does not know them so that a rewrite keeps them (ADR 0217): the
+    // record's own text, held as read, not a value of this version's.
+    [DesignDecision(typeof(CoordinationRecordsReadConservatively.AnUnknownValueIsHeldNeverActedOn), Scope = ExceptionScope.Boundary)]
+    internal string? TriggerText { get; init; }
+
+    [DesignDecision(typeof(CoordinationRecordsReadConservatively.AnUnknownValueIsHeldNeverActedOn), Scope = ExceptionScope.Boundary)]
+    internal string? ReleasedText { get; init; }
 }

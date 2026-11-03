@@ -18,4 +18,9 @@ public enum ClaimTrigger
 
     /// <summary>A warm standby claimed on a takeover request after the orchestrator's probe failed, naming the epoch (ADR 0179 point 6).</summary>
     Probe,
+    /// <summary>
+    /// A trigger a later version wrote that this one does not know. It is held
+    /// as written and never acted on (ADR 0217).
+    /// </summary>
+    Unknown,
 }

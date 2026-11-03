@@ -3,7 +3,6 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
-using System.IO;
 using System.Linq;
 using System.Text;
 using Varve.Store.ObjectStorage;
@@ -16,7 +15,8 @@ namespace Varve.Store.Tests.Objects;
 /// The writer record's triggers and release reasons by name (ADRs 0136,
 /// 0179): every one is written as its name and read back as itself, so the
 /// epoch history of a handover reads as it was written. A name this version
-/// does not know is refused, never read as another.
+/// does not know is held as Unknown with its text, never read as another
+/// (ADR 0217; Formats/CoordinationRecordTests).
 /// </summary>
 [Trait(ObjectTraits.Name, ObjectTraits.Objects)]
 public sealed class WriterRecordFormatTests
@@ -33,8 +33,9 @@ public sealed class WriterRecordFormatTests
     [Fact]
     public void every_trigger_and_reason_is_written_by_its_name_and_read_back()
     {
-        Assert.Equal(Enum.GetValues<ClaimTrigger>().Order(), Triggers.Select(t => t.Trigger).Order());
-        Assert.Equal(Enum.GetValues<ReleaseReason>().Order(), Reasons.Select(r => r.Reason).Order());
+        // Unknown has no name of its own: it is the text a record was read with (ADR 0217).
+        Assert.Equal(Enum.GetValues<ClaimTrigger>().Where(t => t != ClaimTrigger.Unknown).Order(), Triggers.Select(t => t.Trigger).Order());
+        Assert.Equal(Enum.GetValues<ReleaseReason>().Where(r => r != ReleaseReason.Unknown).Order(), Reasons.Select(r => r.Reason).Order());
 
         foreach ((ClaimTrigger trigger, string triggerName) in Triggers)
         {
@@ -54,6 +55,8 @@ public sealed class WriterRecordFormatTests
         }
 
         byte[] unknown = Encoding.UTF8.GetBytes(Encoding.UTF8.GetString(WriterRecordFormat.Write(new WriterRecord { Epoch = new WriterEpoch(1), Holder = new WriterInstance("a"), Released = ReleaseReason.Shutdown, History = [] })).Replace("shutdown", "nap", StringComparison.Ordinal));
-        Assert.Throws<InvalidDataException>(() => WriterRecordFormat.Read(unknown));
+        WriterRecord held = WriterRecordFormat.Read(unknown);
+        Assert.Equal(ReleaseReason.Unknown, held.Released);
+        Assert.Contains("\"released\": \"nap\"", Encoding.UTF8.GetString(WriterRecordFormat.Write(held)), StringComparison.Ordinal);
     }
 }

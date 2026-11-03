@@ -266,3 +266,11 @@ Varve.Store.ObjectStorage.Model.LocalCache.ExtentPages = 2 -> Varve.Store.Object
 Varve.Store.ObjectStorage.Model.LocalCache.None = 0 -> Varve.Store.ObjectStorage.Model.LocalCache
 Varve.Store.ObjectStorage.Model.LocalCache.SegmentCopies = 1 -> Varve.Store.ObjectStorage.Model.LocalCache
 Varve.Store.ObjectStorage.ObjectStorage.CacheOff.get -> Varve.Store.ObjectStorage.Model.LocalCache
+Varve.Store.ObjectStorage.Model.ClaimTrigger.Unknown = 4 -> Varve.Store.ObjectStorage.Model.ClaimTrigger
+Varve.Store.ObjectStorage.Model.ReleaseReason.Unknown = 5 -> Varve.Store.ObjectStorage.Model.ReleaseReason
+Varve.Store.ObjectStorage.WriterRecordFormatUnknownException
+Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.WriterRecordFormatUnknownException() -> void
+Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.WriterRecordFormatUnknownException(string! message) -> void
+Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.WriterRecordFormatUnknownException(string! message, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.WriterRecordFormatUnknownException(int format, int reads) -> void
+Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.Format.get -> int

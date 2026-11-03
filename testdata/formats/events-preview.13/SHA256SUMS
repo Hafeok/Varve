@@ -1,0 +1,17 @@
+07face3240baf9d39ec5ea6a4915786edff658322bf4183142165214f74c67c4  ./cloudevents/as-string.jsonl
+fb9833c4158f161b98bdbded5992e151d3a863f9fbce4403cbaa80dc58212f06  ./cloudevents/closure.jsonl
+f65b83b8918e8d4b3216886684a42501b720ece24cc231edd40ed9193845e5eb  ./cloudevents/language.jsonl
+3ea16dc39c4862885bec2fd00921754439c5e9d9fb11b43094b88bc2e9ea1d7e  ./cloudevents/order-not-rendered.jsonl
+11077f3467bf24be988f96c4b1ee32c0ed1fbf4bb7af63c5a976007d562fae78  ./cloudevents/order-placed.jsonl
+b88b8f89d959efa4a8806b066b2e535bdd4523f5539862d72b90cd0701ebf53e  ./cloudevents/ordered.jsonl
+f1e351c7f96705cc1ce9f04c5d357fbcf0dbcd9fe98182576b97a56d971b2258  ./schemas/every-datatype/Everything/v1/r1.json
+641ff9467f50c7307ed30336db4cc7879ef7c7c275b2425b43ab1ae1937230af  ./schemas/evolving/OrderPlaced/v1/r1.json
+a75bc4df1450a63e031126f9454378a0d07c0da6f125246d847620e87a551268  ./schemas/evolving/OrderPlaced/v1/r2.json
+bb6046fc9e3241db7dc0ce212f8c2777852180742aa828eb1177ccefcb043d1a  ./schemas/evolving/OrderPlaced/v1/r3.json
+33c1944e51b0a714622db4644e59c81386b9935834e089e17560e37007315494  ./schemas/evolving/OrderPlaced/v2/r4.json
+641ff9467f50c7307ed30336db4cc7879ef7c7c275b2425b43ab1ae1937230af  ./schemas/moved/OrderPlaced/v1/r1.json
+a75bc4df1450a63e031126f9454378a0d07c0da6f125246d847620e87a551268  ./schemas/moved/OrderPlaced/v1/r2.json
+7c05575e40d5dc93c39f5b9ba9141ff9d8132e58b53c205578c4708e540ba294  ./schemas/moved/OrderPlaced/v1/rm7.json
+e1fb147851d66e4f770202699386e1aadccdc42999c00a3fbb62b735c60cf507  ./schemas/moved/OrderPlaced/v2/rm9.json
+b82c41301eb86e2a144c25605aeca0df7b3e660b1f6a2a345a497183ee6d36e1  ./schemas/two-graphs/Pinged/v1/r1.json
+bad6443b3238194ed01c2e9309b28c8e55f717d2ea138c9aa213cbdc042dd042  ./schemas/two-graphs/Ponged/v7/r1.json

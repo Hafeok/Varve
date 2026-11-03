@@ -1,0 +1,19 @@
+PREFIX varve: <https://w3id.org/varve/ns#>
+PREFIX xsd:   <http://www.w3.org/2001/XMLSchema#>
+PREFIX rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX t:     <https://example.org/types/>
+
+<https://w3id.org/varve/ns#events-catalogue/https%3A%2F%2Fexample.org%2Fevents> {
+  t:OrderPlaced a varve:EventType ;
+    varve:eventName "OrderPlaced" ;
+    varve:eventClass <https://example.org/ns#OrderPlaced> ;
+    varve:eventVersion 2 ;
+    varve:eventSelect """SELECT ?order ?total ?note ?channel WHERE { ?event <https://example.org/ns#order> ?order ; <https://example.org/ns#total> ?total OPTIONAL { ?event <https://example.org/ns#note> ?note } OPTIONAL { ?event <https://example.org/ns#channel> ?channel } }""" ;
+    varve:eventField t:order, t:total, t:note, t:channel .
+  t:order a varve:EventField ; varve:fieldName "order" ; varve:fieldDatatype xsd:anyURI ; varve:fieldRequired true .
+  t:total a varve:EventField ; varve:fieldName "total" ; varve:fieldDatatype xsd:decimal ; varve:fieldRequired true .
+
+  t:note a varve:EventField ; varve:fieldName "note" ; varve:fieldDatatype xsd:string ; varve:fieldRequired false .
+  t:channel a varve:EventField ; varve:fieldName "channel" ; varve:fieldDatatype xsd:string ; varve:fieldRequired true .
+}
