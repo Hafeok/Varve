@@ -434,7 +434,9 @@ jobs:
               | tee -a "$GITHUB_STEP_SUMMARY"
           done
 
-  # The GitHub release for the tag, with its descriptor's summary as the notes.
+  # The GitHub release for the tag, with its descriptor's summary as the notes,
+  # and main's evidence of the long gates as it stands when the release is
+  # created (ADR 0215, amended 2026-11-03).
   # A separate job so that contents: write is never held by the job that runs
   # the build and the tests, and after publish, so that a release is never
   # created for a version that did not reach nuget.org. Re-runnable on its own.
@@ -446,8 +448,12 @@ jobs:
     runs-on: ubuntu-latest
     environment: gates
 
+    # actions: read and issues: read for main's evidence, read with the job's
+    # own token.
     permissions:
       contents: read
+      actions: read
+      issues: read
 
     steps:
       - name: Checkout
@@ -464,6 +470,21 @@ jobs:
 
       - name: Release notes
         run: dotnet run eng/release.cs -- --notes "$GITHUB_REF_NAME" --into "$RUNNER_TEMP/release"
+
+      - name: Main's evidence, into the notes
+        # The latest soak on each runner and store at full depth on each,
+        # with their verdicts and links, whatever they are: green, red,
+        # invalid, cancelled or none, and the open soak issues. Nothing waits
+        # on a soak and nothing is pasted by hand; the descriptor is
+        # unchanged (ADR 0215, amended 2026-11-03).
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          evidence=$(dotnet run eng/release-freshness.cs -- --evidence --repository "$GITHUB_REPOSITORY")
+          printf '\n%s\n' "$evidence" >> "$RUNNER_TEMP/release/notes.md"
+          printf '%s\n' "$evidence" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Mint the gates App's token
         id: gates
