@@ -93,6 +93,7 @@ internal static class Soak
         long commits = 0, reads = 0, asOf = 0, checkpoints = 0, checkpointsInWindow = 0;
         Console.WriteLine("# soak " + duration.TotalMinutes.ToString(CultureInfo.InvariantCulture) + " min, " + options);
         Console.WriteLine(GarbageCollection());
+        Console.WriteLine("# os " + OperatingSystemName());
         Console.WriteLine("# handles before the dataset " + handlesBefore.ToString(CultureInfo.InvariantCulture));
 
         // The load, before the clock (ADR 0215 point 1, amended 2026-11-02):
@@ -283,7 +284,6 @@ internal static class Soak
                 Mb(checkpointDirectories),
                 Mb(gc.PromotedBytes),
                 Mb(Math.Max(0, self.PrivateMemorySize64 - gc.TotalCommittedBytes)),
-                Mb(DatasetsOwn(directories, checkpointDirectories, dataset.Head.Value)),
                 segments.ToString(CultureInfo.InvariantCulture)));
         }
 
@@ -372,21 +372,22 @@ internal static class Soak
     /// The CSV's columns, which <see cref="SoakJudge"/> reads by name. The
     /// live heap is <c>managed MB</c>, taken after a full collection; native
     /// memory is the process's private bytes less the collector's committed
-    /// memory; <c>own MB</c> is the dataset's own (ADR 0082).
+    /// memory. The runs' and checkpoints' directories are reported as they
+    /// are; the dataset's own of ADR 0082, which charged 144 bytes a commit,
+    /// is retired (ADR 0082 and ADR 0215, amended 2026-11-03).
     /// </summary>
     internal const string Header =
         "minutes,commits,head,quads,managed MB,heap MB,fragmented MB,committed MB,LOH MB,working set MB,private MB,peak working set MB,peak heap MB,"
         + "open handles,derived files,derived MB,pins,as-of reads,checkpoints,checkpoint in window,allocated GB,directories MB,checkpoint directories MB,"
-        + "promoted MB,native MB,own MB,log segments";
+        + "promoted MB,native MB,log segments";
 
     /// <summary>
-    /// The dataset's own (ADR 0082): what grows with the dataset and nothing
-    /// else. The runs' directories and filters whole, a twentieth of the
-    /// checkpoints' and extent sets', which are held sparsely, and the table
-    /// of commits, 144 bytes a commit.
+    /// The OS the soak ran on, on the line <see cref="SoakJudge"/> reads to
+    /// choose what it measures: <c>windows</c>, <c>linux</c>, <c>macos</c> or
+    /// <c>other</c> (ADR 0215, amended 2026-11-03).
     /// </summary>
-    internal static long DatasetsOwn(long directories, long checkpointDirectories, long commits) =>
-        directories + (checkpointDirectories / 20) + (commits * 144);
+    internal static string OperatingSystemName() =>
+        OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsLinux() ? "linux" : OperatingSystem.IsMacOS() ? "macos" : "other";
 
     // The directory of a derived run or checkpoint: what its reader holds in
     // memory, the fences and where each block begins (ADR 0080), read from

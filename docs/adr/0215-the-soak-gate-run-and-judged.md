@@ -22,6 +22,10 @@ clock, not by the writer's rate (see the end).
 instead of running them inline, and the nightly runs the Linux soak (see the
 end, "the long gates on main"). Amends ADR 0214 point 6 to match.
 
+**Amended 2026-11-03:** point 3's band is replaced by a fit of the process's
+memory against commits, and point 4's dataset's own is retired with ADR
+0082's model of it (see the end, "memory against commits"; #222).
+
 Records decision set [`the-soak-gate-judged`](../decisions/the-soak-gate-judged.md).
 
 ## Context
@@ -297,3 +301,92 @@ so the Linux soak runs nightly: a red or cancelled night is replaced by the
 next one instead of blocking previews for a week, and a preview cut on any
 morning has a soak of main's previous day behind it. #219's five-hour leg is
 a job of its own and does not share the soak's limit.
+
+## Amendment, 2026-11-03 — memory against commits
+
+**The band judged a model, not the process.** Point 3 judged the working set
+less the dataset's own, and ADR 0082 counts in the dataset's own a table of
+commits at 144 bytes a commit. ADR 0089 paged that table out of memory: the
+commit index keeps at most twice its cache of 4,096 entries resident, 80
+bytes each, and 8 bytes of fences per 128 commits. So the dataset's own grew
+by about 0.27 MB a minute that the process did not hold, and three valid
+four-hour soaks of 2026-11-02, each with the dataset steady at 667,000 quads,
+missed:
+
+| Run | OS | Old judge | Why |
+|---|---|---|---|
+| Release run 41413295525, inline (`land/release-v0.1.0-preview.16`) | Linux | misses | working set less own, median 67.1 MB, fell 47% as own grew |
+| Nightly 41450438151, on `main` | Linux | misses | median 72.1 MB, fell 45% |
+| Nightly 41426223592, on `main` | Windows | misses | median −7.6 MB: own outgrew a working set Windows trims |
+
+On Windows the subtraction had no meaning at all: the OS trims an idle
+process's working set to its standby list, to 42 MB at minute 120 with 50 MB
+of private bytes, while own had reached 34 MB. And a band of ±25% of a median
+near zero is no band. The process did grow, by about 50 bytes a commit on
+both OSes, which the model's 144 bytes hid: #222 bounds what is resident per
+commit. Until it does, that growth is a known cost the gate states, rather
+than one a model absorbs. So:
+
+- **What is measured is the process's memory, directly,** with nothing
+  subtracted: the working set on Linux (and macOS), private bytes on Windows,
+  which the OS cannot trim. The soak prints `# os <name>` before its table;
+  a run without the line is judged as the judge's OS, which in CI is the
+  soak's own runner.
+- **It is fitted against commits,** by least squares over every sample from
+  minute 30 to the end. The fit has two tests:
+  - **The slope is at most 60 bytes a commit.** The three runs measured 47.9
+    (Linux inline), 49.4 (Linux on `main`) and 50.2 (Windows); the allowance
+    is a fifth over the largest. It is the store's known cost per commit,
+    named for #222, which lowers it. At a sustained 100 commits a second it
+    is about 500 MB a day, so the allowance is a measured cost to remove,
+    not a bound to keep.
+  - **Every sample lies within ±25% of the fit's intercept,** widened at
+    that sample by the collector's committed but unused memory, which it
+    returns on its own schedule and which stays under its own ceiling
+    (`CommittedUnderItsOwnCeiling`, unchanged). The intercept is the
+    process's memory at no commits, 120 MB on Linux and 43 MB on Windows,
+    so the band is relative to a quantity well above zero. Without the
+    widening, six Windows samples lie up to 16.5 MB off the line against
+    ±10.7; each is a sample where the collector held 14–28 MB committed over
+    its heap.
+- **What stays:** the collector's ceiling, twice the live heap plus 128 MB;
+  the handles and `derived/` files bounds; the dataset steady within ±5%
+  from minute 30; the shipped collector or no verdict. The drift test is
+  gone: a slope is what a drift was a proxy for.
+- **The dataset's own is retired** from the soak's output, with ADR 0082's
+  model of it (its amendment of this date). The runs' and checkpoints'
+  directories are reported as they are.
+
+**Replayed** over the three runs' artefacts (`soak-ubuntu-latest` of
+41413295525 and 41450438151, `soak-windows-latest` of 41426223592, the last
+with the `# os windows` line its soak did not yet print), the new judge
+holds all three:
+
+| Run | Measured | Intercept | Slope, bytes a commit | Off the line at most | Band |
+|---|---|---:|---:|---:|---:|
+| Linux inline | working set | 119.5 MB | 47.9 | 17.5 MB | ±29.9 MB |
+| Linux on `main` | working set | 123.6 MB | 49.4 | 15.3 MB | ±30.9 MB |
+| Windows on `main` | private bytes | 42.9 MB | 50.2 | 16.5 MB | ±10.7 MB and the collector's unused |
+
+**Why it still catches a leak.** A leak is memory that grows with time or
+with work while the dataset does not, and the workload's commits are its
+work: any such growth shows as slope. Two fixtures prove it:
+`misses-slope`, a working set on a line of 80 bytes a commit, and
+`misses-hourly-leak`, today's 45 bytes a commit, within the allowance, and 4
+MB more at the top of every hour, which the fit measures as 76 bytes a
+commit. `holds-windows-trimmed` is today's Windows run in shape: private
+bytes on a line of 50 bytes a commit with the collector's bursts above it,
+and a working set trimmed below it, judged on private bytes. `misses-drift`
+is replaced by `misses-slope`, and `misses-committed` keeps its working set
+flat, so that it misses on the collector's ceiling alone.
+
+**A preview's freshness and a cancelled nightly.** The nightly of 2026-11-02
+(run 41424545800) was cancelled when #219's five-hour leg overran, and its
+store jobs at full depth were green on both runners. `eng/release-freshness.cs`
+judges each check on the newest completed job of its name by the job's own
+conclusion, and never reads the run's, so it accepts those jobs as fresh
+faults. The fixture `pass-preview-faults-in-a-cancelled-run`, from that run's
+jobs, proves it on every build.
+
+`FlatWithinABand` and `WorkingSetByCause` are restated in the decision set
+by this amendment and await the maintainer's acceptance.
