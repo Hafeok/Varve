@@ -13,7 +13,13 @@
 # The long properties and the REC gate's long runs (#13) run here too, with
 # VARVE_LONG_PROPERTIES set: the land gate runs their sized iteration counts,
 # and this runs them in full. A failure is a defect to fix on main, never a
-# reason to lower the land gate's counts.
+# reason to lower the land gate's counts. REC M's 100 compared positions run
+# as shards of their own, side by side (#219).
+#
+# Every leg has a budget (#219): its durations step fails, saying so, when the
+# leg has used more than 80% of its time limit, so a leg that grows is red the
+# night it passes 80%, never cancelled the night it passes 100%. The soaks are
+# not budgeted here: their length is their parameter.
 #
 # No container: the suites here run in process. The services legs keep their
 # own job in ci.yml and its images in .github/ci-images.yaml.
@@ -67,6 +73,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
+        # The test step's limit, and its budget's (#219).
+        timeout: [150]
 
     steps:
       - name: Line endings
@@ -100,12 +108,16 @@ jobs:
           "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
           "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
 
+      - name: Start the budget's clock
+        shell: bash
+        run: echo "VARVE_LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Test Varve.Store at full depth
         # The pull request's depth runs in the build job; this is the rest.
         # Each value covers the whole of its search (docs/testing.md §8). The
         # crash during recovery at stride 1 runs alone for most of an hour on
         # Windows with no other test ending, so the hang dump waits longer.
-        timeout-minutes: 150
+        timeout-minutes: ${{ matrix.timeout }}
         env:
           VARVE_FAULT_RECOVERY_STRIDE: "1"
           VARVE_FAULT_PROCESS_STRIDE: "1"
@@ -147,6 +159,8 @@ jobs:
           dotnet run eng/test-durations.cs --
           ${{ github.workspace }}/artifacts/test-results/Varve.Store.Tests
           --label "Varve.Store.Tests at full depth on ${{ matrix.os }}"
+          --started ${{ env.VARVE_LEG_STARTED }}
+          --timeout-minutes ${{ matrix.timeout }}
 
       - name: Upload the test results
         if: always()
@@ -160,15 +174,25 @@ jobs:
     name: long properties (${{ matrix.project }})
     if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night')
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: ${{ matrix.timeout }}
     env:
       VARVE_LONG_PROPERTIES: "1"
     strategy:
       fail-fast: false
       matrix:
         project: [Varve.Derivation.Tests, Varve.Shacl.Tests, Varve.Shacl.Sparql.Tests, Varve.Shacl.Store.Tests]
+        # The leg's limit, and its budget's (#219).
+        timeout: [300]
+        include:
+          # Every test of the project but REC M, which the rec-m job runs in
+          # shards (#219). A class or test added later runs here.
+          - project: Varve.Shacl.Store.Tests
+            filter: --filter-not-method Varve.Shacl.Store.Tests.RecGateTests.REC_M_standalone_commit_time_and_projection_agree_at_100_positions
 
     steps:
+      - name: Start the budget's clock
+        run: echo "VARVE_LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Line endings
         shell: bash
         run: git config --global core.autocrlf false
@@ -198,6 +222,7 @@ jobs:
           --configuration Release
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/${{ matrix.project }}
+          ${{ matrix.filter }}
 
       - name: Test durations
         if: always()
@@ -205,12 +230,89 @@ jobs:
           dotnet run eng/test-durations.cs --
           ${{ github.workspace }}/artifacts/test-results/${{ matrix.project }}
           --label "${{ matrix.project }}, long"
+          --started ${{ env.VARVE_LEG_STARTED }}
+          --timeout-minutes ${{ matrix.timeout }}
 
       - name: Upload the test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-nightly-${{ matrix.project }}
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
+
+  # REC M through the gate and the projection (ADR 0176), in shards (#219).
+  # Its time is the standalone validation it compares against, about four
+  # minutes a position at REC M's full size, at 100 positions: one leg took
+  # 143 to 251 minutes on the same code, by the runner it drew, and later
+  # nights were cancelled at 300. Each shard takes the whole history through
+  # the gate and the projection, as one leg did, and compares every shard-th
+  # of the 100 positions, so the shards together compare each once. The shards are the matrix's own jobs, numbered by the
+  # runner (strategy.job-index of strategy.job-total), so adding one to the
+  # list is the whole change; a test that is not this one runs in `long`.
+  rec-m:
+    name: long properties (Varve.Shacl.Store.Tests, REC M ${{ strategy.job-index }}/${{ strategy.job-total }})
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night')
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout }}
+    env:
+      VARVE_LONG_PROPERTIES: "1"
+      VARVE_REC_M_SHARD: ${{ strategy.job-index }}/${{ strategy.job-total }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # One entry a shard; the shard is the job's index, not this value.
+        shard: [0, 1, 2, 3]
+        # The leg's limit, and its budget's.
+        timeout: [300]
+
+    steps:
+      - name: Start the budget's clock
+        run: echo "VARVE_LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        # REC 4.1.0's shapes are vendored under testdata/rec; no submodule.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Test REC M, shard ${{ env.VARVE_REC_M_SHARD }}
+        run: >
+          dotnet test
+          --project tests/Varve.Shacl.Store.Tests/Varve.Shacl.Store.Tests.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/rec-m
+          --filter-method Varve.Shacl.Store.Tests.RecGateTests.REC_M_standalone_commit_time_and_projection_agree_at_100_positions
+
+      - name: Test durations
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/rec-m
+          --label "Varve.Shacl.Store.Tests, REC M shard ${{ env.VARVE_REC_M_SHARD }}"
+          --started ${{ env.VARVE_LEG_STARTED }}
+          --timeout-minutes ${{ matrix.timeout }}
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test-results-nightly-rec-m-${{ strategy.job-index }}
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
 

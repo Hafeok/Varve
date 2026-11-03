@@ -313,6 +313,28 @@ The REC gate's three ways are compared at all 1,001 positions of REC S
 (every 250th and the last, five, on a pull request, in about a minute) and
 at 100 positions of REC M (none on a pull request) (ADR 0176).
 
+REC M runs in four shards side by side, as jobs of their own (#219). Its
+time is the oracle: the standalone validation it compares against takes
+about four minutes a position at REC M's full size on a development
+machine, and 100 of them made one leg of 143 to 251 minutes on the same
+code, by the runner it drew, and then nights cancelled at its 300. The gate and the projection over the
+whole history take a small share of it: a building's bootstrap commit is
+about half a second through the gate, an event commit about 6 ms. So each
+shard takes the whole history through the gate and the projection, as the
+single leg did, and compares the *i*th of the 100 positions where *i* mod
+4 is its index (`VARVE_REC_M_SHARD=k/n`, set from the job's index;
+unset, one run compares all 100). Nothing is searched less: every
+position is compared once, and every commit passes the gate in every
+shard. `The_REC_M_shards_compare_each_of_the_100_positions_once` holds the
+partition, and the `long` leg runs every other test of the project, so a
+test added later runs there.
+
+**Every nightly leg has a budget** (#219): `eng/test-durations.cs` with
+`--started` and `--timeout-minutes` writes the leg's elapsed time against
+its limit and fails the leg, naming it, past 80%. A leg over budget is made
+cheaper or sharded by what its durations say, never fitted by a lower
+count. The soaks are not budgeted: their length is their parameter.
+
 The variables of §6 that hunt rather than gate (`VARVE_FAULT_SEEDS`,
 `VARVE_OBJECT_FAULT_SEEDS`, `VARVE_OBJECT_FAULT_STEPS`,
 `VARVE_HTTP_FAULT_STEPS`) stay what they were: neither a pull request nor the
