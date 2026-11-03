@@ -232,3 +232,15 @@ accepts it (ADR 0066).
 
 **The ledger.** The rulings are ADR 0175's `ShapesAreTheRuntimeValidator`,
 `ResidualCheckInCode` and `CodeValidatorsAreTheOracle`.
+
+## Amendment, 2026-11-02 — a saved plan is versioned, not read forever
+
+Filed by 1.0 readiness A (#129) under [ADR 0216](0216-the-format-inventory.md),
+unaccepted until the maintainer accepts it (ADR 0066).
+
+A `varve apply --out` plan names management positions, which a later format
+may mean otherwise, so it is versioned and positional, not read forever. A
+release reads the formats it can; a plan of a format it does not read is
+refused, and the message tells the operator to plan again with this version
+and apply that plan. Format 1, as v0.1.0-preview.10 wrote it, is the fixture
+`testdata/formats/plan-preview.10`.

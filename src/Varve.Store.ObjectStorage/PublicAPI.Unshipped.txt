@@ -255,3 +255,11 @@ override Varve.Store.ObjectStorage.Model.WriterAddress.GetHashCode() -> int
 static Varve.Store.ObjectStorage.Model.WriterAddress.operator !=(Varve.Store.ObjectStorage.Model.WriterAddress left, Varve.Store.ObjectStorage.Model.WriterAddress right) -> bool
 static Varve.Store.ObjectStorage.Model.WriterAddress.operator ==(Varve.Store.ObjectStorage.Model.WriterAddress left, Varve.Store.ObjectStorage.Model.WriterAddress right) -> bool
 ~override Varve.Store.ObjectStorage.Model.WriterAddress.Equals(object obj) -> bool
+Varve.Store.ObjectStorage.Model.ClaimTrigger.Unknown = 2 -> Varve.Store.ObjectStorage.Model.ClaimTrigger
+Varve.Store.ObjectStorage.Model.ReleaseReason.Unknown = 3 -> Varve.Store.ObjectStorage.Model.ReleaseReason
+Varve.Store.ObjectStorage.WriterRecordFormatUnknownException
+Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.WriterRecordFormatUnknownException() -> void
+Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.WriterRecordFormatUnknownException(string! message) -> void
+Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.WriterRecordFormatUnknownException(string! message, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.WriterRecordFormatUnknownException(int format, int reads) -> void
+Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.Format.get -> int

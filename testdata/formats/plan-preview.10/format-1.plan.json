@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "position": 42,
+  "graphs": [
+    {
+      "graph": "https://varve.example.org/management/datasets",
+      "version": 40,
+      "content": [
+        "\u003Chttps://varve.example.org/datasets/orders\u003E \u003Chttps://w3id.org/varve#storage\u003E \u0022file\u0022 ."
+      ],
+      "added": [
+        "\u003Chttps://varve.example.org/datasets/orders\u003E \u003Chttps://w3id.org/varve#storage\u003E \u0022file\u0022 ."
+      ],
+      "removed": [
+        "\u003Chttps://varve.example.org/datasets/orders\u003E \u003Chttps://w3id.org/varve#storage\u003E \u0022memory\u0022 ."
+      ]
+    },
+    {
+      "graph": "https://varve.example.org/management/grants",
+      "version": 0,
+      "content": [
+        "\u003Chttps://varve.example.org/grants/1\u003E \u003Chttps://w3id.org/varve#role\u003E \u0022reader\u0022 .",
+        "\u003Chttps://varve.example.org/grants/1\u003E \u003Chttps://w3id.org/varve#agent\u003E \u003Chttps://issuer.example/#alice\u003E ."
+      ],
+      "added": [
+        "\u003Chttps://varve.example.org/grants/1\u003E \u003Chttps://w3id.org/varve#agent\u003E \u003Chttps://issuer.example/#alice\u003E .",
+        "\u003Chttps://varve.example.org/grants/1\u003E \u003Chttps://w3id.org/varve#role\u003E \u0022reader\u0022 ."
+      ],
+      "removed": []
+    }
+  ]
+}

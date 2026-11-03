@@ -1,0 +1,1 @@
+{"data":{"value":"9007199254740993"},"datacontenttype":"application/json","dataschema":"https://varve.example.org/datasets/orders/events/types/Big/versions/1/revisions/1","id":"2 https://example.org/b/1","sequence":"00000000000000000002.000000","source":"https://varve.example.org/datasets/orders","specversion":"1.0","time":"2026-10-15T12:00:02.0000000Z","type":"Big"}

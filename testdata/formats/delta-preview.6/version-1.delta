@@ -1,0 +1,28 @@
+commit 1 Data 2026-10-07T12:00:00.0000000Z
+agent <https://issuer.example/#alice>
+cause "0HN:1"
++ <http://ex/s> <http://ex/p> "o é"@en <http://ex/g>
++ _:b1 <http://ex/p> "1"^^<http://www.w3.org/2001/XMLSchema#integer>
+- <http://ex/s> <http://ex/p> <http://ex/o>
+
+commit 2 Settings 2026-10-07T12:00:01.0000000Z
+agent <http://ex/admin>
+
+commit 3 Data 2026-10-07T12:00:02.5000000Z
+agent <https://issuer.example/#bob>
+cause "0HN:7"
+scope <http://ex/g>
+attachment <http://ex/report/1>
++ <http://ex/s> <http://ex/p> "line\nbreak" <http://ex/g>
++ <http://ex/s> <http://ex/p> "tab\tand quote \""^^<http://ex/dt>
+
+commit 4 Erasure 2026-10-07T12:00:03.0000000Z
+
+commit 5 Data 2026-10-07T12:00:04.0000000Z
+
+diff 0 3
++ _:b1 <http://ex/p> "1"^^<http://www.w3.org/2001/XMLSchema#integer>
+- <http://ex/s> <http://ex/p> <http://ex/o>
+
+error https://w3id.org/varve/problems/read-limit-exceeded
+

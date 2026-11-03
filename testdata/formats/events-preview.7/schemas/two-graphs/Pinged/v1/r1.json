@@ -1,0 +1,1 @@
+{"$id":"https://varve.example.org/datasets/golden/events/types/Pinged/versions/1/revisions/1","$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":true,"properties":{"n":{"type":"integer"}},"required":["n"],"title":"Pinged","type":"object","x-varve-version":1}
