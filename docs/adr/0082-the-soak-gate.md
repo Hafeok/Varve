@@ -136,3 +136,23 @@ milestone that touches the store; it is not in CI" no longer holds:
 
 The band, the samples and the dataset's own stand. The gate itself is
 `FlatWithinABand` in ADR 0215's set, restated for a run of any length.
+
+## Amendment, 2026-11-03 — the dataset's own retired
+
+Filed by 1.0 readiness A for #222, unaccepted until the maintainer accepts
+ADR 0215's restated rulings (ADR 0066).
+
+**The model no longer describes the process.** The dataset's own counted the
+table of commits at 144 bytes a commit, measured when the table was an
+array in memory. ADR 0089 made the commit index derived and paged: at most
+twice its cache of entries is resident, 80 bytes each, and the rest is in
+`derived/`. The soak kept charging 144 bytes a commit, about 63 MB at
+440,000 commits, against a Windows process holding 64 MB of private bytes in
+all; the four-hour soaks of 2026-11-02 measured the process growing about 50
+bytes a commit, not 144.
+
+**Retired.** The gate is judged on the process's memory directly, fitted
+against commits, its slope bounded in bytes a commit (ADR 0215, amended
+2026-11-03). The soak no longer reports the dataset's own. What is resident
+per commit, and why, is #222's: it names each structure that holds memory per
+commit and bounds it, and the allowance shrinks to what that leaves.
