@@ -14,6 +14,8 @@ basis:
   - adr: "0213"
   - adr: "0214"
   - adr: "0215"
+  - adr: "0216"
+  - adr: "0217"
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
   ### Replication, part 1: within a store (#165, of #97)
