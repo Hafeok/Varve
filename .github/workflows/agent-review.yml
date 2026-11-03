@@ -86,11 +86,14 @@ jobs:
           persist-credentials: false
 
       - name: Set up .NET
-        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
-        uses: ./.github/actions/setup-dotnet
+        # Not ./.github/actions/setup-dotnet: the checkout above is main's,
+        # which need not hold this branch's copy of the action, and a judge
+        # that cannot set up fails every land/ push that changes it. It judges
+        # with main's code and restores nothing, so global.json's SDK with its
+        # roll-forward is enough here (ADR 0224).
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
-          # It judges main's code and restores nothing.
-          check-lockfiles: "false"
+          global-json-file: global.json
 
       - name: Mint the gates App's token
         id: gates
