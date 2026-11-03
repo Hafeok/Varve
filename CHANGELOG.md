@@ -69,43 +69,6 @@ accepted on the pull request (ADR 0066).
   artefact and its SBOM's digest. It is checked on the pull request and
   again before anything is pushed. Every earlier descriptor stays format 1.
 
-- **The Web UI's design source** (#174, ADR 0206, filed unaccepted):
-  `docs/ui/`, the components, their levels and the markup contract the
-  console (#167) is built to. It is documentation only, and no package
-  changes.
-- **Entailments under graph-level grants** (#95, ADR 0190, amending ADR
-  0107): what a reader may see of a quad that inference adds. It is
-  decided ahead of inference, which this release does not ship. The TBox
-  and rules graphs of a binding are readable by every reader of the
-  dataset.
-- **Cached derived data is verified before use** (#146, #180, ADR 0213).
-  - Every derived kind carries a check per block, and damage is a cache
-    miss: the data is rebuilt from the log, never served.
-  - A read that meets damage partway through is re-run and resumed.
-  - Projections outside the store write through
-    `Dataset.WriteCheckedAsync` and read with `TryReadCheckedAsync`.
-  - The cost at REC M: checkpoints take about 18% longer. A subject's
-    quads read as of a commit inside the largest set is about 8% slower;
-    the other reads stay within 3%.
-- **A full disk, and a write whose outcome is unknown** (#129, #190, ADR
-  0214).
-  - Each request in a failed batch is answered by the log: committed when
-    its commit was closed and flushed, outcome unknown when closed but
-    not confirmed, refused when never closed. The committed requests are
-    a prefix of the batch.
-  - On a full disk the dataset stays open for reads, and a write is
-    answered `507 storage-full`. The next write after space returns
-    recovers the writer without a reopen. Readiness lists the dataset
-    under `writesRefused` and stays ready.
-  - A write whose flush was not confirmed is answered `503
-    commit-outcome-unknown` with its position and request id, and the
-    commits resource settles it.
-  - The storage specification is version 1.9.
-- **The release gate** (#61, ADR 0215): the file backend's faults at full
-  depth on Linux and Windows, and a four-hour soak, judged. A release
-  requires it, and refuses when the latest weekly Windows soak is red or
-  older than eight days.
-
 #### Changed
 
 - **`CommitRequest` is renamed `CommitRequestBuilder` (breaking, #173).**
@@ -134,19 +97,10 @@ accepted on the pull request (ADR 0066).
     not forgotten;
   - a retired extent set's directory is deleted with its last file
     (#61).
-  - a writer whose log already ends in a later epoch is superseded
-    before it fences, including when the newest segment is consolidated
-    (#181, ADR 0136 decision 2). Before, the lower epoch could keep the
-    log while the writer record named the higher one. Nothing was lost or
-    written twice.
 - **A binding's report graph, read while its projection was a commit
   behind** (#183), could answer with no rows, which reads as conforming.
   It now answers with the report at the position, or `503
   validation-behind` after one bounded wait (ADR 0174).
-- **A validator's view of a commit names a triple term that the commit
-  creates** (#191, ADR 0022, amended). Before, a term the commit's delta
-  yields could be denied. No read was found that lost an answer. A
-  contract test now runs over every quad source.
 - **An event move's cancel is answered once the management plane has
   applied it** (#206, #207). Before, a state read right after the `422`
   could still see `varve:Moving`.
@@ -154,10 +108,6 @@ accepted on the pull request (ADR 0066).
 #### Upgrading
 
 - **Datasets keep their log:** storage format 1, delta format 1.
-- **Derived data moves to format 6** for the checked kinds (ADR 0213),
-  and stays 5 for extents. Derived data is a cache of the log: what this
-  build does not read is rebuilt from the log, and an older build finds
-  the new files a cache miss.
 - **Code that built a `CommitRequest`** builds a `CommitRequestBuilder`.
 
 ## [0.1.0-preview.16] - 2026-10-28
