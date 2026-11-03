@@ -4,15 +4,9 @@
   "now": "2026-11-12T09:00:00Z",
   "jobs": [
     {
-      "name": "store, full depth (ubuntu-latest)",
+      "name": "linux soak / soak (ubuntu-latest)",
       "conclusion": "success",
-      "completed_at": "2026-11-12T03:10:00Z",
-      "html_url": "https://github.com/Hafeok/Varve/actions/runs/30/job/301"
-    },
-    {
-      "name": "store, full depth (windows-latest)",
-      "conclusion": "success",
-      "completed_at": "2026-11-12T03:20:00Z",
+      "completed_at": "2026-11-12T07:10:00Z",
       "html_url": "https://github.com/Hafeok/Varve/actions/runs/30/job/301"
     },
     {
@@ -21,5 +15,8 @@
       "completed_at": "2026-11-07T08:20:00Z",
       "html_url": "https://github.com/Hafeok/Varve/actions/runs/25/job/251"
     }
+  ],
+  "evidence": [
+    "- The store at full depth on Windows, the faults at every point: **none**, no completed run on `main`"
   ]
 }

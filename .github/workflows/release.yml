@@ -20,10 +20,13 @@
 #          release-gate.yml, at the same commit: the file backend's faults at
 #          every point and the four-hour soak on Linux, inline, and the latest
 #          Windows soak on main's nightly green and at most eight days old
-#          (ADR 0214, ADR 0215). A preview, 0.x.y-preview.N, runs neither long
-#          gate inline: main's latest runs of them must be green and fresh
-#          instead (ADR 0215, amended 2026-11-02). A release that fails it is
-#          not cut either.
+#          (ADR 0214, ADR 0215), and no open issue labelled soak. A preview,
+#          0.x.y-preview.N, runs neither long gate inline: main's latest store
+#          at full depth on each runner must be green and fresh instead, and
+#          main's soaks inform it without refusing it (ADR 0215, amended
+#          2026-11-02 and 2026-11-03). A release that fails it is not cut
+#          either. publish.yml writes main's evidence into the GitHub
+#          Release's notes.
 #   cut    the gates App, with a token minted from the `gates` environment,
 #          creates the annotated tag "<version> — <title>", pushes it, and
 #          closes the issues the basis names. Never
@@ -146,6 +149,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      issues: read
     uses: ./.github/workflows/release-gate.yml
     with:
       ref: ${{ needs.plan.outputs.sha }}
