@@ -9,6 +9,8 @@ decisions:
     accepted-at: 2026-11-02T00:00:00Z
   - key: FlatWithinABand
     statement: "The soak gate holds when the process's memory as its OS holds it, the working set on Linux and private bytes on Windows, with nothing subtracted, fitted against commits by least squares over every 30-second sample from minute 30 to the end, has a slope of at most 60 bytes a commit, a known cost #222 reduces, and every sample lies within plus or minus a quarter of the fit's intercept, widened at each sample by the collector's committed but unused memory there; and handles and derived files stay within the bounds the configuration gives; moved from ADR 0110 by ADR 0215's supersession in part, restated by its amendment of 2026-11-03"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-03T00:00:00Z
   - key: CommittedUnderItsOwnCeiling
     statement: "The collector's committed memory, which it returns on its own schedule and so is not judged in the band, is reported beside it and stays at most twice the live heap after a full collection plus 128 MB"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -23,6 +25,8 @@ decisions:
     accepted-at: 2026-10-30T00:00:00Z
   - key: WorkingSetByCause
     statement: "The soak reports per sample the working set and private bytes, the collector's committed, heap, fragmented and promoted memory, the live heap after a full collection, native memory as private bytes less committed, and the runs' and checkpoints' directories, and states the OS it ran on before its table; ADR 0082's dataset's own is retired by ADR 0215's amendment of 2026-11-03"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-03T00:00:00Z
   - key: JudgedByAScript
     statement: "Varve.Benchmarks --soak-judge applies the gate to a soak's output and exits 0 when it holds, 1 when it misses and 2 when it cannot judge, and its fixtures prove each exit on every pipeline run"
     accepted-by: mailto:emil@okkels-klein.dk
