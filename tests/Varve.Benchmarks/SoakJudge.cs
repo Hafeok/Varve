@@ -15,16 +15,19 @@ namespace Varve.Benchmarks;
 /// <summary>
 /// <c>--soak-judge &lt;output&gt;</c>: the soak gate applied to a soak's output
 /// (ADR 0215, restating <c>FlatWithinABand</c>), so that a run in CI passes or
-/// fails without a reader. What is judged is the working set less the
-/// dataset's own and less the collector's committed-but-unused memory, which
-/// is reported beside it under a ceiling of its own: from minute 30 to the
-/// end every sample of it lies within ±25% of those samples' median, and the
-/// median of the last ten minutes is no more than 10% over minutes 30–40.
-/// Handles and <c>derived/</c> files stay within bounds the configuration
-/// gives (<see cref="SoakBounds"/>). A run whose dataset is not steady from
-/// minute 30 — the load before the clock (<see cref="Soak.LoadAsync"/>)
-/// brings it to its size, so a drift out of ±5% afterwards is the dataset's
-/// — or whose collector is not the shipped one, is not judged.
+/// fails without a reader. What is judged is the process's memory as its OS
+/// holds it: the working set on Linux and macOS, private bytes on Windows,
+/// which trims the working set of an idle process. From minute 30 to the end
+/// it is fitted against commits by least squares: the slope is at most
+/// <see cref="AllowanceBytesPerCommit"/>, a known cost #222 reduces, and every
+/// sample lies within ±25% of the intercept of the line, widened by what the
+/// collector had committed and did not use at that sample, which it returns on
+/// its own schedule and which is judged under a ceiling of its own. Handles
+/// and <c>derived/</c> files stay within bounds the configuration gives
+/// (<see cref="SoakBounds"/>). A run whose dataset is not steady from minute
+/// 30 — the load before the clock (<see cref="Soak.LoadAsync"/>) brings it to
+/// its size, so a drift out of ±5% afterwards is the dataset's — or whose
+/// collector is not the shipped one, is not judged.
 /// Exit 0 holds, 1 misses, 2 cannot judge.
 /// </summary>
 [DesignDecision(typeof(TheSoakGateJudged.FlatWithinABand), Scope = ExceptionScope.Boundary)]
@@ -32,7 +35,15 @@ internal static class SoakJudge
 {
     internal const double SteadyFrom = 30;
     internal const double Band = 0.25;
-    internal const double Drift = 0.10;
+
+    /// <summary>
+    /// The slope allowed, in bytes a commit: what the soaks of 2026-11-02
+    /// measured, 47.9 and 49.4 on Linux and 50.2 on Windows, and a fifth
+    /// over the largest. A known cost of the store, not the dataset's: #222
+    /// bounds what is resident per commit and lowers it (ADR 0215, amended
+    /// 2026-11-03).
+    /// </summary>
+    internal const double AllowanceBytesPerCommit = 60;
     internal const double SteadyQuads = 0.05;
 
     /// <summary>The collector a judged run must have had: the shipped one (ADR 0110), as <see cref="Soak.GarbageCollection"/> prints it.</summary>
@@ -92,6 +103,7 @@ internal static class SoakJudge
         int header = -1;
         string? collector = null;
         double? handlesBefore = null;
+        string? os = null;
 
         for (int i = 0; i < lines.Count && header < 0; i++)
         {
@@ -102,6 +114,10 @@ internal static class SoakJudge
             else if (lines[i].StartsWith("# gc ", StringComparison.Ordinal))
             {
                 collector = lines[i]["# gc ".Length..];
+            }
+            else if (lines[i].StartsWith("# os ", StringComparison.Ordinal))
+            {
+                os = lines[i]["# os ".Length..];
             }
             else if (lines[i].StartsWith("# handles before the dataset ", StringComparison.Ordinal))
             {
@@ -141,11 +157,17 @@ internal static class SoakJudge
             rows.Add([.. cells.Select(c => double.Parse(c, NumberStyles.Float, CultureInfo.InvariantCulture))]);
         }
 
-        int minutes, workingSet, own, quads, handles, derived, commits, managed, heap, committed, segments;
+        // What the OS holds for the process: Windows trims an idle process's
+        // working set to its standby list, so there private bytes, which it
+        // cannot trim; elsewhere the working set. A run that does not say
+        // where it ran is judged as the judge's own OS, where CI judges it.
+        os ??= Soak.OperatingSystemName();
+        string quantity = os == "windows" ? "private MB" : "working set MB";
+        int minutes, memory, quads, handles, derived, commits, managed, heap, committed, segments;
 
         try
         {
-            (minutes, workingSet, own, quads, handles, derived) = (Column("minutes"), Column("working set MB"), Column("own MB"), Column("quads"), Column("open handles"), Column("derived files"));
+            (minutes, memory, quads, handles, derived) = (Column("minutes"), Column(quantity), Column("quads"), Column("open handles"), Column("derived files"));
             (commits, managed, heap, committed, segments) = (Column("commits"), Column("managed MB"), Column("heap MB"), Column("committed MB"), Column("log segments"));
         }
         catch (InvalidDataException missing)
@@ -174,29 +196,47 @@ internal static class SoakJudge
         bool holds = true;
 
         // What the collector committed and does not use: returned on its own
-        // schedule, so it is not judged in the band but under its own ceiling.
+        // schedule, so it widens the band at its sample and is judged under
+        // its own ceiling.
         double Headroom(double[] row) => Math.Max(0, row[committed] - row[heap]);
-        double Net(double[] row) => row[workingSet] - row[own] - Headroom(row);
-        double median = Median([.. steady.Select(Net)]);
 
-        foreach (double[] row in steady)
-        {
-            if (Math.Abs(Net(row) - median) > Band * median)
-            {
-                holds = false;
-                said.Add("band: at minute " + Mb(row[minutes]) + ", " + Mb(Net(row)) + " MB is outside ±25% of the median " + Mb(median) + " MB");
-            }
-        }
+        // Memory against commits, by least squares over the judged window.
+        double meanCommits = steady.Average(r => r[commits]);
+        double meanMemory = steady.Average(r => r[memory]);
+        double spread = steady.Sum(r => (r[commits] - meanCommits) * (r[commits] - meanCommits));
+        double slope = spread == 0 ? 0 : steady.Sum(r => (r[commits] - meanCommits) * (r[memory] - meanMemory)) / spread;
+        double intercept = meanMemory - (slope * meanCommits);
+        double bytesPerCommit = slope * 1e6;
 
-        double reference = Median([.. rows.Where(r => r[minutes] >= 30 && r[minutes] < 40).Select(Net)]);
-        double last = Median([.. rows.Where(r => r[minutes] > end - 10).Select(Net)]);
-        double drift = (last / reference) - 1;
-
-        // Growth is what the gate is for; a working set that shrinks holds.
-        if (drift > Drift)
+        if (bytesPerCommit > AllowanceBytesPerCommit)
         {
             holds = false;
-            said.Add("drift: the last ten minutes' median " + Mb(last) + " MB is " + Percent(drift) + "% over minutes 30–40's " + Mb(reference) + " MB, 10% allowed");
+            said.Add("slope: " + quantity + " grows " + bytesPerCommit.ToString("F1", CultureInfo.InvariantCulture) + " bytes a commit from minute 30 to " + Mb(end) + ", "
+                + AllowanceBytesPerCommit.ToString("F0", CultureInfo.InvariantCulture) + " allowed (#222)");
+        }
+
+        double band = Band * intercept;
+        double residualMax = 0;
+
+        if (intercept <= 0)
+        {
+            holds = false;
+            said.Add("band: the fit's intercept is " + Mb(intercept) + " MB, so there is no band around it");
+        }
+        else
+        {
+            foreach (double[] row in steady)
+            {
+                double residual = row[memory] - (intercept + (slope * row[commits]));
+                residualMax = Math.Max(residualMax, Math.Abs(residual));
+
+                if (Math.Abs(residual) > band + Headroom(row))
+                {
+                    holds = false;
+                    said.Add("band: at minute " + Mb(row[minutes]) + ", " + Mb(row[memory]) + " MB is " + Mb(Math.Round(residual, 1)) + " MB off the line, outside ±25% of its intercept "
+                        + Mb(Math.Round(intercept, 1)) + " MB and the collector's unused " + Mb(Math.Round(Headroom(row), 1)) + " MB");
+                }
+            }
         }
 
         double headroomMax = 0;
@@ -236,15 +276,14 @@ internal static class SoakJudge
         }
 
         said.Insert(0, (holds ? "holds" : "misses") + ": " + steady.Count + " samples from minute 30 to " + Mb(end) + " under " + ShippedCollector
-            + "; working set less the dataset's own and the collector's unused, median " + Mb(median) + " MB, drift " + Percent(drift)
-            + "%; the collector's unused, at most " + Mb(headroomMax) + " MB; quads steady at " + settled.ToString("F0", CultureInfo.InvariantCulture)
+            + " on " + os + "; " + quantity + " against commits, intercept " + Mb(Math.Round(intercept, 1)) + " MB, slope " + bytesPerCommit.ToString("F1", CultureInfo.InvariantCulture)
+            + " bytes a commit of " + AllowanceBytesPerCommit.ToString("F0", CultureInfo.InvariantCulture) + " allowed, off the line at most " + Mb(Math.Round(residualMax, 1)) + " MB against ±" + Mb(Math.Round(band, 1))
+            + "; the collector's unused, at most " + Mb(headroomMax) + " MB; quads steady at " + settled.ToString("F0", CultureInfo.InvariantCulture)
             + "; handles ≤ " + Mb(handlesMax) + " of " + Mb(handlesBound) + ", derived files ≤ " + Mb(derivedMax) + " of " + Mb(derivedBound));
         return new Verdict(holds ? 0 : 1, said);
     }
 
     private static string Mb(double value) => value.ToString(value == Math.Floor(value) ? "F0" : "F1", CultureInfo.InvariantCulture);
-
-    private static string Percent(double fraction) => (fraction * 100).ToString("+0.0;-0.0", CultureInfo.InvariantCulture);
 
     private static double Median(double[] values)
     {

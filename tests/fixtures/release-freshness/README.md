@@ -16,6 +16,7 @@ Linux soak inline and needs only the Windows soak.
 |---|---|---|
 | `pass-preview-all-fresh` | preview | every check's latest run green and in its window |
 | `pass-preview-skipped-passed-over` | preview | the newest store jobs were skipped; the earlier ones are fresh |
+| `pass-preview-faults-in-a-cancelled-run` | preview | the store jobs at full depth are green in a nightly cancelled by a leg of its own (#219), run 41424545800: a job is judged by its own conclusion, not its run's |
 | `fail-preview-linux-soak-red` | preview | the latest Linux soak failed, though an older one passed |
 | `fail-preview-no-linux-soak` | preview | no Linux soak on main at all |
 | `fail-preview-faults-four-days-old` | preview | the store at full depth on Windows is four days old |
