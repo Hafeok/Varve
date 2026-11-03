@@ -97,6 +97,14 @@ public static class Tones
         ["writer-moved"] = Tone.Critical,
         ["declaration-invalid"] = Tone.Critical,
         ["read-unannounced-extent-gone"] = Tone.Critical,
+
+        // Durability and replication (ADRs 0213 and 0214, Replication part 1):
+        // each refuses or loses a write, so each needs the operator.
+        ["commit-outcome-unknown"] = Tone.Critical,
+        ["storage-full"] = Tone.Critical,
+        ["load-spill-damaged"] = Tone.Critical,
+        ["takeover-refused"] = Tone.Critical,
+        ["writer-stepped-down"] = Tone.Critical,
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>The tone of an API state word, neutral when the word is not one the mapping knows.</summary>

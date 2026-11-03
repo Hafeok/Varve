@@ -52,7 +52,7 @@ public class HealthClientTests
 
         // Every member of the entry is kept, those the model names included,
         // so a member a newer server adds reaches a caller.
-        Assert.Equal(["lag", "role", "state"], Sorted(d.Members.Keys));
+        Assert.Equal(["lag", "position", "role", "state"], Sorted(d.Members.Keys));
     }
 
     [Fact]
