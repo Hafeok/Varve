@@ -86,8 +86,8 @@ jobs:
       - name: Inline, or fresh from main
         id: mode
         env:
-          VERSION: ${{ inputs.version }}
-        run: dotnet run eng/release-freshness.cs -- --mode --version "$VERSION"
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: dotnet run eng/release-freshness.cs -- --mode --version "$RELEASE_VERSION"
 
   faults:
     name: faults (${{ matrix.os }})
@@ -306,5 +306,5 @@ jobs:
       - name: Main's latest runs, the faults gating a preview and the soaks informing it
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          VERSION: ${{ inputs.version }}
-        run: dotnet run eng/release-freshness.cs -- --repository ${{ github.repository }} --version "$VERSION"
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: dotnet run eng/release-freshness.cs -- --repository ${{ github.repository }} --version "$RELEASE_VERSION"
