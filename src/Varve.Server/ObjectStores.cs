@@ -51,6 +51,7 @@ internal sealed class ObjectStores : IDisposable
                 Endpoint = new Uri(settings.Endpoint!),
                 Bucket = new S3Bucket(settings.Bucket!),
                 Region = new S3Region(settings.Region!),
+                StsEndpoint = settings.StsEndpoint is { Length: > 0 } sts ? new Uri(sts) : null,
                 Clock = clock,
             }),
             _ => null,

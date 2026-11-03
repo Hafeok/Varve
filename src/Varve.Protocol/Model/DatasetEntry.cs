@@ -48,6 +48,9 @@ public enum DatasetRole : byte
 
     /// <summary>The dataset is placed on another instance and not in an object store, so this one cannot serve it.</summary>
     Elsewhere = 2,
+
+    /// <summary>It follows the dataset as a member of its writer set, on the interval, and may claim it when the holder releases it (ADR 0180).</summary>
+    Standby = 3,
 }
 
 /// <summary>A dataset's state in the host (ADR 0106).</summary>

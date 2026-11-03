@@ -12,6 +12,132 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.16] - 2026-10-28
+
+**Replication within a store — writer handover, warm standbys, automation, active-active by dataset**
+
+### Replication, part 1: within a store (#165, of #97)
+
+A dataset in an object store now has a writer set: its `placedOn`, the
+preferred writer, and any number of `standbyOn` instances that follow it
+warm. When the writer shuts down, fails against the store, or can no longer
+bound its memory, it releases its epoch, and a warm standby claims in place
+and commits at once. When it crashes or hangs, the orchestrator's probe
+decides, and one command, the same on every platform, takes over. Two
+regions of one fleet can each write their own datasets, never two writers
+on one. This release closes #165; part 2, across copies of a store, is
+#166. The log's bytes are unchanged at storage format 1, and the writer
+record stays `format: 1`.
+
+#### Added
+
+- **Writer handover within a store** (ADR 0179):
+  - two triggers only: the writer's own abdication, for `shutdown`,
+    `placement`, `storage-error` or `local-disk-error`; and a takeover
+    request, `PUT /manage/datasets/{d}/state` with
+    `{"takeover":{"epoch":n}}`, answered by the instance that receives it;
+  - a refused takeover is `409 takeover-refused`, with a reason:
+    `handover-off`, `not-in-writer-set`, `epoch-moved` or `cold`;
+  - the claim happens in place: the standby keeps what it applied and
+    cached;
+  - a write forwarded across a handover is answered `503 writer-moved`,
+    and was not committed;
+  - a writer that stepped down answers what it held in flight `503
+    writer-stepped-down`, with the reason;
+  - a superseded member rejoins as a standby;
+  - every claim and release is in the writer record's epoch history, which
+    `GET …/state` and `varve lease` show.
+- **Warm standbys and the writer set** (ADR 0180):
+  - `varve:standbyOn`, with `varve:automaticHandover true`;
+  - placement works by events: only a change of `placedOn` moves the writer
+    on purpose, and a holder that differs from `placedOn` after a takeover
+    is left alone;
+  - the start rule never lets a returning writer take a dataset from a
+    healthy successor;
+  - a standby tails on `Varve:Fleet:FollowInterval`, and is warm once its
+    default projection has caught up;
+  - readiness reports `position`, `tailing`, `warm`, the spill's state and
+    the local cache's.
+- **The system dataset hands over too**, with `Varve:Fleet:AutomaticHandover`
+  and a `Varve:Fleet:Writer` list.
+- **Handover automation** (ADR 0181):
+  - `varve manage takeover --from <instance> --server <url>…` takes over
+    every dataset a failed instance still holds, at the first warm standby
+    named;
+  - it asks the failed instance first, so a trigger that arrives after a
+    restart reclaimed is a no-op;
+  - it is safe to run twice, and takes a federated token or
+    `--managed-identity`, never a secret;
+  - `varve manage watch-kubernetes`, in Varve's own image, watches a fleet's
+    pods and takes over from one that turns not ready;
+  - `deploy/kubernetes/` is the sample, validated by kubeconform;
+  - `deploy/azure/container-apps-handover/` is the Azure layout: N
+    single-replica apps behind Front Door, two alerts into a Secure
+    webhook, a Consumption Logic App with SAS disabled, and a takeover job
+    per app.
+- **Active-active by dataset within one store**: each dataset's writer set
+  is one region's, and writes from the other are forwarded.
+- **RustFS through web identity**: `Varve:ObjectStorage:StsEndpoint`
+  (ADR 0137, amended), so the fleet suite runs on Azurite and RustFS with
+  no key.
+
+#### Changed
+
+- **A writer that lists a later epoch's fence is superseded** (ADR 0136
+  decision 2, #181), including when the log ends in a segment a later
+  epoch sealed and consolidated.
+- **A follower's projection fault** fails the follower at the position, as
+  the writer's does, and its log goes on (spec §7).
+- **A failing local cache never abdicates** (#146): the instance reads from
+  the store and reports the cache degraded.
+- **Cached derived data is verified before use** (ADR 0213, #146): every
+  block of a run, checkpoint, commit index and dictionary carries a check.
+  Damage is a miss, re-read from the log, never an error or a wrong
+  result. A bulk load that finds its own spill damaged commits nothing and
+  answers `503 load-spill-damaged`, and readiness reports the
+  `uncheckedSets` still read without checks while an older reader is
+  announced.
+- **Committed means closed and flushed** (ADR 0214, #129). A failed batch
+  is answered by the log, member by member:
+  - closed and flushed is committed;
+  - closed with its flush unconfirmed is `503 commit-outcome-unknown`,
+    with `position` and `requestId`, settled by the commits resource;
+  - never closed on a full disk is `507 storage-full`.
+
+  A full disk recovers at the next write, with no reopen, and readiness
+  lists the dataset under `writesRefused` and stays ready.
+- **A forwarded write whose answer was lost** is `503
+  commit-outcome-unknown`, with `requestId` and no `position`, in place of
+  `503 unavailable` with the reason `writer-unreachable` (ADR 0214, #210).
+- **The soak gate is judged** (ADR 0215): the release gate runs four
+  hours on Linux, and a release needs a weekly Windows soak at most eight
+  days old.
+- **A denied term is in no quad a source yields** (ADR 0022, amended,
+  #200): a commit's pending source now finds a triple term the commit
+  itself creates.
+
+#### Measured
+
+Locally, on a 4-core container, from the event to the first commit again:
+- a warm standby after the writer's shutdown: 908 ms on Azurite, 573 ms
+  on RustFS;
+- on a takeover request: 504 ms on Azurite, 312 ms on RustFS;
+- a restart with no standby: 2.0–3.2 s, plus the platform's own restart.
+
+The handover (services) job writes these times to its summary on every
+run.
+
+#### Upgrading
+
+- **A dataset written by `v0.1.0-preview.15` or before opens as it is.**
+  A dataset with no `standbyOn` behaves as before: placement, the start
+  rule and restart recovery are unchanged for it.
+- **Cached derived data moves to derived format 6** for the checked
+  kinds. A local blob below 6 is a miss and is rebuilt, and maintenance
+  rewrites a set in 6 once no reader of 5 or older is announced.
+- **The two-app Container Apps layout is unchanged** and keeps restart as
+  its recovery. The handover layout is a second template.
+
 ## [0.1.0-preview.15] - 2026-10-23
 
 **As-of reads that seek — an as-of read inside an extent set costs its matches**
@@ -1658,7 +1784,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.16...HEAD
+[0.1.0-preview.16]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...v0.1.0-preview.16
 [0.1.0-preview.15]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...v0.1.0-preview.15
 [0.1.0-preview.14]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.13...v0.1.0-preview.14
 [0.1.0-preview.13]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.12...v0.1.0-preview.13

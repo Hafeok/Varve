@@ -47,12 +47,7 @@ internal static class WriterRecordFormat
                 json.WriteStartObject();
                 json.WriteNumber("epoch", claim.Epoch.Value);
                 json.WriteString("holder", claim.Holder.Value);
-                json.WriteString("trigger", claim.Trigger switch
-                {
-                    ClaimTrigger.Operator => "operator",
-                    ClaimTrigger.Restart => "restart",
-                    _ => claim.TriggerText ?? throw new ArgumentOutOfRangeException(nameof(record), claim.Trigger, "An unknown trigger is written only as it was read."),
-                });
+                json.WriteString("trigger", Name(claim.Trigger, claim.TriggerText));
                 json.WriteString("at", claim.ClaimedAt.Value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
 
                 if (claim.Fence is { } fence)
@@ -115,6 +110,8 @@ internal static class WriterRecordFormat
                     {
                         "restart" => ClaimTrigger.Restart,
                         "operator" => ClaimTrigger.Operator,
+                        "abdication" => ClaimTrigger.Abdication,
+                        "probe" => ClaimTrigger.Probe,
                         string => ClaimTrigger.Unknown,
                         null => throw new InvalidDataException("A claim in the writer record has no trigger."),
                     },
@@ -142,19 +139,33 @@ internal static class WriterRecordFormat
         }
     }
 
+    /// <summary>A release reason's name in the record (ADRs 0136, 0179), or the text an unknown one was read with (ADR 0217).</summary>
     private static string Name(ReleaseReason reason, string? text) => reason switch
     {
         ReleaseReason.Shutdown => "shutdown",
         ReleaseReason.OperatorTakeover => "operator-takeover",
         ReleaseReason.Placement => "placement",
+        ReleaseReason.StorageError => "storage-error",
+        ReleaseReason.LocalDiskError => "local-disk-error",
         _ => text ?? throw new ArgumentOutOfRangeException(nameof(reason), reason, "An unknown reason is written only as it was read."),
     };
 
+    /// <summary>A claim trigger's name in the record (ADRs 0136, 0179), or the text an unknown one was read with (ADR 0217).</summary>
+    private static string Name(ClaimTrigger trigger, string? text) => trigger switch
+    {
+        ClaimTrigger.Restart => "restart",
+        ClaimTrigger.Operator => "operator",
+        ClaimTrigger.Abdication => "abdication",
+        ClaimTrigger.Probe => "probe",
+        _ => text ?? throw new ArgumentOutOfRangeException(nameof(trigger), trigger, "An unknown trigger is written only as it was read."),
+    };
     private static ReleaseReason Reason(string? name) => name switch
     {
         "shutdown" => ReleaseReason.Shutdown,
         "operator-takeover" => ReleaseReason.OperatorTakeover,
         "placement" => ReleaseReason.Placement,
+        "storage-error" => ReleaseReason.StorageError,
+        "local-disk-error" => ReleaseReason.LocalDiskError,
         null => throw new InvalidDataException("The writer record names a release with no reason."),
         _ => ReleaseReason.Unknown,
     };

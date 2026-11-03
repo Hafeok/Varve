@@ -32,11 +32,13 @@ internal static class Storage
         Argument<string> address = Address();
         Option<string?> endpoint = Endpoint();
         Option<string?> region = Region();
+        Option<string?> sts = Sts();
         command.Arguments.Add(address);
         command.Options.Add(endpoint);
         command.Options.Add(region);
+        command.Options.Add(sts);
         command.SetAction((parsed, cancellationToken) => Cli.GuardAsync(
-            () => ReportAsync(parsed.GetValue(address)!, parsed.GetValue(endpoint), parsed.GetValue(region), io, cancellationToken),
+            () => ReportAsync(parsed.GetValue(address)!, parsed.GetValue(endpoint), parsed.GetValue(region), parsed.GetValue(sts), io, cancellationToken),
             parsed.InvocationConfiguration.Error));
         command.Subcommands.Add(Readers(io));
         return command;
@@ -50,29 +52,33 @@ internal static class Storage
         Argument<string> listAddress = Address();
         Option<string?> listEndpoint = Endpoint();
         Option<string?> listRegion = Region();
+        Option<string?> listSts = Sts();
         list.Arguments.Add(listAddress);
         list.Options.Add(listEndpoint);
         list.Options.Add(listRegion);
+        list.Options.Add(listSts);
         list.SetAction((parsed, cancellationToken) => Cli.GuardAsync(
-            () => ListAsync(parsed.GetValue(listAddress)!, parsed.GetValue(listEndpoint), parsed.GetValue(listRegion), io, cancellationToken),
+            () => ListAsync(parsed.GetValue(listAddress)!, parsed.GetValue(listEndpoint), parsed.GetValue(listRegion), parsed.GetValue(listSts), io, cancellationToken),
             parsed.InvocationConfiguration.Error));
 
         Command forget = new("forget", "Forget a reader that is gone, so the writer may delete what its record held. Only while the record still announces what --oldest and --newest say, as list showed it.");
         Argument<string> forgetAddress = Address();
         Option<string?> forgetEndpoint = Endpoint();
         Option<string?> forgetRegion = Region();
+        Option<string?> forgetSts = Sts();
         Option<string> reader = new("--reader") { Description = "The reader id, as list shows it.", Required = true };
         Option<long> oldest = new("--oldest") { Description = "The oldest catalog version the record announces, as list shows it.", Required = true };
         Option<long> newest = new("--newest") { Description = "The newest catalog version the record announces, as list shows it.", Required = true };
         forget.Arguments.Add(forgetAddress);
         forget.Options.Add(forgetEndpoint);
         forget.Options.Add(forgetRegion);
+        forget.Options.Add(forgetSts);
         forget.Options.Add(reader);
         forget.Options.Add(oldest);
         forget.Options.Add(newest);
         forget.SetAction((parsed, cancellationToken) => Cli.GuardAsync(
             () => ForgetAsync(
-                parsed.GetValue(forgetAddress)!, parsed.GetValue(forgetEndpoint), parsed.GetValue(forgetRegion),
+                parsed.GetValue(forgetAddress)!, parsed.GetValue(forgetEndpoint), parsed.GetValue(forgetRegion), parsed.GetValue(forgetSts),
                 parsed.GetValue(reader)!, parsed.GetValue(oldest), parsed.GetValue(newest), io, cancellationToken),
             parsed.InvocationConfiguration.Error));
 
@@ -90,10 +96,12 @@ internal static class Storage
 
     private static Option<string?> Region() => new("--region") { Description = "s3://: the region the signature is for." };
 
+    private static Option<string?> Sts() => new("--sts-endpoint") { Description = "s3://: the STS endpoint web identity is exchanged at, a self-hosted server's own; Amazon's when absent." };
+
     [DecisionDriven.DesignDecision(typeof(DecisionDriven.Ledger.Varve.StorageOperationsAndTheReadersCommand.StorageReportsSetsAndRetention), Scope = DecisionDriven.ExceptionScope.Boundary)]
-    private static async Task<int> ReportAsync(string address, string? endpoint, string? region, Io io, CancellationToken cancellationToken)
+    private static async Task<int> ReportAsync(string address, string? endpoint, string? region, string? sts, Io io, CancellationToken cancellationToken)
     {
-        (IObjectStore store, ObjectName prefix) = Open(address, endpoint, region);
+        (IObjectStore store, ObjectName prefix) = Open(address, endpoint, region, sts);
 
         using (store as IDisposable)
         {
@@ -157,9 +165,9 @@ internal static class Storage
         }
     }
 
-    private static async Task<int> ListAsync(string address, string? endpoint, string? region, Io io, CancellationToken cancellationToken)
+    private static async Task<int> ListAsync(string address, string? endpoint, string? region, string? sts, Io io, CancellationToken cancellationToken)
     {
-        (IObjectStore store, ObjectName prefix) = Open(address, endpoint, region);
+        (IObjectStore store, ObjectName prefix) = Open(address, endpoint, region, sts);
 
         using (store as IDisposable)
         {
@@ -182,7 +190,7 @@ internal static class Storage
     }
 
     [DecisionDriven.DesignDecision(typeof(DecisionDriven.Ledger.Varve.ExtentDeletionByReaderAnnouncements.ADeadRecordHoldsUntilAnEvent), Scope = DecisionDriven.ExceptionScope.Boundary)]
-    private static async Task<int> ForgetAsync(string address, string? endpoint, string? region, string reader, long oldest, long newest, Io io, CancellationToken cancellationToken)
+    private static async Task<int> ForgetAsync(string address, string? endpoint, string? region, string? sts, string reader, long oldest, long newest, Io io, CancellationToken cancellationToken)
     {
         if (!ReaderId.IsValid(reader))
         {
@@ -194,7 +202,7 @@ internal static class Storage
             throw new Cli.CommandException("--oldest and --newest are the record's interval, as varve storage readers list shows it: 0 <= oldest <= newest.");
         }
 
-        (IObjectStore store, ObjectName prefix) = Open(address, endpoint, region);
+        (IObjectStore store, ObjectName prefix) = Open(address, endpoint, region, sts);
 
         using (store as IDisposable)
         {
@@ -212,14 +220,14 @@ internal static class Storage
         }
     }
 
-    private static (IObjectStore Store, ObjectName Prefix) Open(string address, string? endpoint, string? region)
+    private static (IObjectStore Store, ObjectName Prefix) Open(string address, string? endpoint, string? region, string? sts)
     {
         if (!ObjectLease.IsAddress(address))
         {
             throw new Cli.CommandException("varve storage is for a dataset in an object store: https://{account}.blob.core.windows.net/{container}/{dataset} or s3://{bucket}/{dataset}.");
         }
 
-        return ObjectLease.Open(address, endpoint, region);
+        return ObjectLease.Open(address, endpoint, region, sts);
     }
 
     private static string Line(ReaderHolding holding)

@@ -140,9 +140,13 @@ internal static class ManagementEndpoints
 
     /// <summary>
     /// <c>GET</c> and <c>PUT /manage/datasets/{name}/state</c>: this instance's
-    /// state and role in the dataset; <c>{"state": "open" | "closed"}</c>
-    /// declares it, and every instance converges to it. A takeover request is
-    /// <c>409</c> until Replication (#97) makes a standby warm.
+    /// state and role in the dataset, and for an object-store dataset its
+    /// epoch, warm, writer set and epoch history (ADR 0180 point 7);
+    /// <c>{"state": "open" | "closed"}</c>
+    /// declares it, and every instance converges to it.
+    /// <c>{"takeover": {"epoch": n}}</c> asks this instance, a warm standby, to
+    /// take the dataset over from epoch <c>n</c> (ADR 0179 point 6); the
+    /// system dataset's path is <c>_fleet</c>.
     /// </summary>
     internal static async Task StateAsync(HttpContext context, ProtocolOptions options, IManagementPlane plane)
     {
@@ -154,13 +158,34 @@ internal static class ManagementEndpoints
             return;
         }
 
+        // A takeover is the store's, answered by the instance that receives it
+        // (ADR 0179 point 6); anything else PUT here is the system writer's.
+        Body? put = null;
+
+        if (!get)
+        {
+            put = await RequestBodies.ReadAsync(context, options.Limits).ConfigureAwait(false);
+
+            if (put.Value.TooLarge)
+            {
+                await HttpProblems.RequestTooLarge(context, options.Limits.MaxRequestBody.Value).ConfigureAwait(false);
+                return;
+            }
+
+            if (ReadTakeover(put.Value.Bytes) is long from)
+            {
+                await TakeoverAsync(context, options, plane, from).ConfigureAwait(false);
+                return;
+            }
+        }
+
         if (DatasetOf(context) is not { } name)
         {
             await HttpProblems.DatasetNotFound(context).ConfigureAwait(false);
             return;
         }
 
-        if (!get && await Forwarding.RouteAsync(context, options, WriterTarget.System).ConfigureAwait(false))
+        if (!get && await Forwarding.RouteAsync(context, options, WriterTarget.System, put!.Value.Bytes ?? []).ConfigureAwait(false))
         {
             return;
         }
@@ -185,34 +210,27 @@ internal static class ManagementEndpoints
                 return;
             }
 
+            System.Action<System.Text.Json.Utf8JsonWriter>? handover = await plane.DescribeHandoverAsync(name, context.RequestAborted).ConfigureAwait(false);
             context.Response.Headers.CacheControl = "no-store";
             await WriteJsonAsync(context, StatusCodes.Status200OK, json =>
             {
                 json.WriteString("state", AdminEndpoints.StateName(entry.State));
-                json.WriteString("role", entry.Role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", _ => "elsewhere" });
+                json.WriteString("role", entry.Role switch { DatasetRole.Writer => "writer", DatasetRole.Follower => "follower", DatasetRole.Standby => "standby", _ => "elsewhere" });
 
                 if (entry.Reason is not null)
                 {
                     json.WriteString("reason", entry.Reason);
                 }
+
+                handover?.Invoke(json);
             }).ConfigureAwait(false);
             return;
         }
 
-        Body body = await RequestBodies.ReadAsync(context, options.Limits).ConfigureAwait(false);
-
-        if (body.TooLarge)
-        {
-            await HttpProblems.RequestTooLarge(context, options.Limits.MaxRequestBody.Value).ConfigureAwait(false);
-            return;
-        }
+        Body body = put!.Value;
 
         switch (ReadState(body.Bytes))
         {
-            case StateRequest.Takeover:
-                await HttpProblems.WriteAsync(context, ProblemType.Conflict,
-                    "No instance is a warm standby of this dataset: automatic handover is Replication's (#97), and until then a takeover is refused (the writer handover ADR, point 8).").ConfigureAwait(false);
-                return;
             case StateRequest.Invalid:
                 await HttpProblems.BadRequest(context, "The body is {\"state\": \"open\"} or {\"state\": \"closed\"}, or a takeover naming an epoch.").ConfigureAwait(false);
                 return;
@@ -730,7 +748,83 @@ internal static class ManagementEndpoints
         Invalid,
         Open,
         Closed,
-        Takeover,
+    }
+
+    /// <summary>The system dataset's name in a management path, which no dataset name can take (ADR 0179 point 13).</summary>
+    private const string SystemDataset = "_fleet";
+
+    // A takeover of the dataset the path names, the system dataset's
+    // included (ADR 0179 points 6 and 13): authorised as an operator's act at
+    // this instance's applied position, and answered here.
+    private static async Task TakeoverAsync(HttpContext context, ProtocolOptions options, IManagementPlane plane, long from)
+    {
+        bool system = context.Request.RouteValues.TryGetValue(Exchange.DatasetRouteValue, out object? value) && value as string == SystemDataset;
+        DatasetName? dataset = system ? null : DatasetOf(context);
+
+        if (!system && dataset is null)
+        {
+            await HttpProblems.DatasetNotFound(context).ConfigureAwait(false);
+            return;
+        }
+
+        if (!await Exchange.AuthorizeServerAsync(context, options, DatasetPermissions.ServerAdmin).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        if (await plane.TakeoverAsync(dataset, new TakeoverEpoch(from), context.RequestAborted).ConfigureAwait(false) is not { } outcome)
+        {
+            await HttpProblems.WriteAsync(context, ProblemType.TakeoverRefused, "This instance has no object store, so the dataset has no writer epoch to take over.", members =>
+            {
+                members.String("reason", "handover-off");
+                members.Number("epoch", 0);
+            }).ConfigureAwait(false);
+            return;
+        }
+
+        if (outcome.Refusal == TakeoverRefusal.None)
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            await WriteJsonAsync(context, StatusCodes.Status200OK, json => json.WriteNumber("epoch", outcome.Epoch.Value)).ConfigureAwait(false);
+            return;
+        }
+
+        (string reason, string detail) = outcome.Refusal switch
+        {
+            TakeoverRefusal.HandoverOff => ("handover-off", "The dataset does not declare varve:automaticHandover true."),
+            TakeoverRefusal.NotInWriterSet => ("not-in-writer-set", "This instance is neither the dataset's placedOn nor one of its standbyOn."),
+            TakeoverRefusal.Cold => ("cold", "This instance is not a warm standby of the dataset; readiness says why."),
+            _ => ("epoch-moved", "The writer record no longer shows the epoch named: the takeover is a no-op."),
+        };
+
+        await HttpProblems.WriteAsync(context, ProblemType.TakeoverRefused, detail, members =>
+        {
+            members.String("reason", reason);
+            members.Number("epoch", outcome.Epoch.Value);
+        }).ConfigureAwait(false);
+    }
+
+    // The epoch a takeover body names, {"takeover": {"epoch": n}}; none for any other body.
+    private static long? ReadTakeover(byte[]? body)
+    {
+        if (body is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(body);
+            return document.RootElement is { ValueKind: JsonValueKind.Object } root
+                && root.TryGetProperty("takeover", out JsonElement takeover) && takeover.ValueKind == JsonValueKind.Object
+                && takeover.TryGetProperty("epoch", out JsonElement epoch) && epoch.TryGetInt64(out long value) && value >= 0
+                ? value
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static StateRequest ReadState(byte[]? body)
@@ -748,13 +842,6 @@ internal static class ManagementEndpoints
             if (root.ValueKind != JsonValueKind.Object)
             {
                 return StateRequest.Invalid;
-            }
-
-            if (root.TryGetProperty("takeover", out JsonElement takeover))
-            {
-                return takeover.ValueKind == JsonValueKind.Object && takeover.TryGetProperty("epoch", out JsonElement epoch) && epoch.TryGetInt64(out _)
-                    ? StateRequest.Takeover
-                    : StateRequest.Invalid;
             }
 
             return root.TryGetProperty("state", out JsonElement state) ? state.GetString() switch

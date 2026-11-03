@@ -1,0 +1,21 @@
+{
+  "interactiveLogin": false,
+  "httpServer": "NettyWrapper",
+  "tokenCallbacks": [
+    {
+      "issuerId": "varve",
+      "tokenExpiry": 7200,
+      "requestMappings": [
+        {
+          "requestParam": "client_id",
+          "match": "varve-storage",
+          "claims": {
+            "sub": "varve-fleet",
+            "aud": [ "varve-storage" ],
+            "groups": [ "readwrite" ]
+          }
+        }
+      ]
+    }
+  ]
+}

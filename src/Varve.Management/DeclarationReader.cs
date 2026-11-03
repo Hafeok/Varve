@@ -273,6 +273,7 @@ public static class DeclarationReader
                 _ => Invalid<HistoryScope?>(null, node, ManagementVocabulary.DefaultAccessScope, "varve:defaultAccessScope is varve:AllHistory or varve:Current"),
             };
             string? placed = Literal(node, ManagementVocabulary.PlacedOn, required: false);
+            List<string> standbys = Literals(node, ManagementVocabulary.StandbyOn);
             bool handover = Boolean(node, ManagementVocabulary.AutomaticHandover) ?? false;
             bool closed = Boolean(node, ManagementVocabulary.Closed) ?? false;
             EventDeclarationState events = EventState(node);
@@ -293,6 +294,7 @@ public static class DeclarationReader
                 Node = node,
                 Storage = storage,
                 PlacedOn = placed,
+                StandbyOn = standbys,
                 DefaultAccessScope = scope,
                 AutomaticHandover = handover,
                 Closed = closed,
@@ -687,6 +689,24 @@ public static class DeclarationReader
             }
 
             return Encoding.UTF8.GetString(value.Lexical);
+        }
+
+        // Every plain string value of a property that may be stated more than once; the shapes name the others.
+        private List<string> Literals(RdfTerm node, RdfTerm predicate)
+        {
+            List<string> values = [];
+
+            foreach (Triple triple in Triples)
+            {
+                if (triple.Subject.Equals(node) && triple.Predicate.Equals(predicate) && triple.Object.Kind == RdfTermKind.Literal && triple.Object.Language.IsEmpty
+                    && (triple.Object.Datatype is not { } datatype || datatype.Lexical.SequenceEqual("http://www.w3.org/2001/XMLSchema#string"u8)))
+                {
+                    values.Add(Encoding.UTF8.GetString(triple.Object.Lexical));
+                }
+            }
+
+            values.Sort(StringComparer.Ordinal);
+            return values;
         }
 
         private bool? Boolean(RdfTerm node, RdfTerm predicate)

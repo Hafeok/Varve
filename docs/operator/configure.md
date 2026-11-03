@@ -73,7 +73,8 @@ model and its request costs.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `Fleet:Writer` | `true` | `true`, `false`, or an instance name compared with `ObjectStorage:Instance`: whether this instance writes the system dataset; any value but `false` lets it claim the datasets placed on it. A fleet of one is its own writer whatever this says |
+| `Fleet:Writer` | `true` | `true`, `false`, or an instance name compared with `ObjectStorage:Instance`: whether this instance writes the system dataset; any value but `false` lets it claim the datasets placed on it. A fleet of one is its own writer whatever this says. With `Fleet:AutomaticHandover`, the system dataset's writer set instead: instance names separated by commas, no spaces, the preferred writer first |
+| `Fleet:AutomaticHandover` | `false` | whether the system dataset hands over to a warm standby (ADR 0179 point 13): `Fleet:Writer` is then its writer set, under the same start rule and race as a dataset's ([Standbys](fleet.md#standbys-a-writer-set)) |
 | `Fleet:InternalUrl` | none | the address other instances forward writes to, recorded in the writer record at claim; required on an instance that may claim in an object-store fleet; `https`, or `http` inside a private network only, since a caller's token crosses it |
 | `Fleet:FollowInterval` | `00:00:01` | how old a follower's last advance may be before a read advances it, and how often the system dataset is advanced; at most a minute (ADR 0164) |
 | `Fleet:AllowedLag` | 100 | how many system positions this instance may be behind the system tail and be ready |
@@ -110,6 +111,7 @@ varve:ObjectStorage`. Its placed instance claims its next writer epoch (ADR
 | `ObjectStorage:Endpoint` | none | S3-compatible: the service's `https` address |
 | `ObjectStorage:Bucket` | none | S3-compatible: the bucket |
 | `ObjectStorage:Region` | none | S3-compatible: the region the signature is for |
+| `ObjectStorage:StsEndpoint` | Amazon's, `https://sts.amazonaws.com/` | S3-compatible: the STS endpoint the workload's web identity is exchanged at, a self-hosted server's own (RustFS: its root); `https`, or `http` only on loopback, with no query or user information (ADR 0137) |
 | `ObjectStorage:CachePath` | none | absolute; the local cache, a directory per dataset, and a follower's under `_followers/`: extent pages and the derived data any instance rebuilds |
 | `ObjectStorage:CacheBytes` | 8 GiB | the most each dataset's extent page cache holds; at least 64 MiB (ADR 0139) |
 | `ObjectStorage:Instance` | the machine name | who this server is in the writer record that `varve lease` shows, and the name `Fleet:Writer` and `varve:placedOn` compare with |
@@ -120,7 +122,8 @@ reached as the workload's identity: Container Apps' managed identity, workload
 identity (`AZURE_FEDERATED_TOKEN_FILE`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`),
 or on a workstation `az account get-access-token`; it needs Storage Blob Data
 Contributor on the container. An S3-compatible store is reached by
-`AssumeRoleWithWebIdentity` (`AWS_WEB_IDENTITY_TOKEN_FILE`, `AWS_ROLE_ARN`). A
+`AssumeRoleWithWebIdentity` (`AWS_WEB_IDENTITY_TOKEN_FILE`, `AWS_ROLE_ARN`),
+at Amazon's STS or at the store's own (`ObjectStorage:StsEndpoint`). A
 key named like `AccountKey`, `ConnectionString` or `SecretAccessKey`, or a SAS
 token in the address, refuses the start, naming the rule. Durability is the
 store's: `Replicated`, a commit returns once the store acknowledged its
@@ -271,6 +274,16 @@ commit that finds the dataset idle is written at once; there is no timer.
 
 `varve.store.commit.batch_size` ([Observe](observe.md)) shows how many
 commits each write carried.
+
+The memtable holds what has not yet been written to `derived/` as a run
+(ADR 0070). It bounds a writer's memory before a spill, and a follower's,
+which is opened again from the writer's newest catalog once its memtable has
+grown by the limit since it opened (ADR 0164 point 5). On a small replica,
+this is the setting that bounds a follower's memory.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Store:MemtableLimit` | `1000000` | the memtable's bound, in entries: one per quad asserted or retracted, and one per term it adds. An entry holds about 215 bytes for a quad and about 90 for a short term (measured on .NET 10), so the default is roughly 100 to 220 MiB; at least 1. Lower spills and re-opens more often; a read is never wrong for it |
 
 The writer merges its extent sets in the background (ADRs 0158, 0159), so a
 read of the present merges a bounded number of runs however many

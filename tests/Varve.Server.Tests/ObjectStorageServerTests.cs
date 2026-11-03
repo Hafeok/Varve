@@ -50,6 +50,46 @@ public sealed class ObjectStorageServerTests
         Assert.Contains(SettingsCheck.Errors(settings), e => e.StartsWith("Varve:ObjectStorage:Provider is Azure or S3Compatible", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// A self-hosted S3 store's own STS endpoint, where the workload's web
+    /// identity is exchanged (ADR 0137, S3WebIdentityOnly; #165): https, http
+    /// only on loopback, and never with a query or user information.
+    /// </summary>
+    [Theory]
+    [InlineData("https://sts.example.org/", true)]
+    [InlineData("http://127.0.0.1:9000/", true)]
+    [InlineData("http://sts.example.org/", false)]
+    [InlineData("https://sts.example.org/?X-Amz-Credential=key", false)]
+    [InlineData("https://user:secret@sts.example.org/", false)]
+    [InlineData("sts.example.org", false)]
+    public void an_s3_sts_endpoint_is_https_or_loopback_and_carries_no_credential(string sts, bool accepted)
+    {
+        ServerSettings settings = new();
+        settings.Auth.Mode = "Anonymous";
+        settings.ObjectStorage.Provider = "S3Compatible";
+        settings.ObjectStorage.Endpoint = "https://s3.example.org/";
+        settings.ObjectStorage.Bucket = "datasets";
+        settings.ObjectStorage.Region = "us-east-1";
+        settings.ObjectStorage.CachePath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "varve-cache"));
+        settings.ObjectStorage.StsEndpoint = sts;
+        bool refused = SettingsCheck.Errors(settings).Any(e => e.StartsWith("Varve:ObjectStorage:StsEndpoint", StringComparison.Ordinal));
+        Assert.Equal(!accepted, refused);
+    }
+
+    /// <summary>The memtable's bound is configurable, in entries, and at least one (ADR 0070; #165).</summary>
+    [Theory]
+    [InlineData(1_000_000, true)]
+    [InlineData(1, true)]
+    [InlineData(0, false)]
+    [InlineData(-5, false)]
+    public void the_memtable_limit_is_at_least_one(long limit, bool accepted)
+    {
+        ServerSettings settings = new();
+        settings.Auth.Mode = "Anonymous";
+        settings.Store.MemtableLimit = limit;
+        Assert.Equal(!accepted, SettingsCheck.Errors(settings).Any(e => e.StartsWith("Varve:Store:MemtableLimit", StringComparison.Ordinal)));
+    }
+
     [Fact]
     public void a_storage_credential_in_configuration_is_refused_by_name()
     {
@@ -141,7 +181,7 @@ public sealed class ObjectStorageServerTests
             Assert.Equal(0, took);
             Assert.Contains("epoch: 3", after, StringComparison.Ordinal);
             Assert.Contains("operator", after, StringComparison.Ordinal);
-            Assert.Contains("released: OperatorTakeover", after, StringComparison.Ordinal);
+            Assert.Contains("released: operator-takeover", after, StringComparison.Ordinal);
 
             HttpResponseMessage taken = await UpdateAsync(second, "INSERT DATA { <http://ex/d> <http://ex/p> 4 }");
             Assert.Equal(HttpStatusCode.ServiceUnavailable, taken.StatusCode);

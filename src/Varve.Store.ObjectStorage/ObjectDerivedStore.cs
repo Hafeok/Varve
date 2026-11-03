@@ -13,6 +13,7 @@ using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Microsoft.Win32.SafeHandles;
 using Varve.Store.Log;
+using Varve.Store.ObjectStorage.Model;
 
 namespace Varve.Store.ObjectStorage;
 
@@ -93,6 +94,9 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDerivedStoreLimits, I
     /// decides, from its reader record, whether it was forgotten, reads
     /// unannounced, or found damage.
     /// </summary>
+    /// <summary>Whether the extent pages still work (#146); the storage shares it with its segment store.</summary>
+    internal LocalCacheHealth Cache { get; set; } = new();
+
     internal Func<ObjectName, Exception> Gone { get; set; } = name => new IOException("The extent '" + name + "' is gone from the store; a catalog names it.");
 
     /// <summary>Whether this store holds the epoch's catalog: the writer's, which alone writes and deletes extents.</summary>
@@ -187,6 +191,11 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDerivedStoreLimits, I
             return payload.IsEmpty ? throw new KeyNotFoundException("No catalog.") : new BytesBlob(payload);
         }
 
+        if (Cache.IsOff(LocalCache.ExtentPages))
+        {
+            return await StoreBlob.OpenAsync(this, name, cancellationToken).ConfigureAwait(false);
+        }
+
         while (true)
         {
             if (_open.TryGetValue(name.Value, out PagedObject? held))
@@ -211,6 +220,12 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDerivedStoreLimits, I
             {
                 // Deleted between its first page and its last: as if absent.
                 fetched = null;
+            }
+            catch (LocalCacheException)
+            {
+                // The page file could not be made: a miss, read from the store from now on (#146).
+                Cache.TurnOff(LocalCache.ExtentPages);
+                return await StoreBlob.OpenAsync(this, name, cancellationToken).ConfigureAwait(false);
             }
 
             if (fetched is null)
@@ -406,9 +421,21 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDerivedStoreLimits, I
             await owner.PublishStagedAsync(name, staged, cancellationToken).ConfigureAwait(false);
 
             // An extent just written is in the cache already: its staged file.
-            if (!owner._open.ContainsKey(name.Value))
+            if (!owner._open.ContainsKey(name.Value) && !owner.Cache.IsOff(LocalCache.ExtentPages))
             {
-                PagedObject written = PagedObject.Adopt(owner, name, staged, length);
+                PagedObject written;
+
+                try
+                {
+                    written = PagedObject.Adopt(owner, name, staged, length);
+                }
+                catch (LocalCacheException)
+                {
+                    // The extent is in the store: not caching it changes nothing else (#146).
+                    owner.Cache.TurnOff(LocalCache.ExtentPages);
+                    TryDelete(staged);
+                    return;
+                }
 
                 if (owner._open.TryAdd(name.Value, written))
                 {
@@ -421,6 +448,17 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDerivedStoreLimits, I
             }
 
             File.Delete(staged);
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                File.Delete(path);
+            }
+            catch (Exception error) when (LocalCacheHealth.IsLocal(error))
+            {
+            }
         }
 
         public async ValueTask DisposeAsync()
@@ -468,7 +506,18 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDerivedStoreLimits, I
         public ByteCount Length => new(paged.Length);
 
         [DesignDecision(typeof(ExtentsAndTheProjectionCatalog.ExtentPagesFetchedOnAMiss), Scope = ExceptionScope.HotPath)]
-        public int Read(ByteOffset offset, Span<byte> destination) => paged.Read(offset.Value, destination);
+        public int Read(ByteOffset offset, Span<byte> destination)
+        {
+            try
+            {
+                return paged.Read(offset.Value, destination);
+            }
+            catch (LocalCacheException)
+            {
+                // A page that cannot be held is a miss (#146): read from the store, now and from now on.
+                return paged.ReadUncached(offset.Value, destination);
+            }
+        }
 
         public void Dispose()
         {
@@ -502,20 +551,36 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDerivedStoreLimits, I
             _present = new bool[(int)((length + PageBytes - 1) / PageBytes)];
             _path = Path.Combine(owner._pages, Interlocked.Increment(ref owner._files).ToString(System.Globalization.CultureInfo.InvariantCulture));
 
-            if (adopted is not null)
+            try
             {
-                File.Move(adopted, _path);
-                _file = File.OpenHandle(_path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                owner.Cache.Check(LocalCache.ExtentPages);
+
+                if (adopted is not null)
+                {
+                    File.Move(adopted, _path);
+                    _file = File.OpenHandle(_path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                }
+                else
+                {
+                    _file = File.OpenHandle(_path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, FileOptions.None, length);
+                }
             }
-            else
+            catch (Exception error) when (LocalCacheHealth.IsLocal(error))
             {
-                _file = File.OpenHandle(_path, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, FileOptions.None, length);
+                throw new LocalCacheException(error);
             }
 
             LastRead = owner.NextRecency();
         }
 
         internal long Length { get; }
+
+        /// <summary>A read of this extent from the store, with the extent pages turned off (#146).</summary>
+        internal int ReadUncached(long offset, Span<byte> destination)
+        {
+            _owner.Cache.TurnOff(LocalCache.ExtentPages);
+            return StoreBlob.Read(_owner, _object, Length, offset, destination);
+        }
 
         /// <summary>The bytes of the pages held.</summary>
         internal long Fetched { get; private set; }
@@ -689,7 +754,16 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDerivedStoreLimits, I
                 throw new IOException("A page of '" + _object + "' came back " + bytes.Length + " bytes long where " + count + " were due.");
             }
 
-            RandomAccess.Write(_file, bytes, start);
+            try
+            {
+                _owner.Cache.Check(LocalCache.ExtentPages);
+                RandomAccess.Write(_file, bytes, start);
+            }
+            catch (Exception error) when (LocalCacheHealth.IsLocal(error))
+            {
+                throw new LocalCacheException(error);
+            }
+
             _present[page] = true;
             Fetched += count;
             Interlocked.Add(ref _owner._cached, count);
@@ -743,4 +817,69 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDerivedStoreLimits, I
 
     /// <summary>An extent a catalog names is not in the store: retrying cannot help.</summary>
     private sealed class ExtentGoneException(string message) : IOException(message);
+
+    /// <summary>A local page file failed: the cache is a miss, never a stop (#146).</summary>
+    private sealed class LocalCacheException(Exception inner) : Exception("A local extent page file failed: " + inner.Message, inner);
+
+    /// <summary>
+    /// An extent read from the store on every read, with the extent pages
+    /// off (#146): what a miss of the page cache does, without the page.
+    /// </summary>
+    private sealed class StoreBlob : IReadableBlob
+    {
+        private readonly ObjectDerivedStore _owner;
+        private readonly ObjectName _object;
+
+        private StoreBlob(ObjectDerivedStore owner, ObjectName name, long length)
+        {
+            _owner = owner;
+            _object = name;
+            Length = new ByteCount(length);
+        }
+
+        public ByteCount Length { get; }
+
+        internal static async ValueTask<IReadableBlob> OpenAsync(ObjectDerivedStore owner, BlobName name, CancellationToken cancellationToken)
+        {
+            ObjectName objectName = owner._names.Derived(name.Value);
+            ObjectRead? first = await owner._store.ReadAsync(objectName, new ByteOffset(0), new ByteCount(1), cancellationToken).ConfigureAwait(false);
+            return first is null ? throw new KeyNotFoundException("No extent '" + name + "'.") : new StoreBlob(owner, objectName, first.Length.Value);
+        }
+
+        [DesignDecision(typeof(ExtentsAndTheProjectionCatalog.ExtentPagesFetchedOnAMiss), Scope = ExceptionScope.HotPath)]
+        public int Read(ByteOffset offset, Span<byte> destination) => Read(_owner, _object, Length.Value, offset.Value, destination);
+
+        // The read is synchronous (ADR 0071); the miss waits for the store.
+        [DesignDecision(typeof(ExtentsAndTheProjectionCatalog.ExtentPagesFetchedOnAMiss), Scope = ExceptionScope.HotPath)]
+        internal static int Read(ObjectDerivedStore owner, ObjectName name, long length, long offset, Span<byte> destination)
+        {
+            if (offset >= length)
+            {
+                return 0;
+            }
+
+            int count = (int)Math.Min(destination.Length, length - offset);
+            int filled = 0;
+
+            while (filled < count)
+            {
+                ObjectRead read = owner._store.ReadAsync(name, new ByteOffset(offset + filled), new ByteCount(count - filled), CancellationToken.None).AsTask().GetAwaiter().GetResult()
+                    ?? throw owner.Gone(name);
+
+                if (read.Bytes.IsEmpty)
+                {
+                    throw new IOException("The extent '" + name + "' is shorter than when it was opened.");
+                }
+
+                read.Bytes.Span.CopyTo(destination[filled..]);
+                filled += read.Bytes.Length;
+            }
+
+            return count;
+        }
+
+        public void Dispose()
+        {
+        }
+    }
 }

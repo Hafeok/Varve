@@ -310,6 +310,12 @@ internal static class Writes
             await HttpProblems.WriteAsync(exchange.Context, ProblemType.WriterSuperseded, superseded.Message).ConfigureAwait(false);
             return null;
         }
+        catch (WriterSteppedDownException stepped)
+        {
+            // The writer released the dataset (ADR 0179 point 6): nothing was committed.
+            await HttpProblems.WriteAsync(exchange.Context, ProblemType.WriterSteppedDown, stepped.Message, members => members.String("reason", stepped.Reason ?? "shutdown")).ConfigureAwait(false);
+            return null;
+        }
     }
 
     /// <summary>
