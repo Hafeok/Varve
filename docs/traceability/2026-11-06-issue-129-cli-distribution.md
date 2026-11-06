@@ -11,7 +11,7 @@
 | **Tool** | Claude Code, a cloud session started from the desktop app |
 | **Model** | `claude-opus-5-5`, configured, from the session's own metadata |
 | **Session identifier** | `session_01NbWSYRoynRxPSi7vx7A5Yq` |
-| **Branch** | `claude/trusting-mayer-9igjzx`, restarted from `main` at 5638f01 once #179 landed |
+| **Branch** | `claude/cli-distribution-129`, from `main` at 5638f01 once #179 landed. First pushed as `claude/trusting-mayer-9igjzx` (#240), and moved at the maintainer's request so that #179's `land/` names and run history stay its own |
 
 ## The prompts
 
