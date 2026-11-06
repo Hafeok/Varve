@@ -105,9 +105,25 @@ public class IncrementalEqualsFromScratchTests
     [Fact]
     public void under_owl_2_rl_backward_forward_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Owl2Rl, Retraction.BackwardForward);
 
+    /// <summary>The naive oracle recomputes a whole closure per round, so its OWL 2 RL case runs fewer histories.</summary>
+    private static readonly int NaiveHistories = Long ? 40 : 8;
+
     private static void Holds(InferenceProfile profile, Retraction strategy) =>
         History(profile == InferenceProfile.Rdfs ? Triple : OwlTriple)
-            .Sample(history => Check(profile, strategy, history.Seed, history.Commits), iter: Histories, threads: 1);
+            .Sample(
+                history => Check(profile, strategy, history.Seed, history.Commits),
+                iter: profile == InferenceProfile.Owl2Rl && strategy == Retraction.FromScratch ? NaiveHistories : Histories,
+                threads: 1);
+
+    private static HashSet<Fact> FromScratch(Program program, HashSet<Fact> explicitFacts)
+    {
+        Closure fresh = new(program, Retraction.FromScratch);
+        fresh.Apply([.. explicitFacts], []);
+        return [.. fresh.All];
+    }
+
+    [Fact]
+    public void under_owl_2_rl_the_baseline_equals_the_oracle_at_every_commit() => Holds(InferenceProfile.Owl2Rl, Retraction.FromScratch);
 
     private static void Check(InferenceProfile profile, Retraction strategy, int seed, (RdfTerm S, RdfTerm P, RdfTerm O)[][] commits)
     {
@@ -142,7 +158,11 @@ public class IncrementalEqualsFromScratchTests
             explicitFacts.ExceptWith(retracted);
             explicitFacts.UnionWith(asserted);
 
-            HashSet<Fact> expected = Oracle.Closure(program, explicitFacts);
+            // The deletion passes are held to a closure built from scratch by
+            // insertion; the baseline, which is that build, to the naive oracle.
+            HashSet<Fact> expected = strategy == Retraction.FromScratch
+                ? Oracle.Closure(program, explicitFacts)
+                : FromScratch(program, explicitFacts);
             HashSet<Fact> actual = [.. closure.All];
             if (!expected.SetEquals(actual))
             {
