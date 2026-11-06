@@ -1,7 +1,9 @@
 # The dry run's descriptor (tests/fixtures/releases/README.md): planned only
 # by a dry run, when releases/ has nothing pending. It is shaped like 7b's,
-# names this change's own issue, and is never cut.
-format: 1
+# names this change's own issue, and is never cut. Its sbom lines name every
+# artefact a release ships; their digests are an earlier generation's, since a
+# dry run checks names and not digests (eng/release.cs CheckSbom).
+format: 2
 version: v0.1.0-preview.2
 title: Dry run of the release path
 date: 2026-10-08
@@ -21,6 +23,35 @@ basis:
   - adr: "0100"
   - adr: "0101"
   - adr: "0102"
+sbom:
+  - image: ghcr.io/hafeok/varve sha256:66a9dd9c56d8921b3ae5283e1a8e83226440a2dadaff7e3e4a796d1320fc7f42
+  - nupkg: Varve.Aspire sha256:699ef9d0ee3186797f10ba70beb2046ebcf8118924ee47bcfcfc4f6866719fbc
+  - nupkg: Varve.Delta sha256:5e7cc0095bd5bf77d84bb90d34cb7c84084aa3e33a21920b334055265e0b72eb
+  - nupkg: Varve.Derivation sha256:26832cec6ef26a5d553dccb33fac01cb9e5133fa419e74265ec3bc999273b458
+  - nupkg: Varve.Events sha256:f3e394d3ba51515a605c7725918d1316d896b74ef0acc73c7980eb71cd7f2cba
+  - nupkg: Varve.Iri sha256:37a1ce3b9184156a6518fc7d311a77e5e2c401ac17b73d30c677584ee175d58a
+  - nupkg: Varve.Json.Canonical sha256:81b5dbdd11dcd25f030a4e35964eeb23b9eaaa3acfa389aff9bf06e1ab3e1fc0
+  - nupkg: Varve.JsonLd sha256:e3b22deeb743c4cbd16d4aa4c3e5003ac691a1d0d52f8581c0e5dec706515800
+  - nupkg: Varve.Management sha256:0925c3d77816c6d035e32891b38cc5cb68a249a6ca3dea580eb0851c0f061c7a
+  - nupkg: Varve.Protocol sha256:b02ef894ea9600053baf1b818f1809a7d01a31a779c3013f9d0eee936fcba95e
+  - nupkg: Varve.Protocol.Client sha256:dd96396a05db96da7a2b8137a18d00ea7a61ec6b93635e54e77a66ba5f1fb7af
+  - nupkg: Varve.Rdf sha256:9456e3e2d662bfee207ae2419dbdbea4150ad5fb6f7c8934d59eaecf6c269fe9
+  - nupkg: Varve.RdfXml sha256:85d933cdc3c8805086e7a0b94efa76cea742e8328ebe34992d64d88713f212da
+  - nupkg: Varve.Shacl sha256:fe26d7136fbedef905e9382db1264c96a6924d3abfdbcd3e727abafe2778b07f
+  - nupkg: Varve.Shacl.Sparql sha256:eff89fd013187517f03b222fba52cf3ab5ad880d1e39357cd202bcb9bc114e14
+  - nupkg: Varve.Shacl.Store sha256:858805f4a953b8728b740ff5ae7a33dd836ac5cb9e4d55961cb49cfdaea3cf73
+  - nupkg: Varve.Sparql sha256:d3d4c153dd0e84e763e9000e26c730fd5eb01c423cb265303395e8330a5b8ff8
+  - nupkg: Varve.Sparql.Evaluation sha256:0efb91db8c528027924ffc2d37c1ca529e9624082696f27f3eeb4e02a8cc66fc
+  - nupkg: Varve.Sparql.Results sha256:4368878717293d665fe3ecf4e610834f4975a33b8f5bb22684adc8226c615258
+  - nupkg: Varve.Sparql.Store sha256:cb03be07540cfc8c1f2b924c397925988da4fdb56d987158505736de67521eab
+  - nupkg: Varve.Store sha256:31fda16dad66d581fc2236d06e2401965298065b90ee23fd2284982b39ab8f69
+  - nupkg: Varve.Store.Azure sha256:e8851b98bd8af88000419d5a8a7fe5bb7568e42a74694856ad4cff781cd625a4
+  - nupkg: Varve.Store.Browser sha256:1a87244d0cb2d5f1ea6f16e438a08d7d34beeb6c79ee7afd6accb58b5cdb60e8
+  - nupkg: Varve.Store.ObjectStorage sha256:5e750a4f18234e9246eeff03b762d7270431f9730a6dc35a8f0f817b9da44246
+  - nupkg: Varve.Store.S3 sha256:f9ff70dda26e36ca9e01c09b2c2e5b67469a6dbfb313a40117188f8c525ef73f
+  - nupkg: Varve.Turtle sha256:d62016288eac80d123d82f11b0433a08fee74ff80d608ed875516f5b8315aca3
+  - nupkg: Varve.Xsd sha256:2b279b1bed2f791a5df7bf6089072cfa86802e2fead39a6bd63eb158c1bb3e91
+  - tool: Varve.Server sha256:54c195b4d12e27b4415a72de9a22f092bd083930b103b3516c8dc2839312bc6e
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
   A dry run of the release path of ADR 0102. Nothing is tagged from this file.

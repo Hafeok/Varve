@@ -4,6 +4,10 @@
 
 **Accepted.** 2026-09-22.
 
+**Amended 2026-10-27** (ADR 0068), by readiness B for #119 under ADR
+[0224](0224-supply-chain-transparency.md): a package carries its SBOM, and a
+release carries assets beyond nuget.org; see the end.
+
 Milestone 3a produced the first packable projects. This decides what a
 published package carries, where its version comes from, and how it reaches
 nuget.org.
@@ -192,3 +196,27 @@ case this project should support, and without embedded sources they cannot.
 - **Analyzer rule.** None. The check is a gate over a built artifact, which is
   not something an analyzer can see.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-27 — the SBOM in the package, and the release's assets
+
+Filed by readiness B for #119 under ADR 0224, unaccepted until the maintainer
+accepts it (ADR 0066).
+
+- **A published package carries its SPDX 2.3 SBOM** at
+  `_manifest/spdx_2.3/manifest.spdx.json`. `eng/sbom.cs` writes it from the
+  locked restore before the pack, and `eng/package-metadata.cs` fails a package
+  without its own.
+- **The GitHub release carries, beside the notes:**
+  - each package exactly as it was attested;
+  - `SHA256SUMS`;
+  - every SBOM;
+  - the VEX document.
+
+  nuget.org's copy of a package adds nuget.org's repository signature and is
+  otherwise the same package, which CI checks after every release.
+- **Trusted publishing is unchanged.** The `publish` job keeps its OIDC
+  identity and the `release` environment, and gains `attestations: write` for
+  the keyless attestations.
+
+**The ledger.** The rulings of this ADR stand; the ruling of this block is
+`APackageCarriesItsSbom`, unaccepted until the maintainer accepts it.

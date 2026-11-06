@@ -1,0 +1,1 @@
+security/vex.openvex.json states https://github.com/advisories/GHSA-pgww-w46g-26qg, which no NuGetAuditSuppress suppresses
