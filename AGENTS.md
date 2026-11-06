@@ -78,10 +78,11 @@ severity on every project in `src/`. Every ADR is also a decision set in
   primitive rules).
 - **Never `#pragma`, `[SuppressMessage]` or an `.editorconfig` downgrade** for
   a `DD` or `VARVE` id; `DD0008` reports each.
-- **A new decision is filed unaccepted.** Its citations are `CS0618` until the
-  maintainer adds `accepted-by`, which **a session never writes**; the pull
-  request is red on that alone (ADR 0066). An accepted ADR changes by a dated
-  amendment (ADR 0068), never by editing.
+- **A new decision is filed unaccepted.** Its citations are `CS0618` until
+  `accepted-by` is added, and the pull request is red on that alone
+  (ADR 0066). The maintainer writes it, or his delegate for a decision he has
+  read (ADR 0239). **No other session ever writes it.** An accepted ADR
+  changes by a dated amendment (ADR 0068), never by editing.
 - **A finding about the analyzers themselves** (a false positive, a wrong
   message, a missing exemption) is an issue in the analyzer repository, with
   the reproduction, never a local workaround. That repository never names
@@ -115,7 +116,9 @@ App tags it. A session never tags.
 requires every gate by job name, `dco` and `agent review` included, with no
 bypass. A session lands through a pull request from its branch, which needs an
 approval on its head from the session's responsible human or a delegate (ADR
-0087): a conversation comment `approve <head sha>`, at least 12 characters. That
+0087): a conversation comment `approve <head sha>`, at least 12 characters. The
+maintainer's delegate, one session on his machine with his key, writes
+`approve <head sha> (delegate)` (ADR 0239). That
 form is **not a valid workflow**, only tolerated until the ledger's review gate
 replaces it. `agent review` is judged by main's script on trusted triggers and
 posted by the gates App; a required check is spoofable by name unless pinned to
@@ -139,6 +142,12 @@ Conventional commits, one logical change each, and three things in each:
   (ADR 0087).
 - **A signature**, for human committers. Cloud AI sessions are exempt by ruleset
   bypass; ADR 0034 records why, as a stated deviation.
+
+**The maintainer's delegate marks what it does for him** (ADR 0239):
+- a commit that accepts a decision, or is made to land a pull request,
+  carries `Delegated-by: Emil Okkels Klein <emil@okkels-klein.dk>`;
+- a commit containing the delegate's own implementation work is authored
+  `Claude (Emil)`, the agent of the identity map.
 
 **Every AI-assisted session files a record** in `docs/traceability/`, named
 `YYYY-MM-DD-issue-N-<slug>.md`, with the prompt, **the tool and model named
@@ -512,7 +521,7 @@ exists.
 - Code copied from Oxigraph or dotNetRDF, a version taken from memory, an
   IL-prefixed warning in `NoWarn`, or editing an accepted ADR.
 - A suppression of a `DD` or `VARVE` rule, an `accepted-by` written by a
-  session, or a workaround for an analyzer's false positive in place of an
-  upstream issue.
+  session other than the maintainer's delegate (ADR 0239), or a workaround
+  for an analyzer's false positive in place of an upstream issue.
 - **API keys, or any credential scheme other than OIDC bearer tokens** (ADR 0037).
 - A placeholder body not explicitly marked as a stub and reported.

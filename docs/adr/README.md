@@ -420,6 +420,14 @@ Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 
 | [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119) |
 | [0225](0225-the-sbom-generator.md) | The SBOM generator: `eng/sbom.cs`, SPDX 2.3, from the restore | Filed unaccepted (#119) |
 
+## The maintainer's delegate (#244)
+
+Filed by the landing session for [#244](https://github.com/Hafeok/Varve/issues/244), at the maintainer's direction of 2026-11-06, unaccepted until he accepts it (ADR 0066). Numbered 0239: milestone 9 holds 0230–0238. It amends 0066 and 0087 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0239](0239-the-maintainers-delegate.md) | The maintainer's delegate: one session on his machine may approve, land and accept for him | Filed unaccepted (#244) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |
