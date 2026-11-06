@@ -221,6 +221,31 @@ in [ADR 0213](0213-cached-derived-data-is-verified-before-use.md) point 5.
   any route that later runs a load answers with it.
 - The page, the catalogue entry and the README row follow the rules above.
 
+## Amendment, 2026-10-27 — `entailment-unsupported` and `entailment-refused`
+
+Filed by Inference, part 1 (#170, under #95), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+- **`entailment-unsupported`** (`400`, members `value` and `supported`). It
+  answers:
+  - a `Varve-Entailment` header this server does not serve: an unknown token
+    or IRI, more than one value, or a regime whose part has not landed;
+  - a regime other than simple on an update request.
+
+  The rules are those of ADR [0192](0192-entailment-regimes-over-http.md).
+- **`entailment-refused`** (`400`, member `reason`): the regime's
+  `QueryRequestRefused` (SPARQL 1.1 Entailment Regimes §1.4), such as a
+  query illegal under OWL 2 Direct semantics or an inconsistent ontology
+  under it (`reason` `inconsistent`). It is catalogued now and emitted by no
+  tier-1 regime: RDF, RDFS and D never refuse a query. #95's later parts
+  emit it.
+- `Varve-Entailment` is a request and a response header of the query
+  endpoints, beside `Varve-As-Of`. The `Vary` every dataset response
+  carries names it, problems included, so the list stays one list.
+
+**The ledger.** The rulings are ADR 0192's `EntailmentHeader` and
+`UpdatesAreSimple`.
+
 ## Amendment, 2026-10-28 — `storage-full` and `commit-outcome-unknown`
 
 Filed by 1.0 readiness A (#129), unaccepted until the maintainer accepts it
@@ -246,3 +271,18 @@ Filed by 1.0 readiness A (#129), unaccepted until the maintainer accepts it
 
 **The ledger.** The rulings are ADR 0214's `StorageFullIs507` and
 `OutcomeUnknownIs503WithTheRequestId`.
+
+## Amendment, 2026-10-30 — problem types for rows
+
+Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066).
+
+The catalogue gains:
+- `row-not-writable` (403, ADR [0236](0236-the-row-level-write-rule.md));
+- `classification-behind` (503, with `binding`, `position` and
+  `projectedPosition`, ADR [0233](0233-the-classification-projection.md));
+- `entailment-not-available` (403, with `binding`, ADR
+  [0238](0238-inference-under-row-scoped-grants.md)), when its guard is built
+  over #171's surfaces. Until then no endpoint emits it, and the catalogue
+  does not list it.
+
+Each has its page in `docs/problems/` when it is catalogued.

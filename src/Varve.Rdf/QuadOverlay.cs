@@ -35,7 +35,7 @@ namespace Varve.Rdf;
 /// <c>(B \ R) ∪ A</c> for any delta, exact or not.
 /// </para>
 /// </remarks>
-public sealed class QuadOverlay : IQuadSource
+public sealed class QuadOverlay : IQuadSource, IDistinctTermSource
 {
     private readonly IQuadSource _base;
     private readonly QuadDelta _delta;
@@ -46,6 +46,83 @@ public sealed class QuadOverlay : IQuadSource
         ArgumentNullException.ThrowIfNull(@base);
         _base = @base;
         _delta = delta;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The base's distinct predicates, by its seek, less each the delta leaves
+    /// with no quad, and the delta's own: a value the delta retracts from is
+    /// checked by one match, so the work beside the seek is the delta's size.
+    /// </remarks>
+    public bool TryDistinctPredicates(GraphPattern graph, [NotNullWhen(true)] out ITermCursor? predicates)
+    {
+        predicates = null;
+        if (_base is not IDistinctTermSource seeking || !seeking.TryDistinctPredicates(graph, out ITermCursor? under))
+        {
+            return false;
+        }
+
+        predicates = Overlaid(under, graph, static quad => quad.Predicate, (term, g) => Match(TermHandle.None, term, TermHandle.None, g));
+        return true;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>As <see cref="TryDistinctPredicates"/>, for the objects of one predicate.</remarks>
+    public bool TryDistinctObjects(TermHandle predicate, GraphPattern graph, [NotNullWhen(true)] out ITermCursor? objects)
+    {
+        objects = null;
+        if (_base is not IDistinctTermSource seeking || !seeking.TryDistinctObjects(predicate, graph, out ITermCursor? under))
+        {
+            return false;
+        }
+
+        objects = Overlaid(under, graph, quad => quad.Predicate.Equals(predicate) ? quad.Object : TermHandle.None, (term, g) => Match(TermHandle.None, predicate, term, g));
+        return true;
+    }
+
+    private ListTermCursor Overlaid(ITermCursor under, GraphPattern graph, Func<Quad, TermHandle> of, Func<TermHandle, GraphPattern, IQuadCursor> match)
+    {
+        HashSet<TermHandle> touched = new(_base.TermComparer);
+        foreach (Quad quad in _delta.Retracted)
+        {
+            if (graph.Matches(quad.Graph) && of(quad) is { IsNone: false } term)
+            {
+                touched.Add(term);
+            }
+        }
+
+        HashSet<TermHandle> seen = new(_base.TermComparer);
+        List<TermHandle> terms = [];
+        using (under)
+        {
+            while (under.MoveNext())
+            {
+                TermHandle term = under.Current;
+                if (touched.Contains(term))
+                {
+                    using IQuadCursor still = match(term, graph);
+                    if (!still.MoveNext())
+                    {
+                        continue;
+                    }
+                }
+
+                if (seen.Add(term))
+                {
+                    terms.Add(term);
+                }
+            }
+        }
+
+        foreach (Quad quad in _delta.Asserted)
+        {
+            if (graph.Matches(quad.Graph) && of(quad) is { IsNone: false } term && seen.Add(term))
+            {
+                terms.Add(term);
+            }
+        }
+
+        return new ListTermCursor(terms);
     }
 
     /// <summary>The base's equality: the delta's handles are the base's.</summary>

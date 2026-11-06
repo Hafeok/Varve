@@ -344,6 +344,30 @@ public sealed class PerGraphConcurrencyTests
                         checkedVersions++;
                     }
                 }
+
+                // A view names the versions as of its position, and refuses
+                // a graph changed since an as-of view's (ADR 0193).
+                for (long p = 0; p <= head; p++)
+                {
+                    using DatasetView view = p == head ? opened.Pin() : await opened.AsOfAsync(new Position(p), T.Ct);
+                    for (int g = 0; g < Graphs; g++)
+                    {
+                        GraphPattern pattern = GraphPattern.DefaultGraph;
+                        if (g > 0)
+                        {
+                            if (!view.TryInternalise(Graph(g), out TermHandle handle))
+                            {
+                                continue;
+                            }
+
+                            pattern = GraphPattern.Named(handle);
+                        }
+
+                        bool named = view.TryGetGraphVersion(pattern, out GraphVersion version);
+                        Assert.True(named || reference[(int)head][g] > p, where + ": graph " + g + " unnamed by a view at " + p);
+                        Assert.True(!named || version.Value == reference[(int)p][g], where + ": graph " + g + " named " + version.Value + " by a view at " + p + ", the fold says " + reference[(int)p][g]);
+                    }
+                }
             }
 
             string at = "seed " + seed + ", history " + history;

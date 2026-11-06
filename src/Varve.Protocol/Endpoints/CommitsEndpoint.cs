@@ -90,9 +90,22 @@ internal static class CommitsEndpoint
                 Commit commit = commits.Current;
                 QuadDelta delta = scope.Apply(commit.Delta, commit.TryExternalise);
 
+                // A commit's own delta, each quad judged on its side (ADR 0237 point 5).
+                if (commit.Kind == CommitKind.Data && RowFilter.For(exchange) is { } rows)
+                {
+                    delta = await rows.CommitAsync(commit, delta, view: false, cancellationToken).ConfigureAwait(false);
+                }
+
                 if (commit.Kind == CommitKind.Data || exchange.Scope.IsAdmin)
                 {
-                    DeltaLines.WriteCommit(output, commit, delta, commit.TryExternalise);
+                    if (exchange.Scope.ReadableRows.IsAll)
+                    {
+                        DeltaLines.WriteCommit(output, commit, delta, commit.TryExternalise);
+                    }
+                    else
+                    {
+                        DeltaLines.WriteCommitWithoutReports(output, commit, delta, commit.TryExternalise);
+                    }
                 }
             }
         }).ConfigureAwait(false);
@@ -230,6 +243,7 @@ internal static class CommitsEndpoint
         long written = 0;
         Position last = range.From;
         ScopeFilter scope = new(exchange.Scope.Readable);
+        RowFilter? rowFilter = RowFilter.For(exchange);
         bool admin = exchange.Scope.IsAdmin;
 
         try
@@ -281,12 +295,30 @@ internal static class CommitsEndpoint
                     // record delivered carries its true position, so a client
                     // resumes as before (change-feed.md §8).
                     QuadDelta delta = scope.Apply(storeFilters ? commit.Delta : filter.Apply(commit), commit.TryExternalise);
+
+                    // The caller's rows (ADR 0237 point 4): the delta of its view,
+                    // whose reclassified quads the head names, the dictionary
+                    // being append-only.
+                    using DatasetView? head = rowFilter is not null && commit.Kind == CommitKind.Data ? exchange.Dataset.Pin() : null;
+
+                    if (head is not null)
+                    {
+                        delta = await rowFilter!.CommitAsync(commit, delta, view: true, cancellationToken).ConfigureAwait(false);
+                    }
+
                     bool deliver = commit.Kind == CommitKind.Data ? !delta.IsEmpty : admin;
 
                     if (deliver)
                     {
                         record.ResetWrittenCount();
-                        DeltaLines.WriteCommit(record, commit, delta, commit.TryExternalise);
+                        if (exchange.Scope.ReadableRows.IsAll)
+                        {
+                            DeltaLines.WriteCommit(record, commit, delta, commit.TryExternalise);
+                        }
+                        else
+                        {
+                            DeltaLines.WriteCommitWithoutReports(record, commit, delta, head is null ? commit.TryExternalise : (TermHandle handle, [System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out RdfTerm term) => commit.TryExternalise(handle, out term) || head.TryExternalise(handle, out term));
+                        }
                         written += Frame(body, framing, commit.Position, record.WrittenSpan);
                         last = commit.Position;
 

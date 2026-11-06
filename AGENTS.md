@@ -31,9 +31,9 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 | 0 | `Varve.Iri`, `Varve.Xsd`, `Varve.Json.Canonical` (ADR 0147) |
 | 1 | `Varve.Rdf` — model and the abstract quad source contract |
 | 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser); `Varve.Derivation` (dependency graphs, regular paths, propagation — ADR 0172, amending 0003) |
-| 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128) |
+| 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128), `Varve.Sparql.Entailment` (entailment regimes by query rewriting — ADR 0191) |
 | 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143); `Varve.Shacl.Sparql` (SHACL-SPARQL over the evaluator, through `Varve.Shacl`'s extension contract — ADR 0148); `Varve.Management` (the management plane's declarations and grants, by dependency — ADR 0166) |
-| 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Shacl.Store` (commit-time gating under a shapes binding — ADR 0169) |
+| 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Shacl.Store` (commit-time gating under a shapes binding — ADR 0169), `Varve.Classification` (the shape-derived classifier and the classification projection — ADR 0232) |
 | 6 | hosts — every executable, and only executables: the server, the CLI, the smoke apps, the benchmarks (ADR 0060) |
 
 **Same-layer references are violations.** Contracts live in the lowest layer that
@@ -139,7 +139,12 @@ Conventional commits, one logical change each, and three things in each:
 - **`Signed-off-by:`** — DCO, from every session without exception; it names the
   human who may contribute the code: for a session's commit, its responsible
   human in `eng/identities.json` or a delegate. Enforced by `eng/dco.cs`
-  (ADR 0087).
+  (ADR 0087). A session never uses `git commit -s`: that signs off as the
+  session's own identity, which the gate refuses. `eng/hooks/commit-msg` adds
+  the right sign-off; it needs `git config core.hooksPath eng/hooks`, which
+  every clone requires: the devcontainer sets it, a cloud session's bootstrap
+  must, and `eng/dco.cs` warns locally when it is not set.
+  `dotnet run eng/dco.cs -- --sign-off-for <email>` prints the sign-off.
 - **A signature**, for human committers. Cloud AI sessions are exempt by ruleset
   bypass; ADR 0034 records why, as a stated deviation.
 
@@ -202,6 +207,7 @@ dotnet run eng/land.cs -- <pr> --main              # then fast-forward main to i
 dotnet build Varve.slnx -c Release                 # zero warnings, or it is broken
 dotnet run eng/dependency-register.cs -- --base origin/main
 git submodule update --init --recursive            # needed for conformance
+git config core.hooksPath eng/hooks                # required in every clone, a session's included: the DCO sign-off
 ```
 
 Every gate is also a job in `eng/ci.cs`. `eng/` is the home of the Varve-specific
@@ -213,6 +219,28 @@ ledger gates to
 and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
+
+Milestone 9, part 1 (#202, under #14; ADRs 0230–0238, filed unaccepted):
+**row-level access through the classifier**, in 1.0 and stable, with erasure
+mode off. A `varve:ClassifierBinding` names an annotated shapes graph and the
+graphs it classifies (0234). `Varve.Classification` (layer 5) reads
+`varve:dataSubject`, `varve:subjectLink` and `varve:publicLink` as RDF (0232):
+a node belongs to the data subjects it is and those its links reach, and a
+quad is about its subject's subjects and, unless its predicate is a public
+link, its object's (0230). A caller sees a classified quad when every subject
+it is about is in its subject set for the binding: a grant's `varve:subject`,
+prefix, template, class or link terms, all subjects when it has none, and a
+grant with them must cover the whole binding. `RowScopedQuadSource` in
+`Varve.Rdf` is two probes and a memoised set decision per quad, and is not
+built for `RowScope.All` (0235). A row-restricted writer writes only rows
+already wholly its own, creates at fresh blank nodes or under
+`varve:createUnder`, links only to rows it reads, and every breach is one
+`403 row-not-writable` (0236). The feed and the diff deliver the caller's view;
+report graphs are withheld; inference's closure waits for #171 (0237, 0238).
+The classification projection is incremental, served at any position,
+verified in the local cache, `503 classification-behind` to a row-restricted
+read it has not reached, and kept by every tier-1 follower (0233). The access
+route answers an admin a subject's quads (0231). Part 2 (#203) is erasure mode.
 
 Replication (#97), part 1 within a store (#165; ADRs 0179–0181, 0136/0137/
 0163/0164/0166/0168 amended), complete; part 2, across copies, is #166.

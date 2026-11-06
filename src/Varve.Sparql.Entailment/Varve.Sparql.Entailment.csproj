@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 3 (ADR 0191): SPARQL entailment regimes by query rewriting,
+         over the algebra and the quad source contract, beside the evaluator
+         and never referencing it. The rule engine is Varve.Inference, one
+         layer up; the projection is a layer 5 package. -->
+    <ArchLayer>3</ArchLayer>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>SPARQL 1.1 entailment regimes by query rewriting over any IQuadSource: the RDF, RDFS and D regimes, complete under the regimes' answer conditions, with the ontology read from TBox graphs as of the read position.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+    <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
+    <ProjectReference Include="../Varve.Xsd/Varve.Xsd.csproj" />
+    <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Varve.Sparql.Entailment.Tests" />
+  </ItemGroup>
+
+</Project>

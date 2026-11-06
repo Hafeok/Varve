@@ -18,10 +18,11 @@ namespace Varve.Store;
 /// net delta from the set's start to the position, in its place; a scan
 /// carries on after the quads it has already yielded, in the same order,
 /// because both read the same quads in the order their pattern's index
-/// keeps them (ADR 0213).
+/// keeps them (ADR 0213). Its distinct predicates and objects are sought
+/// the same way, and resume below the set the same way (ADR 0193).
 /// </summary>
 [DesignDecision(typeof(VerifiedDerivedData.DamageMidReadIsRerunAndResumed), Scope = ExceptionScope.Boundary)]
-internal sealed class SoughtSource : IQuadSource
+internal sealed class SoughtSource : IQuadSource, IDistinctTermSource
 {
     private readonly IndexSource _sought;
     private readonly TermView _terms;
@@ -80,6 +81,14 @@ internal sealed class SoughtSource : IQuadSource
         }
     }
 
+    /// <inheritdoc />
+    public bool TryDistinctPredicates(GraphPattern graph, [NotNullWhen(true)] out ITermCursor? predicates) =>
+        TermCursor.TryOpen(this, TermHandle.None, graph, out predicates);
+
+    /// <inheritdoc />
+    public bool TryDistinctObjects(TermHandle predicate, GraphPattern graph, [NotNullWhen(true)] out ITermCursor? objects) =>
+        !predicate.IsNone ? TermCursor.TryOpen(this, predicate, graph, out objects) : Refuse(out objects);
+
     public bool TryGetInlineValue(TermHandle handle, out InlineValue value) => _sought.TryGetInlineValue(handle, out value);
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -91,6 +100,115 @@ internal sealed class SoughtSource : IQuadSource
     // the cache is.
     [DesignDecision(typeof(VerifiedDerivedData.DamageMidReadIsRerunAndResumed), Scope = ExceptionScope.HotPath)]
     private IndexSource Below() => _fallback ??= new IndexSource(_below(), _terms);
+
+    private static bool Refuse(out ITermCursor? cursor)
+    {
+        cursor = null;
+        return false;
+    }
+
+    /// <summary>
+    /// A seek of the sought set's distinct predicates of a graph, or objects
+    /// of one predicate, that, once the set is found damaged, carries on over
+    /// the view without it: the two hold the same quads, so they yield the
+    /// same terms in the same order.
+    /// </summary>
+    private sealed class TermCursor : ITermCursor
+    {
+        private readonly SoughtSource _owner;
+        private readonly TermHandle _predicate;
+        private readonly GraphPattern _graph;
+        private ITermCursor _inner;
+        private long _yielded;
+        private bool _below;
+
+        private TermCursor(SoughtSource owner, TermHandle predicate, GraphPattern graph, ITermCursor inner, bool below)
+        {
+            _owner = owner;
+            _predicate = predicate;
+            _graph = graph;
+            _inner = inner;
+            _below = below;
+        }
+
+        public TermHandle Current { get; private set; }
+
+        // A seek reads its first blocks as it starts.
+        internal static bool TryOpen(SoughtSource owner, TermHandle predicate, GraphPattern graph, [NotNullWhen(true)] out ITermCursor? cursor)
+        {
+            cursor = null;
+            bool below = owner._fallback is not null;
+            ITermCursor? inner;
+            try
+            {
+                if (!Open(below ? owner._fallback! : owner._sought, predicate, graph, out inner))
+                {
+                    return false;
+                }
+            }
+            catch (DerivedDamageException) when (!below)
+            {
+                below = true;
+                if (!Open(owner.Below(), predicate, graph, out inner))
+                {
+                    return false;
+                }
+            }
+
+            cursor = new TermCursor(owner, predicate, graph, inner, below);
+            return true;
+        }
+
+        public bool MoveNext()
+        {
+            while (true)
+            {
+                try
+                {
+                    if (!_inner.MoveNext())
+                    {
+                        Current = TermHandle.None;
+                        return false;
+                    }
+
+                    Current = _inner.Current;
+                    _yielded++;
+                    return true;
+                }
+                catch (DerivedDamageException) when (!_below)
+                {
+                    Resume();
+                }
+            }
+        }
+
+        public void Dispose() => _inner.Dispose();
+
+        private static bool Open(IndexSource source, TermHandle predicate, GraphPattern graph, [NotNullWhen(true)] out ITermCursor? cursor) =>
+            predicate.IsNone ? source.TryDistinctPredicates(graph, out cursor) : source.TryDistinctObjects(predicate, graph, out cursor);
+
+        // The same seek over the view without the set, past the terms this
+        // one has already yielded.
+        [DesignDecision(typeof(VerifiedDerivedData.DamageMidReadIsRerunAndResumed), Scope = ExceptionScope.HotPath)]
+        private void Resume()
+        {
+            _inner.Dispose();
+            if (!Open(_owner.Below(), _predicate, _graph, out ITermCursor? below))
+            {
+                throw new InvalidOperationException("The view below a damaged set refused the seek the set answered.");
+            }
+
+            _inner = below;
+            _below = true;
+            for (long i = 0; i < _yielded; i++)
+            {
+                if (!_inner.MoveNext())
+                {
+                    throw new InvalidOperationException("The view below a damaged set holds fewer distinct terms than the seek of it had already yielded.");
+                }
+            }
+        }
+    }
 
     /// <summary>A scan of the sought set that, once the set is found damaged, carries on over the view without it.</summary>
     private sealed class Cursor : IQuadCursor

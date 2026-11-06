@@ -75,6 +75,19 @@ public sealed class GraphScope
     /// <summary>Whether this is every graph.</summary>
     public bool IsAll { get; }
 
+    /// <summary>Whether this is no graph at all: no default graph, no named graph and no prefix.</summary>
+    public bool IsEmpty => !IsAll && !IncludesDefault && _graphs.Length == 0 && _prefixes.Length == 0;
+
+    /// <summary>
+    /// The same set with <paramref name="graphs"/> dataset-public (ADR 0190
+    /// point 4): each is allowed exactly when the set is not empty. A scope
+    /// of no graph stays none, and the scope of every graph stays itself.
+    /// What makes a graph dataset-public is the host's rule, not this type's.
+    /// </summary>
+    /// <exception cref="ArgumentException">A graph is not an IRI.</exception>
+    public GraphScope WithDatasetPublic(ReadOnlySpan<RdfTerm> graphs) =>
+        IsAll || IsEmpty || graphs.IsEmpty ? this : Union(Of(graphs, [], DefaultGraphAccess.Excluded));
+
     /// <summary>Whether the default graph is in the set.</summary>
     public bool IncludesDefault { get; }
 

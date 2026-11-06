@@ -12,6 +12,192 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.19] - 2026-10-30
+
+**Row-level access through the classifier — the first part of milestone 9**
+
+### Row-level access through the classifier (#202, under #14, in 1.0 by #15)
+
+Beneath graph-level grants, a dataset's rows now belong to data subjects,
+and a grant can be limited to the rows of its subjects. It works with
+erasure mode off and is stable 1.0 API. Erasure mode itself is the second
+part of milestone 9 (#203), preview only. This release closes #202; #14
+stays open. The nine ADRs are filed unaccepted and accepted on the pull
+request (ADR 0066). No byte of storage format 1 or delta format 1 changes.
+
+#### Added
+
+- **Classifier bindings** (ADRs 0232, 0234). `varve:ClassifierBinding`
+  names an annotated shapes graph of the dataset and the graphs it
+  classifies:
+  - `varve:dataSubject` on a node shape names data subjects, by
+    `sh:targetClass`, `sh:targetNode` or `sh:targetSubjectsOf`;
+  - `varve:subjectLink` on a property shape carries ownership, transitively;
+  - `varve:publicLink` marks a predicate whose object is not hidden with
+    the row it names, `rdf:type` always among them.
+
+  A shapes graph that does not classify fails closed.
+- **What a quad is about** (ADR 0230). A quad is about its subject node's
+  subjects and, unless its predicate is a public link, its object's. A
+  caller sees it when its graph is readable and every one of those
+  subjects is in the caller's subject set for the binding.
+- **Subject-scoped grants** (ADR 0234). A read or write grant may carry
+  `varve:subject`, `varve:subjectPrefix`, `varve:subjectTemplate`,
+  `varve:subjectClass` and `varve:subjectLink`, and a write grant
+  `varve:createUnder`. A grant without them means what it meant. `varve
+  apply` refuses a row-restricted grant that does not cover the whole
+  binding, overlapping bindings, and a reject or report shapes gate over a
+  row-restricted writer's classified graphs.
+- **`RowScopedQuadSource`** in `Varve.Rdf` (ADR 0235): two probes and a
+  memoised set decision per quad, no allocation, and no wrapper at all for
+  a caller with no row restriction.
+- **The write rule** (ADR 0236). A row-restricted writer writes only rows
+  already wholly its own, creates rows only at fresh blank nodes or under
+  `varve:createUnder`, and links only to rows it reads. Every breach is the
+  same `403 row-not-writable`, so no write's outcome depends on a row it
+  cannot read.
+- **Every surface** (ADR 0237). Queries, the Graph Store and the service
+  description read the caller's rows. The feed and the diff deliver the
+  delta of the caller's view, reclassified quads included. Validation
+  report graphs and their attachments are withheld from a row-restricted
+  caller. Inference's closure waits for #171 (ADR 0238).
+- **Inference under row-scoped grants** (ADR 0238 point 1), decided where
+  this part met Inference part 1 (`v0.1.0-preview.18`):
+  - a query under a regime the rewriting serves (`rdf`, `rdfs`, `D`) is
+    rewritten over the caller's view by graph and by row, so a
+    row-restricted caller is answered exactly the entailments of the rows
+    it reads;
+  - a classifier binding whose graphs include a TBox graph of a TBox
+    binding is refused at apply, as `declaration-invalid` naming both
+    bindings and the graph: a TBox graph is read by every reader of the
+    dataset and its schema is shared between callers, so it is never
+    classified;
+  - two tests in `RowScopeTests` state it over HTTP, and `RowApplyTests`
+    gains the refusal: a row-restricted answer under RDFS equals the
+    rewriting over the rows the caller sees, and an entailment from a row
+    the caller does not read is not in its answer.
+- **`Varve.Classification`**, a new layer-5 package (ADRs 0232, 0233).
+  `ShapeClassifier` is `Varve.Store`'s new `IClassifier`.
+  `ClassificationProjection` keeps the classification at every position,
+  from exact deltas, in the local cache verified in full on read. A
+  row-restricted read it has not reached waits once, then answers
+  `503 classification-behind`. Its lag is on readiness as `classification`.
+- **Access without erasure mode** (ADR 0231):
+  `GET /datasets/{name}/access?subject=<IRI>`, for a dataset admin, answers
+  a subject's quads at the head through the new `ISelector`.
+
+#### Upgrading
+
+- **Nothing to do.** No grant restricts rows until it carries subject
+  terms, and no dataset is classified until it declares a classifier
+  binding. `varve:ClassifierBinding` was reserved and refused before.
+
+## [0.1.0-preview.18] - 2026-10-27
+
+**Inference, part 1 — RDFS, RDF and D by query rewriting, regimes over HTTP, the TBox binding**
+
+### Inference, part 1 — tier 1: RDFS, RDF and D by query rewriting
+
+A query can be answered under an entailment regime. This release completes
+the first of Inference's three parts (#170, under #95): the rewriting, the
+regimes over HTTP and the TBox binding. Nothing is materialised, and the log
+stays asserted-only. The closure (OWL 2 RL, custom rules) is part 2; the
+commit-time validator, `owl:sameAs`, OWL 2 QL and Brick are part 3. The
+storage format and the change feed's format are unchanged. The five ADRs
+are filed unaccepted and accepted on the pull request (ADR 0066).
+
+#### Added
+
+- **`Varve.Sparql.Entailment`** (layer 3, ADR 0191): `EntailmentRewriter`
+  rewrites a query's basic graph patterns so that simple evaluation answers
+  the RDF, RDFS or D regime (SPARQL 1.1 Entailment Regimes §2, §4, §5.1),
+  under conditions C1 and C2 and the multiplicity rule (ADR 0193).
+  - Each graph is read merged with the TBox graphs of the binding that
+    covers it, given as `TBoxCover` values. A graph no binding covers is
+    read over its own triples, and a named graph the source holds nothing
+    of is not merged.
+  - The schema is saturated per scoping graph by bound probes to a
+    fixpoint, meta-modelling included, never by a scan of the data, and
+    compiled into tables. `SchemaCache` keeps it across queries, bounded,
+    keyed by the versions of the graphs it merges; the server keeps one
+    per dataset. Under `GRAPH ?g` the named graphs are grouped by the
+    schema they meet.
+  - C2 is answered by existence probes at rewrite time, memoised per
+    request. Classes and container membership properties are sought, one
+    seek per distinct term, where a pattern needs them.
+  - Rewriting does not grow with the data. `?s ?p ?o` and
+    `?x a rdfs:Resource` are answer-sized. A triple that says something of
+    the RDF or RDFS vocabulary itself makes the schema of every graph it is
+    part of read whole, after every commit to it: a TBox binding's
+    description (`GET /manage/datasets/{name}/bindings/{binding}`) names
+    those graphs under `fullReads`, and `/health/ready` counts them.
+  - Each pattern's union drops the branches the rewriting proves add
+    nothing; `?x a ex:Student` under RDFS reads its typings once, not six
+    times. The schema cache is bounded by size as well as count.
+  - D matches literals by value, with Varve.Xsd's datatype map, through
+    two extension functions a host registers (`LiteralValues`).
+  - Property paths and `SERVICE` are evaluated without entailment (§10).
+  - Usable over any `IQuadSource`, without the store; the browser build
+    carries it for 42 KB under brotli against `main`.
+- **`Varve.Rdf`**: `IDistinctTermSource` and `DistinctTerms`, a source's
+  distinct predicates and objects by seek; `IGraphVersionSource` and
+  `GraphVersion`. The store's `DatasetView` answers both, at the head,
+  inside an extent set's window and as of a position, and
+  `GraphScopedQuadSource` forwards them.
+- **`Varve-Entailment`** (ADR 0192): a query asks for `simple`, `rdf`,
+  `rdfs` or `d`, or a regime IRI in angle brackets.
+  - Without it, the dataset's default from its TBox bindings applies, and
+    simple entailment when none states one.
+  - The response names the regime, `Vary` lists the header on every
+    dataset response, and the `ETag` of a query's answer is per position
+    and regime: `"<position>.<token>"`.
+  - `400 entailment-unsupported` (members `value` and `supported`) answers
+    anything else, and any value but `simple` on an update.
+    `entailment-refused` is catalogued for the regimes of later parts.
+  - The service description names the default
+    (`sd:defaultEntailmentRegime`), `sd:feature varve:EntailmentHeader`,
+    and the regimes of each covered named graph (`sd:entailmentRegime`).
+  - CORS allows and exposes the header (ADR 0132, amended).
+  - `IEntailmentBindings` is the protocol's seam; the server maps the
+    declarations at the request's management position.
+  - `SparqlHttpClient.QueryAsync` takes an optional regime, and
+    `varve query --entailment <token>` sends it.
+- **The TBox binding** (ADR 0194): `varve:TBoxBinding` reads into
+  `TBoxBindingDeclaration`: one or more `varve:boundGraph` TBox graphs, a
+  graph set, `varve:profile varve:Rewriting` and at most one
+  `varve:defaultEntailment`.
+  - The shapes in `shapes/management.ttl` validate it at runtime; the
+    residual check refuses two bindings whose graphs overlap, two
+    different defaults in a dataset, and the reserved terms
+    (`varve:RDFS`, `varve:OWL2RL`, `varve:RulesOnly`, `varve:rulesGraph`,
+    `varve:crossGraph`, `varve:sameAs`, `varve:inconsistencyMode`), each
+    naming the part that gives it effect.
+  - **A TBox graph is read by every caller who reads anything in its
+    dataset** (ADR 0190); writing it still needs a write grant.
+    `GraphScope.WithDatasetPublic` carries the rule, and
+    `GrantTable.ScopesOf` applies it.
+  - `ManagementPlan.DatasetPublic` lists the graphs the desired
+    declarations make dataset-public, marking those an apply widens and
+    narrows. `varve apply --plan` prints the list before the graph diffs,
+    and the saved plan carries it.
+- **Conformance.** The RDF, RDFS and D cases of `sparql11/entailment` and
+  the cases of `rdf-mt` the rewriting decides run under the ratchet. The
+  RIF and OWL 2 DL-only cases are blocked as out of scope (#15), listed by
+  name, and counted by `eng/status.cs`.
+- **The operator guide** `docs/operator/inference.md`.
+
+#### Changed
+
+- **`Vary` on every dataset response names `Varve-Entailment`** beside
+  `Accept`, `Varve-As-Of` and `Authorization`, problems included.
+- **A query's `ETag` under a regime other than simple** is
+  `"<position>.<token>"`. Under simple entailment, the default when no
+  binding is declared, it is the position alone, as before. An `If-Match`
+  naming such a tag on a write is refused: the tag names no position.
+- `varve:TBoxBinding` was recorded with exactly one `varve:boundGraph` and
+  no effect (ADR 0166). It now needs a profile and a graph set, and a
+  declaration without them is refused at apply.
+
 ## [0.1.0-preview.17] - 2026-10-27
 
 **Supply chain transparency — an attested SBOM for every artefact, the dependency gate, a support period**
@@ -1882,7 +2068,9 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.17...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.19...HEAD
+[0.1.0-preview.19]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.18...v0.1.0-preview.19
+[0.1.0-preview.18]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.17...v0.1.0-preview.18
 [0.1.0-preview.17]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.16...v0.1.0-preview.17
 [0.1.0-preview.16]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...v0.1.0-preview.16
 [0.1.0-preview.15]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...v0.1.0-preview.15

@@ -389,11 +389,15 @@ Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replicati
 
 ## Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit
 
-Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set).
+Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set); by part 1 (#170), 0003 (the packages), 0119 (`entailment-unsupported`), 0132 (the header under CORS) and 0166 (the binding's terms).
 
 | # | Title | Status |
 |---:|---|---|
 | [0190](0190-entailments-under-graph-level-grants.md) | Entailments under graph-level grants: premise sets, intra-graph by default, the ontology readable by the dataset's readers; amends 0107 | Filed unaccepted (Inference, #95) |
+| [0191](0191-the-inference-packages-and-their-layers.md) | The inference packages and their layers; amends 0003 | Filed unaccepted (Inference part 1, #170) |
+| [0192](0192-entailment-regimes-over-http.md) | Entailment regimes over HTTP: the `Varve-Entailment` header and the service description; amends 0119, 0132 | Filed unaccepted (Inference part 1, #170) |
+| [0193](0193-rdfs-rdf-and-d-by-rewriting.md) | RDF, RDFS and D entailment by query rewriting | Filed unaccepted (Inference part 1, #170) |
+| [0194](0194-the-tbox-binding-vocabulary.md) | The TBox binding vocabulary; amends 0166 | Filed unaccepted (Inference part 1, #170) |
 
 ## Web UI, part 1 (#167)
 
@@ -419,6 +423,22 @@ Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 
 |---:|---|---|
 | [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119) |
 | [0225](0225-the-sbom-generator.md) | The SBOM generator: `eng/sbom.cs`, SPDX 2.3, from the restore | Filed unaccepted (#119) |
+
+## Milestone 9, part 1 — row-level access through the classifier (#202)
+
+Filed by milestone 9, part 1 ([#202](https://github.com/Hafeok/Varve/issues/202), under [#14](https://github.com/Hafeok/Varve/issues/14)), in 1.0 and stable, unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0230: readiness A holds 0213–0222 and readiness B from 0224. Amended by it, likewise unaccepted: 0003 (`Varve.Classification`), 0023 (the classifier's assignment, the selector), 0107 (rows beneath graphs), 0119 (three problem types), 0166 (the classifier binding, subject-scoped grants), 0173 and 0174 (the report withheld from row-restricted callers), 0190 (row-scoped grants, pending #171).
+
+| # | Title | Status |
+|---:|---|---|
+| [0230](0230-rows-data-subjects-and-visibility.md) | Rows, data subjects and visibility | Filed unaccepted (#202) |
+| [0231](0231-the-classifier-and-selector-contracts.md) | The classifier and selector contracts, without erasure mode | Filed unaccepted (#202) |
+| [0232](0232-the-shape-derived-classifier.md) | The shape-derived classifier, in `Varve.Classification` | Filed unaccepted (#202) |
+| [0233](0233-the-classification-projection.md) | The classification projection | Filed unaccepted (#202) |
+| [0234](0234-subject-scoped-grants-and-the-classifier-binding.md) | Subject-scoped grants and the classifier binding; amends 0166 | Filed unaccepted (#202) |
+| [0235](0235-the-row-scoped-quad-source-and-the-read-filters-cost.md) | The row-scoped quad source and the read filter's cost | Filed unaccepted (#202) |
+| [0236](0236-the-row-level-write-rule.md) | The row-level write rule | Filed unaccepted (#202) |
+| [0237](0237-rows-on-every-surface.md) | Rows on every surface; amends 0173 and 0174 | Filed unaccepted (#202) |
+| [0238](0238-inference-under-row-scoped-grants.md) | Inference under row-scoped grants; amends 0190, pending #171 | Filed unaccepted (#202) |
 
 ## The maintainer's delegate (#244)
 

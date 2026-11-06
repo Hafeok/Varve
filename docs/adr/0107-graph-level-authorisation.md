@@ -254,3 +254,23 @@ Filed by milestone Inference (#95), unaccepted until the maintainer accepts it
 
 **The ledger.** The rulings are ADR 0190's `BindingGraphsAreDatasetPublic`,
 `DatasetPublicSetInTheScope` and `GovernedByEveryGraphOfASet`.
+
+## Amendment, 2026-10-30 — rows beneath graphs
+
+Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066). The rulings are ADRs [0230](0230-rows-data-subjects-and-visibility.md), [0235](0235-the-row-scoped-quad-source-and-the-read-filters-cost.md) and [0236](0236-the-row-level-write-rule.md)'s.
+
+- **Point 8's boundary is closed.**
+  - Row-level access is a classifier binding's classification (ADR 0230)
+    together with a grant's subject set (ADR 0234). It is still never
+    approximated by patterns, filters or rewriting.
+  - `RowLevelIsMilestone9` moves to ADR 0230's set, superseded.
+- **Point 2.** `CallerScope` gains `ReadableRows` and `WritableRows`, each a
+  `RowScope`. `IAccessScopes` answers them with the graph scopes. A caller
+  with no row restriction has `RowScope.All`, and point 4's rule holds for
+  rows too: no wrapper is built.
+- **Point 3.** A row-restricted read wraps `GraphScopedQuadSource` in
+  `RowScopedQuadSource` (ADR 0235). The graph filter stays a lookup per graph
+  handle. The row filter's cost is ADR 0235's, stated there.
+- **Point 6.** A row-restricted write also meets ADR 0236's rule, refused as
+  `row-not-writable`.
+- **Point 7's two properties** extend to rows (ADR 0230 point 7).

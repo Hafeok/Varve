@@ -368,3 +368,16 @@ content of a graph the writer can't read**:
   answered as ADR 0107's prefix decision is.
 - **Open questions owned.** None. How many premise sets a cross-graph binding
   makes is a measurement owned by #171.
+
+## Amendment, 2026-10-30 — row-scoped grants
+
+Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066). Pending the Inference session's agreement on #171. The rulings are ADR [0238](0238-inference-under-row-scoped-grants.md)'s.
+
+- **Point 1** stands for callers whose subject set is `all`.
+- **For a row-restricted caller** over a classified graph:
+  - tier 1 is served over its row-scoped source;
+  - the closure, its views and reserved graphs, and explain are refused
+    as `entailment-not-available`.
+- **Point 6.** A cross-graph binding meeting a classified graph set is
+  refused at apply while a read grant with subject terms covers it.
+- **Point 7's tier 3** is refused there by ADR 0234's P5.

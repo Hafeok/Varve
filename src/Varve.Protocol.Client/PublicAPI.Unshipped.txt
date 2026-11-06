@@ -225,3 +225,4 @@ static Varve.Protocol.Client.Model.GraphContent.FromText(string! text, string! m
 Varve.Protocol.Client.SparqlHttpClient.Management(string! path) -> System.Uri!
 Varve.Protocol.Client.SparqlHttpClient.PatchSettingsAsync(string! trig, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
 Varve.Protocol.Client.SparqlHttpClient.PutSettingsAsync(string! trig, long? ifMatch, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
+Varve.Protocol.Client.SparqlHttpClient.QueryAsync(string! query, string! accept, string? asOf, string? entailment, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!

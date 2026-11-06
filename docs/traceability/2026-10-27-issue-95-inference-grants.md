@@ -353,4 +353,33 @@ is the maintainer's; the session only wrote it at their direction, as the
 acceptance of ADRs 0127–0133 was written. The ADR's status text and the
 index row are left as filed, as in that precedent.
 
+### Code on a docs-only branch, 2026-10-28
+
+#172 was docs only, but it landed with `cd22f081`, a fix to
+`src/Varve.Protocol/Http/ReportGraphs.cs` and its tests. It got there by a
+deliberate cherry-pick, not by a merge.
+
+The session put it there while watching #172's CI. On `3fc0fc18`,
+`build (ubuntu-latest)` failed twice, on
+`ShapesBindingTests.The_report_is_a_reserved_graph_read_by_query_and_by_graph_store_and_never_written`:
+a query of a report graph, read while the validation projection was a
+commit behind, answered 200 with no rows. That is #183, and the diff could
+not reach it. #186 held the fix and was green, but had not landed. Under the
+session's rule for a failure that is not the PR's own (port an existing fix
+rather than wait for it), it cherry-picked #186's commit `dbbda973` with
+`-x` onto the branch, on top of the maintainer's `820d1640`, as `cd22f081`.
+It explained this in a PR comment, re-ran the gates and the Protocol and
+Server tests, and asked for approval of the new head, which the maintainer
+gave.
+
+It did not update the PR's description, which still said "docs only" when
+#172 landed. The comment was the only place the code was named. #186 landed
+the same change after #172; its merge of main, `87dfe6df`, reconciled the two
+copies, which were identical.
+
+From now on, a change that brings code onto a docs-only branch is flagged in
+the PR's description as well as in a comment: what it is, where it comes
+from, and why it is there. That holds whether the change comes by a merge or
+by a port.
+
 Developed with AI assistance under human review.

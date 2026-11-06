@@ -54,20 +54,23 @@ public class ProblemCatalogueTests
     /// in bulk yet. Removed from here by the slice that makes each emittable.
     /// </summary>
     private static readonly ImmutableArray<ProblemType> NotYetEmittable =
-        [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone, ProblemType.LoadSpillDamaged];
+        [ProblemType.BelowArchiveHorizon, ProblemType.ReaderForgotten, ProblemType.ReadUnannouncedExtentGone, ProblemType.LoadSpillDamaged, ProblemType.EntailmentRefused];
 
     /// <summary>
     /// Types whose trigger holds state across requests, exercised in
     /// <c>GovernanceTests</c> (the live-tail bound) and <c>Varve.Server.Tests</c>
     /// (the concurrent-read limit, which is the host's rate limiter; and a
     /// writer superseded by a second server on the same object store, ADR 0136,
-    /// and a takeover refused, ADR 0179), and <c>ReportGraphTests</c> (a
-    /// validation projection behind, ADR 0174).
+    /// and a takeover refused, ADR 0179), <c>ReportGraphTests</c> (a
+    /// validation projection behind, ADR 0174), and <c>RowScopeTests</c> (a
+    /// row-restricted write refused, and a classification projection behind,
+    /// ADRs 0233 and 0236).
     /// </summary>
     private static readonly ImmutableArray<ProblemType> TestedElsewhere =
     [
         ProblemType.TooManyLiveTails, ProblemType.ServerBusy, ProblemType.WriterSuperseded, ProblemType.EventNotRendered,
         ProblemType.ManagementBehind, ProblemType.DatasetBehind, ProblemType.ValidationBehind, ProblemType.TakeoverRefused,
+        ProblemType.RowNotWritable, ProblemType.ClassificationBehind,
     ];
 
     /// <summary>The types the management plane's endpoints emit, triggered by <see cref="every_problem_the_management_endpoints_emit_has_its_catalogued_shape"/>.</summary>
@@ -179,6 +182,12 @@ public class ProblemCatalogueTests
                 [ProblemType.SparqlSyntax] = () => P.Query(Sparql, "SELECT"),
                 [ProblemType.RdfSyntax] = () => Put("datasets/d/graphs?default", "not n-triples", "application/n-triples"),
                 [ProblemType.BadRequest] = () => P.Get(Sparql + "?query=ASK%7B%7D&query=ASK%7B%7D"),
+                [ProblemType.EntailmentUnsupported] = () =>
+                {
+                    HttpRequestMessage request = P.Get(Sparql + "?query=ASK%7B%7D");
+                    request.Headers.TryAddWithoutValidation("Varve-Entailment", "owl2-rl");
+                    return request;
+                },
                 [ProblemType.OperationFailed] = () => P.Update(Sparql, "LOAD <http://ex/nowhere>"),
                 [ProblemType.AgentRequired] = () => Put("manage/datasets/d/settings", "{\"defaultAccessScope\":\"Current\"}", "application/json"),
                 [ProblemType.GraphNotWritable] = () => P.Update(Sparql, "INSERT DATA { GRAPH <http://ex/other> { <http://ex/a> <http://ex/p> 1 } }"),
@@ -242,7 +251,7 @@ public class ProblemCatalogueTests
                 Assert.Equal(shape.Title, root.GetProperty("title").GetString());
                 Assert.Equal(shape.Status, root.GetProperty("status").GetInt32());
                 Assert.Equal(P.Header(response, "Varve-Request-Id"), root.GetProperty("instance").GetString());
-                Assert.Equal("Accept,Varve-As-Of,Authorization", string.Join(",", response.Headers.Vary));
+                Assert.Equal("Accept,Varve-As-Of,Authorization,Varve-Entailment", string.Join(",", response.Headers.Vary));
 
                 foreach (JsonProperty member in root.EnumerateObject())
                 {

@@ -83,13 +83,21 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         Datasets = new OpenDatasets(settings, objects, _order, clock, logger, Moved);
         Instance = new WriterName(_instance.Value);
         Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
+        Classifications = new RowClassifications(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
+        Entailment = new EntailmentBindingsOfTheFleet(this);
     }
+
+    /// <summary>The datasets' TBox bindings as a query reads them, and their schema caches (ADRs 0193, 0194).</summary>
+    internal EntailmentBindingsOfTheFleet Entailment { get; }
 
     /// <summary>How long a read of a report graph waits for its projection before <c>validation-behind</c> (ADR 0174).</summary>
     internal static readonly TimeSpan ReportWait = TimeSpan.FromSeconds(2);
 
     /// <summary>The validation projections of the datasets held here (ADR 0174).</summary>
     internal ValidationProjections Projections { get; }
+
+    /// <summary>The classification projections of the datasets held here (ADR 0233).</summary>
+    internal RowClassifications Classifications { get; }
 
     // Whether a dataset's event declarations are moving or moved at the applied position (ADR 0167).
     private bool Moved(string dataset) =>
@@ -395,6 +403,30 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     }
 
     /// <inheritdoc />
+    public TBoxBindingDescription? DescribeTBoxBinding(DatasetName dataset, RdfTerm binding)
+    {
+        GrantTable table = Pinned().Table;
+        if (!table.Declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared))
+        {
+            return null;
+        }
+
+        for (int i = 0; i < declared.TBoxBindings.Count; i++)
+        {
+            TBoxBindingDeclaration tbox = declared.TBoxBindings[i];
+            if (!tbox.Node.Equals(binding))
+            {
+                continue;
+            }
+
+            Varve.Sparql.Entailment.Model.FullReadGraphs? reads = Datasets.TryResolve(dataset, out Dataset? held) ? Entailment.FullReadsOf(dataset, held, i) : null;
+            return new TBoxBindingDescription(tbox, table.Position, reads);
+        }
+
+        return null;
+    }
+
+    /// <inheritdoc />
     public async ValueTask<Action<System.Text.Json.Utf8JsonWriter>?> DescribeHandoverAsync(DatasetName dataset, CancellationToken cancellationToken)
     {
         if (_objects is null
@@ -585,6 +617,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         foreach (DatasetEntry entry in Datasets.List())
         {
             Projections.Reconcile(entry.Name);
+            Classifications.Reconcile(entry.Name);
         }
     }
 
@@ -927,6 +960,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     public async ValueTask DisposeAsync()
     {
         await Projections.DisposeAsync().ConfigureAwait(false);
+        await Classifications.DisposeAsync().ConfigureAwait(false);
         await Datasets.DisposeAsync().ConfigureAwait(false);
         await _system.DisposeAsync().ConfigureAwait(false);
 

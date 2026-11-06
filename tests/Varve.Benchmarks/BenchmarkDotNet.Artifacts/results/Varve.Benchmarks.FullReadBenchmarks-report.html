@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Varve.Benchmarks.FullReadBenchmarks-20261027-152957</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.5 LTS (Noble Numbat)
+Intel Xeon Processor 2.10GHz, 1 CPU, 4 logical and 4 physical cores
+.NET SDK 10.0.403
+  [Host]     : .NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4
+  Job-DBWHYL : .NET 10.0.14 (10.0.14, 10.0.1426.52326), X64 RyuJIT x86-64-v4
+</code></pre>
+<pre><code>InvocationCount=4  IterationCount=8  UnrollFactor=1  
+WarmupCount=2  
+</code></pre>
+
+<table>
+<thead><tr><th>Method </th><th>People</th><th>Redefinition</th><th>Mean  </th><th>Error </th><th>StdDev</th><th>Gen0</th><th>Gen1</th><th>Gen2</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>CommitThenAsk</td><td>10000</td><td>data</td><td>710.909 ms</td><td>69.506 ms</td><td>36.3532 ms</td><td>4250.0000</td><td>2000.0000</td><td>-</td><td>572.24 MB</td>
+</tr><tr><td>CommitThenAsk</td><td>10000</td><td>none</td><td>6.980 ms</td><td>3.193 ms</td><td>1.6700 ms</td><td>-</td><td>-</td><td>-</td><td>1.45 MB</td>
+</tr><tr><td>CommitThenAsk</td><td>10000</td><td>tbox</td><td>694.286 ms</td><td>22.673 ms</td><td>10.0671 ms</td><td>4250.0000</td><td>2000.0000</td><td>-</td><td>572.24 MB</td>
+</tr><tr><td>CommitThenAsk</td><td>100000</td><td>data</td><td>8,870.492 ms</td><td>219.796 ms</td><td>114.9574 ms</td><td>44000.0000</td><td>15500.0000</td><td>2250.0000</td><td>5698.26 MB</td>
+</tr><tr><td>CommitThenAsk</td><td>100000</td><td>none</td><td>6.746 ms</td><td>2.197 ms</td><td>0.9755 ms</td><td>-</td><td>-</td><td>-</td><td>1.45 MB</td>
+</tr><tr><td>CommitThenAsk</td><td>100000</td><td>tbox</td><td>9,889.311 ms</td><td>1,016.454 ms</td><td>531.6253 ms</td><td>44250.0000</td><td>15250.0000</td><td>2250.0000</td><td>5698.26 MB</td>
+</tr></tbody></table>
+</body>
+</html>
