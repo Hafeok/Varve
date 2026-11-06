@@ -97,6 +97,12 @@ stays open for part 2, the data explorer.
 
 - **`BearerToken.Fixed` is `BearerTokens.Fixed`** (ADR 0127, amended).
   The fixed provider sits beside the delegate type, not on it.
+- **The maintainer's delegate** (ADR 0239, amending ADRs 0066 and 0087).
+  One session on the maintainer's own machine, with his key, may approve
+  a pull request's head, land it, and write an acceptance for a decision
+  he has read. Its approvals read `approve <sha> (delegate)`, and its
+  commits for him carry a `Delegated-by` trailer. Nothing ships in a
+  package for it; `AGENTS.md` says the same.
 
 #### Not yet
 

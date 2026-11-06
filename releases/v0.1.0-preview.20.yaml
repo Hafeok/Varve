@@ -12,6 +12,7 @@ basis:
   - adr: "0203"
   - adr: "0204"
   - adr: "0205"
+  - adr: "0239"
 sbom:
   - asset: varve-webui-0.1.0-preview.20.zip sha256:46c795d560268c02f3bb9397a03ff0c6884e4de29c4dd3ff27bdbf8bd7a27e9d
   - image: ghcr.io/hafeok/varve sha256:0952862b6d9b2900e01960cd1be910ecb6bacc673e28fe244e0740b93e9c099d
@@ -127,6 +128,12 @@ summary: |
 
   - **`BearerToken.Fixed` is `BearerTokens.Fixed`** (ADR 0127, amended).
     The fixed provider sits beside the delegate type, not on it.
+  - **The maintainer's delegate** (ADR 0239, amending ADRs 0066 and 0087).
+    One session on the maintainer's own machine, with his key, may approve
+    a pull request's head, land it, and write an acceptance for a decision
+    he has read. Its approvals read `approve <sha> (delegate)`, and its
+    commits for him carry a `Delegated-by` trailer. Nothing ships in a
+    package for it; `AGENTS.md` says the same.
 
   #### Not yet
 
