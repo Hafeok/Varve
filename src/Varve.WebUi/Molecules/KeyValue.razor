@@ -1,0 +1,9 @@
+@* KeyValue (docs/ui/components/KeyValue): one resource's fields, in the order
+   the API documents them, labelled with the API's names. *@
+<dl class="vw-kv">@ChildContent</dl>
+
+@code {
+    /// <summary>The fields, as <see cref="KeyValueItem"/>s.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? ChildContent { get; set; }
+}
