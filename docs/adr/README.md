@@ -424,6 +424,14 @@ Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 
 | [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119) |
 | [0225](0225-the-sbom-generator.md) | The SBOM generator: `eng/sbom.cs`, SPDX 2.3, from the restore | Filed unaccepted (#119) |
 
+## CLI distribution (#129, readiness B)
+
+Filed by readiness B for [#129](https://github.com/Hafeok/Varve/issues/129), in 1.0 ([#15](https://github.com/Hafeok/Varve/issues/15)), unaccepted until the maintainer accepts it on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0105 (point 6: the release carries the binary).
+
+| # | Title | Status |
+|---:|---|---|
+| [0226](0226-cli-distribution.md) | CLI distribution: Native AOT binaries for six RIDs, a keyless Homebrew tap, winget manifests submitted by the maintainer | Filed unaccepted (#129) |
+
 ## Milestone 9, part 1 — row-level access through the classifier (#202)
 
 Filed by milestone 9, part 1 ([#202](https://github.com/Hafeok/Varve/issues/202), under [#14](https://github.com/Hafeok/Varve/issues/14)), in 1.0 and stable, unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0230: readiness A holds 0213–0222 and readiness B from 0224. Amended by it, likewise unaccepted: 0003 (`Varve.Classification`), 0023 (the classifier's assignment, the selector), 0107 (rows beneath graphs), 0119 (three problem types), 0166 (the classifier binding, subject-scoped grants), 0173 and 0174 (the report withheld from row-restricted callers), 0190 (row-scoped grants, pending #171).

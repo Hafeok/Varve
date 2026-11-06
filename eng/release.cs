@@ -482,8 +482,10 @@ static void CheckRecord(Repository repository, Descriptor descriptor, List<strin
 // sbom (ADR 0102, amended 2026-10-27): from the first commit that carries
 // eng/sbom.cs, a release is format 2, and its sbom list names every artefact
 // it ships: each packable project of Varve.slnx (nupkg, or tool for a
-// PackAsTool one) and the container image. A binary or asset line names a file
-// the release carries, which publish.yml checks. The digests need the restore,
+// PackAsTool one) and the container image. From the first commit that
+// carries eng/winget.cs (ADR 0226), also one binary per RID the CLI ships, the
+// VarveNativeRuntimeIdentifiers of Directory.Build.props at that commit. An
+// asset line names a file the release carries, which publish.yml checks. The digests need the restore,
 // which the plan does not run: publish.yml regenerates every SBOM and checks
 // each digest with eng/sbom.cs --descriptor before anything is pushed.
 static void CheckSbom(Repository repository, Descriptor descriptor, string commit, List<string> problems)
@@ -525,6 +527,18 @@ static void CheckSbom(Repository repository, Descriptor descriptor, string commi
         }
     }
 
+    if (repository.Show(commit, "eng/winget.cs") is not null && descriptor.Version is { } tagged)
+    {
+        string version = tagged.TrimStart('v');
+        System.Text.RegularExpressions.Match rids = System.Text.RegularExpressions.Regex.Match(
+            repository.Show(commit, "Directory.Build.props") ?? "", "<VarveNativeRuntimeIdentifiers>([^<]*)</VarveNativeRuntimeIdentifiers>");
+
+        foreach (string rid in rids.Groups[1].Value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            expected.Add($"binary: varve-{version}-{rid}{(rid.StartsWith("win", StringComparison.Ordinal) ? ".zip" : ".tar.gz")}");
+        }
+    }
+
     HashSet<string> named = [.. descriptor.Sbom.Select(static line => $"{line.Kind}: {line.Name}")];
 
     foreach (string missing in expected.Where(key => !named.Contains(key)))
@@ -532,7 +546,7 @@ static void CheckSbom(Repository repository, Descriptor descriptor, string commi
         problems.Add($"{descriptor.Path}: no sbom line for {missing}; eng/sbom.cs writes it (sbom.txt)");
     }
 
-    foreach (SbomLine line in descriptor.Sbom.Where(line => line.Kind is "nupkg" or "tool" or "image" && !expected.Contains($"{line.Kind}: {line.Name}")))
+    foreach (SbomLine line in descriptor.Sbom.Where(line => line.Kind is "nupkg" or "tool" or "image" or "binary" && !expected.Contains($"{line.Kind}: {line.Name}")))
     {
         problems.Add($"{descriptor.Path}:{line.Line}: {line.Kind} {line.Name} is not an artefact {commit[..12]} ships");
     }

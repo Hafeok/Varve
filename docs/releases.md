@@ -119,7 +119,8 @@ takes them for numbers.
       ```
 
       and copy `artifacts/sbom/sbom.txt`. The CLI binaries add `--binary
-      <rid>` each, once they are released (#129);
+      <rid>` for each RID in `VarveNativeRuntimeIdentifiers` (ADR 0226), and
+      `eng/release.cs` requires a `binary:` line for each;
     - **checked three times:**
       - `eng/release.cs` requires format 2 at a commit that carries
         `eng/sbom.cs`, with a line for every packable project and the image;
@@ -194,11 +195,19 @@ one.
    2026-11-03). The descriptor does not carry them, and `CHANGELOG.md`
    projects the summary alone.
 
-   The release carries the packages exactly as they were attested, with
-   `SHA256SUMS`, every SBOM and the VEX document. Its last job verifies what
-   was published as a consumer would: the attestations of the release's
-   packages, and that nuget.org serves each of those packages under its own
-   repository signature ([`supply-chain.md`](supply-chain.md)).
+   The release carries the packages exactly as they were attested, the CLI's
+   archives (one per RID, each attested), the winget manifests, every SBOM,
+   the VEX document and `SHA256SUMS` over all but the SBOMs, itself attested
+   (ADR 0226). The push to nuget.org waits for all of it. Its last jobs
+   verify what was published as a consumer would: the attestations of the
+   release's packages and archives, that nuget.org serves each package under
+   its own repository signature ([`supply-chain.md`](supply-chain.md)), and
+   that winget installs the CLI from the manifests.
+
+   **The winget submission is the maintainer's**, after the release:
+   `wingetcreate submit` on the release's three `Hafeok.Varve*.yaml` files,
+   signed in interactively. No credential for it is stored (ADR 0226 point
+   4). The Homebrew tap picks the release up by itself.
 
    **The dry run of `publish.yml`.** A pull request that touches the release
    pipeline runs all of this at its head, as its landing would cut the
