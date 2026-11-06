@@ -6,16 +6,21 @@
 maintainer's direction of that day (ADR 0066). By the same direction it is
 applied from 2026-11-06, ahead of its acceptance. The maintainer read it on
 its pull request, #245, as it stood at 8d2afa78, and its rulings were accepted
-there on 2026-11-06, by his delegate at his word.
+there on 2026-11-06, by his delegate at his word. The planned end below was
+reworded the same day, at his direction, before the ADR landed; the rulings
+are as he read them.
 
 **Amends ADR [0066](0066-expected-red-pull-requests.md)** (a session never
 accepts) and **ADR [0087](0087-the-identity-map.md)** (who approves and
 accepts for an agent), each by a dated amendment in its own file. Records
 decision set [`the-maintainers-delegate`](../decisions/the-maintainers-delegate.md).
 
-**Planned end:** with ADR 0087's. When an approval is a signed ledger `Review`
-by an identity holding `Approve`, a delegate needs an identity and a grant of
-its own, and this ADR is superseded.
+**Planned end:** this ADR is superseded by whichever of two lands first.
+- The ADR proposed in [#246](https://github.com/Hafeok/Varve/issues/246),
+  agent grants in the identity map: what an agent may do under its human.
+- The ledger's grants, ADR 0087's own planned end: an approval becomes a
+  signed ledger `Review` by an identity holding `Approve`, and a delegate
+  needs an identity and a grant of its own.
 
 ## Context
 
