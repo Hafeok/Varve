@@ -61,6 +61,21 @@ request (ADR 0066). No byte of storage format 1 or delta format 1 changes.
   delta of the caller's view, reclassified quads included. Validation
   report graphs and their attachments are withheld from a row-restricted
   caller. Inference's closure waits for #171 (ADR 0238).
+- **Inference under row-scoped grants** (ADR 0238 point 1), decided where
+  this part met Inference part 1 (`v0.1.0-preview.18`):
+  - a query under a regime the rewriting serves (`rdf`, `rdfs`, `D`) is
+    rewritten over the caller's view by graph and by row, so a
+    row-restricted caller is answered exactly the entailments of the rows
+    it reads;
+  - a classifier binding whose graphs include a TBox graph of a TBox
+    binding is refused at apply, as `declaration-invalid` naming both
+    bindings and the graph: a TBox graph is read by every reader of the
+    dataset and its schema is shared between callers, so it is never
+    classified;
+  - two tests in `RowScopeTests` state it over HTTP, and `RowApplyTests`
+    gains the refusal: a row-restricted answer under RDFS equals the
+    rewriting over the rows the caller sees, and an entailment from a row
+    the caller does not read is not in its answer.
 - **`Varve.Classification`**, a new layer-5 package (ADRs 0232, 0233).
   `ShapeClassifier` is `Varve.Store`'s new `IClassifier`.
   `ClassificationProjection` keeps the classification at every position,
