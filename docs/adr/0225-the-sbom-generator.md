@@ -123,3 +123,52 @@ the descriptor.** #167's Web UI bundle is `asset:` (ADR 0102, amended).
 **Analyzer rule.** None.
 
 **Open questions owned.** None.
+
+## Amendment, 2026-11-06 — the Web UI bundle
+
+Filed by Web UI part 1 (#167) on its pull request, #187, at the maintainer's
+direction of 2026-11-06, and accepted there (ADR 0066).
+
+The Consequences say a new kind of artefact needs a branch in the generator
+and a line kind in the descriptor. #167 ships one: `varve-webui-<version>.zip`,
+the static files published from `src/Varve.WebUi`, attached to the release.
+It is published on its own, in neither the tool nor the image, so it has an
+SBOM of its own (ADR 0224 point 1).
+
+- **Its input is the Web UI's restore for `browser-wasm`,** as point 2 has it
+  for a binary: every package with a deployed asset in the target, and Varve's
+  own libraries by their package URLs.
+- **`Microsoft.AspNetCore.App.Internal.Assets` is named too.** It carries
+  `blazor.webassembly.js`, the script `index.html` loads, as a static web
+  asset, and a restore graph lists no static web asset as deployed. The SDK
+  references the package by itself, the lockfile holds its version and hash,
+  and a restore without it is a finding.
+- **The .NET runtime is `Microsoft.NETCore.App.Runtime.Mono.browser-wasm`,**
+  at the version of the runtime the SDK bundles.
+  - The wasm-tools workload supplies the pack, so the restore graph does not
+    name it.
+  - The version is read from the lockfile's
+    `Microsoft.NET.Sdk.WebAssembly.Pack`, which the SDK references by itself
+    at that version, and which `eng/lockfiles.cs` holds to `global.json`'s
+    SDK.
+  - `publish.yml` fails a bundle published with any other runtime pack.
+- **Nothing outside NuGet.** The bundle has no npm or other JavaScript
+  lockfile. Its one script of its own, its two stylesheets and its mark are
+  this repository's files, and are the root's. A dependency resolved outside
+  NuGet would first need its lockfile checked in and restored locked, each
+  package in the register with its scope, ADR and licence, and its components
+  listed with `pkg:npm` URLs (ADR 0224 points 2, 4 and 5).
+- **The list is what the bundle can carry.** The publish trims, so an
+  assembly the restore deploys may be absent from the bundle. None is present
+  that the list lacks.
+- **Not listed: Emscripten's system libraries.** The relink links them from
+  the workload's Emscripten pack, which no restore names. The build
+  provenance attestation records the run that installed it.
+- **The descriptor's line** is `asset: varve-webui-<version>.zip sha256:…`.
+  `eng/release.cs` requires it while `src/Varve.WebUi` declares
+  `VarveShipped`.
+- **Publishing.** `publish.yml` attests the zip keylessly with its build
+  provenance and with this SBOM, attaches both to the release, and verifies
+  both after it, as for a package (ADR 0224 point 3).
+
+Records decision `TheWebUiBundleFromItsRestore`.

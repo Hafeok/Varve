@@ -26,6 +26,12 @@
 //                                 in src/Varve.Server/container/Dockerfile,
 //                                 scanned for linux/amd64 and linux/arm64;
 //                                 --image gives scans made elsewhere
+//   asset/varve-webui-<v>.zip.spdx.json
+//                                 the Web UI bundle (ADR 0225, amended
+//                                 2026-11-06): what the published static
+//                                 files carry, from src/Varve.WebUi's restore
+//                                 for browser-wasm, and the .NET runtime
+//                                 relinked into it
 //   sbom.txt                      the descriptor's `sbom:` lines (ADR 0102,
 //                                 amended), one per document, sorted
 //
@@ -70,6 +76,9 @@ const string Supplier = "Organization: decision-driven-design";
 const string VarveLicence = "MPL-2.0";
 const string ImageName = "ghcr.io/hafeok/varve";
 const string Framework = "net10.0";
+const string WebAssemblyRid = "browser-wasm";
+const string WebAssemblySdkPack = "Microsoft.NET.Sdk.WebAssembly.Pack";
+const string BlazorScriptPack = "Microsoft.AspNetCore.App.Internal.Assets";
 
 string repositoryRoot = FindRepositoryRoot();
 string? version = null;
@@ -187,6 +196,19 @@ if (images.Count > 0 && Load(server, findings) is { } image)
     Add("image", ImageName, "image/varve.spdx.json", document);
 }
 
+// --- the Web UI bundle -----------------------------------------------------------
+
+// Published and never packed (ADR 0200): a release asset of static files,
+// named by its file as a binary is. A tree without the project has no line.
+string webUi = Path.Combine(repositoryRoot, "src", "Varve.WebUi", "Varve.WebUi.csproj");
+
+if (File.Exists(webUi) && Load(webUi, findings) is { } ui)
+{
+    string asset = WebUiAsset(version);
+    JsonObject document = WebUiDocument(asset, ui.graph, ui.lockfile);
+    Add("asset", asset, $"asset/{asset}.spdx.json", document);
+}
+
 if (findings.Count > 0)
 {
     foreach (string finding in findings)
@@ -279,6 +301,93 @@ JsonObject BinaryDocument(string asset, string rid, RestoreGraph graph, Lockfile
         relationships: "CONTAINS",
         direct: DirectIds(graph, Framework),
         runtime: Runtime(graph, rid));
+}
+
+// The Web UI bundle is a Blazor WebAssembly publish: the app's assemblies, the
+// packages its restore for browser-wasm deploys, Varve's own libraries among
+// them, and the .NET runtime. Its own script, stylesheets and mark are the
+// root's: they are this repository's files, under its licence.
+JsonObject WebUiDocument(string asset, RestoreGraph graph, Lockfile lockfile)
+{
+    string target = $"{Framework}/{WebAssemblyRid}";
+
+    if (!graph.Targets.ContainsKey(target))
+    {
+        findings.Add($"src/Varve.WebUi has no restore target {target}; a Blazor WebAssembly project restores for {WebAssemblyRid}");
+        return new JsonObject();
+    }
+
+    // blazor.webassembly.js, the script index.html loads, is a static web
+    // asset of a package the SDK references by itself. A restore graph lists
+    // runtime, native and resource assets as deployed and no static web asset,
+    // so the package is named here; a restore without it is a finding, since
+    // the script then comes from somewhere this does not know.
+    List<AssetLibrary> carried = Restores.Shipped(graph, target);
+
+    if (graph.Targets[target].Values.FirstOrDefault(static l => l.Type == "package" && string.Equals(l.Id, BlazorScriptPack, StringComparison.OrdinalIgnoreCase)) is { } script)
+    {
+        if (!carried.Exists(l => string.Equals(l.Id, script.Id, StringComparison.OrdinalIgnoreCase)))
+        {
+            carried = [.. carried.Append(script).OrderBy(static l => l.Id, StringComparer.OrdinalIgnoreCase)];
+        }
+    }
+    else
+    {
+        findings.Add($"src/Varve.WebUi's restore for {target} has no {BlazorScriptPack}, which carries blazor.webassembly.js; say where the bundle's script comes from (eng/sbom.cs, WebUiDocument)");
+    }
+
+    Root root = new("varve-webui", version!, "APPLICATION", null, "NOASSERTION", asset);
+
+    return Document(
+        name: $"{asset}",
+        kind: "asset",
+        root: root,
+        components: Components(carried, graph, lockfile, target, findings),
+        relationships: "CONTAINS",
+        direct: DirectIds(graph, Framework),
+        runtime: WebAssemblyRuntime(graph, lockfile));
+}
+
+// The .NET runtime in the bundle is Mono's for the browser, relinked at
+// publish to what the app uses. The wasm-tools workload supplies its pack, so
+// the restore graph does not name it. The lockfile names
+// Microsoft.NET.Sdk.WebAssembly.Pack, which the SDK references by itself at
+// the version of the runtime it bundles, and the workload set of an SDK
+// installs the runtime pack at that same version: eng/lockfiles.cs holds the
+// first to global.json's SDK, and publish.yml fails a bundle published with
+// another runtime pack than the one named here.
+List<JsonObject> WebAssemblyRuntime(RestoreGraph graph, Lockfile lockfile)
+{
+    LockedPackage? sdk = lockfile.Targets.TryGetValue(Framework, out IReadOnlyList<LockedPackage>? packages)
+        ? packages.FirstOrDefault(static p => string.Equals(p.Id, WebAssemblySdkPack, StringComparison.OrdinalIgnoreCase))
+        : null;
+
+    if (sdk is null)
+    {
+        findings.Add($"{Relative(graph.ProjectPath)}'s lockfile does not name {WebAssemblySdkPack}; the runtime's version is read from it");
+        return [];
+    }
+
+    string name = $"Microsoft.NETCore.App.Runtime.Mono.{WebAssemblyRid}";
+
+    return
+    [
+        new JsonObject
+        {
+            ["name"] = name,
+            ["SPDXID"] = ComponentId(name),
+            ["versionInfo"] = sdk.Version,
+            ["supplier"] = "Organization: Microsoft",
+            ["downloadLocation"] = NugetDownload(name, sdk.Version),
+            ["filesAnalyzed"] = false,
+            ["licenseConcluded"] = "MIT",
+            ["licenseDeclared"] = "MIT",
+            ["copyrightText"] = "NOASSERTION",
+            ["externalRefs"] = new JsonArray(PurlRef(NugetPurl(name, sdk.Version))),
+            ["primaryPackagePurpose"] = "FRAMEWORK",
+            ["comment"] = "The .NET runtime, relinked into the bundle's dotnet.native.wasm, and its framework assemblies, trimmed.",
+        },
+    ];
 }
 
 // The image is the binary of each platform on the chiseled base. The base's
@@ -841,6 +950,9 @@ static string NugetDownload(string id, string version) =>
 // The release asset of the CLI for one RID (ADR 0226).
 static string BinaryAsset(string version, string rid) =>
     $"varve-{version}-{rid}{(rid.StartsWith("win", StringComparison.Ordinal) ? ".zip" : ".tar.gz")}";
+
+// The release asset of the Web UI bundle (ADR 0202 point 6).
+static string WebUiAsset(string version) => $"varve-webui-{version}.zip";
 
 static bool IsTool(string project) =>
     XDocument.Load(project).Descendants().Any(static e => e.Name.LocalName == "PackAsTool" && string.Equals(e.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase));

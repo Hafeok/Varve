@@ -206,7 +206,7 @@ and a dependency; `GOVERNANCE.md` has who decides.
 ## State
 
 Web UI part 1, the operator console (#167, part 1 of #96), complete as
-`v0.1.0-preview.19` (ADRs 0200–0206, filed unaccepted). **`Varve.WebUi`** is
+`v0.1.0-preview.20` (ADRs 0200–0206, filed unaccepted). **`Varve.WebUi`** is
 a Blazor WebAssembly client of the public API (0200), trimmed and
 interpreted. Its download is gated by `eng/browser-size.cs` (0205).
 - **Its design source is `docs/ui/`** (0206):
@@ -219,6 +219,10 @@ interpreted. Its download is gated by `eng/browser-size.cs` (0205).
   scope), tokens in the heap.
 - **Hosting** (0202): `Varve:WebUi:Path` serves it under `/ui/` with a
   strict CSP.
+- **Its SBOM** (0225, amended 2026-11-06): `eng/sbom.cs` writes the
+  bundle's from its locked restore for `browser-wasm`, the descriptor names
+  the zip in an `asset:` line, and `publish.yml` attests the zip with it.
+  The bundle resolves nothing outside NuGet.
 - **The client's reads** (0203): `Varve.Protocol.Client` answers
   `VarveResult<T>`.
 - **Browser tests** (0204): `tests/Varve.WebUi.Browser.Tests` runs

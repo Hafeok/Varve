@@ -12,7 +12,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [0.1.0-preview.19] - 2026-10-28
+## [0.1.0-preview.20] - 2026-10-28
 
 **Web UI, part 1 — the operator console in the browser**
 
@@ -32,7 +32,8 @@ dataset's own screens under a dataset selector.
 
 It takes a checkpoint, and closes and opens a dataset, each through a
 confirmation that names the drift from Git. It is published as
-`varve-webui-<version>.zip`, with build provenance. The server serves it
+`varve-webui-<version>.zip`, attested with its build provenance and its
+SBOM, as every package is. The server serves it
 under `/ui/` when `Varve:WebUi:Path` names it, and any static host can
 serve it too. The storage and delta formats are unchanged. The seven ADRs
 are filed unaccepted and accepted on the pull request (ADR 0066). #96
@@ -81,38 +82,19 @@ stays open for part 2, the data explorer.
   - anonymous mode, and sign-in against mock-oauth2-server and Zitadel;
   - a token naming both audiences, refused by both planes.
 - **The operator guide's Web UI page,** `docs/operator/web-ui.md`.
+- **The bundle's SBOM** (ADRs 0224 and 0225, amended). `eng/sbom.cs`
+  writes it from the Web UI's locked restore: the packages its browser
+  build deploys, Varve's own libraries, the package that carries
+  `blazor.webassembly.js`, and the .NET runtime relinked into it. The
+  bundle resolves nothing outside NuGet. This descriptor names the zip
+  with its SBOM's SHA-256 as an `asset:` line, and the release carries
+  both. Verify with `gh attestation verify varve-webui-<version>.zip
+  --owner hafeok`.
 
 #### Changed
 
 - **`BearerToken.Fixed` is `BearerTokens.Fixed`** (ADR 0127, amended).
   The fixed provider sits beside the delegate type, not on it.
-- **Cached derived data is verified before use** (ADR 0213). Every
-  derived block carries a check, held in the blob's directory, and is
-  verified before first use. Damage is a miss: the read rebuilds the
-  damaged run from the log and carries on, and the writer writes the blob
-  again. The commit index, runs, the dictionary extent and the new checked
-  envelope move to derived version 6. The catalog and the state stay at
-  4, so an older build still reads the log above them. The log's own
-  format is unchanged.
-- **File-backend failure injection** (ADR 0214). Torn writes at every
-  byte of every write, and under power loss at every sector, a full disk
-  at every allocation, and the other faults, at every point, on simulated
-  and on real files. A full disk leaves the commit that met it
-  unacknowledged, keeps the dataset open for reads, and the next write
-  recovers the writer in place.
-- **The soak gate, run and judged** (ADR 0215). A bounded workload that
-  reaches a steady size, the shipped runtime configuration in one file,
-  and a judge that holds the working set flat within a band, for four
-  hours, with Windows weekly.
-- **Entailments under graph-level grants** (ADR 0190, amending ADR
-  0107). The decision Inference (#95) builds on, accepted ahead of it;
-  nothing infers yet.
-
-#### Fixed
-
-- **A report graph read while its projection was behind could answer an
-  empty report** (#183), which reads as conforming. It now answers the
-  report at the position, or `503 validation-behind`, as ADR 0174 allows.
 
 #### Not yet
 
@@ -1991,8 +1973,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.19...HEAD
-[0.1.0-preview.19]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.17...v0.1.0-preview.19
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.20...HEAD
+[0.1.0-preview.20]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.17...v0.1.0-preview.20
 [0.1.0-preview.17]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.16...v0.1.0-preview.17
 [0.1.0-preview.16]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...v0.1.0-preview.16
 [0.1.0-preview.15]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...v0.1.0-preview.15

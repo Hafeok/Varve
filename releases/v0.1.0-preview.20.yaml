@@ -1,5 +1,5 @@
-format: 1
-version: v0.1.0-preview.19
+format: 2
+version: v0.1.0-preview.20
 title: Web UI, part 1 — the operator console in the browser
 date: 2026-10-28
 basis:
@@ -12,6 +12,36 @@ basis:
   - adr: "0203"
   - adr: "0204"
   - adr: "0205"
+sbom:
+  - asset: varve-webui-0.1.0-preview.20.zip sha256:545f24283969e8537b3ce26a8d64a8d859fa1277c63b1f3344239087b272421c
+  - image: ghcr.io/hafeok/varve sha256:e8d54d98bec08216bacf141bc9a9a7a1cb41414d7cccea355a0208129895ec3d
+  - nupkg: Varve.Aspire sha256:0831143565207787972f9f7c6be914d0cb699a0dcd12feeeeb3d40ce25c99e69
+  - nupkg: Varve.Delta sha256:c5cf6f38bb5c3a96385176e70967d80cd90916a191fc1a2f640cc6bb516d0a67
+  - nupkg: Varve.Derivation sha256:aba63ff23873caf8677edaf87fb23ad11a094b7378816e170dd3aeadd0beda8c
+  - nupkg: Varve.Events sha256:7c60dea2a8f14f882cc5dc2fdbec936d20bea470b983ebb8e062cb18675b31b1
+  - nupkg: Varve.Iri sha256:2b5706ad675a3aa2e60396e1f9a070542c6ed9ef09984ab48ff93de77a65e4fe
+  - nupkg: Varve.Json.Canonical sha256:b8d04d0d45b3cc462407301b1d046a567c077f7ba2476dc1950b3cca21500f66
+  - nupkg: Varve.JsonLd sha256:e68b726912387c89dc6d604161a7538d820455734fc9f2a7af262bdf03a78455
+  - nupkg: Varve.Management sha256:90aa04fb42c493adcb7ea82d0c905899b2474fcd4a5e3eab762ac8c3df278263
+  - nupkg: Varve.Protocol sha256:1898c52d95dff387d4117b1249e9dd1f7855c79e4a30c273e1b456d78a02cd61
+  - nupkg: Varve.Protocol.Client sha256:7e35e6f5278cd9fb00082aa148bdec9f92f4fe334705d159fb7efd02fe6faadc
+  - nupkg: Varve.Rdf sha256:3f6a742a5943635e3db899fd662e7148834544847a5e152ac4b3d49228f717c9
+  - nupkg: Varve.RdfXml sha256:34ed282f49d4a73d3a37debcf9c767337898d3fd0b573de7d4515764626debde
+  - nupkg: Varve.Shacl sha256:322a08b9d5c20298cd9bce5f55854e1193e3b5e521081afe2eb2aa6493bfdfb0
+  - nupkg: Varve.Shacl.Sparql sha256:54a65456e2a8c4c9564537ddfcf074efd8a2b68a8d29828445a9f79dde68a265
+  - nupkg: Varve.Shacl.Store sha256:3e7a5a828f628426d8f3f7f487fadea8f706566bc11d2ac342900941144d65aa
+  - nupkg: Varve.Sparql sha256:1097280aecce5f65f78ba144cd092ab887471ff76eafc5e1db0186320cfe3e4f
+  - nupkg: Varve.Sparql.Evaluation sha256:6897c3fb6ad3a50070cf649a7001346f79b848941bbe5aaf4f7e3df30c86a2fa
+  - nupkg: Varve.Sparql.Results sha256:40cbdca94d7579dcb76eea20dfd337bc543ccc361759722e81e14b70c6575c00
+  - nupkg: Varve.Sparql.Store sha256:a2061358417657cce251742a32978abf152f25f51f0c7c50fdadceb6953e0ea3
+  - nupkg: Varve.Store sha256:3e3c4c15865d66bf66d09815cec0eff5bb3fa7f7cd8f1b65daa4ada7781c9891
+  - nupkg: Varve.Store.Azure sha256:b4fe6254e42ece08c58371be3680c9f5208b1d508aacb4fee32f5f46a13c1de6
+  - nupkg: Varve.Store.Browser sha256:87f834c256b15fa25c06df7cef9998fc6350f1ebd2301a70842c432281a8cbde
+  - nupkg: Varve.Store.ObjectStorage sha256:692c7741f867ddf6c74ca70ffb6f9a55b9fe11ce880f14afa75adf9c4bdbaa45
+  - nupkg: Varve.Store.S3 sha256:179a615466c08aa8f8ed5e2f4011f8586356bc479ac6de62cc7e02f0002666e6
+  - nupkg: Varve.Turtle sha256:deb44152f120558b9b9a0bfb3deef5f05a4f82367276db1bacb2a1175e4e0cdd
+  - nupkg: Varve.Xsd sha256:c47f41bb6204816cd21484b68616029260643fe2cb97483e523e06bbbf481150
+  - tool: Varve.Server sha256:9afe66cccaa0507f612b03e44c7908df1b51fae2ac7e60fa966e6c86dc2aa26f
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
   ### Milestone Web UI, part 1 — the operator console (#167, part 1 of #96)
@@ -30,7 +60,8 @@ summary: |
 
   It takes a checkpoint, and closes and opens a dataset, each through a
   confirmation that names the drift from Git. It is published as
-  `varve-webui-<version>.zip`, with build provenance. The server serves it
+  `varve-webui-<version>.zip`, attested with its build provenance and its
+  SBOM, as every package is. The server serves it
   under `/ui/` when `Varve:WebUi:Path` names it, and any static host can
   serve it too. The storage and delta formats are unchanged. The seven ADRs
   are filed unaccepted and accepted on the pull request (ADR 0066). #96
@@ -79,38 +110,19 @@ summary: |
     - anonymous mode, and sign-in against mock-oauth2-server and Zitadel;
     - a token naming both audiences, refused by both planes.
   - **The operator guide's Web UI page,** `docs/operator/web-ui.md`.
+  - **The bundle's SBOM** (ADRs 0224 and 0225, amended). `eng/sbom.cs`
+    writes it from the Web UI's locked restore: the packages its browser
+    build deploys, Varve's own libraries, the package that carries
+    `blazor.webassembly.js`, and the .NET runtime relinked into it. The
+    bundle resolves nothing outside NuGet. This descriptor names the zip
+    with its SBOM's SHA-256 as an `asset:` line, and the release carries
+    both. Verify with `gh attestation verify varve-webui-<version>.zip
+    --owner hafeok`.
 
   #### Changed
 
   - **`BearerToken.Fixed` is `BearerTokens.Fixed`** (ADR 0127, amended).
     The fixed provider sits beside the delegate type, not on it.
-  - **Cached derived data is verified before use** (ADR 0213). Every
-    derived block carries a check, held in the blob's directory, and is
-    verified before first use. Damage is a miss: the read rebuilds the
-    damaged run from the log and carries on, and the writer writes the blob
-    again. The commit index, runs, the dictionary extent and the new checked
-    envelope move to derived version 6. The catalog and the state stay at
-    4, so an older build still reads the log above them. The log's own
-    format is unchanged.
-  - **File-backend failure injection** (ADR 0214). Torn writes at every
-    byte of every write, and under power loss at every sector, a full disk
-    at every allocation, and the other faults, at every point, on simulated
-    and on real files. A full disk leaves the commit that met it
-    unacknowledged, keeps the dataset open for reads, and the next write
-    recovers the writer in place.
-  - **The soak gate, run and judged** (ADR 0215). A bounded workload that
-    reaches a steady size, the shipped runtime configuration in one file,
-    and a judge that holds the working set flat within a band, for four
-    hours, with Windows weekly.
-  - **Entailments under graph-level grants** (ADR 0190, amending ADR
-    0107). The decision Inference (#95) builds on, accepted ahead of it;
-    nothing infers yet.
-
-  #### Fixed
-
-  - **A report graph read while its projection was behind could answer an
-    empty report** (#183), which reads as conforming. It now answers the
-    report at the position, or `503 validation-behind`, as ADR 0174 allows.
 
   #### Not yet
 

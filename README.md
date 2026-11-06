@@ -43,7 +43,7 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.19` is the latest release, and it is the Web UI's first
+**`v0.1.0-preview.20` is the latest release, and it is the Web UI's first
 part, the operator console in the browser
 ([#167](https://github.com/Hafeok/Varve/issues/167), part 1 of
 [#96](https://github.com/Hafeok/Varve/issues/96))**: a Blazor WebAssembly
@@ -382,7 +382,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.19
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.20
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -391,7 +391,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data"
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.19 serve --anonymous
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.20 serve --anonymous
 
 # then declare the dataset in the management plane (ADR 0163):
 curl -X PUT http://localhost:5000/manage/datasets/people -H 'Content-Type: application/trig' \

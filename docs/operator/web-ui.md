@@ -15,13 +15,18 @@ can do nothing the API and `varve` cannot.
 asks before each, and closing needs the dataset's name typed.
 
 A release publishes the Web UI as `varve-webui-<version>.zip`, a release
-asset with build provenance. It is not in the server's container image. The
-zip is the published `wwwroot`: `index.html`, `appsettings.json`,
-`_framework/` and the styles. Check it before you unpack it:
+asset attested with its build provenance and its SBOM. It is not in the
+server's container image. The zip is the published `wwwroot`: `index.html`,
+`appsettings.json`, `_framework/` and the styles. Check it before you unpack
+it:
 
 ```sh
 gh attestation verify varve-webui-0.1.0-preview.N.zip --owner hafeok
 ```
+
+The release carries its SBOM beside it, `varve-webui-<version>.zip.spdx.json`;
+[the supply chain page](../supply-chain.md) says what it lists and how to
+verify each attestation.
 
 There are two ways to host it.
 
