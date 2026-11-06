@@ -13,7 +13,7 @@ basis:
   - adr: "0204"
   - adr: "0205"
 sbom:
-  - asset: varve-webui-0.1.0-preview.20.zip sha256:545f24283969e8537b3ce26a8d64a8d859fa1277c63b1f3344239087b272421c
+  - asset: varve-webui-0.1.0-preview.20.zip sha256:46c795d560268c02f3bb9397a03ff0c6884e4de29c4dd3ff27bdbf8bd7a27e9d
   - image: ghcr.io/hafeok/varve sha256:e8d54d98bec08216bacf141bc9a9a7a1cb41414d7cccea355a0208129895ec3d
   - nupkg: Varve.Aspire sha256:0831143565207787972f9f7c6be914d0cb699a0dcd12feeeeb3d40ce25c99e69
   - nupkg: Varve.Delta sha256:c5cf6f38bb5c3a96385176e70967d80cd90916a191fc1a2f640cc6bb516d0a67
@@ -113,8 +113,10 @@ summary: |
   - **The bundle's SBOM** (ADRs 0224 and 0225, amended). `eng/sbom.cs`
     writes it from the Web UI's locked restore: the packages its browser
     build deploys, Varve's own libraries, the package that carries
-    `blazor.webassembly.js`, and the .NET runtime relinked into it. The
-    bundle resolves nothing outside NuGet. This descriptor names the zip
+    `blazor.webassembly.js`, the .NET runtime relinked into it, and
+    Emscripten's packs by package URL: its system libraries as contained,
+    its compiler and Node.js as build tools. The bundle resolves nothing
+    outside NuGet. This descriptor names the zip
     with its SBOM's SHA-256 as an `asset:` line, and the release carries
     both. Verify with `gh attestation verify varve-webui-<version>.zip
     --owner hafeok`.

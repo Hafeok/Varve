@@ -152,6 +152,25 @@ SBOM of its own (ADR 0224 point 1).
     at that version, and which `eng/lockfiles.cs` holds to `global.json`'s
     SDK.
   - `publish.yml` fails a bundle published with any other runtime pack.
+- **Emscripten is listed by pack, not by library.** The relink runs
+  Emscripten and links its system libraries into `dotnet.native.wasm`. The
+  wasm-tools workload supplies it in three packs, each a NuGet package, named
+  by package URL at the workload's version, which is the runtime pack's:
+  - `Microsoft.NET.Runtime.Emscripten.3.1.56.Cache.linux-x64`: the prebuilt
+    system libraries, libc and compiler-rt among them. The bundle contains
+    what the relink links from it;
+  - `Microsoft.NET.Runtime.Emscripten.3.1.56.Sdk.linux-x64`: the compiler and
+    linker, a build tool;
+  - `Microsoft.NET.Runtime.Emscripten.3.1.56.Node.linux-x64`: the Node.js
+    that runs Emscripten's scripts, a build tool.
+
+  The two build tools are related to the bundle by `BUILD_TOOL_OF`, never
+  `CONTAINS`. The libraries inside the first pack are not listed one by one,
+  nor are their own licences: each pack declares its licence by URL, and its
+  `LICENSE` file, read on 2026-11-06, is the MIT licence. Emscripten's
+  version and the publish runner's RID are in the packs' names, which no
+  restore gives, so they are constants of `eng/sbom.cs`; `publish.yml` fails
+  a bundle whose build had other Emscripten packs installed than these.
 - **Nothing outside NuGet.** The bundle has no npm or other JavaScript
   lockfile. Its one script of its own, its two stylesheets and its mark are
   this repository's files, and are the root's. A dependency resolved outside
@@ -161,14 +180,16 @@ SBOM of its own (ADR 0224 point 1).
 - **The list is what the bundle can carry.** The publish trims, so an
   assembly the restore deploys may be absent from the bundle. None is present
   that the list lacks.
-- **Not listed: Emscripten's system libraries.** The relink links them from
-  the workload's Emscripten pack, which no restore names. The build
-  provenance attestation records the run that installed it.
 - **The descriptor's line** is `asset: varve-webui-<version>.zip sha256:…`.
   `eng/release.cs` requires it while `src/Varve.WebUi` declares
   `VarveShipped`.
 - **Publishing.** `publish.yml` attests the zip keylessly with its build
   provenance and with this SBOM, attaches both to the release, and verifies
   both after it, as for a package (ADR 0224 point 3).
+- **The rule has its fixtures** (ADR 0224's gate): `eng/sbom.cs --fixtures
+  tests/fixtures/sbom-descriptor` passes a descriptor whose `asset:` line
+  carries the generated digest, and refuses one whose digest differs and one
+  with no line. `tests/fixtures/releases/missing-asset-line` is
+  `eng/release.cs`'s case.
 
 Records decision `TheWebUiBundleFromItsRestore`.

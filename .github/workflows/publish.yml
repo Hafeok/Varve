@@ -898,24 +898,25 @@ jobs:
           name: sbom
           path: ${{ runner.temp }}/sbom
 
-      - name: The runtime in the bundle is the one its SBOM names
-        # The SBOM names Mono's browser runtime pack at the version of the
+      - name: The runtime and Emscripten in the bundle's build are the ones its SBOM names
+        # The SBOM names the workload's packs that no restore names: Mono's
+        # browser runtime pack and Emscripten's three, at the version of the
         # runtime the SDK bundles, read from the lockfile. The publish above
-        # took the pack the wasm-tools workload installed: one version, and
-        # it must be that one.
+        # took the packs the wasm-tools workload installed. They must be
+        # exactly those: the same names, one version each, and the same.
         shell: bash
         env:
           SBOM: ${{ steps.zip.outputs.sbom }}
         run: |
           set -euo pipefail
-          pack=Microsoft.NETCore.App.Runtime.Mono.browser-wasm
-          named=$(jq -r --arg pack "$pack" '.packages[] | select(.name == $pack) | .versionInfo' "$SBOM")
-          used=$(ls "$(dirname "$(command -v dotnet)")/packs/$pack" | tr '\n' ' ' | sed 's/ $//')
-          if [ -z "$named" ] || [ "$used" != "$named" ]; then
-            echo "::error::the bundle was published with $pack '$used', and its SBOM names '$named'"
+          named=$(jq -r '.packages[] | select(.name | test("^Microsoft\\.NETCore\\.App\\.Runtime\\.Mono\\.browser-wasm$|^Microsoft\\.NET\\.Runtime\\.Emscripten\\.")) | "\(.name) \(.versionInfo)"' "$SBOM" | sort)
+          used=$(cd "$(dirname "$(command -v dotnet)")/packs" && for pack in Microsoft.NETCore.App.Runtime.Mono.browser-wasm Microsoft.NET.Runtime.Emscripten.*; do for version in "$pack"/*/; do echo "$pack $(basename "$version")"; done; done | sort)
+          if [ -z "$named" ] || [ "$named" != "$used" ]; then
+            echo "::error::the bundle's SBOM names other workload packs than its publish used"
+            diff <(echo "$named") <(echo "$used") || true
             exit 1
           fi
-          echo "$pack $named, in the bundle and in its SBOM" >> "$GITHUB_STEP_SUMMARY"
+          { echo "The workload's packs, in the bundle's build and in its SBOM:"; echo '```'; echo "$named"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Attest the build provenance
         id: provenance

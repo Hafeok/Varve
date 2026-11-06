@@ -85,8 +85,10 @@ stays open for part 2, the data explorer.
 - **The bundle's SBOM** (ADRs 0224 and 0225, amended). `eng/sbom.cs`
   writes it from the Web UI's locked restore: the packages its browser
   build deploys, Varve's own libraries, the package that carries
-  `blazor.webassembly.js`, and the .NET runtime relinked into it. The
-  bundle resolves nothing outside NuGet. This descriptor names the zip
+  `blazor.webassembly.js`, the .NET runtime relinked into it, and
+  Emscripten's packs by package URL: its system libraries as contained,
+  its compiler and Node.js as build tools. The bundle resolves nothing
+  outside NuGet. This descriptor names the zip
   with its SBOM's SHA-256 as an `asset:` line, and the release carries
   both. Verify with `gh attestation verify varve-webui-<version>.zip
   --owner hafeok`.

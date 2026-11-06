@@ -8,6 +8,7 @@
 //       [--created <yyyy-mm-dd | yyyy-mm-ddThh:mm:ssZ>]
 //       [--syft <syft> | --image <platform>=<syft-spdx.json>...]  [--binary <rid>]...
 //       [--check-against <dir>] [--descriptor <releases/v….yaml>]
+//   dotnet run eng/sbom.cs -- --fixtures <dir>
 //
 // One SPDX 2.3 JSON document per shipped artefact, written from the restore
 // that built it and never by hand:
@@ -30,8 +31,9 @@
 //                                 the Web UI bundle (ADR 0225, amended
 //                                 2026-11-06): what the published static
 //                                 files carry, from src/Varve.WebUi's restore
-//                                 for browser-wasm, and the .NET runtime
-//                                 relinked into it
+//                                 for browser-wasm, the .NET runtime
+//                                 relinked into it, and Emscripten's packs
+//                                 the relink links from and runs
 //   sbom.txt                      the descriptor's `sbom:` lines (ADR 0102,
 //                                 amended), one per document, sorted
 //
@@ -52,6 +54,13 @@
 // byte-identical to the one of the same name in <dir>: that is the
 // determinism proof CI runs. --descriptor checks a descriptor's `sbom:` lines
 // against sbom.txt.
+//
+// --fixtures runs every case under a directory and generates nothing: each
+// holds `sbom.txt`, the lines a generation wrote, and `descriptor.yaml`. A
+// case named pass-… must match; one named fail-… must be refused, printing
+// every line of its `expect.txt`. That is the descriptor rule, a line per
+// generated SBOM with its digest, failing for its own reasons
+// (tests/fixtures/sbom-descriptor/).
 //
 // Exit codes: 0 written (and matching), 1 findings, 2 could not run.
 //
@@ -80,6 +89,14 @@ const string WebAssemblyRid = "browser-wasm";
 const string WebAssemblySdkPack = "Microsoft.NET.Sdk.WebAssembly.Pack";
 const string BlazorScriptPack = "Microsoft.AspNetCore.App.Internal.Assets";
 
+// Emscripten's packs in the wasm-tools workload, by the names the .NET 10
+// workload gives them: the version of Emscripten is in the name, and the host
+// they run on. No restore names them, so the two are stated here, and
+// publish.yml fails a bundle whose build had other packs installed than the
+// SBOM lists. The publish runs on Linux x64 (publish.yml's webui job).
+const string EmscriptenPacks = "Microsoft.NET.Runtime.Emscripten.3.1.56";
+const string PublishHostRid = "linux-x64";
+
 string repositoryRoot = FindRepositoryRoot();
 string? version = null;
 string? outDirectory = null;
@@ -87,6 +104,7 @@ string? created = null;
 string? checkAgainst = null;
 string? descriptorPath = null;
 string? syft = null;
+string? fixtures = null;
 List<(string Platform, string Path)> images = [];
 List<string> binaries = [];
 
@@ -103,6 +121,7 @@ for (int i = 0; i < args.Length; i++)
         case "--descriptor" when next is not null: descriptorPath = Path.GetFullPath(next); i++; break;
         case "--binary" when next is not null: binaries.Add(next); i++; break;
         case "--syft" when next is not null: syft = next; i++; break;
+        case "--fixtures" when next is not null: fixtures = Path.GetFullPath(next); i++; break;
         case "--image" when next is not null && next.Contains('=', StringComparison.Ordinal):
             images.Add((next[..next.IndexOf('=', StringComparison.Ordinal)], Path.GetFullPath(next[(next.IndexOf('=', StringComparison.Ordinal) + 1)..])));
             i++;
@@ -111,6 +130,11 @@ for (int i = 0; i < args.Length; i++)
             Console.Error.WriteLine($"sbom: unknown argument '{args[i]}'. See the header of eng/sbom.cs.");
             return 2;
     }
+}
+
+if (fixtures is not null)
+{
+    return RunFixtures(fixtures);
 }
 
 if (version is null || outDirectory is null)
@@ -345,50 +369,73 @@ JsonObject WebUiDocument(string asset, RestoreGraph graph, Lockfile lockfile)
         components: Components(carried, graph, lockfile, target, findings),
         relationships: "CONTAINS",
         direct: DirectIds(graph, Framework),
-        runtime: WebAssemblyRuntime(graph, lockfile));
+        runtime: WebAssemblyRuntime(graph, lockfile),
+        tools: EmscriptenTools(lockfile));
 }
 
 // The .NET runtime in the bundle is Mono's for the browser, relinked at
-// publish to what the app uses. The wasm-tools workload supplies its pack, so
-// the restore graph does not name it. The lockfile names
+// publish to what the app uses, with Emscripten. The wasm-tools workload
+// supplies their packs, so the restore graph does not name them. The lockfile names
 // Microsoft.NET.Sdk.WebAssembly.Pack, which the SDK references by itself at
 // the version of the runtime it bundles, and the workload set of an SDK
-// installs the runtime pack at that same version: eng/lockfiles.cs holds the
-// first to global.json's SDK, and publish.yml fails a bundle published with
-// another runtime pack than the one named here.
+// installs its packs at that same version: eng/lockfiles.cs holds the first
+// to global.json's SDK, and publish.yml fails a bundle published with other
+// packs than the ones named here.
 List<JsonObject> WebAssemblyRuntime(RestoreGraph graph, Lockfile lockfile)
 {
-    LockedPackage? sdk = lockfile.Targets.TryGetValue(Framework, out IReadOnlyList<LockedPackage>? packages)
-        ? packages.FirstOrDefault(static p => string.Equals(p.Id, WebAssemblySdkPack, StringComparison.OrdinalIgnoreCase))
-        : null;
-
-    if (sdk is null)
+    if (WorkloadVersion(lockfile) is not { } workload)
     {
         findings.Add($"{Relative(graph.ProjectPath)}'s lockfile does not name {WebAssemblySdkPack}; the runtime's version is read from it");
         return [];
     }
 
-    string name = $"Microsoft.NETCore.App.Runtime.Mono.{WebAssemblyRid}";
-
+    // The runtime, and the pack of Emscripten's prebuilt system libraries
+    // (libc, compiler-rt and the rest), which the relink links into
+    // dotnet.native.wasm beside it. Both are in the bundle.
     return
     [
-        new JsonObject
-        {
-            ["name"] = name,
-            ["SPDXID"] = ComponentId(name),
-            ["versionInfo"] = sdk.Version,
-            ["supplier"] = "Organization: Microsoft",
-            ["downloadLocation"] = NugetDownload(name, sdk.Version),
-            ["filesAnalyzed"] = false,
-            ["licenseConcluded"] = "MIT",
-            ["licenseDeclared"] = "MIT",
-            ["copyrightText"] = "NOASSERTION",
-            ["externalRefs"] = new JsonArray(PurlRef(NugetPurl(name, sdk.Version))),
-            ["primaryPackagePurpose"] = "FRAMEWORK",
-            ["comment"] = "The .NET runtime, relinked into the bundle's dotnet.native.wasm, and its framework assemblies, trimmed.",
-        },
+        WorkloadPack($"Microsoft.NETCore.App.Runtime.Mono.{WebAssemblyRid}", workload, "FRAMEWORK", "MIT", "MIT",
+            "The .NET runtime, relinked into the bundle's dotnet.native.wasm, and its framework assemblies, trimmed."),
+        WorkloadPack($"{EmscriptenPacks}.Cache.{PublishHostRid}", workload, "LIBRARY", "MIT", "NOASSERTION",
+            "Emscripten's prebuilt system libraries, which the relink links into the bundle's dotnet.native.wasm. Listed by pack, not by library. The pack declares its licence by URL; its LICENSE file is the MIT licence."),
     ];
 }
+
+// What the relink runs and nothing of which is in the bundle: Emscripten's
+// compiler and linker, and the Node.js that runs its scripts.
+List<JsonObject> EmscriptenTools(Lockfile lockfile) =>
+    WorkloadVersion(lockfile) is not { } workload
+        ? []
+        :
+        [
+            WorkloadPack($"{EmscriptenPacks}.Node.{PublishHostRid}", workload, "APPLICATION", "MIT", "NOASSERTION",
+                "The Node.js that runs Emscripten's scripts in the relink. A build tool: nothing of it is in the bundle. The pack declares its licence by URL; its LICENSE file is the MIT licence."),
+            WorkloadPack($"{EmscriptenPacks}.Sdk.{PublishHostRid}", workload, "APPLICATION", "MIT", "NOASSERTION",
+                "Emscripten's compiler and linker, which the relink runs. A build tool: nothing of it is in the bundle. The pack declares its licence by URL; its LICENSE file is the MIT licence."),
+        ];
+
+// The version of the workload's packs: that of the runtime the SDK bundles,
+// which the lockfile names through the package the SDK references by itself.
+static string? WorkloadVersion(Lockfile lockfile) =>
+    lockfile.Targets.TryGetValue(Framework, out IReadOnlyList<LockedPackage>? packages)
+        ? packages.FirstOrDefault(static p => string.Equals(p.Id, WebAssemblySdkPack, StringComparison.OrdinalIgnoreCase))?.Version
+        : null;
+
+static JsonObject WorkloadPack(string name, string packVersion, string purpose, string concluded, string declared, string comment) => new()
+{
+    ["name"] = name,
+    ["SPDXID"] = ComponentId(name),
+    ["versionInfo"] = packVersion,
+    ["supplier"] = "Organization: Microsoft",
+    ["downloadLocation"] = NugetDownload(name, packVersion),
+    ["filesAnalyzed"] = false,
+    ["licenseConcluded"] = concluded,
+    ["licenseDeclared"] = declared,
+    ["copyrightText"] = "NOASSERTION",
+    ["externalRefs"] = new JsonArray(PurlRef(NugetPurl(name, packVersion))),
+    ["primaryPackagePurpose"] = purpose,
+    ["comment"] = comment,
+};
 
 // The image is the binary of each platform on the chiseled base. The base's
 // packages are Syft's, read from the base image pinned by digest, and kept as
@@ -513,8 +560,10 @@ JsonObject ImageDocument(RestoreGraph graph, Lockfile lockfile, List<(string Pla
     return document;
 }
 
-JsonObject Document(string name, string kind, Root root, List<JsonObject> components, string relationships, List<string> direct, List<JsonObject> runtime)
+JsonObject Document(string name, string kind, Root root, List<JsonObject> components, string relationships, List<string> direct, List<JsonObject> runtime, List<JsonObject>? tools = null)
 {
+    tools ??= [];
+
     JsonObject rootPackage = new()
     {
         ["name"] = root.Name,
@@ -540,7 +589,7 @@ JsonObject Document(string name, string kind, Root root, List<JsonObject> compon
     }
 
     JsonArray packages = [rootPackage];
-    foreach (JsonObject component in components.Concat(runtime).OrderBy(static c => c["SPDXID"]!.GetValue<string>(), StringComparer.Ordinal))
+    foreach (JsonObject component in components.Concat(runtime).Concat(tools).OrderBy(static c => c["SPDXID"]!.GetValue<string>(), StringComparer.Ordinal))
     {
         packages.Add((JsonNode)component);
     }
@@ -556,6 +605,9 @@ JsonObject Document(string name, string kind, Root root, List<JsonObject> compon
     {
         edges.AddRange(direct.Select(ComponentId).Where(present.Contains).Select(static id => Relationship("SPDXRef-Root", "DEPENDS_ON", id)));
     }
+
+    // What built the artefact and is not in it (SPDX 2.3 §11.1, BUILD_TOOL_OF).
+    edges.AddRange(tools.Select(static c => Relationship(c["SPDXID"]!.GetValue<string>(), "BUILD_TOOL_OF", "SPDXRef-Root")));
 
     foreach (JsonObject component in components)
     {
@@ -809,6 +861,94 @@ bool CheckDescriptor(string path, SortedDictionary<string, string> generated)
     }
 
     return ok;
+}
+
+// --- fixtures -------------------------------------------------------------------------
+
+int RunFixtures(string directory)
+{
+    if (!Directory.Exists(directory))
+    {
+        Console.Error.WriteLine($"sbom: no fixtures at {directory}");
+        return 2;
+    }
+
+    Regex generatedLine = new(@"^[ ]{2}-[ ](?<kind>[a-z]+):[ ]+(?<name>\S+)[ ]+sha256:[0-9a-f]{64}$", RegexOptions.CultureInvariant);
+    int cases = 0;
+    bool allAsNamed = true;
+
+    foreach (string fixture in Directory.EnumerateDirectories(directory).Order(StringComparer.Ordinal))
+    {
+        string name = Path.GetFileName(fixture);
+        string generatedPath = Path.Combine(fixture, "sbom.txt");
+        string descriptor = Path.Combine(fixture, "descriptor.yaml");
+        bool expectPass = name.StartsWith("pass-", StringComparison.Ordinal);
+
+        if ((!expectPass && !name.StartsWith("fail-", StringComparison.Ordinal)) || !File.Exists(generatedPath) || !File.Exists(descriptor))
+        {
+            Console.Error.WriteLine($"FAIL {name}: a case is named pass-… or fail-…, and holds sbom.txt and descriptor.yaml");
+            allAsNamed = false;
+            continue;
+        }
+
+        cases++;
+        SortedDictionary<string, string> generated = new(StringComparer.Ordinal);
+
+        foreach (string text in File.ReadAllText(generatedPath).ReplaceLineEndings("\n").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            Match match = generatedLine.Match(text);
+
+            if (!match.Success)
+            {
+                Console.Error.WriteLine($"FAIL {name}: sbom.txt has a line that no generation writes: '{text}'");
+                allAsNamed = false;
+                continue;
+            }
+
+            generated[$"{match.Groups["kind"].Value}: {match.Groups["name"].Value}"] = text[4..];
+        }
+
+        TextWriter output = Console.Out;
+        TextWriter error = Console.Error;
+        StringWriter said = new();
+        bool matched;
+
+        try
+        {
+            Console.SetOut(said);
+            Console.SetError(said);
+            matched = CheckDescriptor(descriptor, generated);
+        }
+        finally
+        {
+            Console.SetOut(output);
+            Console.SetError(error);
+        }
+
+        string[] expected = File.Exists(Path.Combine(fixture, "expect.txt"))
+            ? [.. File.ReadAllLines(Path.Combine(fixture, "expect.txt")).Where(static l => l.Length > 0 && !l.StartsWith('#'))]
+            : [];
+        string[] missing = [.. expected.Where(line => !said.ToString().Contains(line, StringComparison.Ordinal))];
+
+        if (matched != expectPass || missing.Length > 0 || (!expectPass && expected.Length == 0))
+        {
+            allAsNamed = false;
+            Console.Error.WriteLine($"FAIL {name}: {(matched ? "matched" : "refused")}{(missing.Length > 0 ? $", without saying '{string.Join("', '", missing)}'" : "")}{(!expectPass && expected.Length == 0 ? ", and a failing case needs an expect.txt" : "")}");
+            Console.Error.Write(said.ToString());
+        }
+        else
+        {
+            Console.WriteLine($"ok   {name}: {(matched ? "matches" : "refused, saying what expect.txt asks")}");
+        }
+    }
+
+    if (cases == 0)
+    {
+        Console.Error.WriteLine($"sbom: no case under {directory}. That is a defect in this gate.");
+        return 2;
+    }
+
+    return allAsNamed ? 0 : 1;
 }
 
 // --- the base image -------------------------------------------------------------------
