@@ -547,7 +547,7 @@ landing decides the number. Only released and in-flight numbers are shown.
 | — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | next free | 8 | issue #95 |
 | — | **Web UI**: operator console, then data explorer | next free | Management plane (console); 8 and Inference (explorer) | issue #96 |
 | — | **Replication**: three tiers, handover, promotion, fleet-level active-active | next free | Object storage, Extent maintenance, Commit path, Management plane | issue #97 |
-| 9 | Erasure mode and row-level access, part 1: row-level access through the classifier, in 1.0 and stable | `preview.20` | 8, Management plane | issue #202 (this pull request) |
+| 9 | Erasure mode and row-level access, part 1: row-level access through the classifier, in 1.0 and stable | `preview.19` | 8, Management plane | issue #202 (this pull request) |
 | 9 | Erasure mode and row-level access, part 2: erasure mode, preview | next free | part 1, Replication | issue #203, closing #14 |
 | 1.0 | The definition in #15, amended to include replication, inference, the management plane and extent maintenance | `1.0.0` | all above | issue #15 |
 | — | **Continuous queries**: standing SPARQL queries as projections, result deltas as events | a minor after 1.0 | 1.0 (Inference, Management plane, Client and integration) | issue #106 |
@@ -964,7 +964,7 @@ tier 2 geo-replication, and active-active across copies.
 As issue #14 states, together with row-level access through the erasure
 classifier. In two parts, decided on the plan in #14 (2026-10-30):
 
-**Part 1** (#202; ADRs 0230–0238), `0.1.0-preview.20`, in 1.0 and stable:
+**Part 1** (#202; ADRs 0230–0238), `0.1.0-preview.19`, in 1.0 and stable:
 row-level access through the classifier, with erasure mode off. A
 classifier binding's annotated shapes name the data subjects and the links
 that carry ownership; a quad is about its subject's subjects and, unless its

@@ -1,5 +1,5 @@
-format: 1
-version: v0.1.0-preview.20
+format: 2
+version: v0.1.0-preview.19
 title: Row-level access through the classifier — the first part of milestone 9
 date: 2026-10-30
 basis:
@@ -15,6 +15,37 @@ basis:
   - adr: "0236"
   - adr: "0237"
   - adr: "0238"
+sbom:
+  - image: ghcr.io/hafeok/varve sha256:e445148cdcd7493a206867a64166378d41ced679895b72dfe10fc1106378af8e
+  - nupkg: Varve.Aspire sha256:13612c92b489cec18d5712c63390fe2998b11ef124697335846be6d1991bd90d
+  - nupkg: Varve.Classification sha256:6c243b155f44823e0c863cd6db313a958160105fea09584f0d24b9586de89565
+  - nupkg: Varve.Delta sha256:83f7fb4973d1bda7dbce03f7f941fc61737faf8e39a1a2f4d3f51e5c5f94fd61
+  - nupkg: Varve.Derivation sha256:b9459d6086a3734778071fb4c70024dca04aea7ce2e5f3a681913dcfbe538b75
+  - nupkg: Varve.Events sha256:004fc4ca11e8ee297127b76c75b5d1e6def030934bec177a8dcdb5cdb68b6558
+  - nupkg: Varve.Iri sha256:a2184eb6671ebaf91b8d1ff77f9051417b8b82bfc7dfee8229a0c11b500f39b2
+  - nupkg: Varve.Json.Canonical sha256:fe924fecbdef9a05fc32b4c196bd112d4fb796668fb89e85e0ee8a3d49b06f5c
+  - nupkg: Varve.JsonLd sha256:3e7b40d3b729f40a7c1416810c8e6fa22efe90afa529e9ef728c0930eb27e696
+  - nupkg: Varve.Management sha256:dd62ade9c994809009ac131df3d2fe8caa8adf7aa1c8d078feffaff94a7a90d6
+  - nupkg: Varve.Protocol sha256:c38b17253bc441ffcfd0bb4f65b27263626ef1103c98b5533786b3e3f89c8c8b
+  - nupkg: Varve.Protocol.Client sha256:5f14fe69b5dccc4d74e730ca22198aa869ccf3bacdff2d3a06bb546dbffbf27e
+  - nupkg: Varve.Rdf sha256:52fa7cf46d2bb9f21ba11a1df3ba9caf564f84590b59ac544b12b1dfc8d3b3ae
+  - nupkg: Varve.RdfXml sha256:fbd44ed97d789370cae5eb1e0a14f565bb4b2c5a69b9ba86e8af5a3de3355efb
+  - nupkg: Varve.Shacl sha256:9c49697c4c7b0b6a3f63d1f974cbc61374125951a1aff034e44347660ca64e8a
+  - nupkg: Varve.Shacl.Sparql sha256:9dd240b9c3e92deaf718406bd07607624c18cd1d301d56470485d152a7b068d4
+  - nupkg: Varve.Shacl.Store sha256:35f44823bd229df8656af2733f2b91371bf2fdfef21c792c605fdd6f3921a1ae
+  - nupkg: Varve.Sparql sha256:57252f2d53e92d0e0d92bcf0bca87595affa2d4d53e4afe4fbd2f998a455bbf0
+  - nupkg: Varve.Sparql.Entailment sha256:513a4a0ed05846c00e5320cfb9f4d78d3477700dd1b1c4ae64c90a6c5939bb2e
+  - nupkg: Varve.Sparql.Evaluation sha256:df527eac234c2728668e6ed7e5c92dc0a739851fff6c24d4728cffbedb092ad1
+  - nupkg: Varve.Sparql.Results sha256:62118f7b907e06a849a9fe18105654f12408be7736a348a4e434a5a8e8fa84e8
+  - nupkg: Varve.Sparql.Store sha256:d72815145a8fcf5cee659248fa10f5e95fbcec505d1d659a4bd093d9d00d1192
+  - nupkg: Varve.Store sha256:de912ccf7a0108594b8c09ede6675ef85fe60c1e218be3069ec77657b2d04560
+  - nupkg: Varve.Store.Azure sha256:1c891e5d37cdc9a620f730a548e02f54ebd15d4496506ace278d5fec41bba061
+  - nupkg: Varve.Store.Browser sha256:7d899812d6998b404ec3a08a9a175c01d256ef8681a1ef496a035f9b35d5aa35
+  - nupkg: Varve.Store.ObjectStorage sha256:a10ae6ff486e12e716b80c41b1eb41c1bd1cfece0e0e498000513baf637e3c74
+  - nupkg: Varve.Store.S3 sha256:594b54aa358e396fbedbc2d20b90c2f715f8d666304fb42e683bfefe4a51fec4
+  - nupkg: Varve.Turtle sha256:8827ebc68f604d56875543400021ede784ae3f0022d2c215d65b629a9ee3bc49
+  - nupkg: Varve.Xsd sha256:5accc2a3d1386834bee716168983becbd63e417a6bc24d8d46c6feeb9bfeb493
+  - tool: Varve.Server sha256:9ee8c9aa7b0ccee8b9d2f86f5a2a8e0ab413bea19f61734a24d144451c449242
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
   ### Row-level access through the classifier (#202, under #14, in 1.0 by #15)
