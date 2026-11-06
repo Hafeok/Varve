@@ -9,7 +9,7 @@ prompt, is
 | PR | Step | Closes |
 |---|---|---|
 | [#238](https://github.com/Hafeok/Varve/pull/238) | 1: the declaration catches up: labels `adr`, `soak`, `spike`; environment `azure-objects` restricted to `main`; repo-standard compares a ruleset rule at its default parameters as the rule without them | — (`Refs #101`) |
-| step 2's, from `claude/gifted-gauss-xyxhld` after #238 lands | 2: ADR 0223, the provider legs by federated credentials, `auth-providers` declaring identifiers only, `docs/auth-providers.md` | #101 |
+| [#242](https://github.com/Hafeok/Varve/pull/242), stacked on #238 | 2: ADR 0223, the provider legs by federated credentials, `auth-providers` declaring identifiers only, `docs/auth-providers.md` | #101 |
 
 ## ADR
 
