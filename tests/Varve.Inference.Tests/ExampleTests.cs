@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System;
 using Varve.Inference.Model;
 using Varve.Rdf;
 using Xunit;
@@ -19,14 +20,14 @@ public class ExampleTests
     /// over-deleted it and found no rule to rederive it.
     /// </summary>
     [Theory]
-    [InlineData(InferenceProfile.Rdfs, Retraction.DeleteAndRederive)]
-    [InlineData(InferenceProfile.Rdfs, Retraction.BackwardForward)]
-    [InlineData(InferenceProfile.Owl2Rl, Retraction.DeleteAndRederive)]
-    [InlineData(InferenceProfile.Owl2Rl, Retraction.BackwardForward)]
-    public void an_axiom_asserted_then_retracted_stays(InferenceProfile profile, Retraction strategy)
+    [InlineData(InferenceProfile.Rdfs, "DeleteAndRederive")]
+    [InlineData(InferenceProfile.Rdfs, "BackwardForward")]
+    [InlineData(InferenceProfile.Owl2Rl, "DeleteAndRederive")]
+    [InlineData(InferenceProfile.Owl2Rl, "BackwardForward")]
+    public void an_axiom_asserted_then_retracted_stays(InferenceProfile profile, string strategy)
     {
         Terms terms = new();
-        Closure closure = new(Program.Of(profile, terms), strategy);
+        Closure closure = new(Program.Of(profile, terms), Enum.Parse<Retraction>(strategy));
         Fact axiom = terms.Fact(IriOf(RdfNs + "type"), IriOf(RdfsNs + "domain"), IriOf(RdfsNs + "Resource"));
         Assert.True(closure.Contains(axiom));
 
@@ -39,12 +40,12 @@ public class ExampleTests
 
     /// <summary>A subclass chain, then its middle link retracted: what it alone supported goes, the rest stays.</summary>
     [Theory]
-    [InlineData(Retraction.DeleteAndRederive)]
-    [InlineData(Retraction.BackwardForward)]
-    public void retracting_a_link_takes_what_it_alone_supported(Retraction strategy)
+    [InlineData("DeleteAndRederive")]
+    [InlineData("BackwardForward")]
+    public void retracting_a_link_takes_what_it_alone_supported(string strategy)
     {
         Terms terms = new();
-        Closure closure = new(Program.Of(InferenceProfile.Rdfs, terms), strategy);
+        Closure closure = new(Program.Of(InferenceProfile.Rdfs, terms), Enum.Parse<Retraction>(strategy));
         RdfTerm type = IriOf(RdfNs + "type"), subClassOf = IriOf(RdfsNs + "subClassOf");
         Fact ab = terms.Fact(Named("A"), subClassOf, Named("B"));
         Fact bc = terms.Fact(Named("B"), subClassOf, Named("C"));
