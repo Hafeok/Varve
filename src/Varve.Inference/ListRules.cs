@@ -100,6 +100,33 @@ internal abstract class ListRule : Rule
         return false;
     }
 
+    internal sealed override void AllPremises(in Fact head, FactSet facts, List<Fact> into)
+    {
+        foreach (Fact axiom in AxiomsFor(head, facts))
+        {
+            foreach (List<Cell> path in Paths(axiom.Object, facts))
+            {
+                List<Fact> extra = [];
+                if (!Prove(head, axiom, path, facts, static _ => true, extra))
+                {
+                    continue;
+                }
+
+                into.Add(axiom);
+                foreach (Cell cell in path)
+                {
+                    into.Add(cell.FirstFact);
+                    into.Add(cell.RestFact);
+                }
+
+                Premises(head, axiom, path, facts, into);
+            }
+        }
+    }
+
+    /// <summary>Adds every fact beyond the axiom and its cells that an instance of one axiom and one path concluding <paramref name="head"/> can have as a premise.</summary>
+    protected abstract void Premises(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact> into);
+
     /// <summary>Adds the heads of the instances of one axiom and one path, narrowed to <paramref name="anchor"/> where the rule can.</summary>
     protected abstract void Evaluate(in Fact axiom, List<Cell> path, in Fact anchor, FactSet facts, List<Fact> into);
 
@@ -306,6 +333,14 @@ internal sealed class IntersectionMembership(TermHandle axiom, ListTerms list) :
         return true;
     }
 
+    protected override void Premises(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact> into)
+    {
+        foreach (Cell cell in path)
+        {
+            into.Add(new Fact(head.Subject, List.Type, cell.Member));
+        }
+    }
+
     protected override IEnumerable<Fact> AxiomsFor(Fact head, FactSet facts) =>
         head.Predicate.Value == List.Type.Value ? AxiomsOf(head.Object, facts) : [];
 
@@ -333,6 +368,9 @@ internal sealed class IntersectionParts(TermHandle axiom, ListTerms list) : List
     protected override bool Prove(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, Func<Fact, bool> accept, List<Fact> found) =>
         Holds(path, head.Object)
         && Take(new Fact(head.Subject, List.Type, axiom.Subject), facts, accept, found);
+
+    protected override void Premises(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact> into) =>
+        into.Add(new Fact(head.Subject, List.Type, axiom.Subject));
 
     protected override IEnumerable<Fact> AxiomsFor(Fact head, FactSet facts)
     {
@@ -391,6 +429,18 @@ internal sealed class UnionMembership(TermHandle axiom, ListTerms list) : ListRu
         return false;
     }
 
+    protected override void Premises(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact> into)
+    {
+        foreach (Cell cell in path)
+        {
+            Fact typing = new(head.Subject, List.Type, cell.Member);
+            if (facts.Contains(typing))
+            {
+                into.Add(typing);
+            }
+        }
+    }
+
     protected override IEnumerable<Fact> AxiomsFor(Fact head, FactSet facts) =>
         head.Predicate.Value == List.Type.Value ? AxiomsOf(head.Object, facts) : [];
 
@@ -411,6 +461,10 @@ internal sealed class Enumeration(TermHandle axiom, ListTerms list) : ListRule("
 
     protected override bool Prove(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, Func<Fact, bool> accept, List<Fact> found) =>
         Holds(path, head.Subject);
+
+    protected override void Premises(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact> into)
+    {
+    }
 
     protected override IEnumerable<Fact> AxiomsFor(Fact head, FactSet facts) =>
         head.Predicate.Value == List.Type.Value ? AxiomsOf(head.Object, facts) : [];
@@ -435,6 +489,10 @@ internal sealed class ListSubClasses(string name, TermHandle axiom, ListTerms li
     protected override bool Prove(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, Func<Fact, bool> accept, List<Fact> found)
     {
         return Holds(path, union ? head.Subject : head.Object);
+    }
+
+    protected override void Premises(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact> into)
+    {
     }
 
     protected override IEnumerable<Fact> AxiomsFor(Fact head, FactSet facts) =>
@@ -500,6 +558,45 @@ internal sealed class PropertyChain(TermHandle axiom, ListTerms list) : ListRule
         return false;
     }
 
+    protected override void Premises(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact> into)
+    {
+        // Every step on some chain from the head's subject to its object:
+        // reached forwards from the one and backwards from the other.
+        int n = path.Count;
+        HashSet<ulong>[] forward = new HashSet<ulong>[n + 1];
+        forward[0] = [head.Subject.Value];
+        for (int i = 0; i < n; i++)
+        {
+            forward[i + 1] = [];
+            foreach (ulong node in forward[i])
+            {
+                foreach (Fact step in facts.Match(new TermHandle(node), path[i].Member, TermHandle.None))
+                {
+                    forward[i + 1].Add(step.Object.Value);
+                }
+            }
+        }
+
+        HashSet<ulong> backward = [head.Object.Value];
+        for (int i = n - 1; i >= 0; i--)
+        {
+            HashSet<ulong> before = [];
+            foreach (ulong node in backward)
+            {
+                foreach (Fact step in facts.Match(TermHandle.None, path[i].Member, new TermHandle(node)))
+                {
+                    if (forward[i].Contains(step.Subject.Value))
+                    {
+                        into.Add(step);
+                        before.Add(step.Subject.Value);
+                    }
+                }
+            }
+
+            backward = before;
+        }
+    }
+
     protected override IEnumerable<Fact> AxiomsFor(Fact head, FactSet facts) => AxiomsOf(head.Predicate, facts);
 
     protected override IEnumerable<TermHandle> MembersNamedBy(Fact fact) => [fact.Predicate];
@@ -558,6 +655,24 @@ internal sealed class Key(TermHandle axiom, ListTerms list, TermHandle sameAs) :
         }
 
         return true;
+    }
+
+    protected override void Premises(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact> into)
+    {
+        into.Add(new Fact(head.Subject, List.Type, axiom.Subject));
+        into.Add(new Fact(head.Object, List.Type, axiom.Subject));
+        foreach (Cell cell in path)
+        {
+            foreach (Fact xz in facts.Match(head.Subject, cell.Member, TermHandle.None))
+            {
+                Fact yz = new(head.Object, cell.Member, xz.Object);
+                if (facts.Contains(yz))
+                {
+                    into.Add(xz);
+                    into.Add(yz);
+                }
+            }
+        }
     }
 
     protected override IEnumerable<Fact> AxiomsFor(Fact head, FactSet facts)

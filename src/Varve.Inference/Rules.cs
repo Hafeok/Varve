@@ -40,6 +40,13 @@ internal abstract class Rule
     /// </summary>
     internal abstract bool Proves(in Fact head, FactSet facts, Func<Fact, bool> accept, List<Fact>? premises);
 
+    /// <summary>
+    /// Adds every premise of every instance concluding <paramref name="head"/>
+    /// whose premises are all in <paramref name="facts"/>: the facts the
+    /// backward step of Backward/Forward checks (ADR 0196).
+    /// </summary>
+    internal abstract void AllPremises(in Fact head, FactSet facts, List<Fact> into);
+
     /// <inheritdoc/>
     public override string ToString() => Name;
 }
@@ -110,6 +117,40 @@ internal sealed class PatternRule : Rule
         }
 
         return false;
+    }
+
+    internal override void AllPremises(in Fact head, FactSet facts, List<Fact> into)
+    {
+        TermHandle[] bindings = new TermHandle[_variables];
+        Fact[] chosen = new Fact[_body.Length];
+        foreach (Atom atom in _head)
+        {
+            Array.Clear(bindings);
+            if (Unify(atom, head, bindings))
+            {
+                Every(facts, bindings, 0, chosen, into);
+            }
+        }
+    }
+
+    private void Every(FactSet facts, TermHandle[] bindings, int next, Fact[] chosen, List<Fact> into)
+    {
+        if (next == _body.Length)
+        {
+            into.AddRange(chosen);
+            return;
+        }
+
+        Atom pattern = _body[next];
+        foreach (Fact fact in facts.Match(Resolve(pattern.S, bindings), Resolve(pattern.P, bindings), Resolve(pattern.O, bindings)))
+        {
+            TermHandle[] inner = (TermHandle[])bindings.Clone();
+            if (Unify(pattern, fact, inner))
+            {
+                chosen[next] = fact;
+                Every(facts, inner, next + 1, chosen, into);
+            }
+        }
     }
 
     private bool Search(FactSet facts, TermHandle[] bindings, int next, Func<Fact, bool> accept, Fact[] chosen)
@@ -244,6 +285,16 @@ internal sealed class LiteralTyping : Rule
         return false;
     }
 
+    internal override void AllPremises(in Fact head, FactSet facts, List<Fact> into)
+    {
+        if (head.Predicate.Value != _type.Value || !Typing(head.Subject, out TermHandle datatype) || datatype.Value != head.Object.Value)
+        {
+            return;
+        }
+
+        into.AddRange(facts.Match(TermHandle.None, TermHandle.None, head.Subject));
+    }
+
     private bool Typing(TermHandle literal, out TermHandle datatype) =>
         _terms.IsLiteral(literal) && _terms.TryDatatype(literal, out datatype) && _recognised.Contains(datatype.Value)
         || Fail(out datatype);
@@ -298,6 +349,19 @@ internal sealed class ContainerMembershipAxioms : Rule
         return Names(facts.Match(term, TermHandle.None, TermHandle.None), accept, premises)
             || Names(facts.Match(TermHandle.None, term, TermHandle.None), accept, premises)
             || Names(facts.Match(TermHandle.None, TermHandle.None, term), accept, premises);
+    }
+
+    internal override void AllPremises(in Fact head, FactSet facts, List<Fact> into)
+    {
+        TermHandle term = head.Subject;
+        if (!_terms.IsContainerMembership(term) || !IsAxiom(head))
+        {
+            return;
+        }
+
+        into.AddRange(facts.Match(term, TermHandle.None, TermHandle.None));
+        into.AddRange(facts.Match(TermHandle.None, term, TermHandle.None));
+        into.AddRange(facts.Match(TermHandle.None, TermHandle.None, term));
     }
 
     private static bool Names(IEnumerable<Fact> facts, Func<Fact, bool> accept, List<Fact>? premises)

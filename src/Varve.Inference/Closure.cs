@@ -217,7 +217,7 @@ public sealed class Closure
     {
         Queue<Fact> pending = new(gone);
         List<Fact> heads = [];
-        HashSet<Fact> path = [];
+        ProofSearch search = new(this);
         while (pending.TryDequeue(out Fact fact))
         {
             if (!Facts.Contains(fact) || _explicit.Contains(fact) || _axioms.Contains(fact))
@@ -225,8 +225,7 @@ public sealed class Closure
                 continue;
             }
 
-            path.Clear();
-            if (Proved(fact, path))
+            if (search.Proved(fact))
             {
                 continue;
             }
@@ -248,35 +247,8 @@ public sealed class Closure
         }
     }
 
-    /// <summary>
-    /// Whether a fact has a well-founded proof from the explicit facts and the
-    /// axioms, through the facts the closure holds, using no fact on
-    /// <paramref name="path"/>: the backward search of B/F and of explain.
-    /// </summary>
-    internal bool Proved(in Fact fact, HashSet<Fact> path)
-    {
-        if (_explicit.Contains(fact) || _axioms.Contains(fact))
-        {
-            return true;
-        }
-
-        if (!path.Add(fact))
-        {
-            return false;
-        }
-
-        foreach (Rule rule in Program.Rules)
-        {
-            if (rule.Proves(fact, Facts, premise => Proved(premise, path), premises: null))
-            {
-                path.Remove(fact);
-                return true;
-            }
-        }
-
-        path.Remove(fact);
-        return false;
-    }
+    /// <summary>Whether a fact is explicit or an axiom: a leaf of every proof.</summary>
+    internal bool IsGiven(in Fact fact) => _explicit.Contains(fact) || _axioms.Contains(fact);
 
     private bool Derivable(in Fact fact)
     {
