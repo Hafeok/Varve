@@ -252,8 +252,12 @@ environments:
   branch_policies:
   - name: main
   secrets: []
-# The real-provider auth legs (ADR 0100): Entra ID and Google credentials for
-# test tenants, readable only by a job on main, so never by a pull request.
+# The real-provider auth legs (ADR 0100, point 4 superseded by ADR 0223):
+# Entra ID and Google test tenants, reached by federated credentials from the
+# job's own OIDC token for this environment, which only main deploys to. No
+# client secret and no service-account key is stored, here or anywhere. What is
+# here are identifiers, kept as secrets only because repo-standard cannot yet
+# declare an environment's variables (#239). docs/auth-providers.md sets them.
 - name: auth-providers
   wait_timer: 0
   prevent_self_review: false
@@ -266,9 +270,9 @@ environments:
   secrets:
   - VARVE_ENTRA_TENANT
   - VARVE_ENTRA_CLIENT_ID
-  - VARVE_ENTRA_CLIENT_SECRET
   - VARVE_ENTRA_AUDIENCE
-  - VARVE_GOOGLE_SERVICE_ACCOUNT
+  - VARVE_GOOGLE_WORKLOAD_IDENTITY_PROVIDER
+  - VARVE_GOOGLE_SERVICE_ACCOUNT_EMAIL
 # The repository has no Actions secrets of its own: a repository secret is
 # readable by any workflow a same-repository pull request defines. Both Apps'
 # keys are in the gates environment above.
