@@ -198,7 +198,7 @@ public sealed class Closure
         List<Fact> rederived = [];
         foreach (Fact fact in deleted)
         {
-            if (_explicit.Contains(fact) || Derivable(fact))
+            if (_explicit.Contains(fact) || _axioms.Contains(fact) || Derivable(fact))
             {
                 rederived.Add(fact);
             }
