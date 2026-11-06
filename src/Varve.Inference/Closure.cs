@@ -148,6 +148,9 @@ public sealed class Closure
             case Retraction.DeleteAndRederive:
                 DeleteAndRederive(gone);
                 break;
+            case Retraction.BackwardForward:
+                BackwardForward(gone);
+                break;
             case Retraction.FromScratch:
                 Rebuild();
                 break;
@@ -204,6 +207,77 @@ public sealed class Closure
         Insert(rederived);
     }
 
+    /// <summary>
+    /// Backward/Forward (Motik, Nenov, Piro and Horrocks, AAAI 2015): a fact
+    /// that loses a premise is kept when a well-founded proof of it remains,
+    /// searched backwards; one with none is deleted, and the facts it was a
+    /// premise of are checked in turn.
+    /// </summary>
+    private void BackwardForward(List<Fact> gone)
+    {
+        Queue<Fact> pending = new(gone);
+        List<Fact> heads = [];
+        HashSet<Fact> path = [];
+        while (pending.TryDequeue(out Fact fact))
+        {
+            if (!Facts.Contains(fact) || _explicit.Contains(fact) || _axioms.Contains(fact))
+            {
+                continue;
+            }
+
+            path.Clear();
+            if (Proved(fact, path))
+            {
+                continue;
+            }
+
+            heads.Clear();
+            foreach (Rule rule in Program.Rules)
+            {
+                rule.Fire(fact, Facts, heads);
+            }
+
+            Facts.Remove(fact);
+            foreach (Fact head in heads)
+            {
+                if (Facts.Contains(head) && !_explicit.Contains(head) && !_axioms.Contains(head))
+                {
+                    pending.Enqueue(head);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether a fact has a well-founded proof from the explicit facts and the
+    /// axioms, through the facts the closure holds, using no fact on
+    /// <paramref name="path"/>: the backward search of B/F and of explain.
+    /// </summary>
+    internal bool Proved(in Fact fact, HashSet<Fact> path)
+    {
+        if (_explicit.Contains(fact) || _axioms.Contains(fact))
+        {
+            return true;
+        }
+
+        if (!path.Add(fact))
+        {
+            return false;
+        }
+
+        foreach (Rule rule in Program.Rules)
+        {
+            if (rule.Proves(fact, Facts, premise => Proved(premise, path), premises: null))
+            {
+                path.Remove(fact);
+                return true;
+            }
+        }
+
+        path.Remove(fact);
+        return false;
+    }
+
     private bool Derivable(in Fact fact)
     {
         foreach (Rule rule in Program.Rules)
@@ -238,4 +312,7 @@ internal enum Retraction
 
     /// <summary>DRed: over-delete, then rederive.</summary>
     DeleteAndRederive,
+
+    /// <summary>Backward/Forward: delete only what has no proof left.</summary>
+    BackwardForward,
 }

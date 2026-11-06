@@ -60,6 +60,9 @@ public class IncrementalEqualsFromScratchTests
     public void delete_and_rederive_equals_from_scratch_at_every_commit() => Holds(Retraction.DeleteAndRederive);
 
     [Fact]
+    public void backward_forward_equals_from_scratch_at_every_commit() => Holds(Retraction.BackwardForward);
+
+    [Fact]
     public void the_baseline_equals_the_oracle_at_every_commit() => Holds(Retraction.FromScratch);
 
     private static void Holds(Retraction strategy) =>

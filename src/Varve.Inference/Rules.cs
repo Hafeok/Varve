@@ -29,7 +29,16 @@ internal abstract class Rule
     internal abstract void Fire(in Fact anchor, FactSet facts, List<Fact> into);
 
     /// <summary>Whether some instance concluding <paramref name="head"/> has every premise in <paramref name="facts"/>.</summary>
-    internal abstract bool Supports(in Fact head, FactSet facts);
+    internal bool Supports(in Fact head, FactSet facts) => Proves(head, facts, static _ => true, premises: null);
+
+    /// <summary>
+    /// Whether some instance concluding <paramref name="head"/> has every
+    /// premise in <paramref name="facts"/> and accepted by
+    /// <paramref name="accept"/>; its premises are added to
+    /// <paramref name="premises"/> when one is given. The backward step of
+    /// Backward/Forward and of explain (ADRs 0196, 0199).
+    /// </summary>
+    internal abstract bool Proves(in Fact head, FactSet facts, Func<Fact, bool> accept, List<Fact>? premises);
 
     /// <inheritdoc/>
     public override string ToString() => Name;
@@ -86,15 +95,41 @@ internal sealed class PatternRule : Rule
         }
     }
 
-    internal override bool Supports(in Fact head, FactSet facts)
+    internal override bool Proves(in Fact head, FactSet facts, Func<Fact, bool> accept, List<Fact>? premises)
     {
         TermHandle[] bindings = new TermHandle[_variables];
+        Fact[] chosen = new Fact[_body.Length];
         foreach (Atom atom in _head)
         {
             Array.Clear(bindings);
-            if (Unify(atom, head, bindings) && Join(facts, bindings, skip: -1, next: 0, into: null, stopAtFirst: true))
+            if (Unify(atom, head, bindings) && Search(facts, bindings, 0, accept, chosen))
             {
+                premises?.AddRange(chosen);
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool Search(FactSet facts, TermHandle[] bindings, int next, Func<Fact, bool> accept, Fact[] chosen)
+    {
+        if (next == _body.Length)
+        {
+            return true;
+        }
+
+        Atom pattern = _body[next];
+        foreach (Fact fact in facts.Match(Resolve(pattern.S, bindings), Resolve(pattern.P, bindings), Resolve(pattern.O, bindings)))
+        {
+            TermHandle[] inner = (TermHandle[])bindings.Clone();
+            if (Unify(pattern, fact, inner) && accept(fact))
+            {
+                chosen[next] = fact;
+                if (Search(facts, inner, next + 1, accept, chosen))
+                {
+                    return true;
+                }
             }
         }
 
@@ -190,16 +225,20 @@ internal sealed class LiteralTyping : Rule
         }
     }
 
-    internal override bool Supports(in Fact head, FactSet facts)
+    internal override bool Proves(in Fact head, FactSet facts, Func<Fact, bool> accept, List<Fact>? premises)
     {
         if (head.Predicate.Value != _type.Value || !Typing(head.Subject, out TermHandle datatype) || datatype.Value != head.Object.Value)
         {
             return false;
         }
 
-        foreach (Fact _ in facts.Match(TermHandle.None, TermHandle.None, head.Subject))
+        foreach (Fact premise in facts.Match(TermHandle.None, TermHandle.None, head.Subject))
         {
-            return true;
+            if (accept(premise))
+            {
+                premises?.Add(premise);
+                return true;
+            }
         }
 
         return false;
@@ -246,7 +285,7 @@ internal sealed class ContainerMembershipAxioms : Rule
         }
     }
 
-    internal override bool Supports(in Fact head, FactSet facts)
+    internal override bool Proves(in Fact head, FactSet facts, Func<Fact, bool> accept, List<Fact>? premises)
     {
         TermHandle term = head.Subject;
         if (!_terms.IsContainerMembership(term) || !IsAxiom(head))
@@ -254,18 +293,20 @@ internal sealed class ContainerMembershipAxioms : Rule
             return false;
         }
 
-        // Some fact other than an axiom of its own names it.
-        return Names(facts.Match(term, TermHandle.None, TermHandle.None), term)
-            || Names(facts.Match(TermHandle.None, term, TermHandle.None), term)
-            || Names(facts.Match(TermHandle.None, TermHandle.None, term), term);
+        // Some fact names it: any fact, an axiom of its own included, since
+        // the rule fires on each.
+        return Names(facts.Match(term, TermHandle.None, TermHandle.None), accept, premises)
+            || Names(facts.Match(TermHandle.None, term, TermHandle.None), accept, premises)
+            || Names(facts.Match(TermHandle.None, TermHandle.None, term), accept, premises);
     }
 
-    private bool Names(IEnumerable<Fact> facts, TermHandle term)
+    private static bool Names(IEnumerable<Fact> facts, Func<Fact, bool> accept, List<Fact>? premises)
     {
         foreach (Fact fact in facts)
         {
-            if (fact.Subject.Value != term.Value || !IsAxiom(fact))
+            if (accept(fact))
             {
+                premises?.Add(fact);
                 return true;
             }
         }
