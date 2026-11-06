@@ -3,6 +3,8 @@ set: owl-2-rl-and-rdfs-as-rules
 namespace: varve
 adr: 0197
 decisions:
+  - key: InferenceModelNamespace
+    statement: "The values the engine takes and answers, a fact, a profile and a clash, are the model, in Varve.Inference.Model; the rules, the joins and the closure are not"
   - key: TwoMaterialisingProfiles
     statement: "varve:RDFS materialises the RDFS entailment rules and varve:OWL2RL OWL 2 RL/RDF over them, while rdf, rdfs and d stay answered by the rewriting"
   - key: NoRuleInventsATerm

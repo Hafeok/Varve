@@ -47,6 +47,16 @@ proposal (comment 6520445643). The maintainer's answer, verbatim:
    the erasure precondition with the maintainer's addition, and "meet or
    refuse" as milestone 9's open question. ADR 0196 is filed without its
    measurement, which decides it.
+2. **`Varve.Inference`, first slice.** The engine over a source's handles: a
+   fact store with its five indices, pattern rules joined from the changed
+   fact outwards, insertion through `Propagation`, and delete-and-rederive as
+   a second propagation. The RDFS profile is complete; OWL 2 RL/RDF, counting
+   and Backward/Forward follow.
+   - **The property** (ADR 0195 point 9) holds both strategies to a naive
+     from-scratch oracle after every commit of generated histories, schema
+     and meta-modelling triples included: 40 × 30–60 commits on a pull
+     request, 400 × 100–200 nightly.
+   - **A mutation** that drops the rederivation step fails it at commit 5.
 
 ## Departures from the plan
 

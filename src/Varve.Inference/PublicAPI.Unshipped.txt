@@ -1,0 +1,28 @@
+#nullable enable
+Varve.Inference.Closure
+Varve.Inference.Closure.All.get -> System.Collections.Generic.IEnumerable<Varve.Inference.Model.Fact>!
+Varve.Inference.Closure.Apply(System.ReadOnlySpan<Varve.Inference.Model.Fact> asserted, System.ReadOnlySpan<Varve.Inference.Model.Fact> retracted) -> void
+Varve.Inference.Closure.Closure(Varve.Inference.Model.InferenceProfile profile, Varve.Inference.IInferenceTerms! terms) -> void
+Varve.Inference.Closure.Contains(Varve.Inference.Model.Fact fact) -> bool
+Varve.Inference.Closure.Implicit.get -> System.Collections.Generic.IEnumerable<Varve.Inference.Model.Fact>!
+Varve.Inference.Closure.IsExplicit(Varve.Inference.Model.Fact fact) -> bool
+Varve.Inference.IInferenceTerms
+Varve.Inference.IInferenceTerms.Handle(Varve.Rdf.RdfTerm! term) -> Varve.Rdf.TermHandle
+Varve.Inference.IInferenceTerms.IsContainerMembership(Varve.Rdf.TermHandle handle) -> bool
+Varve.Inference.IInferenceTerms.IsLiteral(Varve.Rdf.TermHandle handle) -> bool
+Varve.Inference.IInferenceTerms.TryDatatype(Varve.Rdf.TermHandle literal, out Varve.Rdf.TermHandle datatype) -> bool
+Varve.Inference.Model.Fact
+Varve.Inference.Model.Fact.Equals(Varve.Inference.Model.Fact other) -> bool
+Varve.Inference.Model.Fact.Fact() -> void
+Varve.Inference.Model.Fact.Fact(Varve.Rdf.TermHandle subject, Varve.Rdf.TermHandle predicate, Varve.Rdf.TermHandle object) -> void
+Varve.Inference.Model.Fact.Object.get -> Varve.Rdf.TermHandle
+Varve.Inference.Model.Fact.Predicate.get -> Varve.Rdf.TermHandle
+Varve.Inference.Model.Fact.Subject.get -> Varve.Rdf.TermHandle
+Varve.Inference.Model.InferenceProfile
+Varve.Inference.Model.InferenceProfile.Owl2Rl = 2 -> Varve.Inference.Model.InferenceProfile
+Varve.Inference.Model.InferenceProfile.Rdfs = 1 -> Varve.Inference.Model.InferenceProfile
+override Varve.Inference.Model.Fact.Equals(object? obj) -> bool
+override Varve.Inference.Model.Fact.GetHashCode() -> int
+override Varve.Inference.Model.Fact.ToString() -> string!
+static Varve.Inference.Model.Fact.operator !=(Varve.Inference.Model.Fact left, Varve.Inference.Model.Fact right) -> bool
+static Varve.Inference.Model.Fact.operator ==(Varve.Inference.Model.Fact left, Varve.Inference.Model.Fact right) -> bool

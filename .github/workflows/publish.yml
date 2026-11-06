@@ -232,6 +232,9 @@ jobs:
       - name: Test Varve.Sparql.Entailment
         run: dotnet test --project tests/Varve.Sparql.Entailment.Tests/Varve.Sparql.Entailment.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Entailment.Tests
 
+      - name: Test Varve.Inference
+        run: dotnet test --project tests/Varve.Inference.Tests/Varve.Inference.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Inference.Tests
+
       - name: Test Varve.Shacl
         run: dotnet test --project tests/Varve.Shacl.Tests/Varve.Shacl.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Shacl.Tests
 
