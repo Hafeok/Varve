@@ -15,12 +15,16 @@
 #   - the SBOMs, checked against the pending descriptor;
 #   - the pack;
 #   - every attestation, provenance and SBOM, per package and for the image;
-#   - the release's assets;
+#   - the CLI's Native AOT binaries, one per RID on its own runner, each
+#     archived, smoke-run and attested (ADR 0226);
+#   - the release's assets, SHA256SUMS over every one of them, attested, and
+#     the winget manifests, validated;
 #   - the verification, against what this run built.
 # Four things are skipped: the push to nuget.org (`push`), the push to GHCR
 # and the multi-platform manifest that needs it (each platform's image is
 # built and attested by its manifest's digest instead), and the GitHub release
-# (`release`). So the first tag is not the first time any of this runs.
+# (`release`), and with it the winget install from the release's URLs. So the
+# first tag is not the first time any of this runs.
 
 name: Publish
 
@@ -34,6 +38,7 @@ on:
       - eng/nuget-served.cs
       - eng/package-metadata.cs
       - eng/release.cs
+      - eng/winget.cs
       - eng/lib/**
       - releases/**
       - Directory.Build.targets
@@ -307,9 +312,16 @@ jobs:
           set -euo pipefail
           check=()
           if [ -n "$DESCRIPTOR" ]; then check=(--descriptor "$DESCRIPTOR"); fi
+          # One per RID the CLI ships (ADR 0226), the list Directory.Build.props
+          # gives every Native AOT project.
+          binaries=()
+          for rid in $(sed -n 's:.*<VarveNativeRuntimeIdentifiers>\(.*\)</VarveNativeRuntimeIdentifiers>.*:\1:p' Directory.Build.props | tr ';' ' '); do
+            binaries+=(--binary "$rid")
+          done
           dotnet run eng/sbom.cs -- --version "$VERSION" --created "$CREATED" \
             --out "${{ github.workspace }}/artifacts/sbom" \
             --syft "${{ steps.syft.outputs.cmd }}" \
+            "${binaries[@]}" \
             "${check[@]}"
 
       - name: Pack
@@ -344,13 +356,6 @@ jobs:
           done
           exit $status
 
-      - name: Checksums
-        # Every file the release carries beyond its SBOMs, with its SHA-256;
-        # attested below with the packages, so the list is as verifiable as
-        # what it lists (ADR 0224 point 7).
-        working-directory: ${{ github.workspace }}/artifacts/packages
-        run: sha256sum *.nupkg > SHA256SUMS && cat SHA256SUMS
-
       - name: Upload the packages
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -378,14 +383,13 @@ jobs:
         id: provenance
         continue-on-error: true
         # Keyless, through this job's OIDC identity (ADR 0224 point 3): every
-        # package and the checksum list, one SLSA v1 statement. The SBOM
-        # attestations are the attest-packages job's, one job per package; the
-        # push waits for both.
+        # package, one SLSA v1 statement. The SBOM attestations are the
+        # attest-packages job's, one job per package. SHA256SUMS is written and
+        # attested by release-assets, once the binaries exist (ADR 0226); the
+        # push waits for all three.
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: |
-            ${{ github.workspace }}/artifacts/packages/*.nupkg
-            ${{ github.workspace }}/artifacts/packages/SHA256SUMS
+          subject-path: ${{ github.workspace }}/artifacts/packages/*.nupkg
 
       - name: Attest the packages' build provenance, again if the first attempt failed
         # ADR 0224 point 3: Rekor, Sigstore's public log, times out or
@@ -394,9 +398,7 @@ jobs:
         if: steps.provenance.outcome == 'failure'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: |
-            ${{ github.workspace }}/artifacts/packages/*.nupkg
-            ${{ github.workspace }}/artifacts/packages/SHA256SUMS
+          subject-path: ${{ github.workspace }}/artifacts/packages/*.nupkg
 
       - name: Upload the test results
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
@@ -477,7 +479,7 @@ jobs:
   # be a human step after the decision, which is what ADR 0102 removes.
   push:
     name: push to nuget.org
-    needs: [publish, attest-packages]
+    needs: [publish, attest-packages, release-assets]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: release
@@ -490,15 +492,17 @@ jobs:
       id-token: write
 
     steps:
-      - name: Download the packages
+      - name: Download the release's assets
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: packages
+          name: release-assets
           path: ${{ runner.temp }}/packages
 
       - name: The attested bytes
         # The packages pushed are the ones attested, checked against the
-        # attested checksum list before a credential is minted.
+        # attested checksum list before a credential is minted. The list is
+        # the release's: the packages, the binaries and the winget manifests
+        # (ADR 0226), so nothing is pushed until every artefact exists.
         working-directory: ${{ runner.temp }}/packages
         run: sha256sum --check SHA256SUMS
 
@@ -815,13 +819,176 @@ jobs:
   # checksums, each SBOM named for its artefact and version. A job of its own,
   # with no environment and no credential, so the dry run assembles exactly
   # what the release will carry.
+  # The CLI (ADR 0226): the Native AOT binary of Varve.Server, one per RID on a
+  # runner of that RID, because Native AOT does not cross-compile between
+  # operating systems. Each is renamed varve (varve.exe on Windows), run once
+  # (`varve --version` must say the release's version), archived alone, and
+  # attested: build provenance, and the SBOM eng/sbom.cs wrote for it in the
+  # publish job (binary/<asset>.spdx.json), on the archive's digest.
+  #
+  # The archives are not required to be byte-reproducible: the descriptor
+  # carries the SBOM's digest, which is, and SHA256SUMS, attested, carries the
+  # archive's. A Linux binary needs the glibc of the runner that built it or
+  # newer (Ubuntu 24.04, glibc 2.39).
+  binaries:
+    name: binary (${{ matrix.rid }})
+    needs: publish
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # VarveNativeRuntimeIdentifiers (Directory.Build.props), each on a
+        # runner of its own RID. release-assets requires one archive per RID
+        # in that list, so this matrix cannot fall behind it unnoticed.
+        include:
+          - rid: linux-x64
+            os: ubuntu-24.04
+          - rid: linux-arm64
+            os: ubuntu-24.04-arm
+          - rid: win-x64
+            os: windows-2025
+          - rid: win-arm64
+            os: windows-11-arm
+          - rid: osx-x64
+            os: macos-15-intel
+          - rid: osx-arm64
+            os: macos-15
+
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    env:
+      # The release's version, so the binary says what the packages say.
+      MinVerVersionOverride: ${{ needs.publish.outputs.version }}
+      VERSION: ${{ needs.publish.outputs.version }}
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Restore, for every RID at once
+        # As the image job: the lockfile has every RID, and the publish does
+        # no restore of its own.
+        run: dotnet restore src/Varve.Server
+
+      - name: Publish the CLI
+        # IlcTreatWarningsAsErrors is set in the project, so an ILC warning
+        # fails here, on the RID it concerns.
+        run: >
+          dotnet publish src/Varve.Server
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --no-restore
+          --output ${{ runner.temp }}/publish
+
+      - name: Archive, alone
+        # The executable only: no .pdb, .dbg or .xml.
+        id: archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cli" "$RUNNER_TEMP/archive"
+          if [[ "${{ matrix.rid }}" == win-* ]]; then
+            cp "$RUNNER_TEMP/publish/Varve.Server.exe" "$RUNNER_TEMP/cli/varve.exe"
+            asset="varve-$VERSION-${{ matrix.rid }}.zip"
+            pwsh -NoProfile -Command "Compress-Archive -Path '$RUNNER_TEMP/cli/varve.exe' -DestinationPath '$RUNNER_TEMP/archive/$asset'"
+          else
+            cp "$RUNNER_TEMP/publish/Varve.Server" "$RUNNER_TEMP/cli/varve"
+            chmod 755 "$RUNNER_TEMP/cli/varve"
+            asset="varve-$VERSION-${{ matrix.rid }}.tar.gz"
+            tar -czf "$RUNNER_TEMP/archive/$asset" -C "$RUNNER_TEMP/cli" varve
+          fi
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
+
+      - name: The archived binary runs, and says the release's version
+        # Out of the archive, as a user gets it.
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/unpacked"
+          asset="${{ steps.archive.outputs.asset }}"
+          if [[ "$asset" == *.zip ]]; then
+            pwsh -NoProfile -Command "Expand-Archive -Path '$RUNNER_TEMP/archive/$asset' -DestinationPath '$RUNNER_TEMP/unpacked'"
+            said=$("$RUNNER_TEMP/unpacked/varve.exe" --version | tr -d '\r')
+          else
+            tar -xzf "$RUNNER_TEMP/archive/$asset" -C "$RUNNER_TEMP/unpacked"
+            said=$("$RUNNER_TEMP/unpacked/varve" --version)
+          fi
+          echo "varve --version: $said"
+          if [ "${said%%+*}" != "$VERSION" ]; then echo "::error::$asset says '$said', not $VERSION"; exit 1; fi
+          size=$(wc -c < "$RUNNER_TEMP/archive/$asset" | tr -d ' ')
+          echo "\`$asset\`: $size bytes, \`varve --version\` says \`$said\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Download the SBOMs
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: sbom
+          path: ${{ runner.temp }}/sbom
+
+      - name: Attest the build provenance
+        id: provenance
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/archive/${{ steps.archive.outputs.asset }}
+
+      - name: Attest the build provenance, again if the first attempt failed
+        # ADR 0224 point 3: Rekor, Sigstore's public log, times out or
+        # answers 404 now and then. One retry, never more.
+        if: steps.provenance.outcome == 'failure'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/archive/${{ steps.archive.outputs.asset }}
+
+      - name: Attest the SBOM
+        id: sbom
+        continue-on-error: true
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/archive/${{ steps.archive.outputs.asset }}
+          sbom-path: ${{ runner.temp }}/sbom/binary/${{ steps.archive.outputs.asset }}.spdx.json
+
+      - name: Attest the SBOM, again if the first attempt failed
+        if: steps.sbom.outcome == 'failure'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/archive/${{ steps.archive.outputs.asset }}
+          sbom-path: ${{ runner.temp }}/sbom/binary/${{ steps.archive.outputs.asset }}.spdx.json
+
+      - name: Upload the archive
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: binary-${{ matrix.rid }}
+          path: ${{ runner.temp }}/archive/${{ steps.archive.outputs.asset }}
+          if-no-files-found: error
+
+  # Everything the release carries, in one place, before anything is pushed:
+  # the packages, the binaries, every SBOM, the VEX document and the winget
+  # manifests (ADR 0226 point 4). SHA256SUMS lists every file but the SBOMs
+  # and is attested here; the push checks the packages against it.
   release-assets:
     name: the release's assets
-    needs: publish
+    needs: [publish, binaries]
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
+      id-token: write
+      attestations: write
 
     steps:
       - name: Checkout
@@ -830,11 +997,22 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
       - name: Download the packages
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: packages
           path: ${{ runner.temp }}/packages
+
+      - name: Download the binaries
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: binary-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/binaries
 
       - name: Download the SBOMs
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
@@ -846,20 +1024,46 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ needs.publish.outputs.version }}
+          TAG: ${{ needs.publish.outputs.tag }}
         run: |
           set -euo pipefail
           version="$VERSION"
           assets="$RUNNER_TEMP/assets"
           mkdir -p "$assets"
-          cp "$RUNNER_TEMP"/packages/*.nupkg "$RUNNER_TEMP/packages/SHA256SUMS" "$assets/"
+          cp "$RUNNER_TEMP"/packages/*.nupkg "$assets/"
           for sbom in "$RUNNER_TEMP"/sbom/nupkg/*.spdx.json "$RUNNER_TEMP"/sbom/tool/*.spdx.json; do
             name=$(basename "$sbom" .spdx.json)
             cp "$sbom" "$assets/$name.$version.spdx.json"
           done
           cp "$RUNNER_TEMP/sbom/image/varve.spdx.json" "$assets/varve-image-$version.spdx.json"
+          # One archive per RID the CLI ships, and its SBOM, under the
+          # archive's name.
+          for rid in $(sed -n 's:.*<VarveNativeRuntimeIdentifiers>\(.*\)</VarveNativeRuntimeIdentifiers>.*:\1:p' Directory.Build.props | tr ';' ' '); do
+            if [[ "$rid" == win-* ]]; then asset="varve-$version-$rid.zip"; else asset="varve-$version-$rid.tar.gz"; fi
+            if [ ! -f "$RUNNER_TEMP/binaries/$asset" ]; then echo "::error::no $asset: the binaries job's matrix lacks $rid"; exit 1; fi
+            cp "$RUNNER_TEMP/binaries/$asset" "$RUNNER_TEMP/sbom/binary/$asset.spdx.json" "$assets/"
+          done
           cp security/vex.openvex.json "$assets/varve-$version.openvex.json"
-          (cd "$assets" && sha256sum --check SHA256SUMS)
+          # The winget manifests, submitted by the maintainer (ADR 0226 point 4).
+          dotnet run eng/winget.cs -- --version "$version" --tag "$TAG" --assets "$assets" --out "$RUNNER_TEMP/winget"
+          cp "$RUNNER_TEMP"/winget/*.yaml "$assets/"
+          (cd "$assets" && sha256sum *.nupkg varve-*.tar.gz varve-*.zip Hafeok.Varve*.yaml > SHA256SUMS && cat SHA256SUMS)
           ls -l "$assets" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Attest SHA256SUMS
+        # Keyless, as every attestation here: the checksum list is as
+        # verifiable as what it lists (ADR 0224 point 7).
+        id: sums
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/assets/SHA256SUMS
+
+      - name: Attest SHA256SUMS, again if the first attempt failed
+        if: steps.sums.outcome == 'failure'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ runner.temp }}/assets/SHA256SUMS
 
       - name: Upload the release's assets
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -1032,6 +1236,18 @@ jobs:
             id="${package%."$version".nupkg}"
             unzip -p "$package" _manifest/spdx_2.3/manifest.spdx.json | cmp - "$id.$version.spdx.json"
           done
+          # The CLI's archives, both predicates each, and the checksum list,
+          # its provenance (ADR 0226).
+          for archive in varve-*.tar.gz varve-*.zip; do
+            for predicate in https://slsa.dev/provenance/v1 https://spdx.dev/Document/v2.3; do
+              gh attestation verify "$archive" --owner hafeok "${source[@]}" --predicate-type "$predicate" --format json \
+                --jq '.[].verificationResult | "verified \(.statement.predicateType) for \(.statement.subject[0].name)@sha256:\(.statement.subject[0].digest.sha256)"' \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+            done
+          done
+          gh attestation verify SHA256SUMS --owner hafeok "${source[@]}" --predicate-type https://slsa.dev/provenance/v1 --format json \
+            --jq '.[].verificationResult | "verified \(.statement.predicateType) for SHA256SUMS@sha256:\(.statement.subject[0].digest.sha256)"' \
+            | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: nuget.org serves the attested packages
         # nuget.org indexes a new version within minutes, sometimes longer:
@@ -1056,3 +1272,55 @@ jobs:
             dotnet run "$GITHUB_WORKSPACE/eng/nuget-served.cs" -- "$package" "nuget/$package" | tee -a "$GITHUB_STEP_SUMMARY"
           done
           dotnet nuget verify --all nuget/*.nupkg
+
+  # The winget manifests (ADR 0226 point 4). CI writes them (release-assets)
+  # and the maintainer submits them to microsoft/winget-pkgs with
+  # `wingetcreate submit`, signed in interactively: a GitHub App installation
+  # token cannot open a pull request outside its installation, and no
+  # long-lived token is stored for it. Here they are validated, and at a tag,
+  # once the release's URLs exist, installed from the local manifest and run.
+  winget:
+    name: winget manifests
+    needs: [publish, release-assets, release]
+    if: >-
+      !cancelled()
+      && needs.release-assets.result == 'success'
+      && (needs.release.result == 'success' || (github.event_name != 'push' && needs.release.result == 'skipped'))
+    runs-on: windows-2025
+
+    permissions:
+      contents: read
+
+    env:
+      VERSION: ${{ needs.publish.outputs.version }}
+
+    steps:
+      - name: Download the release's assets
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: release-assets
+          path: ${{ runner.temp }}/assets
+
+      - name: The manifests, as winget reads them
+        shell: pwsh
+        run: |
+          $manifest = Join-Path $env:RUNNER_TEMP 'manifest'
+          New-Item -ItemType Directory -Force $manifest | Out-Null
+          Copy-Item (Join-Path $env:RUNNER_TEMP 'assets/Hafeok.Varve*.yaml') $manifest
+          winget --version
+          winget validate --manifest $manifest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install from the manifest, and run it
+        # At a tag only: the installers' URLs are the release's.
+        if: github.event_name == 'push'
+        shell: pwsh
+        run: |
+          $manifest = Join-Path $env:RUNNER_TEMP 'manifest'
+          winget settings --enable LocalManifestFiles
+          winget install --manifest $manifest --accept-package-agreements --accept-source-agreements --disable-interactivity
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $varve = Join-Path $env:LOCALAPPDATA 'Microsoft/WinGet/Links/varve.exe'
+          $said = (& $varve --version).Trim()
+          "winget install: ``varve --version`` says ``$said``" >> $env:GITHUB_STEP_SUMMARY
+          if ($said.Split('+')[0] -ne $env:VERSION) { Write-Error "varve says '$said', not $env:VERSION"; exit 1 }

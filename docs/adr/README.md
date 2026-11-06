@@ -420,6 +420,14 @@ Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 
 | [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119) |
 | [0225](0225-the-sbom-generator.md) | The SBOM generator: `eng/sbom.cs`, SPDX 2.3, from the restore | Filed unaccepted (#119) |
 
+## CLI distribution (#129, readiness B)
+
+Filed by readiness B for [#129](https://github.com/Hafeok/Varve/issues/129), in 1.0 ([#15](https://github.com/Hafeok/Varve/issues/15)), unaccepted until the maintainer accepts it on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0105 (point 6: the release carries the binary).
+
+| # | Title | Status |
+|---:|---|---|
+| [0226](0226-cli-distribution.md) | CLI distribution: Native AOT binaries for six RIDs, a keyless Homebrew tap, winget manifests submitted by the maintainer | Filed unaccepted (#129) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

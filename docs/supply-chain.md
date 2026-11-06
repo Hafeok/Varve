@@ -26,7 +26,7 @@ Every artefact Varve ships has one **SPDX 2.3 SBOM** of its runtime closure:
 | Each `Varve.*` package | nuget.org | what a consumer of the package resolves |
 | The `varve` tool (`Varve.Server`) | nuget.org | everything the tool package carries |
 | The container image | `ghcr.io/hafeok/varve` | each platform's binary and its closure, the .NET runtime, and the base image's OS packages |
-| The CLI binaries, per RID | the GitHub release, once #129 distributes them | the closure compiled in, and the .NET runtime |
+| The CLI binaries, per RID | the GitHub release, as `varve-<version>-<rid>.tar.gz` or `.zip`; Homebrew and winget install them | the closure compiled in, and the .NET runtime |
 
 **Each component has:**
 - its package URL (`pkg:nuget/…`, `pkg:deb/…`) and version;
@@ -49,7 +49,8 @@ records them (below).
 **Where to get them:**
 - **Inside each package**, at `_manifest/spdx_2.3/manifest.spdx.json`.
 - **Attached to each GitHub release**, as `<Package>.<version>.spdx.json`. The
-  image's is `varve-image-<version>.spdx.json`.
+  image's is `varve-image-<version>.spdx.json`, and each binary's is
+  `<archive>.spdx.json`.
 - **As attestations** on each package and on the image (below).
 
 **The release descriptor records them.** Each release's descriptor,

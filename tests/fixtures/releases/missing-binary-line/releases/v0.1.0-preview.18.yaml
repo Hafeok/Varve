@@ -1,0 +1,133 @@
+format: 2
+version: v0.1.0-preview.18
+title: Supply chain transparency — an attested SBOM for every artefact, the dependency gate, a support period
+date: 2026-10-27
+basis:
+  - issue: 119
+  - storage-format: 1
+  - delta-format: 1
+  - adr: "0224"
+  - adr: "0225"
+sbom:
+  - image: ghcr.io/hafeok/varve sha256:d89c8d33e4dfce5225a9639ca1640f988b5bd34bb7f14105ae940998328fc824
+  - nupkg: Varve.Aspire sha256:f4cbe5abf01344e749adf89fdf4b43bfce9f4a3fd412da4702f2106c9404348e
+  - nupkg: Varve.Delta sha256:66aef6e1f041fa19652f23204ce9de272de8e7868597ae26ffef2dc9d67e1419
+  - nupkg: Varve.Derivation sha256:51418b3012dbe25aa5577a0580df2478bb37a5de5405ce42b17d49446e0458bd
+  - nupkg: Varve.Events sha256:3b4919c269e37b00925eba33c25faca99a4f60b7225df5af7d8a3f5c58bf5e6c
+  - nupkg: Varve.Iri sha256:7066017d5f71443887d7330dde25d93156e52253310475232147e5346ed7bcb7
+  - nupkg: Varve.Json.Canonical sha256:9ffb41f2ce64a70ed24a56dd12cfd5adfb6b9fc5f3b4f807c7c58ca1292b69bb
+  - nupkg: Varve.JsonLd sha256:f34d1d853665d0df4cac60a690208e108b62b38481b023c18a4b0fdaa9bb21bf
+  - nupkg: Varve.Management sha256:b97b0316fd6b433809667230c95466f953ab6acb51f5cc2feab57ceb87a8e329
+  - nupkg: Varve.Protocol sha256:ea609fcc74386691bb308565e32139bcda6e1602baf39271a42bb265e2c00fb5
+  - nupkg: Varve.Protocol.Client sha256:780c203264b7de7ffb27431bc2c2196bd062aebae865f72bcf25a47e358a85bd
+  - nupkg: Varve.Rdf sha256:0401e188dda0f01dcc14c9f429c88005031ed0788cee4fd0af8decb61ea73c8a
+  - nupkg: Varve.RdfXml sha256:da1f5186ce8444ab58c7f6db17cf54d3c42cf7c650527c35f74c0eaae0687f27
+  - nupkg: Varve.Shacl sha256:c0903d8adf43aa317dc5639d827e92792958e3ac53cad0b846d4c0a99cecadb8
+  - nupkg: Varve.Shacl.Sparql sha256:e5f4dfba940ff4f929ccf41ce629f904f8893ee96656e7af3ce8e951234bb906
+  - nupkg: Varve.Shacl.Store sha256:d14890441c7e9de6b7abee6312db42053ef82595e962c71fa000b5e14354afc8
+  - nupkg: Varve.Sparql sha256:a59ac80bd036059b2adb46b2c19ea8dac6a3fadda6e2a7fdd3e9cb65fbf45776
+  - nupkg: Varve.Sparql.Evaluation sha256:9cd5bf0295503036fc9cdc07815567ada074c69c39a37001744ec77799e0408c
+  - nupkg: Varve.Sparql.Results sha256:4148dd62b20f34fbd73c863c560de8cea54e59313e08f2a6e60837c9caaa4e71
+  - nupkg: Varve.Sparql.Store sha256:80c40f90d422193e8b9ebb4b47878c3da969e0dfec859f19f32443c830716173
+  - nupkg: Varve.Store sha256:6775a604cb53bfcecaba8e9002e0fbe2a4d0244cf49d54ac50922a9809405a73
+  - nupkg: Varve.Store.Azure sha256:9784c914734fa50a076ad22843edcb6f1dcc8cc477122ad679dbb4c0f71c3cb9
+  - nupkg: Varve.Store.Browser sha256:3ef557375e1f1fbf087ed0d65599705867e961504f571a945d7921d39dbf7ab0
+  - nupkg: Varve.Store.ObjectStorage sha256:6a615f49efe0774e840593a68ca08336662e4b838ce576dacd0c99ffc1867e65
+  - nupkg: Varve.Store.S3 sha256:06ef9c5347eb665740624815c39da677c7eaee0434aa3396ad35a11686d13d88
+  - nupkg: Varve.Turtle sha256:7249fc9ae6d77da76d8f6412aad0385b545a276ab84e058f4fbfd8a74292d1f2
+  - nupkg: Varve.Xsd sha256:df6c506d8e0e8934af6e8a26321370e9d12528874141e0cdd66fe9a56fa07504
+  - tool: Varve.Server sha256:70c4773495cd92eef1c9908d18f491b6dcabb7645cd927be911185e5faf0b78e
+summary: |
+  ### Supply chain transparency (#119, in 1.0 by #15)
+
+  Every package, the `varve` tool and the container image now ship with an
+  SPDX 2.3 SBOM of exactly what they contain. Each SBOM is generated from the
+  locked restore, is byte-identical when generated twice, and is attested
+  keylessly beside the artefact's build provenance. This descriptor names
+  each artefact with its SBOM's SHA-256 under `sbom:`, so the release is the
+  auditable unit. A known vulnerability fails the build unless a published
+  VEX statement says why Varve is not affected, and `SECURITY.md` states the
+  support period. `docs/supply-chain.md` is written for a NIS2 supplier
+  assessment and for a manufacturer's due diligence under the Cyber
+  Resilience Act. This release closes #119. ADRs 0224 and 0225, and their
+  amendments to 0009, 0029, 0102 and 0111, are filed unaccepted and
+  accepted on the pull request (ADR 0066).
+
+  #### Added
+
+  - **An SBOM per shipped artefact** (ADRs 0224, 0225). Each package's SBOM
+    is embedded at `_manifest/spdx_2.3/manifest.spdx.json` and attached to
+    the release, as are the tool's and the image's.
+    - For a library, it lists what a consumer resolves: no third-party
+      package for 24 of them, and eight `Microsoft.Extensions` abstractions
+      for `Varve.Protocol.Client`.
+    - For the tool, the 16 packages it carries.
+    - For the image, each platform's binary with its closure and the .NET
+      runtime, and the base image's OS packages.
+    - Each component carries its package URL, version, SHA-256 and SHA-512,
+      licence and supplier.
+  - **Attestations for every package**: SLSA v1 build provenance and the
+    SBOM, through GitHub's OIDC identity. Verify with `gh attestation
+    verify <package> --owner hafeok`.
+    - The release carries the packages exactly as attested, with
+      `SHA256SUMS`.
+    - nuget.org's copy is the same package under nuget.org's own repository
+      signature. CI checks this after every release, entry by entry, and
+      verifies the signature.
+  - **The dependency gate checks what was resolved.** Every project
+    restores from a checked-in lockfile, locked in CI. The register gate
+    fails on:
+    - an unadmitted or stale package;
+    - a missing ADR;
+    - a licence outside its scope's allow-list;
+    - a native asset in a shipped closure;
+    - an Action not pinned by SHA;
+    - an audit exemption without its VEX statement.
+
+    Each case has its own broken fixture.
+  - **`security/vex.openvex.json`**, attached to every release, empty today:
+    `NuGetAudit` finds no known vulnerability in any resolved package.
+  - **Descriptor format 2** (ADR 0102, amended): `sbom:` names every
+    artefact and its SBOM's digest. It is checked on the pull request and
+    again before anything is pushed. Every earlier descriptor stays format 1.
+
+  #### Changed
+
+  - **`CommitRequest` is renamed `CommitRequestBuilder` (breaking, #173).**
+    It is a builder its caller assembles and passes once to
+    `Dataset.CommitAsync`, and DD0019 asked for it to be named one. Rename
+    the type at each call site; nothing else about it changed.
+  - **DecisionDriven.Analyzers 0.1.0-preview.10** (#173) is build-time
+    only. Commit's carried handles are published once with
+    `CompareExchange`, and a graph-scoped source's prefix decisions are
+    memoised in a `ConcurrentDictionary`. Together these fix a race between
+    concurrent readers that could corrupt the dictionary.
+  - **The container's base image is pinned by digest** (ADR 0111, amended).
+  - **The SDK rolls forward to its latest patch only** (`global.json`).
+  - **`SECURITY.md`'s support period:**
+    - before 1.0, the latest preview;
+    - from 1.0, the latest `1.minor`;
+    - after `2.0.0`, security fixes for `1.x` for 12 months.
+
+    Advisories are GitHub's, with CVE ids.
+
+  #### Fixed
+
+  - **Object storage** (#126's follow-up):
+    - a segment holding only fence chunks opens;
+    - a reader record whose write was applied but whose answer was lost is
+      not forgotten;
+    - a retired extent set's directory is deleted with its last file
+      (#61).
+  - **A binding's report graph, read while its projection was a commit
+    behind** (#183), could answer with no rows, which reads as conforming.
+    It now answers with the report at the position, or `503
+    validation-behind` after one bounded wait (ADR 0174).
+  - **An event move's cancel is answered once the management plane has
+    applied it** (#206, #207). Before, a state read right after the `422`
+    could still see `varve:Moving`.
+
+  #### Upgrading
+
+  - **Datasets keep their log:** storage format 1, delta format 1.
+  - **Code that built a `CommitRequest`** builds a `CommitRequestBuilder`.

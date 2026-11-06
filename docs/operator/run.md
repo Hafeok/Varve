@@ -2,7 +2,39 @@
 
 ## Install
 
-The same executable comes three ways (ADRs 0105, 0111):
+The same executable comes five ways (ADRs 0105, 0111, 0226):
+
+- **Homebrew**, on macOS (arm64, Intel) and Linux (x64, arm64), from the tap
+  `Hafeok/homebrew-varve`. Until 1.0 it follows the newest preview:
+
+  ```sh
+  brew install hafeok/varve/varve
+  varve --version
+  ```
+
+- **winget**, on Windows (x64, arm64), as `Hafeok.Varve`, once the release's
+  manifest has been accepted into `microsoft/winget-pkgs`. Until then, the
+  release's manifest installs directly:
+
+  ```powershell
+  winget install Hafeok.Varve
+  # or, from the three Hafeok.Varve*.yaml files the release carries:
+  winget settings --enable LocalManifestFiles
+  winget install --manifest .\manifest
+  ```
+
+- **The release's archive**, for any of the six RIDs, with nothing else
+  installed. It holds `varve` (`varve.exe` on Windows) and nothing else:
+
+  ```sh
+  gh release download v<version> --repo Hafeok/Varve --pattern 'varve-*-linux-x64.tar.gz'
+  tar -xzf varve-<version>-linux-x64.tar.gz
+  ./varve --version
+  ```
+
+  The RIDs are linux-x64, linux-arm64, win-x64, win-arm64, osx-x64 and
+  osx-arm64. A Linux binary needs glibc 2.39 or newer: Ubuntu 24.04,
+  Debian 13 and Fedora 40 have it.
 
 - **The .NET tool** on nuget.org, framework-dependent, for a machine with the
   .NET 10 SDK or runtime. While every release is a preview, the install
@@ -19,25 +51,22 @@ The same executable comes three ways (ADRs 0105, 0111):
   provenance and an SPDX SBOM attested through GitHub. See
   [The container](#the-container).
 
-- **The Native AOT single file**, for a machine with nothing installed:
-  `Varve.Server` on Linux and macOS, `Varve.Server.exe` on Windows. No
-  release carries it as a download; build it on the platform it is for, with
-  `dotnet publish src/Varve.Server -c Release -r <rid>` (CI builds
-  `linux-x64`, `linux-arm64` and `win-x64`), and rename it `varve` or call it
-  by its name; the commands are the same. The image is this binary.
-
-**Verify what you install.** Every package, the tool among them, and the
-image carry two attestations, both keyless:
+**Verify what you install.** Every package, the tool among them, every
+archive, and the image carry two attestations, both keyless:
 - the build provenance: which workflow, at which commit;
 - an SPDX SBOM of exactly what they contain.
 
-Each release attaches the packages as attested, their `SHA256SUMS`, every
-SBOM and the VEX document. Before installing the tool, for example:
+Each release attaches the packages as attested, the archives, the winget
+manifests, their `SHA256SUMS` (itself attested), every SBOM and the VEX
+document. The Homebrew tap verifies each archive's attestation before it
+writes the formula. To verify by hand:
 
 ```sh
-gh release download v0.1.0-preview.17 --repo Hafeok/Varve --pattern 'Varve.Server.*'
-gh attestation verify Varve.Server.0.1.0-preview.17.nupkg --owner hafeok
-gh attestation verify oci://ghcr.io/hafeok/varve:v0.1.0-preview.17 --owner hafeok
+gh release download v<version> --repo Hafeok/Varve --pattern 'varve-*-osx-arm64.tar.gz' --pattern SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS
+gh attestation verify varve-<version>-osx-arm64.tar.gz --owner hafeok --source-ref refs/tags/v<version>
+gh attestation verify Varve.Server.<version>.nupkg --owner hafeok
+gh attestation verify oci://ghcr.io/hafeok/varve:v<version> --owner hafeok
 ```
 
 [`docs/supply-chain.md`](../supply-chain.md) has the rest: what each SBOM

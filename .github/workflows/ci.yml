@@ -501,7 +501,7 @@ jobs:
           version=$(dotnet msbuild src/Varve.Iri/Varve.Iri.csproj -t:MinVer -getProperty:MinVerVersion | tr -d '\r')
           export SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)
           binaries=()
-          for rid in linux-x64 linux-arm64 win-x64 win-arm64 osx-x64 osx-arm64; do binaries+=(--binary "$rid"); done
+          for rid in $(sed -n 's:.*<VarveNativeRuntimeIdentifiers>\(.*\)</VarveNativeRuntimeIdentifiers>.*:\1:p' Directory.Build.props | tr ';' ' '); do binaries+=(--binary "$rid"); done
           dotnet run eng/sbom.cs -- --version "$version" --out "${{ github.workspace }}/artifacts/sbom" "${binaries[@]}"
           dotnet run eng/sbom.cs -- --version "$version" --out "${{ github.workspace }}/artifacts/sbom-again" "${binaries[@]}" \
             --check-against "${{ github.workspace }}/artifacts/sbom"
@@ -542,8 +542,12 @@ jobs:
             if git rev-parse -q --verify "refs/tags/$version" > /dev/null; then continue; fi
             if ! grep -q '^sbom:' "$descriptor"; then continue; fi
             created=$(sed -n 's/^date: *//p' "$descriptor")
+            binaries=()
+            for rid in $(sed -n 's:.*<VarveNativeRuntimeIdentifiers>\(.*\)</VarveNativeRuntimeIdentifiers>.*:\1:p' Directory.Build.props | tr ';' ' '); do
+              binaries+=(--binary "$rid")
+            done
             dotnet run eng/sbom.cs -- --version "${version#v}" --created "$created" \
-              --out "$RUNNER_TEMP/sbom-$version" --syft "${{ steps.syft.outputs.cmd }}" --descriptor "$descriptor"
+              --out "$RUNNER_TEMP/sbom-$version" --syft "${{ steps.syft.outputs.cmd }}" "${binaries[@]}" --descriptor "$descriptor"
           done
 
       - name: Upload the test results
@@ -566,7 +570,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # One runner per RID the CLI ships (ADR 0226), since Native AOT does
+        # not cross-compile between operating systems: linux-x64, win-x64,
+        # linux-arm64, win-arm64, osx-arm64 and osx-x64. publish.yml builds
+        # the release's binaries on the same six.
+        os: [ubuntu-latest, windows-latest, ubuntu-24.04-arm, windows-11-arm, macos-15, macos-15-intel]
 
     steps:
       - name: Line endings
