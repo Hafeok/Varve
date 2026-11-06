@@ -2,9 +2,11 @@
 
 ## Status
 
-**Filed unaccepted by the landing session for #244, 2026-11-06,** at the
+**Accepted — filed unaccepted by the landing session for #244, 2026-11-06,** at the
 maintainer's direction of that day (ADR 0066). By the same direction it is
-applied from 2026-11-06, ahead of its acceptance.
+applied from 2026-11-06, ahead of its acceptance. The maintainer read it on
+its pull request, #245, as it stood at 8d2afa78, and its rulings were accepted
+there on 2026-11-06, by his delegate at his word.
 
 **Amends ADR [0066](0066-expected-red-pull-requests.md)** (a session never
 accepts) and **ADR [0087](0087-the-identity-map.md)** (who approves and
