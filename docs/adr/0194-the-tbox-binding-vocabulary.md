@@ -9,6 +9,8 @@ a fourth profile, and in this part the only one with an effect. Acceptance is
 the maintainer's act on the pull request. **Amends ADR
 [0166](0166-varve-management-and-the-vocabulary.md)** by a dated amendment.
 
+**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: the `RDFS` and `OWL2RL` profiles take effect; see the end. Filed unaccepted.
+
 ## Context
 
 ADR 0166 records `varve:TBoxBinding`, with one `varve:boundGraph`, and leaves
@@ -160,3 +162,19 @@ default.
   the plan and the grant table. `Varve.Server` (6): the mapping.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-06 — the materialising profiles in effect
+
+Filed by Inference, part 2 (#171, under #95), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Point 1's table changes, for this part:
+- `varve:profile varve:RDFS` and `varve:OWL2RL` are in effect
+  (ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md));
+- `varve:crossGraph` is in effect, with ADR 0190 point 6's placement;
+- `varve:sameAs varve:SameAsOff` is in effect; `SameAsClasses` stays reserved
+  for part 3;
+- `varve:defaultEntailment ent:OWL-RDF-Based` is in effect on an `OWL2RL`
+  binding and refused on any other;
+- `varve:rulesGraph`, `varve:RulesOnly` and `varve:inconsistencyMode` stay
+  reserved, refused naming part 3.

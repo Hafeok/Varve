@@ -19,6 +19,8 @@ Then, on the first part's review:
   manual change to a setting it declares, and leaves one it does not declare
   alone.
 
+**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: the closure's computed graphs are not writable; see the end. Filed unaccepted.
+
 ## Context
 
 An application that uses Varve needs its dataset to exist with known settings
@@ -295,3 +297,15 @@ binding's validation projection (ADR [0174](0174-the-validation-projection.md)).
 amendment as written.
 
 **The ledger.** The ruling is ADR 0174's `ReportGraphNotWritable`.
+
+## Amendment, 2026-11-06 — the closure's computed graphs
+
+Filed by Inference, part 2 (#171, under #95), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+Point 5, as amended on 2026-10-23 for the report graph, applies to the
+closure's graphs too: `varve:explicit`, `varve:implicit` and every graph under
+`https://w3id.org/varve/ns#inferred/` are computed, never written.
+`InferenceGraphGuard` refuses a quad in any of them as `graph-not-writable`,
+on every write path, an administrator's included
+(ADR [0198](0198-the-views-and-the-reserved-graphs.md) point 4).

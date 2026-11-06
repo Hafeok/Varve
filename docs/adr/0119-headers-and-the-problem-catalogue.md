@@ -21,6 +21,8 @@ point 4 (the cache headers).
 problem types `storage-full` and `commit-outcome-unknown`, and the `not-ready` member `writesRefused`; see
 the end.
 
+**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: `inference-behind` joins the catalogue; see the end. Filed unaccepted.
+
 ## Context
 
 ADR 0096 gave every dataset response `ETag` and `Varve-Position` and a
@@ -271,3 +273,24 @@ Filed by 1.0 readiness A (#129), unaccepted until the maintainer accepts it
 
 **The ledger.** The rulings are ADR 0214's `StorageFullIs507` and
 `OutcomeUnknownIs503WithTheRequestId`.
+
+## Amendment, 2026-11-06 — `inference-behind`, and the inference guard's `graph-not-writable`
+
+Filed by Inference, part 2 (#171, under #95), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+- **`inference-behind`** (`503`, members `binding`, `position`,
+  `projectedPosition`; `Retry-After: 1`): a read that needs a binding's
+  closure at a position its projection has not reached after the server's
+  two-second wait (ADR [0195](0195-the-inference-projection.md) point 6). A
+  query that streams has its cut after the first byte as a `Varve-Error`
+  trailer (ADR 0095).
+- **`graph-not-writable`** is also `InferenceGraphGuard`'s, for a quad in
+  `varve:explicit`, `varve:implicit` or under `varve:inferred/`
+  (ADR [0198](0198-the-views-and-the-reserved-graphs.md) point 4).
+- **`Varve-Inconsistent: true`** is a response header of a query answered
+  under `owl2-rl` over a graph that holds a clash
+  (ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md) point 5).
+
+**The ledger.** The rulings are ADR 0195's `InferenceBehind` and ADR 0197's
+`ClashReportedNotServed`.

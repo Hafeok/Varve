@@ -389,7 +389,7 @@ Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replicati
 
 ## Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit
 
-Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set); by part 1 (#170), 0003 (the packages), 0119 (`entailment-unsupported`), 0132 (the header under CORS) and 0166 (the binding's terms).
+Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set); by part 1 (#170), 0003 (the packages), 0119 (`entailment-unsupported`), 0132 (the header under CORS) and 0166 (the binding's terms). By part 2 (#171): 0119 (`inference-behind`), 0130 (the closure's computed graphs), 0172 (deletion and join anchors), 0192 (`owl2-rl`) and 0194 (the materialising profiles).
 
 | # | Title | Status |
 |---:|---|---|
@@ -398,6 +398,11 @@ Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)),
 | [0192](0192-entailment-regimes-over-http.md) | Entailment regimes over HTTP: the `Varve-Entailment` header and the service description; amends 0119, 0132 | Filed unaccepted (Inference part 1, #170) |
 | [0193](0193-rdfs-rdf-and-d-by-rewriting.md) | RDF, RDFS and D entailment by query rewriting | Filed unaccepted (Inference part 1, #170) |
 | [0194](0194-the-tbox-binding-vocabulary.md) | The TBox binding vocabulary; amends 0166 | Filed unaccepted (Inference part 1, #170) |
+| [0195](0195-the-inference-projection.md) | The inference projection: implicit rows over store handles, generations, the checked local cache, `inference-behind`, the erasure precondition; amends 0119 | Filed unaccepted (Inference part 2, #171) |
+| [0196](0196-retraction-decided-by-measurement.md) | Retraction in the closure, decided by measurement: DRed, counting and Backward/Forward; amends 0172 | Filed unaccepted (Inference part 2, #171) |
+| [0197](0197-owl-2-rl-and-rdfs-as-rules.md) | OWL 2 RL/RDF and RDFS as rules: the materialising profiles, `sameAs` off, `owl2-rl`; amends 0192, 0194 | Filed unaccepted (Inference part 2, #171) |
+| [0198](0198-the-views-and-the-reserved-graphs.md) | The explicit and implicit views, and the reserved graphs of the closure; amends 0130 | Filed unaccepted (Inference part 2, #171) |
+| [0199](0199-explain.md) | Explain: a well-founded proof of an entailment | Filed unaccepted (Inference part 2, #171) |
 
 ## Web UI, part 1 (#167)
 

@@ -11,6 +11,8 @@ request. Amends, each by a dated amendment:
   header in the `Vary` list;
 - **ADR [0132](0132-cors.md)**: the header joins both CORS lists.
 
+**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: `owl2-rl` is served by the closure; see the end. Filed unaccepted.
+
 ## Context
 
 - SPARQL 1.1 Protocol defines no parameter that selects an entailment regime,
@@ -131,3 +133,17 @@ request. Amends, each by a dated amendment:
   client's and the command line's options.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-06 — `owl2-rl` served by the closure
+
+Filed by Inference, part 2 (#171, under #95), unaccepted until the maintainer
+accepts it (ADR 0066).
+
+- **`owl2-rl`** is in effect on graphs an `OWL2RL` binding covers, answered
+  by the closure (ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md) point 6). On
+  any other graph it is `entailment-unsupported`.
+- **The view IRIs** combine with `simple` and `owl2-rl` only; with any other
+  regime they are `entailment-unsupported`
+  (ADR [0198](0198-the-views-and-the-reserved-graphs.md) point 1).
+- **`Varve-Inconsistent: true`** answers a query under `owl2-rl` over a graph
+  with a clash, and CORS exposes it beside `Varve-Entailment`.
