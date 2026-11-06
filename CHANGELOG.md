@@ -12,70 +12,209 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [0.1.0-preview.20] - 2026-10-30
+## [0.1.0-preview.18] - 2026-10-27
 
-**Row-level access through the classifier — the first part of milestone 9**
+**Inference, part 1 — RDFS, RDF and D by query rewriting, regimes over HTTP, the TBox binding**
 
-### Row-level access through the classifier (#202, under #14, in 1.0 by #15)
+### Inference, part 1 — tier 1: RDFS, RDF and D by query rewriting
 
-Beneath graph-level grants, a dataset's rows now belong to data subjects,
-and a grant can be limited to the rows of its subjects. It works with
-erasure mode off and is stable 1.0 API. Erasure mode itself is the second
-part of milestone 9 (#203), preview only. This release closes #202; #14
-stays open. The nine ADRs are filed unaccepted and accepted on the pull
-request (ADR 0066). No byte of storage format 1 or delta format 1 changes.
+A query can be answered under an entailment regime. This release completes
+the first of Inference's three parts (#170, under #95): the rewriting, the
+regimes over HTTP and the TBox binding. Nothing is materialised, and the log
+stays asserted-only. The closure (OWL 2 RL, custom rules) is part 2; the
+commit-time validator, `owl:sameAs`, OWL 2 QL and Brick are part 3. The
+storage format and the change feed's format are unchanged. The five ADRs
+are filed unaccepted and accepted on the pull request (ADR 0066).
 
 #### Added
 
-- **Classifier bindings** (ADRs 0232, 0234). `varve:ClassifierBinding`
-  names an annotated shapes graph of the dataset and the graphs it
-  classifies:
-  - `varve:dataSubject` on a node shape names data subjects, by
-    `sh:targetClass`, `sh:targetNode` or `sh:targetSubjectsOf`;
-  - `varve:subjectLink` on a property shape carries ownership, transitively;
-  - `varve:publicLink` marks a predicate whose object is not hidden with
-    the row it names, `rdf:type` always among them.
+- **`Varve.Sparql.Entailment`** (layer 3, ADR 0191): `EntailmentRewriter`
+  rewrites a query's basic graph patterns so that simple evaluation answers
+  the RDF, RDFS or D regime (SPARQL 1.1 Entailment Regimes §2, §4, §5.1),
+  under conditions C1 and C2 and the multiplicity rule (ADR 0193).
+  - Each graph is read merged with the TBox graphs of the binding that
+    covers it, given as `TBoxCover` values. A graph no binding covers is
+    read over its own triples, and a named graph the source holds nothing
+    of is not merged.
+  - The schema is saturated per scoping graph by bound probes to a
+    fixpoint, meta-modelling included, never by a scan of the data, and
+    compiled into tables. `SchemaCache` keeps it across queries, bounded,
+    keyed by the versions of the graphs it merges; the server keeps one
+    per dataset. Under `GRAPH ?g` the named graphs are grouped by the
+    schema they meet.
+  - C2 is answered by existence probes at rewrite time, memoised per
+    request. Classes and container membership properties are sought, one
+    seek per distinct term, where a pattern needs them.
+  - Rewriting does not grow with the data. `?s ?p ?o` and
+    `?x a rdfs:Resource` are answer-sized. A triple that says something of
+    the RDF or RDFS vocabulary itself makes the schema of every graph it is
+    part of read whole, after every commit to it: a TBox binding's
+    description (`GET /manage/datasets/{name}/bindings/{binding}`) names
+    those graphs under `fullReads`, and `/health/ready` counts them.
+  - Each pattern's union drops the branches the rewriting proves add
+    nothing; `?x a ex:Student` under RDFS reads its typings once, not six
+    times. The schema cache is bounded by size as well as count.
+  - D matches literals by value, with Varve.Xsd's datatype map, through
+    two extension functions a host registers (`LiteralValues`).
+  - Property paths and `SERVICE` are evaluated without entailment (§10).
+  - Usable over any `IQuadSource`, without the store; the browser build
+    carries it for 42 KB under brotli against `main`.
+- **`Varve.Rdf`**: `IDistinctTermSource` and `DistinctTerms`, a source's
+  distinct predicates and objects by seek; `IGraphVersionSource` and
+  `GraphVersion`. The store's `DatasetView` answers both, at the head,
+  inside an extent set's window and as of a position, and
+  `GraphScopedQuadSource` forwards them.
+- **`Varve-Entailment`** (ADR 0192): a query asks for `simple`, `rdf`,
+  `rdfs` or `d`, or a regime IRI in angle brackets.
+  - Without it, the dataset's default from its TBox bindings applies, and
+    simple entailment when none states one.
+  - The response names the regime, `Vary` lists the header on every
+    dataset response, and the `ETag` of a query's answer is per position
+    and regime: `"<position>.<token>"`.
+  - `400 entailment-unsupported` (members `value` and `supported`) answers
+    anything else, and any value but `simple` on an update.
+    `entailment-refused` is catalogued for the regimes of later parts.
+  - The service description names the default
+    (`sd:defaultEntailmentRegime`), `sd:feature varve:EntailmentHeader`,
+    and the regimes of each covered named graph (`sd:entailmentRegime`).
+  - CORS allows and exposes the header (ADR 0132, amended).
+  - `IEntailmentBindings` is the protocol's seam; the server maps the
+    declarations at the request's management position.
+  - `SparqlHttpClient.QueryAsync` takes an optional regime, and
+    `varve query --entailment <token>` sends it.
+- **The TBox binding** (ADR 0194): `varve:TBoxBinding` reads into
+  `TBoxBindingDeclaration`: one or more `varve:boundGraph` TBox graphs, a
+  graph set, `varve:profile varve:Rewriting` and at most one
+  `varve:defaultEntailment`.
+  - The shapes in `shapes/management.ttl` validate it at runtime; the
+    residual check refuses two bindings whose graphs overlap, two
+    different defaults in a dataset, and the reserved terms
+    (`varve:RDFS`, `varve:OWL2RL`, `varve:RulesOnly`, `varve:rulesGraph`,
+    `varve:crossGraph`, `varve:sameAs`, `varve:inconsistencyMode`), each
+    naming the part that gives it effect.
+  - **A TBox graph is read by every caller who reads anything in its
+    dataset** (ADR 0190); writing it still needs a write grant.
+    `GraphScope.WithDatasetPublic` carries the rule, and
+    `GrantTable.ScopesOf` applies it.
+  - `ManagementPlan.DatasetPublic` lists the graphs the desired
+    declarations make dataset-public, marking those an apply widens and
+    narrows. `varve apply --plan` prints the list before the graph diffs,
+    and the saved plan carries it.
+- **Conformance.** The RDF, RDFS and D cases of `sparql11/entailment` and
+  the cases of `rdf-mt` the rewriting decides run under the ratchet. The
+  RIF and OWL 2 DL-only cases are blocked as out of scope (#15), listed by
+  name, and counted by `eng/status.cs`.
+- **The operator guide** `docs/operator/inference.md`.
 
-  A shapes graph that does not classify fails closed.
-- **What a quad is about** (ADR 0230). A quad is about its subject node's
-  subjects and, unless its predicate is a public link, its object's. A
-  caller sees it when its graph is readable and every one of those
-  subjects is in the caller's subject set for the binding.
-- **Subject-scoped grants** (ADR 0234). A read or write grant may carry
-  `varve:subject`, `varve:subjectPrefix`, `varve:subjectTemplate`,
-  `varve:subjectClass` and `varve:subjectLink`, and a write grant
-  `varve:createUnder`. A grant without them means what it meant. `varve
-  apply` refuses a row-restricted grant that does not cover the whole
-  binding, overlapping bindings, and a reject or report shapes gate over a
-  row-restricted writer's classified graphs.
-- **`RowScopedQuadSource`** in `Varve.Rdf` (ADR 0235): two probes and a
-  memoised set decision per quad, no allocation, and no wrapper at all for
-  a caller with no row restriction.
-- **The write rule** (ADR 0236). A row-restricted writer writes only rows
-  already wholly its own, creates rows only at fresh blank nodes or under
-  `varve:createUnder`, and links only to rows it reads. Every breach is the
-  same `403 row-not-writable`, so no write's outcome depends on a row it
-  cannot read.
-- **Every surface** (ADR 0237). Queries, the Graph Store and the service
-  description read the caller's rows. The feed and the diff deliver the
-  delta of the caller's view, reclassified quads included. Validation
-  report graphs and their attachments are withheld from a row-restricted
-  caller. Inference's closure waits for #171 (ADR 0238).
-- **`Varve.Classification`**, a new layer-5 package (ADRs 0232, 0233).
-  `ShapeClassifier` is `Varve.Store`'s new `IClassifier`.
-  `ClassificationProjection` keeps the classification at every position,
-  from exact deltas, in the local cache verified in full on read. A
-  row-restricted read it has not reached waits once, then answers
-  `503 classification-behind`. Its lag is on readiness as `classification`.
-- **Access without erasure mode** (ADR 0231):
-  `GET /datasets/{name}/access?subject=<IRI>`, for a dataset admin, answers
-  a subject's quads at the head through the new `ISelector`.
+#### Changed
+
+- **`Vary` on every dataset response names `Varve-Entailment`** beside
+  `Accept`, `Varve-As-Of` and `Authorization`, problems included.
+- **A query's `ETag` under a regime other than simple** is
+  `"<position>.<token>"`. Under simple entailment, the default when no
+  binding is declared, it is the position alone, as before. An `If-Match`
+  naming such a tag on a write is refused: the tag names no position.
+- `varve:TBoxBinding` was recorded with exactly one `varve:boundGraph` and
+  no effect (ADR 0166). It now needs a profile and a graph set, and a
+  declaration without them is refused at apply.
+
+## [0.1.0-preview.17] - 2026-10-27
+
+**Supply chain transparency — an attested SBOM for every artefact, the dependency gate, a support period**
+
+### Supply chain transparency (#119, in 1.0 by #15)
+
+Every package, the `varve` tool and the container image now ship with an
+SPDX 2.3 SBOM of exactly what they contain. Each SBOM is generated from the
+locked restore, is byte-identical when generated twice, and is attested
+keylessly beside the artefact's build provenance. This descriptor names
+each artefact with its SBOM's SHA-256 under `sbom:`, so the release is the
+auditable unit. A known vulnerability fails the build unless a published
+VEX statement says why Varve is not affected, and `SECURITY.md` states the
+support period. `docs/supply-chain.md` is written for a NIS2 supplier
+assessment and for a manufacturer's due diligence under the Cyber
+Resilience Act. This release closes #119. ADRs 0224 and 0225, and their
+amendments to 0009, 0029, 0102 and 0111, are filed unaccepted and
+accepted on the pull request (ADR 0066).
+
+#### Added
+
+- **An SBOM per shipped artefact** (ADRs 0224, 0225). Each package's SBOM
+  is embedded at `_manifest/spdx_2.3/manifest.spdx.json` and attached to
+  the release, as are the tool's and the image's.
+  - For a library, it lists what a consumer resolves: no third-party
+    package for 24 of them, and eight `Microsoft.Extensions` abstractions
+    for `Varve.Protocol.Client`.
+  - For the tool, the 16 packages it carries.
+  - For the image, each platform's binary with its closure and the .NET
+    runtime, and the base image's OS packages.
+  - Each component carries its package URL, version, SHA-256 and SHA-512,
+    licence and supplier.
+- **Attestations for every package**: SLSA v1 build provenance and the
+  SBOM, through GitHub's OIDC identity. Verify with `gh attestation
+  verify <package> --owner hafeok`.
+  - The release carries the packages exactly as attested, with
+    `SHA256SUMS`.
+  - nuget.org's copy is the same package under nuget.org's own repository
+    signature. CI checks this after every release, entry by entry, and
+    verifies the signature.
+- **The dependency gate checks what was resolved.** Every project
+  restores from a checked-in lockfile, locked in CI. The register gate
+  fails on:
+  - an unadmitted or stale package;
+  - a missing ADR;
+  - a licence outside its scope's allow-list;
+  - a native asset in a shipped closure;
+  - an Action not pinned by SHA;
+  - an audit exemption without its VEX statement.
+
+  Each case has its own broken fixture.
+- **`security/vex.openvex.json`**, attached to every release, empty today:
+  `NuGetAudit` finds no known vulnerability in any resolved package.
+- **Descriptor format 2** (ADR 0102, amended): `sbom:` names every
+  artefact and its SBOM's digest. It is checked on the pull request and
+  again before anything is pushed. Every earlier descriptor stays format 1.
+
+#### Changed
+
+- **`CommitRequest` is renamed `CommitRequestBuilder` (breaking, #173).**
+  It is a builder its caller assembles and passes once to
+  `Dataset.CommitAsync`, and DD0019 asked for it to be named one. Rename
+  the type at each call site; nothing else about it changed.
+- **DecisionDriven.Analyzers 0.1.0-preview.10** (#173) is build-time
+  only. Commit's carried handles are published once with
+  `CompareExchange`, and a graph-scoped source's prefix decisions are
+  memoised in a `ConcurrentDictionary`. Together these fix a race between
+  concurrent readers that could corrupt the dictionary.
+- **The container's base image is pinned by digest** (ADR 0111, amended).
+- **The SDK rolls forward to its latest patch only** (`global.json`).
+- **`SECURITY.md`'s support period:**
+  - before 1.0, the latest preview;
+  - from 1.0, the latest `1.minor`;
+  - after `2.0.0`, security fixes for `1.x` for 12 months.
+
+  Advisories are GitHub's, with CVE ids.
+
+#### Fixed
+
+- **Object storage** (#126's follow-up):
+  - a segment holding only fence chunks opens;
+  - a reader record whose write was applied but whose answer was lost is
+    not forgotten;
+  - a retired extent set's directory is deleted with its last file
+    (#61).
+- **A binding's report graph, read while its projection was a commit
+  behind** (#183), could answer with no rows, which reads as conforming.
+  It now answers with the report at the position, or `503
+  validation-behind` after one bounded wait (ADR 0174).
+- **An event move's cancel is answered once the management plane has
+  applied it** (#206, #207). Before, a state read right after the `422`
+  could still see `varve:Moving`.
 
 #### Upgrading
 
-- **Nothing to do.** No grant restricts rows until it carries subject
-  terms, and no dataset is classified until it declares a classifier
-  binding. `varve:ClassifierBinding` was reserved and refused before.
+- **Datasets keep their log:** storage format 1, delta format 1.
+- **Code that built a `CommitRequest`** builds a `CommitRequestBuilder`.
 
 ## [0.1.0-preview.16] - 2026-10-28
 
@@ -1849,8 +1988,9 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.20...HEAD
-[0.1.0-preview.20]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.16...v0.1.0-preview.20
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.18...HEAD
+[0.1.0-preview.18]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.17...v0.1.0-preview.18
+[0.1.0-preview.17]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.16...v0.1.0-preview.17
 [0.1.0-preview.16]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...v0.1.0-preview.16
 [0.1.0-preview.15]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...v0.1.0-preview.15
 [0.1.0-preview.14]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.13...v0.1.0-preview.14

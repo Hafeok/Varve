@@ -27,7 +27,7 @@ namespace Varve.Rdf;
 /// every graph is not wrapped (<see cref="Wrap"/>): the unwrapped source costs
 /// what it did.
 /// </remarks>
-public sealed class GraphScopedQuadSource : IQuadSource
+public sealed class GraphScopedQuadSource : IQuadSource, IDistinctTermSource, IGraphVersionSource
 {
     private readonly IQuadSource _inner;
     private readonly bool _default;
@@ -115,6 +115,55 @@ public sealed class GraphScopedQuadSource : IQuadSource
                 return new Cursor(_inner.Match(subject, predicate, @object, graph), this);
         }
     }
+
+    /// <inheritdoc />
+    /// <remarks>A graph inside the scope seeks as the inner does; one outside it has no term.</remarks>
+    public bool TryDistinctPredicates(GraphPattern graph, [NotNullWhen(true)] out ITermCursor? predicates)
+    {
+        predicates = null;
+        if (!InScope(graph))
+        {
+            predicates = new ListTermCursor([]);
+            return true;
+        }
+
+        return _inner is IDistinctTermSource seeking && seeking.TryDistinctPredicates(graph, out predicates);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>A graph inside the scope seeks as the inner does; one outside it has no term.</remarks>
+    public bool TryDistinctObjects(TermHandle predicate, GraphPattern graph, [NotNullWhen(true)] out ITermCursor? objects)
+    {
+        objects = null;
+        if (!InScope(graph))
+        {
+            objects = new ListTermCursor([]);
+            return true;
+        }
+
+        return _inner is IDistinctTermSource seeking && seeking.TryDistinctObjects(predicate, graph, out objects);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>A graph inside the scope has the inner's version; one outside it reads as a graph with no quad.</remarks>
+    public bool TryGetGraphVersion(GraphPattern graph, out GraphVersion version)
+    {
+        version = GraphVersion.Empty;
+        if (graph.Match is not (GraphMatch.DefaultGraph or GraphMatch.Named))
+        {
+            return false;
+        }
+
+        return !InScope(graph) || (_inner is IGraphVersionSource versioned && versioned.TryGetGraphVersion(graph, out version));
+    }
+
+    // A single graph's place in the scope; a pattern over several graphs is no single graph's.
+    private bool InScope(GraphPattern graph) => graph.Match switch
+    {
+        GraphMatch.DefaultGraph => Scope.IncludesDefault,
+        GraphMatch.Named => Allows(graph.Graph),
+        _ => true,
+    };
 
     /// <inheritdoc />
     /// <remarks>

@@ -1,0 +1,1 @@
+Npgsql 8.0.6 (runtime, through src/Library/Library.csproj) is 'PostgreSQL', which is not on the runtime allow-list

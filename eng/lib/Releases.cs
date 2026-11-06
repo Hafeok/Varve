@@ -7,14 +7,15 @@
 // lib/Releases.cs`); not a script of its own.
 //
 // What is here is what both need: reading a descriptor, its shape rules
-// (format 1), SemVer precedence, and the projection of releases/ that
+// (formats 1 and 2), SemVer precedence, and the projection of releases/ that
 // CHANGELOG.md is. What a descriptor's basis resolves to, and when a release
 // is cut, is eng/release.cs's alone.
 //
 // A descriptor is a strict subset of YAML, read by hand rather than by a
 // package (hard constraint 4): top-level `key: value` scalars, optionally
-// quoted; one list, `basis:`, of `  - kind: value` lines; and `|` block
-// scalars. Whole-line `#` comments are allowed between keys. Anything else is
+// quoted; one list, `basis:`, of `  - kind: value` lines; in format 2 a second,
+// `sbom:`, of `  - kind: name sha256:digest` lines (ADR 0102, amended
+// 2026-10-27); and `|` block scalars. Whole-line `#` comments are allowed between keys. Anything else is
 // refused with its line, so a descriptor never means something a reviewer did
 // not read.
 
@@ -23,6 +24,9 @@ using System.Text;
 using System.Text.RegularExpressions;
 
 sealed record BasisLine(string Kind, string Value, int Line);
+
+// One shipped artefact and the SHA-256 of its SBOM (ADR 0224 point 7).
+sealed record SbomLine(string Kind, string Name, string Digest, int Line);
 
 sealed record Descriptor(
     string Path,
@@ -33,13 +37,24 @@ sealed record Descriptor(
     string? Commit,
     IReadOnlyList<BasisLine> Basis,
     string? AcceptedBy,
-    string? Summary);
+    string? Summary,
+    IReadOnlyList<SbomLine> Sbom);
 
 static class ReleaseFormat
 {
     public const string Directory = "releases";
 
-    public const int CurrentFormat = 1;
+    // Format 2 adds `sbom:` (ADR 0102, amended 2026-10-27). A format-1
+    // descriptor stays valid as it is; a release proposed at a commit that
+    // carries eng/sbom.cs is format 2 (eng/release.cs).
+    public const int CurrentFormat = 2;
+
+    public static readonly int[] KnownFormats = [1, 2];
+
+    // The kinds of artefact a release ships (ADR 0224 point 1): a library
+    // package, the tool package, the container image, a CLI binary (ADR 0226),
+    // and any other release asset, the Web UI bundle among them (#167).
+    public static readonly string[] SbomKinds = ["nupkg", "tool", "image", "binary", "asset"];
 
     // SemVer 2.0.0 with its prerelease, prefixed v, without build metadata:
     // NuGet ignores build metadata, so two versions differing only there would
@@ -48,7 +63,7 @@ static class ReleaseFormat
         @"^v(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)(?:-(?<pre>(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?$",
         RegexOptions.CultureInvariant);
 
-    private static readonly string[] Keys = ["format", "version", "title", "date", "commit", "basis", "accepted-by", "summary"];
+    private static readonly string[] Keys = ["format", "version", "title", "date", "commit", "basis", "sbom", "accepted-by", "summary"];
 
     private static readonly string[] BasisKinds = ["issue", "adr", "storage-format", "delta-format"];
 
@@ -64,6 +79,8 @@ static class ReleaseFormat
         string[] lines = text.ReplaceLineEndings("\n").Split('\n');
         Dictionary<string, string> scalars = new(StringComparer.Ordinal);
         List<BasisLine> basis = [];
+        List<SbomLine> sbom = [];
+        Regex sbomItem = new(@"^[ ]{2}-[ ](?<kind>[a-z][a-z-]*):[ ]+(?<name>\S+)[ ]+(?<digest>sha256:[0-9a-f]{64})[ ]*$", RegexOptions.CultureInvariant);
         Regex topLevel = new(@"^(?<key>[a-z][a-z-]*):(?:[ ]+(?<value>.*?))?[ ]*$", RegexOptions.CultureInvariant);
         Regex basisItem = new(@"^[ ]{2}-[ ](?<kind>[a-z][a-z-]*):[ ]+(?<value>\S.*?)[ ]*$", RegexOptions.CultureInvariant);
         HashSet<string> seen = new(StringComparer.Ordinal);
@@ -97,7 +114,7 @@ static class ReleaseFormat
 
             if (!Keys.Contains(key, StringComparer.Ordinal))
             {
-                problems.Add($"{path}:{number}: '{key}' is not a field of format 1 (docs/releases.md §1)");
+                problems.Add($"{path}:{number}: '{key}' is not a field of a descriptor (docs/releases.md §1)");
                 continue;
             }
 
@@ -132,6 +149,36 @@ static class ReleaseFormat
                     }
 
                     basis.Add(new BasisLine(item.Groups["kind"].Value, Unquote(item.Groups["value"].Value), i + 1));
+                }
+
+                continue;
+            }
+
+            if (key == "sbom")
+            {
+                if (value.Length > 0)
+                {
+                    problems.Add($"{path}:{number}: sbom is a list, one '  - kind: name sha256:digest' line each");
+                }
+
+                while (i + 1 < lines.Length && (lines[i + 1].StartsWith(' ') || lines[i + 1].Trim().Length == 0))
+                {
+                    i++;
+
+                    if (lines[i].Trim().Length == 0)
+                    {
+                        continue;
+                    }
+
+                    Match item = sbomItem.Match(lines[i]);
+
+                    if (!item.Success)
+                    {
+                        problems.Add($"{path}:{i + 1}: '{lines[i].Trim()}' is not '  - kind: name sha256:<64 lower-case hex digits>'");
+                        continue;
+                    }
+
+                    sbom.Add(new SbomLine(item.Groups["kind"].Value, item.Groups["name"].Value, item.Groups["digest"].Value, i + 1));
                 }
 
                 continue;
@@ -173,7 +220,7 @@ static class ReleaseFormat
 
             if (value.StartsWith('|') || value.StartsWith('>') || value.StartsWith('[') || value.StartsWith('{') || value.StartsWith('&') || value.StartsWith('*'))
             {
-                problems.Add($"{path}:{number}: '{value}' is YAML this format does not read; a block is '|', a list is basis's alone");
+                problems.Add($"{path}:{number}: '{value}' is YAML this format does not read; a block is '|', and the lists are basis's and sbom's alone");
                 continue;
             }
 
@@ -203,7 +250,8 @@ static class ReleaseFormat
             scalars.GetValueOrDefault("commit"),
             basis,
             scalars.GetValueOrDefault("accepted-by"),
-            scalars.GetValueOrDefault("summary"));
+            scalars.GetValueOrDefault("summary"),
+            sbom);
     }
 
     // Double quotes take \" and \\; single quotes take ''. Nothing else is
@@ -236,10 +284,36 @@ static class ReleaseFormat
         {
             problems.Add($"{path}: no format; a descriptor declares the format it conforms to");
         }
-        else if (descriptor.Format != CurrentFormat)
+        else if (!KnownFormats.Contains(descriptor.Format.Value))
         {
-            problems.Add($"{path}: format {descriptor.Format} is not one this validator knows (it knows {CurrentFormat})");
+            problems.Add($"{path}: format {descriptor.Format} is not one this validator knows (it knows {string.Join(" and ", KnownFormats)})");
             return;
+        }
+
+        if (descriptor.Format == 1 && descriptor.Sbom.Count > 0)
+        {
+            problems.Add($"{path}: sbom is a field of format 2; a format-1 descriptor has none");
+        }
+
+        if (descriptor.Format >= 2)
+        {
+            if (descriptor.Sbom.Count == 0)
+            {
+                problems.Add($"{path}: no sbom; a format-2 descriptor names every artefact it ships and its SBOM's digest (ADR 0224 point 7)");
+            }
+
+            foreach (SbomLine line in descriptor.Sbom)
+            {
+                if (!SbomKinds.Contains(line.Kind, StringComparer.Ordinal))
+                {
+                    problems.Add($"{path}:{line.Line}: '{line.Kind}' is not a kind of artefact; they are {string.Join(", ", SbomKinds)}");
+                }
+            }
+
+            foreach (IGrouping<(string, string), SbomLine> duplicate in descriptor.Sbom.GroupBy(line => (line.Kind, line.Name)).Where(group => group.Count() > 1))
+            {
+                problems.Add($"{path}: {duplicate.Key.Item1} {duplicate.Key.Item2} has {duplicate.Count()} sbom lines");
+            }
         }
 
         if (descriptor.Version is null)

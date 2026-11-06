@@ -28,6 +28,12 @@ public readonly record struct ProblemType
     /// <summary>A request the protocol does not accept: a missing or repeated parameter, a bad value.</summary>
     public static ProblemType BadRequest { get; } = new("bad-request");
 
+    /// <summary>A <c>Varve-Entailment</c> the server does not serve, or one other than simple on an update (ADR 0192).</summary>
+    public static ProblemType EntailmentUnsupported { get; } = new("entailment-unsupported");
+
+    /// <summary>A query the regime asked refuses, its <c>QueryRequestRefused</c>. Reserved: no tier-1 regime refuses a query (ADR 0192).</summary>
+    public static ProblemType EntailmentRefused { get; } = new("entailment-refused");
+
     /// <summary>A request body in a media type or charset the endpoint does not read.</summary>
     public static ProblemType UnsupportedMediaType { get; } = new("unsupported-media-type");
 

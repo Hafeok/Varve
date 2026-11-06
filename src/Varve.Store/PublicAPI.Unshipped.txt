@@ -751,6 +751,9 @@ Varve.Store.IClassifier.Classify(Varve.Rdf.IQuadSource! pinned, Varve.Rdf.QuadDe
 Varve.Store.ISelector
 Varve.Store.ISelector.Select(Varve.Rdf.IQuadSource! source, Varve.Rdf.IRowClassification! classification, Varve.Rdf.RdfTerm! subject) -> Varve.Rdf.IQuadCursor!
 static Varve.Store.ClassificationSelector.Instance.get -> Varve.Store.ClassificationSelector!
+Varve.Store.DatasetView.TryDistinctObjects(Varve.Rdf.TermHandle predicate, Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? objects) -> bool
+Varve.Store.DatasetView.TryDistinctPredicates(Varve.Rdf.GraphPattern graph, out Varve.Rdf.ITermCursor? predicates) -> bool
+Varve.Store.DatasetView.TryGetGraphVersion(Varve.Rdf.GraphPattern graph, out Varve.Rdf.GraphVersion version) -> bool
 Varve.Store.Dataset.ReopenDue.get -> bool
 Varve.Store.Dataset.TakeWriteAsync(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<bool>>! claim, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
 Varve.Store.Dataset.AppendFailed.get -> bool

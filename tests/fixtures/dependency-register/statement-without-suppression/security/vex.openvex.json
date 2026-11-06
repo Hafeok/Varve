@@ -1,0 +1,15 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://example.org/vex",
+  "author": "fixture",
+  "timestamp": "2026-10-27T00:00:00Z",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": { "@id": "https://github.com/advisories/GHSA-pgww-w46g-26qg" },
+      "products": [ { "@id": "pkg:nuget/AngleSharp@1.4.0" } ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    }
+  ]
+}

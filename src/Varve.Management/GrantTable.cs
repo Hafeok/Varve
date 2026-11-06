@@ -22,6 +22,7 @@ public sealed class GrantTable
 {
     private readonly string[] _bootstrap;
     private readonly Dictionary<string, List<GrantDeclaration>> _byDataset = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, RdfTerm[]> _datasetPublic = new(StringComparer.Ordinal);
 
     private GrantTable(ManagementPosition position, Declarations declarations, string[] bootstrap)
     {
@@ -32,6 +33,7 @@ public sealed class GrantTable
         foreach ((string name, DatasetDeclaration dataset) in declarations.Datasets)
         {
             _byDataset[name] = [.. dataset.Grants];
+            _datasetPublic[name] = [.. DatasetPublicGraphs(dataset)];
         }
     }
 
@@ -197,6 +199,12 @@ public sealed class GrantTable
             }
         }
 
+        // A TBox graph is read by every reader of the dataset (ADR 0190 point 3); writing it still needs a write grant.
+        if (_datasetPublic.TryGetValue(dataset, out RdfTerm[]? datasetPublic))
+        {
+            readable = readable.WithDatasetPublic(datasetPublic);
+        }
+
         return new CallerScope(readable, writable, RowsOf(matched, dataset, caller, writes: false), RowsOf(matched, dataset, caller, writes: true), AdminAccess.None);
     }
 
@@ -287,6 +295,24 @@ public sealed class GrantTable
         }
 
         return SubjectScope.Of([.. subjects], [.. prefixes], [.. set.Classes], [.. links], [.. createUnder]);
+    }
+
+    /// <summary>
+    /// The graphs <paramref name="dataset"/>'s TBox bindings make
+    /// dataset-public (ADR 0190 point 3): their TBox graphs, in term order,
+    /// each once.
+    /// </summary>
+    public static IReadOnlyList<RdfTerm> DatasetPublicGraphs(DatasetDeclaration dataset)
+    {
+        ArgumentNullException.ThrowIfNull(dataset);
+        SortedSet<RdfTerm> graphs = new(TermOrder.Instance);
+
+        foreach (TBoxBindingDeclaration binding in dataset.TBoxBindings)
+        {
+            graphs.UnionWith(binding.TBoxGraphs);
+        }
+
+        return [.. graphs];
     }
 
     private static GraphScope ScopeOf(GraphSet set, Caller caller)

@@ -16,7 +16,8 @@ namespace Varve.Management;
 /// ADR 0234 point 4's apply-time preconditions over one dataset's grants and
 /// bindings, which compare declarations and so stay in code (ADR 0175): a
 /// grant with subject terms covers the whole of every classifier binding it
-/// meets and meets one; classifier bindings do not overlap; and no gate
+/// meets and meets one; classifier bindings do not overlap, and classify no
+/// TBox graph (ADR 0238 point 1); and no gate
 /// whose refusal could read another row runs over a classified graph a
 /// row-restricted writer writes.
 /// </summary>
@@ -47,6 +48,24 @@ internal static class RowPreconditions
                 if (Meets(classifiers[i].Classifies!, classifiers[j].Classifies!))
                 {
                     yield return new DeclarationFinding(graph, classifiers[j].Node, ManagementVocabulary.Graph, $"two classifier bindings classify a graph in common, {Name(classifiers[i].Node)} and {Name(classifiers[j].Node)}: a graph has at most one classification (ADR 0234, P4)");
+                }
+            }
+        }
+
+        // ADR 0238 point 1: a TBox graph is read by every reader of the dataset
+        // (ADR 0190 point 3) and its schema is shared between callers, so no
+        // classifier binding classifies one.
+        foreach (TBoxBindingDeclaration tbox in dataset.TBoxBindings)
+        {
+            foreach (BindingDeclaration classifier in classifiers)
+            {
+                foreach (RdfTerm tboxGraph in tbox.TBoxGraphs)
+                {
+                    if (Holds(classifier.Classifies!, tboxGraph))
+                    {
+                        yield return new DeclarationFinding(graph, classifier.Node, ManagementVocabulary.Graph, $"the classifier binding {Name(classifier.Node)} classifies {Name(tboxGraph)}, a TBox graph of the TBox binding {Name(tbox.Node)}; a TBox graph is read by every reader of the dataset, and is never classified (ADR 0238)");
+                        break;
+                    }
                 }
             }
         }

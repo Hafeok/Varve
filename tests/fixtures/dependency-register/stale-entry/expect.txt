@@ -1,0 +1,2 @@
+that no lockfile and no local tool resolves
+  Microsoft.Extensions.Options

@@ -19,7 +19,8 @@ namespace Varve.Server.Tests;
 /// <summary>
 /// ADR 0234 point 4 through <c>varve apply</c> against the real host: a
 /// classifier binding with a subject-template write grant is applied, and
-/// each of the five row preconditions is refused by the server's management
+/// each of the five row preconditions, and ADR 0238's over a TBox graph, is
+/// refused by the server's management
 /// validator, naming the grant and the binding, with the declarations in
 /// force before left as they were.
 /// </summary>
@@ -103,6 +104,15 @@ public sealed class RowApplyTests : IDisposable
             Refused,
             Vocabulary + "validationMode",
             ["<" + Refused + ">", "<" + Rows + ">", "<" + TenantUsers + ">", "(ADR 0234, P5)"]
+        },
+        {
+            // ADR 0238 point 1: a TBox graph is dataset-public, and no classifier binding classifies it.
+            "TBox",
+            "<https://portfolio.example/manage/refused> a varve:TBoxBinding ; varve:boundGraph <https://portfolio.example/graph/site/terms> ; "
+                + "varve:profile varve:Rewriting ; varve:graph <https://portfolio.example/graph/office> .",
+            Rows,
+            Vocabulary + "graph",
+            ["<" + Rows + ">", "<https://portfolio.example/graph/site/terms>", "<" + Refused + ">", "is never classified", "(ADR 0238)"]
         },
     };
 

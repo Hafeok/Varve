@@ -105,6 +105,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         IWriterDirectory? writers = null,
         IValidationReports? validationReports = null,
         IRowClassifications? rowClassifications = null,
+        IEntailmentBindings? entailment = null,
         CancellationToken stopping = default)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
@@ -149,6 +150,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
             Forwarder = writers is null ? null : new System.Net.Http.HttpMessageInvoker(new System.Net.Http.SocketsHttpHandler()),
             ValidationReports = validationReports,
             RowClassifications = rowClassifications,
+            Entailment = entailment,
         };
 
         if (map is null)

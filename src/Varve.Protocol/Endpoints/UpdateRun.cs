@@ -31,6 +31,14 @@ internal static class UpdateRun
             return;
         }
 
+        // An update's WHERE is evaluated under simple entailment (ADR 0192 point 4).
+        Microsoft.Extensions.Primitives.StringValues entailment = context.Request.Headers[EntailmentHeader.Name];
+        if (entailment.Count > 0 && (!EntailmentHeader.TryRead(entailment, out Varve.Sparql.Entailment.Model.EntailmentRegime regime) || regime != Varve.Sparql.Entailment.Model.EntailmentRegime.Simple))
+        {
+            await QueryRun.UnsupportedAsync(context, entailment).ConfigureAwait(false);
+            return;
+        }
+
         if (await Writes.CheckAsync(exchange, update: true).ConfigureAwait(false) is not { Proceed: true } plan)
         {
             return;

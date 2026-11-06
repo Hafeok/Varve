@@ -389,11 +389,15 @@ Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replicati
 
 ## Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit
 
-Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set).
+Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set); by part 1 (#170), 0003 (the packages), 0119 (`entailment-unsupported`), 0132 (the header under CORS) and 0166 (the binding's terms).
 
 | # | Title | Status |
 |---:|---|---|
 | [0190](0190-entailments-under-graph-level-grants.md) | Entailments under graph-level grants: premise sets, intra-graph by default, the ontology readable by the dataset's readers; amends 0107 | Filed unaccepted (Inference, #95) |
+| [0191](0191-the-inference-packages-and-their-layers.md) | The inference packages and their layers; amends 0003 | Filed unaccepted (Inference part 1, #170) |
+| [0192](0192-entailment-regimes-over-http.md) | Entailment regimes over HTTP: the `Varve-Entailment` header and the service description; amends 0119, 0132 | Filed unaccepted (Inference part 1, #170) |
+| [0193](0193-rdfs-rdf-and-d-by-rewriting.md) | RDF, RDFS and D entailment by query rewriting | Filed unaccepted (Inference part 1, #170) |
+| [0194](0194-the-tbox-binding-vocabulary.md) | The TBox binding vocabulary; amends 0166 | Filed unaccepted (Inference part 1, #170) |
 
 ## Web UI, part 1 (#167)
 
@@ -410,6 +414,15 @@ Filed by 1.0 readiness A ([#129](https://github.com/Hafeok/Varve/issues/129); [#
 | # | Title | Status |
 |---:|---|---|
 | [0213](0213-cached-derived-data-is-verified-before-use.md) | Cached derived data is verified before use: a check per block, and damage is a miss | Filed unaccepted (#146) |
+
+## Supply chain transparency (#119, readiness B)
+
+Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 1.0 ([#15](https://github.com/Hafeok/Varve/issues/15)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0224: readiness A holds 0213–0222. Amended by it, likewise unaccepted: 0009 (the register against every lockfile, licences by scope, the native-asset gate folded in); 0029 (the SBOM in the package, the release's assets); 0102 (descriptor format 2, `sbom:`); 0111 (the base by digest, the merged image SBOM).
+
+| # | Title | Status |
+|---:|---|---|
+| [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119) |
+| [0225](0225-the-sbom-generator.md) | The SBOM generator: `eng/sbom.cs`, SPDX 2.3, from the restore | Filed unaccepted (#119) |
 
 ## Milestone 9, part 1 — row-level access through the classifier (#202)
 

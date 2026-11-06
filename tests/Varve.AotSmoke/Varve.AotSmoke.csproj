@@ -18,6 +18,13 @@
          what it can see statically; only a real ILC run proves the packages
          publish and the binary runs. -->
     <PublishAot>true</PublishAot>
+    <!-- ADR 0224: every RID it is published for is in its lockfile. Only while
+         restoring: the RIDs are the lockfile's, not the build's, and since
+         .NET 10 a tool project with RuntimeIdentifiers packs as RID-specific
+         packages behind a pointer package that carries no assembly. A
+         publish for a RID restores first, without it, then publishes with
+         no restore of its own. -->
+    <RuntimeIdentifiers Condition="'$(MSBuildIsRestoring)' == 'true'">$(VarveNativeRuntimeIdentifiers)</RuntimeIdentifiers>
     <InvariantGlobalization>true</InvariantGlobalization>
     <StackTraceSupport>false</StackTraceSupport>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
