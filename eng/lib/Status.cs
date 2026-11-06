@@ -43,6 +43,8 @@ sealed class StatusTree(Func<string, string?> read, Func<string, IEnumerable<str
 
     public const string PassingPath = "tests/Varve.Conformance.Tests/baseline/passing.txt";
 
+    public const string BlockedPath = "tests/Varve.Conformance.Tests/baseline/blocked.txt";
+
     public string? Read(string path) => read(path);
 
     // Every file under a directory, recursively, as repository-relative paths.
@@ -84,7 +86,8 @@ static class ProjectStatus
     public static void Check(
         StatusTree tree, List<string> problems,
         string readmePath = StatusTree.ReadmePath, string roadmapPath = StatusTree.RoadmapPath,
-        string passingPath = StatusTree.PassingPath, string releasesPath = ReleaseFormat.Directory)
+        string passingPath = StatusTree.PassingPath, string releasesPath = ReleaseFormat.Directory,
+        string blockedPath = StatusTree.BlockedPath)
     {
         string? readme = tree.Read(readmePath);
         string? roadmap = tree.Read(roadmapPath);
@@ -122,6 +125,7 @@ static class ProjectStatus
         CheckOpeningLine(readmePath, section, releases, milestones, problems);
         CheckImageTags(readmePath, readme, releases, problems);
         CheckConformanceTotal(readmePath, section, passingPath, passing, problems);
+        CheckBlocked(readmePath, section, blockedPath, tree.Read(blockedPath), problems);
         CheckPackageTable(readmePath, section, tree.Projects(), problems);
         CheckRoadmap(roadmapPath, roadmap, milestones, releases, problems);
     }
@@ -198,6 +202,35 @@ static class ProjectStatus
         if (stated != baseline)
         {
             problems.Add($"{readmePath}: the conformance total is {stated:N0}, and {passingPath} holds {baseline:N0} lines");
+        }
+    }
+
+    // 2a. The cases blocked as out of scope, which are not run and not
+    // exemptions (ADR 0193), are counted where the table is, from their list.
+    private static void CheckBlocked(string readmePath, string[] section, string blockedPath, string? blocked, List<string> problems)
+    {
+        Match stated = section.Select(line => Regex.Match(line, @"\*\*Blocked as out of scope, not run:\*\*\s*(?<count>[\d,]+)", RegexOptions.CultureInvariant)).FirstOrDefault(match => match.Success) ?? Match.Empty;
+        if (blocked is null)
+        {
+            if (stated.Success)
+            {
+                problems.Add($"{readmePath} counts cases blocked as out of scope, and {blockedPath} is missing");
+            }
+
+            return;
+        }
+
+        int listed = blocked.ReplaceLineEndings("\n").Split('\n').Count(line => line.Trim().Length > 0 && !line.TrimStart().StartsWith('#'));
+        if (!stated.Success)
+        {
+            problems.Add($"{readmePath}: the conformance section has no '**Blocked as out of scope, not run:** N' line, and {blockedPath} lists {listed:N0}");
+            return;
+        }
+
+        int count = int.Parse(stated.Groups["count"].Value.Replace(",", "", StringComparison.Ordinal), System.Globalization.CultureInfo.InvariantCulture);
+        if (count != listed)
+        {
+            problems.Add($"{readmePath}: the cases blocked as out of scope are {count:N0}, and {blockedPath} lists {listed:N0}");
         }
     }
 

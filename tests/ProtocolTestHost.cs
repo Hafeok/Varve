@@ -104,6 +104,8 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         string? eventSource = null,
         IWriterDirectory? writers = null,
         IValidationReports? validationReports = null,
+        IRowClassifications? rowClassifications = null,
+        IEntailmentBindings? entailment = null,
         CancellationToken stopping = default)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
@@ -147,6 +149,8 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
             Writers = writers,
             Forwarder = writers is null ? null : new System.Net.Http.HttpMessageInvoker(new System.Net.Http.SocketsHttpHandler()),
             ValidationReports = validationReports,
+            RowClassifications = rowClassifications,
+            Entailment = entailment,
         };
 
         if (map is null)
@@ -248,6 +252,10 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
                     Evaluation = evaluation,
                     ReadScope = scope.Readable,
                     WriteScope = scope.Writable,
+                    ReadRows = scope.ReadableRows,
+                    WriteRows = scope.WritableRows,
+                    Classifier = preconditions.Classifier,
+                    Validators = preconditions.Validators,
                 }
                 : new UpdateOptions
                 {
@@ -259,6 +267,10 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
                     LoadSource = loadSource,
                     ReadScope = scope.Readable,
                     WriteScope = scope.Writable,
+                    ReadRows = scope.ReadableRows,
+                    WriteRows = scope.WritableRows,
+                    Classifier = preconditions.Classifier,
+                    Validators = preconditions.Validators,
                 }, cancellationToken);
 
         private static ExpectedGraphVersion[]? Expected(UpdatePreconditions preconditions) =>

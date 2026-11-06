@@ -25,6 +25,13 @@ echo "--- git: line endings"
 # this setting exists because of.
 git config core.autocrlf false
 
+echo "--- git: the DCO sign-off"
+
+# A session's commit is signed off by its responsible human, not by the session
+# (ADR 0087); eng/hooks/commit-msg adds that sign-off when the commit is made,
+# so the dco gate is met at the commit rather than discovered in CI.
+git config core.hooksPath eng/hooks
+
 echo "--- git: the W3C conformance suite"
 
 # Without this the suites pass by having nothing in them, which is the failure

@@ -242,3 +242,18 @@ pull request's head fails.
 - **Analyzer rule.** None: the rules read git history, the map and GitHub's
   reviews, which no compilation sees.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-06 — the maintainer's delegate
+
+Filed by the landing session for #244, unaccepted until the maintainer
+accepts it (ADR 0066). The ruling is ADR
+[0239](0239-the-maintainers-delegate.md).
+
+The map's delegates are humans. ADR 0239 adds one delegate that is not in the
+map: a session on the maintainer's own machine, acting through his login and
+his key. Rules 2 and 3 read its acts as his:
+- its approval is `approve <sha> (delegate)`, which rule 3 reads as
+  `approve <sha>` from his login;
+- its acceptance names his email, which rule 2 requires.
+
+The map and the three rules are unchanged.

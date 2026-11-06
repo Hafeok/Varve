@@ -14,8 +14,9 @@ basis:
   - adr: "0205"
 sbom:
   - asset: varve-webui-0.1.0-preview.20.zip sha256:46c795d560268c02f3bb9397a03ff0c6884e4de29c4dd3ff27bdbf8bd7a27e9d
-  - image: ghcr.io/hafeok/varve sha256:e8d54d98bec08216bacf141bc9a9a7a1cb41414d7cccea355a0208129895ec3d
+  - image: ghcr.io/hafeok/varve sha256:0952862b6d9b2900e01960cd1be910ecb6bacc673e28fe244e0740b93e9c099d
   - nupkg: Varve.Aspire sha256:0831143565207787972f9f7c6be914d0cb699a0dcd12feeeeb3d40ce25c99e69
+  - nupkg: Varve.Classification sha256:66d9150ba2a535e1a520a3ce890f9cdef51a2ec3447975c52e3a8e00e7095632
   - nupkg: Varve.Delta sha256:c5cf6f38bb5c3a96385176e70967d80cd90916a191fc1a2f640cc6bb516d0a67
   - nupkg: Varve.Derivation sha256:aba63ff23873caf8677edaf87fb23ad11a094b7378816e170dd3aeadd0beda8c
   - nupkg: Varve.Events sha256:7c60dea2a8f14f882cc5dc2fdbec936d20bea470b983ebb8e062cb18675b31b1
@@ -23,7 +24,7 @@ sbom:
   - nupkg: Varve.Json.Canonical sha256:b8d04d0d45b3cc462407301b1d046a567c077f7ba2476dc1950b3cca21500f66
   - nupkg: Varve.JsonLd sha256:e68b726912387c89dc6d604161a7538d820455734fc9f2a7af262bdf03a78455
   - nupkg: Varve.Management sha256:90aa04fb42c493adcb7ea82d0c905899b2474fcd4a5e3eab762ac8c3df278263
-  - nupkg: Varve.Protocol sha256:1898c52d95dff387d4117b1249e9dd1f7855c79e4a30c273e1b456d78a02cd61
+  - nupkg: Varve.Protocol sha256:f2e425ae0ca244a870c5fc2705ddc7b315fb18d1698fafe5917e1d9faac1741b
   - nupkg: Varve.Protocol.Client sha256:7e35e6f5278cd9fb00082aa148bdec9f92f4fe334705d159fb7efd02fe6faadc
   - nupkg: Varve.Rdf sha256:3f6a742a5943635e3db899fd662e7148834544847a5e152ac4b3d49228f717c9
   - nupkg: Varve.RdfXml sha256:34ed282f49d4a73d3a37debcf9c767337898d3fd0b573de7d4515764626debde
@@ -31,6 +32,7 @@ sbom:
   - nupkg: Varve.Shacl.Sparql sha256:54a65456e2a8c4c9564537ddfcf074efd8a2b68a8d29828445a9f79dde68a265
   - nupkg: Varve.Shacl.Store sha256:3e7a5a828f628426d8f3f7f487fadea8f706566bc11d2ac342900941144d65aa
   - nupkg: Varve.Sparql sha256:1097280aecce5f65f78ba144cd092ab887471ff76eafc5e1db0186320cfe3e4f
+  - nupkg: Varve.Sparql.Entailment sha256:96f3496963d5a2eac29b25435f6487966ad0eb00233300d78f2908f18cdc587d
   - nupkg: Varve.Sparql.Evaluation sha256:6897c3fb6ad3a50070cf649a7001346f79b848941bbe5aaf4f7e3df30c86a2fa
   - nupkg: Varve.Sparql.Results sha256:40cbdca94d7579dcb76eea20dfd337bc543ccc361759722e81e14b70c6575c00
   - nupkg: Varve.Sparql.Store sha256:a2061358417657cce251742a32978abf152f25f51f0c7c50fdadceb6953e0ea3
@@ -41,7 +43,7 @@ sbom:
   - nupkg: Varve.Store.S3 sha256:179a615466c08aa8f8ed5e2f4011f8586356bc479ac6de62cc7e02f0002666e6
   - nupkg: Varve.Turtle sha256:deb44152f120558b9b9a0bfb3deef5f05a4f82367276db1bacb2a1175e4e0cdd
   - nupkg: Varve.Xsd sha256:c47f41bb6204816cd21484b68616029260643fe2cb97483e523e06bbbf481150
-  - tool: Varve.Server sha256:9afe66cccaa0507f612b03e44c7908df1b51fae2ac7e60fa966e6c86dc2aa26f
+  - tool: Varve.Server sha256:d32615bbe5fa0382a0c89bfce98dfb4e3112571067803a475655d8e8d21f4ec9
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
   ### Milestone Web UI, part 1 — the operator console (#167, part 1 of #96)

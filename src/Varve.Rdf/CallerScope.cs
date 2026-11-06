@@ -28,12 +28,26 @@ public sealed class CallerScope
 {
     /// <summary>A scope of <paramref name="readable"/> and <paramref name="writable"/> graphs; an admin reads and writes every graph whatever they say.</summary>
     public CallerScope(GraphScope readable, GraphScope writable, AdminAccess admin)
+        : this(readable, writable, RowScope.All, RowScope.All, admin)
+    {
+    }
+
+    /// <summary>
+    /// A scope of graphs and, beneath them, of rows (ADR 0230): the subject
+    /// sets the caller reads and writes in each classifier binding. An admin
+    /// reads and writes every graph and every row whatever they say.
+    /// </summary>
+    public CallerScope(GraphScope readable, GraphScope writable, RowScope readableRows, RowScope writableRows, AdminAccess admin)
     {
         ArgumentNullException.ThrowIfNull(readable);
         ArgumentNullException.ThrowIfNull(writable);
+        ArgumentNullException.ThrowIfNull(readableRows);
+        ArgumentNullException.ThrowIfNull(writableRows);
         IsAdmin = admin == AdminAccess.Admin;
         Readable = IsAdmin ? GraphScope.All : readable;
         Writable = IsAdmin ? GraphScope.All : writable;
+        ReadableRows = IsAdmin ? RowScope.All : readableRows;
+        WritableRows = IsAdmin ? RowScope.All : writableRows;
     }
 
     /// <summary>Every graph, read and written, as an administrator: anonymous mode's and the conformance host's.</summary>
@@ -44,6 +58,12 @@ public sealed class CallerScope
 
     /// <summary>The graphs the caller writes.</summary>
     public GraphScope Writable { get; }
+
+    /// <summary>The rows the caller reads, per classifier binding (ADR 0235); <see cref="RowScope.All"/> restricts nothing.</summary>
+    public RowScope ReadableRows { get; }
+
+    /// <summary>The rows the caller writes, per classifier binding (ADR 0236).</summary>
+    public RowScope WritableRows { get; }
 
     /// <summary>Whether the caller administers the dataset.</summary>
     public bool IsAdmin { get; }

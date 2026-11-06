@@ -298,6 +298,11 @@ internal sealed class TermDictionary
 
             if (section.Holds(counter))
             {
+                if (!section.HoldsTriple(counter))
+                {
+                    return false;
+                }
+
                 int length = section.ReadEntry(counter, entry);
                 return length > 0 && LogFormat.TryReadTripleEntry(entry[..length], out subject, out predicate, out @object);
             }

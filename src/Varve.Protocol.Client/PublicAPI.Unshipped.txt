@@ -596,3 +596,4 @@ static Varve.Protocol.Client.Model.TemplateMatch.Prefix.get -> Varve.Protocol.Cl
 static Varve.Protocol.Client.Model.TemplateMatch.operator !=(Varve.Protocol.Client.Model.TemplateMatch left, Varve.Protocol.Client.Model.TemplateMatch right) -> bool
 static Varve.Protocol.Client.Model.TemplateMatch.operator ==(Varve.Protocol.Client.Model.TemplateMatch left, Varve.Protocol.Client.Model.TemplateMatch right) -> bool
 ~override Varve.Protocol.Client.Model.TemplateMatch.Equals(object obj) -> bool
+Varve.Protocol.Client.SparqlHttpClient.QueryAsync(string! query, string! accept, string? asOf, string? entailment, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage!>!
