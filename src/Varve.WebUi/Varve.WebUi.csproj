@@ -12,8 +12,9 @@
     <IsPackable>false</IsPackable>
 
     <!-- Shipped all the same, as a release asset of static files: the
-         native-asset gate walks its closure as it walks a package's
-         (ADR 0200, eng/native-assets.cs). -->
+         register gate walks its closure as it walks a package's, for
+         licences and native assets (ADR 0200, eng/dependency-register.cs),
+         and eng/sbom.cs writes the bundle's SBOM from it (ADR 0225). -->
     <VarveShipped>true</VarveShipped>
 
     <!-- Transport addresses are System.Uri, as in the client it composes

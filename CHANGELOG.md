@@ -121,6 +121,104 @@ stays open for part 2, the data explorer.
 - **The instance's name:** `/manage/system` does not serve it, so the
   shell shows the instance's role alone (#193).
 
+## [0.1.0-preview.17] - 2026-10-27
+
+**Supply chain transparency — an attested SBOM for every artefact, the dependency gate, a support period**
+
+### Supply chain transparency (#119, in 1.0 by #15)
+
+Every package, the `varve` tool and the container image now ship with an
+SPDX 2.3 SBOM of exactly what they contain. Each SBOM is generated from the
+locked restore, is byte-identical when generated twice, and is attested
+keylessly beside the artefact's build provenance. This descriptor names
+each artefact with its SBOM's SHA-256 under `sbom:`, so the release is the
+auditable unit. A known vulnerability fails the build unless a published
+VEX statement says why Varve is not affected, and `SECURITY.md` states the
+support period. `docs/supply-chain.md` is written for a NIS2 supplier
+assessment and for a manufacturer's due diligence under the Cyber
+Resilience Act. This release closes #119. ADRs 0224 and 0225, and their
+amendments to 0009, 0029, 0102 and 0111, are filed unaccepted and
+accepted on the pull request (ADR 0066).
+
+#### Added
+
+- **An SBOM per shipped artefact** (ADRs 0224, 0225). Each package's SBOM
+  is embedded at `_manifest/spdx_2.3/manifest.spdx.json` and attached to
+  the release, as are the tool's and the image's.
+  - For a library, it lists what a consumer resolves: no third-party
+    package for 24 of them, and eight `Microsoft.Extensions` abstractions
+    for `Varve.Protocol.Client`.
+  - For the tool, the 16 packages it carries.
+  - For the image, each platform's binary with its closure and the .NET
+    runtime, and the base image's OS packages.
+  - Each component carries its package URL, version, SHA-256 and SHA-512,
+    licence and supplier.
+- **Attestations for every package**: SLSA v1 build provenance and the
+  SBOM, through GitHub's OIDC identity. Verify with `gh attestation
+  verify <package> --owner hafeok`.
+  - The release carries the packages exactly as attested, with
+    `SHA256SUMS`.
+  - nuget.org's copy is the same package under nuget.org's own repository
+    signature. CI checks this after every release, entry by entry, and
+    verifies the signature.
+- **The dependency gate checks what was resolved.** Every project
+  restores from a checked-in lockfile, locked in CI. The register gate
+  fails on:
+  - an unadmitted or stale package;
+  - a missing ADR;
+  - a licence outside its scope's allow-list;
+  - a native asset in a shipped closure;
+  - an Action not pinned by SHA;
+  - an audit exemption without its VEX statement.
+
+  Each case has its own broken fixture.
+- **`security/vex.openvex.json`**, attached to every release, empty today:
+  `NuGetAudit` finds no known vulnerability in any resolved package.
+- **Descriptor format 2** (ADR 0102, amended): `sbom:` names every
+  artefact and its SBOM's digest. It is checked on the pull request and
+  again before anything is pushed. Every earlier descriptor stays format 1.
+
+#### Changed
+
+- **`CommitRequest` is renamed `CommitRequestBuilder` (breaking, #173).**
+  It is a builder its caller assembles and passes once to
+  `Dataset.CommitAsync`, and DD0019 asked for it to be named one. Rename
+  the type at each call site; nothing else about it changed.
+- **DecisionDriven.Analyzers 0.1.0-preview.10** (#173) is build-time
+  only. Commit's carried handles are published once with
+  `CompareExchange`, and a graph-scoped source's prefix decisions are
+  memoised in a `ConcurrentDictionary`. Together these fix a race between
+  concurrent readers that could corrupt the dictionary.
+- **The container's base image is pinned by digest** (ADR 0111, amended).
+- **The SDK rolls forward to its latest patch only** (`global.json`).
+- **`SECURITY.md`'s support period:**
+  - before 1.0, the latest preview;
+  - from 1.0, the latest `1.minor`;
+  - after `2.0.0`, security fixes for `1.x` for 12 months.
+
+  Advisories are GitHub's, with CVE ids.
+
+#### Fixed
+
+- **Object storage** (#126's follow-up):
+  - a segment holding only fence chunks opens;
+  - a reader record whose write was applied but whose answer was lost is
+    not forgotten;
+  - a retired extent set's directory is deleted with its last file
+    (#61).
+- **A binding's report graph, read while its projection was a commit
+  behind** (#183), could answer with no rows, which reads as conforming.
+  It now answers with the report at the position, or `503
+  validation-behind` after one bounded wait (ADR 0174).
+- **An event move's cancel is answered once the management plane has
+  applied it** (#206, #207). Before, a state read right after the `422`
+  could still see `varve:Moving`.
+
+#### Upgrading
+
+- **Datasets keep their log:** storage format 1, delta format 1.
+- **Code that built a `CommitRequest`** builds a `CommitRequestBuilder`.
+
 ## [0.1.0-preview.16] - 2026-10-28
 
 **Replication within a store — writer handover, warm standbys, automation, active-active by dataset**
@@ -1894,7 +1992,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - dependency policy as an enforced register (5e6f03a8)
 
 [Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.19...HEAD
-[0.1.0-preview.19]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.16...v0.1.0-preview.19
+[0.1.0-preview.19]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.17...v0.1.0-preview.19
+[0.1.0-preview.17]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.16...v0.1.0-preview.17
 [0.1.0-preview.16]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.15...v0.1.0-preview.16
 [0.1.0-preview.15]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.14...v0.1.0-preview.15
 [0.1.0-preview.14]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.13...v0.1.0-preview.14

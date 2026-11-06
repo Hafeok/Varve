@@ -30,7 +30,8 @@ contract, but not an application that is typed into, clicked, walked by
 keyboard, waited on while it renders, and audited.
 
 Constraint 1 forbids a native asset in a **shipped** artefact (ADR 0009's
-amendment of 2026-09-22). `eng/native-assets.cs` walks the restore graphs of
+amendment of 2026-09-22). The register gate (`eng/dependency-register.cs`,
+which `eng/native-assets.cs` folded into under ADR 0224) walks the restore graphs of
 the packable members of `Varve.slnx`, and of a member that declares
 `VarveShipped` (ADR 0200). No test project is either.
 

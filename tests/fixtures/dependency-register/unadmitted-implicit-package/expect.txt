@@ -1,0 +1,2 @@
+direct reference(s) in a lockfile that no register entry admits
+src/Library/packages.lock.json: Microsoft.NET.ILLink.Tasks

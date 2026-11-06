@@ -27,8 +27,13 @@
     // different SDK can produce a build the maintainer cannot reproduce — and
     // a version skew between the container and global.json is a defect rather
     // than a convenience.
+    //
+    // The SDK's patch also fixes the versions of the packages it references
+    // by itself (ILLink, ILCompiler), which every lockfile records (ADR 0224):
+    // the container and CI must have the same patch, or a locked restore here
+    // fails on a version the lockfile does not have.
     "ghcr.io/devcontainers/features/dotnet:2": {
-      "version": "10.0.401"
+      "version": "10.0.403"
     },
 
     // Auth test layers (b) and (c) (ADR 0100): mock-oauth2-server and Zitadel

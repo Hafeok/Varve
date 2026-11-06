@@ -427,6 +427,10 @@ static Resolution? Resolve(Repository repository, Descriptor descriptor, HashSet
     // delta-format: Varve.Delta's, required from the first commit that has it.
     CheckDeltaFormat(repository, descriptor, sha, problems);
 
+    // sbom: every artefact the release ships, from the first commit that
+    // writes SBOMs.
+    CheckSbom(repository, descriptor, sha, problems);
+
     // accepted-by: a human who may approve for every agent in the range.
     if (descriptor.AcceptedBy is not null && descriptor.AcceptedBy.StartsWith("mailto:", StringComparison.Ordinal))
     {
@@ -473,6 +477,65 @@ static void CheckRecord(Repository repository, Descriptor descriptor, List<strin
     }
 
     CheckDeltaFormat(repository, descriptor, descriptor.Commit!, problems);
+}
+
+// sbom (ADR 0102, amended 2026-10-27): from the first commit that carries
+// eng/sbom.cs, a release is format 2, and its sbom list names every artefact
+// it ships: each packable project of Varve.slnx (nupkg, or tool for a
+// PackAsTool one) and the container image. A binary or asset line names a file
+// the release carries, which publish.yml checks. The digests need the restore,
+// which the plan does not run: publish.yml regenerates every SBOM and checks
+// each digest with eng/sbom.cs --descriptor before anything is pushed.
+static void CheckSbom(Repository repository, Descriptor descriptor, string commit, List<string> problems)
+{
+    if (repository.Show(commit, "eng/sbom.cs") is null)
+    {
+        if (descriptor.Sbom.Count > 0)
+        {
+            problems.Add($"{descriptor.Path}: sbom lines are named, and {commit[..12]} has no eng/sbom.cs to write them");
+        }
+
+        return;
+    }
+
+    if (descriptor.Format is < 2)
+    {
+        problems.Add($"{descriptor.Path}: format {descriptor.Format} at {commit[..12]}, which writes SBOMs; a release is format 2 from here, with an sbom line per artefact (ADR 0224 point 7)");
+        return;
+    }
+
+    SortedSet<string> expected = new(StringComparer.Ordinal) { "image: ghcr.io/hafeok/varve" };
+    string? solution = repository.Show(commit, "Varve.slnx");
+
+    foreach (string relative in solution is null ? [] : System.Xml.Linq.XDocument.Parse(solution).Descendants("Project").Select(static e => e.Attribute("Path")?.Value).OfType<string>())
+    {
+        string? project = repository.Show(commit, relative.Replace('\\', '/'));
+
+        if (project is null)
+        {
+            continue;
+        }
+
+        System.Xml.Linq.XDocument document = System.Xml.Linq.XDocument.Parse(project);
+        bool Has(string property) => document.Descendants().Any(e => e.Name.LocalName == property && string.Equals(e.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase));
+
+        if (Has("IsPackable"))
+        {
+            expected.Add($"{(Has("PackAsTool") ? "tool" : "nupkg")}: {Path.GetFileNameWithoutExtension(relative)}");
+        }
+    }
+
+    HashSet<string> named = [.. descriptor.Sbom.Select(static line => $"{line.Kind}: {line.Name}")];
+
+    foreach (string missing in expected.Where(key => !named.Contains(key)))
+    {
+        problems.Add($"{descriptor.Path}: no sbom line for {missing}; eng/sbom.cs writes it (sbom.txt)");
+    }
+
+    foreach (SbomLine line in descriptor.Sbom.Where(line => line.Kind is "nupkg" or "tool" or "image" && !expected.Contains($"{line.Kind}: {line.Name}")))
+    {
+        problems.Add($"{descriptor.Path}:{line.Line}: {line.Kind} {line.Name} is not an artefact {commit[..12]} ships");
+    }
 }
 
 // delta-format (ADR 0102, amended 2026-10-13): exactly one line equal to
@@ -771,7 +834,7 @@ static int Draft(Repository repository, string requested)
 
     StringBuilder draft = new();
     draft.Append("# A release descriptor (docs/releases.md). Save as releases/").Append(version).Append(".yaml.\n");
-    draft.Append("format: 1\n");
+    draft.Append("format: 2\n");
     draft.Append(CultureInfo.InvariantCulture, $"version: {version}\n");
     draft.Append("title: <one line, no version>\n");
     draft.Append(CultureInfo.InvariantCulture, $"date: {DateTime.UtcNow:yyyy-MM-dd}\n");
@@ -796,6 +859,12 @@ static int Draft(Repository repository, string requested)
         draft.Append(CultureInfo.InvariantCulture, $"#   {key}\n");
     }
 
+    draft.Append("# Every artefact's SBOM digest (ADR 0224 point 7), written after a restore with the descriptor's date:\n");
+    draft.Append(CultureInfo.InvariantCulture, $"#   dotnet run eng/sbom.cs -- --version {version} --created {DateTime.UtcNow:yyyy-MM-dd} --out artifacts/sbom \\\n");
+    draft.Append("#     --binary <rid>... --image linux/amd64=<syft.json> --image linux/arm64=<syft.json>\n");
+    draft.Append("# and paste artifacts/sbom/sbom.txt below; publish.yml checks every line before anything is pushed.\n");
+    draft.Append("sbom:\n");
+    draft.Append("  - <kind: name sha256:digest, from sbom.txt>\n");
     draft.Append("accepted-by: mailto:<the human who approves the pull request>\n");
     draft.Append("summary: |\n  <the release notes, written: what a consumer of the packages needs to know>\n");
     Console.Write(draft.ToString());

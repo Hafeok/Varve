@@ -1,0 +1,2 @@
+Action reference(s) not pinned by commit SHA
+.github/workflows/build.yml:8: actions/checkout@v4

@@ -12,7 +12,9 @@ using Xunit;
 namespace Varve.Analyzers.Tests;
 
 /// <summary>
-/// <c>eng/native-assets.cs</c>, run for real, on both outcomes.
+/// The native-asset rule of <c>eng/dependency-register.cs</c> (formerly
+/// <c>eng/native-assets.cs</c>, folded in by ADR 0224), run for real, on both
+/// outcomes.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -36,15 +38,16 @@ public class NativeAssetGateTests
     [Fact]
     public async Task The_shipped_packages_carry_no_native_asset()
     {
-        // Restoring the top of the layer stack restores Varve.Rdf and Varve.Iri with
-        // it, which is every packable project the gate will look at.
-        await EnsureRestoredAsync(Path.Combine("src", "Varve.Turtle"));
+        // Every shipped project's restore graph is required by --packages, so
+        // the whole solution is restored: Varve.Iri, Varve.Rdf and Varve.Turtle
+        // among them.
+        await EnsureRestoredAsync("Varve.slnx", Path.Combine("src", "Varve.Server"));
 
         // The Web UI is shipped as static files and never packed; it declares
         // VarveShipped, and the gate walks it as it walks a package (ADR 0200).
         await EnsureRestoredAsync(Path.Combine("src", "Varve.WebUi"));
 
-        GateResult result = await RunAsync();
+        GateResult result = await RunAsync("--packages");
 
         Assert.True(result.ExitCode == 0, "The packable projects must be clean." + Environment.NewLine + result.Output);
         Assert.Contains("src/Varve.Iri", result.Output.Replace('\\', '/'), StringComparison.Ordinal);
@@ -122,11 +125,15 @@ public class NativeAssetGateTests
     /// silently passed because the file was missing would prove nothing, and a
     /// test that told CI to restore it would work only in CI.
     /// </remarks>
-    private static async Task EnsureRestoredAsync(string projectDirectory)
+    private static async Task EnsureRestoredAsync(string projectDirectory, string? restoredWhen = null)
     {
         string root = FindRepositoryRoot();
 
-        if (File.Exists(Path.Combine(root, projectDirectory, "obj", "project.assets.json")))
+        // A solution has no obj/ of its own; restoredWhen names a project whose
+        // restore graph shows the solution was restored.
+        string witness = restoredWhen ?? projectDirectory;
+
+        if (File.Exists(Path.Combine(root, witness, "obj", "project.assets.json")))
         {
             return;
         }
@@ -149,7 +156,7 @@ public class NativeAssetGateTests
         await process.WaitForExitAsync(TestContext.Current.CancellationToken);
 
         Assert.True(
-            File.Exists(Path.Combine(root, projectDirectory, "obj", "project.assets.json")),
+            File.Exists(Path.Combine(root, witness, "obj", "project.assets.json")),
             "Restoring " + projectDirectory + " produced no restore graph, so the gate has nothing to read.");
     }
 
@@ -167,7 +174,7 @@ public class NativeAssetGateTests
         };
 
         startInfo.ArgumentList.Add("run");
-        startInfo.ArgumentList.Add(Path.Combine("eng", "native-assets.cs"));
+        startInfo.ArgumentList.Add(Path.Combine("eng", "dependency-register.cs"));
 
         if (gateArguments.Length > 0)
         {
