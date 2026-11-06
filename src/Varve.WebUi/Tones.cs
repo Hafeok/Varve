@@ -105,6 +105,15 @@ public static class Tones
         ["load-spill-damaged"] = Tone.Critical,
         ["takeover-refused"] = Tone.Critical,
         ["writer-stepped-down"] = Tone.Critical,
+
+        // Inference part 1 and milestone 9 part 1. A classification behind is
+        // waiting: the same read succeeds once the projection has caught up
+        // (ADR 0233). The rest refuse the request as it stands (ADRs 0192
+        // and 0236).
+        ["classification-behind"] = Tone.Warn,
+        ["entailment-unsupported"] = Tone.Critical,
+        ["entailment-refused"] = Tone.Critical,
+        ["row-not-writable"] = Tone.Critical,
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>The tone of an API state word, neutral when the word is not one the mapping knows.</summary>
