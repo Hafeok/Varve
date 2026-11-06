@@ -7,7 +7,7 @@
 | | |
 |---|---|
 | **Issues** | [#101](https://github.com/Hafeok/Varve/issues/101); opened [#239](https://github.com/Hafeok/Varve/issues/239) and [#241](https://github.com/Hafeok/Varve/issues/241) |
-| **Pull requests** | [#238](https://github.com/Hafeok/Varve/pull/238) (step 1); step 2's, from the same branch once #238 lands |
+| **Pull requests** | [#238](https://github.com/Hafeok/Varve/pull/238) (step 1, from `claude/gifted-gauss-xyxhld`); [#242](https://github.com/Hafeok/Varve/pull/242) (step 2, from `claude/gifted-gauss-xyxhld-step2`, stacked on #238, a second branch by the maintainer's leave) |
 | **Date** | 2026-11-06 |
 | **Tool** | Claude Code, a cloud session started from the desktop app |
 | **Model** | `claude-opus-5-5`, configured and last served, from the session's own metadata |
@@ -103,8 +103,8 @@
 - **The required-checks fixture** covers only ruleset 1's checks, so it is
   unchanged.
 
-**Step 2, the provider legs by federated credentials** (`Closes #101` on the
-declaration commit).
+**Step 2, the provider legs by federated credentials** ([#242](https://github.com/Hafeok/Varve/pull/242),
+`Closes #101` on the declaration commit).
 
 - **ADR 0223**, filed unaccepted. 0223 was the one number no milestone
   claims: readiness A holds 0213–0222, readiness B starts at 0224, and
@@ -155,6 +155,11 @@ declaration commit).
 **Gates run locally:** `decision-sets` (once the clone was unshallowed),
 `required-checks`, `repo-standard-test`, `issue-refs`, and the solution's
 Release build. The full `eng/ci.cs` was not run.
+
+**The decision report's baseline** was already 1,271 lines behind `main`
+before this change. This change's seven lines were edited in by hand and
+checked against a real run, which then differs by 1,264. It was not
+regenerated whole, which would have brought unrelated differences in.
 
 ## Questions for the maintainer
 
