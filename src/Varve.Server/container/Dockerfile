@@ -20,10 +20,10 @@
 # point 5), the tag kept for the reader and for Dependabot, which proposes a
 # new digest when the tag moves. The chiseled base's digest is also what
 # publish.yml scans for the image SBOM's OS packages (ADR 0225 point 5).
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble@sha256:62028293921f5bd6db3d9f9119cd29cd926dfd3c2336da23b09f425e40c3c832 AS layout
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble@sha256:f87d6824cd56fa4ad117d06461e4eb0058f46a159872dbcc4a836a72efdd1bec AS layout
 RUN mkdir -p /var/lib/varve && chown 1654:1654 /var/lib/varve
 
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled@sha256:4309626281bfe550c0f6bb4242c435cd5cdabed1d05a5bc5843f659336f53296
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled@sha256:e9346023014b406b9bc8be969b3aa4d39efa3a43b6abcc495f01be566acb10e9
 
 # Varve.Server on Linux and macOS, Varve.Server.exe on Windows; here Linux.
 ARG BINARY=Varve.Server
