@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 5 (ADR 0232): the shape-derived classifier and the
+         classification projection, implementing Varve.Store's classifier
+         contract (ADR 0231). It reads annotated shapes as RDF and references
+         neither Varve.Shacl nor any other layer-5 package. -->
+    <ArchLayer>5</ArchLayer>
+    <ArchContractTypeAssemblies>$(ArchContractTypeAssemblies);Varve.Store</ArchContractTypeAssemblies>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>Row-level access for Varve.Store: a classifier derived from annotated SHACL shapes that assigns nodes to data subjects, and the classification projection that serves it at any position.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Iri/Varve.Iri.csproj" />
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+    <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Varve.Classification.Tests" />
+  </ItemGroup>
+
+</Project>

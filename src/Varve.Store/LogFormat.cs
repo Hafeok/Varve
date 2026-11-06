@@ -744,6 +744,19 @@ internal static class LogFormat
     /// </summary>
     internal const int MaxTripleEntryLength = MaxUlebLength + 1 + (3 * MaxUlebLength);
 
+    /// <summary>Whether a dictionary entry (storage format §4.4) is a triple term's: its kind byte, after the id.</summary>
+    internal static bool IsTripleEntry(ReadOnlySpan<byte> entry)
+    {
+        int at = 0;
+
+        while (at < entry.Length && (entry[at] & 0x80) != 0)
+        {
+            at++;
+        }
+
+        return at + 1 < entry.Length && entry[at + 1] == TermTriple;
+    }
+
     /// <summary>
     /// A triple term entry's three component ids (storage format §4.4),
     /// without reading a term; false for an entry of any other kind.

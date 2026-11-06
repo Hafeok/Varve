@@ -498,13 +498,13 @@ internal static partial class ServerHost
     /// <summary>The request headers a browser may send (ADR 0132).</summary>
     internal static ImmutableArray<string> CorsRequestHeaders { get; } =
     [
-        "Authorization", "Content-Type", "Accept", "If-Match", "If-None-Match", "Varve-If-Graphs-Match", "Last-Event-ID", "Varve-As-Of", "Varve-Min-Position", "Varve-Min-Management-Position", "traceparent", "tracestate",
+        "Authorization", "Content-Type", "Accept", "If-Match", "If-None-Match", "Varve-If-Graphs-Match", "Last-Event-ID", "Varve-As-Of", "Varve-Min-Position", "Varve-Min-Management-Position", "Varve-Entailment", "traceparent", "tracestate",
     ];
 
     /// <summary>The response headers a browser may read beyond the safelisted ones (ADR 0132).</summary>
     internal static ImmutableArray<string> CorsResponseHeaders { get; } =
     [
-        "Varve-Position", "Varve-Management-Position", "Varve-Graph-Versions", "ETag", "Varve-Request-Id", "Link", "Location", "Retry-After", "WWW-Authenticate",
+        "Varve-Position", "Varve-Management-Position", "Varve-Graph-Versions", "Varve-Entailment", "ETag", "Varve-Request-Id", "Link", "Location", "Retry-After", "WWW-Authenticate",
     ];
 
     private static void Map(WebApplication app, ServerSettings settings, Fleet fleet, TimeProvider clock, bool anonymous, Outbound outbound, HttpMessageInvoker forwarder, Drain drain, CancellationToken stopping)
@@ -623,6 +623,8 @@ internal static partial class ServerHost
             EventSource = settings.Events.Source,
             EventHubs = string.IsNullOrEmpty(settings.Events.EventHubs.Host) ? null : new EventHubsServer(settings.Events.EventHubs.Host, settings.Events.EventHubs.Hub!),
             ValidationReports = fleet.Projections,
+            RowClassifications = fleet.Classifications,
+            Entailment = fleet.Entailment,
         };
         fleet.Resume = (name, cancellationToken) => EventDeclarationMove.ResumeAsync(options, fleet, name, cancellationToken);
 
@@ -657,10 +659,28 @@ internal static partial class ServerHost
             }
         }
 
+        // The graphs whose content forces a schema's full read (ADR 0193
+        // point 2), counted: information, never unready. The names are on
+        // the binding's description, behind admin, since this answer is
+        // unauthenticated (ADR 0113) and graph names are a grant's (ADR 0107).
+        Dictionary<string, int> fullReads = new(StringComparer.Ordinal);
+
         foreach (DatasetEntry entry in datasets.List())
         {
             Dataset? dataset = null;
             bool open = entry.State == DatasetState.Open && datasets.TryResolve(entry.Name, out dataset);
+            if (open && !dataset!.IsFailed)
+            {
+                try
+                {
+                    fullReads[entry.Name.Value] = fleet.Entailment.FullReadsOf(entry.Name, dataset).Graphs.Count;
+                }
+                catch (DatasetUnavailableException)
+                {
+                    // Failed since: its line says so.
+                }
+            }
+
             (bool tailing, bool warm) = datasets.StandbyOf(entry.Name);
             (Exception? spill, Varve.Store.ObjectStorage.Model.LocalCache cache) = datasets.LocalHealthOf(entry.Name);
             health.Add(new DatasetHealth(
@@ -765,6 +785,38 @@ internal static partial class ServerHost
             json.WriteEndObject();
         }
 
+        // Each binding's classification projection lag (ADR 0233): reported, and never a reason to be unready.
+        void Classification(Utf8JsonWriter json, string name)
+        {
+            if (!DatasetName.TryParse(name, out DatasetName dataset))
+            {
+                return;
+            }
+
+            SortedDictionary<string, long> lags = fleet.Classifications.LagOf(dataset);
+            if (lags.Count == 0)
+            {
+                return;
+            }
+
+            json.WriteStartObject("classification");
+            foreach ((string binding, long lag) in lags)
+            {
+                json.WriteNumber(binding, lag);
+            }
+
+            json.WriteEndObject();
+        }
+
+        // The full reads a dataset's entailment bindings made (ADR 0193).
+        void FullReads(Utf8JsonWriter json, string name)
+        {
+            if (fullReads.TryGetValue(name, out int count) && count > 0)
+            {
+                json.WriteNumber("fullReads", count);
+            }
+        }
+
         void Moving(Utf8JsonWriter json, string name)
         {
             if (moving.TryGetValue(name, out long since))
@@ -803,6 +855,8 @@ internal static partial class ServerHost
 
                     Standby(json, state);
                     Validation(json, state.Name);
+                    Classification(json, state.Name);
+                    FullReads(json, state.Name);
                     json.WriteEndObject();
                 }
 
@@ -848,6 +902,8 @@ internal static partial class ServerHost
 
                 Standby(json, state);
                 Validation(json, state.Name);
+                Classification(json, state.Name);
+                FullReads(json, state.Name);
                 json.WriteEndObject();
             }
 
@@ -1086,6 +1142,9 @@ internal static partial class ServerHost
                 LoadSource = outbound.Load,
                 ReadScope = scope.Readable,
                 WriteScope = scope.Writable,
+                ReadRows = scope.ReadableRows,
+                WriteRows = scope.WritableRows,
+                Classifier = preconditions.Classifier,
             }, cancellationToken);
     }
 

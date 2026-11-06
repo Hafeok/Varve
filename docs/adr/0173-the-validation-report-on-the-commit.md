@@ -82,3 +82,12 @@ storing the report again on every commit would store it twice.
   `Varve.Shacl.Store` (5) attaches it.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-30 — who receives the attachment
+
+Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066). The ruling is ADR [0237](0237-rows-on-every-surface.md)'s `ReportWithheldFromRowRestricted`.
+
+A shapes binding's attachment is delivered on the commits resource, the change
+feed and the diff only to a caller who may read the binding's report graph
+(ADR 0174 point 9, as amended on 2026-10-30). To any other caller the commit
+carries no such attachment.

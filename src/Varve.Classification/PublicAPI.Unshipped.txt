@@ -1,0 +1,38 @@
+#nullable enable
+Varve.Classification.ClassificationProjection
+Varve.Classification.ClassificationProjection.ApplyAsync(Varve.Store.Log.Commit! commit, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Classification.ClassificationProjection.Binding.get -> Varve.Classification.Model.ClassifierBinding!
+Varve.Classification.ClassificationProjection.ChangedAt(Varve.Store.Log.Position position) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.TermHandle>!
+Varve.Classification.ClassificationProjection.ClassificationProjection(Varve.Store.Dataset! dataset, Varve.Classification.Model.ClassifierBinding! binding) -> void
+Varve.Classification.ClassificationProjection.Floor.get -> Varve.Store.Log.Position
+Varve.Classification.ClassificationProjection.LoadAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Classification.ClassificationProjection.Position.get -> Varve.Store.Log.Position
+Varve.Classification.ClassificationProjection.Problems.get -> System.Collections.Generic.IReadOnlyList<Varve.Classification.Model.ClassifierProblem>!
+Varve.Classification.ClassificationProjection.ResetAsync(Varve.Store.DatasetView? checkpoint, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Classification.ClassificationProjection.SaveAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Classification.ClassificationProjection.TryAt(Varve.Store.Log.Position position, Varve.Rdf.IQuadSource! source, out Varve.Rdf.IRowClassification! classification) -> bool
+Varve.Classification.ClassificationProjection.WaitForAsync(Varve.Store.Log.Position position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Classification.Model.ClassifierBinding
+Varve.Classification.Model.ClassifierBinding.Binding.get -> Varve.Rdf.RdfTerm!
+Varve.Classification.Model.ClassifierBinding.ClassifierBinding(Varve.Rdf.RdfTerm! binding, Varve.Rdf.RdfTerm! shapesGraph, Varve.Rdf.GraphScope! classifies) -> void
+Varve.Classification.Model.ClassifierBinding.Classifies.get -> Varve.Rdf.GraphScope!
+Varve.Classification.Model.ClassifierBinding.ClassifiesGraph(Varve.Rdf.RdfTerm? graph) -> bool
+Varve.Classification.Model.ClassifierBinding.ShapesGraph.get -> Varve.Rdf.RdfTerm!
+Varve.Classification.Model.ClassifierProblem
+Varve.Classification.Model.ClassifierProblem.ClassifierProblem() -> void
+Varve.Classification.Model.ClassifierProblem.ClassifierProblem(string! Message) -> void
+Varve.Classification.Model.ClassifierProblem.Deconstruct(out string! Message) -> void
+Varve.Classification.Model.ClassifierProblem.Equals(Varve.Classification.Model.ClassifierProblem other) -> bool
+Varve.Classification.Model.ClassifierProblem.Message.get -> string!
+Varve.Classification.Model.ClassifierProblem.Message.init -> void
+Varve.Classification.ShapeClassifier
+Varve.Classification.ShapeClassifier.Bindings.get -> System.Collections.Generic.IReadOnlyList<Varve.Classification.Model.ClassifierBinding!>!
+Varve.Classification.ShapeClassifier.Classify(Varve.Rdf.IQuadSource! pinned, Varve.Rdf.QuadDelta pending) -> Varve.Rdf.IRowClassification!
+Varve.Classification.ShapeClassifier.Problems(Varve.Rdf.IQuadSource! state) -> System.Collections.Generic.IReadOnlyList<Varve.Classification.Model.ClassifierProblem>!
+Varve.Classification.ShapeClassifier.ShapeClassifier(System.Collections.Generic.IEnumerable<Varve.Classification.Model.ClassifierBinding!>! bindings) -> void
+override Varve.Classification.Model.ClassifierProblem.GetHashCode() -> int
+static Varve.Classification.Model.ClassifierProblem.operator !=(Varve.Classification.Model.ClassifierProblem left, Varve.Classification.Model.ClassifierProblem right) -> bool
+static Varve.Classification.Model.ClassifierProblem.operator ==(Varve.Classification.Model.ClassifierProblem left, Varve.Classification.Model.ClassifierProblem right) -> bool
+static Varve.Classification.ShapeClassifier.Compose(System.Collections.Generic.IReadOnlyList<Varve.Rdf.IRowClassification!>! parts) -> Varve.Rdf.IRowClassification!
+~override Varve.Classification.Model.ClassifierProblem.Equals(object obj) -> bool
+~override Varve.Classification.Model.ClassifierProblem.ToString() -> string

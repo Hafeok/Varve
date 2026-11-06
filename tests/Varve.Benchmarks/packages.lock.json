@@ -223,6 +223,14 @@
         "resolved": "3.0.1",
         "contentHash": "37Xq3UfF7gbcKhFhx2dgRIatLCrbkg/99XVSkIi9pJtttmHEfGX483Ix52mO3PPPZI6YNbZjzHfH5hQwwb+X2g=="
       },
+      "varve.classification": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Store": "[1.0.0, )"
+        }
+      },
       "varve.derivation": {
         "type": "Project",
         "dependencies": {
@@ -283,6 +291,15 @@
         "dependencies": {
           "Varve.Iri": "[1.0.0, )",
           "Varve.Rdf": "[1.0.0, )"
+        }
+      },
+      "varve.sparql.entailment": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Sparql": "[1.0.0, )",
+          "Varve.Xsd": "[1.0.0, )"
         }
       },
       "varve.sparql.evaluation": {
