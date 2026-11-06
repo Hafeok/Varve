@@ -2,9 +2,30 @@
 # Written by `repo-standard export` 0.1.0. Secrets are names only; values are never read.
 # Remove a top-level key to stop managing that kind of resource.
 repository:
-  description: ""
-  homepage: ""
-  topics: []
+  # The About panel: what someone landing on the repository reads first (#235).
+  description: "Event-sourced RDF store and SPARQL 1.1/1.2 engine in managed .NET. The commit log is the source of truth and every index is a projection of it, giving as-of reads, change feeds and log-shipping replication. Oxigraph scope, Native AOT, runs embedded, as a server or in the browser."
+  # nuget.org until https://w3id.org/varve/ is registered.
+  homepage: https://www.nuget.org/packages/Varve.Store
+  topics:
+  - rdf
+  - sparql
+  - triplestore
+  - graph-database
+  - event-sourcing
+  - semantic-web
+  - linked-data
+  - knowledge-graph
+  - shacl
+  - turtle
+  - trig
+  - n-triples
+  - dotnet
+  - csharp
+  - native-aot
+  - blazor-wasm
+  - time-travel
+  - change-data-capture
+  - mpl-2
   default_branch: main
   features:
     issues: true
