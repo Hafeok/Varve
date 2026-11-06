@@ -55,9 +55,13 @@ a closure read would answer them differently.
   except the equality rules of table 4 under point 4.
 - **The RDFS rules beneath them** are point 2's, so an `OWL2RL` closure
   contains the `RDFS` closure.
-- **Datatype rules** (table 8): `dt-type1` for the datatypes Varve.Xsd
-  recognises, `dt-type2`, `dt-eq` and `dt-diff` over the literals that occur,
-  and `dt-not-type` as a check.
+- **Datatype rules** (table 8): `dt-type1` and `dt-type2` for the datatypes
+  Varve.Xsd recognises, and `dt-not-type` as a check. **`dt-eq` and `dt-diff`
+  are not materialised.** Each concludes only facts whose subject is a
+  literal, which are never served; with `sameAs` off, no rule substitutes
+  through them, and the clash they could meet (`eq-diff1`) needs both on one
+  pair of literals, which one value cannot give. `dt-diff` would also hold a
+  fact for every pair of distinct literals, quadratic in the graph.
 - **Rules with `false` heads** (`eq-diff1`–`3`, `prp-irp`, `prp-asyp`,
   `prp-pdw`, `prp-adp`, `prp-npa1`–`2`, `cls-nothing2`, `cls-com`,
   `cls-maxc1`, `cls-maxqc1`–`2`, `cax-dw`, `cax-adc`, `dt-not-type`) are

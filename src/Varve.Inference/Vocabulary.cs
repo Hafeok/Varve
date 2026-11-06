@@ -54,6 +54,43 @@ internal static class Vocabulary
 
     internal static readonly RdfTerm XsdString = Xsd("string");
 
+    internal static readonly RdfTerm Thing = Owl("Thing");
+    internal static readonly RdfTerm Nothing = Owl("Nothing");
+    internal static readonly RdfTerm OwlClass = Owl("Class");
+    internal static readonly RdfTerm SameAs = Owl("sameAs");
+    internal static readonly RdfTerm EquivalentClass = Owl("equivalentClass");
+    internal static readonly RdfTerm EquivalentProperty = Owl("equivalentProperty");
+    internal static readonly RdfTerm InverseOf = Owl("inverseOf");
+    internal static readonly RdfTerm FunctionalProperty = Owl("FunctionalProperty");
+    internal static readonly RdfTerm InverseFunctionalProperty = Owl("InverseFunctionalProperty");
+    internal static readonly RdfTerm SymmetricProperty = Owl("SymmetricProperty");
+    internal static readonly RdfTerm TransitiveProperty = Owl("TransitiveProperty");
+    internal static readonly RdfTerm ObjectProperty = Owl("ObjectProperty");
+    internal static readonly RdfTerm DatatypeProperty = Owl("DatatypeProperty");
+    internal static readonly RdfTerm AnnotationProperty = Owl("AnnotationProperty");
+    internal static readonly RdfTerm PropertyChainAxiom = Owl("propertyChainAxiom");
+    internal static readonly RdfTerm HasKey = Owl("hasKey");
+    internal static readonly RdfTerm IntersectionOf = Owl("intersectionOf");
+    internal static readonly RdfTerm UnionOf = Owl("unionOf");
+    internal static readonly RdfTerm OneOf = Owl("oneOf");
+    internal static readonly RdfTerm SomeValuesFrom = Owl("someValuesFrom");
+    internal static readonly RdfTerm AllValuesFrom = Owl("allValuesFrom");
+    internal static readonly RdfTerm HasValue = Owl("hasValue");
+    internal static readonly RdfTerm OnProperty = Owl("onProperty");
+    internal static readonly RdfTerm OnClass = Owl("onClass");
+    internal static readonly RdfTerm MaxCardinality = Owl("maxCardinality");
+    internal static readonly RdfTerm MaxQualifiedCardinality = Owl("maxQualifiedCardinality");
+
+    /// <summary>The annotation properties OWL 2 RL/RDF types as such (prp-ap).</summary>
+    internal static readonly ImmutableArray<RdfTerm> AnnotationProperties =
+    [
+        Label, Comment, SeeAlso, IsDefinedBy, Owl("deprecated"), Owl("versionInfo"), Owl("priorVersion"),
+        Owl("backwardCompatibleWith"), Owl("incompatibleWith"),
+    ];
+
+    /// <summary>The literals of OWL 2 RL/RDF's cardinality rules, 0 and 1 as <c>xsd:nonNegativeInteger</c>.</summary>
+    internal static RdfTerm Cardinality(string value) => RdfTerm.Literal(Encoding.UTF8.GetBytes(value), Xsd("nonNegativeInteger"));
+
     /// <summary>The datatypes the RDFS profile recognises (RDF 1.1 Semantics §9.2).</summary>
     internal static readonly ImmutableArray<RdfTerm> RdfsDatatypes = [XsdString, LangString];
 

@@ -52,26 +52,67 @@ public class IncrementalEqualsFromScratchTests
         (4, Gen.Select(Gen.OneOfConst([.. Classes, .. Properties]), Gen.OneOfConst(Schema[1..]), Gen.OneOfConst([.. Classes, .. Properties]))),
         (1, Gen.Select(Gen.OneOfConst(Nodes), Gen.OneOfConst([.. Properties, .. Schema, Vocab[7]]), Gen.OneOfConst([.. Nodes, .. Literals]))));
 
+    private const string OwlNs = "http://www.w3.org/2002/07/owl#";
+
+    private static readonly RdfTerm[] Restrictions = [Named("R1"), Named("R2")];
+    private static readonly RdfTerm[] Cells = [Named("L1"), Named("L2"), Named("L3")];
+    private static readonly RdfTerm Nil = IriOf(RdfNs + "nil");
+    private static readonly RdfTerm[] OwlTypes =
+    [
+        IriOf(OwlNs + "TransitiveProperty"), IriOf(OwlNs + "SymmetricProperty"), IriOf(OwlNs + "FunctionalProperty"),
+        IriOf(OwlNs + "InverseFunctionalProperty"), IriOf(OwlNs + "ObjectProperty"), IriOf(OwlNs + "Class"),
+    ];
+    private static readonly RdfTerm[] OwlPairs =
+    [
+        IriOf(OwlNs + "equivalentClass"), IriOf(OwlNs + "equivalentProperty"), IriOf(OwlNs + "inverseOf"),
+    ];
+    private static readonly RdfTerm[] ListAxioms =
+    [
+        IriOf(OwlNs + "intersectionOf"), IriOf(OwlNs + "unionOf"), IriOf(OwlNs + "oneOf"),
+        IriOf(OwlNs + "propertyChainAxiom"), IriOf(OwlNs + "hasKey"),
+    ];
+
+    /// <summary>OWL's axioms beside RDFS's: property characteristics, restrictions, and lists, well formed or not.</summary>
+    private static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> OwlTriple = Gen.Frequency(
+        (10, Triple),
+        (2, Gen.Select(Gen.OneOfConst(Properties), Gen.Const(Schema[0]), Gen.OneOfConst(OwlTypes))),
+        (2, Gen.Select(Gen.OneOfConst([.. Classes, .. Properties]), Gen.OneOfConst(OwlPairs), Gen.OneOfConst([.. Classes, .. Properties]))),
+        (2, Gen.Select(Gen.OneOfConst(Restrictions), Gen.Const(IriOf(OwlNs + "onProperty")), Gen.OneOfConst(Properties))),
+        (2, Gen.Select(Gen.OneOfConst(Restrictions), Gen.OneOfConst([IriOf(OwlNs + "someValuesFrom"), IriOf(OwlNs + "allValuesFrom")]), Gen.OneOfConst([.. Classes, IriOf(OwlNs + "Thing")]))),
+        (1, Gen.Select(Gen.OneOfConst(Restrictions), Gen.Const(IriOf(OwlNs + "hasValue")), Gen.OneOfConst(Individuals))),
+        (1, Gen.Select(Gen.OneOfConst(Restrictions), Gen.Const(IriOf(OwlNs + "maxCardinality")), Gen.Const(RdfTerm.Literal("1"u8, IriOf(XsdNs + "nonNegativeInteger"))))),
+        (2, Gen.Select(Gen.OneOfConst(Individuals), Gen.Const(Schema[0]), Gen.OneOfConst(Restrictions))),
+        (3, Gen.Select(Gen.OneOfConst(Cells), Gen.Const(IriOf(RdfNs + "first")), Gen.OneOfConst([.. Classes, .. Properties, .. Individuals]))),
+        (3, Gen.Select(Gen.OneOfConst(Cells), Gen.Const(IriOf(RdfNs + "rest")), Gen.OneOfConst([.. Cells, Nil, Nil]))),
+        (2, Gen.Select(Gen.OneOfConst([.. Classes, .. Properties]), Gen.OneOfConst(ListAxioms), Gen.OneOfConst(Cells))));
+
     /// <summary>A history: each commit asserts some triples and retracts some explicit ones, chosen by index.</summary>
-    private static readonly Gen<(int Seed, (RdfTerm S, RdfTerm P, RdfTerm O)[][] Commits)> History =
-        Gen.Select(Gen.Int, Triple.Array[1, 4].Array[Commits / 2, Commits]);
+    private static Gen<(int Seed, (RdfTerm S, RdfTerm P, RdfTerm O)[][] Commits)> History(Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> triple) =>
+        Gen.Select(Gen.Int, triple.Array[1, 4].Array[Commits / 2, Commits]);
 
     [Fact]
-    public void delete_and_rederive_equals_from_scratch_at_every_commit() => Holds(Retraction.DeleteAndRederive);
+    public void delete_and_rederive_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Rdfs, Retraction.DeleteAndRederive);
 
     [Fact]
-    public void backward_forward_equals_from_scratch_at_every_commit() => Holds(Retraction.BackwardForward);
+    public void backward_forward_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Rdfs, Retraction.BackwardForward);
 
     [Fact]
-    public void the_baseline_equals_the_oracle_at_every_commit() => Holds(Retraction.FromScratch);
+    public void the_baseline_equals_the_oracle_at_every_commit() => Holds(InferenceProfile.Rdfs, Retraction.FromScratch);
 
-    private static void Holds(Retraction strategy) =>
-        History.Sample(history => Check(strategy, history.Seed, history.Commits), iter: Histories, threads: 1);
+    [Fact]
+    public void under_owl_2_rl_delete_and_rederive_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Owl2Rl, Retraction.DeleteAndRederive);
 
-    private static void Check(Retraction strategy, int seed, (RdfTerm S, RdfTerm P, RdfTerm O)[][] commits)
+    [Fact]
+    public void under_owl_2_rl_backward_forward_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Owl2Rl, Retraction.BackwardForward);
+
+    private static void Holds(InferenceProfile profile, Retraction strategy) =>
+        History(profile == InferenceProfile.Rdfs ? Triple : OwlTriple)
+            .Sample(history => Check(profile, strategy, history.Seed, history.Commits), iter: Histories, threads: 1);
+
+    private static void Check(InferenceProfile profile, Retraction strategy, int seed, (RdfTerm S, RdfTerm P, RdfTerm O)[][] commits)
     {
         Terms terms = new();
-        Program program = Program.Of(InferenceProfile.Rdfs, terms);
+        Program program = Program.Of(profile, terms);
         Closure closure = new(program, strategy);
         HashSet<Fact> explicitFacts = [];
         Random random = new(seed);
@@ -107,7 +148,7 @@ public class IncrementalEqualsFromScratchTests
             {
                 string missing = string.Join("\n  ", expected.Except(actual).Select(terms.Text).Order(StringComparer.Ordinal));
                 string extra = string.Join("\n  ", actual.Except(expected).Select(terms.Text).Order(StringComparer.Ordinal));
-                Assert.Fail($"after commit {c + 1} of {commits.Length}, {strategy}:\nmissing:\n  {missing}\nextra:\n  {extra}");
+                Assert.Fail($"after commit {c + 1} of {commits.Length}, {profile}, {strategy}:\nmissing:\n  {missing}\nextra:\n  {extra}");
             }
 
             foreach (Fact fact in explicitFacts)
