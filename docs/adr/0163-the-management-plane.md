@@ -374,8 +374,8 @@ Filed by the session for
 and for one of two ways to report it, recorded here. The hold-off was ruled
 by the maintainer on 2026-11-10, in that session, after the fix showed what
 it cost without one. It adds one ruling to the ledger,
-`ClaimsHoldOffAfterAStoreFailure`, unaccepted until the maintainer accepts
-it (ADR 0066). The rest adds detail to points 12 and 13.
+`ClaimsHoldOffAfterAStoreFailure`, accepted on #252 on 2026-11-10 at the
+maintainer's word, by his delegate (ADRs 0066 and 0239). The rest adds detail to points 12 and 13.
 
 **What happened.** Found in preview.19's release run
 ([#202](https://github.com/Hafeok/Varve/issues/202#issuecomment-6687786124)).

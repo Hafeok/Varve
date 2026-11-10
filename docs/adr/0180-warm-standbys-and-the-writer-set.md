@@ -248,8 +248,9 @@ built until now, is built:
 ## Amendment, 2026-11-10 — a release for a storage or local-disk error starts the releaser's hold-off
 
 Ruled by the maintainer on 2026-11-10, in the session for
-[#216](https://github.com/Hafeok/Varve/issues/216). The restated key is
-unaccepted until the maintainer accepts it (ADR 0066).
+[#216](https://github.com/Hafeok/Varve/issues/216). The restated key was
+accepted on #252 on 2026-11-10 at the maintainer's word, by his delegate
+(ADRs 0066 and 0239).
 
 **What point 4 said, and why it did not hold.** Point 4 has every warm member
 race for a release for `shutdown`, `storage-error` or `local-disk-error`, and

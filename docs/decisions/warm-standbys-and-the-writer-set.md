@@ -17,6 +17,8 @@ decisions:
     accepted-at: 2026-10-28T00:00:00Z
   - key: ClaimAfterAReleaseByItsReason
     statement: "A release for placement is claimed by the new placedOn alone; one for shutdown, storage-error or local-disk-error by every warm member racing, the store's conditional write picking one; a release for storage-error or local-disk-error starts the releaser's hold-off (ADR 0163), so it races for its own release only after it; a returning placedOn starts as a standby; restated by the amendment of 2026-11-10"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-10T00:00:00Z
   - key: StandbysFollowOnTheInterval
     statement: "A standby advances on Varve:Fleet:FollowInterval, as the system dataset does, and reads the dataset's writer record on the same interval; a follower that is not a standby still advances on demand (ADR 0164)"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -36,5 +38,5 @@ one line each. Filed unaccepted by Replication part 1, #165 (ADR 0066); every
 citation is `CS0618` until the maintainer accepts them.
 
 `ClaimAfterAReleaseByItsReason` is restated by the ADR's amendment of
-2026-11-10 (#216), and is unaccepted until the maintainer accepts it as
-restated.
+2026-11-10 (#216), and accepted as restated on #252 on 2026-11-10, at the
+maintainer's word, by his delegate (ADR 0239).
