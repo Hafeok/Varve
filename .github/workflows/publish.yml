@@ -429,7 +429,7 @@ jobs:
 
     steps:
       - name: Download the packages
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: packages
           path: ${{ runner.temp }}/packages
@@ -494,7 +494,7 @@ jobs:
 
     steps:
       - name: Download the packages
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: packages
           path: ${{ runner.temp }}/packages
@@ -644,7 +644,7 @@ jobs:
 
     steps:
       - name: Download the digests
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: ${{ runner.temp }}/digests
           pattern: image-digest-*
@@ -707,7 +707,7 @@ jobs:
         # each platform's binary and its closure, from the restore, and the
         # base image's OS packages, from the base pinned by digest. Its digest
         # is the descriptor's.
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sbom
           path: ${{ runner.temp }}/sbom
@@ -896,7 +896,7 @@ jobs:
       - name: Download the SBOMs
         # The bundle's SBOM was written in the publish job, from the restore
         # (ADR 0225, amended 2026-11-06), and its digest is the descriptor's.
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sbom
           path: ${{ runner.temp }}/sbom
@@ -982,19 +982,19 @@ jobs:
           persist-credentials: false
 
       - name: Download the packages
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: packages
           path: ${{ runner.temp }}/packages
 
       - name: Download the SBOMs
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sbom
           path: ${{ runner.temp }}/sbom
 
       - name: Download the Web UI's bundle
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: webui-zip
           path: ${{ runner.temp }}/webui
@@ -1080,7 +1080,7 @@ jobs:
           printf '%s\n' "$evidence" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Download the release's assets
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-assets
           path: ${{ runner.temp }}/assets
@@ -1166,7 +1166,7 @@ jobs:
 
       - name: Download what this run built (dry run)
         if: github.event_name != 'push'
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-assets
           path: ${{ runner.temp }}/release
