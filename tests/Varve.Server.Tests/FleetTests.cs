@@ -276,6 +276,92 @@ public abstract class FleetCases : IAsyncDisposable
     }
 
     /// <summary>
+    /// The move's own forward answers by what happened (ADR 0167, amended
+    /// 2026-11-02; #216). b writes d and a the system dataset, and a's writer
+    /// record names an internal address the test holds. With nothing
+    /// listening there, the forward never reaches the system writer: nothing
+    /// was committed, and the move is answered unavailable with the reason
+    /// writer-unreachable. With a listener that takes the request and closes
+    /// without answering, it was sent and the answer lost: the move is
+    /// answered commit-outcome-unknown, with the request id and no position.
+    /// Either way the declarations are where they were.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_move_s_forward_to_the_system_writer_answers_unreachable_when_never_sent_and_outcome_unknown_when_the_answer_is_lost(bool sent)
+    {
+        FleetLocation container = await Store.NewAsync();
+        using TcpListener listener = new(IPAddress.Loopback, 0);
+        listener.Start();
+        int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        using CancellationTokenSource closing = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        int received = 0;
+        Task serving = Task.CompletedTask;
+
+        if (sent)
+        {
+            // Takes each request's head and closes, answering nothing.
+            serving = Task.Run(async () =>
+            {
+                try
+                {
+                    while (true)
+                    {
+                        using TcpClient client = await listener.AcceptTcpClientAsync(closing.Token);
+                        byte[] buffer = new byte[4096];
+
+                        if (await client.GetStream().ReadAsync(buffer, closing.Token) > 0)
+                        {
+                            Interlocked.Increment(ref received);
+                        }
+                    }
+                }
+                catch (Exception error) when (error is OperationCanceledException or SocketException or ObjectDisposedException)
+                {
+                }
+            }, Ct);
+        }
+        else
+        {
+            // The port is free again, and nothing listens on it.
+            listener.Stop();
+        }
+
+        Server a = await StartAsync("a", container, "a", "--Varve:Fleet:InternalUrl=http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture));
+        HttpResponseMessage placed = await a.Http.PutAsync(new Uri(a.Address, "manage/datasets/d"), Trig(Declaration("d") + " <urn:fleet:d> <https://w3id.org/varve/ns#placedOn> \"b\" ."), Ct);
+        Assert.True(placed.IsSuccessStatusCode, (int)placed.StatusCode + " " + await placed.Content.ReadAsStringAsync(Ct));
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, long.Parse(placed.Headers.GetValues("Varve-Position").Single(), CultureInfo.InvariantCulture), "d", "writer");
+
+        HttpResponseMessage moved = await b.Http.PostAsync(new Uri(b.Address, "manage/datasets/d/events/move"), null, Ct);
+        string answer = await moved.Content.ReadAsStringAsync(Ct);
+        Assert.True(moved.StatusCode == HttpStatusCode.ServiceUnavailable, (int)moved.StatusCode + " " + answer + "\n" + b.Log);
+        using JsonDocument problem = JsonDocument.Parse(answer);
+
+        if (sent)
+        {
+            Assert.Equal("https://w3id.org/varve/problems/commit-outcome-unknown", problem.RootElement.GetProperty("type").GetString());
+            Assert.True(problem.RootElement.TryGetProperty("requestId", out _), answer);
+            Assert.False(problem.RootElement.TryGetProperty("position", out _), answer);
+            Assert.Equal(1, Volatile.Read(ref received));
+        }
+        else
+        {
+            Assert.Equal("https://w3id.org/varve/problems/unavailable", problem.RootElement.GetProperty("type").GetString());
+            Assert.Equal("writer-unreachable", problem.RootElement.GetProperty("reason").GetString());
+        }
+
+        // Nothing was committed: the declarations are still the dataset's.
+        HttpResponseMessage where = await a.Http.GetAsync(new Uri(a.Address, "manage/datasets/d/events"), Ct);
+        Assert.Contains("\"state\":\"in-dataset\"", await where.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+        await closing.CancelAsync();
+        listener.Stop();
+        await serving;
+    }
+
+    /// <summary>
     /// A follower whose memtable grows past Varve:Store:MemtableLimit since its
     /// open is opened again from the writer's newest catalog by the reconcile
     /// round (ADR 0164 point 5), and answers as before: the same quads, at the
