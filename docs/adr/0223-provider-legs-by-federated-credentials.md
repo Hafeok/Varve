@@ -2,8 +2,9 @@
 
 ## Status
 
-**Filed unaccepted by #101, 2026-11-06** (ADR 0066). Acceptance is the
-maintainer's act on the pull request. Decided by the maintainer on #101
+**Accepted — filed unaccepted by #101, 2026-11-06** (ADR 0066), its six
+rulings accepted on #242 on 2026-11-10, at the maintainer's word, by his
+delegate (ADR 0239). Decided by the maintainer on #101
 (2026-11-06): the provider legs move to federated credentials from GitHub's
 OIDC token, with no client secret and no service-account key, here or
 anywhere; the test tenants are set up later, so the legs skip until they are,
