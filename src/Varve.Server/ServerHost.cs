@@ -610,6 +610,7 @@ internal static partial class ServerHost
         IAccessScopes scopes = anonymous ? EveryoneEverything.Instance : new ManagedScopes(app.Services.GetRequiredService<FleetHandle>(), settings.Auth, app.Services.GetRequiredService<IHttpContextAccessor>());
         ProtocolOptions options = new()
         {
+            AfterCheckpoint = settings.Store.ReleaseMemoryAfterCheckpoint ? IdleRelease.AfterCheckpoint : null,
             Datasets = datasets,
             Administration = datasets,
             Updates = updates,

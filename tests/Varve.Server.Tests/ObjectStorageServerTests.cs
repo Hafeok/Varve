@@ -90,6 +90,54 @@ public sealed class ObjectStorageServerTests
         Assert.Equal(!accepted, SettingsCheck.Errors(settings).Any(e => e.StartsWith("Varve:Store:MemtableLimit", StringComparison.Ordinal)));
     }
 
+    /// <summary>
+    /// Unset, the memtable's limit follows the collector's heap limit (ADR
+    /// 0241): a sixteenth of it at 215 bytes an entry, never more than the
+    /// 1,000,000 it was and never less than 10,000; unset is not an error.
+    /// </summary>
+    [Theory]
+    [InlineData(8L << 30, 1_000_000)]
+    [InlineData(3_440_000_000L, 1_000_000)]
+    [InlineData(384L << 20, 117_050)]
+    [InlineData(192L << 20, 58_525)]
+    [InlineData(16L << 20, 10_000)]
+    [InlineData(0L, 1_000_000)]
+    public void the_default_memtable_limit_follows_the_heap_limit(long heapLimit, long entries)
+    {
+        Assert.Equal(entries, MemtableDefault.For(heapLimit));
+        ServerSettings settings = new();
+        settings.Auth.Mode = "Anonymous";
+        Assert.Null(settings.Store.MemtableLimit);
+        Assert.DoesNotContain(SettingsCheck.Errors(settings), e => e.StartsWith("Varve:Store:MemtableLimit", StringComparison.Ordinal));
+        Assert.InRange(MemtableDefault.For(MemtableDefault.HeapLimit()), MemtableDefault.Least, MemtableDefault.Entries);
+    }
+
+    /// <summary>
+    /// After a checkpoint the server releases memory only for a dataset that
+    /// has gone quiet (ADR 0241 point 6): not when a commit moved the head
+    /// during the wait, and not when its maintenance failed or it was closed.
+    /// </summary>
+    [Theory]
+    [InlineData(false, false, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    public async Task memory_is_released_after_a_checkpoint_only_when_the_dataset_is_idle(bool written, bool closed, bool released)
+    {
+        long head = 7;
+        int releases = 0;
+        bool answer = await IdleRelease.WhenIdleAsync(
+            () => closed ? throw new ObjectDisposedException("Dataset") : ValueTask.CompletedTask,
+            () => new Varve.Store.Log.Position(head),
+            () =>
+            {
+                head += written ? 1 : 0;
+                return Task.CompletedTask;
+            },
+            () => releases++);
+        Assert.Equal(released, answer);
+        Assert.Equal(released ? 1 : 0, releases);
+    }
+
     [Fact]
     public void a_storage_credential_in_configuration_is_refused_by_name()
     {

@@ -121,9 +121,51 @@ internal sealed class StoreSettings
     /// <summary>
     /// The memtable's bound, in entries: a quad or a new term each (ADR 0070).
     /// It bounds a writer's memory before a spill, and a follower's before it
-    /// is opened again (ADR 0164 point 5).
+    /// is opened again (ADR 0164 point 5). Unset, it is what fits the
+    /// machine: <see cref="MemtableDefault.For"/> the collector's heap limit
+    /// (ADR 0241).
     /// </summary>
-    public long MemtableLimit { get; set; } = 1_000_000;
+    public long? MemtableLimit { get; set; }
+
+    /// <summary>
+    /// Whether the server returns memory to the operating system once a
+    /// checkpoint a caller asked for has been taken (ADR 0241 point 6): it
+    /// lets the dataset's maintenance finish, then asks the collector for
+    /// one compacting collection that decommits what it frees. On by
+    /// default: an idle server otherwise keeps what the checkpoint's work
+    /// allocated until something else allocates.
+    /// </summary>
+    public bool ReleaseMemoryAfterCheckpoint { get; set; } = true;
+}
+
+/// <summary>
+/// The memtable's limit when the operator sets none (ADR 0241): 1,000,000
+/// entries where the collector's heap limit has room for them, and otherwise
+/// a sixteenth of that limit at 215 bytes an entry. The memtable holds
+/// between its limit and twice it while a flush runs, and a tier merge needs
+/// a second copy, so a sixteenth leaves it at most a quarter of the heap.
+/// The heap limit is the container's memory limit as the runtime reads it,
+/// three quarters of it by default, or the machine's memory without one.
+/// </summary>
+internal static class MemtableDefault
+{
+    /// <summary>The default where memory does not bound it.</summary>
+    internal const long Entries = 1_000_000;
+
+    /// <summary>What an entry holds: a quad's six order keys, 192 bytes, rounded to the documented 215.</summary>
+    internal const int EntryBytes = 215;
+
+    /// <summary>The share of the heap limit the memtable's limit takes: one in this many.</summary>
+    internal const int HeapShare = 16;
+
+    /// <summary>The least the default is: a memtable smaller than this flushes at nearly every commit.</summary>
+    internal const long Least = 10_000;
+
+    internal static long For(long heapLimitBytes) =>
+        heapLimitBytes <= 0 ? Entries : Math.Clamp(heapLimitBytes / HeapShare / EntryBytes, Least, Entries);
+
+    /// <summary>The collector's heap limit now: a container's limit as the runtime applies it, or the machine's memory.</summary>
+    internal static long HeapLimit() => GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
 }
 
 /// <summary>

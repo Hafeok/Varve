@@ -509,3 +509,5 @@ Varve.Protocol.Model.TakeoverRefusal.EpochMoved = 4 -> Varve.Protocol.Model.Take
 static Varve.Protocol.Model.ProblemType.StorageFull.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.CommitOutcomeUnknown.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.LoadSpillDamaged.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.ProtocolOptions.AfterCheckpoint.get -> System.Func<Varve.Store.Dataset!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
+Varve.Protocol.ProtocolOptions.AfterCheckpoint.init -> void
