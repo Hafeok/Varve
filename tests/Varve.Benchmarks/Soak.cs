@@ -28,7 +28,8 @@ internal sealed record SoakOptions(
     bool Maintenance,
     bool Policy,
     int Subjects,
-    long MemtableLimit)
+    long MemtableLimit,
+    int PauseMilliseconds = 25)
 {
     internal static SoakOptions Parse(ReadOnlySpan<string> args)
     {
@@ -45,6 +46,7 @@ internal sealed record SoakOptions(
                 "--policy" => options with { Policy = true, Checkpoints = false },
                 "--subjects" => options with { Subjects = int.Parse(args[++i], CultureInfo.InvariantCulture) },
                 "--memtable" => options with { MemtableLimit = long.Parse(args[++i], CultureInfo.InvariantCulture) },
+                "--pause" => options with { PauseMilliseconds = int.Parse(args[++i], CultureInfo.InvariantCulture) },
                 _ => throw new ArgumentException("Unknown soak option " + args[i] + "."),
             };
         }
@@ -112,7 +114,7 @@ internal static class Soak
             + loading.Elapsed.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture) + " s, before the clock");
 
         // The writer: batches of 50 over the vocabulary, a third of them
-        // retractions, pausing 25 ms between commits; the dataset stays at the
+        // retractions, pausing between commits; the dataset stays at the
         // size the load brought it to, two thirds of the vocabulary present.
         Task writer = Task.Run(async () =>
         {
@@ -130,7 +132,14 @@ internal static class Soak
 
                 await dataset.CommitAsync(request);
                 Interlocked.Increment(ref commits);
-                await Task.Delay(25);
+
+                // 25 ms by default, the release gate's pace; --pause 1 reaches
+                // a million commits in an hour, for the slope against commits
+                // (ADR 0240), and 0 lets the writer outrun maintenance.
+                if (options.PauseMilliseconds > 0)
+                {
+                    await Task.Delay(options.PauseMilliseconds);
+                }
             }
         });
 
