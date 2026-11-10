@@ -165,6 +165,39 @@ model) is allowed, and so is a co-author trailer naming only the product
 (ADR 0241, superseding ADR 0033's amendment of 2026-10-02). Prose says
 "developed with AI assistance under human review" and **names no product**.
 
+## Issues are the work log
+
+The issue, not the session's transcript or close-out, is where anyone looks to
+see what is being worked on, what was decided and what is left.
+
+- **Starting.** Work starts from an issue. The session comments on it when it
+  starts (branch, and the prompt step it is working from) and posts its plan
+  there once the plan is agreed. Before opening an issue, search for an open
+  one that covers the work; a duplicate is closed pointing at the original.
+- **While working.** Decisions taken, questions for the maintainer and blockers
+  go on the issue when they arise, not only in the close-out. The pull request
+  names its issues as bare #N in prose.
+- **Found work is filed when it is found.** A defect, a follow-up or a deferred
+  part becomes its own issue at once, linked from the issue it came from. A
+  close-out, a TODO or a commit message is not a place to keep work.
+- **Landing.** Before asking for approval, the session lists in the pull
+  request every issue the change touches:
+  - each one it resolves fully gets its own `Closes #N` trailer;
+  - each one it resolves in part gets a comment saying what landed and what is
+    left, and tracking issues (#15 and the milestone issues) get their boxes
+    ticked.
+
+  "The session" here and below is whichever session lands. The maintainer's
+  delegate lands and checks the closings (ADR 0239); a cloud session posts its
+  head, lists the issues its change touches, and asks.
+- **After landing.** The session checks that every issue it meant to close is
+  closed. If a trailer did not take, it closes the issue by hand with a comment
+  naming the commit on `main`.
+- **Stopping.** Work abandoned or superseded is closed as not planned, with a
+  comment saying why and what replaces it.
+- The traceability record and the close-out link the issues; they do not
+  replace them.
+
 ## `Varve.Store` behaviour
 
 **`docs/spec/log-and-projection-model.md` is the authority** (version 1.8) and
