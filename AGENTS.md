@@ -159,10 +159,11 @@ Conventional commits, one logical change each, and three things in each:
 exactly**, and the report. The model is the identifier the session's metadata
 reports. A tool that will not write it says so in the record, and the maintainer
 fills it in: a blank model is an incomplete record. **A commit message never
-carries a model's identifier** (the string an API takes to select a model); a
-tool's co-author trailer naming the product is not one (ADR 0033, amended
-2026-10-02). Prose says "developed with AI assistance under human review" and
-**names no product**.
+carries a model's name** (a family word, alone or after the product, followed
+by a version); a model's identifier (the string an API takes to select a
+model) is allowed, and so is a co-author trailer naming only the product
+(ADR 0241, superseding ADR 0033's amendment of 2026-10-02). Prose says
+"developed with AI assistance under human review" and **names no product**.
 
 ## `Varve.Store` behaviour
 
@@ -541,8 +542,8 @@ exists.
 - A native dependency, or any package that ships a native asset.
 - `System.Uri` where an IRI is meant. Use `Varve.Iri` (ADR 0004).
 - A commit with no issue reference or no DCO sign-off, or one whose message
-  carries a model's identifier; a long-lived branch; a trunk left
-  un-releasable.
+  carries a model's name (its identifier is allowed, ADR 0241); a long-lived
+  branch; a trunk left un-releasable.
 - Reflection, `Reflection.Emit` or `dynamic` in shipped code.
 - A `Common` / `Core` / `Utils` / `Abstractions` package, or an upward or
   same-layer reference. A `.cs` file without the MPL-2.0 notice (ADR 0031).
