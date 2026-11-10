@@ -51,7 +51,7 @@ public sealed partial class Dataset
     public static async ValueTask<Dataset> OpenFollowerAsync(ITailingStorage storage, DatasetOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(storage);
-        Dataset dataset = await OpenAsync(storage, options, cancellationToken).ConfigureAwait(false);
+        Dataset dataset = await OpenAsync(storage, options, follower: true, cancellationToken).ConfigureAwait(false);
         dataset.IsFollower = true;
         dataset._memtableAtOpen = dataset._state.Index.MemtableCount;
         return dataset;

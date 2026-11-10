@@ -66,6 +66,10 @@ public sealed partial class Dataset
         }
 
         long started = _options.Clock.GetTimestamp();
+
+        // A writer cannot outrun the flush: at twice the memtable's limit a
+        // commit waits here, before it queues, for maintenance (ADR 0241).
+        await WaitForTheMemtableAsync(cancellationToken).ConfigureAwait(false);
         PendingCommit pending = new(kind, request, metadata, expected, kindPayload, request?.ExpectedGraphs);
         _metrics.Queued(1);
 

@@ -283,23 +283,35 @@ public sealed partial class Dataset
         private long _logBytes;
         private long _position;
 
-        private CommitIndexOpener(IDerivedStore store, DatasetId dataset, int cache, Func<CommitIndex> current)
+        private CommitIndexOpener(IDerivedStore store, DatasetId dataset, int cache, Func<CommitIndex> current, long bodiesBudget)
         {
             _store = store;
             _dataset = dataset;
             _cache = cache;
             _current = current;
+            _bodiesBudget = bodiesBudget;
         }
 
-        /// <summary>The bodies the scan read whole, for replay, by position.</summary>
+        // The most bytes of the log whose bodies the scan keeps for the
+        // replay (ADR 0241): the commits past it are read from the log again
+        // as they are applied, so an open holds at most this much of the log
+        // decoded, whatever lies above derived/.
+        private readonly long _bodiesBudget;
+        private long _bodiesBytes;
+
+        /// <summary>
+        /// The bodies the scan read whole, for replay, by position: the first
+        /// bytes of them, up to the budget. The replay takes each as
+        /// it applies it.
+        /// </summary>
         internal Dictionary<long, LoggedCommit> Bodies { get; } = [];
 
         internal long Sequence { get; private set; }
 
         /// <summary>Loads every commit index blob that reads as one of this dataset's.</summary>
-        internal static async ValueTask<CommitIndexOpener> StartAsync(IDerivedStore store, DatasetId dataset, int cache, Func<CommitIndex> current, CancellationToken cancellationToken)
+        internal static async ValueTask<CommitIndexOpener> StartAsync(IDerivedStore store, DatasetId dataset, int cache, Func<CommitIndex> current, long bodiesBudget, CancellationToken cancellationToken)
         {
-            CommitIndexOpener opener = new(store, dataset, cache, current);
+            CommitIndexOpener opener = new(store, dataset, cache, current, bodiesBudget);
 
             foreach (BlobName name in await store.ListAsync(cancellationToken).ConfigureAwait(false))
             {
@@ -395,9 +407,10 @@ public sealed partial class Dataset
                 _settings.Add(new SettingsPoint(p, _folded));
             }
 
-            if (p > bodiesAfter && commit.Full is { } full)
+            if (p > bodiesAfter && commit.Full is { } full && _bodiesBytes < _bodiesBudget)
             {
                 Bodies[p] = full;
+                _bodiesBytes += commit.Bytes;
             }
 
             _logBytes += commit.Bytes;
