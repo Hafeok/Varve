@@ -225,7 +225,7 @@ internal static class ProtocolRunner
             if (request.Body is not null)
             {
                 // The body names the store's address where the manifests do; on the server, the server's.
-                message.Content = new ByteArrayContent(endpoint.RewriteText(Encoding.UTF8.GetString(request.Body)) is var text && text.Length == request.Body.Length ? request.Body : Encoding.UTF8.GetBytes(text));
+                message.Content = new SentContent(Body(request.Body, text => endpoint.RewriteText(text)));
             }
 
             foreach ((string name, string value) in request.Headers)
@@ -255,7 +255,7 @@ internal static class ProtocolRunner
 
             if (!request.Expect.Statuses.Any(s => s.Contains(status)))
             {
-                return where + "status " + status + ", expected " + string.Join(" or ", request.Expect.Statuses) + "; " + Encoding.UTF8.GetString(body);
+                return where + "status " + status + ", expected " + string.Join(" or ", request.Expect.Statuses) + "; " + Encoding.UTF8.GetString(body) + Sent(message.Content);
             }
 
             if (request.Expect.CapturesLocation)
@@ -287,6 +287,31 @@ internal static class ProtocolRunner
 
         return null;
     }
+
+    /// <summary>
+    /// The bytes to send for a transcript's <paramref name="body"/>: as given
+    /// when <paramref name="rewrite"/> leaves its text alone, else the
+    /// rewritten text's. Decided by comparing the texts: a rewrite that keeps
+    /// the text's length in chars can still change it, and a body's length in
+    /// chars is not its length in bytes (#262).
+    /// </summary>
+    internal static byte[] Body(byte[] body, Func<string, string> rewrite)
+    {
+        string text = Encoding.UTF8.GetString(body);
+        string rewritten = rewrite(text);
+        return string.Equals(text, rewritten, StringComparison.Ordinal) ? body : Encoding.UTF8.GetBytes(rewritten);
+    }
+
+    /// <summary>
+    /// What a request sent, for a failure's message: the <c>Content-Length</c>
+    /// it declared, the bytes its content wrote, and the body, so that a
+    /// short body and a short read can be told apart from the log (#262).
+    /// </summary>
+    internal static string Sent(HttpContent? content) => content is SentContent sent
+        ? " (sent Content-Length " + (content.Headers.ContentLength?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none")
+            + ", wrote " + sent.Written.ToString(System.Globalization.CultureInfo.InvariantCulture) + " bytes: "
+            + Encoding.UTF8.GetString(sent.Bytes) + ")"
+        : "";
 
     private static string? Check(ProtocolExpectation expect, string? mediaType, byte[] body, string path)
     {
@@ -558,5 +583,32 @@ internal static class ProtocolRunner
                 size *= 2;
             }
         }
+    }
+}
+
+/// <summary>
+/// A request body that counts the bytes it writes to the connection, so a
+/// failure can state what was sent rather than what was meant (#262).
+/// </summary>
+internal sealed class SentContent(byte[] bytes) : HttpContent
+{
+    internal byte[] Bytes => bytes;
+
+    /// <summary>The bytes written so far, over every time the content was sent.</summary>
+    internal long Written { get; private set; }
+
+    protected override Task SerializeToStreamAsync(Stream stream, System.Net.TransportContext? context) =>
+        SerializeToStreamAsync(stream, context, CancellationToken.None);
+
+    protected override async Task SerializeToStreamAsync(Stream stream, System.Net.TransportContext? context, CancellationToken cancellationToken)
+    {
+        await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        Written += bytes.Length;
+    }
+
+    protected override bool TryComputeLength(out long length)
+    {
+        length = bytes.Length;
+        return true;
     }
 }
