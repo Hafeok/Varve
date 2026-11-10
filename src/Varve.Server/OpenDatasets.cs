@@ -210,6 +210,75 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             {
                 await ConvergeSettingsAsync(new DatasetName(name), written, declared, applied, placement, cancellationToken).ConfigureAwait(false);
             }
+
+            ReportOpen(name, entry);
+        }
+    }
+
+    // A writer's open that failed is logged at warning once (#251), and at
+    // debug each round after it until the dataset has been open again: its
+    // reason differs from round to round, a probe's key being random, so a
+    // store that stays down would otherwise be a warning every round.
+    // Readiness carries the latest reason. A follower waiting for its writer
+    // to create the dataset is not a failure, and is silent.
+    private void ReportOpen(string name, Entry entry)
+    {
+        if (entry.State == DatasetState.Open)
+        {
+            entry.Reported = false;
+            return;
+        }
+
+        if (entry.State != DatasetState.Failed || entry.Role != DatasetRole.Writer || entry.Reason is not { } reason)
+        {
+            return;
+        }
+
+        string epoch = entry.FailedEpoch is { } taken ? taken.ToString(System.Globalization.CultureInfo.InvariantCulture) : "none taken";
+
+        if (entry.Reported)
+        {
+            ReconcileLog.OpenStillFailing(_logger, name, epoch, reason);
+            return;
+        }
+
+        entry.Reported = true;
+        ReconcileLog.OpenFailed(_logger, name, epoch, reason);
+    }
+
+    // What an open failed with, and what caused it: a store's write that
+    // failed every attempt names the object, and its cause the status the
+    // store answered.
+    private static string Causes(Exception error)
+    {
+        System.Text.StringBuilder text = new(error.Message);
+
+        for (Exception? cause = error.InnerException; cause is not null; cause = cause.InnerException)
+        {
+            text.Append(" Caused by: ").Append(cause.Message);
+        }
+
+        return text.ToString();
+    }
+
+    // The epoch a failed open as the writer left this instance holding, for
+    // the log: the record's, when it names this instance and is not released.
+    private async Task<long?> HeldEpochAsync(string name)
+    {
+        if (_objects is not { } objects)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await objects.ReadWriterAsync(name, CancellationToken.None).ConfigureAwait(false) is { Released: null } record && record.Holder == objects.Instance
+                ? record.Epoch.Value
+                : null;
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            return null;
         }
     }
 
@@ -464,6 +533,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     private async Task OpenEntryAsync(string name, Entry entry, DatasetRole role, bool wait, CancellationToken cancellationToken)
     {
         entry.Placed(role);
+        entry.FailedEpoch = null;
 
         if (role == DatasetRole.Elsewhere)
         {
@@ -521,6 +591,8 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                 }
                 catch
                 {
+                    // The epoch it had taken, for the log, before the close releases it.
+                    entry.FailedEpoch = objects.Epoch?.Value;
                     await objects.DisposeAsync().ConfigureAwait(false);
                     throw;
                 }
@@ -558,7 +630,12 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
-            entry.Fail(error.Message);
+            if (entry.Storage == DatasetStorage.ObjectStorage && role == DatasetRole.Writer)
+            {
+                entry.FailedEpoch ??= await HeldEpochAsync(name).ConfigureAwait(false);
+            }
+
+            entry.Fail(Causes(error));
         }
     }
 
@@ -658,6 +735,12 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         [LoggerMessage(EventId = 7, Level = LogLevel.Information, Message = "The follower of '{Name}' applied more than its memtable limit since it opened, and opens again from the writer's newest catalog (ADR 0164).")]
         internal static partial void Reopened(ILogger logger, string name);
+
+        [LoggerMessage(EventId = 20, Level = LogLevel.Warning, Message = "The dataset '{Name}' did not open as its writer (epoch: {Epoch}), and is tried again every round: {Reason}")]
+        internal static partial void OpenFailed(ILogger logger, string name, string epoch, string reason);
+
+        [LoggerMessage(EventId = 21, Level = LogLevel.Debug, Message = "The dataset '{Name}' still does not open as its writer (epoch: {Epoch}): {Reason}")]
+        internal static partial void OpenStillFailing(ILogger logger, string name, string epoch, string reason);
     }
 
     /// <summary>One dataset's slot: its storage, its role, its state, and what it holds while open.</summary>
@@ -693,8 +776,14 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         /// <summary>The writer set this instance last applied, to compare the next declaration with (ADR 0180 point 2); none before the first.</summary>
         internal (string? PlacedOn, IReadOnlyList<string> StandbyOn)? Applied { get; set; }
 
-        /// <summary>Whether the start rule has decided this dataset's role in this process (ADR 0180 point 3).</summary>
+        /// <summary>Whether the start rule has decided this dataset's role in this process (ADR 0180 point 3): set once the dataset is open, so a start whose open failed is decided again.</summary>
         internal bool Started { get; set; }
+
+        /// <summary>The writer epoch a failed open had taken, when it had taken one: for the log.</summary>
+        internal long? FailedEpoch { get; set; }
+
+        /// <summary>Whether the failed open was logged at warning since the dataset was last open, so that it is logged once.</summary>
+        internal bool Reported { get; set; }
 
         /// <summary>Whether the dataset was opened to follow, read-only, in the followers' directory: a standby that claimed in place still is.</summary>
         internal bool OpenedToFollow { get; private set; }
@@ -729,6 +818,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             OpenedToFollow = dataset.IsFollower;
             State = DatasetState.Open;
             Reason = null;
+            FailedEpoch = null;
             AdvancedSinceOpen = false;
             LastAdvanceFailed = false;
         }
@@ -750,6 +840,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             Files = staged.Files;
             State = staged.State;
             Reason = staged.Reason;
+            FailedEpoch = staged.FailedEpoch;
             Role = staged.Role;
             OpenedToFollow = staged.OpenedToFollow;
             AdvancedSinceOpen = false;

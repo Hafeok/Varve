@@ -462,7 +462,7 @@ public abstract class FleetCases : IAsyncDisposable
         await using CountingProxy proxy = await CountingProxy.StartAsync(container.Upstream);
         Server a = await StartAsync("a", container.Through(proxy.Address), writer: "a");
         long declared = await DeclareAsync(a, "d", "a", "b");
-        Assert.Equal(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        await AssertWrittenAsync(a, "d", await Update(a, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }"));
 
         proxy.Fail = (method, path) => method == "PUT" && path.Contains("/d/log/", StringComparison.Ordinal);
         Assert.NotEqual(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/lost> <http://ex/p> 2 }")).StatusCode);
@@ -1098,6 +1098,117 @@ public abstract class FleetCases : IAsyncDisposable
         downtime.Stop();
         Measured("restart (two-app layout, no standby): the writer's stop, its start again, to the first write the follower forwards", downtime);
         Assert.Equal("2", await CountAsync(b, write.Headers.GetValues("Varve-Position").Single()));
+    }
+
+    /// <summary>
+    /// A writer whose first open fails opens once the store recovers, with no
+    /// restart (#251; ADR 0163 point 12, amended 2026-11-10). a reaches the
+    /// store through a proxy that answers 500 to every PUT under d's prefix
+    /// while d is declared with a writer set. The declaration is committed
+    /// and answered success: it is the system dataset's commit. d did not
+    /// open: readiness reports it failed with the request that failed, a
+    /// write finds no dataset, and a's log has one warning for it, however
+    /// many rounds try again. The store recovers, and within a failed write's
+    /// retries and a few follow intervals a write to d is committed. Marked
+    /// started by its first decision whatever the open's outcome, a stood by
+    /// for a dataset nobody had created, until it restarted. Two failures:
+    /// every PUT under the prefix, so the open fails at the store's probe
+    /// with no epoch taken; and the log's PUTs alone, so the record's PUT
+    /// gets through and the open fails holding epoch 1, which the warning
+    /// names.
+    /// </summary>
+    [Theory]
+    [InlineData("/d/", "none taken")]
+    [InlineData("/d/log/", "1")]
+    public async Task A_writer_whose_first_open_fails_opens_once_the_store_recovers_with_no_restart(string failing, string epoch)
+    {
+        FleetLocation container = await Store.NewAsync();
+        await using CountingProxy proxy = await CountingProxy.StartAsync(container.Upstream);
+        Server a = await StartAsync("a", container.Through(proxy.Address), writer: "a");
+
+        proxy.Fail = (method, path) => method == "PUT" && path.Contains(failing, StringComparison.Ordinal);
+        await DeclareAsync(a, "d", "a", "b");
+
+        string readiness = await ReadinessOfAsync(a, "d");
+        Assert.Contains("\"state\":\"failed\"", readiness, StringComparison.Ordinal);
+        Assert.Contains("d/", readiness, StringComparison.Ordinal);
+        Assert.Contains("500", readiness, StringComparison.Ordinal);
+        Assert.NotEqual(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/early> <http://ex/p> 1 }")).StatusCode);
+
+        // Rounds go by with the store still failing: the failed open is logged, once.
+        await Task.Delay(TimeSpan.FromSeconds(5), Ct);
+        string Logged = "The dataset 'd' did not open as its writer (epoch: " + epoch + ")";
+        string log = a.Log;
+        Assert.True(log.Split(Logged).Length == 2 && log.Split("did not open as its writer").Length == 2, "The failed open is logged once, with the epoch " + epoch + ":\n" + log);
+        Assert.Contains("500", log[log.IndexOf(Logged, StringComparison.Ordinal)..], StringComparison.Ordinal);
+
+        proxy.Fail = null;
+        Stopwatch recovered = Stopwatch.StartNew();
+        HttpResponseMessage written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }");
+
+        while (written.StatusCode != HttpStatusCode.NoContent && recovered.Elapsed < TimeSpan.FromSeconds(10))
+        {
+            await Task.Delay(100, Ct);
+            written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }");
+        }
+
+        await AssertWrittenAsync(a, "d", written);
+        TestContext.Current.SendDiagnosticMessage("a write to d was committed " + recovered.ElapsedMilliseconds + " ms after the store recovered");
+        Assert.Contains("\"state\":\"ready\"", await ReadinessOfAsync(a, "d"), StringComparison.Ordinal);
+    }
+
+    // A write that must be committed. On any other answer: the response, the
+    // dataset's line of readiness with its state and reason, and the server's log.
+    private static async Task AssertWrittenAsync(Server server, string dataset, HttpResponseMessage response)
+    {
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            return;
+        }
+
+        string body = await response.Content.ReadAsStringAsync(Ct);
+        Assert.Fail(
+            server.Instance + " answered " + (int)response.StatusCode + " to a write to " + dataset + ": " + body
+            + "\n" + dataset + " in " + server.Instance + "'s readiness: " + await ReadinessOfAsync(server, dataset)
+            + "\n" + server.Instance + ":\n" + server.Log);
+    }
+
+    // The dataset's entry in the instance's readiness, as it was written: its
+    // state, and its reason when it has one. Readiness lists datasets by name
+    // when ready, and as an array of those that are not when unready.
+    private static async Task<string> ReadinessOfAsync(Server server, string dataset)
+    {
+        HttpResponseMessage ready = await server.Http.GetAsync(new Uri(server.Address, "health/ready"), Ct);
+        string body = await ready.Content.ReadAsStringAsync(Ct);
+
+        try
+        {
+            using JsonDocument json = JsonDocument.Parse(body);
+
+            if (json.RootElement.TryGetProperty("datasets", out JsonElement datasets))
+            {
+                if (datasets.ValueKind == JsonValueKind.Object && datasets.TryGetProperty(dataset, out JsonElement named))
+                {
+                    return named.GetRawText();
+                }
+
+                if (datasets.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (JsonElement entry in datasets.EnumerateArray())
+                    {
+                        if (entry.TryGetProperty("name", out JsonElement name) && name.GetString() == dataset)
+                        {
+                            return entry.GetRawText();
+                        }
+                    }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return "no entry for " + dataset + " in " + (int)ready.StatusCode + " " + body;
     }
 
     private static Task<HttpResponseMessage> Takeover(Server server, string dataset, long epoch) =>

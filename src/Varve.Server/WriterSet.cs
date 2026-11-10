@@ -117,7 +117,6 @@ internal sealed partial class OpenDatasets
         }
 
         MemberStep step = MemberDecision.Decide(previous, declared, placement, state, seen, entry.Warm, entry.Started);
-        entry.Started = true;
 
         switch (step)
         {
@@ -142,6 +141,17 @@ internal sealed partial class OpenDatasets
             case MemberStep.Claim:
                 await ClaimInPlaceAsync(name, entry, record!, placement, ClaimTrigger.Abdication, cancellationToken).ConfigureAwait(false);
                 break;
+        }
+
+        // A start is decided once the dataset is open (ADR 0163 point 12,
+        // amended 2026-11-10; #251): an open that failed leaves the entry
+        // unstarted, and the next round decides by the start rule again, by
+        // what the record shows then. Marked started whatever the outcome, a
+        // member whose first open as the writer failed stood by for a dataset
+        // nobody had created, until it restarted.
+        if (entry.State == DatasetState.Open)
+        {
+            entry.Started = true;
         }
     }
 

@@ -159,6 +159,15 @@ Request ids are `<instance>:<id>`, unique across the fleet.
 
 ## Readiness
 
+A declared dataset that did not open on this instance is listed as `failed`
+with a `reason`, and the instance is not ready. For a store's failure the
+reason names the request and the status the store answered. The instance
+tries again every round, and logs the first failure as a warning with the
+writer epoch the open had taken, so it needs no restart: it turns `ready`
+when the store answers. `PUT /manage/datasets/{name}` answers for the
+declaration alone, which is committed before any instance has opened the
+dataset.
+
 `/health/ready` carries a `management` object: the instance's `role` in the
 system dataset (`writer`, `follower` or `superseded`), the `epoch`, the
 applied `position`, the `lag` behind the system tail, and the `bootstrap`
