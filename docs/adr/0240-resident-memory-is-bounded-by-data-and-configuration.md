@@ -164,13 +164,24 @@ build before this one reads what this one writes, and the reverse.
 - **An operator can trade memory for as-of latency** with one setting, and
   see what is used.
 - **The soak judge's allowance, 60 bytes a commit, has no cost left to
-  cover, and is not lowered here.** A one-hour soak at a 1 ms pause measured
-  139 bytes a commit of working set: its writer outruns the flush (#227),
-  and the seek directory cache was still filling to its ceiling. Neither is
-  growth per commit, and a fit against commits reads both as slope. The
-  figure to lower it to comes from the gate's own four-hour run on this
-  change, with the soak's seek cache small enough to be full before the
-  judged window (`--seek-cache`), and is ADR 0215's to amend then.
+  cover, and is not lowered here.**
+  - In the gate's configuration, read at minute 90 of a local run, the judge
+    holds, and the managed heap's slope from minute 30 is −1.4 ± 3.4 bytes a
+    commit where the nightly's over the same window was 27.2 ± 5.0. The
+    directories on disk still grow, 21 bytes a commit.
+  - The working set on the session's shared machine was too noisy to take a
+    figure from: −16 ± 46 bytes a commit. The allowance should come from a
+    run on the gate's runner: its slope, three standard errors, and the seek
+    cache's fill. That is ADR 0215's to amend then.
+  - **The seek cache fills slowly, not quickly.** It is bounded by its
+    ceiling, and in the soak it holds the directories of the sets that cover
+    the as-of reads' horizon of 10,000 positions: 0.9 MB at minute 90,
+    growing about 5 bytes a commit as merges make those sets larger, up to
+    `MaxSetBytes`. So a judged window cannot wait for it to be full in four
+    hours, and the allowance carries its fill until then. The soak prints
+    what it holds, and takes `--seek-cache` to run with a smaller ceiling.
+  - A one-hour soak at a 1 ms pause measured 139 bytes a commit. Its writer
+    outruns the flush (#227), so it does not measure what the gate does.
 - **`PositionAt` reads more.** It is the read behind `Varve-As-Of` with a
   date, once a request.
 

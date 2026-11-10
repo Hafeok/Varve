@@ -66,6 +66,15 @@ was shared. That was reported on the issue instead of adopted, as asked.
 waits for a four-hour soak at the gate's pace, which this session could not
 run.
 
+**The soak in the gate's configuration**, run locally because the workflow
+cannot be dispatched on a branch (the nightly's soak jobs run only on
+`main`, and the branch does not build under warnings as errors until its
+decisions are accepted). Read at minute 90 of 240: the judge holds; the
+managed heap's slope is −1.4 ± 3.4 bytes a commit against the nightly's
+27.2 ± 5.0 over the same window; the working set's, on a shared machine, is
+−16 ± 46 and too noisy to set an allowance from. Posted on #222 and noted on
+#229. No lower allowance is proposed from it.
+
 **What the session could not show.**
 - The gate's second half: the four-hour soaks on Linux and Windows.
 - Windows at all.
