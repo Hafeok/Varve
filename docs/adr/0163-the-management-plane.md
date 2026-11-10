@@ -463,6 +463,26 @@ The issue offered two places. Readiness is chosen.
     `PUT` through a follower is answered before the follower has applied it.
   - Readiness is already where each instance reports each dataset's state,
     and it is what an orchestrator reads.
+- **A dataset this instance released for a store or disk failure is
+  reported `degraded`.** Each dataset's entry gains
+  `"degraded": {"reason", "releases", "since"}`: the reason of this
+  instance's last release for `storage-error` or `local-disk-error`, how
+  many such releases it has made in a row, and when the first was. It is
+  information, as `spill` and `cache` are (ADR 0179 point 6), and never
+  makes the instance unready.
+  - **Why.** `spill` is reported only while the open writer's last spill
+    failed. An instance that is alone and whose disk fails cycles: it
+    releases for `local-disk-error`, stands by through its hold-off, claims
+    in place, which succeeds and resets the hold-off, and writes until its
+    memtable passes the bound again (ADR 0180's amendment of 2026-11-10).
+    Between the release and the next failed spill, readiness said nothing.
+  - **When it ends.** Once this instance has written the dataset for 30
+    seconds, the hold-off's cap, with no spill failing. Standing by never
+    ends it, and neither does a claim. So it stands through every round of
+    the cycle, with `releases` counting them.
+  - **What it does not say.** It records what this instance did. A standby
+    that released for `storage-error` and never writes the dataset again,
+    because another member took it, stays `degraded` until it restarts.
 - A client that declares a dataset and writes to it at once reads
   `Varve-Min-Management-Position` on `GET /manage/datasets`, which lists
   each dataset's `state` and `reason` on the instance asked, or retries the
@@ -487,6 +507,14 @@ The issue offered two places. Readiness is chosen.
   With the log's writes failing for twenty seconds, the record counts at
   most eight claims. With the hold-off removed it counted thirteen. With
   the start fix removed, both cases fail with `no-writer`.
+- **`OwnReleaseTests`,** over a moved clock: twenty cycles of a release for
+  `local-disk-error`, the hold-off, the claim and the writing with spills
+  failing again, `degraded` at every round with the releases counted; then
+  thirty seconds of clean writing end it. The fleet's storage-error
+  abdication asserts the entry on the releaser, `storage-error` with one
+  release, and its absence on the member that took over. The
+  `local-disk-error` reason is not forced on a real store: the suite has no
+  way to fail a server's local disk.
 - **The capped rate is not shown on a real store.** Reaching the cap from
   the fleet tests' 200 ms round takes about a minute of failures, and two
   capped waits another minute. The clock test holds the figures, and the

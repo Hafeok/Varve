@@ -193,7 +193,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             {
                 if (!_entries.TryGetValue(name, out entry))
                 {
-                    entry = new Entry(storage) { HoldOff = new ClaimHoldOff(_round, _clock, SystemProbeRandomness.Instance) };
+                    entry = new Entry(storage) { HoldOff = new ClaimHoldOff(_round, _clock, SystemProbeRandomness.Instance), Degraded = new OwnRelease(_clock) };
                     _entries[name] = entry;
                     fresh = true;
                 }
@@ -202,6 +202,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             // Asked once a round (ADR 0163, amended 2026-11-10): after a failure
             // against the store, this instance does not claim the dataset yet.
             entry.Held = entry.HoldOff?.Round() ?? false;
+            entry.Degraded?.Round(
+                writing: entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && !entry.Superseded,
+                spillFailing: entry.Dataset?.SpillFailure is not null);
 
             if (placement.HasWriterSet(declared, storage))
             {
@@ -807,6 +810,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         /// <summary>This instance's hold-off for the dataset (ADR 0163, amended 2026-11-10); none on an entry staged for a switch.</summary>
         internal ClaimHoldOff? HoldOff { get; init; }
+
+        /// <summary>This instance's releases of the dataset for storage-error or local-disk-error, as readiness reports them; none on an entry staged for a switch.</summary>
+        internal OwnRelease? Degraded { get; init; }
 
         /// <summary>Whether this round is one the hold-off sits out: no claim is made in it.</summary>
         internal bool Held { get; set; }

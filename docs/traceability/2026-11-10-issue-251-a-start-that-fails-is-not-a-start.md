@@ -112,3 +112,27 @@ had flagged, here and on #216:
   it counted thirteen.
 - **The earlier report's last cost** is what the hold-off bounds.
 - **The flake** is #254.
+
+## The third prompt, the same day
+
+> Agreed on all three points and on the local-disk cycle. One check: while a lone releaser cycles on local-disk-error, does /health/ready report the dataset as degraded with that reason? If not, add it to #253 and post the new head. Otherwise nothing more is needed. The delegate will accept both rulings and land #253, then #252. Rebase when main moves.
+
+## The third report
+
+- **It did not.** Readiness reported `spill: failing` only while the open
+  writer's last spill had failed. After the release the entry is a fresh
+  standby, and after the claim nothing is failing until the next spill, so
+  for most of each cycle readiness said nothing.
+- **Added:** `"degraded": {"reason", "releases", "since"}` on a dataset's
+  readiness entry, from this instance's release for `storage-error` or
+  `local-disk-error` until it has written the dataset for 30 seconds with no
+  spill failing. `OwnRelease` keeps it, beside the hold-off. It never makes
+  the instance unready.
+- **No ruling is added.** It is detail of readiness, in ADR 0163's amendment
+  at point 13.
+- **Tests.** `OwnReleaseTests` drives twenty cycles over a moved clock. The
+  fleet's storage-error abdication asserts the entry on the releaser and its
+  absence on the member that took over. `local-disk-error` itself is not
+  forced on a real store.
+- **One limit, stated in the amendment.** A standby that released and never
+  writes the dataset again stays `degraded` until it restarts.

@@ -439,6 +439,11 @@ public abstract class FleetCases : IAsyncDisposable
         Measured("abdication (storage-error): the failed write's answer to the first commit forwarded to the standby", afterRefusal);
         Assert.Equal("2", await CountAsync(b, written.Headers.GetValues("Varve-Position").Single()));
 
+        // a reports what it did (ADR 0163, amended 2026-11-10): d is degraded on it, by its one release for storage-error.
+        string degraded = await ReadinessOfAsync(a, "d");
+        Assert.Contains("\"degraded\":{\"reason\":\"storage-error\",\"releases\":1,\"since\":\"", degraded, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"degraded\"", await ReadinessOfAsync(b, "d"), StringComparison.Ordinal);
+
         StringWriter output = new() { NewLine = "\n" };
         await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
         Assert.Contains("storage-error", output.ToString(), StringComparison.Ordinal);

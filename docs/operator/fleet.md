@@ -193,6 +193,17 @@ state (`recorded`, `absent` or `mismatch`). Each dataset carries:
   reads;
 - `validation`: each shapes binding's projection lag, beside `warm` and never
   part of it;
+- `degraded`, `{"reason": …, "releases": n, "since": …}`, on a dataset this
+  instance released for `storage-error` or `local-disk-error`: the reason of
+  its last such release, how many it has made in a row, and when the first
+  was. It stays through the hold-off, the claim that follows and the writing
+  after it, and goes once this instance has written the dataset for 30
+  seconds with no spill failing. An instance that is alone and whose disk
+  fails takes the dataset back after each release, because the store
+  answers, and releases again when its memtable fills: `degraded` with
+  `local-disk-error` and a growing `releases` is that cycle. Fix the disk,
+  or bring a standby up. It is information, and does not make the instance
+  unready;
 - `spill`, `{"state": "failing", "kind": …}`, while the memtable's spills to
   the local disk fail. The writer goes on committing. With a standby, it
   releases the epoch for `local-disk-error` at the first commit where the
