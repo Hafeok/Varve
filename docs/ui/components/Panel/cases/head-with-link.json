@@ -1,0 +1,8 @@
+{
+  "parameters": {
+    "Title": "Recent commits",
+    "Head": "<a href=\"commits\">All commits</a>",
+    "Flush": true,
+    "ChildContent": "<ol class=\"vw-commits\" reversed></ol>"
+  }
+}

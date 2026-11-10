@@ -174,6 +174,11 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("release-fixtures", "the release validator fails each of its fixtures, for its own reason",
         () => Run("dotnet", ["run", "eng/release.cs", "--", "--fixtures", "tests/fixtures/releases"])),
 
+    // ADR 0225, amended 2026-11-06: a descriptor's sbom line is the generated
+    // SBOM's, the Web UI bundle's asset line among them.
+    ("sbom-fixtures", "the descriptor's sbom lines are held to the generated SBOMs: a matching digest passes, a differing or missing one is refused",
+        () => Run("dotnet", ["run", "eng/sbom.cs", "--", "--fixtures", "tests/fixtures/sbom-descriptor"])),
+
     // Not a gate: the maintainer's landing helper (ADR 0088). Built here so
     // that it does not rot between landings.
     ("land", "the landing helper builds and prints its usage",
@@ -296,6 +301,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     ("test-server", "Varve.Server: configuration, anonymous mode, readiness, shutdown, and the permission matrix against an issuer in the test (ADR 0100 layer (a))",
         () => Test("Varve.Server.Tests")),
+
+    ("test-webui", "Varve.WebUi: Blazor in no other src/ closure, the tone mapping, tokens.css generated from tokens.json, the components' markup contract (ADRs 0200, 0206)",
+        () => Test("Varve.WebUi.Tests")),
 
     // tools/repo-standard is its own solution, outside Varve.slnx, and moves to
     // its own repository (ADR 0039). Its jobs are separate so that the move

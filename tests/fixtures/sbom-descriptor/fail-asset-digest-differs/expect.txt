@@ -1,0 +1,2 @@
+# The descriptor's digest for the Web UI bundle is not the generated SBOM's (ADR 0225, amended 2026-11-06).
+says 'asset: varve-webui-0.1.0-fixture.zip sha256:0000000000000000000000000000000000000000000000000000000000000000', generated 'asset: varve-webui-0.1.0-fixture.zip sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
