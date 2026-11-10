@@ -95,7 +95,7 @@ public class TokenProviderTests
 
         SparqlHttpClient anonymous = new(Http, new Uri(host.Address, "echo/"), ClientLimits.Default);
         SparqlHttpClient none = new(Http, new Uri(host.Address, "echo/"), ClientLimits.Default, _ => ValueTask.FromResult<BearerToken?>(null), clock);
-        SparqlHttpClient given = new(Http, new Uri(host.Address, "echo/"), ClientLimits.Default, BearerToken.Fixed("given"), clock);
+        SparqlHttpClient given = new(Http, new Uri(host.Address, "echo/"), ClientLimits.Default, BearerTokens.Fixed("given"), clock);
 
         Assert.Equal(string.Empty, await AuthorizationAsync(anonymous));
         Assert.Equal(string.Empty, await AuthorizationAsync(none));

@@ -118,6 +118,48 @@ one mapping is the brand image, which a preview reaches at `../../assets/` and
 the app at `img/`. A state that follows an interaction, such as Copy's
 "Copied", is no case: a component test drives it.
 
+## Amendment, 2026-10-30 — the app is the top level, and no type outside the levels holds a service
+
+Filed by Web UI part 1 (#167, milestone #96), unaccepted until the maintainer
+accepts it (ADR 0066). Decided by the maintainer on that milestone's pull
+request (#187, 2026-10-30). Point 4 is otherwise unchanged; where this
+disagrees with it, this governs.
+
+1. **The levels gain a top:** `… < .Parts < .Pages < .App`. `Varve.WebUi.App`
+   holds the root component, the layout every screen renders in, and the
+   services the shell reads (`ShellFacts`: the instance that answered, the
+   datasets the selector offers). The layout renders pages and no level uses
+   it, so it sits above `Pages`. `App` may use the client's service and model
+   types, as `Pages` does. A namespace below a level is that level:
+   `Varve.WebUi.Pages.Services` holds the services pages use.
+2. **The rule stays uniform, at the top too.** `App`'s root component does not
+   name its layout, a component of its own level: the composition root,
+   `Program`, which is in no Web UI namespace, hands it the layout's type.
+3. **No type names a type of a higher level,** component or not. Point 4
+   counted only components, so a part could name a non-component of a higher
+   level that holds a service.
+4. **No type of the Web UI outside the levels names a client service.** Point
+   4 checked the level namespaces only. `ShellFacts`, in `Varve.WebUi`, held
+   the management client, and the layout, then a part, named it: a part read
+   the server, and VARVE0006 said nothing. Every type of the Web UI is now
+   checked; a type in no level may name the client's model, never a service.
+   The Web UI is the assembly that declares the levels; its tests are not.
+5. **Parts learn who is signed in by a cascading value,** `SignedIn`, which
+   the layout passes down: values only, never the sign-in session, which
+   holds the token providers.
+6. **The brand book** states the levels without exception, and VARVE0006
+   checks points 1, 3 and 4 with a violating and a conforming sample each.
+7. **Point 6's comparison counts whitespace.** Attribute order is ignored;
+   whitespace is not. Both sides are compared with
+   `diff:whitespace="preserve"`, because a space between two inline elements
+   is part of the text a reader copies and a screen reader reads. Blazor drops
+   whitespace-only text between elements, so a component writes such a space
+   explicitly. A case whose markup is valid only inside another element, such
+   as a table row, names it (`"within": "tbody"`), and is rendered and compared
+   there.
+
+The rulings are `TheAppIsTheTopLevel` and `NoTypeOutsideTheLevelsHoldsAService`.
+
 ## Alternatives considered
 
 - **The artifact as the source, copied into the repository when it changes.**

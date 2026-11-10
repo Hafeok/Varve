@@ -172,6 +172,7 @@ rulesets:
       - context: repo-standard native and action (windows-latest)
       - context: browser wasm
       - context: browser storage in Chromium
+      - context: web ui in Chromium
       - context: conformance (ubuntu-latest)
       - context: conformance (windows-latest)
       - context: auth (mock-oauth2)
