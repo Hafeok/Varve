@@ -181,8 +181,12 @@ see what is being worked on, what was decided and what is left.
   part becomes its own issue at once, linked from the issue it came from. A
   close-out, a TODO or a commit message is not a place to keep work.
 - **Landing.** Before asking for approval, the session lists in the pull
-  request every issue the change touches:
-  - each one it resolves fully gets its own `Closes #N` trailer;
+  request every issue the change touches, and its `Completes:` line names
+  those it resolves fully, or says `none`:
+  - each one it resolves fully gets its own `Closes #N` trailer, and
+    `eng/land.cs -- N` lists what the push will close and refuses a landing
+    whose `Completes:` line is missing or names an issue no trailer closes
+    (#209);
   - each one it resolves in part gets a comment saying what landed and what is
     left, and tracking issues (#15 and the milestone issues) get their boxes
     ticked.
@@ -191,8 +195,11 @@ see what is being worked on, what was decided and what is left.
   delegate lands and checks the closings (ADR 0239); a cloud session posts its
   head, lists the issues its change touches, and asks.
 - **After landing.** The session checks that every issue it meant to close is
-  closed. If a trailer did not take, it closes the issue by hand with a comment
-  naming the commit on `main`.
+  closed: `eng/land.cs -- N --main`, once `main` has moved, prints every issue
+  a pushed trailer names that is still open, with its commit, and exits
+  non-zero, as it does when GitHub cannot be read. It closes nothing itself.
+  If a trailer did not take, the session closes the issue by hand with a
+  comment naming the commit on `main`.
 - **Stopping.** Work abandoned or superseded is closed as not planned, with a
   comment saying why and what replaces it.
 - The traceability record and the close-out link the issues; they do not
