@@ -43,6 +43,7 @@ internal sealed class ExtentSeek
     internal const long ExactCountRows = 4096;
 
     private readonly ExtentInfo[] _infos = new ExtentInfo[Orders.Count];
+    private readonly ExtentInfo?[] _sought = new ExtentInfo?[Orders.Count];
     private readonly Run[] _keys = new Run[Orders.Count];
 
     internal ExtentSeek(ExtentSet set, long position)
@@ -160,8 +161,20 @@ internal sealed class ExtentSeek
     internal static bool? Delta(bool atStart, bool atPosition) =>
         atPosition == atStart ? null : atPosition;
 
+    // The order's extent with its seek directory, taken once for this read
+    // from the dataset's cache and held with it (ADR 0240).
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
-    private ExtentInfo Info(IndexOrder order) => _infos[(int)order];
+    private ExtentInfo Info(IndexOrder order) => _sought[(int)order] ?? Seek(order);
+
+    // Once a read and an order, not once a quad: the directory is read or
+    // found in the cache the first time the read uses the order, and held.
+    [DesignDecision(typeof(ResidentMemory.SeekDirectoriesAreReadOnDemand), Scope = ExceptionScope.HotPath)]
+    private ExtentInfo Seek(IndexOrder order)
+    {
+        ExtentInfo sought = _infos[(int)order].Sought();
+        _sought[(int)order] = sought;
+        return sought;
+    }
 
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     private Run Keys(IndexOrder order) => _keys[(int)order];
