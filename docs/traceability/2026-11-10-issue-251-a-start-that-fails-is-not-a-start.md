@@ -71,3 +71,44 @@ Posted on #251 before building
   session's container from the npm package at 3.37.0, the version CI pins.
   The container has no Docker daemon, so the RustFS leg, the one that failed
   in the release run, did not run here: CI's `fleet (services)` job runs it.
+
+## The second prompt, the same day
+
+After the report above, the maintainer ruled on the two costs the session
+had flagged, here and on #216:
+
+> Both costs you flagged are real, and one mechanism fixes both. Change the design as follows.
+> Hold-off: a member whose open or write against the store fails for a dataset holds off before claiming that dataset again. It starts at one claim round, doubles per consecutive failure to a cap of 30 seconds, carries jitter, and resets on a successful open.
+> #253 (#251) carries the mechanism, with the ADR 0163 amendment stating the figures. Add a test that a store failing continuously sees claims at the capped rate.
+> #252 (#216) restates ClaimAfterAReleaseByItsReason as: a release for a storage or local-disk error starts the releaser's hold-off. Keep the test that b wins at once, and add one where the releaser is alone and reclaims after its hold-off, with writes answered again and no restart. Update the operator guide to match.
+> Order: #253 lands first and #252 rebases onto it. Post both new heads.
+> The one-off failure of EventMoveTests.A_catalogue_that_does_not_translate_one_to_one_cancels_the_move_and_writes_reopen: open an issue with the output you have and what ran beside it, linked from #216.
+> Yes, watch both pull requests and respond to CI and review comments.
+
+## The second report
+
+- **The mechanism** is `ClaimHoldOff`, one per dataset on each instance. It
+  is asked once a round, and gates a claim at start, the preferred writer's
+  open after a placement release, and a claim in place. It also gates a
+  dataset without a writer set, and a standby's claim of the system dataset.
+  A takeover request is not gated.
+- **Three choices the prompt left open, stated in the amendment.**
+  - **Jitter** is a wait drawn evenly between half the step and all of it,
+    so the cap means a claim every 15 to 30 seconds.
+  - **One whole round is always sat out.** A wait of half a round could end
+    before another member's round came, so the round after a failure never
+    claims. #216's "b wins at once" rests on this.
+  - **"A successful open" is an open as the writer.** A releaser opens as a
+    standby at once, and that must not end its hold-off.
+- **The ruling** is filed as `TheManagementPlane.ClaimsHoldOffAfterAStoreFailure`,
+  unaccepted, so the build is red on `CS0618` at `ClaimHoldOff.cs` until the
+  maintainer accepts it.
+- **The capped rate** is tested over a clock the test moves, for rounds of
+  50 ms to 5 s: an hour of failed claims, the waits doubling to the cap, and
+  a claim every 15 to 30 seconds in the last half hour. It is not shown on a
+  real store, where reaching the cap takes a minute of failures.
+- **The fleet theory** now fails the log's writes for twenty seconds and
+  counts the claims in the record: at most eight. With the hold-off removed
+  it counted thirteen.
+- **The earlier report's last cost** is what the hold-off bounds.
+- **The flake** is #254.

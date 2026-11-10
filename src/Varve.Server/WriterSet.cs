@@ -118,6 +118,14 @@ internal sealed partial class OpenDatasets
 
         MemberStep step = MemberDecision.Decide(previous, declared, placement, state, seen, entry.Warm, entry.Started);
 
+        if (entry.Held && step is MemberStep.Start or MemberStep.Open or MemberStep.Claim)
+        {
+            // Held off (ADR 0163, amended 2026-11-10): its last open or write
+            // against the store failed, so it claims nothing this round. It
+            // does not stand by instead: a start is still to be decided.
+            return;
+        }
+
         switch (step)
         {
             case MemberStep.Abdicate:
@@ -152,6 +160,11 @@ internal sealed partial class OpenDatasets
         if (entry.State == DatasetState.Open)
         {
             entry.Started = true;
+        }
+
+        if (step is MemberStep.Start or MemberStep.Open)
+        {
+            entry.Claimed(entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && !entry.Superseded);
         }
     }
 
@@ -248,6 +261,7 @@ internal sealed partial class OpenDatasets
             // (ADR 0179 point 6).
             ReconcileLog.ClaimFailed(_logger, name, error.Message);
             entry.ReleaseFor(ReleaseReason.StorageError);
+            entry.Claimed(opened: false);
             won = false;
         }
 
@@ -259,6 +273,7 @@ internal sealed partial class OpenDatasets
         }
 
         entry.Placed(DatasetRole.Writer);
+        entry.Claimed(opened: true);
         string why = record.Released is { } reason ? Commands.ObjectLease.Shown(reason) : Commands.ObjectLease.Shown(trigger);
         ReconcileLog.Claimed(_logger, name, storage.Epoch?.Value ?? 0, why);
         await SeedOrderAsync(new DatasetName(name), dataset, cancellationToken).ConfigureAwait(false);

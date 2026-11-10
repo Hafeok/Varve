@@ -48,10 +48,12 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     private readonly ManagementOrder _order;
     private readonly WriterAddress? _address;
     private readonly Func<string, bool> _moved;
+    private readonly TimeSpan _round;
 
     internal OpenDatasets(ServerSettings settings, ObjectStores? objects, ManagementOrder order, TimeProvider clock, ILogger logger, Func<string, bool> moved)
     {
         _moved = moved;
+        _round = settings.Fleet.FollowInterval;
         _objects = objects;
         _order = order;
         _groupCommit = new GroupCommitOptions
@@ -191,11 +193,15 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             {
                 if (!_entries.TryGetValue(name, out entry))
                 {
-                    entry = new Entry(storage);
+                    entry = new Entry(storage) { HoldOff = new ClaimHoldOff(_round, _clock, SystemProbeRandomness.Instance) };
                     _entries[name] = entry;
                     fresh = true;
                 }
             }
+
+            // Asked once a round (ADR 0163, amended 2026-11-10): after a failure
+            // against the store, this instance does not claim the dataset yet.
+            entry.Held = entry.HoldOff?.Round() ?? false;
 
             if (placement.HasWriterSet(declared, storage))
             {
@@ -217,8 +223,8 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
     // A writer's open that failed is logged at warning once (#251), and at
     // debug each round after it until the dataset has been open again: its
-    // reason differs from round to round, a probe's key being random, so a
-    // store that stays down would otherwise be a warning every round.
+    // reason differs from attempt to attempt, a probe's key being random, so
+    // a store that stays down would otherwise be a warning every attempt.
     // Readiness carries the latest reason. A follower waiting for its writer
     // to create the dataset is not a failure, and is silent.
     private void ReportOpen(string name, Entry entry)
@@ -243,7 +249,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         }
 
         entry.Reported = true;
-        ReconcileLog.OpenFailed(_logger, name, epoch, reason);
+        ReconcileLog.OpenFailed(_logger, name, epoch, entry.HoldOff?.Wait.TotalSeconds ?? 0, reason);
     }
 
     // What an open failed with, and what caused it: a store's write that
@@ -408,10 +414,24 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         // claims on seeing it (ADR 0136 point 6).
         ReleaseReason? abdicate = entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && role != DatasetRole.Writer ? ReleaseReason.Placement : null;
 
+        // A claim in an object store that failed is held off before it is
+        // made again (ADR 0163, amended 2026-11-10): each one takes an epoch.
+        bool claims = role == DatasetRole.Writer && entry.Storage == DatasetStorage.ObjectStorage;
+
+        if (claims && entry.Held)
+        {
+            return;
+        }
+
         // A dataset that failed is tried again every round, without the
         // lease wait its first open had: its holder may have released it.
         bool wait = fresh || entry.State != DatasetState.Failed;
         await SwitchAsync(name, entry, role, wait, abdicate, cancellationToken).ConfigureAwait(false);
+
+        if (claims)
+        {
+            entry.Claimed(entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer);
+        }
     }
 
     // The dataset in its new role is opened first, then takes the entry's
@@ -736,8 +756,8 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         [LoggerMessage(EventId = 7, Level = LogLevel.Information, Message = "The follower of '{Name}' applied more than its memtable limit since it opened, and opens again from the writer's newest catalog (ADR 0164).")]
         internal static partial void Reopened(ILogger logger, string name);
 
-        [LoggerMessage(EventId = 20, Level = LogLevel.Warning, Message = "The dataset '{Name}' did not open as its writer (epoch: {Epoch}), and is tried again every round: {Reason}")]
-        internal static partial void OpenFailed(ILogger logger, string name, string epoch, string reason);
+        [LoggerMessage(EventId = 20, Level = LogLevel.Warning, Message = "The dataset '{Name}' did not open as its writer (epoch: {Epoch}), and is tried again after a hold-off, {HoldOff:0.###} s now and doubling to 30 s while it fails: {Reason}")]
+        internal static partial void OpenFailed(ILogger logger, string name, string epoch, double holdOff, string reason);
 
         [LoggerMessage(EventId = 21, Level = LogLevel.Debug, Message = "The dataset '{Name}' still does not open as its writer (epoch: {Epoch}): {Reason}")]
         internal static partial void OpenStillFailing(ILogger logger, string name, string epoch, string reason);
@@ -784,6 +804,25 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         /// <summary>Whether the failed open was logged at warning since the dataset was last open, so that it is logged once.</summary>
         internal bool Reported { get; set; }
+
+        /// <summary>This instance's hold-off for the dataset (ADR 0163, amended 2026-11-10); none on an entry staged for a switch.</summary>
+        internal ClaimHoldOff? HoldOff { get; init; }
+
+        /// <summary>Whether this round is one the hold-off sits out: no claim is made in it.</summary>
+        internal bool Held { get; set; }
+
+        /// <summary>A claim's outcome, for the hold-off: open as the writer ends it, anything else lengthens it.</summary>
+        internal void Claimed(bool opened)
+        {
+            if (opened)
+            {
+                HoldOff?.Succeeded();
+            }
+            else
+            {
+                HoldOff?.Failed();
+            }
+        }
 
         /// <summary>Whether the dataset was opened to follow, read-only, in the followers' directory: a standby that claimed in place still is.</summary>
         internal bool OpenedToFollow { get; private set; }

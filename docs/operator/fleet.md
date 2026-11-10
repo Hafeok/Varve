@@ -162,11 +162,21 @@ Request ids are `<instance>:<id>`, unique across the fleet.
 A declared dataset that did not open on this instance is listed as `failed`
 with a `reason`, and the instance is not ready. For a store's failure the
 reason names the request and the status the store answered. The instance
-tries again every round, and logs the first failure as a warning with the
+tries again by itself, and logs the first failure as a warning with the
 writer epoch the open had taken, so it needs no restart: it turns `ready`
-when the store answers. `PUT /manage/datasets/{name}` answers for the
+once the store answers. `PUT /manage/datasets/{name}` answers for the
 declaration alone, which is committed before any instance has opened the
 dataset.
+
+**An instance holds off between claims that fail.** After an open or a write
+against the store fails for a dataset, the instance waits before it claims
+that dataset again: one `Varve:Fleet:FollowInterval` at first, doubled with
+each failure in a row, to 30 seconds, each wait shortened by up to half at
+random. So a store that keeps failing sees one claim every 15 to 30 seconds
+from each instance, and a dataset is writable again within about 30 seconds
+of its store recovering. A successful open as the writer resets the wait. A
+takeover request is not held off. The wait is kept in memory, so a restart
+claims at once.
 
 `/health/ready` carries a `management` object: the instance's `role` in the
 system dataset (`writer`, `follower` or `superseded`), the `epoch`, the

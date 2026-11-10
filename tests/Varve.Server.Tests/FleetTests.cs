@@ -1108,8 +1108,9 @@ public abstract class FleetCases : IAsyncDisposable
     /// and answered success: it is the system dataset's commit. d did not
     /// open: readiness reports it failed with the request that failed, a
     /// write finds no dataset, and a's log has one warning for it, however
-    /// many rounds try again. The store recovers, and within a failed write's
-    /// retries and a few follow intervals a write to d is committed. Marked
+    /// many rounds try again, and it holds off between its claims, so the
+    /// record counts few. The store recovers, and within the hold-off then in
+    /// force a write to d is committed. Marked
     /// started by its first decision whatever the open's outcome, a stood by
     /// for a dataset nobody had created, until it restarted. Two failures:
     /// every PUT under the prefix, so the open fails at the store's probe
@@ -1136,17 +1137,30 @@ public abstract class FleetCases : IAsyncDisposable
         Assert.NotEqual(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/early> <http://ex/p> 1 }")).StatusCode);
 
         // Rounds go by with the store still failing: the failed open is logged, once.
-        await Task.Delay(TimeSpan.FromSeconds(5), Ct);
+        await Task.Delay(TimeSpan.FromSeconds(epoch == "1" ? 20 : 5), Ct);
         string Logged = "The dataset 'd' did not open as its writer (epoch: " + epoch + ")";
         string log = a.Log;
         Assert.True(log.Split(Logged).Length == 2 && log.Split("did not open as its writer").Length == 2, "The failed open is logged once, with the epoch " + epoch + ":\n" + log);
         Assert.Contains("500", log[log.IndexOf(Logged, StringComparison.Ordinal)..], StringComparison.Ordinal);
 
+        if (epoch == "1")
+        {
+            // Each open that fails here took an epoch, so the record counts the
+            // claims. Held off (ADR 0163, amended 2026-11-10), twenty seconds
+            // see seven at most: a claim's retries take about 1.6 s, and the
+            // waits between them are two rounds at least, then 0.4 to 0.8 s,
+            // doubling. Claiming every round, as before, they saw eleven.
+            StringWriter record = new() { NewLine = "\n" };
+            await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(record, new StringWriter(), new MemoryStream()), Ct);
+            int claims = int.Parse(System.Text.RegularExpressions.Regex.Match(record.ToString(), @"(?m)^epoch:\s+(\d+)").Groups[1].Value, CultureInfo.InvariantCulture);
+            Assert.True(claims is >= 2 and <= 8, "The store saw " + claims + " claims in twenty seconds:\n" + record);
+        }
+
         proxy.Fail = null;
         Stopwatch recovered = Stopwatch.StartNew();
         HttpResponseMessage written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }");
 
-        while (written.StatusCode != HttpStatusCode.NoContent && recovered.Elapsed < TimeSpan.FromSeconds(10))
+        while (written.StatusCode != HttpStatusCode.NoContent && recovered.Elapsed < TimeSpan.FromSeconds(20))
         {
             await Task.Delay(100, Ct);
             written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }");

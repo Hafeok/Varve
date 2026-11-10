@@ -43,10 +43,13 @@ Each superseded ADR carries a dated block naming this one (ADR 0068).
 
 ADR 0167, the event-schema move, is part 2's.
 
-**Amended 2026-11-10:** a start whose open fails is not a start, and a
-declared dataset that did not open is reported by readiness, not by the
-declaration's answer (points 12 and 13; see the end, "a start that fails,
-and where it is reported"; [#251](https://github.com/Hafeok/Varve/issues/251)).
+**Amended 2026-11-10:** a start whose open fails is not a start; a member
+whose open or write against the store fails holds off before it claims
+again; and a declared dataset that did not open is reported by readiness,
+not by the declaration's answer (points 12 and 13; see the end, "a start
+that fails, the hold-off, and where it is reported";
+[#251](https://github.com/Hafeok/Varve/issues/251)). Adds
+`ClaimsHoldOffAfterAStoreFailure`.
 
 ## Context
 
@@ -364,13 +367,15 @@ it (ADR 0066). Ruled in [ADR 0180](0180-warm-standbys-and-the-writer-set.md).
 - **Point 13.** A dataset entry gains `position`, and for a standby `tailing`
   and `warm`. `role` may be `standby`. A standby that is not warm stays ready.
 
-## Amendment, 2026-11-10 — a start that fails, and where it is reported
+## Amendment, 2026-11-10 — a start that fails, the hold-off, and where it is reported
 
 Filed by the session for
 [#251](https://github.com/Hafeok/Varve/issues/251), which asked for the fix
-and for one of two ways to report it, recorded here. It adds detail to
-points 12 and 13 and changes no ruling of the ledger. The maintainer's
-approval of the pull request is the review of the choice.
+and for one of two ways to report it, recorded here. The hold-off was ruled
+by the maintainer on 2026-11-10, in that session, after the fix showed what
+it cost without one. It adds one ruling to the ledger,
+`ClaimsHoldOffAfterAStoreFailure`, unaccepted until the maintainer accepts
+it (ADR 0066). The rest adds detail to points 12 and 13.
 
 **What happened.** Found in preview.19's release run
 ([#202](https://github.com/Hafeok/Varve/issues/202#issuecomment-6687786124)).
@@ -385,22 +390,60 @@ log line.
 - A member's start is decided when the dataset is open in this process, as
   its writer or as a standby. An open that fails leaves the dataset
   unstarted.
-- Each later round applies the start rule again, to the writer record as it
-  is then. The member claims if the rule still says so: the record is empty
+- Each later round that is not held off (below) applies the start rule
+  again, to the writer record as it is then. The member claims if the rule still says so: the record is empty
   or released and it is the preferred writer, or the record names it, as it
   does when the claim got through and the log's first write did not. It
   stands by if another member took the dataset meanwhile.
-- So a store that fails at a dataset's first open delays the dataset, and
-  never needs a restart.
+- So a store that fails at a dataset's first open delays the dataset, by
+  the failure and at most one hold-off after it, and never needs a restart.
 - The start rule itself, and a dataset without a writer set, are unchanged.
   A dataset without one was already tried again every round.
 
+**Point 12: the hold-off.** A member whose open or write against the store
+fails for a dataset holds off before it claims that dataset again.
+- **Why.** A start decided again every round is a claim every round, for as
+  long as the store fails. Each claim that gets through takes an epoch, over
+  the member's own unreleased one, and adds a line to the writer record's
+  history. Without a hold-off the fleet test's record showed thirteen claims
+  in twenty seconds.
+- **The figures.**
+  - The first wait is **one claim round**, `Varve:Fleet:FollowInterval`,
+    one second by default.
+  - It **doubles with each failure in a row**, to a cap of **30 seconds**.
+  - **Jitter:** each wait is drawn evenly between half its step and all of
+    it, so members that failed together do not claim together. At the cap a
+    wait is 15 to 30 seconds.
+  - **At least one whole round is sat out,** however short the wait: the
+    round after a failure never claims. Another member that reads the same
+    record has a round of its own to claim in first.
+  - **A successful open as the writer resets it.** The next failure waits
+    one round again. An open as a standby does not reset it.
+- **What it holds off.** A claim at start, the preferred writer's open after
+  a release for placement, and a claim in place of a release. A held member
+  claims nothing in that round, and does not stand by in place of a start.
+  It applies to a dataset in an object store, with a writer set or without,
+  and to a standby's claim of the system dataset.
+- **What it does not hold off.** A takeover request is an explicit act (ADR
+  0179 point 6), and is answered whatever the hold-off. Tailing, reads and
+  forwarding go on.
+- **What counts as a failure.** An open as the writer that does not leave
+  the dataset open, and a claim in place that throws. A claim another member
+  won is not one.
+- **The rate a failing store sees.** With one-second rounds the waits step
+  1, 2, 4, 8, 16 and then 30 seconds, less the jitter, so the cap is reached
+  at the sixth failure, about half a minute in. From then on the store sees
+  one claim every 15 to 30 seconds from each member that fails against it.
+- **It is per member and per dataset, and in memory.** A restart starts
+  again at one round.
+
 **The failed open is logged.** A writer's open that fails is a warning,
 once: the dataset, the epoch the open had taken, or that it had taken none,
-and the failure with its cause, which for a store's write names the object
-and the status the store answered. Each later round that fails is logged at
-debug, until the dataset has been open again. A follower waiting for its
-writer to create the dataset is not a failure, and logs nothing.
+the hold-off now in force, and the failure with its cause, which for a
+store's write names the object and the status the store answered. Each later
+attempt that fails is logged at debug, until the dataset has been open
+again. A follower waiting for its writer to create the dataset is not a
+failure, and logs nothing.
 
 **Point 13: readiness reports it, and the declaration's answer does not.**
 The issue offered two places. Readiness is chosen.
@@ -425,21 +468,35 @@ The issue offered two places. Readiness is chosen.
   each dataset's `state` and `reason` on the instance asked, or retries the
   write.
 
-**Tests.** The fleet suite, on both stores, through a proxy that fails a
-dataset's writes while it is declared: every write under its prefix, and its
-log's writes alone, so that the open fails holding an epoch. In each, the
-declaration is answered success, readiness reports the dataset `failed` with
-the request and its status, the log has one warning naming the epoch, and
-after the proxy recovers a write is committed with no restart. With the fix
-removed, both fail with `no-writer`.
+**Tests.**
+- **`ClaimHoldOffTests`,** over a clock the test moves and jitter it draws,
+  for rounds of 50 ms to 5 s. A member that claims whenever it is not held,
+  against a store that fails every claim for an hour:
+  - each wait is at least half its step and at least two rounds, and at most
+    its step, to the round that follows it;
+  - the last half hour sees a claim every 15 to 30 seconds;
+  - one success puts the next failure back to one round.
+- **The fleet suite,** on both stores, through a proxy that fails a
+  dataset's writes while it is declared: every write under its prefix, and
+  its log's writes alone, so that the open fails holding an epoch. In each:
+  - the declaration is answered success;
+  - readiness reports the dataset `failed` with the request and its status;
+  - the log has one warning naming the epoch;
+  - after the proxy recovers a write is committed with no restart.
 
-**Checked against the accepted ADRs.** ADR 0180 point 3 (the start rule) and
-ADR 0113 (readiness) are applied as they stand. ADR 0136 point 7 reads a run
-of `restart` claims in the epoch history as a deployment error. A writer
-whose open fails after its claim claims again each round, each claim over
-its own unreleased epoch, so a store that fails a dataset's log for long
-leaves such a run: four claims in five seconds in the fleet test, where a
-round is 200 ms and a failed write's retries take about 1.6 s. It was one
-claim before, and a dataset that never opened. The run ends when the store
-answers. Nothing bounds it while the store does not, and a wait that grows
-between a failed open's rounds would; that is not decided here.
+  With the log's writes failing for twenty seconds, the record counts at
+  most eight claims. With the hold-off removed it counted thirteen. With
+  the start fix removed, both cases fail with `no-writer`.
+- **The capped rate is not shown on a real store.** Reaching the cap from
+  the fleet tests' 200 ms round takes about a minute of failures, and two
+  capped waits another minute. The clock test holds the figures, and the
+  fleet test holds that the server asks it.
+
+**Checked against the accepted ADRs.**
+- ADR 0180 point 3 (the start rule) and ADR 0113 (readiness) are applied as
+  they stand.
+- ADR 0136 point 7 reads a run of `restart` claims in the epoch history as a
+  deployment error. A writer whose open fails after its claim does leave
+  such a run, now at the hold-off's rate. It was one claim before, and a
+  dataset that never opened.
+- ADR 0179 point 6's takeover request is not held off.
