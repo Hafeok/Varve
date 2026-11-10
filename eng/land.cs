@@ -48,6 +48,12 @@
 // non-zero. It never closes anything itself, and when GitHub cannot be read
 // it says so and exits non-zero rather than reporting success.
 //
+// A descriptor's date (#248). A release descriptor the head adds or changes is
+// refused, at both steps, when its `date:` is more than three days before the
+// landing day (UTC): the date is the day its SBOM digests were last written
+// (docs/releases.md rule 3, amended 2026-11-10), and land.cs prints the
+// command that writes them again.
+//
 // Exit codes: 0 done, 1 refused (or an issue left open after landing), 2
 // could not run (GitHub unreadable included).
 //
@@ -146,6 +152,26 @@ try
     if (!IsAncestor(main, head))
     {
         Console.Error.WriteLine($"land: main ({main[..12]}) is not an ancestor of {what}, so main cannot be fast-forwarded to it. Bring main into the branch, then approve the new head.");
+        return 1;
+    }
+
+    DateOnly landingDay = DateOnly.FromDateTime(DateTime.UtcNow);
+    List<string> stale = [];
+    foreach ((string version, string date) in PendingDescriptors(main, head))
+    {
+        if (Dates.Check(version, date, landingDay) is string refusal)
+        {
+            stale.Add(refusal);
+        }
+    }
+
+    if (stale.Count > 0)
+    {
+        foreach (string refusal in stale)
+        {
+            Console.Error.WriteLine($"land: {refusal}");
+        }
+
         return 1;
     }
 
@@ -300,6 +326,26 @@ static Dictionary<int, string>? IssueStates(List<Trailer> closing)
 
         Thread.Sleep(TimeSpan.FromSeconds(10));
     }
+}
+
+// Each release descriptor the head adds or changes over main: its version and
+// its date: as written at the head.
+static List<(string Version, string Date)> PendingDescriptors(string main, string head)
+{
+    List<(string, string)> descriptors = [];
+    foreach (string path in Git("diff", "--name-only", "--diff-filter=AM", main, head, "--", "releases/").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+    {
+        Match name = Regex.Match(path, @"^releases/(v[^/]+)\.yaml$");
+        if (!name.Success)
+        {
+            continue;
+        }
+
+        Match date = Regex.Match(Git("show", $"{head}:{path}"), @"^date:[ \t]*(\S*)", RegexOptions.Multiline);
+        descriptors.Add((name.Groups[1].Value, date.Success ? date.Groups[1].Value : ""));
+    }
+
+    return descriptors;
 }
 
 // release-<version>, when the head adds a descriptor that main does not have.
@@ -513,10 +559,32 @@ static class Closings
     }
 }
 
+// A descriptor's date against the landing day (#248): null when it may land.
+static class Dates
+{
+    public const int Window = 3;
+
+    public static string? Check(string version, string date, DateOnly landingDay)
+    {
+        string rewrite = $"dotnet run eng/release.cs -- --sbom {version} --syft <syft v1.54.0> --binary <rid>...";
+        if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateOnly day))
+        {
+            return $"releases/{version}.yaml has no date: as yyyy-mm-dd ('{date}'). Write its digests and date again:\n  {rewrite}";
+        }
+
+        int age = landingDay.DayNumber - day.DayNumber;
+        return age <= Window
+            ? null
+            : $"releases/{version}.yaml is dated {date}, {age} days before the landing day {landingDay:yyyy-MM-dd}; at most {Window} are allowed, because the date is the day its SBOM digests were written (docs/releases.md rule 3). Write them again, which sets the date, then commit, push and ask for approval of the new head:\n  {rewrite}";
+    }
+}
+
 // tests/fixtures/land/: each case a JSON file. `step` is "push" (the
 // Completes: check before a push) or "landed" (the check after main moved).
-// `commits` are the pushed commits ({sha, message}); `body` the pull request's
-// body; `states` the issues' states, null when GitHub cannot be read. A
+// A "date" case holds a descriptor's `version`, `date` and the `landing` day,
+// and no commits. `commits` are the pushed commits ({sha, message}); `body`
+// the pull request's body; `states` the issues' states, null when GitHub
+// cannot be read. A
 // `pass-` case must pass and a `fail-` case be refused, and `says` lists text
 // the output must contain.
 static class Fixtures
@@ -529,13 +597,15 @@ static class Fixtures
         {
             using JsonDocument fixture = JsonDocument.Parse(File.ReadAllText(file));
             JsonElement root = fixture.RootElement;
-            List<Trailer> closing = Closings.Trailers(root.GetProperty("commits").EnumerateArray()
-                .Select(static commit => (commit.GetProperty("sha").GetString()!, commit.GetProperty("message").GetString()!)));
+            List<Trailer> closing = root.TryGetProperty("commits", out JsonElement commits)
+                ? Closings.Trailers(commits.EnumerateArray().Select(static commit => (commit.GetProperty("sha").GetString()!, commit.GetProperty("message").GetString()!)))
+                : [];
             string step = root.GetProperty("step").GetString()!;
             (bool passes, List<string> said) = step switch
             {
                 "push" => Push(root, closing),
                 "landed" => Landed(root, closing),
+                "date" => Date(root),
                 _ => throw new InvalidOperationException($"{file}: unknown step '{step}'"),
             };
 
@@ -561,6 +631,13 @@ static class Fixtures
     {
         List<string> refusals = Closings.CheckCompletes(root.GetProperty("body").GetString()!, closing);
         return (refusals.Count == 0, refusals);
+    }
+
+    static (bool, List<string>) Date(JsonElement root)
+    {
+        string? refusal = Dates.Check(root.GetProperty("version").GetString()!, root.GetProperty("date").GetString()!,
+            DateOnly.ParseExact(root.GetProperty("landing").GetString()!, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+        return (refusal is null, refusal is null ? [] : [refusal]);
     }
 
     static (bool, List<string>) Landed(JsonElement root, List<Trailer> closing)
