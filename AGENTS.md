@@ -95,8 +95,10 @@ severity on every project in `src/`. Every ADR is also a decision set in
 **Every milestone ends in a release, and a milestone PR carries its
 descriptor** (ADR 0102, `docs/releases.md`). The close-out:
 - adds `releases/<version>.yaml` (`dotnet run eng/release.cs -- --draft
-  <version>` starts it), with a commit whose trailer line says `Closes
-  #<milestone issue>`;
+  <version>` starts it, and `-- --sbom <version>` writes its digests and sets
+  its `date:` to that day, whenever they change), with a commit whose
+  trailer line says `Closes #<milestone issue>`; `eng/land.cs` refuses one
+  dated more than three days before the landing (#248);
 - runs `dotnet run eng/changelog.cs -- --release <version>`, because
   `CHANGELOG.md` is the projection of `releases/` and never edited by hand;
 - brings `README.md`'s **Status** section current: its opening line names the
