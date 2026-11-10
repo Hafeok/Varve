@@ -561,12 +561,17 @@ internal static partial class ServerHost
         app.UseRateLimiter();
 
         // On SIGTERM: a new write is refused, while what is in flight drains
-        // (ADR 0101). Reads still answer until the host stops listening.
+        // (ADR 0101). Reads still answer until the host stops listening. The
+        // detail says what the caller does next (ADR 0242).
+        string draining = "This instance is draining: what it was doing completes, and it takes no new write. "
+            + (fleet.IsFleetOfOne
+                ? "Send the write again once the server is back."
+                : "The other instances keep serving: send the write again, and it reaches one of them.");
         app.Use(async (context, next) =>
         {
             if (stopping.IsCancellationRequested && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
             {
-                await WriteProblemAsync(context, ProblemType.ShuttingDown, null).ConfigureAwait(false);
+                await WriteProblemAsync(context, ProblemType.ShuttingDown, draining).ConfigureAwait(false);
                 return;
             }
 

@@ -24,6 +24,13 @@ not refuse a commit: under `reject` the set of violations never grows.
   the new shapes make non-conforming elsewhere is the validation projection's
   to report, not a reason to refuse.
 
+## What to do
+
+A client: fix the data so each focus node in `findings` conforms, and send
+the commit again; a commit that touches an existing violator must fix it
+too. The same commit is refused again. The binding's mode is the dataset
+admin's ([Shapes](../operator/shapes.md#what-each-mode-does)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

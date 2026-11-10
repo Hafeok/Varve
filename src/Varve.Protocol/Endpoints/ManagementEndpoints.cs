@@ -222,6 +222,11 @@ internal static class ManagementEndpoints
                     json.WriteString("reason", entry.Reason);
                 }
 
+                if (entry.Failure is { } failure)
+                {
+                    json.WriteString("failure", AdminEndpoints.FailureName(failure));
+                }
+
                 handover?.Invoke(json);
             }).ConfigureAwait(false);
             return;

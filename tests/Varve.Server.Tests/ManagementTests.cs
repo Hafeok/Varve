@@ -133,6 +133,17 @@ public class ManagementTests
     }
 
     [Fact]
+    public void A_failure_to_open_is_classified_by_whether_a_retry_can_help()
+    {
+        // ADR 0242: a log that does not verify is damage, wrapped or not; a
+        // format this build does not read is configuration; the rest is retried.
+        Assert.Equal(Varve.Protocol.Model.DatasetFailure.Damaged, OpenDatasets.Classify(new LogVerificationException("The chain breaks at position 41.")));
+        Assert.Equal(Varve.Protocol.Model.DatasetFailure.Damaged, OpenDatasets.Classify(new InvalidOperationException("opening", new LogVerificationException("The chain breaks."))));
+        Assert.Equal(Varve.Protocol.Model.DatasetFailure.Configuration, OpenDatasets.Classify(new UnsupportedFormatException("A later format.")));
+        Assert.Equal(Varve.Protocol.Model.DatasetFailure.Transient, OpenDatasets.Classify(new IOException("The lease is held elsewhere.")));
+    }
+
+    [Fact]
     public async Task A_declared_dataset_is_served_after_a_restart_and_one_that_fails_to_open_is_listed_failed()
     {
         string root = Directory.CreateTempSubdirectory("varve-manage-").FullName;
@@ -167,6 +178,10 @@ public class ManagementTests
                 Assert.Equal(1, byName["kept"].GetProperty("head").GetInt64());
                 Assert.Equal("failed", byName["held"].GetProperty("state").GetString());
                 Assert.Contains("held", byName["held"].GetProperty("reason").GetString(), StringComparison.Ordinal);
+
+                // A held lease is tried again: transient (ADR 0242); an open dataset has no failure.
+                Assert.Equal("transient", byName["held"].GetProperty("failure").GetString());
+                Assert.False(byName["kept"].TryGetProperty("failure", out _));
 
                 // Readiness is a not-ready problem listing the dataset that fails and why (ADR 0113).
                 HttpResponseMessage ready = await Send(second, HttpMethod.Get, "health/ready");

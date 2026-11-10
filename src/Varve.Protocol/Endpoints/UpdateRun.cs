@@ -123,7 +123,7 @@ internal static class UpdateRun
         catch (WriterSupersededException superseded)
         {
             // A newer writer holds the dataset (ADR 0136): nothing was committed.
-            await HttpProblems.WriteAsync(context, ProblemType.WriterSuperseded, superseded.Message).ConfigureAwait(false);
+            await Writes.SupersededAsync(exchange, superseded).ConfigureAwait(false);
             return;
         }
         catch (WriterSteppedDownException stepped)

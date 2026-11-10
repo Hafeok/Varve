@@ -163,6 +163,32 @@ public sealed class AuthTests : IAsyncLifetime
         Assert.Contains("\"type\":\"https://w3id.org/varve/problems/forbidden\"", await forbidden.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
         Assert.Equal(HttpStatusCode.Forbidden, (await SendAsync("GET", "datasets/nowhere/sparql?query=ASK%7B%7D", token)).StatusCode);
 
+        // The refusal names what was needed, where, on which plane, and the agent the token resolved to (ADR 0242).
+        using (System.Text.Json.JsonDocument body = System.Text.Json.JsonDocument.Parse(await (await SendAsync("GET", "manage/datasets/d/status", manage)).Content.ReadAsStringAsync(TestContext.Current.CancellationToken)))
+        {
+            System.Text.Json.JsonElement problem = body.RootElement;
+            Assert.Equal("admin", problem.GetProperty("permission").GetString());
+            Assert.Equal("dataset", problem.GetProperty("scope").GetString());
+            Assert.Equal("d", problem.GetProperty("dataset").GetString());
+            Assert.Equal("management", problem.GetProperty("plane").GetString());
+            Assert.EndsWith("#subject-1", problem.GetProperty("agent").GetString(), StringComparison.Ordinal);
+            Assert.Equal("The request needs admin on the dataset d.", problem.GetProperty("detail").GetString());
+        }
+
+        using (System.Text.Json.JsonDocument body = System.Text.Json.JsonDocument.Parse(await (await SendAsync("GET", "datasets/nowhere/sparql?query=ASK%7B%7D", token)).Content.ReadAsStringAsync(TestContext.Current.CancellationToken)))
+        {
+            Assert.Equal("read", body.RootElement.GetProperty("permission").GetString());
+            Assert.Equal("nowhere", body.RootElement.GetProperty("dataset").GetString());
+            Assert.Equal("data", body.RootElement.GetProperty("plane").GetString());
+        }
+
+        using (System.Text.Json.JsonDocument body = System.Text.Json.JsonDocument.Parse(await (await SendAsync("GET", "manage/system", manage)).Content.ReadAsStringAsync(TestContext.Current.CancellationToken)))
+        {
+            Assert.Equal("server-admin", body.RootElement.GetProperty("permission").GetString());
+            Assert.Equal("fleet", body.RootElement.GetProperty("scope").GetString());
+            Assert.False(body.RootElement.TryGetProperty("dataset", out _));
+        }
+
         // The list shows what the caller administers: e for "reader", both for an operator (ADR 0163).
         string listed = await (await SendAsync("GET", "manage/datasets", manage)).Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Contains("\"name\":\"e\"", listed, StringComparison.Ordinal);

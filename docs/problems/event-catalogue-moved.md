@@ -22,6 +22,13 @@ it by stating `varve:eventDeclarations varve:InDataset` in the dataset's graph,
 its own management commit at m₃; catalogue writes authorised at m₃ or later
 are accepted again.
 
+## What to do
+
+A client: send the change to `manage` instead, with a token for the
+management audience, or change the dataset's declaration file and run `varve
+apply` ([Moving event schemas](../operator/moving-event-schemas.md)). Sending
+the same write to the catalogue graph is refused again.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

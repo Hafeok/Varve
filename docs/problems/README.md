@@ -16,7 +16,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`entailment-refused`](entailment-refused.md) | 400 | `reason` | The entailment regime refuses this query. |
 | [`operation-failed`](operation-failed.md) | 400 |  | An operation failed; nothing was committed. |
 | [`unauthorized`](unauthorized.md) | 401 |  | The request carries no valid bearer token. |
-| [`forbidden`](forbidden.md) | 403 |  | The caller does not hold the permission the request needs. |
+| [`forbidden`](forbidden.md) | 403 | `permission`, `scope`, `dataset`, `agent`, `plane` | The caller does not hold the permission the request needs. |
 | [`agent-required`](agent-required.md) | 403 |  | The commit records its agent, and the caller has none. |
 | [`graph-not-writable`](graph-not-writable.md) | 403 | `graph` | The request changes a graph outside the caller's writable scope. |
 | [`dataset-not-found`](dataset-not-found.md) | 404 |  | No dataset by that name. |
@@ -45,13 +45,13 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`declaration-invalid`](declaration-invalid.md) | 422 | `findings` | The management declarations are not valid. |
 | [`too-many-live-tails`](too-many-live-tails.md) | 429 | `limit` | The client holds too many live tails open. |
 | [`too-many-requests`](too-many-requests.md) | 429 |  | The client sent more requests than the endpoint allows in its window. |
-| [`unavailable`](unavailable.md) | 503 | `reason` | The dataset cannot answer now. |
+| [`unavailable`](unavailable.md) | 503 | `reason`, `failure` | The dataset cannot answer now. |
 | [`commit-outcome-unknown`](commit-outcome-unknown.md) | 503 | `position`, `requestId` | The write may or may not have been committed. |
 | [`read-limit-exceeded`](read-limit-exceeded.md) | 503 |  | The read was cut by a server limit. |
 | [`shutting-down`](shutting-down.md) | 503 |  | The server is shutting down. |
 | [`not-ready`](not-ready.md) | 503 | `management`, `datasets`, `retention`, `writesRefused` | The server is not ready. |
 | [`server-busy`](server-busy.md) | 503 | `limit` | The server has as many reads in flight as it allows. |
-| [`writer-superseded`](writer-superseded.md) | 503 |  | A newer writer holds the dataset; this instance serves reads only. |
+| [`writer-superseded`](writer-superseded.md) | 503 | `writer`, `epoch` | A newer writer holds the dataset; this instance serves reads only. |
 | [`management-behind`](management-behind.md) | 503 | `position`, `appliedPosition` | The server has not applied the management position asked for. |
 | [`dataset-behind`](dataset-behind.md) | 503 | `position`, `appliedPosition` | This instance has not applied the dataset position asked for. |
 | [`validation-behind`](validation-behind.md) | 503 | `binding`, `position`, `projectedPosition` | The validation report has not reached the position asked for. |
@@ -66,4 +66,4 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`storage-full`](storage-full.md) | 507 |  | The dataset's storage has no space for the write; nothing was committed. |
 
 What each limit's failure looks like to a client is in
-[`docs/operator/limits.md`](../operator/limits.md).
+[`docs/operator/configure.md`](../operator/configure.md#limits--limits).

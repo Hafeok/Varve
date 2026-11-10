@@ -18,6 +18,13 @@ unrestricted read never waits. A projection's lag is reported per binding on
 `/health/ready`, as `classification` beside its dataset's line, and never
 makes the dataset unready or behind.
 
+## What to do
+
+- A client: retry after `Retry-After`, or read at `projectedPosition` or
+  below.
+- An operator: if it persists, watch the binding's `classification` lag on
+  `/health/ready` ([Row-level access](../operator/row-level-access.md#the-classification-projection)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

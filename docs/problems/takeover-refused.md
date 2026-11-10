@@ -25,6 +25,17 @@ dataset over reads as the no-op it is. `epoch` is the writer epoch the
 record shows now. Nothing was claimed. A
 trigger that fires late or twice for the same failure meets `epoch-moved`.
 
+## What to do
+
+An operator, by `reason`:
+- `handover-off`: declare `varve:automaticHandover true` on the dataset, with
+  an object store;
+- `not-in-writer-set`: name the instance in `varve:standbyOn`, or ask a member;
+- `cold`: ask another standby, or wait until this one's readiness shows
+  `warm`;
+- `epoch-moved`: nothing; the dataset was already taken over
+  ([The fleet](../operator/fleet.md#taking-over-from-a-failed-writer)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

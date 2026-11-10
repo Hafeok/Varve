@@ -21,6 +21,16 @@ graph the writer may not write at all is `graph-not-writable` instead. See
 `docs/operator/row-level-access.md` for declaring public links and
 `createUnder`.
 
+## What to do
+
+- A client: write only rows of your own subjects, create a new row only at a
+  fresh blank node or under a `varve:createUnder` prefix, and link only to
+  rows you read. The same write is refused again.
+- An admin of the dataset: declare `varve:publicLink` predicates and
+  `varve:createUnder` prefixes as
+  [Row-level access](../operator/row-level-access.md#writing-under-a-row-restriction)
+  shows.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

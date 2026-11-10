@@ -20,6 +20,13 @@ to make the change.
   - `required`: an optional field made required, or a required field added;
   - `optional`: a required field made optional.
 
+## What to do
+
+A client: raise the type's `varve:eventVersion` in the same commit and send
+it again, or change the declaration so the new schema accepts no instance
+the old one refuses. Adding an optional field keeps the version
+([Integrate](../operator/integrate.md)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

@@ -9,6 +9,13 @@
 
 A dataset name that is not valid or names no open dataset. The two are one answer, so an unauthorised caller cannot probe which names exist (ADR 0093).
 
+## What to do
+
+- A client: check the name in the address, `/datasets/{name}/…`.
+- An operator: check that the dataset is declared and open: `GET
+  /manage/datasets` lists each with its state, and `varve apply` declares one
+  ([Datasets](../operator/datasets.md#declaring-a-dataset)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

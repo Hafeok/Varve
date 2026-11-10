@@ -454,6 +454,14 @@ Filed by the landing session for [#244](https://github.com/Hafeok/Varve/issues/2
 |---:|---|---|
 | [0239](0239-the-maintainers-delegate.md) | The maintainer's delegate: one session on his machine may approve, land and accept for him | Filed unaccepted (#244) |
 
+## Problems that say what to do (#194)
+
+Filed by the session for [#194](https://github.com/Hafeok/Varve/issues/194), unaccepted until the maintainer accepts it (ADR 0066). Numbered 0242: open branches hold 0240 and 0241.
+
+| # | Title | Status |
+|---:|---|---|
+| [0242](0242-problems-that-say-what-to-do.md) | Problems that say what to do: `forbidden`, a failed dataset, `writer-superseded` and `shutting-down` name the next step; every problem page says what to do | Filed unaccepted (#194) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

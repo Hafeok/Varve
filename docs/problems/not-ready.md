@@ -20,6 +20,17 @@
 
 `writesRefused`, present when a dataset's last write was refused because its storage had no space, names each such dataset with [`storage-full`](storage-full.md) (ADR 0214). Reads go on and the dataset's next write tries the storage again by itself, so it is never itself a reason to be unready either; the ready answer carries the same object.
 
+## What to do
+
+An operator: read `datasets` and `management`, which give each reason, then:
+- a dataset failed or behind: its reason says why; `Varve:Health:ReadyLag`
+  sets how far a projection may lag;
+- `bootstrap` `mismatch`: start the system writer once with `varve serve
+  --record-bootstrap`, or put `Varve:Manage:BootstrapOperators` back;
+- `superseded`, or a lag past `Varve:Fleet:AllowedLag`: check
+  `Varve:Fleet:Writer` on each instance ([The fleet](../operator/fleet.md#readiness));
+- a drain: nothing; the instance is stopping.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

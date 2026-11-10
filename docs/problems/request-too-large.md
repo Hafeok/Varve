@@ -9,6 +9,12 @@
 
 A request body over `Varve:Limits:MaxRequestBody`; `limit` is the bound in bytes (ADR 0095).
 
+## What to do
+
+- A client: send the body in smaller requests, each under `limit`.
+- An operator: raise `Varve:Limits:MaxRequestBody` if bodies this large are
+  expected ([Configure](../operator/configure.md)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

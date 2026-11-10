@@ -16,6 +16,11 @@ serves a regime that does (ADR 0192).
 
 - `reason` says why, in a word.
 
+## What to do
+
+A client: send the query without `Varve-Entailment`, or under a regime that
+does not refuse it. Sending it again under the same regime is refused again.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

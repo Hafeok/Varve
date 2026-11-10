@@ -127,6 +127,12 @@ Varve.Protocol.Model.DatasetEntry.Id.get -> Varve.Store.Log.DatasetId?
 Varve.Protocol.Model.DatasetEntry.Name.get -> Varve.Protocol.Model.DatasetName
 Varve.Protocol.Model.DatasetEntry.Origin.get -> Varve.Protocol.Model.DatasetOrigin
 Varve.Protocol.Model.DatasetEntry.Reason.get -> string?
+Varve.Protocol.Model.DatasetEntry.Failure.get -> Varve.Protocol.Model.DatasetFailure?
+Varve.Protocol.Model.DatasetEntry.Failure.init -> void
+Varve.Protocol.Model.DatasetFailure
+Varve.Protocol.Model.DatasetFailure.Configuration = 2 -> Varve.Protocol.Model.DatasetFailure
+Varve.Protocol.Model.DatasetFailure.Damaged = 1 -> Varve.Protocol.Model.DatasetFailure
+Varve.Protocol.Model.DatasetFailure.Transient = 0 -> Varve.Protocol.Model.DatasetFailure
 Varve.Protocol.Model.DatasetEntry.State.get -> Varve.Protocol.Model.DatasetState
 Varve.Protocol.Model.DatasetEntry.Storage.get -> Varve.Protocol.Model.DatasetStorage
 Varve.Protocol.Model.DatasetOrigin
@@ -245,6 +251,7 @@ Varve.Protocol.IManagementAuthority.AdvanceAsync(System.Threading.CancellationTo
 Varve.Protocol.IManagementAuthority.Applied.get -> Varve.Management.Model.ManagementPosition
 Varve.Protocol.IManagementAuthority.OrderOf(Varve.Protocol.Model.DatasetName dataset, Varve.Management.Model.ManagementPosition authorised) -> Varve.Store.ICommitValidator!
 Varve.Protocol.IWriterDirectory
+Varve.Protocol.IWriterDirectory.HolderAsync(Varve.Protocol.Model.WriterTarget target, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.WriterRoute>
 Varve.Protocol.IWriterDirectory.Instance.get -> Varve.Protocol.Model.WriterName
 Varve.Protocol.IWriterDirectory.RouteAsync(Varve.Protocol.Model.WriterTarget target, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.WriterRoute>
 Varve.Protocol.IWriterDirectory.Stale(Varve.Protocol.Model.WriterTarget target) -> void

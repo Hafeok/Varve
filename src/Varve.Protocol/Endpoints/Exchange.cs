@@ -247,7 +247,7 @@ internal sealed class Exchange
 
         if (context.User.Identity?.IsAuthenticated == true)
         {
-            await context.ForbidAsync().ConfigureAwait(false);
+            await ForbiddenAsync(context, options, permission, resource).ConfigureAwait(false);
         }
         else
         {
@@ -255,6 +255,38 @@ internal sealed class Exchange
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// The refusal of an authenticated caller (ADR 0242): what the request
+    /// needed and where, and who the token says the caller is, so a wrong
+    /// token can be told from a missing grant. It names no grant and no
+    /// other agent. <c>WWW-Authenticate</c> is RFC 6750 §3.1's.
+    /// </summary>
+    private static Task ForbiddenAsync(HttpContext context, ProtocolOptions options, string permission, DatasetName? resource)
+    {
+        context.Response.Headers.WWWAuthenticate = "Bearer error=\"insufficient_scope\"";
+        string needed = permission.StartsWith("varve:", StringComparison.Ordinal) ? permission["varve:".Length..] : permission;
+        string where = resource is { } dataset ? "the dataset " + dataset.Value : "the fleet";
+        string plane = context.Request.Path.StartsWithSegments("/manage") ? "management" : "data";
+        string? agent = options.Identity.AgentOf(context.User).Term is { } term ? System.Text.Encoding.UTF8.GetString(term.Lexical) : null;
+        return HttpProblems.WriteAsync(context, ProblemType.Forbidden, "The request needs " + needed + " on " + where + ".", members =>
+        {
+            members.String("permission", needed);
+            members.String("scope", resource is null ? "fleet" : "dataset");
+
+            if (resource is { } named)
+            {
+                members.String("dataset", named.Value);
+            }
+
+            if (agent is not null)
+            {
+                members.String("agent", agent);
+            }
+
+            members.String("plane", plane);
+        });
     }
 
     /// <summary>The request's own address without its query: the base of every IRI a request resolves, and a directly identified graph's IRI.</summary>

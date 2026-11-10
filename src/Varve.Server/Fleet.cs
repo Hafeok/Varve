@@ -937,6 +937,18 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         return route;
     }
 
+    /// <summary>The writer record's holder, read from the store, whatever this instance's role (ADR 0242).</summary>
+    public async ValueTask<WriterRoute> HolderAsync(WriterTarget target, CancellationToken cancellationToken)
+    {
+        if (_objects is null)
+        {
+            return WriterRoute.Local;
+        }
+
+        WriterRecord? record = await _objects.ReadWriterAsync(target.Dataset is { } dataset ? dataset.Value : SystemName, cancellationToken).ConfigureAwait(false);
+        return RouteOf(record);
+    }
+
     private WriterRoute RouteOf(WriterRecord? record)
     {
         if (record is null)

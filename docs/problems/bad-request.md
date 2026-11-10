@@ -9,6 +9,12 @@
 
 A request the protocol does not accept: a missing or repeated parameter, a malformed header such as `Varve-As-Of`, `If-Match` or `Last-Event-ID`, `using-graph-uri` together with `USING`, a body that is not the JSON an admin endpoint takes, or a `GET` that asks for the store itself (ADR 0092).
 
+## What to do
+
+A client: read `detail`, which names what is wrong, fix the request and send
+it again. The same request unchanged is refused again; no setting changes
+this answer.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).
