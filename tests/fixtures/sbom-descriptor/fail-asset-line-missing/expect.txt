@@ -1,0 +1,2 @@
+# A generated SBOM, the Web UI bundle's, has no line in the descriptor.
+has no sbom line for asset: varve-webui-0.1.0-fixture.zip

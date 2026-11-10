@@ -1,0 +1,119 @@
+@page "/datasets/{Name}/agents"
+@inject VarveManagementClient Management
+@inject WebUiSettings Settings
+@inject TimeProvider Clock
+@* A dataset's principals, read-only (#96, 2026-10-28): each agent, role and
+   group its grants name, what it is matched against, and what it is granted.
+   Read from the grants resource, so a principal no grant names is not shown;
+   the declaration's source has every node. *@
+<PageTitle>Agents and roles of @Name · Varve</PageTitle>
+<ViewHead Title="Agents and roles" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (_grants?.Facts.ManagementPosition is FeedPosition management)
+{<PositionStamp Label="management position" Value="management.Value" Management="true" />}</ViewHead>
+
+@if (_failure is not null)
+{
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="OnParametersSetAsync" />
+}
+
+<ReadOnlyDeclarations />
+
+@if (_grants?.Problem is Problem problem)
+{
+    <ProblemView Problem="problem" Facts="_grants.Facts" Management="true" />
+}
+else if (_grants?.Value is GrantList grants)
+{
+    IReadOnlyList<Principal> principals = Principals(grants.Grants);
+    <Panel StaleSince="@LastAnswered" Title="Who the grants name" TitleId="principals-title" Flush="true">
+        <ResourceTable ColumnCount="3" LabelledBy="principals-title" Empty="principals.Count == 0">
+            <Columns>
+                <th scope="col">Principal</th><th scope="col">Matched against</th><th scope="col">Granted</th>
+            </Columns>
+            <EmptyContent>No grant is declared for this dataset. Only operators reach it.</EmptyContent>
+            <Rows>
+                @foreach (Principal principal in principals)
+                {
+                    <tr><td class="vw-table__name">@principal.Value<span class="vw-table__sub">@principal.Kind</span></td><td>@MatchedAgainst(principal)</td><td>@foreach (string right in principal.Rights)
+                    {<StateBadge Tone="Tone.Neutral" Word="@right" />@(" ")}</td></tr>
+                }
+            </Rows>
+        </ResourceTable>
+    </Panel>
+}
+
+@code {
+    private VarveResult<GrantList>? _grants;
+    private DateTimeOffset? _lastRead;
+    private string? _failure;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
+
+    /// <summary>The dataset's name, from the address.</summary>
+    [Parameter]
+    public string Name { get; set; } = "";
+
+    /// <inheritdoc />
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            _grants = await Management.GrantsAsync(new DatasetName(Name), null, CancellationToken.None);
+            _lastRead = Clock.GetUtcNow();
+            _failure = null;
+        }
+        catch (HttpRequestException e)
+        {
+            _failure = e.Message;
+        }
+    }
+
+    // One row per principal, in the order the grants name them, with each
+    // permission once.
+    private static List<Principal> Principals(IReadOnlyList<GrantEntry> grants)
+    {
+        List<Principal> principals = [];
+
+        foreach (GrantEntry grant in grants)
+        {
+            string kind = grant.GranteeKind?.Value ?? "grantee";
+            string value = grant.Grantee?.Value ?? "—";
+            string? claimType = grant.GranteeClaimType?.Value;
+            Principal? principal = principals.Find(p => p.Kind == kind && p.Value == value && p.ClaimType == claimType);
+
+            if (principal is null)
+            {
+                principal = new Principal(kind, value, claimType, []);
+                principals.Add(principal);
+            }
+
+            if (grant.Permission?.Value is { } right && !principal.Rights.Contains(right))
+            {
+                principal.Rights.Add(right);
+            }
+        }
+
+        return principals;
+    }
+
+    private static RenderFragment MatchedAgainst(Principal principal) => builder =>
+    {
+        switch (principal.Kind)
+        {
+            case "agent":
+                builder.AddContent(0, "the agent IRI, issuer and subject");
+                break;
+            case "role":
+                builder.AddContent(1, "the role claim");
+                break;
+            default:
+                builder.AddContent(2, "the claim ");
+                builder.OpenElement(3, "code");
+                builder.AddContent(4, principal.ClaimType ?? "groups");
+                builder.CloseElement();
+                break;
+        }
+    };
+
+    private sealed record Principal(string Kind, string Value, string? ClaimType, List<string> Rights);
+}

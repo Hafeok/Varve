@@ -1,0 +1,4 @@
+  - asset: varve-webui-0.1.0-fixture.zip sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  - image: ghcr.io/hafeok/varve sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  - nupkg: Varve.Iri sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+  - tool: Varve.Server sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
