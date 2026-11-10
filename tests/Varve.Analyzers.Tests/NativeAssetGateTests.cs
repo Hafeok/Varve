@@ -43,12 +43,17 @@ public class NativeAssetGateTests
         // among them.
         await EnsureRestoredAsync("Varve.slnx", Path.Combine("src", "Varve.Server"));
 
+        // The Web UI is shipped as static files and never packed; it declares
+        // VarveShipped, and the gate walks it as it walks a package (ADR 0200).
+        await EnsureRestoredAsync(Path.Combine("src", "Varve.WebUi"));
+
         GateResult result = await RunAsync("--packages");
 
         Assert.True(result.ExitCode == 0, "The packable projects must be clean." + Environment.NewLine + result.Output);
         Assert.Contains("src/Varve.Iri", result.Output.Replace('\\', '/'), StringComparison.Ordinal);
         Assert.Contains("src/Varve.Rdf", result.Output.Replace('\\', '/'), StringComparison.Ordinal);
         Assert.Contains("src/Varve.Turtle", result.Output.Replace('\\', '/'), StringComparison.Ordinal);
+        Assert.Contains("ok  src/Varve.WebUi/Varve.WebUi.csproj", result.Output.Replace('\\', '/'), StringComparison.Ordinal);
     }
 
     [Fact]

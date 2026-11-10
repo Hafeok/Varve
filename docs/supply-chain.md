@@ -27,6 +27,7 @@ Every artefact Varve ships has one **SPDX 2.3 SBOM** of its runtime closure:
 | The `varve` tool (`Varve.Server`) | nuget.org | everything the tool package carries |
 | The container image | `ghcr.io/hafeok/varve` | each platform's binary and its closure, the .NET runtime, and the base image's OS packages |
 | The CLI binaries, per RID | the GitHub release, as `varve-<version>-<rid>.tar.gz` or `.zip`; Homebrew and winget install them | the closure compiled in, and the .NET runtime |
+| The Web UI bundle, `varve-webui-<version>.zip` | the GitHub release | the packages its browser build deploys, the package that carries `blazor.webassembly.js`, the .NET runtime relinked into it, and Emscripten's packs: its system libraries as contained, its compiler and Node.js as build tools |
 
 **Each component has:**
 - its package URL (`pkg:nuget/…`, `pkg:deb/…`) and version;
@@ -97,6 +98,20 @@ And the image:
 gh attestation verify oci://ghcr.io/hafeok/varve:v0.1.0-preview.17 --owner hafeok \
   --source-ref refs/tags/v0.1.0-preview.17 --predicate-type https://spdx.dev/Document/v2.3
 ```
+
+And the Web UI bundle, which the release carries beside its SBOM,
+`varve-webui-<version>.zip.spdx.json`:
+
+```sh
+gh release download v0.1.0-preview.20 --repo Hafeok/Varve --pattern 'varve-webui-*'
+gh attestation verify varve-webui-0.1.0-preview.20.zip --owner hafeok \
+  --source-ref refs/tags/v0.1.0-preview.20 --predicate-type https://slsa.dev/provenance/v1
+gh attestation verify varve-webui-0.1.0-preview.20.zip --owner hafeok \
+  --source-ref refs/tags/v0.1.0-preview.20 --predicate-type https://spdx.dev/Document/v2.3
+```
+
+The bundle resolves nothing outside NuGet: it has no npm or other JavaScript
+lockfile, and its one script of its own is this repository's.
 
 **About the copy on nuget.org.** It is the same package plus nuget.org's
 repository signature, `.signature.p7s`, which nuget.org adds to every package
@@ -169,6 +184,7 @@ code-signing key, and the keyless attestations take its place.
 | `Varve.Protocol.Client` | 8 `Microsoft.Extensions` abstractions (MIT) |
 | `Varve.Server`, the tool and the CLI | 16 (MIT, Apache-2.0), and in the binaries and the image the .NET runtime |
 | `Varve.Aspire` | 71, the `Aspire.Hosting` closure (MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause) |
+| The Web UI bundle | 28 (MIT): the Blazor WebAssembly closure and the package that carries its script; and the .NET runtime for the browser with Emscripten's system libraries, listed by pack (MIT) |
 
 ## Vulnerabilities
 
