@@ -91,6 +91,7 @@ internal sealed partial class OpenDatasets
             ReconcileLog.AbdicatedForStorage(_logger, name);
             entry.Degraded?.Released(ReleaseReason.StorageError);
             await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: ReleaseReason.StorageError, cancellationToken).ConfigureAwait(false);
+            HeldOffItsOwnRelease(entry);
             return;
         }
 
@@ -104,6 +105,7 @@ internal sealed partial class OpenDatasets
             ReconcileLog.AbdicatedForLocalDisk(_logger, name, unbounded.MemtableEntries.Value, unbounded.SpillBound == SpillBound.MemoryLoad ? "the memory load reached the GC's high-load threshold" : "the memtable passed " + Dataset.SpillBoundFactor + " times its limit");
             entry.Degraded?.Released(ReleaseReason.LocalDiskError);
             await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: ReleaseReason.LocalDiskError, cancellationToken).ConfigureAwait(false);
+            HeldOffItsOwnRelease(entry);
             return;
         }
 
@@ -180,6 +182,13 @@ internal sealed partial class OpenDatasets
             entry.Claimed(entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && !entry.Superseded);
         }
     }
+
+    // A release for storage-error or local-disk-error starts the releaser's
+    // hold-off (ADR 0180 point 4, amended 2026-11-10; ADR 0163's hold-off):
+    // it races for its own release like any warm member, but not before the
+    // round it sits out and the wait after it, so a member that reaches the
+    // store claims first, and the releaser, alone, takes the dataset back.
+    private static void HeldOffItsOwnRelease(Entry entry) => entry.HoldOff?.Failed();
 
     /// <summary>What a member of a dataset's writer set holds of it, as the decision sees it.</summary>
     internal enum MemberState

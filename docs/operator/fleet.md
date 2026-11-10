@@ -68,6 +68,15 @@ and the two together are the **writer set**: only a member ever claims.
   `local-disk-error`, every warm member races, and the store's conditional
   write picks one. The winner claims in place: it keeps what it has applied
   and cached, and commits at once.
+- **The member that released for `storage-error` or `local-disk-error` holds
+  off before it races for that release** (see
+  [Readiness](#readiness) for the hold-off's figures). It has just failed
+  against the store or its own disk, so another warm member takes the
+  dataset first: it has a whole round to itself. When no other member is
+  warm, the releaser takes the dataset back by itself once its hold-off has
+  passed, two rounds after the release at the earliest, and answers writes
+  again with no restart. While its store still fails, each claim fails and
+  lengthens the hold-off, to one claim every 15 to 30 seconds.
 - **A placement change still works by events**: changing `placedOn` makes the
   holder release for `placement`, whoever it is, and the new `placedOn`
   claims. Taking the holder out of `standbyOn` does the same. A holder that

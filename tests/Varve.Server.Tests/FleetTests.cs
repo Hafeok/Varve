@@ -495,7 +495,9 @@ public abstract class FleetCases : IAsyncDisposable
     /// proxy that starts failing its log writes, so a batch fails with every
     /// retry spent. a releases the epoch for storage-error and stands by; b,
     /// warm and reaching the store directly, claims in place and writes, and a
-    /// forwards to it. The epoch history shows the release and the claim.
+    /// forwards to it. The epoch history shows the release and the claim, and
+    /// no claim by a: its release started its hold-off, so b had a round of
+    /// its own to claim in first.
     /// </summary>
     [Fact]
     [Trait("Measure", "Handover")]
@@ -534,6 +536,60 @@ public abstract class FleetCases : IAsyncDisposable
         await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
         Assert.Contains("storage-error", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
+
+        // b won at once: a's release started a's hold-off (ADR 0180 point 4, amended 2026-11-10), so the one claim after epoch 1 is b's.
+        Assert.Matches(@"(?m)^epoch:\s+2\b", output.ToString());
+        Assert.DoesNotMatch(@"abdication\s+by a\b", output.ToString());
+    }
+
+    /// <summary>
+    /// The releaser alone (ADR 0180 point 4, amended 2026-11-10): a writes d
+    /// with b its standby, and b is not running. a fails a batch and releases
+    /// epoch 1 for storage-error, which starts its hold-off. The store
+    /// recovers. No other member claims, so once a's hold-off has passed a
+    /// races for its own release, claims epoch 2 in place, and answers writes
+    /// again, in the same process. Rounds are a second here, so that the
+    /// hold-off shows: the claim comes two rounds after the release, the one
+    /// sat out and the one it claims in, where a member that was not held
+    /// would claim in the first.
+    /// </summary>
+    [Fact]
+    public async Task The_releaser_alone_takes_its_own_release_back_after_its_hold_off_and_answers_writes_with_no_restart()
+    {
+        FleetLocation container = await Store.NewAsync();
+        await using CountingProxy proxy = await CountingProxy.StartAsync(container.Upstream);
+        Server a = await StartAsync("a", container.Through(proxy.Address), "a", "--Varve:Fleet:FollowInterval=00:00:01");
+        await DeclareAsync(a, "d", "a", "b");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+
+        proxy.Fail = (method, path) => method == "PUT" && path.Contains("/d/log/", StringComparison.Ordinal);
+        Assert.NotEqual(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/lost> <http://ex/p> 2 }")).StatusCode);
+        proxy.Fail = null;
+
+        Stopwatch reclaimed = Stopwatch.StartNew();
+        HttpResponseMessage written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 3 }");
+
+        while (written.StatusCode != HttpStatusCode.NoContent && reclaimed.Elapsed < TimeSpan.FromSeconds(20))
+        {
+            await Task.Delay(100, Ct);
+            written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 3 }");
+        }
+
+        await AssertWrittenAsync(a, "d", written);
+        TestContext.Current.SendDiagnosticMessage("a answered a write again " + reclaimed.ElapsedMilliseconds + " ms after the store recovered");
+
+        StringWriter lease = new() { NewLine = "\n" };
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(lease, new StringWriter(), new MemoryStream()), Ct);
+        Assert.Matches(@"epoch 1\s+\S+\s+by a\s.*released: storage-error", lease.ToString());
+        Assert.Matches(@"epoch \d+\s+abdication\s+by a\b", lease.ToString());
+        Assert.Contains("holder: a", lease.ToString(), StringComparison.Ordinal);
+        Assert.Contains("released: no", lease.ToString(), StringComparison.Ordinal);
+
+        // After its hold-off: the release is the moment a's log says so, and the claim the record's own time for epoch 2.
+        DateTimeOffset released = a.SeenAt("released its epoch for storage-error") ?? throw new Xunit.Sdk.XunitException("a's log has no release:\n" + a.Log);
+        DateTimeOffset claimed = DateTimeOffset.Parse(
+            System.Text.RegularExpressions.Regex.Match(lease.ToString(), @"epoch 2\s+abdication\s+by a\s+at (\S+)").Groups[1].Value, CultureInfo.InvariantCulture);
+        Assert.True(claimed - released >= TimeSpan.FromSeconds(1.5), "a claimed " + (claimed - released).TotalMilliseconds + " ms after its release, inside its hold-off:\n" + lease + a.Log);
     }
 
     /// <summary>
@@ -1522,6 +1578,7 @@ public abstract class FleetCases : IAsyncDisposable
     {
         private readonly Process _process;
         private readonly StringBuilder _log = new();
+        private readonly List<(DateTimeOffset At, string Line)> _lines = [];
 
         private Server(string instance, Uri address, Process process)
         {
@@ -1545,6 +1602,23 @@ public abstract class FleetCases : IAsyncDisposable
                     return _log.ToString();
                 }
             }
+        }
+
+        /// <summary>When the first line of the log holding <paramref name="fragment"/> arrived; none when no line does.</summary>
+        internal DateTimeOffset? SeenAt(string fragment)
+        {
+            lock (_log)
+            {
+                foreach ((DateTimeOffset at, string line) in _lines)
+                {
+                    if (line.Contains(fragment, StringComparison.Ordinal))
+                    {
+                        return at;
+                    }
+                }
+            }
+
+            return null;
         }
 
         internal static Server Start(string instance, int port, FleetLocation container, string cache, string writer, string[] extra)
@@ -1650,6 +1724,7 @@ public abstract class FleetCases : IAsyncDisposable
                 lock (_log)
                 {
                     _log.AppendLine(line);
+                    _lines.Add((DateTimeOffset.UtcNow, line));
                 }
             }
         }
