@@ -563,3 +563,11 @@ From ADR 0003:
   name and could not be closed. Withdrawn 2026-09-21: it was wrong on both
   counts, and the rule now checks `IsPackable` and refuses the analyzer as a
   library reference.
+
+## Resident memory (#222)
+
+Filed by the session for [#222](https://github.com/Hafeok/Varve/issues/222), unaccepted until the maintainer accepts it (ADR 0066). It amends 0082, 0089, 0177 and 0215 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0240](0240-resident-memory-is-bounded-by-data-and-configuration.md) | Resident memory is bounded by data and by configuration, never by commits | Filed unaccepted (#222) |

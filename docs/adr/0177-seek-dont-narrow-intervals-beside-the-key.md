@@ -26,6 +26,11 @@ Records decision set [`seeking-extent-sets`](../decisions/seeking-extent-sets.md
 
 **Superseded in part 2026-10-27 by [ADR 0213](0213-cached-derived-data-is-verified-before-use.md)**: `EveryBlockIsChecked` (point 6: a block that does not match is a cache miss, no longer a failed read) and `Format5ForExtentsOnly` (point 5: the checked kinds move to version 6) move to its set. Filed unaccepted.
 
+**Amended 2026-11-10 by [ADR 0240](0240-resident-memory-is-bounded-by-data-and-configuration.md)**
+(filed unaccepted): a set's seek directory is read when a read needs it and
+kept under a ceiling, not held with the set. See the end. `SeekDontNarrow`
+is restated.
+
 ## Context
 
 An as-of read at `P` strictly inside an extent set's window `(a, e]`
@@ -291,3 +296,29 @@ Layout 1 (this ADR) against format 4's narrowing, the same benchmark on
     seek.
   - `ExtentLayoutStatistics`: the measurements above, from a dataset the
     benchmark kept; not a gate.
+
+## Amendment, 2026-11-10 — the seek directory is read on demand
+
+Filed by #222 with ADR 0240, unaccepted until the maintainer accepts it
+(ADR 0066).
+
+Point 1 says a read at `P` reads nothing of the set but the matching keys'
+blocks and column entries. That stood on the set's directory being in
+memory: the rows within's fences, block starts and block checks, and the
+columns' checks, loaded when the set was opened. They are the set's history,
+48 bytes per 128 rows within and 8 per 128 rows of each column, and they
+were what grew with every commit on a dataset that did not (#222).
+
+**So:** a set's seek directory is verified when the set is opened and not
+kept. A read inside the window takes each order's directory it uses from the
+dataset's seek directory cache (ADR 0240 point 2): on a miss it reads the
+directory's slices from the extent and checks them, and holds the directory
+until it ends. With the directory in hand the read is point 1's, unchanged:
+three binary searches of fences, one block of each, one column read a row.
+
+The layout (point 2), what a read computes (point 3), the writers (point 4)
+and the checks (point 6, now ADR 0213's) are untouched. So is the measured
+cost of a read whose directories are cached.
+
+`SeekDontNarrow` is restated to say so and awaits the maintainer's
+acceptance.

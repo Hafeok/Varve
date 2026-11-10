@@ -20,6 +20,10 @@ the end.
 (filed unaccepted): the soak is run by the release gate and judged by a
 script, with a bounded vocabulary. See the end.
 
+**Amended 2026-11-10 by [ADR 0240](0240-resident-memory-is-bounded-by-data-and-configuration.md)**
+(filed unaccepted): the dataset's own, retired on 2026-11-03, is restated as
+what a dataset is measured to hold. See the end.
+
 **Superseded in part 2026-10-10 by ADR
 [0110](0110-the-shipped-runtime-configuration.md)** (its point 5): the
 drift's reference window is minutes 30–40, not 10–20. The band, the
@@ -156,3 +160,42 @@ against commits, its slope bounded in bytes a commit (ADR 0215, amended
 2026-11-03). The soak no longer reports the dataset's own. What is resident
 per commit, and why, is #222's: it names each structure that holds memory per
 commit and bounds it, and the allowance shrinks to what that leaves.
+
+## Amendment, 2026-11-10 — the dataset's own, as measured
+
+Filed by #222 with ADR 0240, unaccepted until the maintainer accepts it
+(ADR 0066).
+
+**What the amendment of 2026-11-03 left open.** It retired the dataset's own
+because its model, 144 bytes a commit for a table that was no longer in
+memory, did not describe the process. It did not say what the process holds
+instead: "what is resident per commit, and why, is #222's". This is that.
+
+**Measured** (ADR 0240's context, and #222's comment of 2026-11-10). In the
+four-hour soak the live heap grew 36.5 bytes a commit and the extent sets'
+directories 36.2. Attributed by owner from process dumps at every 250,000
+commits, one structure grew with the commits, 59 bytes a commit: each
+extent set's seek directory, held whole for as long as the set was in the
+chain. Nothing else did.
+
+**The dataset's own, restated.** It is what a dataset holds in memory, and
+it has two parts and no third:
+
+- **what follows the data**: the key directories of the projection's runs
+  and of each extent set's asserted and retracted sections, 40 to 48 bytes
+  per 128 keys per section; the term filters; the graph-version index;
+- **what follows the configuration**: the memtable, up to
+  `MemtableLimit`; the newest commit entries, one to two times
+  `CommitCache` at 80 bytes each; the seek directories, up to
+  `SeekDirectoryCache`.
+
+**Nothing follows the commits** (ADR 0240, `NothingIsResidentPerCommit`).
+The first part is what this ADR's original definition named, "what grows
+with it and nothing else", with the commit table gone from it. A run's and
+a set's directories are still summed from each derived file's header and
+reported by the soak as they are.
+
+**The gate is unchanged in kind.** It still judges the process's memory
+directly, fitted against commits (ADR 0215, amended 2026-11-03). What
+changes is the slope it allows, which no longer has a cost to cover (ADR
+0215, amended this date).
