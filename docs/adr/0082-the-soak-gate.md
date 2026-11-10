@@ -195,7 +195,7 @@ with it and nothing else", with the commit table gone from it. A run's and
 a set's directories are still summed from each derived file's header and
 reported by the soak as they are.
 
-**The gate is unchanged in kind.** It still judges the process's memory
-directly, fitted against commits (ADR 0215, amended 2026-11-03). What
-changes is the slope it allows, which no longer has a cost to cover (ADR
-0215, amended this date).
+**The gate is unchanged.** It still judges the process's memory directly,
+fitted against commits (ADR 0215, amended 2026-11-03). Its allowance of 60
+bytes a commit no longer has a cost to cover; lowering it waits for a soak
+at the gate's pace on this change (ADR 0240, consequences).

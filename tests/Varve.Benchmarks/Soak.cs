@@ -29,7 +29,8 @@ internal sealed record SoakOptions(
     bool Policy,
     int Subjects,
     long MemtableLimit,
-    int PauseMilliseconds = 25)
+    int PauseMilliseconds = 25,
+    long SeekCacheMiB = 32)
 {
     internal static SoakOptions Parse(ReadOnlySpan<string> args)
     {
@@ -47,6 +48,7 @@ internal sealed record SoakOptions(
                 "--subjects" => options with { Subjects = int.Parse(args[++i], CultureInfo.InvariantCulture) },
                 "--memtable" => options with { MemtableLimit = long.Parse(args[++i], CultureInfo.InvariantCulture) },
                 "--pause" => options with { PauseMilliseconds = int.Parse(args[++i], CultureInfo.InvariantCulture) },
+                "--seek-cache" => options with { SeekCacheMiB = long.Parse(args[++i], CultureInfo.InvariantCulture) },
                 _ => throw new ArgumentException("Unknown soak option " + args[i] + "."),
             };
         }
@@ -87,6 +89,10 @@ internal static class Soak
         {
             Clock = TimeProvider.System,
             MemtableLimit = new QuadCount(options.MemtableLimit),
+
+            // The store's default, 32 MiB; a smaller one is full before the judged
+            // window, so the window sees the cache's ceiling and not its filling (ADR 0240).
+            SeekDirectoryCache = new ByteCount(options.SeekCacheMiB << 20),
             Maintenance = options.Maintenance ? MaintenanceMode.Background : MaintenanceMode.Off,
             Checkpoints = options.Policy ? new CheckpointPolicy { EveryCommits = 1_000, Keep = SoakBounds.KeepCheckpoints } : CheckpointPolicy.Never,
         };

@@ -8,8 +8,6 @@ the maintainer's act on the pull request.
 **Amends** by dated amendment:
 - [ADR 0082](0082-the-soak-gate.md): the dataset's own, retired on
   2026-11-03, is restated as what is measured here;
-- [ADR 0215](0215-the-soak-gate-run-and-judged.md): the slope the judge
-  allows;
 - [ADR 0177](0177-seek-dont-narrow-intervals-beside-the-key.md): how a read
   inside a set's window reaches the set's seek directory;
 - [ADR 0089](0089-the-commit-index-is-derived-and-paged.md): how a timestamp
@@ -165,8 +163,14 @@ build before this one reads what this one writes, and the reverse.
   whole either way.
 - **An operator can trade memory for as-of latency** with one setting, and
   see what is used.
-- **The soak judge's allowance for growth per commit goes.** ADR 0215's
-  amendment of this date states the new bound.
+- **The soak judge's allowance, 60 bytes a commit, has no cost left to
+  cover, and is not lowered here.** A one-hour soak at a 1 ms pause measured
+  139 bytes a commit of working set: its writer outruns the flush (#227),
+  and the seek directory cache was still filling to its ceiling. Neither is
+  growth per commit, and a fit against commits reads both as slope. The
+  figure to lower it to comes from the gate's own four-hour run on this
+  change, with the soak's seek cache small enough to be full before the
+  judged window (`--seek-cache`), and is ADR 0215's to amend then.
 - **`PositionAt` reads more.** It is the read behind `Varve-As-Of` with a
   date, once a request.
 
@@ -177,7 +181,8 @@ build before this one reads what this one writes, and the reverse.
     is not part of it. 0177 amended.
   - **0080**: its sparse sections were for checkpoints of derived format 2,
     and stand for that kind.
-  - **0082, 0215**: amended.
+  - **0082**: amended. **0215**: its judge and its allowance stand; see the
+    consequences.
   - **0089**: amended; its entries, blobs and paging stand.
   - **0070**: a read takes no lock on the path of a key. The cache's lock is
     taken once a read and an order, and never across a blob read.
@@ -208,8 +213,18 @@ build before this one reads what this one writes, and the reverse.
 
   `MidReadDamageTests` and `ExtentDamageTests` damage every block a read
   reads, the slices now among them.
-- **Measured.** The harness of the context, on the changed store, at 250,668
-  commits: 11.8 MB live, the extent sets 3.7 MB of it, where they were 52.9
-  and 24.7. The run to 1,000,000 commits, the judged soak and the judge's new
-  allowance follow in this pull request, with ADR 0215's amendment.
+- **Measured.** The harness of the context on the changed store, stopped
+  every 250,000 commits with its writer and readers out and maintenance run:
+
+  | Commits | Live heap, before | After | Extent sets, before | After |
+  |---:|---:|---:|---:|---:|
+  | 250,668 | 52.9 MB | 11.8 MB | 24.7 MB | 3.7 MB |
+  | 500,668 | 43.6 MB | 7.5 MB | 37.3 MB | 3.5 MB |
+  | 750,668 | 118.7 MB | 7.9 MB | 52.5 MB | 2.6 MB |
+  | 1,000,668 | 146.5 MB | 7.8 MB | 67.7 MB | 3.8 MB |
+
+  The "before" heap includes the memtable as it was in flight, 23 to 68 MB,
+  which the first harness kept reachable; at rest the dataset holds it
+  within its limit. In flight it peaked at 480,000 entries against a limit
+  of 20,000, which is #227's.
 - **Open questions owned.** None.

@@ -566,7 +566,7 @@ From ADR 0003:
 
 ## Resident memory (#222)
 
-Filed by the session for [#222](https://github.com/Hafeok/Varve/issues/222), unaccepted until the maintainer accepts it (ADR 0066). It amends 0082, 0089, 0177 and 0215 by dated amendments.
+Filed by the session for [#222](https://github.com/Hafeok/Varve/issues/222), unaccepted until the maintainer accepts it (ADR 0066). It amends 0082, 0089 and 0177 by dated amendments.
 
 | # | Title | Status |
 |---:|---|---|
