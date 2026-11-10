@@ -69,6 +69,64 @@ object-storage backend: the probe catches a store that ignores conditional
 writes, not one that enforces them only one request at a time
 ([Configure](configure.md)).
 
+## What a dataset needs, to be written and to be reopened
+
+**The dataset measured below was written and reopened in a 256 MB
+container** (ADR 0241). The server sizes its memtable to the memory it is given, a writer
+cannot outrun the flush, and an open replays within the same bound. What a
+dataset holds, by part:
+
+| Part | In memory | Bounded by |
+|---|---|---|
+| The server itself | about 50 MB | |
+| The memtable | 192 bytes a quad and about 96 a term in it; between its limit and twice it while a flush runs, and as much again while its tiers merge | `Varve:Store:MemtableLimit`: unset, a sixteenth of the collector's heap limit, at most 1,000,000 entries. In a 512 MB container about 117,000 entries, so 24 to 96 MiB |
+| Named graphs | 64 bytes each, always | the data. A million graphs is 64 MB ([#255](https://github.com/Hafeok/Varve/issues/255)) |
+| Key directories | 40 to 48 bytes per 128 quads, per index order | the data. About 4 MB per million quads |
+| A checkpoint being written | its sorts' buffers and at most 16 MiB of terms | fixed |
+| An open | 8 MiB of the log, decoded, and the memtable | fixed |
+| As-of reads | the seek directories they use | `Varve:Store:SeekDirectoryCacheBytes`, 32 MiB |
+
+Reopening needs no more than writing did. After a kill, the open replays
+what lay above the last flush through the same memtable, flushing as it
+goes.
+
+**On disk** a dataset is its log, its extent sets, which grow with its
+history, and the default projection's own runs, which are a second copy of
+the present state: about 200 bytes a quad, and the dictionary. The second
+copy does not grow with checkpoints. It is replaced by the newest
+checkpoint's set when the server next starts
+([#256](https://github.com/Hafeok/Varve/issues/256)).
+
+**Measured**, on the Native AOT server (`linux-x64`, 4 cores), in a memory
+cgroup as `docker run --memory` makes one: an import of 3.06 million quads
+in 515,000 named graphs over HTTP, 4,731 commits, then a checkpoint, a
+minute idle and a restart.
+
+| Memory limit | The import | Peak | Idle, after the checkpoint | After a restart |
+|---|---:|---:|---:|---:|
+| none (16 GB) | 62 s | 704 MB | 154 MB | 111 MB |
+| 1 GB | 72 s | 317 MB | 116 MB | 112 MB |
+| 512 MB | 57 s | 246 MB | 107 MB | 108 MB |
+| 384 MB | 59 s | 268 MB | 108 MB | 108 MB |
+| 256 MB | 68 s | 214 MB | 108 MB | 105 MB |
+
+- No write was refused and nothing was killed.
+- Of the 108 MB at rest, 33 MB is the 515,000 named graphs and about 50 MB
+  the server.
+- With no limit the collector lets the heap run to 704 MB during the
+  import, and gives it back once the dataset has been idle for five seconds
+  after its checkpoint (`Varve:Store:ReleaseMemoryAfterCheckpoint`).
+- Killed mid-import under 512 MB and started again under it, the server
+  answered in 0.4 s at 91 MB.
+
+To measure your own, with the server binary and no container:
+
+```sh
+dotnet run -c Release --project tests/Varve.Benchmarks -- --import-memory /path/to/Varve.Server 3000
+```
+
+A third argument names a cgroup directory to put the server in.
+
 ## Runtime limits for 8 GB
 
 | Setting | Suggestion | Why |
