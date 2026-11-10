@@ -1,0 +1,14 @@
+format: 2
+version: v9.9.9-preview.1
+title: A fixture release
+date: 2026-11-01
+basis:
+  - issue: 1
+  - storage-format: 1
+# Every artefact's SBOM digest.
+sbom:
+  - nupkg: Varve.Iri sha256:1111111111111111111111111111111111111111111111111111111111111111
+  - nupkg: Varve.Rdf sha256:2222222222222222222222222222222222222222222222222222222222222222
+accepted-by: mailto:maintainer@example.org
+summary: |
+  A fixture.

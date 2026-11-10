@@ -554,6 +554,33 @@ jobs:
               --out "$RUNNER_TEMP/sbom-$version" --syft "${{ steps.syft.outputs.cmd }}" --descriptor "$descriptor"
           done
 
+      - name: A descriptor's digests rewritten on a later day
+        # #248, docs/releases.md rule 3 (amended 2026-11-10): eng/release.cs
+        # --sbom writes the SBOMs and sets date: to the day it ran, in one
+        # edit, and eng/sbom.cs --descriptor, created at that date, matches
+        # every line. The descriptor is the newest with an sbom: block, renamed
+        # and backdated, in a scratch releases/ directory, so nothing in the
+        # repository changes.
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=v0.0.0-sbom-rewrite
+          scratch="$RUNNER_TEMP/sbom-rewrite"
+          mkdir -p "$scratch/releases"
+          newest=$(grep -l '^sbom:' releases/v*.yaml | sort -V | tail -1)
+          sed -e "s/^version: .*/version: $version/" -e "s/^date: .*/date: 2026-01-01/" \
+            "$newest" > "$scratch/releases/$version.yaml"
+          dotnet run eng/release.cs -- --sbom "$version" --releases "$scratch/releases" --out "$scratch/written"
+          today=$(date -u +%F)
+          grep -qx "date: $today" "$scratch/releases/$version.yaml" \
+            || { echo "::error::release.cs --sbom did not set date: to $today"; exit 1; }
+          if grep -rhoE '"created": *"[^"]*"' "$scratch/written" | grep -v "\"$today"'T00:00:00Z"' ; then
+            echo "::error::an SBOM was not created at ${today}T00:00:00Z"; exit 1
+          fi
+          dotnet run eng/sbom.cs -- --version "${version#v}" --created "$today" \
+            --out "$scratch/again" --descriptor "$scratch/releases/$version.yaml"
+
       - name: Upload the test results
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
