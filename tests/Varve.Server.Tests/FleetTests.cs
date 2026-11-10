@@ -97,6 +97,36 @@ public abstract class FleetCases : IAsyncDisposable
         Assert.Equal(0, proxy.Lists("/e/"));
     }
 
+    // #189: a state write through a follower is forwarded with its If-Match,
+    // and the follower answers what the system writer answered.
+    [Fact]
+    public async Task A_state_write_through_the_follower_is_held_to_its_if_match_by_the_writer()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container);
+        long declared = await DeclareAsync(a, "d");
+        Server b = await StartAsync("b", container);
+        await WaitDeclaredAsync(b, declared, "d", "follower");
+        string tag = (await a.Http.GetAsync(new Uri(a.Address, "manage/datasets/d"), Ct)).Headers.ETag!.Tag;
+
+        // One below the graph's version: a position it held, not the current one.
+        string staleTag = "\"" + (long.Parse(tag.Trim('"'), System.Globalization.CultureInfo.InvariantCulture) - 1).ToString(System.Globalization.CultureInfo.InvariantCulture) + "\"";
+        HttpResponseMessage stale = await PutState(b, "d", "{\"state\":\"closed\"}", staleTag);
+        Assert.Equal(HttpStatusCode.PreconditionFailed, stale.StatusCode);
+        Assert.Contains("precondition-failed", await stale.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        Assert.Equal(tag, (await a.Http.GetAsync(new Uri(a.Address, "manage/datasets/d"), Ct)).Headers.ETag!.Tag);
+
+        HttpResponseMessage current = await PutState(b, "d", "{\"state\":\"closed\"}", tag);
+        Assert.Equal(HttpStatusCode.NoContent, current.StatusCode);
+    }
+
+    private static async Task<HttpResponseMessage> PutState(Server server, string dataset, string json, string ifMatch)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Put, new Uri(server.Address, "manage/datasets/" + dataset + "/state")) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+        request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+        return await server.Http.SendAsync(request, Ct);
+    }
+
     [Fact]
     public async Task The_data_plane_keeps_serving_with_the_system_writer_killed()
     {
