@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Varve.Protocol.Client;
@@ -27,7 +26,7 @@ public sealed class ShellFacts(VarveManagementClient management)
     /// <summary>Raised when a read changed what the shell shows.</summary>
     public event Action? Changed;
 
-    /// <summary>The instance that answered: "varve-1 · system writer", or the role alone while the server does not name the instance (#193).</summary>
+    /// <summary>The instance that answered: "varve-1 · system writer"; the role alone from a server that predates naming it (#193).</summary>
     public string? Instance { get; private set; }
 
     /// <summary>The datasets the selector offers, by name.</summary>
@@ -67,8 +66,6 @@ public sealed class ShellFacts(VarveManagementClient management)
         }
 
         string system = "system " + role.Value;
-        return plane.Members.TryGetValue("instance", out JsonElement name) && name.ValueKind == JsonValueKind.String && name.GetString() is { Length: > 0 } instance
-            ? instance + " · " + system
-            : system;
+        return plane.Instance is { } instance ? instance.Value + " · " + system : system;
     }
 }

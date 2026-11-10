@@ -58,6 +58,12 @@ internal static class ManagementEndpoints
         context.Response.Headers.CacheControl = "no-store";
         await WriteJsonAsync(context, StatusCodes.Status200OK, json =>
         {
+            // The instance that answered: never forwarded, so a follower names itself.
+            if (status.Instance is { Length: > 0 } instance)
+            {
+                json.WriteString("instance", instance);
+            }
+
             json.WriteString("role", status.Role switch { ManagementRole.Writer => "writer", ManagementRole.Follower => "follower", _ => "superseded" });
             json.WriteNumber("epoch", status.Epoch);
             json.WriteNumber("position", status.Applied.Value);
