@@ -24,6 +24,11 @@ positions in columns beside its keys and its rows within a key section
 set is read, and rewritten by maintenance
 ([ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md)).
 
+**Amended 2026-11-10** (ADR 0068), by #227, unaccepted until the maintainer
+accepts it (ADR 0066): a set written from the log spills its window's terms
+([ADR 0241](0241-memory-bounds-for-writing-checkpointing-and-reopening.md)
+point 3). See the end.
+
 Builds on [ADR 0138](0138-validity-intervals-in-the-default-projection.md),
 whose sets this ADR lays out, and on ADR 0140's T7. **Amends**
 [ADR 0071](0071-synchronous-reads-over-asynchronous-storage.md) (a blob read
@@ -271,3 +276,26 @@ Filed by #133, unaccepted until the maintainer accepts it (ADR 0066).
 - **The page cache** is unchanged. A read inside a set's window now fetches
   the pages its keys' blocks and column entries are on, not every page of the
   set.
+
+## Amendment, 2026-11-10 — a set written from the log spills its window's terms
+
+Filed by #227 with ADR 0241, unaccepted until the maintainer accepts it
+(ADR 0066).
+
+A set's rows are sorted outside memory, so writing one "holds the sorts'
+buffers, never the state it materialises". Its dictionary extent was not
+written that way: every term the window allocated was held, as read from
+the log, and then again as one term section. A first checkpoint's window is
+the whole log, so its dictionary was the dataset's: 1.2 million terms were
+387 MB (#227).
+
+**So:** a set written from the log holds at most about 16 MiB of its
+window's terms. Past that it writes them to a spill under the spill prefix
+as a term section in a run of kind 7, reads the section back from the
+spill, and writes the dictionary extent from the spilled sections and the
+last, the way a merge writes one from its inputs' (ADR 0241 point 3). The
+spills are deleted once the set is written, and by the open's sweep after a
+crash.
+
+The dictionary extent's bytes are what they were: the same entries in the
+same order, the same hash index and filter. No format changes.
