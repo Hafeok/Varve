@@ -1,0 +1,8 @@
+{
+  "parameters": {
+    "Title": "The server did not answer",
+    "Warn": true,
+    "ChildContent": "<code>https://varve.example/</code>: Connection refused. Last read <code>2026-10-27T09:58:12Z</code>.",
+    "Actions": "<button class=\"vw-button vw-button--small\" type=\"button\">Read again</button>"
+  }
+}

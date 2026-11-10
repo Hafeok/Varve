@@ -12,6 +12,105 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.20] - 2026-10-28
+
+**Web UI, part 1 — the operator console in the browser**
+
+### Milestone Web UI, part 1 — the operator console (#167, part 1 of #96)
+
+`Varve.WebUi` is a Blazor WebAssembly client of the public API, with no
+endpoints of its own. It shows:
+- the datasets, a dataset's status (at its head or as of a position);
+- the fleet;
+- a dataset's commits, followed live, and a commit's delta;
+- a dataset's declarations: its grants as a table and as source, its
+  agents and roles, its graph templates and its shapes.
+
+The shell names the instance that answered, by its role in the system
+dataset, and who is signed in on each plane, and the navigation holds a
+dataset's own screens under a dataset selector.
+
+It takes a checkpoint, and closes and opens a dataset, each through a
+confirmation that names the drift from Git. It is published as
+`varve-webui-<version>.zip`, attested with its build provenance and its
+SBOM, as every package is. The server serves it
+under `/ui/` when `Varve:WebUi:Path` names it, and any static host can
+serve it too. The storage and delta formats are unchanged. The seven ADRs
+are filed unaccepted and accepted on the pull request (ADR 0066). #96
+stays open for part 2, the data explorer.
+
+#### Added
+
+- **The Web UI** (ADR 0200).
+  - It is trimmed and interpreted, not AOT-compiled.
+  - Its download is 1.85 MB brotli-compressed, gated at 1,920,000 bytes
+    by `eng/browser-size.cs` (ADR 0205).
+  - AOT measured at 4.11 MB, and loaded no faster.
+- **Its design source is `docs/ui/`** (ADR 0206): the tokens, the
+  components' cases, and the reference screens.
+  - Every component renders the markup its cases pin, checked by bUnit.
+  - `VARVE0006` holds the levels apart, `App` at the top, and only pages
+    and the app call the API. Every type of the Web UI is checked: one in
+    no level holds no service.
+- **Its own OIDC client** (ADR 0201).
+  - Sign-in is authorisation code with PKCE, written on the BCL.
+  - Each plane gets its own token: the data plane from the code exchange,
+    the management plane from a refresh grant for its scope alone. Where
+    `Varve:Auth:ManageGrant` is `exchange` (Zitadel), each plane's token
+    is exchanged (RFC 8693) from the sign-in's, and the Web UI refuses to
+    send any token naming more than one audience.
+  - Tokens live in the tab's memory. A reload signs in again with
+    `prompt=none`.
+  - The shell names the agent each plane's token names, with its roles
+    (`Varve:Auth:RoleClaimType`), for display only.
+- **`Varve:WebUi:Path`** (ADR 0202).
+  - The server serves the bundle under `/ui/`, with a Content Security
+    Policy: `script-src 'self' 'wasm-unsafe-eval'`, no inline script or
+    style, and the issuer's origin in `connect-src`.
+  - A compressed copy older than its file is never sent.
+- **Typed reads in `Varve.Protocol.Client`** (ADR 0203).
+  - `VarveManagementClient` and `VarveHealthClient` answer a
+    `VarveResult<T>`, with the problem read whole.
+  - New calls: the checkpoint and state acts, and
+    `SparqlHttpClient.ReadCommitsAsync` and `ReadCommitAsync`.
+  - Nothing was removed.
+- **Browser tests on the runner's Chrome** (ADR 0204), in the required job
+  `web ui in Chromium`:
+  - axe-core on every screen and dialog, in both themes, with no violation
+    and no policy violation;
+  - the skip link first;
+  - anonymous mode, and sign-in against mock-oauth2-server and Zitadel;
+  - a token naming both audiences, refused by both planes.
+- **The operator guide's Web UI page,** `docs/operator/web-ui.md`.
+- **The bundle's SBOM** (ADRs 0224 and 0225, amended). `eng/sbom.cs`
+  writes it from the Web UI's locked restore: the packages its browser
+  build deploys, Varve's own libraries, the package that carries
+  `blazor.webassembly.js`, the .NET runtime relinked into it, and
+  Emscripten's packs by package URL: its system libraries as contained,
+  its compiler and Node.js as build tools. The bundle resolves nothing
+  outside NuGet. This descriptor names the zip
+  with its SBOM's SHA-256 as an `asset:` line, and the release carries
+  both. Verify with `gh attestation verify varve-webui-<version>.zip
+  --owner hafeok`.
+
+#### Changed
+
+- **`BearerToken.Fixed` is `BearerTokens.Fixed`** (ADR 0127, amended).
+  The fixed provider sits beside the delegate type, not on it.
+- **The maintainer's delegate** (ADR 0239, amending ADRs 0066 and 0087).
+  One session on the maintainer's own machine, with his key, may approve
+  a pull request's head, land it, and write an acceptance for a decision
+  he has read. Its approvals read `approve <sha> (delegate)`, and its
+  commits for him carry a `Delegated-by` trailer. Nothing ships in a
+  package for it; `AGENTS.md` says the same.
+
+#### Not yet
+
+- **The state route ignores `If-Match`,** so the "Reload at head" path a
+  `412` would take is tested against a fake server only (#189).
+- **The instance's name:** `/manage/system` does not serve it, so the
+  shell shows the instance's role alone (#193).
+
 ## [0.1.0-preview.19] - 2026-10-30
 
 **Row-level access through the classifier — the first part of milestone 9**
@@ -2068,7 +2167,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.19...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.20...HEAD
+[0.1.0-preview.20]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.19...v0.1.0-preview.20
 [0.1.0-preview.19]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.18...v0.1.0-preview.19
 [0.1.0-preview.18]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.17...v0.1.0-preview.18
 [0.1.0-preview.17]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.16...v0.1.0-preview.17
