@@ -119,6 +119,11 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("formats-fixtures", "the format gate passes and refuses its fixtures as their names say",
         () => Run("dotnet", ["run", "eng/formats.cs", "--", "--fixtures", "tests/fixtures/formats"])),
 
+    // land.cs's closing-trailer checks, before a push and after main moved,
+    // on every run (#209, tests/fixtures/land/README.md).
+    ("land-fixtures", "land.cs refuses a missing or unmet Completes: line and reports an issue left open after landing, as its fixtures say",
+        () => Run("dotnet", ["run", "eng/land.cs", "--", "--fixtures", "tests/fixtures/land"])),
+
     // The release gate's refusal of stale or red evidence from main, preview and not, proven on
     // every run (ADR 0215, tests/fixtures/release-freshness/README.md).
     ("release-freshness-fixtures", "the release gate's freshness check, preview and not, passes and refuses its fixtures as their names say",

@@ -10,6 +10,7 @@
 //
 //   --name <name>   the land/ branch's name, in place of the one worked out
 //   --print         print the git commands, run none
+//   --fixtures <dir>  judge the closing-trailer fixtures (tests/fixtures/land/)
 //
 // ADR 0088: main accepts only a commit whose checks have passed, and a human
 // gets one there by pushing it to land/<name>, letting CI and `agent review`
@@ -35,7 +36,20 @@
 // `--main` refuses unless land/<name> on origin is the same commit, so main
 // moves only to the commit that was checked there.
 //
-// Exit codes: 0 done, 1 refused, 2 could not run.
+// Closing trailers (#209). At both steps it lists every issue a `Closes`,
+// `Fixes` or `Resolves #N` trailer line in the pushed commits will close,
+// with its title. A pull request's body must carry one line `Completes: #N,
+// ...` or `Completes: none` (the pull request template); the landing is
+// refused when that line is missing, malformed, or names an issue no trailer
+// closes. A release descriptor's own trailer is a commit's trailer like any
+// other, so it counts. A `--commit` landing has no pull request, so it is only
+// listed. After `--main` has moved main, every issue a pushed trailer names
+// must be closed: one still open is printed with its commit and the exit is
+// non-zero. It never closes anything itself, and when GitHub cannot be read
+// it says so and exits non-zero rather than reporting success.
+//
+// Exit codes: 0 done, 1 refused (or an issue left open after landing), 2
+// could not run (GitHub unreadable included).
 //
 // See docs/adr/0088-only-checked-commits-reach-main.md.
 
@@ -43,6 +57,7 @@
 #:property NoWarn=$(NoWarn);CA2266
 
 using System.Diagnostics;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 const string Remote = "origin";
@@ -52,6 +67,7 @@ string? commit = null;
 string? name = null;
 bool toMain = false;
 bool print = false;
+string? fixtures = null;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -69,6 +85,9 @@ for (int i = 0; i < args.Length; i++)
         case "--name" when i + 1 < args.Length:
             name = args[++i];
             break;
+        case "--fixtures" when i + 1 < args.Length:
+            fixtures = args[++i];
+            break;
         case "--help" or "-h":
             Usage();
             return 0;
@@ -83,6 +102,11 @@ for (int i = 0; i < args.Length; i++)
             Usage();
             return 2;
     }
+}
+
+if (fixtures is not null)
+{
+    return Fixtures.Run(fixtures);
 }
 
 if (pullRequest is null == commit is null)
@@ -123,6 +147,29 @@ try
     {
         Console.Error.WriteLine($"land: main ({main[..12]}) is not an ancestor of {what}, so main cannot be fast-forwarded to it. Bring main into the branch, then approve the new head.");
         return 1;
+    }
+
+    List<Trailer> closing = Closings.Trailers(PushedCommits(main, head));
+    ListClosings(closing);
+    if (pullRequest is int declared)
+    {
+        string? body = PullRequestBody(declared);
+        if (body is null)
+        {
+            Console.Error.WriteLine($"land: could not read #{declared}'s body with the GitHub CLI, so its Completes: line cannot be checked; refusing rather than skipping it.");
+            return 2;
+        }
+
+        List<string> refusals = Closings.CheckCompletes(body, closing);
+        if (refusals.Count > 0)
+        {
+            foreach (string refusal in refusals)
+            {
+                Console.Error.WriteLine($"land: {refusal}");
+            }
+
+            return 1;
+        }
     }
 
     string? landed = RemoteHead(land);
@@ -172,12 +219,87 @@ try
 
     Console.WriteLine();
     Console.WriteLine($"land: main is at {head[..12]}.{(name.StartsWith("release-", StringComparison.Ordinal) ? " The release workflow now cuts the release it carries." : "")}");
-    return 0;
+    (int afterExit, List<string> afterSaid) = Closings.CheckClosed(closing, IssueStates(closing));
+    foreach (string line in afterSaid)
+    {
+        (afterExit == 0 ? Console.Out : Console.Error).WriteLine($"land: {line}");
+    }
+
+    return afterExit;
 }
 catch (GitException exception)
 {
     Console.Error.WriteLine($"land: {exception.Message}");
     return 2;
+}
+
+// The commits main..head, each its sha and full message.
+static List<(string Sha, string Message)> PushedCommits(string main, string head)
+{
+    List<(string, string)> commits = [];
+    foreach (string record in Git("log", "--format=%H%x00%B%x01", $"{main}..{head}").Split('\u0001', StringSplitOptions.RemoveEmptyEntries))
+    {
+        string trimmed = record.TrimStart('\n', '\r');
+        int separator = trimmed.IndexOf('\0', StringComparison.Ordinal);
+        if (separator > 0)
+        {
+            commits.Add((trimmed[..separator], trimmed[(separator + 1)..]));
+        }
+    }
+
+    return commits;
+}
+
+static void ListClosings(List<Trailer> closing)
+{
+    if (closing.Count == 0)
+    {
+        Console.WriteLine("land: the push closes no issue.");
+        return;
+    }
+
+    Console.WriteLine("land: the push closes:");
+    foreach (IGrouping<int, Trailer> issue in closing.GroupBy(static trailer => trailer.Issue).OrderBy(static group => group.Key))
+    {
+        (int exit, string title) = Try("gh", "api", $"repos/{{owner}}/{{repo}}/issues/{issue.Key}", "--jq", ".title");
+        string titled = exit == 0 ? $" {title.Trim()}" : "";
+        Console.WriteLine($"  #{issue.Key}{titled} ({string.Join(", ", issue.Select(static trailer => trailer.Sha[..12]))})");
+    }
+}
+
+static string? PullRequestBody(int number)
+{
+    (int exit, string output) = Try("gh", "api", $"repos/{{owner}}/{{repo}}/pulls/{number}", "--jq", ".body // \"\"");
+    return exit == 0 ? output : null;
+}
+
+// Each issue's state, "open" or "closed", or null when GitHub cannot be read.
+// GitHub closes an issue a little after the push, so an open one is asked
+// again for up to a minute before it counts.
+static Dictionary<int, string>? IssueStates(List<Trailer> closing)
+{
+    Dictionary<int, string> states = [];
+    int[] issues = [.. closing.Select(static trailer => trailer.Issue).Distinct()];
+    for (int attempt = 0; ; attempt++)
+    {
+        foreach (int issue in issues)
+        {
+            (int exit, string output) = Try("gh", "api", $"repos/{{owner}}/{{repo}}/issues/{issue}", "--jq", ".state");
+            if (exit != 0)
+            {
+                return null;
+            }
+
+            states[issue] = output.Trim();
+        }
+
+        if (attempt >= 6 || states.Values.All(static state => state == "closed"))
+        {
+            return states;
+        }
+
+        Thread.Sleep(TimeSpan.FromSeconds(10));
+    }
 }
 
 // release-<version>, when the head adds a descriptor that main does not have.
@@ -288,6 +410,166 @@ static void Usage() => Console.Error.WriteLine("""
     options:
       --name <name>   the land/ branch's name, in place of the one worked out
       --print         print the git commands, run none
+      --fixtures <dir>  judge the closing-trailer fixtures
     """);
 
 sealed class GitException(string message) : Exception(message);
+
+sealed record Trailer(int Issue, string Sha);
+
+// The decisions, over plain values, so that the fixtures can judge them
+// without git or GitHub.
+static class Closings
+{
+    // eng/issue-refs.cs's closingTrailer: a closing keyword and a number,
+    // alone on a line. The subject line is not a trailer.
+    static readonly Regex ClosingTrailer = new(@"^\s*(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+(?:(?<repository>[\w.-]+/[\w.-]+))?#(?<issue>\d+)\s*$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    static readonly Regex CompletesLine = new(@"^[ \t]*Completes:[ \t]*(?<value>.*?)[ \t]*$", RegexOptions.Multiline | RegexOptions.CultureInvariant);
+
+    public static List<Trailer> Trailers(IEnumerable<(string Sha, string Message)> commits)
+    {
+        List<Trailer> trailers = [];
+        foreach ((string sha, string message) in commits)
+        {
+            foreach (string line in message.Split('\n').Skip(1))
+            {
+                Match match = ClosingTrailer.Match(line.TrimEnd('\r'));
+                if (match.Success && (!match.Groups["repository"].Success || match.Groups["repository"].Value.Equals("Hafeok/Varve", StringComparison.OrdinalIgnoreCase)))
+                {
+                    trailers.Add(new Trailer(int.Parse(match.Groups["issue"].Value, System.Globalization.CultureInfo.InvariantCulture), sha));
+                }
+            }
+        }
+
+        return trailers;
+    }
+
+    // What a pull request's Completes: line refuses. Empty means it may land.
+    public static List<string> CheckCompletes(string body, List<Trailer> closing)
+    {
+        // Text inside HTML comments is the template's guidance, not the line.
+        string visible = Regex.Replace(body, "<!--.*?-->", "", RegexOptions.Singleline);
+        MatchCollection lines = CompletesLine.Matches(visible);
+        if (lines.Count == 0)
+        {
+            return ["the pull request has no `Completes:` line. Add `Completes: #N, ...` naming every issue it completes, or `Completes: none` (#209)."];
+        }
+
+        if (lines.Count > 1)
+        {
+            return ["the pull request has more than one `Completes:` line; keep one."];
+        }
+
+        string value = lines[0].Groups["value"].Value;
+        if (value.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
+        }
+
+        HashSet<int> declared = [];
+        foreach (string item in value.Split(',', StringSplitOptions.TrimEntries))
+        {
+            Match number = Regex.Match(item, @"^#(\d+)$");
+            if (!number.Success)
+            {
+                return [$"the `Completes:` line reads '{value}'; it is `Completes: none` or issues as #N separated by commas."];
+            }
+
+            declared.Add(int.Parse(number.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        HashSet<int> closed = [.. closing.Select(static trailer => trailer.Issue)];
+        return [.. declared.Where(issue => !closed.Contains(issue)).Order().Select(static issue =>
+            $"the pull request completes #{issue}, and no pushed commit closes it. Add a `Closes #{issue}` trailer line to the commit that completes it.")];
+    }
+
+    // After main moved: 0 when every closed issue is closed, 1 when one is
+    // still open, 2 when the states could not be read.
+    public static (int Exit, List<string> Said) CheckClosed(List<Trailer> closing, Dictionary<int, string>? states)
+    {
+        if (closing.Count == 0)
+        {
+            return (0, []);
+        }
+
+        if (states is null)
+        {
+            return (2, ["could not read the closed issues' state from GitHub (no token, or a rate limit), so the closings are not confirmed. Check them by hand."]);
+        }
+
+        List<string> said = [];
+        foreach (IGrouping<int, Trailer> issue in closing.GroupBy(static trailer => trailer.Issue).OrderBy(static group => group.Key))
+        {
+            if (!states.TryGetValue(issue.Key, out string? state) || state != "closed")
+            {
+                said.Add($"#{issue.Key} is still open, though {string.Join(", ", issue.Select(static trailer => trailer.Sha[..12]))} closes it. Close it by hand with a comment naming the commit on main.");
+            }
+        }
+
+        return said.Count == 0
+            ? (0, [$"every issue the push closes is closed: {string.Join(", ", closing.Select(static trailer => $"#{trailer.Issue}").Distinct())}."])
+            : (1, said);
+    }
+}
+
+// tests/fixtures/land/: each case a JSON file. `step` is "push" (the
+// Completes: check before a push) or "landed" (the check after main moved).
+// `commits` are the pushed commits ({sha, message}); `body` the pull request's
+// body; `states` the issues' states, null when GitHub cannot be read. A
+// `pass-` case must pass and a `fail-` case be refused, and `says` lists text
+// the output must contain.
+static class Fixtures
+{
+    public static int Run(string directory)
+    {
+        string[] cases = [.. Directory.GetFiles(directory, "*.json").Order(StringComparer.Ordinal)];
+        int wrong = 0;
+        foreach (string file in cases)
+        {
+            using JsonDocument fixture = JsonDocument.Parse(File.ReadAllText(file));
+            JsonElement root = fixture.RootElement;
+            List<Trailer> closing = Closings.Trailers(root.GetProperty("commits").EnumerateArray()
+                .Select(static commit => (commit.GetProperty("sha").GetString()!, commit.GetProperty("message").GetString()!)));
+            string step = root.GetProperty("step").GetString()!;
+            (bool passes, List<string> said) = step switch
+            {
+                "push" => Push(root, closing),
+                "landed" => Landed(root, closing),
+                _ => throw new InvalidOperationException($"{file}: unknown step '{step}'"),
+            };
+
+            string output = string.Join("\n", said);
+            string[] missing = root.TryGetProperty("says", out JsonElement says)
+                ? [.. says.EnumerateArray().Select(static line => line.GetString()!).Where(line => !output.Contains(line, StringComparison.Ordinal))]
+                : [];
+            bool expected = Path.GetFileName(file).StartsWith("pass-", StringComparison.Ordinal);
+            bool right = passes == expected && missing.Length == 0;
+            wrong += right ? 0 : 1;
+            Console.WriteLine((right ? "ok   " : "FAIL ") + Path.GetFileName(file) + ": " + (said.Count == 0 ? "lands" : string.Join(" ", said)));
+            foreach (string line in missing)
+            {
+                Console.WriteLine("     the output does not say: " + line);
+            }
+        }
+
+        Console.WriteLine(cases.Length + " cases, " + wrong + " judged wrong");
+        return cases.Length > 0 && wrong == 0 ? 0 : 1;
+    }
+
+    static (bool, List<string>) Push(JsonElement root, List<Trailer> closing)
+    {
+        List<string> refusals = Closings.CheckCompletes(root.GetProperty("body").GetString()!, closing);
+        return (refusals.Count == 0, refusals);
+    }
+
+    static (bool, List<string>) Landed(JsonElement root, List<Trailer> closing)
+    {
+        JsonElement states = root.GetProperty("states");
+        Dictionary<int, string>? read = states.ValueKind == JsonValueKind.Null
+            ? null
+            : states.EnumerateObject().ToDictionary(static state => int.Parse(state.Name, System.Globalization.CultureInfo.InvariantCulture), static state => state.Value.GetString()!);
+        (int exit, List<string> said) = Closings.CheckClosed(closing, read);
+        return (exit == 0, said);
+    }
+}
