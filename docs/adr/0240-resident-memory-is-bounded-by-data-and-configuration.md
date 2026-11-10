@@ -163,20 +163,25 @@ build before this one reads what this one writes, and the reverse.
   whole either way.
 - **An operator can trade memory for as-of latency** with one setting, and
   see what is used.
-- **The soak judge's allowance, 60 bytes a commit, has no cost left to
-  cover, and is not lowered here.**
-  - In the gate's configuration, read at minute 90 of a local run, the judge
-    holds, and the managed heap's slope from minute 30 is −1.4 ± 3.4 bytes a
-    commit where the nightly's over the same window was 27.2 ± 5.0. The
-    directories on disk still grow, 21 bytes a commit.
-  - The working set on the session's shared machine was too noisy to take a
-    figure from: −16 ± 46 bytes a commit. The allowance should come from a
-    run on the gate's runner: its slope, three standard errors, and the seek
-    cache's fill. That is ADR 0215's to amend then.
+- **The soak judge's allowance, 60 bytes a commit, is not lowered here.**
+  - In the gate's configuration, a local run of four hours (503,983
+    commits), the judge holds at 11.8 bytes a commit of 60. From minute 30
+    the managed heap's slope is 9.4 ± 0.7 bytes a commit, where the nightly's
+    was 36.5; the directories on disk grow 34.8 bytes a commit and the heap
+    no longer follows them.
+  - Of the 9.4, the seek cache's fill is 5.4 ± 0.1. The other 4 or so is not
+    attributed: the run was not quiesced, and the quiesced heap snapshots to
+    a million commits show no owner growing. It is small, and it is not
+    shown to be nothing.
+  - The working set's slope was 12.3 ± 6.8 bytes a commit on the session's
+    shared machine, and −17 ± 48 read at minute 90. From this run alone the
+    allowance would be about 33: the slope and three standard errors. The
+    figure should come from a run on the gate's runner, and is ADR 0215's to
+    amend then.
   - **The seek cache fills slowly, not quickly.** It is bounded by its
     ceiling, and in the soak it holds the directories of the sets that cover
-    the as-of reads' horizon of 10,000 positions: 0.9 MB at minute 90,
-    growing about 5 bytes a commit as merges make those sets larger, up to
+    the as-of reads' horizon of 10,000 positions: 0.9 MB at minute 90
+    and 2.5 MB at minute 240, growing about 5 bytes a commit as merges make those sets larger, up to
     `MaxSetBytes`. So a judged window cannot wait for it to be full in four
     hours, and the allowance carries its fill until then. The soak prints
     what it holds, and takes `--seek-cache` to run with a smaller ceiling.

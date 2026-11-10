@@ -69,11 +69,13 @@ run.
 **The soak in the gate's configuration**, run locally because the workflow
 cannot be dispatched on a branch (the nightly's soak jobs run only on
 `main`, and the branch does not build under warnings as errors until its
-decisions are accepted). Read at minute 90 of 240: the judge holds; the
-managed heap's slope is −1.4 ± 3.4 bytes a commit against the nightly's
-27.2 ± 5.0 over the same window; the working set's, on a shared machine, is
-−16 ± 46 and too noisy to set an allowance from. Posted on #222 and noted on
-#229. No lower allowance is proposed from it.
+decisions are accepted). It ran its four hours, 503,983 commits: the judge holds at 11.8 bytes a
+commit of 60. From minute 30 the managed heap's slope is 9.4 ± 0.7 bytes a
+commit against the nightly's 36.5, of which the seek cache's fill is
+5.4 ± 0.1 and about 4 is not attributed. The working set's slope is
+12.3 ± 6.8 on a shared machine (−17 ± 48 read at minute 90). Posted on #222
+and noted on #229. No lower allowance is adopted from it; from this run
+alone it would be about 33.
 
 **What the session could not show.**
 - The gate's second half: the four-hour soaks on Linux and Windows.
