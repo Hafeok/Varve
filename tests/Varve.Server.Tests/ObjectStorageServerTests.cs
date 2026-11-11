@@ -151,7 +151,16 @@ public sealed class ObjectStorageServerTests
             // The first server's next write finds the next slot taken.
             HttpResponseMessage refused = await UpdateAsync(first, "INSERT DATA { <http://ex/b> <http://ex/p> 2 }");
             Assert.Equal(HttpStatusCode.ServiceUnavailable, refused.StatusCode);
-            Assert.Contains("writer-superseded", await refused.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+            string refusal = await refused.Content.ReadAsStringAsync(Ct);
+            Assert.Contains("writer-superseded", refusal, StringComparison.Ordinal);
+
+            // It names the writer that holds the epoch now, and the epoch (ADR 0242).
+            using (System.Text.Json.JsonDocument problem = System.Text.Json.JsonDocument.Parse(refusal))
+            {
+                Assert.Equal("http://127.0.0.1:9/second", problem.RootElement.GetProperty("writer").GetString());
+                Assert.Equal(2, problem.RootElement.GetProperty("epoch").GetInt64());
+                Assert.Contains("send writes there", problem.RootElement.GetProperty("detail").GetString(), StringComparison.Ordinal);
+            }
 
             HttpResponseMessage ready = await first.Client.GetAsync(new Uri("health/ready", UriKind.Relative), Ct);
             Assert.Equal(HttpStatusCode.ServiceUnavailable, ready.StatusCode);

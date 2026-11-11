@@ -9,6 +9,11 @@
 
 A pre-commit validator rejected the commit; `report` is the validator's report as term lines (ADRs 0017, 0058, 0094).
 
+## What to do
+
+A client: read `report`, fix what the validator names, and send the write
+again. The same write is rejected again.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

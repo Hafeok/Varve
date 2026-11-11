@@ -45,6 +45,14 @@ Never send the write again unconditionally: it may be committed twice.
   it touches what the first touched; read the graphs `conflict` names before
   deciding, since another write may also have come first.
 
+## What to do
+
+- A client: settle it as [Settling it](#settling-it) says, or send the write
+  again only conditionally, as [Sending it again](#sending-it-again) says.
+  Never send it again unchanged.
+- An operator: on a full disk, free space under the dataset; the next write
+  tries the storage again by itself ([`storage-full`](storage-full.md)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

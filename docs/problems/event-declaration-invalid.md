@@ -27,6 +27,14 @@ declaration (ADR 0145, `docs/spec/events.md` §7.1). Nothing was committed.
 declaration's, in this dataset. It never names that declaration, its graph,
 its class or its version, so a caller learns nothing of a graph it cannot read.
 
+## What to do
+
+A client: fix the declaration as `reason` says and commit again; the same
+commit is refused again. Retire a type with `varve:eventRetired true` rather
+than removing it. The rules are [`docs/spec/events.md`](../spec/events.md)
+§7.1, and [Integrate](../operator/integrate.md) shows a declaration that
+passes.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

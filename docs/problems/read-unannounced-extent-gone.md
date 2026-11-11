@@ -15,6 +15,13 @@ this is not damage. Read again: a fresh attach reads the newest catalog. A
 read that must not be cut this way needs an identity that can write its
 record under `readers/`.
 
+## What to do
+
+- Read again: a fresh attach reads the newest catalog.
+- If a read must not be cut, run it without `--unannounced`, under an
+  identity that may write its record under `readers/`
+  ([Back up and restore](../operator/backup-and-restore.md#readers-and-retained-bytes)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

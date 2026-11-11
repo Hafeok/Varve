@@ -9,6 +9,12 @@
 
 A live tail beyond `Varve:Limits:MaxLiveTailsPerClient` for one client, the token's subject or the remote address (ADR 0114). `limit` is the bound.
 
+## What to do
+
+- A client: close a live tail you no longer need before opening another.
+- An operator: raise `Varve:Limits:MaxLiveTailsPerClient` if a client needs
+  more ([Configure](../operator/configure.md)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

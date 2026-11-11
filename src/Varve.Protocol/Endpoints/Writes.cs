@@ -312,6 +312,34 @@ internal static class Writes
     private static readonly RdfTerm ManagementPositionDatatype = RdfTerm.Iri(Encoding.UTF8.GetBytes(ManagementOrder.PositionDatatype));
 
     /// <summary>
+    /// <c>503 writer-superseded</c>: nothing was committed, and when this
+    /// instance can learn it, the writer that holds the epoch now and its
+    /// epoch (ADR 0242).
+    /// </summary>
+    internal static async Task SupersededAsync(Exchange exchange, WriterSupersededException superseded)
+    {
+        // Who holds the epoch now, as the store records it, rather than what
+        // this instance believes (ADR 0242). A fleet of one has no one to name.
+        WriterRoute route = WriterRoute.Local;
+
+        if (exchange.Options.Writers is { } directory && exchange.Name != DatasetName.Default)
+        {
+            route = await directory.HolderAsync(new WriterTarget(exchange.Name), exchange.Context.RequestAborted).ConfigureAwait(false);
+        }
+
+        string? writer = route.Kind == WriterRouteKind.Remote ? route.Address : null;
+        string detail = superseded.Message + (writer is not null ? " The writer now is " + writer + ", at epoch " + route.Epoch.ToString(System.Globalization.CultureInfo.InvariantCulture) + ": send writes there." : "");
+        await HttpProblems.WriteAsync(exchange.Context, ProblemType.WriterSuperseded, detail, members =>
+        {
+            if (writer is not null)
+            {
+                members.String("writer", writer);
+                members.Number("epoch", route.Epoch);
+            }
+        }).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Commits the request; null when the dataset's storage no longer holds
     /// the writer epoch (ADR 0136), after answering <c>503 writer-superseded</c>:
     /// nothing was committed.
@@ -324,7 +352,7 @@ internal static class Writes
         }
         catch (WriterSupersededException superseded)
         {
-            await HttpProblems.WriteAsync(exchange.Context, ProblemType.WriterSuperseded, superseded.Message).ConfigureAwait(false);
+            await SupersededAsync(exchange, superseded).ConfigureAwait(false);
             return null;
         }
         catch (WriterSteppedDownException stepped)

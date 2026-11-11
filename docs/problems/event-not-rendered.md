@@ -23,6 +23,14 @@ the same place, with the same bytes.
   - `datatype`: a value is not of its field's datatype, or has no JSON form, such as a date or time without a timezone;
   - `number`: a number fails the number rule.
 
+## What to do
+
+- A consumer: the problem stands at that place for good, and a replay yields
+  it again. Skip it, or report the `event` to whoever writes the dataset.
+- A producer: fix the data or the declaration for later events. For
+  `number`, declare the field `varve:fieldAs "string"`
+  ([Integrate](../operator/integrate.md)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

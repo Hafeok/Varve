@@ -17,6 +17,14 @@ instance attaches again, with a fresh record and the newest catalog; retry
 the request. If it recurs, give each instance its own reader id
 (`Varve:ObjectStorage:ReaderId`).
 
+## What to do
+
+- A client: retry the request.
+- An operator: if it recurs, give each instance its own
+  `Varve:ObjectStorage:ReaderId` ([Configure](../operator/configure.md)), and
+  run `varve storage readers forget` only for a reader you know is gone
+  ([Back up and restore](../operator/backup-and-restore.md#readers-and-retained-bytes)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

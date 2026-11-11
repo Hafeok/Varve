@@ -20,6 +20,16 @@ the binding or its shapes are fixed.
 - `binding` is the binding's IRI, in canonical N-Triples.
 - `shapes` lists each full construct by `shape`, `construct` and `section`.
 
+## What to do
+
+- An operator or the dataset's admin: change the shapes so no shape is full,
+  declare `varve:allowFullEvaluation true` on the binding to accept the cost,
+  or set its `varve:validationMode` to `varve:Report`. `GET
+  /manage/datasets/{name}/bindings/{enc(binding)}` shows each shape's class
+  and the construct that decided it ([Shapes](../operator/shapes.md)).
+- A client: data commits are refused until that is done; sending one again
+  does not help.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

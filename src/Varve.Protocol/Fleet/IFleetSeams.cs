@@ -34,6 +34,13 @@ public interface IWriterDirectory
     /// not be reached. The next route is read again.
     /// </summary>
     void Stale(WriterTarget target);
+
+    /// <summary>
+    /// Who holds <paramref name="target"/>'s writer epoch as the store records
+    /// it now, whatever this instance believes its own role is: what a
+    /// superseded writer names in its refusal (ADR 0242). By default, the route.
+    /// </summary>
+    ValueTask<WriterRoute> HolderAsync(WriterTarget target, CancellationToken cancellationToken) => RouteAsync(target, cancellationToken);
 }
 
 /// <summary>

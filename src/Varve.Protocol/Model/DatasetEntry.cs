@@ -85,6 +85,22 @@ public enum AdminOutcome : byte
     Failed = 4,
 }
 
+/// <summary>
+/// Why a dataset failed, as far as what to do next goes (ADR 0242): whether a
+/// retry can help.
+/// </summary>
+public enum DatasetFailure : byte
+{
+    /// <summary>Anything else: the host tries again, and a retry may help.</summary>
+    Transient = 0,
+
+    /// <summary>Its log does not verify: no retry fixes it; restore it from a backup.</summary>
+    Damaged = 1,
+
+    /// <summary>The host's configuration or build cannot open it: change the setting, or upgrade.</summary>
+    Configuration = 2,
+}
+
 /// <summary>One dataset the host knows: its name, state, storage, origin, and when open its id and head (ADR 0106).</summary>
 public sealed class DatasetEntry
 {
@@ -116,6 +132,9 @@ public sealed class DatasetEntry
     /// <summary>Why it is failed, or null.</summary>
     [DesignDecision(typeof(ModelNamespacesForLayers3To5.FailureTextIsDisplayText), Scope = ExceptionScope.Boundary)]
     public string? Reason { get; }
+
+    /// <summary>When failed, whether a retry can help (ADR 0242); null when not failed.</summary>
+    public DatasetFailure? Failure { get; init; }
 
     /// <summary>The dataset's own identity, when open.</summary>
     public DatasetId? Id { get; }
