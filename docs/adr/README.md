@@ -216,7 +216,7 @@ Filed by milestone 7a ([#11](https://github.com/Hafeok/Varve/issues/11)), unacce
 | [0097](0097-the-change-feed-and-the-diff.md) | The change feed and the diff: a line format, SSE for tailing | Accepted; `docs/spec/change-feed.md`; amended 2026-10-09 (the commits resource) |
 | [0098](0098-blank-nodes-at-the-protocol-boundary.md) | Blank nodes at the protocol boundary: stable labels out, fresh in, no skolem IRIs | Accepted; closes Q1, spec 1.6 |
 | [0099](0099-register-jwtbearer-and-the-workflows-containers.md) | Register: `JwtBearer` in the server; no Testcontainers; the shared framework | Accepted; conditional on the server's AOT publish; amended 2026-10-15 (storage services, filed unaccepted) |
-| [0100](0100-authentication-tested-in-three-layers.md) | Authentication tested in three layers | Accepted; refines 0037 |
+| [0100](0100-authentication-tested-in-three-layers.md) | Authentication tested in three layers | Accepted; refines 0037; point 4 **superseded in part by 0223** (the provider legs' credentials) |
 | [0101](0101-the-server-configuration-aot-shutdown-readiness.md) | The server: configuration, Native AOT, shutdown, readiness, status | Accepted; amended 2026-10-09 (health paths, unknown keys); amended 2026-10-15 (ObjectStorage, filed unaccepted) |
 
 Filed by milestone 7b ([#11](https://github.com/Hafeok/Varve/issues/11)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 7b, likewise unaccepted: 0004 (`Varve.Protocol.Client` speaks HTTP), 0057 (a data-only request expects no position), 0091 (the 7b seams).
@@ -427,7 +427,7 @@ Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 
 
 | # | Title | Status |
 |---:|---|---|
-| [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119) |
+| [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119); amended 2026-11-11 (the pin covers workload sets, #276) |
 | [0225](0225-the-sbom-generator.md) | The SBOM generator: `eng/sbom.cs`, SPDX 2.3, from the restore | Filed unaccepted (#119) |
 
 ## Milestone 9, part 1 — row-level access through the classifier (#202)
@@ -453,6 +453,14 @@ Filed by the landing session for [#244](https://github.com/Hafeok/Varve/issues/2
 | # | Title | Status |
 |---:|---|---|
 | [0239](0239-the-maintainers-delegate.md) | The maintainer's delegate: one session on his machine may approve, land and accept for him | Filed unaccepted (#244) |
+
+## The provider legs by federated credentials (#101)
+
+Filed by [#101](https://github.com/Hafeok/Varve/issues/101), unaccepted until the maintainer accepts it on its pull request (ADR 0066). Numbered 0223, between readiness A's 0213–0222 and readiness B's 0224 onward. Supersedes in part, likewise unaccepted: 0100 (point 4: the Entra and Google legs by GitHub's OIDC token, with no secret; `EntraAndGoogleBySecret` moves).
+
+| # | Title | Status |
+|---:|---|---|
+| [0223](0223-provider-legs-by-federated-credentials.md) | The provider legs by federated credentials: GitHub's OIDC token for Entra ID and Google | Filed unaccepted (#101) |
 
 ## Conformance — differential testing against Oxigraph
 
