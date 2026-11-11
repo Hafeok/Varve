@@ -224,6 +224,20 @@ branches still land one at a time. The review added landing trains for that.
 - **Merge commits.** The train's merge commits carry `Landing-only: merge`
   and are reproducible by `git merge-tree`. A merge that needed a resolution
   by hand disqualifies the train.
+- **The merge is pinned** *(settled in review, 2026-11-11)*. `eng/land.cs`,
+  which builds a train, and `eng/agent-review.cs`, which judges it, run
+  `git merge-tree` under the same settings, stated once in each:
+  - attributes are read from the train so far (the merge's first parent),
+    never from a working tree; the global and system attribute files are off;
+  - rename detection is on, directory renames are off, and the rename limit
+    is fixed;
+  - a repository-local `info/attributes` refuses the train, because it
+    changes how a merge resolves and neither tool can switch it off.
+
+  A tree that differs anyway, for instance from a different git, **refuses
+  the train**. The lander builds it again, and nothing is resolved by hand.
+  A merge driver that step 6 adds (`merge=union`) comes from the tree, so it
+  is pinned the same way.
 - **One run.** Every gate runs once, on the train's head. Green
   fast-forwards `main` to it.
 - **Releases.** A train carries at most one release descriptor, and that
