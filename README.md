@@ -43,26 +43,21 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.17` is the latest release, and it gave every shipped
-artefact an attested SBOM
-([#119](https://github.com/Hafeok/Varve/issues/119), in 1.0 by
-[#15](https://github.com/Hafeok/Varve/issues/15))**:
-- **Every package, the tool and the container image carry an SPDX 2.3 SBOM**
-  of exactly what they contain, generated from the locked restore and
-  byte-identical when generated twice. Each is attested keylessly beside the
-  artefact's build provenance, and named with its digest in the release
-  descriptor.
-- **The dependency gate checks every lockfile.** It fails an unadmitted or
-  stale package, a licence outside its scope, a native asset in a shipped
-  closure, an Action not pinned by SHA, or an audit exemption without its
-  VEX statement.
-- **`SECURITY.md` states the support period,** and
-  [`docs/supply-chain.md`](docs/supply-chain.md) says how to verify all of
-  it.
-
+**`v0.1.0-preview.20` is the latest release, and it is the Web UI's first
+part, the operator console in the browser
+([#167](https://github.com/Hafeok/Varve/issues/167), part 1 of
+[#96](https://github.com/Hafeok/Varve/issues/96))**: a Blazor WebAssembly
+client of the public API, with no endpoints of its own. It shows the datasets,
+a dataset's status at its head or as of a position, the fleet, the commits
+followed live with each commit's delta, and the grants and declaration source.
+It takes a checkpoint, and closes and opens a dataset, each through a
+confirmation. Sign-in is its own OIDC client, with one token per plane. The
+server serves it under `/ui/` with a strict Content Security Policy, or any
+static host can, from `varve-webui-<version>.zip`.
 `v0.1.0-preview.15` before it made an as-of read inside an extent set cost
 its matches, not the set
-([#133](https://github.com/Hafeok/Varve/issues/133)): a read at a position
+([#133](https://github.com/Hafeok/Varve/issues/133), in 1.0 by
+[#15](https://github.com/Hafeok/Varve/issues/15)): a read at a position
 inside a set's window seeks the set — derived format 5 keeps each extent's
 positions in columns beside its keys and its rows within as a key section —
 so an as-of lookup at REC M costs a third of a lookup at the head where it
@@ -170,6 +165,7 @@ and it ships inside every package.
 | `Varve.Sparql.Results` | 2 | the SPARQL results formats — XML, JSON, CSV, TSV — as pull readers and streaming writers | working |
 | `Varve.Delta` | 3 | the change feed's format, `application/vnd.varve.delta` version 1, read for ever: the reader, the writer and the record model, with no store in it | working |
 | `Varve.Sparql.Evaluation` | 3 | the optimiser and evaluator: every operator, the function library, aggregates, property paths, `SERVICE` through a handler, over any quad source | working |
+| `Varve.Sparql.Entailment` | 3 | SPARQL 1.1 entailment regimes by query rewriting: RDF, RDFS and D, complete under the regimes' answer conditions, with the ontology read from TBox graphs as of the read position | working; the protocol's header arrives with the rest of #170 |
 | `Varve.Shacl` | 3 | SHACL 1.2 Core over any quad source: targets, paths, every core component, recursive shapes by stratified greatest fixpoint, the validation report as a canonical value, and an extension contract | working |
 | `Varve.Aspire` | 0 | the .NET Aspire hosting integration: `AddVarve`, `WithOidc`, `WithDataset` on an AppHost; references nothing from Varve | working |
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
@@ -178,6 +174,7 @@ and it ships inside every package.
 | `Varve.Management` | 4 | the management plane's declarations: the `varve:` vocabulary for datasets, settings, placement and grants, their reader and code validator, grants over a caller with graph templates, and the RDFC-1.0 plan `varve apply` converges | working |
 | `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view, the bulk loader, replicas by file copy; checkpoints as extent sets with validity intervals; `log/` format 1, `derived/` format 4, reading format 3 | working |
 | `Varve.Sparql.Store` | 5 | SPARQL Update over the store: one request, one commit, `LOAD` through a caller's source, read and write scopes by graph | working |
+| `Varve.Classification` | 5 | row-level access: a classifier derived from annotated SHACL shapes that assigns nodes to data subjects, and the classification projection that serves it at any position | working |
 | `Varve.Shacl.Store` | 5 | commit-time gating under a shapes binding: a dataset validator that validates the focus nodes a commit affects and refuses new violations (`reject`) or attaches the affected report's digest (`report`) | working |
 | `Varve.Store.Browser` | 5 | the store in a browser: the origin private file system through synchronous access handles in a worker, or IndexedDB | working |
 | `Varve.Store.ObjectStorage` | 5 | the store in any object store with conditional writes: the log as write-once chunk objects, one writer by an epoch fenced in the log, a local cache | working |
@@ -223,7 +220,14 @@ The W3C suites are the acceptance gate, from
 | `rdf-canon`, RDFC-1.0: 64 canonical forms, 21 issued maps, 1 refusal | 86 |
 | `data-shapes-test-suite`, SHACL 2017, `core` and `sparql`, × 2 subjects | 232 |
 | `shacl12-test-suite`, SHACL 1.2 Working Draft, `core` and `sparql`, × 2 subjects | 390 |
-| **Total** | **6,141 of 6,141** |
+| `sparql11/entailment` under RDF, RDFS and D, by rewriting (ADR 0193) | 95 |
+| `rdf11/rdf-mt`, by rewriting: the 38 cases that ask no consistency question | 38 |
+| **Total** | **6,274 of 6,274** |
+
+**Blocked as out of scope, not run:** 25, by name in
+`tests/Varve.Conformance.Tests/baseline/blocked.txt`: the RIF and the OWL 2
+DL and Full cases of `sparql11/entailment`, outside #15's scope. They are not
+exemptions.
 
 Each SPARQL suite is parsed at its own version, so the 1.0 and 1.1 suites
 never see the 1.2 grammar; the 1.2 default is for API callers only. The six
@@ -387,7 +391,7 @@ is the Native AOT binary and nothing else:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.17
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.20
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -396,7 +400,7 @@ real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authen
 ```bash
 varve serve --anonymous --datasets-root "$PWD/data"
 # or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.17 serve --anonymous
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.20 serve --anonymous
 
 # then declare the dataset in the management plane (ADR 0163):
 curl -X PUT http://localhost:5000/manage/datasets/people -H 'Content-Type: application/trig' \

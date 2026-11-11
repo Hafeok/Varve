@@ -161,7 +161,7 @@ internal interface IPrivateTermValues
 }
 
 /// <summary>A quad source over one index version and one position's dictionary.</summary>
-internal sealed class IndexSource : IQuadSource
+internal sealed class IndexSource : IQuadSource, IDistinctTermSource
 {
     private readonly IndexVersion _index;
     private readonly TermView _terms;
@@ -187,6 +187,36 @@ internal sealed class IndexSource : IQuadSource
 
     public CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
         _index.Estimate(subject, predicate, @object, graph);
+
+    /// <inheritdoc />
+    /// <remarks>On the graph-first, predicate-second order: one seek per predicate.</remarks>
+    public bool TryDistinctPredicates(GraphPattern graph, [NotNullWhen(true)] out ITermCursor? predicates)
+    {
+        predicates = null;
+        if (graph.Match is not (GraphMatch.Named or GraphMatch.DefaultGraph))
+        {
+            return false;
+        }
+
+        ulong g = graph.Graph.Value;
+        predicates = _index.Distinct(IndexOrder.Gpos, new QuadKey(g, 0, 0, 0), new QuadKey(g, ulong.MaxValue, ulong.MaxValue, ulong.MaxValue), 1);
+        return true;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>On the graph-first, predicate-second order: one seek per object.</remarks>
+    public bool TryDistinctObjects(TermHandle predicate, GraphPattern graph, [NotNullWhen(true)] out ITermCursor? objects)
+    {
+        objects = null;
+        if (graph.Match is not (GraphMatch.Named or GraphMatch.DefaultGraph) || predicate.IsNone)
+        {
+            return false;
+        }
+
+        ulong g = graph.Graph.Value;
+        objects = _index.Distinct(IndexOrder.Gpos, new QuadKey(g, predicate.Value, 0, 0), new QuadKey(g, predicate.Value, ulong.MaxValue, ulong.MaxValue), 2);
+        return true;
+    }
 
     public bool TryGetInlineValue(TermHandle handle, out InlineValue value) => TermIds.TryInlineValue(handle.Value, out value);
 
@@ -333,19 +363,21 @@ internal sealed class PendingSource : IQuadSource
 /// </para>
 /// </remarks>
 [Contract(typeof(CheckpointsAndReads.PinnedReadIsASnapshot), Role = "a stable read of the dataset at one position")]
-public sealed class DatasetView : IQuadSource, IDisposable
+public sealed class DatasetView : IQuadSource, IDistinctTermSource, IGraphVersionSource, IDisposable
 {
     private readonly IQuadSource _source;
     private readonly TermView _terms;
+    private readonly GraphVersions? _graphs;
     private Action? _release;
     private bool _disposed;
 
-    internal DatasetView(long position, IQuadSource source, TermView terms, Action? release = null)
+    internal DatasetView(long position, IQuadSource source, TermView terms, Action? release = null, GraphVersions? graphs = null)
     {
         Position = new Position(position);
         _source = source;
         _terms = terms;
         _release = release;
+        _graphs = graphs;
     }
 
     /// <summary>The position this view reads.</summary>
@@ -388,6 +420,50 @@ public sealed class DatasetView : IQuadSource, IDisposable
     {
         ThrowIfDisposed();
         return _source.Match(subject, predicate, @object, graph);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The graph's version as of this view's position (ADR 0125): the
+    /// position of the last commit at or before it that touched the graph.
+    /// Answered from the head's versions when the view was opened; refused
+    /// for a graph a commit after an as-of view's position has touched.
+    /// </remarks>
+    public bool TryGetGraphVersion(GraphPattern graph, out GraphVersion version)
+    {
+        ThrowIfDisposed();
+        version = GraphVersion.Empty;
+        if (_graphs is null || graph.Match is not (GraphMatch.DefaultGraph or GraphMatch.Named))
+        {
+            return false;
+        }
+
+        long at = _graphs.VersionOf(graph.Match == GraphMatch.DefaultGraph ? 0 : graph.Graph.Value);
+        if (at > Position.Value)
+        {
+            return false;
+        }
+
+        version = new GraphVersion(at);
+        return true;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>By the index's seek, at the head, inside an extent set's window, and over a log tail.</remarks>
+    public bool TryDistinctPredicates(GraphPattern graph, [NotNullWhen(true)] out ITermCursor? predicates)
+    {
+        ThrowIfDisposed();
+        predicates = null;
+        return _source is IDistinctTermSource seeking && seeking.TryDistinctPredicates(graph, out predicates);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>By the index's seek, at the head, inside an extent set's window, and over a log tail.</remarks>
+    public bool TryDistinctObjects(TermHandle predicate, GraphPattern graph, [NotNullWhen(true)] out ITermCursor? objects)
+    {
+        ThrowIfDisposed();
+        objects = null;
+        return _source is IDistinctTermSource seeking && seeking.TryDistinctObjects(predicate, graph, out objects);
     }
 
     /// <inheritdoc />

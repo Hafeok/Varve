@@ -954,6 +954,16 @@ internal sealed class IndexVersion
         return false;
     }
 
+    /// <summary>
+    /// The distinct values of one component of the keys in a range of one
+    /// order, by a seek past each (ADR 0193): <paramref name="component"/> is
+    /// the key component enumerated, every one before it fixed by the range.
+    /// </summary>
+    internal DistinctKeyCursor Distinct(IndexOrder order, in QuadKey low, in QuadKey high, int component) =>
+        Seek is null
+            ? new DistinctKeyCursor(new RunCursor(Runs, order, in low, in high), order, component)
+            : new DistinctKeyCursor(new ExtentSeekScan(Runs, Seek, order, in low, in high), order, component);
+
     /// <summary>The quads matching a pattern.</summary>
     internal IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
         Seek is null
@@ -1046,14 +1056,54 @@ internal sealed class RunCursor : IQuadCursor
         _graph = graph;
 
         (_order, QuadKey low, QuadKey high) = Plan(subject, predicate, @object, graph);
+        _streams = Streams(runs, _order, in low, in high);
+    }
 
-        _streams = new Stream[runs.Length * 2];
+    /// <summary>
+    /// The quads of one key range in one order, every key in it a match: what
+    /// a seek to the next distinct key walks (ADR 0193).
+    /// </summary>
+    internal RunCursor(Run[] runs, IndexOrder order, in QuadKey low, in QuadKey high)
+    {
+        _graph = GraphPattern.Any;
+        _order = order;
+        _streams = Streams(runs, order, in low, in high);
+    }
+
+    /// <summary>
+    /// Moves every stream to the first key not below <paramref name="key"/>,
+    /// one lower bound each: the next <see cref="MoveNext"/> is the first
+    /// match at or after it.
+    /// </summary>
+    internal void SeekTo(in QuadKey key)
+    {
+        for (int i = 0; i < _streams.Length; i++)
+        {
+            ref Stream stream = ref _streams[i];
+
+            if (stream.Next < stream.End)
+            {
+                long at = stream.Section.LowerBound(in key);
+
+                if (at > stream.Next)
+                {
+                    stream.Next = Math.Min(at, stream.End);
+                }
+            }
+        }
+    }
+
+    private static Stream[] Streams(Run[] runs, IndexOrder order, in QuadKey low, in QuadKey high)
+    {
+        Stream[] streams = new Stream[runs.Length * 2];
 
         for (int i = 0; i < runs.Length; i++)
         {
-            _streams[2 * i] = Stream.Over(runs[i].Asserted(_order), i, true, in low, in high);
-            _streams[(2 * i) + 1] = Stream.Over(runs[i].Retracted(_order), i, false, in low, in high);
+            streams[2 * i] = Stream.Over(runs[i].Asserted(order), i, true, in low, in high);
+            streams[(2 * i) + 1] = Stream.Over(runs[i].Retracted(order), i, false, in low, in high);
         }
+
+        return streams;
     }
 
     public Quad Current { get; private set; }

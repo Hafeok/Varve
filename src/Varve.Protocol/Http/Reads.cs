@@ -79,7 +79,7 @@ internal static class Reads
     /// the response has been written, as a <c>304</c> or a <c>400</c>. Asked
     /// before any pin is taken (ADRs 0096, 0119).
     /// </summary>
-    internal static async Task<bool> NotModifiedAsync(HttpContext context, Dataset dataset, Position described, Position? graphVersion = null)
+    internal static async Task<bool> NotModifiedAsync(HttpContext context, Dataset dataset, Position described, Position? graphVersion = null, string? variant = null)
     {
         HttpRequest request = context.Request;
 
@@ -95,8 +95,8 @@ internal static class Reads
                 await HttpProblems.BadRequest(context, "If-None-Match names positions, as the ETag of every response does.").ConfigureAwait(false);
                 return true;
             case TagCondition.Any:
-            case TagCondition.Positions when tags.Contains(tag):
-                NotModified(context, dataset, described, graphVersion);
+            case TagCondition.Positions when tags.Contains(tag, variant):
+                NotModified(context, dataset, described, graphVersion, variant);
                 return true;
             default:
                 return false;
@@ -107,16 +107,16 @@ internal static class Reads
             && LastModified(dataset, tag) is DateTimeOffset modified
             && modified <= since)
         {
-            NotModified(context, dataset, described, graphVersion);
+            NotModified(context, dataset, described, graphVersion, variant);
             return true;
         }
 
         return false;
     }
 
-    private static void NotModified(HttpContext context, Dataset dataset, Position described, Position? graphVersion)
+    private static void NotModified(HttpContext context, Dataset dataset, Position described, Position? graphVersion, string? variant)
     {
-        Preconditions.Describe(context.Response, described);
+        Preconditions.Describe(context.Response, described, variant);
         DescribeFreshness(context, dataset, described);
 
         if (graphVersion is Position version)

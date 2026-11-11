@@ -31,9 +31,9 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 | 0 | `Varve.Iri`, `Varve.Xsd`, `Varve.Json.Canonical` (ADR 0147) |
 | 1 | `Varve.Rdf` — model and the abstract quad source contract |
 | 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser); `Varve.Derivation` (dependency graphs, regular paths, propagation — ADR 0172, amending 0003) |
-| 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128) |
+| 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128), `Varve.Sparql.Entailment` (entailment regimes by query rewriting — ADR 0191) |
 | 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143); `Varve.Shacl.Sparql` (SHACL-SPARQL over the evaluator, through `Varve.Shacl`'s extension contract — ADR 0148); `Varve.Management` (the management plane's declarations and grants, by dependency — ADR 0166) |
-| 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Shacl.Store` (commit-time gating under a shapes binding — ADR 0169) |
+| 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Shacl.Store` (commit-time gating under a shapes binding — ADR 0169), `Varve.Classification` (the shape-derived classifier and the classification projection — ADR 0232) |
 | 6 | hosts — every executable, and only executables: the server, the CLI, the smoke apps, the benchmarks (ADR 0060) |
 
 **Same-layer references are violations.** Contracts live in the lowest layer that
@@ -78,10 +78,11 @@ severity on every project in `src/`. Every ADR is also a decision set in
   primitive rules).
 - **Never `#pragma`, `[SuppressMessage]` or an `.editorconfig` downgrade** for
   a `DD` or `VARVE` id; `DD0008` reports each.
-- **A new decision is filed unaccepted.** Its citations are `CS0618` until the
-  maintainer adds `accepted-by`, which **a session never writes**; the pull
-  request is red on that alone (ADR 0066). An accepted ADR changes by a dated
-  amendment (ADR 0068), never by editing.
+- **A new decision is filed unaccepted.** Its citations are `CS0618` until
+  `accepted-by` is added, and the pull request is red on that alone
+  (ADR 0066). The maintainer writes it, or his delegate for a decision he has
+  read (ADR 0239). **No other session ever writes it.** An accepted ADR
+  changes by a dated amendment (ADR 0068), never by editing.
 - **A finding about the analyzers themselves** (a false positive, a wrong
   message, a missing exemption) is an issue in the analyzer repository, with
   the reproduction, never a local workaround. That repository never names
@@ -115,7 +116,9 @@ App tags it. A session never tags.
 requires every gate by job name, `dco` and `agent review` included, with no
 bypass. A session lands through a pull request from its branch, which needs an
 approval on its head from the session's responsible human or a delegate (ADR
-0087): a conversation comment `approve <head sha>`, at least 12 characters. That
+0087): a conversation comment `approve <head sha>`, at least 12 characters. The
+maintainer's delegate, one session on his machine with his key, writes
+`approve <head sha> (delegate)` (ADR 0239). That
 form is **not a valid workflow**, only tolerated until the ledger's review gate
 replaces it. `agent review` is judged by main's script on trusted triggers and
 posted by the gates App; a required check is spoofable by name unless pinned to
@@ -136,9 +139,20 @@ Conventional commits, one logical change each, and three things in each:
 - **`Signed-off-by:`** — DCO, from every session without exception; it names the
   human who may contribute the code: for a session's commit, its responsible
   human in `eng/identities.json` or a delegate. Enforced by `eng/dco.cs`
-  (ADR 0087).
+  (ADR 0087). A session never uses `git commit -s`: that signs off as the
+  session's own identity, which the gate refuses. `eng/hooks/commit-msg` adds
+  the right sign-off; it needs `git config core.hooksPath eng/hooks`, which
+  every clone requires: the devcontainer sets it, a cloud session's bootstrap
+  must, and `eng/dco.cs` warns locally when it is not set.
+  `dotnet run eng/dco.cs -- --sign-off-for <email>` prints the sign-off.
 - **A signature**, for human committers. Cloud AI sessions are exempt by ruleset
   bypass; ADR 0034 records why, as a stated deviation.
+
+**The maintainer's delegate marks what it does for him** (ADR 0239):
+- a commit that accepts a decision, or is made to land a pull request,
+  carries `Delegated-by: Emil Okkels Klein <emil@okkels-klein.dk>`;
+- a commit containing the delegate's own implementation work is authored
+  `Claude (Emil)`, the agent of the identity map.
 
 **Every AI-assisted session files a record** in `docs/traceability/`, named
 `YYYY-MM-DD-issue-N-<slug>.md`, with the prompt, **the tool and model named
@@ -193,6 +207,7 @@ dotnet run eng/land.cs -- <pr> --main              # then fast-forward main to i
 dotnet build Varve.slnx -c Release                 # zero warnings, or it is broken
 dotnet run eng/dependency-register.cs -- --base origin/main
 git submodule update --init --recursive            # needed for conformance
+git config core.hooksPath eng/hooks                # required in every clone, a session's included: the DCO sign-off
 ```
 
 Every gate is also a job in `eng/ci.cs`. `eng/` is the home of the Varve-specific
@@ -204,6 +219,54 @@ ledger gates to
 and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
+
+Web UI part 1, the operator console (#167, part 1 of #96), complete as
+`v0.1.0-preview.20` (ADRs 0200–0206, filed unaccepted). **`Varve.WebUi`** is
+a Blazor WebAssembly client of the public API (0200), trimmed and
+interpreted. Its download is gated by `eng/browser-size.cs` (0205).
+- **Its design source is `docs/ui/`** (0206):
+  - every component's markup is pinned by its cases, and bUnit checks it;
+  - `VARVE0006` holds the levels apart (Atoms … Parts, Pages);
+  - only Pages use a client service, and a `.Model` type references none;
+  - new markup gets its case first.
+- **Sign-in is its own OIDC client** (0201): code with PKCE, one token per
+  plane (the code exchange for data, a refresh grant for the management
+  scope), tokens in the heap.
+- **Hosting** (0202): `Varve:WebUi:Path` serves it under `/ui/` with a
+  strict CSP.
+- **Its SBOM** (0225, amended 2026-11-06): `eng/sbom.cs` writes the
+  bundle's from its locked restore for `browser-wasm`, the descriptor names
+  the zip in an `asset:` line, and `publish.yml` attests the zip with it.
+  The bundle resolves nothing outside NuGet.
+- **The client's reads** (0203): `Varve.Protocol.Client` answers
+  `VarveResult<T>`.
+- **Browser tests** (0204): `tests/Varve.WebUi.Browser.Tests` runs
+  Playwright and axe on the runner's Chrome, in the job `web ui in
+  Chromium`.
+- **Open on #96:** Zitadel's management token (token exchange), `If-Match`
+  on the state route, and part 2, the data explorer.
+
+Milestone 9, part 1 (#202, under #14; ADRs 0230–0238, filed unaccepted):
+**row-level access through the classifier**, in 1.0 and stable, with erasure
+mode off. A `varve:ClassifierBinding` names an annotated shapes graph and the
+graphs it classifies (0234). `Varve.Classification` (layer 5) reads
+`varve:dataSubject`, `varve:subjectLink` and `varve:publicLink` as RDF (0232):
+a node belongs to the data subjects it is and those its links reach, and a
+quad is about its subject's subjects and, unless its predicate is a public
+link, its object's (0230). A caller sees a classified quad when every subject
+it is about is in its subject set for the binding: a grant's `varve:subject`,
+prefix, template, class or link terms, all subjects when it has none, and a
+grant with them must cover the whole binding. `RowScopedQuadSource` in
+`Varve.Rdf` is two probes and a memoised set decision per quad, and is not
+built for `RowScope.All` (0235). A row-restricted writer writes only rows
+already wholly its own, creates at fresh blank nodes or under
+`varve:createUnder`, links only to rows it reads, and every breach is one
+`403 row-not-writable` (0236). The feed and the diff deliver the caller's view;
+report graphs are withheld; inference's closure waits for #171 (0237, 0238).
+The classification projection is incremental, served at any position,
+verified in the local cache, `503 classification-behind` to a row-restricted
+read it has not reached, and kept by every tier-1 follower (0233). The access
+route answers an admin a subject's quads (0231). Part 2 (#203) is erasure mode.
 
 Replication (#97), part 1 within a store (#165; ADRs 0179–0181, 0136/0137/
 0163/0164/0166/0168 amended), complete; part 2, across copies, is #166.
@@ -512,7 +575,7 @@ exists.
 - Code copied from Oxigraph or dotNetRDF, a version taken from memory, an
   IL-prefixed warning in `NoWarn`, or editing an accepted ADR.
 - A suppression of a `DD` or `VARVE` rule, an `accepted-by` written by a
-  session, or a workaround for an analyzer's false positive in place of an
-  upstream issue.
+  session other than the maintainer's delegate (ADR 0239), or a workaround
+  for an analyzer's false positive in place of an upstream issue.
 - **API keys, or any credential scheme other than OIDC bearer tokens** (ADR 0037).
 - A placeholder body not explicitly marked as a stub and reported.

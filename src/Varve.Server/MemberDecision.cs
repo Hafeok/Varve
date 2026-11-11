@@ -79,7 +79,10 @@ internal static class MemberDecision
 
     // Who claims after a release (point 4): one for placement, the preferred
     // writer alone; one for shutdown, storage-error or local-disk-error,
-    // every warm member, racing. An operator's release is the operator's.
+    // every warm member, racing. The member that released for storage-error
+    // or local-disk-error races too, once its hold-off has passed (amended
+    // 2026-11-10, #216): the hold-off is the caller's, and not a term of
+    // this function. An operator's release is the operator's.
     [Contract(typeof(WarmStandbysAndTheWriterSet.ClaimAfterAReleaseByItsReason), Role = "who races for a release, by its reason")]
     internal static class ReleaseRace
     {

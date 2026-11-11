@@ -165,6 +165,11 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("release-fixtures", "the release validator fails each of its fixtures, for its own reason",
         () => Run("dotnet", ["run", "eng/release.cs", "--", "--fixtures", "tests/fixtures/releases"])),
 
+    // ADR 0225, amended 2026-11-06: a descriptor's sbom line is the generated
+    // SBOM's, the Web UI bundle's asset line among them.
+    ("sbom-fixtures", "the descriptor's sbom lines are held to the generated SBOMs: a matching digest passes, a differing or missing one is refused",
+        () => Run("dotnet", ["run", "eng/sbom.cs", "--", "--fixtures", "tests/fixtures/sbom-descriptor"])),
+
     // Not a gate: the maintainer's landing helper (ADR 0088). Built here so
     // that it does not rot between landings.
     ("land", "the landing helper builds and prints its usage",
@@ -174,6 +179,17 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     // SDK global.json pins, whose own packages (ILLink, ILCompiler) it records.
     // Before the restore, so a lockfile from another patch fails here with
     // the script that regenerates them, not with NuGet's NU1004.
+    // ADR 0224 point 5, amended 2026-11-11 (#276): .NET is set up, and
+    // workloads installed, only through .github/actions/setup-dotnet, from
+    // the workload set of global.json's SDK, which global.json does not name.
+    ("sdk-pin", "every workflow sets up .NET and installs workloads only through the composite action, and global.json names no workload set",
+        () => Run("dotnet", ["run", "eng/sdk-pin.cs"])),
+
+    // Both of its paths (tests/fixtures/sdk-pin/README.md).
+    ("sdk-pin-fixtures", "the SDK pin gate fails its failing fixture and passes its passing one",
+        () => Run("dotnet", ["run", "eng/sdk-pin.cs", "--", "--root", "tests/fixtures/sdk-pin/failing"]) == 1
+            && Run("dotnet", ["run", "eng/sdk-pin.cs", "--", "--root", "tests/fixtures/sdk-pin/passing"]) == 0 ? 0 : 1),
+
     ("lockfiles", "every lockfile was written with global.json's SDK, before a locked restore says so less clearly",
         () => Run("dotnet", ["run", "eng/lockfiles.cs", "--", "--check"])),
 
@@ -243,10 +259,13 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-derivation", "Varve.Derivation: paths, their reverse and their anchors against a relational oracle, components and refused cycles by reachability, propagation as the least fixpoint",
         () => Test("Varve.Derivation.Tests")),
 
+    ("test-sparql-entailment", "Varve.Sparql.Entailment: rewriting equals the forward-chained closure under RDF, RDFS and D, in the default graph, a named graph and under GRAPH ?g, the answer conditions, literals by value",
+        () => Test("Varve.Sparql.Entailment.Tests")),
+
     ("test-events", "Varve.Events: rendering replayed byte for byte, the number rule, schema golden files, compatibility, the catalogue's three views, AsyncAPI 3.0, the declaration shapes' agreement with the code",
         () => Test("Varve.Events.Tests")),
 
-    ("test-management", "Varve.Management: the vocabulary's reader and code validator, grants over a caller with templates, the plan's idempotence",
+    ("test-management", "Varve.Management: the vocabulary's reader and code validator, grants over a caller with templates, the plan's idempotence, TBox bindings and the graphs an apply makes dataset-public",
         () => Test("Varve.Management.Tests")),
 
     ("test-xsd", "Varve.Xsd, and its properties; the evaluation suites gate it too",
@@ -284,6 +303,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     ("test-server", "Varve.Server: configuration, anonymous mode, readiness, shutdown, and the permission matrix against an issuer in the test (ADR 0100 layer (a))",
         () => Test("Varve.Server.Tests")),
+
+    ("test-webui", "Varve.WebUi: Blazor in no other src/ closure, the tone mapping, tokens.css generated from tokens.json, the components' markup contract (ADRs 0200, 0206)",
+        () => Test("Varve.WebUi.Tests")),
 
     // tools/repo-standard is its own solution, outside Varve.slnx, and moves to
     // its own repository (ADR 0039). Its jobs are separate so that the move

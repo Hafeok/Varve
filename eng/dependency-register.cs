@@ -826,8 +826,9 @@ static HashSet<string> BuildAndTestLicences()
 
 static int CheckPackages(XDocument register, HashSet<string> knownAdrs, string scanRoot, string repositoryRoot, bool isRepository, List<string> lockfiles)
 {
-    // Shipped: the packable members of Varve.slnx (ADR 0009's amendment of
-    // 2026-09-22), or, for a fixture, every packable project under it.
+    // Shipped: the members of Varve.slnx that are packed, or published and
+    // never packed (ADR 0009's amendment of 2026-09-22, ADR 0200), or, for a
+    // fixture, every such project under it.
     HashSet<string> shipped = new(ShippedProjects(scanRoot, isRepository).Select(Path.GetFullPath), StringComparer.Ordinal);
 
     // The restore graph beside each lockfile. A shipped project's is required:
@@ -1116,7 +1117,7 @@ static List<string> ShippedProjects(string root, bool isRepository)
                 throw new InvalidOperationException("Varve.slnx names a project that does not exist: " + relative);
             }
 
-            if (IsPackable(project))
+            if (IsShipped(project))
             {
                 projects.Add(project);
             }
@@ -1127,11 +1128,14 @@ static List<string> ShippedProjects(string root, bool isRepository)
 
     return [.. Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
         .Where(p => !Restores.IsExcluded(root, p, skipFixtures: false))
-        .Where(IsPackable)];
+        .Where(IsShipped)];
 }
 
-static bool IsPackable(string project) =>
-    XDocument.Load(project).Descendants().Any(static e => e.Name.LocalName == "IsPackable" && string.Equals(e.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase));
+// Packed, or published and never packed: the Web UI is a release asset of
+// static files (ADR 0200), declares <VarveShipped>true</VarveShipped>, and its
+// closure is walked as a package's is.
+static bool IsShipped(string project) =>
+    XDocument.Load(project).Descendants().Any(static e => e.Name.LocalName is "IsPackable" or "VarveShipped" && string.Equals(e.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase));
 
 static List<(string Package, List<string> Files)> NativePackages(RestoreGraph graph)
 {

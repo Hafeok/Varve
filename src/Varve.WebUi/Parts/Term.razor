@@ -1,0 +1,78 @@
+@using Varve.Rdf
+@* One RDF term as a TermChip (docs/ui/components/TermChip): an IRI compact
+   when a well-known prefix applies, with the full IRI as its title; a
+   literal with its language or datatype, xsd:string left implicit; a blank
+   node by label; a triple term as three chips. The prefixes are the
+   vocabularies every dataset shares; a dataset's own are not served. *@
+@switch (Value.Kind)
+{
+    case RdfTermKind.Iri:
+        string iri = Text(Value.Lexical);
+        string compact = Compact(iri);
+        <TermChip Kind="TermKind.Iri" Text="@compact" Full="@(compact == iri ? null : iri)" Change="Change" />
+        break;
+    case RdfTermKind.Literal:
+        <TermChip Kind="TermKind.Literal" Text="@Text(Value.Lexical)" Type="@LiteralType()" Change="Change" />
+        break;
+    case RdfTermKind.BlankNode:
+        <TermChip Kind="TermKind.BlankNode" Text="@("_:" + Text(Value.Lexical))" Change="Change" />
+        break;
+    default:
+        <TermChip Kind="TermKind.Triple" Change="Change"><Term Value="Value.Subject!" /><Term Value="Value.Predicate!" /><Term Value="Value.Object!" /></TermChip>
+        break;
+}
+
+@code {
+    private const string XsdString = "http://www.w3.org/2001/XMLSchema#string";
+
+    private static readonly (string Prefix, string Namespace)[] Prefixes =
+    [
+        ("rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#"),
+        ("rdfs", "http://www.w3.org/2000/01/rdf-schema#"),
+        ("xsd", "http://www.w3.org/2001/XMLSchema#"),
+        ("owl", "http://www.w3.org/2002/07/owl#"),
+        ("sh", "http://www.w3.org/ns/shacl#"),
+        ("skos", "http://www.w3.org/2004/02/skos/core#"),
+        ("dct", "http://purl.org/dc/terms/"),
+        ("schema", "https://schema.org/"),
+        ("foaf", "http://xmlns.com/foaf/0.1/"),
+        ("prov", "http://www.w3.org/ns/prov#"),
+        ("varve", "https://w3id.org/varve/ns#"),
+    ];
+
+    /// <summary>The term.</summary>
+    [Parameter, EditorRequired]
+    public RdfTerm Value { get; set; } = null!;
+
+    /// <summary>Whether the term is added or removed, inside a diff.</summary>
+    [Parameter]
+    public Change Change { get; set; }
+
+    private string? LiteralType()
+    {
+        string language = Text(Value.Language);
+
+        if (language.Length > 0)
+        {
+            return "@" + language;
+        }
+
+        string datatype = Text(Value.DatatypeIri);
+        return datatype.Length == 0 || datatype == XsdString ? null : Compact(datatype);
+    }
+
+    private static string Compact(string iri)
+    {
+        foreach ((string prefix, string ns) in Prefixes)
+        {
+            if (iri.StartsWith(ns, StringComparison.Ordinal) && iri.Length > ns.Length)
+            {
+                return prefix + ":" + iri[ns.Length..];
+            }
+        }
+
+        return iri;
+    }
+
+    private static string Text(ReadOnlySpan<byte> utf8) => System.Text.Encoding.UTF8.GetString(utf8);
+}

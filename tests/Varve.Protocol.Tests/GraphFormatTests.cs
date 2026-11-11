@@ -83,7 +83,7 @@ public class GraphFormatTests
             string body = await response.Content.ReadAsStringAsync(P.Ct);
             Assert.True(response.StatusCode == HttpStatusCode.OK, written + " read as " + read + ": " + body);
             Assert.Equal(read, response.Content.Headers.ContentType?.MediaType);
-            Assert.Equal("Accept,Varve-As-Of,Authorization", string.Join(",", response.Headers.Vary));
+            Assert.Equal("Accept,Varve-As-Of,Authorization,Varve-Entailment", string.Join(",", response.Headers.Vary));
             Assert.Equal(Expected, Parse(read, body, Ex));
         }
     }
@@ -100,7 +100,7 @@ public class GraphFormatTests
         string body = await response.Content.ReadAsStringAsync(P.Ct);
         Assert.True(response.StatusCode == HttpStatusCode.OK, format + ": " + body);
         Assert.Equal(format, response.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("Accept,Varve-As-Of,Authorization", string.Join(",", response.Headers.Vary));
+        Assert.Equal("Accept,Varve-As-Of,Authorization,Varve-Entailment", string.Join(",", response.Headers.Vary));
         Assert.Equal(Expected, Parse(format, body, Ex));
     }
 
@@ -270,7 +270,7 @@ public class GraphFormatTests
         string body = await response.Content.ReadAsStringAsync(P.Ct);
         Assert.True(ProblemCatalogue.Of(type).Status == (int)response.StatusCode, type.Value + ": " + (int)response.StatusCode + " " + body);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("Accept,Varve-As-Of,Authorization", string.Join(",", response.Headers.Vary));
+        Assert.Equal("Accept,Varve-As-Of,Authorization,Varve-Entailment", string.Join(",", response.Headers.Vary));
         using JsonDocument problem = JsonDocument.Parse(body);
         Assert.Equal(type.Value, problem.RootElement.GetProperty("type").GetString());
 

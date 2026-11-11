@@ -543,10 +543,12 @@ landing decides the number. Only released and in-flight numbers are shown.
 | 8 | SHACL, part 1: the standalone validator, SHACL-SPARQL, XPath regular expressions in `Varve.Xsd`, the event declaration shapes | `preview.9` | — (#87 landed) | issue #120 (landed) |
 | 8 | SHACL, part 2a: commit-time gating under a shapes binding, incremental validation, `Varve.Derivation` | `preview.12` | part 1, Management plane part 1 | issue #138 (landed) |
 | 8 | SHACL, part 2b: the validation projection, shapes for the declarations, the REC gate | `preview.14` | part 2a, Object storage (REC shapes) | issue #13 (this pull request) |
+| — | Inference, part 1: RDFS, RDF and D by query rewriting, regimes over HTTP, the TBox binding | `preview.18` | 8, Management plane | issue #170 (this pull request) |
 | — | **Inference**: RDFS by rewriting, OWL 2 RL and rules as a projection | next free | 8 | issue #95 |
 | — | **Web UI**: operator console, then data explorer | next free | Management plane (console); 8 and Inference (explorer) | issue #96 |
 | — | **Replication**: three tiers, handover, promotion, fleet-level active-active | next free | Object storage, Extent maintenance, Commit path, Management plane | issue #97 |
-| 9 | Erasure mode and row-level access | next free | 8, Replication, Management plane | issue #14 |
+| 9 | Erasure mode and row-level access, part 1: row-level access through the classifier, in 1.0 and stable | `preview.19` | 8, Management plane | issue #202 (this pull request) |
+| 9 | Erasure mode and row-level access, part 2: erasure mode, preview | next free | part 1, Replication | issue #203, closing #14 |
 | 1.0 | The definition in #15, amended to include replication, inference, the management plane and extent maintenance | `1.0.0` | all above | issue #15 |
 | — | **Continuous queries**: standing SPARQL queries as projections, result deltas as events | a minor after 1.0 | 1.0 (Inference, Management plane, Client and integration) | issue #106 |
 | — | **Entity export**: pseudonymised entity histories as replayable fixtures | a minor after 1.0 | 1.0 (Management plane, Client and integration, Erasure) | issue #107 |
@@ -931,6 +933,28 @@ reads), the data explorer after SHACL and Inference, so validation reports
 and entailment provenance are in it. Every screen reads a resource the API
 already serves.
 
+### Part 1 — the operator console *(complete)*
+
+Released as `v0.1.0-preview.20` (#167; ADRs 0200–0206). Shipped:
+- **The screens:** datasets, a dataset (at its head or as of a position),
+  the fleet, commits followed live with a commit's delta, and grants and
+  declaration source.
+- **The acts:** checkpoint, close and open, each through a confirmation.
+- **The Web UI's own OIDC client,** with one token per plane.
+- **The server serving `/ui/`** under a Content Security Policy, or any
+  static host.
+- **The gates:** a download budget, and axe on every screen in CI.
+
+Open on #96:
+- Zitadel's management-plane token, by token exchange;
+- `If-Match` on the state route;
+- the declaration pages the reference screens add (agents and roles, graph
+  templates, shapes).
+
+### Part 2 — the data explorer
+
+After SHACL and Inference.
+
 ## Replication — before 1.0
 
 Issue #97 and the writer handover ADR hold the detail. In short: tier 1 followers on the same store (the follower itself built by Management
@@ -960,7 +984,17 @@ tier 2 geo-replication, and active-active across copies.
 ## 9 — Erasure mode and row-level access
 
 As issue #14 states, together with row-level access through the erasure
-classifier. Designed with replicas in place: only ciphertext is replicated
+classifier. In two parts, decided on the plan in #14 (2026-10-30):
+
+**Part 1** (#202; ADRs 0230–0238), `0.1.0-preview.19`, in 1.0 and stable:
+row-level access through the classifier, with erasure mode off. A
+classifier binding's annotated shapes name the data subjects and the links
+that carry ownership; a quad is about its subject's subjects and, unless its
+predicate is a public link, its object's. A grant's subject set limits its
+grantee to those rows on every surface, a row-restricted writer writes only
+rows already wholly its own, and the classification is a projection, served
+at any position and kept by every follower. **Part 2** (#203) is erasure
+mode, preview only, gated on ADR 0028's external review. Designed with replicas in place: only ciphertext is replicated
 and the key store is outside every dataset, so destroying a key erases on
 every replica at once; the gate proves it on a tier-1 and a tier-3 follower.
 Key store configuration and classifier bindings are management declarations.

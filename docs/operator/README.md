@@ -1,7 +1,7 @@
 # Operating Varve
 
 The operator's guide to `Varve.Server`: one executable that is the server and
-the `varve` command line (ADR 0105). Fourteen pages, each a task:
+the `varve` command line (ADR 0105). Fifteen pages, each a task:
 
 | Page | What it covers |
 |---|---|
@@ -11,14 +11,17 @@ the `varve` command line (ADR 0105). Fourteen pages, each a task:
 | [Datasets](datasets.md) | where a dataset's boundary goes; declaring datasets, settings and grants as TriG with `varve apply` and `/manage/`; and a setup an application applies on every start: `AddVarve`, `varve setup apply`, `WithDataset`, the setup file |
 | [The fleet](fleet.md) | the system dataset, its writer and followers, placement, write forwarding, reading your writes, readiness, and what each costs in store requests |
 | [Shapes](shapes.md) | shapes bindings: declaring one, `reject`, `report` and `off`, which shapes can be checked per commit, the attachment, the report graph and who reads it, the projection's lag, cold start and cost, and the composition REC and Brick need |
+| [Inference](inference.md) | TBox bindings: declaring one, who reads the TBox and what `varve apply --plan` shows, `Varve-Entailment` and the default regime, what a query sees, the service description and the cost |
 | [Moving event schemas](moving-event-schemas.md) | moving a dataset's event declarations from its catalogue graphs to the management plane: the freeze, the copy, a stopped move, and declaring event types afterwards |
 | [Integrate](integrate.md) | the commits resource as the stream other systems follow, `FollowAsync` and its checkpoint, at least once; domain events as CloudEvents, their catalogue, schemas and AsyncAPI, `FollowEventsAsync`, and the Event Hubs bridge |
+| [Row-level access](row-level-access.md) | classifier bindings, subject-scoped grants, the write rule, what a row-restricted caller sees, the classification projection, access requests |
 | [Observe](observe.md) | the OTLP exporter and the `OTEL_*` variables, every span and metric by name, the log events, what it costs |
 | [Back up and restore](backup-and-restore.md) | what the files are, taking a copy, checkpoints, restoring, and the change feed as an incremental copy |
 | [Upgrade](upgrade.md) | what a new build reads, what it rewrites, and the order of a rolling upgrade |
 | [A small machine](small-machine.md) | a Raspberry Pi 5: the file backend on NVMe, an object store on a NAS only by identity, the runtime limits for 8 GB |
 | [Azure Container Apps](azure-container-apps.md) | datasets in Blob Storage, the template, the writer app and the reader app, cold start, costs |
 | [Kubernetes](kubernetes.md) | a fleet as one StatefulSet with a headless service, workload identity for the store |
+| [The Web UI](web-ui.md) | the operator console in a browser: served by the server or a static host, its Content Security Policy, signing in per issuer, anonymous mode |
 
 Every refusal the server answers is an RFC 9457 problem of a type listed in
 [`docs/problems/`](../problems/README.md), one page per type with its status
@@ -27,9 +30,9 @@ and its members (ADR 0119). Every term the service description coins under
 
 The decisions behind the pages are ADRs 0101 (the host), 0105 (the command
 line), 0106 (the admin API), 0163–0168 (the management plane, the
-follower, the management position, the vocabulary, the event-schema move, write forwarding), 0169–0176 (shapes bindings, the validation projection and the REC gate), 0107 (graph-level authorisation), 0104 (`SERVICE`
+follower, the management position, the vocabulary, the event-schema move, write forwarding), 0169–0176 (shapes bindings, the validation projection and the REC gate), 0107 (graph-level authorisation), 0230–0238 (row-level access), 0104 (`SERVICE`
 and `LOAD` over HTTP), 0112 (telemetry), 0037, 0100 and 0127 (authentication
 and on-behalf-of), 0128 and 0129 (the feed's format and following it), 0130
-and 0131 (setup), and 0132 (CORS). The protocol a
+and 0131 (setup), 0132 (CORS), and 0200–0206 (the Web UI). The protocol a
 client speaks is in `src/Varve.Protocol/README.md` and
 `docs/spec/change-feed.md`.

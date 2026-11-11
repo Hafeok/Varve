@@ -148,7 +148,7 @@ Decided by the maintainer on the 5c report.
 
 | # | Title | Status |
 |---:|---|---|
-| [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table; amended 2026-10-07 (the protocol seam's revisit condition; proposed) |
+| [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table; amended 2026-10-07 (the protocol seam's revisit condition; proposed); amended 2026-10-27 (a host may be a browser application; filed unaccepted, #167) |
 | [0061](0061-canonical-n-triples-is-rdf-1-2s.md) | Canonical N-Triples and N-Quads follow RDF 1.2; where 1.1 and 1.2 differ, 1.2 wins | Accepted |
 
 ## Adopting `DecisionDriven.Analyzers`
@@ -216,7 +216,7 @@ Filed by milestone 7a ([#11](https://github.com/Hafeok/Varve/issues/11)), unacce
 | [0097](0097-the-change-feed-and-the-diff.md) | The change feed and the diff: a line format, SSE for tailing | Accepted; `docs/spec/change-feed.md`; amended 2026-10-09 (the commits resource) |
 | [0098](0098-blank-nodes-at-the-protocol-boundary.md) | Blank nodes at the protocol boundary: stable labels out, fresh in, no skolem IRIs | Accepted; closes Q1, spec 1.6 |
 | [0099](0099-register-jwtbearer-and-the-workflows-containers.md) | Register: `JwtBearer` in the server; no Testcontainers; the shared framework | Accepted; conditional on the server's AOT publish; amended 2026-10-15 (storage services, filed unaccepted) |
-| [0100](0100-authentication-tested-in-three-layers.md) | Authentication tested in three layers | Accepted; refines 0037 |
+| [0100](0100-authentication-tested-in-three-layers.md) | Authentication tested in three layers | Accepted; refines 0037; point 4 **superseded in part by 0223** (the provider legs' credentials) |
 | [0101](0101-the-server-configuration-aot-shutdown-readiness.md) | The server: configuration, Native AOT, shutdown, readiness, status | Accepted; amended 2026-10-09 (health paths, unknown keys); amended 2026-10-15 (ObjectStorage, filed unaccepted) |
 
 Filed by milestone 7b ([#11](https://github.com/Hafeok/Varve/issues/11)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 7b, likewise unaccepted: 0004 (`Varve.Protocol.Client` speaks HTTP), 0057 (a data-only request expects no position), 0091 (the 7b seams).
@@ -275,7 +275,7 @@ Filed by milestone Client and integration ([#93](https://github.com/Hafeok/Varve
 
 | # | Title | Status |
 |---:|---|---|
-| [0127](0127-on-behalf-of-and-the-token-provider.md) | On-behalf-of: the client's token provider, `azp` on the span, and the attribution rule; amends 0103 and 0112 | Filed unaccepted (Client and integration, #93) |
+| [0127](0127-on-behalf-of-and-the-token-provider.md) | On-behalf-of: the client's token provider, `azp` on the span, and the attribution rule; amends 0103 and 0112; amended 2026-10-27 (the fixed provider moves out of the model, unaccepted) | Filed unaccepted (Client and integration, #93) |
 | [0128](0128-varve-delta-and-the-read-forever-rule.md) | `Varve.Delta`: the delta format as a package of its own, read for ever; amends 0097, 0102 and 0103 | Filed unaccepted (Client and integration, #93) |
 | [0129](0129-following-the-commits-resource.md) | Following the commits resource: `FollowAsync`, a checkpoint the caller owns, at least once | Filed unaccepted (Client and integration, #93) |
 | [0130](0130-client-side-setup-and-system-graphs.md) | Client-side setup: a declared dataset, migrations recorded as data, and the first system graph | Filed unaccepted (Client and integration, #93); amended 2026-10-15 (ObjectStorage, filed unaccepted) |
@@ -389,18 +389,28 @@ Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replicati
 
 ## Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit
 
-Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set).
+Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set); by part 1 (#170), 0003 (the packages), 0119 (`entailment-unsupported`), 0132 (the header under CORS) and 0166 (the binding's terms).
 
 | # | Title | Status |
 |---:|---|---|
 | [0190](0190-entailments-under-graph-level-grants.md) | Entailments under graph-level grants: premise sets, intra-graph by default, the ontology readable by the dataset's readers; amends 0107 | Filed unaccepted (Inference, #95) |
+| [0191](0191-the-inference-packages-and-their-layers.md) | The inference packages and their layers; amends 0003 | Filed unaccepted (Inference part 1, #170) |
+| [0192](0192-entailment-regimes-over-http.md) | Entailment regimes over HTTP: the `Varve-Entailment` header and the service description; amends 0119, 0132 | Filed unaccepted (Inference part 1, #170) |
+| [0193](0193-rdfs-rdf-and-d-by-rewriting.md) | RDF, RDFS and D entailment by query rewriting | Filed unaccepted (Inference part 1, #170) |
+| [0194](0194-the-tbox-binding-vocabulary.md) | The TBox binding vocabulary; amends 0166 | Filed unaccepted (Inference part 1, #170) |
 
 ## Web UI, part 1 (#167)
 
-Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. 0206 lands first, in a docs-only pull request; 0200–0205 come with the milestone's.
+Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. 0206 lands first, in a docs-only pull request; 0200–0205 come with the milestone's. Amended by it, likewise unaccepted: 0060 (a host may be a browser application published as static files).
 
 | # | Title | Status |
 |---:|---|---|
+| [0200](0200-varve-webui-a-blazor-webassembly-host.md) | `Varve.WebUi`: a Blazor WebAssembly host at layer 6, and what Blazor costs | Filed unaccepted (Web UI part 1, #167) |
+| [0201](0201-the-web-uis-own-oidc-client.md) | The Web UI's own OIDC client: one token per plane | Filed unaccepted (Web UI part 1, #167) |
+| [0202](0202-serving-the-web-ui-and-its-content-security-policy.md) | Serving the Web UI under `/ui/`, and its Content Security Policy | Filed unaccepted (Web UI part 1, #167) |
+| [0203](0203-typed-reads-in-the-protocol-client.md) | Typed reads in `Varve.Protocol.Client`: health, problems, response facts and the management plane | Filed unaccepted (Web UI part 1, #167) |
+| [0204](0204-test-dependencies-for-the-web-ui.md) | Test dependencies for the Web UI: bUnit, Playwright on the runner's Chrome, axe-core | Filed unaccepted (Web UI part 1, #167) |
+| [0205](0205-the-web-uis-size-budget-and-no-aot.md) | The Web UI's size budget, and why it is not AOT-compiled | Filed unaccepted (Web UI part 1, #167) |
 | [0206](0206-the-web-ui-design-source.md) | The Web UI's design source, its levels, and the markup contract | Filed unaccepted (Web UI part 1, #167) |
 
 ## 1.0 readiness A — correctness and the read-forever contract (#129)
@@ -417,8 +427,40 @@ Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 
 
 | # | Title | Status |
 |---:|---|---|
-| [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119) |
+| [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119); amended 2026-11-11 (the pin covers workload sets, #276) |
 | [0225](0225-the-sbom-generator.md) | The SBOM generator: `eng/sbom.cs`, SPDX 2.3, from the restore | Filed unaccepted (#119) |
+
+## Milestone 9, part 1 — row-level access through the classifier (#202)
+
+Filed by milestone 9, part 1 ([#202](https://github.com/Hafeok/Varve/issues/202), under [#14](https://github.com/Hafeok/Varve/issues/14)), in 1.0 and stable, unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0230: readiness A holds 0213–0222 and readiness B from 0224. Amended by it, likewise unaccepted: 0003 (`Varve.Classification`), 0023 (the classifier's assignment, the selector), 0107 (rows beneath graphs), 0119 (three problem types), 0166 (the classifier binding, subject-scoped grants), 0173 and 0174 (the report withheld from row-restricted callers), 0190 (row-scoped grants, pending #171).
+
+| # | Title | Status |
+|---:|---|---|
+| [0230](0230-rows-data-subjects-and-visibility.md) | Rows, data subjects and visibility | Filed unaccepted (#202) |
+| [0231](0231-the-classifier-and-selector-contracts.md) | The classifier and selector contracts, without erasure mode | Filed unaccepted (#202) |
+| [0232](0232-the-shape-derived-classifier.md) | The shape-derived classifier, in `Varve.Classification` | Filed unaccepted (#202) |
+| [0233](0233-the-classification-projection.md) | The classification projection | Filed unaccepted (#202) |
+| [0234](0234-subject-scoped-grants-and-the-classifier-binding.md) | Subject-scoped grants and the classifier binding; amends 0166 | Filed unaccepted (#202) |
+| [0235](0235-the-row-scoped-quad-source-and-the-read-filters-cost.md) | The row-scoped quad source and the read filter's cost | Filed unaccepted (#202) |
+| [0236](0236-the-row-level-write-rule.md) | The row-level write rule | Filed unaccepted (#202) |
+| [0237](0237-rows-on-every-surface.md) | Rows on every surface; amends 0173 and 0174 | Filed unaccepted (#202) |
+| [0238](0238-inference-under-row-scoped-grants.md) | Inference under row-scoped grants; amends 0190, pending #171 | Filed unaccepted (#202) |
+
+## The maintainer's delegate (#244)
+
+Filed by the landing session for [#244](https://github.com/Hafeok/Varve/issues/244), at the maintainer's direction of 2026-11-06, unaccepted until he accepts it (ADR 0066). Numbered 0239: milestone 9 holds 0230–0238. It amends 0066 and 0087 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0239](0239-the-maintainers-delegate.md) | The maintainer's delegate: one session on his machine may approve, land and accept for him | Filed unaccepted (#244) |
+
+## The provider legs by federated credentials (#101)
+
+Filed by [#101](https://github.com/Hafeok/Varve/issues/101), unaccepted until the maintainer accepts it on its pull request (ADR 0066). Numbered 0223, between readiness A's 0213–0222 and readiness B's 0224 onward. Supersedes in part, likewise unaccepted: 0100 (point 4: the Entra and Google legs by GitHub's OIDC token, with no secret; `EntraAndGoogleBySecret` moves).
+
+| # | Title | Status |
+|---:|---|---|
+| [0223](0223-provider-legs-by-federated-credentials.md) | The provider legs by federated credentials: GitHub's OIDC token for Entra ID and Google | Filed unaccepted (#101) |
 
 ## Conformance — differential testing against Oxigraph
 

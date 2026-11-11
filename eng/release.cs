@@ -482,8 +482,10 @@ static void CheckRecord(Repository repository, Descriptor descriptor, List<strin
 // sbom (ADR 0102, amended 2026-10-27): from the first commit that carries
 // eng/sbom.cs, a release is format 2, and its sbom list names every artefact
 // it ships: each packable project of Varve.slnx (nupkg, or tool for a
-// PackAsTool one) and the container image. A binary or asset line names a file
-// the release carries, which publish.yml checks. The digests need the restore,
+// PackAsTool one), the container image, and the Web UI bundle by its asset's
+// name while src/Varve.WebUi ships (ADR 0225, amended 2026-11-06). A binary
+// line, or another asset line, names a file the release carries, which
+// publish.yml checks. The digests need the restore,
 // which the plan does not run: publish.yml regenerates every SBOM and checks
 // each digest with eng/sbom.cs --descriptor before anything is pushed.
 static void CheckSbom(Repository repository, Descriptor descriptor, string commit, List<string> problems)
@@ -525,6 +527,15 @@ static void CheckSbom(Repository repository, Descriptor descriptor, string commi
         }
     }
 
+    // The Web UI bundle is published and never packed (ADR 0200): a release
+    // asset, named by its file (ADR 0225, amended 2026-11-06).
+    if (repository.Show(commit, "src/Varve.WebUi/Varve.WebUi.csproj") is { } webUi
+        && System.Xml.Linq.XDocument.Parse(webUi).Descendants().Any(static e => e.Name.LocalName == "VarveShipped" && string.Equals(e.Value.Trim(), "true", StringComparison.OrdinalIgnoreCase))
+        && descriptor.Version is { } releasing)
+    {
+        expected.Add($"asset: varve-webui-{releasing.TrimStart('v')}.zip");
+    }
+
     HashSet<string> named = [.. descriptor.Sbom.Select(static line => $"{line.Kind}: {line.Name}")];
 
     foreach (string missing in expected.Where(key => !named.Contains(key)))
@@ -532,7 +543,7 @@ static void CheckSbom(Repository repository, Descriptor descriptor, string commi
         problems.Add($"{descriptor.Path}: no sbom line for {missing}; eng/sbom.cs writes it (sbom.txt)");
     }
 
-    foreach (SbomLine line in descriptor.Sbom.Where(line => line.Kind is "nupkg" or "tool" or "image" && !expected.Contains($"{line.Kind}: {line.Name}")))
+    foreach (SbomLine line in descriptor.Sbom.Where(line => (line.Kind is "nupkg" or "tool" or "image" || line.Name.StartsWith("varve-webui-", StringComparison.Ordinal)) && !expected.Contains($"{line.Kind}: {line.Name}")))
     {
         problems.Add($"{descriptor.Path}:{line.Line}: {line.Kind} {line.Name} is not an artefact {commit[..12]} ships");
     }

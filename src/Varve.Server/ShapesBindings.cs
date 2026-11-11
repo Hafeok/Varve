@@ -131,7 +131,7 @@ internal sealed class ShapesBindings
         };
 
     /// <summary>A binding's graph set as a scope: it names no template, which the declaration validator refuses (ADR 0170).</summary>
-    private static GraphScope Scope(GraphSet? graphs)
+    internal static GraphScope Scope(GraphSet? graphs)
     {
         if (graphs is null || graphs.All)
         {

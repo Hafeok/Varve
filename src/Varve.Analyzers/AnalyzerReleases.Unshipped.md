@@ -12,3 +12,4 @@ Rule ID | Category | Severity | Notes
 VARVE0003 | Varve.HotPath | Error | A hot path does not allocate, and calls only hot-path code. [Documentation](https://github.com/Hafeok/Varve/blob/main/docs/rules/VARVE0003.md)
 VARVE0004 | Varve.HotPath | Error | A hot path's signature does not force allocation or dispatch. [Documentation](https://github.com/Hafeok/Varve/blob/main/docs/rules/VARVE0004.md)
 VARVE0005 | Varve.Layering | Error | Layer declaration is missing, malformed, or disagrees with the assembly. [Documentation](https://github.com/Hafeok/Varve/blob/main/docs/rules/VARVE0005.md)
+VARVE0006 | Varve.Layering | Error | A Web UI component uses only lower levels, only pages use the client's services, and the client's model holds values only. [Documentation](https://github.com/Hafeok/Varve/blob/main/docs/rules/VARVE0006.md)
