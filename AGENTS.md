@@ -164,8 +164,15 @@ fills it in: a blank model is an incomplete record. **A commit message never
 carries a model's name** (a family word, alone or after the product, followed
 by a version); a model's identifier (the string an API takes to select a
 model) is allowed, and so is a co-author trailer naming only the product
-(ADR 0241, superseding ADR 0033's amendment of 2026-10-02). Prose says
-"developed with AI assistance under human review" and **names no product**.
+(ADR 0241, superseding ADR 0033's amendment of 2026-10-02). It is held where
+the commit is made and again in CI: `eng/hooks/commit-msg` rewrites a
+co-author trailer that names a model to `Co-Authored-By: Claude
+<noreply@anthropic.com>` and refuses a name anywhere else, and the
+`model-names` gate (`eng/model-names.cs`, the families in
+`eng/model-families.txt`) checks every commit a head adds over `main` (#169).
+A tool's own settings in the repository may set its default attribution to
+match; the rule is this one. Prose says "developed with AI assistance under
+human review" and **names no product**.
 
 ## Issues are the work log
 
