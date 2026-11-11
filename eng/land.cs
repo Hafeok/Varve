@@ -8,9 +8,13 @@
 //   dotnet run eng/land.cs -- <pr> --main       fast-forward main to it, then delete land/<name>
 //   dotnet run eng/land.cs -- --commit <rev>    the same for a commit of your own
 //
+//   dotnet run eng/land.cs -- --train <pr> <pr> ...         build a train of approved heads and push it to land/<name>
+//   dotnet run eng/land.cs -- --train <pr> <pr> ... --main  fast-forward main to that train
+//
 //   --name <name>   the land/ branch's name, in place of the one worked out
 //   --print         print the git commands, run none
-//   --fixtures <dir>  judge the closing-trailer fixtures (tests/fixtures/land/)
+//   --delegated-by <who>  a train's merges carry `Delegated-by: <who>` (ADR 0239 point 4)
+//   --fixtures <dir>  judge the closing-trailer and train fixtures (tests/fixtures/land/)
 //
 // ADR 0088: main accepts only a commit whose checks have passed, and a human
 // gets one there by pushing it to land/<name>, letting CI and `agent review`
@@ -54,6 +58,28 @@
 // (docs/releases.md rule 3, amended 2026-11-10), and land.cs prints the
 // command that writes them again.
 //
+// Landing trains (#277, ADR 0243 point 10, `LandingTrains`). A train is one
+// head that merges two or more pull request heads onto main, in the order
+// given, so that every gate runs once for all of them:
+// - each member's head must be approved for its exact sha (an `approve <sha>`
+//   comment, refused here rather than warned, because the train's verdict
+//   rests on each member's own), and green on its own: every check ruleset 1
+//   requires (.github/repo-standard.yaml) concluded on that head;
+// - each member's `Completes:` line is checked against its own commits;
+// - at most one member adds a release descriptor, and it goes last, so the
+//   land/ branch is land/release-<version> and the release is cut from the
+//   train's head as for any landing;
+// - each merge is `git merge-tree --write-tree` of the train so far and the
+//   member, committed with `git commit-tree` and a `Landing-only: merge`
+//   trailer, dated at the newest of the commits it joins, so the same members
+//   on the same main give the same head. A conflict refuses the train: a
+//   merge is never resolved by hand.
+// `--main` re-reads land/<name>, checks that its first-parent line down to
+// main is exactly those merges, each reproducible, with the members' current
+// heads as second parents, and fast-forwards main to it. When the push is
+// refused, or a merge conflicts, it prints the train without its last member.
+// `agent review` admits the train's head on the same terms (eng/agent-review.cs).
+//
 // Exit codes: 0 done, 1 refused (or an issue left open after landing), 2
 // could not run (GitHub unreadable included).
 //
@@ -74,6 +100,8 @@ string? name = null;
 bool toMain = false;
 bool print = false;
 string? fixtures = null;
+List<int>? train = null;
+string? delegatedBy = null;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -94,13 +122,27 @@ for (int i = 0; i < args.Length; i++)
         case "--fixtures" when i + 1 < args.Length:
             fixtures = args[++i];
             break;
+        case "--train":
+            train = [];
+            break;
+        case "--delegated-by" when i + 1 < args.Length:
+            delegatedBy = args[++i];
+            break;
         case "--help" or "-h":
             Usage();
             return 0;
         default:
             if (int.TryParse(args[i].TrimStart('#'), out int number) && number > 0)
             {
-                pullRequest = number;
+                if (train is not null)
+                {
+                    train.Add(number);
+                }
+                else
+                {
+                    pullRequest = number;
+                }
+
                 break;
             }
 
@@ -113,6 +155,25 @@ for (int i = 0; i < args.Length; i++)
 if (fixtures is not null)
 {
     return Fixtures.Run(fixtures);
+}
+
+if (train is not null)
+{
+    if (commit is not null)
+    {
+        Console.Error.WriteLine("land: --train takes pull request numbers, not --commit");
+        return 2;
+    }
+
+    try
+    {
+        return LandTrain(train, toMain, print, name, delegatedBy);
+    }
+    catch (GitException exception)
+    {
+        Console.Error.WriteLine($"land: {exception.Message}");
+        return 2;
+    }
 }
 
 if (pullRequest is null == commit is null)
@@ -393,6 +454,181 @@ static void WarnWithoutApproval(int number, string head)
     Console.WriteLine($"land: warning: no `approve {head[..12]}` comment on #{number}. If it has an agent's commits, `agent review` will fail on land/ until there is one.");
 }
 
+// A train (#277): build it and push it to land/<name>, or, with --main,
+// fast-forward main to the train already checked there.
+static int LandTrain(List<int> numbers, bool toMain, bool print, string? name, string? delegatedBy)
+{
+    Git("fetch", "--quiet", "--no-tags", Remote, "refs/heads/main");
+    string main = Git("rev-parse", "FETCH_HEAD");
+    string[] required = Trains.RequiredChecks(File.ReadAllText(Path.Combine(Git("rev-parse", "--show-toplevel"), ".github", "repo-standard.yaml")));
+
+    List<TrainMember> members = [];
+    foreach (int number in numbers)
+    {
+        Git("fetch", "--quiet", "--no-tags", Remote, $"refs/pull/{number}/head");
+        string head = Git("rev-parse", "FETCH_HEAD");
+        string? body = PullRequestBody(number);
+        List<string>? approvals = Approvals(number);
+        Dictionary<string, string>? checks = CheckConclusions(head);
+        if (body is null || approvals is null || checks is null)
+        {
+            Console.Error.WriteLine($"land: could not read #{number}'s body, comments or checks with the GitHub CLI, so the train cannot be checked; refusing rather than skipping it.");
+            return 2;
+        }
+
+        members.Add(new TrainMember(number, head, approvals, Trains.Unmet(required, checks), body,
+            PushedCommits(main, head), Trains.AddedDescriptors(main, head)));
+    }
+
+    List<string> refusals = Trains.Check(members);
+    DateOnly landingDay = DateOnly.FromDateTime(DateTime.UtcNow);
+    foreach (TrainMember member in members)
+    {
+        foreach ((string version, string date) in PendingDescriptors(main, member.Head))
+        {
+            if (Dates.Check(version, date, landingDay) is string refusal)
+            {
+                refusals.Add($"#{member.Number}: {refusal}");
+            }
+        }
+    }
+
+    if (refusals.Count > 0)
+    {
+        foreach (string refusal in refusals)
+        {
+            Console.Error.WriteLine($"land: {refusal}");
+        }
+
+        return 1;
+    }
+
+    name ??= Trains.Name(members);
+    string land = $"refs/heads/land/{name}";
+    string order = string.Join(" ", numbers);
+
+    if (!toMain)
+    {
+        List<string> trailers = [];
+        if (delegatedBy is not null)
+        {
+            trailers.Add($"Delegated-by: {delegatedBy}");
+        }
+
+        string lander = Git("config", "user.email");
+        (int signExit, string signOff) = Try("dotnet", "run", Path.Combine(Git("rev-parse", "--show-toplevel"), "eng", "dco.cs"), "--", "--sign-off-for", lander);
+        if (signExit == 0 && signOff.Trim().StartsWith("Signed-off-by: ", StringComparison.Ordinal))
+        {
+            trailers.Add(signOff.Trim());
+        }
+
+        (string? head, string? conflict, int at) = Trains.Build(main, members, trailers);
+        if (head is null)
+        {
+            Console.Error.WriteLine($"land: {conflict}");
+            Console.Error.WriteLine(Trains.Shorter(numbers, at));
+            return 1;
+        }
+
+        Console.WriteLine($"land: the train {string.Join(", ", numbers.Select(static n => $"#{n}"))} onto main at {main[..12]} is {head[..12]}.");
+        ListClosings(Closings.Trailers(PushedCommits(main, head)));
+
+        if (RemoteHead(land) == head)
+        {
+            Console.WriteLine($"land: land/{name} is at {head[..12]} already; its checks are running or done.");
+        }
+        else
+        {
+            Run(print, "git", "push", Remote, $"{head}:{land}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine($"Next, once the checks on land/{name} are green:");
+        Console.WriteLine($"  dotnet run eng/land.cs -- --train {order}{(name != Trains.Name(members) ? $" --name {name}" : "")} --main");
+        return 0;
+    }
+
+    string? landed = RemoteHead(land);
+    if (landed is null)
+    {
+        Console.Error.WriteLine($"land: there is no land/{name} on {Remote}; push the train first (without --main) and let its checks run");
+        return 1;
+    }
+
+    (List<string>? joined, string? why) = Trains.Verify(main, landed);
+    if (joined is null)
+    {
+        Console.Error.WriteLine($"land: land/{name} at {landed[..12]} is not a train onto main at {main[..12]}: {why}. Build it again, without --main.");
+        return 1;
+    }
+
+    if (!joined.SequenceEqual(members.Select(static member => member.Head)))
+    {
+        Console.Error.WriteLine($"land: land/{name} at {landed[..12]} joins {string.Join(", ", joined.Select(static sha => sha[..12]))}, not the members' heads now; a head moved since the train was built. Build it again, without --main.");
+        return 1;
+    }
+
+    List<Trailer> closing = Closings.Trailers(PushedCommits(main, landed));
+    ListClosings(closing);
+
+    if (Run(print, "git", "push", Remote, $"{landed}:refs/heads/main") != 0)
+    {
+        Console.Error.WriteLine($"land: {Remote} refused to move main. If a required check on land/{name} has not passed yet, wait for it and run this again. If one failed, the train lands nothing; its members stay landable on their own.");
+        Console.Error.WriteLine(Trains.Shorter(numbers, numbers.Count - 1));
+        return 1;
+    }
+
+    Run(print, "git", "push", Remote, "--delete", land);
+    if (print)
+    {
+        return 0;
+    }
+
+    Console.WriteLine();
+    Console.WriteLine($"land: main is at {landed[..12]}, the train {string.Join(", ", numbers.Select(static n => $"#{n}"))}.{(name.StartsWith("release-", StringComparison.Ordinal) ? " The release workflow now cuts the release it carries." : "")}");
+    (int afterExit, List<string> afterSaid) = Closings.CheckClosed(closing, IssueStates(closing));
+    foreach (string line in afterSaid)
+    {
+        (afterExit == 0 ? Console.Out : Console.Error).WriteLine($"land: {line}");
+    }
+
+    return afterExit;
+}
+
+// The shas a pull request's `approve <sha>` comments name, or null when
+// GitHub cannot be read. Whose comment it is stays `agent review`'s verdict.
+static List<string>? Approvals(int number)
+{
+    (int exit, string output) = Try("gh", "api", "--paginate", $"repos/{{owner}}/{{repo}}/issues/{number}/comments", "--jq", ".[].body");
+    return exit != 0
+        ? null
+        : [.. Regex.Matches(output, @"\bapprove\s+([0-9a-f]{12,40})\b", RegexOptions.IgnoreCase).Select(static match => match.Groups[1].Value.ToLowerInvariant())];
+}
+
+// Each check's latest conclusion on a commit, by name, or null when GitHub
+// cannot be read. A run still going has no conclusion and reads "pending".
+static Dictionary<string, string>? CheckConclusions(string sha)
+{
+    (int exit, string output) = Try("gh", "api", "--paginate", $"repos/{{owner}}/{{repo}}/commits/{sha}/check-runs?filter=latest",
+        "--jq", ".check_runs[] | \"\\(.name)\\t\\(.conclusion // \"pending\")\"");
+    if (exit != 0)
+    {
+        return null;
+    }
+
+    Dictionary<string, string> conclusions = [];
+    foreach (string line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+    {
+        string[] parts = line.Split('\t');
+        if (parts.Length == 2 && (!conclusions.TryGetValue(parts[0], out string? seen) || seen != "success"))
+        {
+            conclusions[parts[0]] = parts[1];
+        }
+    }
+
+    return conclusions;
+}
+
 static int Run(bool print, string file, params string[] arguments)
 {
     Console.WriteLine($"$ {file} {string.Join(' ', arguments)}");
@@ -453,10 +689,13 @@ static void Usage() => Console.Error.WriteLine("""
       dotnet run eng/land.cs -- <pr>              push the pull request's head to land/<name>
       dotnet run eng/land.cs -- <pr> --main       fast-forward main to it, then delete land/<name>
       dotnet run eng/land.cs -- --commit <rev>    the same for a commit of your own
+      dotnet run eng/land.cs -- --train <pr> <pr> ...         build a train of approved heads, push it to land/<name>
+      dotnet run eng/land.cs -- --train <pr> <pr> ... --main  fast-forward main to that train
     options:
       --name <name>   the land/ branch's name, in place of the one worked out
       --print         print the git commands, run none
-      --fixtures <dir>  judge the closing-trailer fixtures
+      --delegated-by <who>  a train's merges carry `Delegated-by: <who>` (ADR 0239 point 4)
+      --fixtures <dir>  judge the closing-trailer and train fixtures
     """);
 
 sealed class GitException(string message) : Exception(message);
@@ -579,6 +818,252 @@ static class Dates
     }
 }
 
+// A member of a train: its pull request, head, the shas its approvals name,
+// the required checks not green on its head, its body, its own commits over
+// main, and the release descriptors it adds.
+sealed record TrainMember(
+    int Number,
+    string Head,
+    List<string> Approvals,
+    List<string> Unmet,
+    string Body,
+    List<(string Sha, string Message)> Commits,
+    List<string> Descriptors);
+
+// Landing trains (#277, ADR 0243 point 10). The checks are over plain values;
+// Build and Verify run git, in whatever repository GIT_DIR or the working
+// directory names, so that the fixtures run them on a scratch repository.
+static class Trains
+{
+    public const string MergeTrailer = "Landing-only: merge";
+
+    static readonly Regex LandingOnlyMerge = new(@"^Landing-only:[ \t]*merge[ \t]*$", RegexOptions.Multiline | RegexOptions.CultureInvariant);
+
+    // Every context ruleset 1 requires, read from .github/repo-standard.yaml.
+    public static string[] RequiredChecks(string standard)
+    {
+        int start = standard.IndexOf("required_status_checks:", StringComparison.Ordinal);
+        return start < 0
+            ? []
+            : [.. Regex.Matches(standard[start..], @"^\s*-\s*context:\s*(?<name>.+?)\s*$", RegexOptions.Multiline)
+                .Select(static match => match.Groups["name"].Value.Trim('"', '\''))];
+    }
+
+    // The required checks not concluded success (or skipped or neutral) on a head.
+    public static List<string> Unmet(string[] required, Dictionary<string, string> conclusions) =>
+        [.. required.Where(check => !conclusions.TryGetValue(check, out string? conclusion) || conclusion is not ("success" or "skipped" or "neutral"))
+            .Select(check => conclusions.TryGetValue(check, out string? conclusion) ? $"{check} ({conclusion})" : $"{check} (not run)")];
+
+    // The versions of the release descriptors a head adds over main.
+    public static List<string> AddedDescriptors(string main, string head) =>
+        [.. Shell.Git("diff", "--name-only", "--diff-filter=A", main, head, "--", "releases/")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(static path => Regex.Match(path, @"^releases/(v[^/]+)\.yaml$"))
+            .Where(static match => match.Success)
+            .Select(static match => match.Groups[1].Value)];
+
+    // What refuses the train before it is built. Empty means it may be built.
+    public static List<string> Check(List<TrainMember> members)
+    {
+        List<string> refusals = [];
+        if (members.Count < 2)
+        {
+            string alone = members.Count == 1 ? $" Land #{members[0].Number} alone: dotnet run eng/land.cs -- {members[0].Number}" : "";
+            return [$"a train has two or more members.{alone}"];
+        }
+
+        foreach (IGrouping<int, TrainMember> twice in members.GroupBy(static member => member.Number).Where(static group => group.Count() > 1))
+        {
+            refusals.Add($"#{twice.Key} is in the train {twice.Count()} times; name each member once.");
+        }
+
+        foreach (TrainMember member in members)
+        {
+            string head = member.Head[..12];
+            if (!member.Approvals.Any(approved => member.Head.StartsWith(approved, StringComparison.Ordinal)))
+            {
+                string others = member.Approvals.Count == 0 ? "it has none" : $"its approvals are for {string.Join(", ", member.Approvals.Distinct().Select(static sha => sha.Length > 12 ? sha[..12] : sha))}";
+                refusals.Add($"#{member.Number}'s head {head} has no `approve {head}`; {others}. A train lands only heads approved as they are.");
+            }
+
+            if (member.Unmet.Count > 0)
+            {
+                refusals.Add($"#{member.Number}'s head {head} is not green on its own: {string.Join(", ", member.Unmet)}.");
+            }
+
+            foreach (string refusal in Closings.CheckCompletes(member.Body, Closings.Trailers(member.Commits)))
+            {
+                refusals.Add($"#{member.Number}: {refusal}");
+            }
+        }
+
+        List<TrainMember> releasing = [.. members.Where(static member => member.Descriptors.Count > 0)];
+        if (releasing.Count > 1 || releasing.Any(static member => member.Descriptors.Count > 1))
+        {
+            refusals.Add($"the train carries {releasing.Sum(static member => member.Descriptors.Count)} release descriptors ("
+                + string.Join(", ", releasing.SelectMany(static member => member.Descriptors.Select(version => $"#{member.Number}: {version}")))
+                + "); a train carries at most one.");
+        }
+        else if (releasing.Count == 1 && releasing[0] != members[^1])
+        {
+            refusals.Add($"#{releasing[0].Number} carries the release descriptor {releasing[0].Descriptors[0]}, so it goes last in the train.");
+        }
+
+        return refusals;
+    }
+
+    // land/release-<version> when the last member carries a descriptor, so
+    // that the push dry-runs the release; otherwise land/train-<N>-<N>-...
+    public static string Name(List<TrainMember> members) =>
+        members[^1].Descriptors is [string version]
+            ? $"release-{version}"
+            : "train-" + string.Join("-", members.Select(static member => member.Number));
+
+    // Merges each member's head onto the train so far, from main, by
+    // `git merge-tree`. The head, or null and the conflict.
+    public static (string? Head, string? Conflict, int At) Build(string main, List<TrainMember> members, List<string> trailers)
+    {
+        string date = members.Select(static member => member.Head).Append(main)
+            .Select(static sha => long.Parse(Shell.Git("log", "-1", "--format=%ct", sha), System.Globalization.CultureInfo.InvariantCulture))
+            .Max().ToString(System.Globalization.CultureInfo.InvariantCulture);
+        Dictionary<string, string> dated = new() { ["GIT_AUTHOR_DATE"] = $"{date} +0000", ["GIT_COMMITTER_DATE"] = $"{date} +0000" };
+        string order = string.Join(", ", members.Select(static member => $"#{member.Number}"));
+
+        string train = main;
+        for (int i = 0; i < members.Count; i++)
+        {
+            TrainMember member = members[i];
+            (int exit, string output) = Shell.Try(null, null, "git", "merge-tree", "--write-tree", "--name-only", "--no-messages", train, member.Head);
+            string[] lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            if (exit == 1)
+            {
+                return (null, $"#{member.Number} conflicts with the train before it ({string.Join(", ", members.Take(i).Select(static m => $"#{m.Number}"))} on main) in {string.Join(", ", lines.Skip(1))}; a train's merge is never resolved by hand.", i);
+            }
+
+            if (exit != 0 || lines.Length == 0)
+            {
+                throw new GitException($"git merge-tree {train[..12]} {member.Head[..12]} failed");
+            }
+
+            string message = $"""
+                Merge #{member.Number} into the train for main
+
+                Member {i + 1} of {members.Count} of the train {order}, onto main at {main[..12]}, by
+                `git merge-tree` (eng/land.cs --train).
+
+                Refs #{member.Number}
+
+                {MergeTrailer}
+                {string.Join("\n", trailers)}
+                """.TrimEnd() + "\n";
+            (int commitExit, string commit) = Shell.Try(dated, message, "git", "commit-tree", lines[0], "-p", train, "-p", member.Head, "-F", "-");
+            if (commitExit != 0)
+            {
+                throw new GitException($"git commit-tree for #{member.Number} failed");
+            }
+
+            train = commit.Trim();
+        }
+
+        return (train, null, members.Count);
+    }
+
+    // What to run without the member at `index` and those after it.
+    public static string Shorter(List<int> numbers, int index) =>
+        index switch
+        {
+            <= 0 => "land: no shorter train: the first member is the one at fault.",
+            1 => $"land: the train without #{numbers[1]}{(numbers.Count > 2 ? " and those after it" : "")} is #{numbers[0]} alone: dotnet run eng/land.cs -- {numbers[0]}",
+            _ => $"land: the train without #{numbers[index]}{(index < numbers.Count - 1 ? " and those after it" : "")}: dotnet run eng/land.cs -- --train {string.Join(" ", numbers.Take(index))}",
+        };
+
+    // A head is a train onto main when its first-parent line down to main is
+    // only `Landing-only: merge` commits of two parents, each one's tree the
+    // `git merge-tree` of its parents. The second parents, in order, or null
+    // and why not. eng/agent-review.cs holds its own copy of this rule.
+    public static (List<string>? Joined, string? Why) Verify(string main, string head)
+    {
+        List<string> joined = [];
+        string at = head;
+        while (at != main)
+        {
+            (int exit, string parents) = Shell.Try(null, null, "git", "rev-list", "--parents", "-n", "1", at);
+            string[] shas = parents.Trim().Split(' ');
+            if (exit != 0)
+            {
+                return (null, $"{at[..12]} cannot be read");
+            }
+
+            if (shas.Length != 3)
+            {
+                return (null, $"{at[..12]} is not a merge of two parents, and main is not below it on its first-parent line");
+            }
+
+            if (!LandingOnlyMerge.IsMatch(Shell.Git("log", "-1", "--format=%B", at)))
+            {
+                return (null, $"{at[..12]} has no `{MergeTrailer}` trailer");
+            }
+
+            (int mergeExit, string merged) = Shell.Try(null, null, "git", "merge-tree", "--write-tree", "--name-only", "--no-messages", shas[1], shas[2]);
+            if (mergeExit != 0 || merged.Split('\n')[0].Trim() != Shell.Git("rev-parse", $"{at}^{{tree}}"))
+            {
+                return (null, $"{at[..12]}'s tree is not `git merge-tree` of its parents: it was resolved or edited by hand");
+            }
+
+            joined.Insert(0, shas[2]);
+            at = shas[1];
+        }
+
+        return joined.Count < 2 ? (null, "a train has two or more members") : (joined, null);
+    }
+}
+
+// git and other processes, with an environment and standard input, for the
+// classes above (the top-level helpers cannot be called from a class).
+static class Shell
+{
+    public static string Git(params string[] arguments)
+    {
+        (int exit, string output) = Try(null, null, "git", arguments);
+        return exit == 0 ? output.Trim() : throw new GitException($"git {string.Join(' ', arguments)} failed");
+    }
+
+    public static (int Exit, string Output) Try(Dictionary<string, string>? environment, string? input, string file, params string[] arguments)
+    {
+        ProcessStartInfo start = new()
+        {
+            FileName = file,
+            RedirectStandardInput = input is not null,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+
+        foreach (string argument in arguments)
+        {
+            start.ArgumentList.Add(argument);
+        }
+
+        foreach ((string key, string value) in environment ?? [])
+        {
+            start.Environment[key] = value;
+        }
+
+        using Process process = Process.Start(start) ?? throw new GitException($"could not start {file}");
+        if (input is not null)
+        {
+            process.StandardInput.Write(input);
+            process.StandardInput.Close();
+        }
+
+        Task<string> error = process.StandardError.ReadToEndAsync();
+        string output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        _ = error.Result;
+        return (process.ExitCode, output);
+    }
+}
+
 // tests/fixtures/land/: each case a JSON file. `step` is "push" (the
 // Completes: check before a push) or "landed" (the check after main moved).
 // A "date" case holds a descriptor's `version`, `date` and the `landing` day,
@@ -606,6 +1091,7 @@ static class Fixtures
                 "push" => Push(root, closing),
                 "landed" => Landed(root, closing),
                 "date" => Date(root),
+                "train" => Train(root),
                 _ => throw new InvalidOperationException($"{file}: unknown step '{step}'"),
             };
 
@@ -638,6 +1124,137 @@ static class Fixtures
         string? refusal = Dates.Check(root.GetProperty("version").GetString()!, root.GetProperty("date").GetString()!,
             DateOnly.ParseExact(root.GetProperty("landing").GetString()!, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
         return (refusal is null, refusal is null ? [] : [refusal]);
+    }
+
+    // A train case is built for real: a scratch bare repository holds main
+    // and each member as a commit on it, and the train is checked, built by
+    // `git merge-tree` and verified there. `approval` is "head", "other" (an
+    // approval naming another sha) or "none"; `green` false gives the member
+    // a failed required check; `edit` true replaces the last merge with one
+    // whose tree was changed by hand, which Verify must refuse.
+    static (bool, List<string>) Train(JsonElement root)
+    {
+        string scratch = Directory.CreateTempSubdirectory("land-train-").FullName;
+        Dictionary<string, string?> saved = [];
+        foreach ((string key, string value) in new Dictionary<string, string>
+        {
+            ["GIT_DIR"] = scratch,
+            ["GIT_AUTHOR_NAME"] = "Fixture",
+            ["GIT_AUTHOR_EMAIL"] = "fixture@example.org",
+            ["GIT_COMMITTER_NAME"] = "Fixture",
+            ["GIT_COMMITTER_EMAIL"] = "fixture@example.org",
+        })
+        {
+            saved[key] = Environment.GetEnvironmentVariable(key);
+            Environment.SetEnvironmentVariable(key, value);
+        }
+
+        try
+        {
+            Shell.Git("init", "--quiet", "--bare", scratch);
+            string main = Commit(scratch, null, root.GetProperty("main"), "chore: main\n\nRefs #1\n");
+            List<TrainMember> members = [];
+            foreach (JsonElement member in root.GetProperty("members").EnumerateArray())
+            {
+                int number = member.GetProperty("number").GetInt32();
+                string message = member.TryGetProperty("message", out JsonElement written) ? written.GetString()! : $"feat: #{number}\n\nRefs #{number}\n";
+                string head = Commit(scratch, main, member.GetProperty("files"), message);
+                List<string> approvals = member.GetProperty("approval").GetString() switch
+                {
+                    "head" => [head[..12]],
+                    "other" => [main[..12]],
+                    _ => [],
+                };
+                List<string> unmet = member.GetProperty("green").GetBoolean() ? [] : ["build (ubuntu-latest) (failure)"];
+                string body = member.TryGetProperty("body", out JsonElement given) ? given.GetString()! : "Completes: none\n";
+                List<(string, string)> commits = [];
+                foreach (string record in Shell.Git("log", "--format=%H%x00%B%x01", $"{main}..{head}").Split('\u0001', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string[] parts = record.TrimStart('\n').Split('\0', 2);
+                    commits.Add((parts[0], parts[1]));
+                }
+
+                members.Add(new TrainMember(number, head, approvals, unmet, body, commits, Trains.AddedDescriptors(main, head)));
+            }
+
+            List<string> refusals = Trains.Check(members);
+            if (refusals.Count > 0)
+            {
+                return (false, refusals);
+            }
+
+            List<int> numbers = [.. members.Select(static member => member.Number)];
+            (string? train, string? conflict, int at) = Trains.Build(main, members, ["Signed-off-by: Fixture <fixture@example.org>"]);
+            if (train is null)
+            {
+                return (false, [conflict!, Trains.Shorter(numbers, at)]);
+            }
+
+            (string? again, _, _) = Trains.Build(main, members, ["Signed-off-by: Fixture <fixture@example.org>"]);
+            if (again != train)
+            {
+                return (false, [$"the same members on the same main built {train[..12]} and then {again?[..12]}"]);
+            }
+
+            if (root.TryGetProperty("edit", out JsonElement edit) && edit.GetBoolean())
+            {
+                string[] parents = Shell.Git("rev-list", "--parents", "-n", "1", train).Split(' ');
+                string blob = Shell.Try(null, "a line nobody reviewed\n", "git", "hash-object", "-w", "--stdin").Output.Trim();
+                string index = Path.Combine(scratch, "edit-index");
+                Dictionary<string, string> indexed = new() { ["GIT_INDEX_FILE"] = index };
+                Shell.Try(indexed, null, "git", "read-tree", $"{train}^{{tree}}");
+                Shell.Try(indexed, null, "git", "update-index", "--add", "--cacheinfo", $"100644,{blob},unreviewed.txt");
+                string tree = Shell.Try(indexed, null, "git", "write-tree").Output.Trim();
+                train = Shell.Try(null, Shell.Git("log", "-1", "--format=%B", train), "git", "commit-tree", tree, "-p", parents[1], "-p", parents[2], "-F", "-").Output.Trim();
+            }
+
+            (List<string>? joined, string? why) = Trains.Verify(main, train);
+            if (joined is null)
+            {
+                return (false, [$"the train {train[..12]} does not verify: {why}"]);
+            }
+
+            if (!joined.SequenceEqual(members.Select(static member => member.Head)))
+            {
+                return (false, [$"the train {train[..12]} joins other heads than its members'"]);
+            }
+
+            string merges = Shell.Git("log", "--first-parent", "--format=%B%x01", $"{main}..{train}");
+            int marked = merges.Split('\u0001', StringSplitOptions.RemoveEmptyEntries).Count(static message => message.Contains(Trains.MergeTrailer, StringComparison.Ordinal));
+            string subjects = Shell.Git("log", "--reverse", "--first-parent", "--format=%s", $"{main}..{train}").Replace("\n", "; ", StringComparison.Ordinal);
+            return (true, [$"the train {string.Join(", ", numbers.Select(static n => $"#{n}"))} is {train[..12]}, {marked} `{Trains.MergeTrailer}` merges ({subjects}), built twice the same, land/{Trains.Name(members)}"]);
+        }
+        finally
+        {
+            foreach ((string key, string? value) in saved)
+            {
+                Environment.SetEnvironmentVariable(key, value);
+            }
+
+            Directory.Delete(scratch, recursive: true);
+        }
+    }
+
+    // A commit of `files` (path to content) over `parent`'s tree, by plumbing.
+    static string Commit(string scratch, string? parent, JsonElement files, string message)
+    {
+        string index = Path.Combine(scratch, "fixture-index");
+        File.Delete(index);
+        Dictionary<string, string> indexed = new() { ["GIT_INDEX_FILE"] = index };
+        if (parent is not null)
+        {
+            Shell.Try(indexed, null, "git", "read-tree", $"{parent}^{{tree}}");
+        }
+
+        foreach (JsonProperty file in files.EnumerateObject())
+        {
+            string blob = Shell.Try(null, file.Value.GetString()!, "git", "hash-object", "-w", "--stdin").Output.Trim();
+            Shell.Try(indexed, null, "git", "update-index", "--add", "--cacheinfo", $"100644,{blob},{file.Name}");
+        }
+
+        string tree = Shell.Try(indexed, null, "git", "write-tree").Output.Trim();
+        string[] arguments = parent is null ? ["commit-tree", tree, "-F", "-"] : ["commit-tree", tree, "-p", parent, "-F", "-"];
+        return Shell.Try(null, message, "git", arguments).Output.Trim();
     }
 
     static (bool, List<string>) Landed(JsonElement root, List<Trailer> closing)

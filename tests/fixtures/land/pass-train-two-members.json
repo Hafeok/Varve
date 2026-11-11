@@ -1,0 +1,28 @@
+{
+  "step": "train",
+  "main": {
+    "README.md": "Varve\n"
+  },
+  "members": [
+    {
+      "number": 11,
+      "files": {
+        "docs/a.md": "a\n"
+      },
+      "approval": "head",
+      "green": true
+    },
+    {
+      "number": 12,
+      "files": {
+        "docs/b.md": "b\n"
+      },
+      "approval": "head",
+      "green": true
+    }
+  ],
+  "says": [
+    "the train #11, #12 is",
+    "2 `Landing-only: merge` merges (Merge #11 into the train for main; Merge #12 into the train for main), built twice the same, land/train-11-12"
+  ]
+}

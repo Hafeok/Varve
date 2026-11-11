@@ -1,0 +1,13 @@
+{
+  "step": "train",
+  "main": { "README.md": "Varve\n" },
+  "members": [
+    { "number": 11, "files": { "docs/a.md": "a\n" }, "approval": "head", "green": true },
+    { "number": 12, "files": { "README.md": "Varve, as #12 has it\n" }, "approval": "head", "green": true },
+    { "number": 13, "files": { "README.md": "Varve, as #13 has it\n" }, "approval": "head", "green": true }
+  ],
+  "says": [
+    "#13 conflicts with the train before it (#11, #12 on main) in README.md; a train's merge is never resolved by hand.",
+    "the train without #13: dotnet run eng/land.cs -- --train 11 12"
+  ]
+}
