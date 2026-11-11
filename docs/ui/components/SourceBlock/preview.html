@@ -8,9 +8,14 @@
 <!-- One figure per contract case in cases/: the markup inside each data-case
      element is the case's, verbatim, and a test checks it (ADR 0206 point 6). -->
 <div class="cases">
-<figure class="case"><figcaption>declaration</figcaption><div data-case="declaration"><div class="vw-source"><div class="vw-source__head"><span class="vw-source__graph">varve:manage/dataset/notes</span><span class="vw-position vw-position--management"><span class="vw-position__label">management</span> <span class="vw-position__value">412</span></span><button class="vw-button vw-button--small" type="button">Copy</button><span class="vw-visually-hidden" aria-live="polite"></span></div><pre tabindex="0" role="region" aria-label="varve:manage/dataset/notes">n:notes a varve:Dataset ;
-  varve:datasetName &quot;notes&quot; ;
-  varve:storage varve:ObjectStorage .</pre></div></div></figure>
+<figure class="case"><figcaption>declaration</figcaption><div data-case="declaration"><div class="vw-source"><div class="vw-source__head"><span class="vw-source__graph" title="https://w3id.org/varve/ns#manage/dataset/notes"><span aria-hidden="true">varve:manage/dataset/notes</span><span class="vw-visually-hidden">https://w3id.org/varve/ns#manage/dataset/notes</span></span><span class="vw-position vw-position--management"><span class="vw-position__label">management position</span> <span class="vw-position__value">412</span></span><button class="vw-button vw-button--small" type="button">Copy</button><span class="vw-visually-hidden" aria-live="polite"></span></div><pre tabindex="0" role="region" aria-label="https://w3id.org/varve/ns#manage/dataset/notes">@prefix varve: &lt;https://w3id.org/varve/ns#&gt; .
+
+&lt;https://w3id.org/varve/ns#manage/dataset/notes&gt; {
+  &lt;https://w3id.org/varve/ns#dataset/notes&gt; a varve:Dataset ;
+    varve:datasetName &quot;notes&quot; ;
+    varve:storage varve:ObjectStorage .
+}
+</pre></div></div></figure>
 </div>
 </body>
 </html>

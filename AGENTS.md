@@ -220,6 +220,32 @@ and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
 
+Web UI part 1, the operator console (#167, part 1 of #96), complete as
+`v0.1.0-preview.20` (ADRs 0200–0206, filed unaccepted). **`Varve.WebUi`** is
+a Blazor WebAssembly client of the public API (0200), trimmed and
+interpreted. Its download is gated by `eng/browser-size.cs` (0205).
+- **Its design source is `docs/ui/`** (0206):
+  - every component's markup is pinned by its cases, and bUnit checks it;
+  - `VARVE0006` holds the levels apart (Atoms … Parts, Pages);
+  - only Pages use a client service, and a `.Model` type references none;
+  - new markup gets its case first.
+- **Sign-in is its own OIDC client** (0201): code with PKCE, one token per
+  plane (the code exchange for data, a refresh grant for the management
+  scope), tokens in the heap.
+- **Hosting** (0202): `Varve:WebUi:Path` serves it under `/ui/` with a
+  strict CSP.
+- **Its SBOM** (0225, amended 2026-11-06): `eng/sbom.cs` writes the
+  bundle's from its locked restore for `browser-wasm`, the descriptor names
+  the zip in an `asset:` line, and `publish.yml` attests the zip with it.
+  The bundle resolves nothing outside NuGet.
+- **The client's reads** (0203): `Varve.Protocol.Client` answers
+  `VarveResult<T>`.
+- **Browser tests** (0204): `tests/Varve.WebUi.Browser.Tests` runs
+  Playwright and axe on the runner's Chrome, in the job `web ui in
+  Chromium`.
+- **Open on #96:** Zitadel's management token (token exchange), `If-Match`
+  on the state route, and part 2, the data explorer.
+
 Milestone 9, part 1 (#202, under #14; ADRs 0230–0238, filed unaccepted):
 **row-level access through the classifier**, in 1.0 and stable, with erasure
 mode off. A `varve:ClassifierBinding` names an annotated shapes graph and the

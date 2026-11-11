@@ -1,0 +1,155 @@
+@page "/health"
+@inject VarveHealthClient HealthClient
+@inject WebUiSettings Settings
+@inject TimeProvider Clock
+@* Health (#167): readiness with its reasons, the management plane on this
+   instance, and each dataset's state, role and lags (ADRs 0113, 0163, 0174),
+   read from /health/ready through Varve.Protocol.Client, ready or not. *@
+<PageTitle>Health · Varve</PageTitle>
+<ViewHead Title="Health">@if (_result is not null)
+{<ReadStamps Facts="_result.Facts" />}</ViewHead>
+
+@if (_failure is not null)
+{
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="ReadAsync" />
+}
+
+@if (_result?.Value is Readiness readiness)
+{
+    <Panel StaleSince="@LastAnswered" Title="Readiness">
+        <Head>
+            <StateBadge Tone="@Tones.OfState(readiness.IsReady ? "ready" : "not-ready")" Word="@(readiness.IsReady ? "ready" : "not-ready")" />
+            <Button Small="true" Disabled="_reading" OnClick="ReadAsync">Read again</Button>
+        </Head>
+        <ChildContent>
+            <p>@(readiness.IsReady ? "This instance is ready." : readiness.Detail ?? "This instance is not ready; the datasets below say why.")@if (_failure is null)
+            {<text> Read </text><code>@Times.Utc(_lastRead!.Value)</code><text>.</text>}</p>
+        </ChildContent>
+    </Panel>
+
+    @if (readiness.Management is ManagementReadiness management)
+    {
+        <Panel StaleSince="@LastAnswered" Title="Management plane on this instance">
+            <KeyValue>
+                <KeyValueItem Label="Role"><StateWord Word="@management.Role?.Value" Missing="not reported" /></KeyValueItem>
+                <KeyValueItem Label="Writer epoch"><code>@Text(management.Epoch)</code></KeyValueItem>
+                <KeyValueItem Label="Applied position">@if (management.Position is { } applied)
+                {<PositionStamp Label="management position" Value="applied.Value" Management="true" />}
+                else
+                {<text>not reported</text>}</KeyValueItem>
+                <KeyValueItem Label="Lag behind the system tail"><code>@Text(management.Lag)</code></KeyValueItem>
+                <KeyValueItem Label="Bootstrap"><StateWord Word="@management.Bootstrap?.Value" Missing="not reported" /></KeyValueItem>
+            </KeyValue>
+        </Panel>
+    }
+
+    <Panel StaleSince="@LastAnswered" Title="Datasets" Flush="true">
+        <ResourceTable ColumnCount="6" Caption="@(readiness.IsReady ? "Every dataset this instance serves" : "The datasets that are not ready")" Empty="readiness.Datasets.Count == 0">
+            <Columns>
+                <th scope="col">Dataset</th><th scope="col">State</th><th scope="col">This instance</th><th scope="col" class="vw-num">Lag</th><th scope="col">Validation lag</th><th scope="col">Reason</th>
+            </Columns>
+            <EmptyContent>@(readiness.IsReady ? "No dataset is served here. Declare one in TriG and run varve apply." : "No dataset is behind, failed or superseded; the instance is not ready for the reason above.")</EmptyContent>
+            <Rows>
+                @foreach (DatasetReadiness dataset in readiness.Datasets)
+                {
+                    <tr>
+                        <td class="vw-table__name">@dataset.Name.Value</td>
+                        <td><StateWord Word="@dataset.State?.Value" Missing="not reported" /></td>
+                        <td><StateWord Word="@dataset.Role?.Value" Missing="not reported" /></td>
+                        <td class="vw-num">@Text(dataset.Lag)</td>
+                        <td>@if (dataset.Validation.Count == 0)
+                        {<span class="vw-muted">none bound</span>}
+                        else
+                        {<KeyValue>@foreach (KeyValuePair<string, PositionLag> binding in dataset.Validation)
+                        {<KeyValueItem Label="@binding.Key"><code>@binding.Value</code></KeyValueItem>}</KeyValue>}</td>
+                        <td>@dataset.Reason</td>
+                    </tr>
+                }
+            </Rows>
+        </ResourceTable>
+    </Panel>
+
+    @foreach (DatasetReadiness dataset in readiness.Datasets)
+    {
+        IReadOnlyList<KeyValuePair<string, System.Text.Json.JsonElement>> more = Unshown(dataset);
+
+        @if (more.Count > 0)
+        {
+            <Panel StaleSince="@LastAnswered" Title="@("More about " + dataset.Name.Value)">
+                <KeyValue>@foreach (KeyValuePair<string, System.Text.Json.JsonElement> member in more)
+                {<KeyValueItem Label="@member.Key"><code>@member.Value.GetRawText()</code></KeyValueItem>}</KeyValue>
+            </Panel>
+        }
+    }
+
+    @if (readiness.Members.Count > 0)
+    {
+        <Panel StaleSince="@LastAnswered" Title="More">
+            <KeyValue>@foreach (KeyValuePair<string, System.Text.Json.JsonElement> member in readiness.Members)
+            {<KeyValueItem Label="@member.Key"><code>@member.Value.GetRawText()</code></KeyValueItem>}</KeyValue>
+        </Panel>
+    }
+}
+else if (_result?.Problem is Problem problem)
+{
+    <ProblemView Problem="problem" Facts="_result.Facts" Management="true" />
+}
+else if (_result is not null)
+{
+    <Notice Title="The answer was not one Varve gives" Warn="true">The address answered <code>@((int)_result.Facts.Status)</code> with neither the resource nor a problem. Check that <code>Varve:Server</code> in the Web UI's <code>appsettings.json</code> names the server, and that nothing between them rewrites its answers.</Notice>
+}
+else if (_failure is null)
+{
+    <Panel StaleSince="@LastAnswered" Title="Datasets" Flush="true">
+        <ResourceTable ColumnCount="6" Caption="Every dataset this instance serves" Loading="true">
+            <Columns>
+                <th scope="col">Dataset</th><th scope="col">State</th><th scope="col">This instance</th><th scope="col" class="vw-num">Lag</th><th scope="col">Validation lag</th><th scope="col">Reason</th>
+            </Columns>
+        </ResourceTable>
+    </Panel>
+}
+
+@code {
+    // The members of a dataset's entry the table shows; any other is shown
+    // under "More about", so what a newer server adds is not dropped (ADR 0203).
+    private static readonly HashSet<string> Shown = new(StringComparer.Ordinal) { "name", "state", "role", "lag", "validation", "reason" };
+
+    private VarveResult<Readiness>? _result;
+    private DateTimeOffset? _lastRead;
+    private string? _failure;
+    private bool _reading;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
+
+    /// <inheritdoc />
+    protected override Task OnInitializedAsync() => ReadAsync();
+
+    private async Task ReadAsync()
+    {
+        _reading = true;
+
+        try
+        {
+            VarveResult<Readiness> result = await HealthClient.ReadyAsync(CancellationToken.None);
+            _result = result;
+            _lastRead = Clock.GetUtcNow();
+            _failure = null;
+        }
+        catch (HttpRequestException e)
+        {
+            _failure = e.Message;
+        }
+        finally
+        {
+            _reading = false;
+        }
+    }
+
+    private static IReadOnlyList<KeyValuePair<string, System.Text.Json.JsonElement>> Unshown(DatasetReadiness dataset) =>
+        [.. dataset.Members.Where(member => !Shown.Contains(member.Key))];
+
+    private static string Text<T>(T? value)
+        where T : struct => value?.ToString() ?? "not reported";
+
+}
