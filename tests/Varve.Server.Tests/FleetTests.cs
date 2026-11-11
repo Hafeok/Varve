@@ -276,6 +276,92 @@ public abstract class FleetCases : IAsyncDisposable
     }
 
     /// <summary>
+    /// The move's own forward answers by what happened (ADR 0167, amended
+    /// 2026-11-02; #216). b writes d and a the system dataset, and a's writer
+    /// record names an internal address the test holds. With nothing
+    /// listening there, the forward never reaches the system writer: nothing
+    /// was committed, and the move is answered unavailable with the reason
+    /// writer-unreachable. With a listener that takes the request and closes
+    /// without answering, it was sent and the answer lost: the move is
+    /// answered commit-outcome-unknown, with the request id and no position.
+    /// Either way the declarations are where they were.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_move_s_forward_to_the_system_writer_answers_unreachable_when_never_sent_and_outcome_unknown_when_the_answer_is_lost(bool sent)
+    {
+        FleetLocation container = await Store.NewAsync();
+        using TcpListener listener = new(IPAddress.Loopback, 0);
+        listener.Start();
+        int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        using CancellationTokenSource closing = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        int received = 0;
+        Task serving = Task.CompletedTask;
+
+        if (sent)
+        {
+            // Takes each request's head and closes, answering nothing.
+            serving = Task.Run(async () =>
+            {
+                try
+                {
+                    while (true)
+                    {
+                        using TcpClient client = await listener.AcceptTcpClientAsync(closing.Token);
+                        byte[] buffer = new byte[4096];
+
+                        if (await client.GetStream().ReadAsync(buffer, closing.Token) > 0)
+                        {
+                            Interlocked.Increment(ref received);
+                        }
+                    }
+                }
+                catch (Exception error) when (error is OperationCanceledException or SocketException or ObjectDisposedException)
+                {
+                }
+            }, Ct);
+        }
+        else
+        {
+            // The port is free again, and nothing listens on it.
+            listener.Stop();
+        }
+
+        Server a = await StartAsync("a", container, "a", "--Varve:Fleet:InternalUrl=http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture));
+        HttpResponseMessage placed = await a.Http.PutAsync(new Uri(a.Address, "manage/datasets/d"), Trig(Declaration("d") + " <urn:fleet:d> <https://w3id.org/varve/ns#placedOn> \"b\" ."), Ct);
+        Assert.True(placed.IsSuccessStatusCode, (int)placed.StatusCode + " " + await placed.Content.ReadAsStringAsync(Ct));
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, long.Parse(placed.Headers.GetValues("Varve-Position").Single(), CultureInfo.InvariantCulture), "d", "writer");
+
+        HttpResponseMessage moved = await b.Http.PostAsync(new Uri(b.Address, "manage/datasets/d/events/move"), null, Ct);
+        string answer = await moved.Content.ReadAsStringAsync(Ct);
+        Assert.True(moved.StatusCode == HttpStatusCode.ServiceUnavailable, (int)moved.StatusCode + " " + answer + "\n" + b.Log);
+        using JsonDocument problem = JsonDocument.Parse(answer);
+
+        if (sent)
+        {
+            Assert.Equal("https://w3id.org/varve/problems/commit-outcome-unknown", problem.RootElement.GetProperty("type").GetString());
+            Assert.True(problem.RootElement.TryGetProperty("requestId", out _), answer);
+            Assert.False(problem.RootElement.TryGetProperty("position", out _), answer);
+            Assert.Equal(1, Volatile.Read(ref received));
+        }
+        else
+        {
+            Assert.Equal("https://w3id.org/varve/problems/unavailable", problem.RootElement.GetProperty("type").GetString());
+            Assert.Equal("writer-unreachable", problem.RootElement.GetProperty("reason").GetString());
+        }
+
+        // Nothing was committed: the declarations are still the dataset's.
+        HttpResponseMessage where = await a.Http.GetAsync(new Uri(a.Address, "manage/datasets/d/events"), Ct);
+        Assert.Contains("\"state\":\"in-dataset\"", await where.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+        await closing.CancelAsync();
+        listener.Stop();
+        await serving;
+    }
+
+    /// <summary>
     /// A follower whose memtable grows past Varve:Store:MemtableLimit since its
     /// open is opened again from the writer's newest catalog by the reconcile
     /// round (ADR 0164 point 5), and answers as before: the same quads, at the
@@ -409,7 +495,9 @@ public abstract class FleetCases : IAsyncDisposable
     /// proxy that starts failing its log writes, so a batch fails with every
     /// retry spent. a releases the epoch for storage-error and stands by; b,
     /// warm and reaching the store directly, claims in place and writes, and a
-    /// forwards to it. The epoch history shows the release and the claim.
+    /// forwards to it. The epoch history shows the release and the claim, and
+    /// no claim by a: its release started its hold-off, so b had a round of
+    /// its own to claim in first.
     /// </summary>
     [Fact]
     [Trait("Measure", "Handover")]
@@ -439,10 +527,69 @@ public abstract class FleetCases : IAsyncDisposable
         Measured("abdication (storage-error): the failed write's answer to the first commit forwarded to the standby", afterRefusal);
         Assert.Equal("2", await CountAsync(b, written.Headers.GetValues("Varve-Position").Single()));
 
+        // a reports what it did (ADR 0163, amended 2026-11-10): d is degraded on it, by its one release for storage-error.
+        string degraded = await ReadinessOfAsync(a, "d");
+        Assert.Contains("\"degraded\":{\"reason\":\"storage-error\",\"releases\":1,\"since\":\"", degraded, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"degraded\"", await ReadinessOfAsync(b, "d"), StringComparison.Ordinal);
+
         StringWriter output = new() { NewLine = "\n" };
         await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(output, new StringWriter(), new MemoryStream()), Ct);
         Assert.Contains("storage-error", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("holder: b", output.ToString(), StringComparison.Ordinal);
+
+        // b won at once: a's release started a's hold-off (ADR 0180 point 4, amended 2026-11-10), so the one claim after epoch 1 is b's.
+        Assert.Matches(@"(?m)^epoch:\s+2\b", output.ToString());
+        Assert.DoesNotMatch(@"abdication\s+by a\b", output.ToString());
+    }
+
+    /// <summary>
+    /// The releaser alone (ADR 0180 point 4, amended 2026-11-10): a writes d
+    /// with b its standby, and b is not running. a fails a batch and releases
+    /// epoch 1 for storage-error, which starts its hold-off. The store
+    /// recovers. No other member claims, so once a's hold-off has passed a
+    /// races for its own release, claims epoch 2 in place, and answers writes
+    /// again, in the same process. Rounds are a second here, so that the
+    /// hold-off shows: the claim comes two rounds after the release, the one
+    /// sat out and the one it claims in, where a member that was not held
+    /// would claim in the first.
+    /// </summary>
+    [Fact]
+    public async Task The_releaser_alone_takes_its_own_release_back_after_its_hold_off_and_answers_writes_with_no_restart()
+    {
+        FleetLocation container = await Store.NewAsync();
+        await using CountingProxy proxy = await CountingProxy.StartAsync(container.Upstream);
+        Server a = await StartAsync("a", container.Through(proxy.Address), "a", "--Varve:Fleet:FollowInterval=00:00:01");
+        await DeclareAsync(a, "d", "a", "b");
+        Assert.Equal(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+
+        proxy.Fail = (method, path) => method == "PUT" && path.Contains("/d/log/", StringComparison.Ordinal);
+        Assert.NotEqual(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/lost> <http://ex/p> 2 }")).StatusCode);
+        proxy.Fail = null;
+
+        Stopwatch reclaimed = Stopwatch.StartNew();
+        HttpResponseMessage written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 3 }");
+
+        while (written.StatusCode != HttpStatusCode.NoContent && reclaimed.Elapsed < TimeSpan.FromSeconds(20))
+        {
+            await Task.Delay(100, Ct);
+            written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 3 }");
+        }
+
+        await AssertWrittenAsync(a, "d", written);
+        TestContext.Current.SendDiagnosticMessage("a answered a write again " + reclaimed.ElapsedMilliseconds + " ms after the store recovered");
+
+        StringWriter lease = new() { NewLine = "\n" };
+        await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(lease, new StringWriter(), new MemoryStream()), Ct);
+        Assert.Matches(@"epoch 1\s+\S+\s+by a\s.*released: storage-error", lease.ToString());
+        Assert.Matches(@"epoch \d+\s+abdication\s+by a\b", lease.ToString());
+        Assert.Contains("holder: a", lease.ToString(), StringComparison.Ordinal);
+        Assert.Contains("released: no", lease.ToString(), StringComparison.Ordinal);
+
+        // After its hold-off: the release is the moment a's log says so, and the claim the record's own time for epoch 2.
+        DateTimeOffset released = a.SeenAt("released its epoch for storage-error") ?? throw new Xunit.Sdk.XunitException("a's log has no release:\n" + a.Log);
+        DateTimeOffset claimed = DateTimeOffset.Parse(
+            System.Text.RegularExpressions.Regex.Match(lease.ToString(), @"epoch 2\s+abdication\s+by a\s+at (\S+)").Groups[1].Value, CultureInfo.InvariantCulture);
+        Assert.True(claimed - released >= TimeSpan.FromSeconds(1.5), "a claimed " + (claimed - released).TotalMilliseconds + " ms after its release, inside its hold-off:\n" + lease + a.Log);
     }
 
     /// <summary>
@@ -462,7 +609,7 @@ public abstract class FleetCases : IAsyncDisposable
         await using CountingProxy proxy = await CountingProxy.StartAsync(container.Upstream);
         Server a = await StartAsync("a", container.Through(proxy.Address), writer: "a");
         long declared = await DeclareAsync(a, "d", "a", "b");
-        Assert.Equal(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }")).StatusCode);
+        await AssertWrittenAsync(a, "d", await Update(a, "d", "INSERT DATA { <http://ex/before> <http://ex/p> 1 }"));
 
         proxy.Fail = (method, path) => method == "PUT" && path.Contains("/d/log/", StringComparison.Ordinal);
         Assert.NotEqual(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/lost> <http://ex/p> 2 }")).StatusCode);
@@ -1100,6 +1247,131 @@ public abstract class FleetCases : IAsyncDisposable
         Assert.Equal("2", await CountAsync(b, write.Headers.GetValues("Varve-Position").Single()));
     }
 
+    /// <summary>
+    /// A writer whose first open fails opens once the store recovers, with no
+    /// restart (#251; ADR 0163 point 12, amended 2026-11-10). a reaches the
+    /// store through a proxy that answers 500 to every PUT under d's prefix
+    /// while d is declared with a writer set. The declaration is committed
+    /// and answered success: it is the system dataset's commit. d did not
+    /// open: readiness reports it failed with the request that failed, a
+    /// write finds no dataset, and a's log has one warning for it, however
+    /// many rounds try again, and it holds off between its claims, so the
+    /// record counts few. The store recovers, and within the hold-off then in
+    /// force a write to d is committed. Marked
+    /// started by its first decision whatever the open's outcome, a stood by
+    /// for a dataset nobody had created, until it restarted. Two failures:
+    /// every PUT under the prefix, so the open fails at the store's probe
+    /// with no epoch taken; and the log's PUTs alone, so the record's PUT
+    /// gets through and the open fails holding epoch 1, which the warning
+    /// names.
+    /// </summary>
+    [Theory]
+    [InlineData("/d/", "none taken")]
+    [InlineData("/d/log/", "1")]
+    public async Task A_writer_whose_first_open_fails_opens_once_the_store_recovers_with_no_restart(string failing, string epoch)
+    {
+        FleetLocation container = await Store.NewAsync();
+        await using CountingProxy proxy = await CountingProxy.StartAsync(container.Upstream);
+        Server a = await StartAsync("a", container.Through(proxy.Address), writer: "a");
+
+        proxy.Fail = (method, path) => method == "PUT" && path.Contains(failing, StringComparison.Ordinal);
+        await DeclareAsync(a, "d", "a", "b");
+
+        string readiness = await ReadinessOfAsync(a, "d");
+        Assert.Contains("\"state\":\"failed\"", readiness, StringComparison.Ordinal);
+        Assert.Contains("d/", readiness, StringComparison.Ordinal);
+        Assert.Contains("500", readiness, StringComparison.Ordinal);
+        Assert.NotEqual(HttpStatusCode.NoContent, (await Update(a, "d", "INSERT DATA { <http://ex/early> <http://ex/p> 1 }")).StatusCode);
+
+        // Rounds go by with the store still failing: the failed open is logged, once.
+        await Task.Delay(TimeSpan.FromSeconds(epoch == "1" ? 20 : 5), Ct);
+        string Logged = "The dataset 'd' did not open as its writer (epoch: " + epoch + ")";
+        string log = a.Log;
+        Assert.True(log.Split(Logged).Length == 2 && log.Split("did not open as its writer").Length == 2, "The failed open is logged once, with the epoch " + epoch + ":\n" + log);
+        Assert.Contains("500", log[log.IndexOf(Logged, StringComparison.Ordinal)..], StringComparison.Ordinal);
+
+        if (epoch == "1")
+        {
+            // Each open that fails here took an epoch, so the record counts the
+            // claims. Held off (ADR 0163, amended 2026-11-10), twenty seconds
+            // see seven at most: a claim's retries take about 1.6 s, and the
+            // waits between them are two rounds at least, then 0.4 to 0.8 s,
+            // doubling. Claiming every round, as before, they saw eleven.
+            StringWriter record = new() { NewLine = "\n" };
+            await Varve.Server.Commands.Cli.RunAsync(container.Lease("d"), new Varve.Server.Commands.Io(record, new StringWriter(), new MemoryStream()), Ct);
+            int claims = int.Parse(System.Text.RegularExpressions.Regex.Match(record.ToString(), @"(?m)^epoch:\s+(\d+)").Groups[1].Value, CultureInfo.InvariantCulture);
+            Assert.True(claims is >= 2 and <= 8, "The store saw " + claims + " claims in twenty seconds:\n" + record);
+        }
+
+        proxy.Fail = null;
+        Stopwatch recovered = Stopwatch.StartNew();
+        HttpResponseMessage written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }");
+
+        while (written.StatusCode != HttpStatusCode.NoContent && recovered.Elapsed < TimeSpan.FromSeconds(20))
+        {
+            await Task.Delay(100, Ct);
+            written = await Update(a, "d", "INSERT DATA { <http://ex/after> <http://ex/p> 2 }");
+        }
+
+        await AssertWrittenAsync(a, "d", written);
+        TestContext.Current.SendDiagnosticMessage("a write to d was committed " + recovered.ElapsedMilliseconds + " ms after the store recovered");
+        Assert.Contains("\"state\":\"ready\"", await ReadinessOfAsync(a, "d"), StringComparison.Ordinal);
+    }
+
+    // A write that must be committed. On any other answer: the response, the
+    // dataset's line of readiness with its state and reason, and the server's log.
+    private static async Task AssertWrittenAsync(Server server, string dataset, HttpResponseMessage response)
+    {
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            return;
+        }
+
+        string body = await response.Content.ReadAsStringAsync(Ct);
+        Assert.Fail(
+            server.Instance + " answered " + (int)response.StatusCode + " to a write to " + dataset + ": " + body
+            + "\n" + dataset + " in " + server.Instance + "'s readiness: " + await ReadinessOfAsync(server, dataset)
+            + "\n" + server.Instance + ":\n" + server.Log);
+    }
+
+    // The dataset's entry in the instance's readiness, as it was written: its
+    // state, and its reason when it has one. Readiness lists datasets by name
+    // when ready, and as an array of those that are not when unready.
+    private static async Task<string> ReadinessOfAsync(Server server, string dataset)
+    {
+        HttpResponseMessage ready = await server.Http.GetAsync(new Uri(server.Address, "health/ready"), Ct);
+        string body = await ready.Content.ReadAsStringAsync(Ct);
+
+        try
+        {
+            using JsonDocument json = JsonDocument.Parse(body);
+
+            if (json.RootElement.TryGetProperty("datasets", out JsonElement datasets))
+            {
+                if (datasets.ValueKind == JsonValueKind.Object && datasets.TryGetProperty(dataset, out JsonElement named))
+                {
+                    return named.GetRawText();
+                }
+
+                if (datasets.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (JsonElement entry in datasets.EnumerateArray())
+                    {
+                        if (entry.TryGetProperty("name", out JsonElement name) && name.GetString() == dataset)
+                        {
+                            return entry.GetRawText();
+                        }
+                    }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return "no entry for " + dataset + " in " + (int)ready.StatusCode + " " + body;
+    }
+
     private static Task<HttpResponseMessage> Takeover(Server server, string dataset, long epoch) =>
         server.Http.PutAsync(new Uri(server.Address, "manage/datasets/" + dataset + "/state"), new StringContent("{\"takeover\":{\"epoch\":" + epoch.ToString(CultureInfo.InvariantCulture) + "}}", Encoding.UTF8, "application/json"), Ct);
 
@@ -1306,6 +1578,7 @@ public abstract class FleetCases : IAsyncDisposable
     {
         private readonly Process _process;
         private readonly StringBuilder _log = new();
+        private readonly List<(DateTimeOffset At, string Line)> _lines = [];
 
         private Server(string instance, Uri address, Process process)
         {
@@ -1329,6 +1602,23 @@ public abstract class FleetCases : IAsyncDisposable
                     return _log.ToString();
                 }
             }
+        }
+
+        /// <summary>When the first line of the log holding <paramref name="fragment"/> arrived; none when no line does.</summary>
+        internal DateTimeOffset? SeenAt(string fragment)
+        {
+            lock (_log)
+            {
+                foreach ((DateTimeOffset at, string line) in _lines)
+                {
+                    if (line.Contains(fragment, StringComparison.Ordinal))
+                    {
+                        return at;
+                    }
+                }
+            }
+
+            return null;
         }
 
         internal static Server Start(string instance, int port, FleetLocation container, string cache, string writer, string[] extra)
@@ -1434,6 +1724,7 @@ public abstract class FleetCases : IAsyncDisposable
                 lock (_log)
                 {
                     _log.AppendLine(line);
+                    _lines.Add((DateTimeOffset.UtcNow, line));
                 }
             }
         }

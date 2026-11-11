@@ -210,8 +210,21 @@ internal static class Forwarding
     // not have been committed, and this instance knows no position to look
     // at, so the problem carries the request id alone (ADR 0214).
     [DesignDecision(typeof(FileBackendFailureInjection.OutcomeUnknownIs503WithTheRequestId), Scope = ExceptionScope.Boundary)]
-    private static Task LostAnswerAsync(HttpContext context, string reason) =>
+    internal static Task LostAnswerAsync(HttpContext context, string reason) =>
         HttpProblems.WriteAsync(context, ProblemType.CommitOutcomeUnknown, reason, members => members.String("requestId", context.TraceIdentifier));
+
+    /// <summary>
+    /// Whether a forward failed before any of it was sent: the name did not
+    /// resolve, or no connection, TLS session or proxy tunnel to the writer
+    /// was made. The writer then received nothing, so nothing was committed.
+    /// Every other failure may have followed the request's bytes, and its
+    /// outcome is unknown.
+    /// </summary>
+    internal static bool NeverSent(HttpRequestException error) => error.HttpRequestError
+        is HttpRequestError.NameResolutionError
+        or HttpRequestError.ConnectionError
+        or HttpRequestError.SecureConnectionError
+        or HttpRequestError.ProxyTunnelError;
 
     // The problem type a writer answered a batch with, when it is one that
     // means the batch was never committed across a handover: its short name.

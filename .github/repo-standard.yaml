@@ -33,6 +33,9 @@ labels:
 - name: accessibility
   color: f143ab
   description: Barrier affecting people with disabilities
+- name: adr
+  color: ededed
+  description: ""
 - name: bug
   color: d73a4a
   description: Something isn't working
@@ -57,6 +60,14 @@ labels:
 - name: question
   color: d876e3
   description: Further information is requested
+# The soak judge opens its issue with this label (ADR 0215), and a release that
+# is not a preview waits while one is open: it is load-bearing, never removed.
+- name: soak
+  color: b60205
+  description: A soak on main was red or invalid (ADR 0215); a release that is not a preview waits on it
+- name: spike
+  color: ededed
+  description: ""
 - name: wontfix
   color: ffffff
   description: This will not be worked on
@@ -126,8 +137,11 @@ rulesets:
   rules:
   - type: creation
   # Pushes to an existing land/ branch, the step before main is
-  # fast-forwarded to its head. Declared with its parameter, as GitHub's
-  # export writes it, so a whole-ruleset comparison does not read it as drift.
+  # fast-forwarded to its head. update_allows_fetch_and_merge is false, its
+  # default: nothing moves a land/ branch by syncing it, only the maintainer's
+  # push (ADR 0088). Written as GitHub's export writes it; GitHub's REST GET
+  # leaves a default parameter out, and repo-standard compares the two
+  # spellings as one rule (#101).
   - type: update
     parameters:
       update_allows_fetch_and_merge: false
@@ -223,8 +237,28 @@ environments:
   - GATES_APP_PRIVATE_KEY
   - REPO_STANDARD_APP_CLIENT_ID
   - REPO_STANDARD_APP_PRIVATE_KEY
-# The real-provider auth legs (ADR 0100): Entra ID and Google credentials for
-# test tenants, readable only by a job on main, so never by a pull request.
+# The object-storage legs against a real storage account (ADR 0137, ADR 0142):
+# azure-objects.yml and azure-objects-faults.yml, dispatched by the maintainer.
+# They sign in with GitHub's OIDC token for this environment as a federated
+# credential, and read only identifiers, as variables (repo-standard does not
+# manage variables); no secret is stored here. Only main deploys to it, as for
+# every environment a credential trusts (#101).
+- name: azure-objects
+  wait_timer: 0
+  prevent_self_review: false
+  reviewers: []
+  deployment_branch_policy:
+    protected_branches: false
+    custom_branch_policies: true
+  branch_policies:
+  - name: main
+  secrets: []
+# The real-provider auth legs (ADR 0100, point 4 superseded by ADR 0223):
+# Entra ID and Google test tenants, reached by federated credentials from the
+# job's own OIDC token for this environment, which only main deploys to. No
+# client secret and no service-account key is stored, here or anywhere. What is
+# here are identifiers, kept as secrets only because repo-standard cannot yet
+# declare an environment's variables (#239). docs/auth-providers.md sets them.
 - name: auth-providers
   wait_timer: 0
   prevent_self_review: false
@@ -237,9 +271,9 @@ environments:
   secrets:
   - VARVE_ENTRA_TENANT
   - VARVE_ENTRA_CLIENT_ID
-  - VARVE_ENTRA_CLIENT_SECRET
   - VARVE_ENTRA_AUDIENCE
-  - VARVE_GOOGLE_SERVICE_ACCOUNT
+  - VARVE_GOOGLE_WORKLOAD_IDENTITY_PROVIDER
+  - VARVE_GOOGLE_SERVICE_ACCOUNT_EMAIL
 # The repository has no Actions secrets of its own: a repository secret is
 # readable by any workflow a same-repository pull request defines. Both Apps'
 # keys are in the gates environment above.
