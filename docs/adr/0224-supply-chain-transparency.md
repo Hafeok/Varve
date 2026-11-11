@@ -493,7 +493,8 @@ workflows, which no compilation sees. Their failure paths are the fixtures.
 
 ## Amendment, 2026-11-11: the pin covers workload sets
 
-Filed unaccepted (ADR 0066), by #276. It adds detail to point 5 and changes
+Filed unaccepted (ADR 0066), by #276, and accepted on #279 on 2026-11-11, at
+the maintainer's word, by his delegate (ADR 0239). It adds detail to point 5 and changes
 nothing it decided (ADR 0068 point 2).
 
 The .NET 10.0.15 servicing release reached GitHub's runners on 2026-11-11,
@@ -538,5 +539,5 @@ So:
 Rejected: moving the SDK and the lockfiles to 10.0.15. That fixes the day,
 and the next servicing release breaks it again.
 
-The ruling is `CiInstallsTheWorkloadSetGlobalJsonPins`, filed unaccepted with
-this amendment's date.
+The ruling is `CiInstallsTheWorkloadSetGlobalJsonPins`, filed with this
+amendment's date and accepted on #279 the same day.

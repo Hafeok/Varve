@@ -57,6 +57,8 @@ decisions:
     accepted-at: 2026-10-28T00:00:00Z
   - key: CiInstallsTheWorkloadSetGlobalJsonPins
     statement: "Workloads are installed only through .github/actions/setup-dotnet, from the workload set of global.json's SDK by dotnet workload install --version sdk.version, global.json names no workloadVersion, and eng/sdk-pin.cs fails a workflow that sets up .NET or installs a workload any other way, unless its step is marked sdk-pin exempt with the reason; amended 2026-11-11"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-11T00:00:00Z
   - key: AuditExemptionsNeedVex
     statement: "NuGetAudit runs over every package with its findings as errors, and a NuGetAuditSuppress stands only with an OpenVEX not_affected statement in security/vex.openvex.json, published with every release"
     accepted-by: mailto:emil@okkels-klein.dk
