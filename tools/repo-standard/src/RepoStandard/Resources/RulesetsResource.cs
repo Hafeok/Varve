@@ -26,6 +26,9 @@ namespace RepoStandard.Resources;
 /// What GitHub adds and a declaration cannot own — the id, the source, links,
 /// timestamps — is removed from both sides first, and the arrays inside a
 /// ruleset are compared as sets, because GitHub does not promise their order.
+/// A rule's parameters that hold exactly GitHub's defaults are removed too:
+/// GitHub's ruleset export writes them, and its REST <c>GET</c> leaves them
+/// out, so the two spellings of one rule are the same rule (#101).
 /// Rulesets inherited from an organisation are not read.
 /// </remarks>
 internal sealed class RulesetsResource : IResourceKind
@@ -34,6 +37,17 @@ internal sealed class RulesetsResource : IResourceKind
     [
         "id", "node_id", "source", "source_type", "_links", "created_at", "updated_at", "current_user_can_bypass",
     ];
+
+    /// <summary>
+    /// Rule types whose parameters GitHub's REST <c>GET</c> omits while they
+    /// hold their defaults, with those defaults. <c>update</c>'s
+    /// <c>update_allows_fetch_and_merge</c> defaults to <c>false</c>.
+    /// </summary>
+    private static readonly ImmutableDictionary<string, JsonObject> DefaultParameters =
+        ImmutableDictionary.CreateRange(StringComparer.Ordinal,
+        [
+            new KeyValuePair<string, JsonObject>("update", new JsonObject { ["update_allows_fetch_and_merge"] = false }),
+        ]);
 
     private readonly Dictionary<string, long> _ids = new(StringComparer.Ordinal);
 
@@ -114,5 +128,23 @@ internal sealed class RulesetsResource : IResourceKind
         return copy;
     }
 
-    private static JsonNode? Canonical(JsonObject ruleset) => JsonTree.SortArrays(Strip(ruleset));
+    /// <summary>
+    /// A ruleset as compared: stripped, every rule's default parameters
+    /// removed, and its arrays sorted.
+    /// </summary>
+    private static JsonNode? Canonical(JsonObject ruleset)
+    {
+        JsonObject copy = Strip(ruleset);
+        foreach (JsonObject rule in JsonTree.Items(copy, "rules").OfType<JsonObject>())
+        {
+            if (JsonTree.Str(rule, "type") is { } type
+                && DefaultParameters.TryGetValue(type, out JsonObject? defaults)
+                && JsonNode.DeepEquals(rule["parameters"], defaults))
+            {
+                rule.Remove("parameters");
+            }
+        }
+
+        return JsonTree.SortArrays(copy);
+    }
 }
