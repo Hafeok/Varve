@@ -26,11 +26,11 @@ Each amendment is dated 2026-10-27 and filed unaccepted.
 - point 5: CI installs exactly the SDK `global.json` pins, and every lockfile
   is written with it.
 
-**Amended 2026-11-11:** point 5's pin covers the workload set: `global.json`
-pins `sdk.workloadVersion`, the set that ships with its SDK, workloads are
-installed only through the composite action, and `eng/sdk-pin.cs` fails a
-workflow that sets up .NET or installs a workload any other way (#276; see
-the end, "the pin covers workload sets").
+**Amended 2026-11-11:** point 5's pin covers the workload set: workloads are
+installed only through the composite action, from the workload set that
+carries `global.json`'s SDK version, and `eng/sdk-pin.cs` fails a workflow
+that sets up .NET or installs a workload any other way (#276; see the end,
+"the pin covers workload sets").
 
 **Builds on:**
 - constraint 1 (no native assets) and constraint 4 (an ADR per third-party
@@ -508,30 +508,35 @@ and `main` went red twice with NuGet's NU1004 against lockfiles written with
   10.0.15, against `Varve.WebUi`'s lockfile.
 
 So:
-- **`global.json` pins the workload set** that ships with its SDK, as
-  `sdk.workloadVersion`, equal to `sdk.version`. With it, `dotnet workload
-  install`, `update` and `restore` take that set's manifests and no other
-  (the .NET documentation, "Use global.json for the workload-set version").
-  Set 10.0.403 holds the Mono toolchain manifest 10.0.114, whose packs are
-  10.0.14. 10.0.404 moved it to 10.0.115.
-- **Workloads are installed only by the composite action**, through its
-  `workloads:` input. It fails when `dotnet workload --version` is not the
-  pinned set.
-- **`eng/sdk-pin.cs`**, a job of `eng/ci.cs`, fails a workflow or action that
-  uses `actions/setup-dotnet` directly or installs a workload, and a
-  `global.json` whose `workloadVersion` is missing or is not its `version`.
+- **The composite action installs workloads from the SDK's workload set**,
+  through its `workloads:` input, by `dotnet workload install … --version
+  <global.json's sdk.version>`. The workload set that ships with an SDK
+  carries that SDK's version, and `--version` pins the install to that set,
+  not the newest manifests on the feed (the .NET documentation, "Pin the
+  install command"). Set 10.0.403 holds the Mono toolchain manifest 10.0.114,
+  whose packs are 10.0.14. 10.0.404 moved it to 10.0.115. The action fails
+  when `dotnet workload --version` is then not that version.
+- **`global.json` names no workload set.** Its `sdk.workloadVersion` pins the
+  set too, and was tried first. But the SDK resolves workloads for every
+  build, and with a set named that isn't installed, every build in the
+  repository fails, a plain class library included: MSB4242, "Workload version
+  … was not found". That took down the `publish` dry run, which installs no
+  workload, on #279's first push. It would do the same on every developer
+  machine.
+- **`eng/sdk-pin.cs`**, a job of `eng/ci.cs`, fails on:
+  - a workflow or action that uses `actions/setup-dotnet` directly;
+  - a workflow or action that installs a workload;
+  - a `global.json` that names `sdk.workloadVersion`.
+
   One exception is marked in its step, `sdk-pin: exempt`: the agent-review
   judge, which checks out `main` and restores nothing.
-- **An SDK bump moves `sdk.version`, `sdk.workloadVersion` and every
-  lockfile together.** Dependabot's bump of `global.json` stays red on
-  `sdk-pin` until the workload version moves with it, as it already stays
-  red on `lockfiles` until they are regenerated.
+- **An SDK bump moves the SDK, the workload version and every lockfile
+  together.** The action takes the workload version from `sdk.version`. A
+  bump to an SDK without a workload set of its own fails the action's install
+  by name, and is then decided on its pull request.
 
 Rejected: moving the SDK and the lockfiles to 10.0.15. That fixes the day,
-and the next servicing release breaks it again. `dotnet workload install
---version` in the composite action also pins the set, but only where that one
-command runs. `global.json` pins it for every workload command, the
-devcontainer's and a developer's included.
+and the next servicing release breaks it again.
 
 The ruling is `CiInstallsTheWorkloadSetGlobalJsonPins`, filed unaccepted with
 this amendment's date.

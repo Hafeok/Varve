@@ -11,12 +11,15 @@
 # no SDK the runner image carries can be picked instead, and checks that the
 # lockfiles were written with that SDK (eng/lockfiles.cs --check).
 #
-# Workloads are installed here too, and nowhere else (#276). global.json's
-# sdk.workloadVersion pins the workload set, the one that ships with its SDK,
-# so `dotnet workload install` puts the workload packs of that SDK's runtime
-# in place, which the browser apps' lockfiles record, and never the newest
-# manifests on the feed. eng/sdk-pin.cs fails a workflow that sets up .NET or
-# installs a workload any other way.
+# Workloads are installed here too, and nowhere else (#276), with
+# `--version` set to global.json's SDK version: the workload set that ships
+# with an SDK carries its version. So `dotnet workload install` puts that
+# SDK's runtime packs in place, which the browser apps' lockfiles record, and
+# never the newest manifests on the feed. Not sdk.workloadVersion in
+# global.json: that makes every build in the repository fail until the set is
+# installed, on every job and machine that never installs a workload.
+# eng/sdk-pin.cs fails a workflow that sets up .NET or installs a workload any
+# other way, and a global.json that names a workload version.
 
 name: Set up .NET, exactly global.json's SDK
 description: Installs the SDK global.json pins, with no roll-forward, and its workload set's workloads, and checks the lockfiles were written with it.
@@ -27,7 +30,7 @@ inputs:
     required: false
     default: "true"
   workloads:
-    description: Workloads to install, space-separated (wasm-tools wasm-experimental), from the workload set global.json pins.
+    description: Workloads to install, space-separated (wasm-tools wasm-experimental), from the workload set of global.json's SDK.
     required: false
     default: ""
 
@@ -68,7 +71,7 @@ runs:
           (cd "$GITHUB_WORKSPACE" && dotnet run eng/lockfiles.cs -- --check)
         fi
 
-    - name: The workloads, from the workload set global.json pins
+    - name: The workloads, from the workload set of global.json's SDK
       if: inputs.workloads != ''
       shell: bash
       env:
@@ -76,14 +79,12 @@ runs:
       run: |
         set -euo pipefail
         cd "$GITHUB_WORKSPACE"
-        pinned=$(sed -n 's/^[[:space:]]*"workloadVersion":[[:space:]]*"\([^"]*\)".*/\1/p' global.json | head -n 1)
-        if [ -z "$pinned" ]; then echo "::error file=global.json::no sdk.workloadVersion in global.json"; exit 1; fi
         # Word splitting is the point: one argument per workload.
         # shellcheck disable=SC2086
-        dotnet workload install $WORKLOADS
+        dotnet workload install $WORKLOADS --version "$VARVE_SDK_VERSION"
         actual=$(dotnet workload --version)
-        if [ "$actual" != "$pinned" ]; then
-          echo "::error file=global.json::the workload set in use is $actual, and global.json pins $pinned"
+        if [ "$actual" != "$VARVE_SDK_VERSION" ]; then
+          echo "::error file=global.json::the workload set in use is $actual, and global.json's SDK is $VARVE_SDK_VERSION"
           exit 1
         fi
-        echo "Workload set $actual, as global.json pins it: $WORKLOADS"
+        echo "Workload set $actual, global.json's SDK's: $WORKLOADS"

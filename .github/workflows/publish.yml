@@ -102,7 +102,7 @@ jobs:
 
       - name: Set up .NET
         # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
-        # and the WebAssembly workloads from the workload set it pins (#276).
+        # and the WebAssembly workloads from its SDK's workload set (#276).
         uses: ./.github/actions/setup-dotnet
         with:
           workloads: wasm-tools wasm-experimental
@@ -839,7 +839,7 @@ jobs:
 
       - name: Set up .NET
         # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
-        # and the WebAssembly workloads from the workload set it pins (#276).
+        # and the WebAssembly workloads from its SDK's workload set (#276).
         uses: ./.github/actions/setup-dotnet
         with:
           workloads: wasm-tools wasm-experimental

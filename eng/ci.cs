@@ -180,9 +180,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     // Before the restore, so a lockfile from another patch fails here with
     // the script that regenerates them, not with NuGet's NU1004.
     // ADR 0224 point 5, amended 2026-11-11 (#276): .NET is set up, and
-    // workloads installed, only through .github/actions/setup-dotnet, and
-    // global.json pins the workload set that ships with its SDK.
-    ("sdk-pin", "every workflow sets up .NET and installs workloads only through the composite action, and global.json pins its SDK's workload set",
+    // workloads installed, only through .github/actions/setup-dotnet, from
+    // the workload set of global.json's SDK, which global.json does not name.
+    ("sdk-pin", "every workflow sets up .NET and installs workloads only through the composite action, and global.json names no workload set",
         () => Run("dotnet", ["run", "eng/sdk-pin.cs"])),
 
     // Both of its paths (tests/fixtures/sdk-pin/README.md).

@@ -30,16 +30,17 @@
 - **The failures**, on `main` at 5c1965be (CI run 42981059065) and on #242:
   - `handover (services)` and `browser wasm` both failed with NU1004, 10.0.15 packages against lockfiles that record 10.0.14;
   - the .NET 10.0.15 servicing release had reached the runners that night.
-- **`sdk.workloadVersion` in `global.json`**, not `--version` in the action.
-  - **Documentation.** Microsoft Learn's ".NET SDK workload sets", the section "Use global.json for the workload-set version", says that with it, `install`, `update` and `restore` install that workload-set version.
-  - **Measured here.** With SDK 10.0.403, `dotnet workload install wasm-tools wasm-experimental` reported "Using workload version 10.0.403, which was specified in the global.json file". It installed manifest 10.0.114 and the browser-wasm packs 10.0.14. `dotnet workload --version` printed `10.0.403`. A locked restore of `Varve.WebUi` then passed.
+- **`--version` in the composite action, not `sdk.workloadVersion` in `global.json`.** `workloadVersion` was tried first.
+  - **What the documentation says.** Microsoft Learn's ".NET SDK workload sets" says both pin the set.
+  - **Why `workloadVersion` was dropped.** It also makes every build need that set installed. #279's first push (86db7b2) failed the `publish` dry run, which installs no workload, with MSB4242: "Workload version 10.0.403, which was specified in global.json, was not found". Here, a class library under a `global.json` naming set 10.0.404 failed to build the same way. So it would break every job and developer machine that never installs workloads.
+  - **What `--version` does.** `dotnet workload install wasm-tools wasm-experimental --version 10.0.403` installed set 10.0.403 with manifest 10.0.114 and the browser-wasm packs at 10.0.14. `dotnet workload --version` printed `10.0.403`, and a locked restore of `Varve.WebUi` passed.
   - **The set's contents**, read from nuget.org (`Microsoft.NET.Workloads.10.0.400`):
     - 10.403.0 (set 10.0.403) holds the Mono toolchain manifest 10.0.114, whose WebAssembly packs are 10.0.14;
     - 10.404.0 moves it to 10.0.115.
 - **Every bypass, not only `handover (services)`.**
   - `release-gate.yml`'s four jobs and one `nightly.yml` job also used `actions/setup-dotnet` with the roll-forward. They now use the composite action.
   - `agent-review.yml`'s judge keeps its direct use, marked `sdk-pin: exempt`: it checks out `main` and restores nothing.
-  - The four `dotnet workload install` steps in `ci.yml` and `publish.yml` are now the action's `workloads:` input. The action checks the set in use against `global.json`.
+  - The four `dotnet workload install` steps in `ci.yml` and `publish.yml` are now the action's `workloads:` input. The action installs with `--version` set to `global.json`'s SDK version, and checks the set in use.
 - **`eng/sdk-pin.cs`**, with the jobs `sdk-pin` and `sdk-pin-fixtures` in `eng/ci.cs`.
   - The failing fixture has three findings and exits 1. The passing one exits 0, and so does the repository.
 - **Not moved:** the SDK stays at 10.0.403, and the lockfiles at 10.0.14.
@@ -51,4 +52,4 @@
 
 ## Deferred
 
-- Nothing. `eng/lockfiles.cs`'s regeneration does not write `workloadVersion`. An SDK bump moves it by hand, and `sdk-pin` stays red until it does.
+- Nothing. The action takes the workload version from `sdk.version`, so an SDK bump moves it with no other edit.

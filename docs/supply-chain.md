@@ -72,9 +72,10 @@ Sigstore. No signing key exists to be stolen.
 - **SLSA v1 build provenance:** the workflow, the commit, the runner, and
   the build supply chain:
   - the SDK, pinned by `global.json`, the exact patch CI installs, and
-    its workload set, pinned there as `sdk.workloadVersion`. An SDK bump
-    moves the SDK, the workload version and every lockfile together
-    (`eng/sdk-pin.cs`, `eng/lockfiles.cs`; ADR 0224, amended 2026-11-11);
+    its workload set, the one that carries the SDK's version, which CI
+    installs by `dotnet workload install --version`. An SDK bump moves the
+    SDK, the workload version and every lockfile together (`eng/sdk-pin.cs`,
+    `eng/lockfiles.cs`; ADR 0224, amended 2026-11-11);
   - every Action, pinned by commit SHA;
   - every CI image, and the container's base image, pinned by digest.
 - **The SBOM**, as an attestation on the artefact's digest.

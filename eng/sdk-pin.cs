@@ -7,8 +7,8 @@
 //   dotnet run eng/sdk-pin.cs -- [--root <dir>]
 //
 // CI installs .NET in one place, .github/actions/setup-dotnet: exactly the
-// SDK global.json pins, with no roll-forward, and the workloads from the
-// workload set global.json pins. Any other way takes a newer patch the day
+// SDK global.json pins, with no roll-forward, and the workloads from that
+// SDK's workload set (`dotnet workload install --version <sdk.version>`). Any other way takes a newer patch the day
 // one reaches the runners, and a locked restore refuses it (NU1004), which is
 // how #276 began. This fails on:
 //
@@ -18,9 +18,12 @@
 //     checks out main and restores nothing);
 //   - a `dotnet workload install|update|restore|repair` in a workflow or
 //     another action;
-//   - a global.json without sdk.workloadVersion, or with one that is not its
-//     sdk.version: the workload set that ships with an SDK carries that SDK's
-//     version, so an SDK bump moves both together.
+//   - a global.json that names sdk.workloadVersion: it pins the set, but
+//     every build in the repository then fails until that set is installed
+//     (MSB4242, "Workload version … was not found"), on every job and machine
+//     that never installs a workload. The composite action pins the set
+//     where workloads are installed, from sdk.version, so an SDK bump moves
+//     the workload version with it.
 //
 // It reads every .yml and .yaml file under .github/, except the composite
 // action itself, and global.json, at the repository root or at --root, which
@@ -81,7 +84,7 @@ foreach (string file in Directory.EnumerateFiles(github, "*.*", SearchOption.All
 
         if (workload.IsMatch(code))
         {
-            findings.Add($"{relative}:{n + 1}: a workload installed outside ./.github/actions/setup-dotnet; pass it as that action's `workloads:` input, which installs from the workload set global.json pins");
+            findings.Add($"{relative}:{n + 1}: a workload installed outside ./.github/actions/setup-dotnet; pass it as that action's `workloads:` input, which installs from the workload set of global.json's SDK");
         }
     }
 }
@@ -89,17 +92,11 @@ foreach (string file in Directory.EnumerateFiles(github, "*.*", SearchOption.All
 try
 {
     using JsonDocument document = JsonDocument.Parse(File.ReadAllText(globalJson));
-    JsonElement sdk = document.RootElement.TryGetProperty("sdk", out JsonElement s) ? s : default;
-    string? version = sdk.ValueKind == JsonValueKind.Object && sdk.TryGetProperty("version", out JsonElement v) ? v.GetString() : null;
-    string? workloadVersion = sdk.ValueKind == JsonValueKind.Object && sdk.TryGetProperty("workloadVersion", out JsonElement w) ? w.GetString() : null;
-
-    if (workloadVersion is null)
+    if (document.RootElement.TryGetProperty("sdk", out JsonElement sdk)
+        && sdk.ValueKind == JsonValueKind.Object
+        && sdk.TryGetProperty("workloadVersion", out JsonElement workloadVersion))
     {
-        findings.Add("global.json: no sdk.workloadVersion; a workload install then takes the newest manifests on the feed, not the SDK's workload set");
-    }
-    else if (!string.Equals(workloadVersion, version, StringComparison.Ordinal))
-    {
-        findings.Add($"global.json: sdk.workloadVersion is {workloadVersion} and sdk.version is {version}; the workload set that ships with an SDK carries its version, so an SDK bump moves both, and the lockfiles, together");
+        findings.Add($"global.json: sdk.workloadVersion {workloadVersion} makes every build fail until that workload set is installed; the composite action pins the set from sdk.version where workloads are installed");
     }
 }
 catch (JsonException e)
