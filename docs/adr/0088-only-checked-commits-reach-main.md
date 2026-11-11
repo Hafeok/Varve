@@ -108,6 +108,29 @@ restriction to `main` and `v*` tags and has no reviewer. The ruling,
 The same ADR relies on point 2's `land/` route for an approved pull request's
 head, which ADR 0087's amendment of 2026-10-08 opens to agent commits.
 
+### Amendment, 2026-11-11 — landing by fast-forward or merge commit, and trains
+
+Filed by the session for #230 with ADR
+[0243](0243-chain-builds-ahead-of-main.md), unaccepted until the maintainer
+accepts it (ADR 0066). It adds detail to point 2 and changes no ruling.
+
+- **`main` moves only by fast-forward**, to a checked head. A merge commit
+  made on a branch is a commit like any other: it is checked on the branch,
+  and `main` is fast-forwarded to it. The merge button is not a route to
+  `main`, and a squash merge is not either, for a `chain/*` branch: a chain
+  branch's stable tags must stay reachable from `main` after it lands
+  (0243 point 7, `ChainBranchesAreNeverRewritten`).
+- **A landing train is one checked head** (0243 point 10, `LandingTrains`):
+  - `eng/land.cs` merges two or more approved pull request heads onto `main`
+    in a stated order;
+  - each merge is a `Landing-only: merge` commit that `git merge-tree`
+    reproduces;
+  - the head goes to `land/` like any other, and every gate runs once there.
+
+  `agent review` admits the head when every merge's second parent is an
+  approved pull request's head. So point 3 holds: each member is approved on
+  its own head, and nothing on the `land/` branch adds an approval.
+
 ## Alternatives considered
 
 - **Keep 0032**: checks after the push, fixed forward. Rejected: it cannot
