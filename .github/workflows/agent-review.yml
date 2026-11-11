@@ -80,9 +80,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # main, by name, on every path: never the pull request's head or
-          # merge ref, and never the pushed land/ commit.
+          # merge ref, and never the pushed land/ commit. On a land/ push the
+          # whole history is fetched, the pushed commit's included, so that
+          # git can read a landing train's merges (#277): read as data, never
+          # checked out, built or run.
           ref: ${{ github.event.repository.default_branch }}
-          fetch-depth: 1
+          fetch-depth: ${{ github.event_name == 'push' && '0' || '1' }}
           persist-credentials: false
 
       - name: Set up .NET
