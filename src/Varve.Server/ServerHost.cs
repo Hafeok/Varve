@@ -561,17 +561,13 @@ internal static partial class ServerHost
         app.UseRateLimiter();
 
         // On SIGTERM: a new write is refused, while what is in flight drains
-        // (ADR 0101). Reads still answer until the host stops listening. The
-        // detail says what the caller does next (ADR 0242).
-        string draining = "This instance is draining: what it was doing completes, and it takes no new write. "
-            + (fleet.IsFleetOfOne
-                ? "Send the write again once the server is back."
-                : "The other instances keep serving: send the write again, and it reaches one of them.");
+        // (ADR 0101). Reads still answer until the host stops listening.
+        bool fleetOfOne = fleet.IsFleetOfOne;
         app.Use(async (context, next) =>
         {
             if (stopping.IsCancellationRequested && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
             {
-                await WriteProblemAsync(context, ProblemType.ShuttingDown, draining).ConfigureAwait(false);
+                await ShuttingDownAsync(context, fleetOfOne).ConfigureAwait(false);
                 return;
             }
 
@@ -1074,6 +1070,19 @@ internal static partial class ServerHost
     /// from the catalogue: the request id as instance, except on the
     /// deliberately thin <c>401</c>.
     /// </summary>
+    /// <summary>
+    /// <c>503 shutting-down</c> for a write that arrives while this instance
+    /// drains; the detail says what the caller does next (ADR 0242).
+    /// </summary>
+    internal static Task ShuttingDownAsync(HttpContext context, bool fleetOfOne) =>
+        WriteProblemAsync(
+            context,
+            ProblemType.ShuttingDown,
+            "This instance is draining: what it was doing completes, and it takes no new write. "
+                + (fleetOfOne
+                    ? "Send the write again once the server is back."
+                    : "The other instances keep serving: send the write again, and it reaches one of them."));
+
     private static async Task WriteProblemAsync(HttpContext context, ProblemType type, string? detail, Action<Utf8JsonWriter>? members = null)
     {
         ArrayBufferWriter<byte> body = new(256);

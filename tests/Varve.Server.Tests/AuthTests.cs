@@ -285,6 +285,75 @@ public sealed class AuthTests : IAsyncLifetime
     }
 
     /// <summary>
+    /// A refusal names only what the caller sent, never anything looked up,
+    /// and never confirms that something hidden exists (ADR 0242's condition,
+    /// from row-level access): a graph the caller cannot see answers exactly
+    /// as a graph that does not exist, and a dataset the caller holds nothing
+    /// on answers exactly as one that does not exist. Bodies are compared
+    /// with the request id and the name the caller sent taken out.
+    /// </summary>
+    [Fact]
+    public async Task a_hidden_graph_and_an_absent_graph_get_the_same_answer_and_so_do_datasets()
+    {
+        string admin = _issuer.Mint(Claims("administrator"));
+        string people = _issuer.Mint(Claims("people"));
+        await SendUpdateAsync(admin, "INSERT DATA { GRAPH <http://ex/g/secret> { <http://ex/s> <http://ex/p> \"secret\" } }");
+        const string Hidden = "http://ex/g/secret";
+        const string Absent = "http://ex/g/nowhere";
+
+        foreach (string method in new[] { "GET", "HEAD", "PUT", "POST", "DELETE" })
+        {
+            (int status, string body) hidden = await AnswerAsync(method, "datasets/d/graphs?graph=" + Uri.EscapeDataString(Hidden), people, Hidden);
+            (int status, string body) absent = await AnswerAsync(method, "datasets/d/graphs?graph=" + Uri.EscapeDataString(Absent), people, Absent);
+            Assert.True(hidden == absent, method + ": hidden " + hidden + " but absent " + absent);
+        }
+
+        foreach (string update in new[] { "INSERT DATA { GRAPH <{0}> { <http://ex/y> <http://ex/p> 1 } }", "DROP GRAPH <{0}>", "CLEAR GRAPH <{0}>" })
+        {
+            (int status, string body) hidden = await UpdateAnswerAsync(people, update.Replace("{0}", Hidden, StringComparison.Ordinal), Hidden);
+            (int status, string body) absent = await UpdateAnswerAsync(people, update.Replace("{0}", Absent, StringComparison.Ordinal), Absent);
+            Assert.True(hidden == absent, update + ": hidden " + hidden + " but absent " + absent);
+        }
+
+        // A dataset the caller holds nothing on: "reader" administers e alone.
+        string manage = _issuer.MintManagement(Claims("reader"));
+        (int status, string body) existing = await AnswerAsync("GET", "manage/datasets/d/status", manage, "d");
+        (int status, string body) missing = await AnswerAsync("GET", "manage/datasets/nowhere/status", manage, "nowhere");
+        Assert.Equal(403, existing.status);
+        Assert.True(existing == missing, "existing " + existing + " but missing " + missing);
+
+        // On the data plane: "people" holds grants on d and nothing on e.
+        (int status, string body) heldNot = await AnswerAsync("GET", "datasets/e/sparql?query=ASK%7B%7D", people, "e");
+        (int status, string body) none = await AnswerAsync("GET", "datasets/nowhere/sparql?query=ASK%7B%7D", people, "nowhere");
+        Assert.Equal(403, heldNot.status);
+        Assert.True(heldNot == none, "held-not " + heldNot + " but none " + none);
+    }
+
+    // A response as a caller could compare it: the status, and the body with
+    // the request id and the name the caller sent taken out.
+    private async Task<(int, string)> AnswerAsync(string method, string path, string token, string sent)
+    {
+        HttpResponseMessage response = await SendAsync(method, path, token);
+        return ((int)response.StatusCode, Normalised(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), sent));
+    }
+
+    private async Task<(int, string)> UpdateAnswerAsync(string token, string update, string sent)
+    {
+        HttpResponseMessage response = await SendUpdateAsync(token, update);
+        return ((int)response.StatusCode, Normalised(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), sent));
+    }
+
+    private static string Normalised(string body, string sent)
+    {
+        // A graph IRI is replaced wherever it appears; a dataset name, being
+        // short, only where a dataset is named.
+        string text = sent.Contains(':', StringComparison.Ordinal)
+            ? body.Replace(sent, "<sent>", StringComparison.Ordinal).Replace(Uri.EscapeDataString(sent), "<sent>", StringComparison.Ordinal)
+            : body.Replace("\"dataset\":\"" + sent + "\"", "\"dataset\":\"<sent>\"", StringComparison.Ordinal).Replace("the dataset " + sent + ".", "the dataset <sent>.", StringComparison.Ordinal);
+        return System.Text.RegularExpressions.Regex.Replace(text, "\"instance\":\"[^\"]*\"", "\"instance\":\"\"");
+    }
+
+    /// <summary>
     /// An event catalogue graph is governed by its source graph (ADRs 0144,
     /// 0107 amended): "people" writes the catalogue of the graph it writes,
     /// "public" reads the catalogue of a graph it reads and writes none, and
@@ -406,7 +475,7 @@ public sealed class AuthTests : IAsyncLifetime
         {
             request.Content = new StringContent("INSERT DATA { <http://ex/a> <http://ex/p> 1 }", Encoding.UTF8, "application/sparql-update");
         }
-        else if (method == "PUT")
+        else if (method == "PUT" || (method == "POST" && path.Contains("/graphs", StringComparison.Ordinal)))
         {
             request.Content = new StringContent("<http://ex/a> <http://ex/p> <http://ex/o> .\n", Encoding.UTF8, "application/n-triples");
         }

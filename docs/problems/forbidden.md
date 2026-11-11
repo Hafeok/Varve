@@ -17,6 +17,13 @@ agent IRI as the server resolved it from the token, when it resolved one; and
 names no grant and no other agent. A caller that is not authenticated gets
 [`unauthorized`](unauthorized.md), which says nothing more.
 
+Every member is something the caller sent, or its own token resolves to;
+nothing is looked up. A `403` never confirms that something hidden exists:
+a graph or a row the caller can't see keeps the answer it had (`404` for a
+graph it can't read, the uniform [`row-not-writable`](row-not-writable.md)),
+which is the same whether or not the target exists. A dataset the caller
+holds nothing on answers exactly as one that doesn't exist.
+
 ## What to do
 
 - **Check the agent first.** If `agent` is not who you meant, the token is the wrong one: sign in as the right identity, or for a workload, check which identity issued it ([Authenticate](../operator/authenticate.md)).

@@ -322,6 +322,26 @@ public sealed class HostTests
             await ready.Content.ReadAsStringAsync(Ct));
     }
 
+    [Theory]
+    [InlineData(true, "Send the write again once the server is back.")]
+    [InlineData(false, "The other instances keep serving: send the write again, and it reaches one of them.")]
+    public async Task A_write_while_draining_is_shutting_down_and_says_what_to_do(bool fleetOfOne, string next)
+    {
+        // Built where the drain builds it, not through a real stop (ADR 0242).
+        Microsoft.AspNetCore.Http.DefaultHttpContext context = new() { TraceIdentifier = "a:1" };
+        using MemoryStream body = new();
+        context.Response.Body = body;
+
+        await ServerHost.ShuttingDownAsync(context, fleetOfOne);
+
+        Assert.Equal(503, context.Response.StatusCode);
+        Assert.Equal("application/problem+json", context.Response.ContentType);
+        using JsonDocument problem = JsonDocument.Parse(body.ToArray());
+        Assert.Equal("https://w3id.org/varve/problems/shutting-down", problem.RootElement.GetProperty("type").GetString());
+        Assert.Equal("This instance is draining: what it was doing completes, and it takes no new write. " + next, problem.RootElement.GetProperty("detail").GetString());
+        Assert.Equal("a:1", problem.RootElement.GetProperty("instance").GetString());
+    }
+
     [Fact]
     public async Task Shutdown_ends_a_live_feed_and_keeps_every_commit_for_the_next_start()
     {

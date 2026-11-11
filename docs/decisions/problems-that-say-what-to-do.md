@@ -5,6 +5,8 @@ adr: 0242
 decisions:
   - key: ForbiddenNamesWhatWasNeeded
     statement: "A 403 forbidden names the permission checked, its scope (a dataset, named, or the fleet), the plane, and the caller's agent as resolved from the token; it names no grant, role or other agent, and a 401 stays thin"
+  - key: RefusalsNameOnlyWhatTheCallerSent
+    statement: "A 403 names only what the caller sent, never anything looked up, and never confirms that something hidden exists: a graph or row the caller cannot see answers as it did before, and a hidden target answers exactly as an absent one"
   - key: FailuresAreClassifiedByWhetherARetryHelps
     statement: "A dataset that failed to open carries failure damaged, configuration or transient, read from exception types, on its entries and on the unavailable problem, whose detail says what to do"
   - key: SupersededNamesTheHolder

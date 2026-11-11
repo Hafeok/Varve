@@ -54,9 +54,9 @@ data-plane `403` and a fleet-scoped `403`. `ManagementTests` covers
 held lease. `ProblemCatalogueTests` covers the damaged `unavailable` and
 every page's section. `ObjectStorageServerTests` (Azurite 3.37.0) checks
 that the superseded write names `http://127.0.0.1:9/second` at epoch 2.
-**Not tested by a request:** shutting-down's new detail. A write during the
-drain races the host's stop, and a test that tolerates either outcome
-proves nothing.
+**Shutting-down's new detail** was at first not tested: a write during the
+drain races the host's stop. The maintainer's ruling of 2026-11-11 (below)
+moved the test to where the problem is built.
 
 **Found on the way, not changed** (the drafting agent's report, for the
 maintainer): `configure.md` names `request-timeout` and `result-too-large`,
@@ -64,3 +64,26 @@ which are not types; `MaxAsOfDistance` is described two ways;
 `load-spill-damaged.md` cites a damage guide that doesn't exist; and
 `agent-required.md` and `declaration-invalid.md` may be stale against the
 management plane.
+
+## The maintainer's rulings, 2026-11-11
+
+> 2. ADR 0242, the 403: agreed, with one condition from row-level access. A 403 names only what the caller sent, never anything looked up, and never confirms that something hidden exists. Where the caller can't see the target (a hidden graph, a row-restricted read), the answer stays what it is today. Add a test that a hidden graph and an absent graph get the same answer, and state the condition in the ADR.
+> 3. `shutting-down`: test the message where the problem is built, not through a real shutdown.
+
+**What was done.**
+- The condition is in ADR 0242's ruling 1 and in a sixth key,
+  `RefusalsNameOnlyWhatTheCallerSent`, filed unaccepted. The `forbidden`
+  page says the same.
+- `AuthTests.a_hidden_graph_and_an_absent_graph_get_the_same_answer_and_so_do_datasets`
+  compares a hidden graph with an absent one for a graph-scoped caller:
+  Graph Store `GET`, `HEAD`, `PUT`, `POST` and `DELETE`, and `INSERT DATA`,
+  `DROP GRAPH` and `CLEAR GRAPH`. It also compares a dataset the caller
+  holds nothing on with one that doesn't exist, on the management plane
+  and on the data plane. Only the request id and the name the caller sent
+  are taken out before the bodies are compared. All match, so no code
+  changed for the condition: the members were already only what the caller
+  sent.
+- The `shutting-down` problem is built in `ServerHost.ShuttingDownAsync`,
+  and `HostTests.A_write_while_draining_is_shutting_down_and_says_what_to_do`
+  checks both messages there, with no real stop.
+

@@ -42,6 +42,17 @@ and from the catalogue's pages:
    the problem itself, with RFC 6750 §3.1's `WWW-Authenticate`. The host's
    handler still writes the bare problem for a refusal no endpoint decided.
 
+   **The condition, from row-level access (ADRs 0107, 0236, 0237):** a `403`
+   names only what the caller sent (the dataset in its path, the permission
+   its request needs, and the agent its own token resolves to). It names
+   nothing that was looked up, and it never confirms that something hidden
+   exists. Where the caller can't see the target, such as a graph outside
+   its readable scope or a row-restricted read, the answer stays what it
+   was: a hidden graph answers exactly as an absent one, and a dataset the
+   caller holds nothing on answers exactly as one that doesn't exist, apart
+   from the name the caller sent. `AuthTests` holds this for the Graph
+   Store's five methods, for three updates, and for a dataset on each plane.
+
 2. **A dataset that failed to open is classified by whether a retry helps.**
    `failure` is `damaged` (its log doesn't verify:
    `LogVerificationException`), `configuration` (the host's configuration or
@@ -79,6 +90,11 @@ and from the catalogue's pages:
   operator, meanwhile, can't act on a bare refusal.
 - **Name the missing grant or the roles that would satisfy it.** That
   discloses the grant table to anyone with a token, so it's refused.
+- **A `403` naming a hidden graph or row the caller may not write.** That
+  would confirm the graph or row exists to a caller who can't read it, so
+  it's refused. Such a target keeps its existing answer (`404` for a graph
+  the caller can't read, the uniform `row-not-writable`), and that answer
+  doesn't depend on whether the target exists.
 - **Classify failures from the message text.** Messages are display text
   (`FailureTextIsDisplayText`). The classification reads exception types.
 - **New problem types for damage and misconfiguration.** A failed dataset
@@ -101,6 +117,8 @@ and from the catalogue's pages:
   - **0037:** a `401` unchanged; a `403`'s body states the needed permission
     and the resolved agent;
   - **0119:** members added to four types; titles and statuses unchanged;
+  - **0107**, **0236**, **0237:** what a caller can't see stays unconfirmed;
+    the condition on ruling 1 holds the `403` to it;
   - **0136**, **0168:** the writer record is read, never written.
 
   No conflict.
