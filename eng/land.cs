@@ -526,7 +526,10 @@ static int LandTrain(List<int> numbers, bool toMain, bool print, string? name, s
         if (head is null)
         {
             Console.Error.WriteLine($"land: {conflict}");
-            Console.Error.WriteLine(Trains.Shorter(numbers, at));
+            if (at >= 0)
+            {
+                Console.Error.WriteLine(Trains.Shorter(numbers, at));
+            }
             return 1;
         }
 
@@ -862,6 +865,34 @@ static class Trains
             .Where(static match => match.Success)
             .Select(static match => match.Groups[1].Value)];
 
+    // The settings every train merge runs under (ADR 0243 point 10, the merge
+    // is pinned). eng/agent-review.cs states the same; change both together.
+    // Attributes come from the train so far, never a working tree, with the
+    // global and system files off; renames are fixed.
+    static readonly string[] PinnedMergeSettings =
+    [
+        "-c", "core.attributesFile=",
+        "-c", "merge.renames=true",
+        "-c", "merge.directoryRenames=false",
+        "-c", "merge.renameLimit=7000",
+        "-c", "diff.renames=true",
+        "-c", "diff.renameLimit=7000",
+    ];
+
+    public static (int Exit, string Output) MergeTree(string ours, string theirs) =>
+        Shell.Try(new() { ["GIT_ATTR_NOSYSTEM"] = "1" }, null, "git",
+            [.. PinnedMergeSettings, $"--attr-source={ours}", "merge-tree", "--write-tree", "--name-only", "--no-messages", ours, theirs]);
+
+    // A repository-local info/attributes changes how a merge resolves and no
+    // option switches it off, so it refuses the train. Null when there is none.
+    public static string? LocalAttributes()
+    {
+        string path = Shell.Git("rev-parse", "--git-path", "info/attributes");
+        return File.Exists(path) && File.ReadAllLines(path).Any(static line => line.Trim() is { Length: > 0 } text && !text.StartsWith('#'))
+            ? $"{path} sets attributes, which change how a merge resolves; a train is built and judged without them (ADR 0243 point 10). Move them into .gitattributes or remove them."
+            : null;
+    }
+
     // What refuses the train before it is built. Empty means it may be built.
     public static List<string> Check(List<TrainMember> members)
     {
@@ -929,11 +960,16 @@ static class Trains
         Dictionary<string, string> dated = new() { ["GIT_AUTHOR_DATE"] = $"{date} +0000", ["GIT_COMMITTER_DATE"] = $"{date} +0000" };
         string order = string.Join(", ", members.Select(static member => $"#{member.Number}"));
 
+        if (LocalAttributes() is string attributes)
+        {
+            return (null, attributes, -1);
+        }
+
         string train = main;
         for (int i = 0; i < members.Count; i++)
         {
             TrainMember member = members[i];
-            (int exit, string output) = Shell.Try(null, null, "git", "merge-tree", "--write-tree", "--name-only", "--no-messages", train, member.Head);
+            (int exit, string output) = MergeTree(train, member.Head);
             string[] lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             if (exit == 1)
             {
@@ -972,7 +1008,8 @@ static class Trains
     public static string Shorter(List<int> numbers, int index) =>
         index switch
         {
-            <= 0 => "land: no shorter train: the first member is the one at fault.",
+            < 0 => "",
+            0 => "land: no shorter train: the first member is the one at fault.",
             1 => $"land: the train without #{numbers[1]}{(numbers.Count > 2 ? " and those after it" : "")} is #{numbers[0]} alone: dotnet run eng/land.cs -- {numbers[0]}",
             _ => $"land: the train without #{numbers[index]}{(index < numbers.Count - 1 ? " and those after it" : "")}: dotnet run eng/land.cs -- --train {string.Join(" ", numbers.Take(index))}",
         };
@@ -983,6 +1020,11 @@ static class Trains
     // and why not. eng/agent-review.cs holds its own copy of this rule.
     public static (List<string>? Joined, string? Why) Verify(string main, string head)
     {
+        if (LocalAttributes() is string attributes)
+        {
+            return (null, attributes);
+        }
+
         List<string> joined = [];
         string at = head;
         while (at != main)
@@ -1004,10 +1046,10 @@ static class Trains
                 return (null, $"{at[..12]} has no `{MergeTrailer}` trailer");
             }
 
-            (int mergeExit, string merged) = Shell.Try(null, null, "git", "merge-tree", "--write-tree", "--name-only", "--no-messages", shas[1], shas[2]);
+            (int mergeExit, string merged) = MergeTree(shas[1], shas[2]);
             if (mergeExit != 0 || merged.Split('\n')[0].Trim() != Shell.Git("rev-parse", $"{at}^{{tree}}"))
             {
-                return (null, $"{at[..12]}'s tree is not `git merge-tree` of its parents: it was resolved or edited by hand");
+                return (null, $"{at[..12]}'s tree is not `git merge-tree` of its parents under the pinned settings: it was resolved or edited by hand, or built by a different git. Build the train again");
             }
 
             joined.Insert(0, shas[2]);
@@ -1152,6 +1194,11 @@ static class Fixtures
         try
         {
             Shell.Git("init", "--quiet", "--bare", scratch);
+            if (root.TryGetProperty("infoAttributes", out JsonElement local))
+            {
+                Directory.CreateDirectory(Path.Combine(scratch, "info"));
+                File.WriteAllText(Path.Combine(scratch, "info", "attributes"), local.GetString());
+            }
             string main = Commit(scratch, null, root.GetProperty("main"), "chore: main\n\nRefs #1\n");
             List<TrainMember> members = [];
             foreach (JsonElement member in root.GetProperty("members").EnumerateArray())
@@ -1187,7 +1234,7 @@ static class Fixtures
             (string? train, string? conflict, int at) = Trains.Build(main, members, ["Signed-off-by: Fixture <fixture@example.org>"]);
             if (train is null)
             {
-                return (false, [conflict!, Trains.Shorter(numbers, at)]);
+                return (false, [conflict!, .. at >= 0 ? [Trains.Shorter(numbers, at)] : Array.Empty<string>()]);
             }
 
             (string? again, _, _) = Trains.Build(main, members, ["Signed-off-by: Fixture <fixture@example.org>"]);

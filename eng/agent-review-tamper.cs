@@ -19,7 +19,9 @@
 //      earlier head fails, a stranger fails, a review submission is not
 //      consulted; and a land/ push of a landing train (#277), built for real
 //      in a scratch repository: approved members pass, a member that is no
-//      approved head fails, a merge edited by hand fails;
+//      approved head fails, a merge edited by hand fails, a merge without the
+//      trailer fails, an extra commit between the merges fails, and a train
+//      built on a main that has since moved fails;
 //   3. the workflow cannot run the tampered copy: the job that posts the
 //      check in .github/workflows/agent-review.yml checks out main by name,
 //      never a pull request ref; the workflow runs on no trigger whose
@@ -175,6 +177,9 @@ try
     string trainHead = ScratchMerge(trains, mergedFirst, second, "Merge #12 into the train for main\n\nLanding-only: merge\n", edit: false);
     string editedHead = ScratchMerge(trains, mergedFirst, second, "Merge #12 into the train for main\n\nLanding-only: merge\n", edit: true);
     string unmarkedHead = ScratchMerge(trains, mergedFirst, second, "Merge #12 into the train for main\n", edit: false);
+    string extra = ScratchCommit(trains, [mergedFirst], new() { ["c.md"] = "c, which no member's head carries\n" }, "feat: c\n\nRefs #11\n");
+    string extraHead = ScratchMerge(trains, extra, second, "Merge #12 into the train for main\n\nLanding-only: merge\n", edit: false);
+    string movedMain = ScratchCommit(trains, [trainMain], new() { ["d.md"] = "d\n" }, "chore: main moved on\n");
     Dictionary<string, string> inScratch = new() { ["GIT_DIR"] = trains };
 
     using (StandIn server = StandIn.Start(identities, trainHead, "Hafeok", [], [], approvedBy: GatesApp, main: trainMain, pulls: new() { [first] = 11, [second] = 12 }))
@@ -185,20 +190,32 @@ try
 
     using (StandIn server = StandIn.Start(identities, trainHead, "Hafeok", [], [], approvedBy: GatesApp, main: trainMain, pulls: new() { [first] = 11 }))
     {
-        (int exit, _) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", trainHead, inScratch);
-        Require(exit == 0 && server.Posted is ["failure"], "main's copy, a train with a member that is no approved pull request's head: posts failure");
+        (int exit, string output) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", trainHead, inScratch);
+        Require(exit == 0 && server.Posted is ["failure"] && output.Contains("is not an approved pull request's head", StringComparison.Ordinal), "main's copy, a train with a member that is no approved pull request's head: posts failure, saying it is not an approved pull request's head" + (output.Contains("is not an approved pull request's head", StringComparison.Ordinal) ? "" : $"\n{output}"));
     }
 
     using (StandIn server = StandIn.Start(identities, editedHead, "Hafeok", [], [], approvedBy: GatesApp, main: trainMain, pulls: new() { [first] = 11, [second] = 12 }))
     {
-        (int exit, _) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", editedHead, inScratch);
-        Require(exit == 0 && server.Posted is ["failure"], "main's copy, a train whose merge was edited by hand: posts failure");
+        (int exit, string output) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", editedHead, inScratch);
+        Require(exit == 0 && server.Posted is ["failure"] && output.Contains("is not `git merge-tree` of its parents under the pinned settings", StringComparison.Ordinal), "main's copy, a train whose merge was edited by hand: posts failure, saying it is not `git merge-tree` of its parents under the pinned settings" + (output.Contains("is not `git merge-tree` of its parents under the pinned settings", StringComparison.Ordinal) ? "" : $"\n{output}"));
     }
 
     using (StandIn server = StandIn.Start(identities, unmarkedHead, "Hafeok", [], [], approvedBy: GatesApp, main: trainMain, pulls: new() { [first] = 11, [second] = 12 }))
     {
-        (int exit, _) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", unmarkedHead, inScratch);
-        Require(exit == 0 && server.Posted is ["failure"], "main's copy, a train whose merge has no `Landing-only: merge` trailer: posts failure");
+        (int exit, string output) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", unmarkedHead, inScratch);
+        Require(exit == 0 && server.Posted is ["failure"] && output.Contains("has no `Landing-only: merge` trailer", StringComparison.Ordinal), "main's copy, a train whose merge has no `Landing-only: merge` trailer: posts failure, saying it has no `Landing-only: merge` trailer" + (output.Contains("has no `Landing-only: merge` trailer", StringComparison.Ordinal) ? "" : $"\n{output}"));
+    }
+
+    using (StandIn server = StandIn.Start(identities, extraHead, "Hafeok", [], [], approvedBy: GatesApp, main: trainMain, pulls: new() { [first] = 11, [second] = 12 }))
+    {
+        (int exit, string output) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", extraHead, inScratch);
+        Require(exit == 0 && server.Posted is ["failure"] && output.Contains("is not a merge of two parents", StringComparison.Ordinal), "main's copy, a train with an extra commit on the first-parent line between its merges: posts failure, saying it is not a merge of two parents" + (output.Contains("is not a merge of two parents", StringComparison.Ordinal) ? "" : $"\n{output}"));
+    }
+
+    using (StandIn server = StandIn.Start(identities, trainHead, "Hafeok", [], [], approvedBy: GatesApp, main: movedMain, pulls: new() { [first] = 11, [second] = 12 }))
+    {
+        (int exit, string output) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", trainHead, inScratch);
+        Require(exit == 0 && server.Posted is ["failure"] && output.Contains("is not a merge of two parents, and main is not below it", StringComparison.Ordinal), "main's copy, a train built on a main that has since moved: posts failure, saying it is not a merge of two parents, and main is not below it" + (output.Contains("is not a merge of two parents, and main is not below it", StringComparison.Ordinal) ? "" : $"\n{output}"));
     }
 }
 finally

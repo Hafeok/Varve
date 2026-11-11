@@ -10,7 +10,7 @@ lists text the output must contain. A `date` case holds a descriptor's
 adds over main, its `approval` (`head`, `other` for one naming another sha, or
 `none`), whether it is `green`, and optionally its `body` and commit
 `message`; `edit` replaces the last merge with one whose tree was changed by
-hand. A train case is built for real, in a scratch bare repository: checked,
+hand; `infoAttributes` writes the scratch repository's `info/attributes`. A train case is built for real, in a scratch bare repository: checked,
 merged by `git merge-tree`, built twice to show it is the same, and verified as
 `--main` and `agent review` verify it. The pipeline's `land-fixtures` job runs
 them on every build: a `pass-` case must pass and a `fail-` case be refused.
@@ -39,3 +39,6 @@ them on every build: a `pass-` case must pass and a `fail-` case be refused.
 | `fail-train-descriptor-not-last` | train | the descriptor's member is not last |
 | `fail-train-merge-conflicts` | train | #13 conflicts with #12 in `README.md`; prints the train without #13 |
 | `fail-train-merge-edited-by-hand` | train | the last merge's tree is not `git merge-tree` of its parents |
+| `pass-train-attributes-from-the-train` | train | `.gitattributes` in main's tree sets `merge=union`; the merge reads attributes from the train, never a working tree, so it is clean (ADR 0243 point 10) |
+| `fail-train-info-attributes` | train | a repository-local `info/attributes`; refused, because no option switches it off |
+| `fail-train-shorter-is-a-plain-landing` | train | #12 conflicts with #11; the shorter form has one member, so it prints `dotnet run eng/land.cs -- 11` |

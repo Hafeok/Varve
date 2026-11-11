@@ -472,6 +472,13 @@ static async Task<(List<int>? Members, string Why)> ApprovedTrain(Api api, strin
         main = branch.RootElement.GetProperty("sha").GetString()!;
     }
 
+    string infoAttributes = Git("rev-parse", "--git-path", "info/attributes").Output.Trim();
+
+    if (File.Exists(infoAttributes) && File.ReadAllLines(infoAttributes).Any(static line => line.Trim() is { Length: > 0 } text && !text.StartsWith('#')))
+    {
+        return (null, $"{infoAttributes} sets attributes, which change how a merge resolves");
+    }
+
     List<int> members = [];
     string at = head;
 
@@ -500,11 +507,11 @@ static async Task<(List<int>? Members, string Why)> ApprovedTrain(Api api, strin
             return (null, $"{at[..MinimumShaPrefix]} has no `Landing-only: merge` trailer");
         }
 
-        (int mergeExit, string merged) = Git("merge-tree", "--write-tree", "--name-only", "--no-messages", shas[1], shas[2]);
+        (int mergeExit, string merged) = PinnedMergeTree(shas[1], shas[2]);
 
         if (mergeExit != 0 || merged.Split('\n')[0].Trim() != Git("rev-parse", $"{at}^{{tree}}").Output.Trim())
         {
-            return (null, $"{at[..MinimumShaPrefix]}'s tree is not `git merge-tree` of its parents");
+            return (null, $"{at[..MinimumShaPrefix]}'s tree is not `git merge-tree` of its parents under the pinned settings");
         }
 
         if (await ApprovedPullRequestHead(api, shas[2], integration, name) is not int member)
@@ -519,9 +526,27 @@ static async Task<(List<int>? Members, string Why)> ApprovedTrain(Api api, strin
     return members.Count < 2 ? (null, "a train has two or more members") : (members, "");
 }
 
+// `git merge-tree` under the settings every train merge runs under (ADR 0243
+// point 10, the merge is pinned). eng/land.cs's Trains.MergeTree states the
+// same; change both together. Attributes come from the train so far (the
+// first parent), never main's checkout, with the global and system files off;
+// renames are fixed. A different git that merges differently refuses the
+// train, and the lander builds it again.
+static (int Exit, string Output) PinnedMergeTree(string ours, string theirs) =>
+    GitWith(new Dictionary<string, string> { ["GIT_ATTR_NOSYSTEM"] = "1" },
+        "-c", "core.attributesFile=",
+        "-c", "merge.renames=true",
+        "-c", "merge.directoryRenames=false",
+        "-c", "merge.renameLimit=7000",
+        "-c", "diff.renames=true",
+        "-c", "diff.renameLimit=7000",
+        $"--attr-source={ours}", "merge-tree", "--write-tree", "--name-only", "--no-messages", ours, theirs);
+
 // git in the working directory (main's checkout, which holds the pushed
 // history for a push), or GIT_DIR. Read only.
-static (int Exit, string Output) Git(params string[] arguments)
+static (int Exit, string Output) Git(params string[] arguments) => GitWith(null, arguments);
+
+static (int Exit, string Output) GitWith(Dictionary<string, string>? environment, params string[] arguments)
 {
     ProcessStartInfo start = new("git")
     {
@@ -529,6 +554,11 @@ static (int Exit, string Output) Git(params string[] arguments)
         RedirectStandardError = true,
         UseShellExecute = false,
     };
+
+    foreach ((string key, string value) in environment ?? [])
+    {
+        start.Environment[key] = value;
+    }
 
     foreach (string argument in arguments)
     {

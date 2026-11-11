@@ -7,6 +7,6 @@
   ],
   "edit": true,
   "says": [
-    "'s tree is not `git merge-tree` of its parents: it was resolved or edited by hand"
+    "'s tree is not `git merge-tree` of its parents under the pinned settings: it was resolved or edited by hand"
   ]
 }
