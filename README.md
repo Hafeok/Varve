@@ -385,11 +385,14 @@ symmetric cipher exists in that host, which changed a decision (ADR 0028).
 
 ### Server
 
-`varve` is the server and the command line in one executable. Take it as a
-.NET tool, which needs the .NET 10 runtime, or as the container image, which
-is the Native AOT binary and nothing else:
+`varve` is the server and the command line in one executable. Take the
+Native AOT binary through Homebrew (macOS, Linux) or from the release's
+archive for your platform, the .NET tool, which needs the .NET 10 runtime, or
+the container image, which is the binary and nothing else
+([`docs/operator/run.md`](docs/operator/run.md#install)):
 
 ```bash
+brew install hafeok/varve/varve
 dotnet tool install --global Varve.Server --prerelease
 docker pull ghcr.io/hafeok/varve:v0.1.0-preview.20
 ```

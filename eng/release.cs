@@ -483,8 +483,10 @@ static void CheckRecord(Repository repository, Descriptor descriptor, List<strin
 // eng/sbom.cs, a release is format 2, and its sbom list names every artefact
 // it ships: each packable project of Varve.slnx (nupkg, or tool for a
 // PackAsTool one), the container image, and the Web UI bundle by its asset's
-// name while src/Varve.WebUi ships (ADR 0225, amended 2026-11-06). A binary
-// line, or another asset line, names a file the release carries, which
+// name while src/Varve.WebUi ships (ADR 0225, amended 2026-11-06). From the
+// first commit that carries eng/winget.cs (ADR 0226), also one binary per RID
+// the CLI ships, the VarveNativeRuntimeIdentifiers of Directory.Build.props at
+// that commit. Another asset line names a file the release carries, which
 // publish.yml checks. The digests need the restore,
 // which the plan does not run: publish.yml regenerates every SBOM and checks
 // each digest with eng/sbom.cs --descriptor before anything is pushed.
@@ -527,6 +529,18 @@ static void CheckSbom(Repository repository, Descriptor descriptor, string commi
         }
     }
 
+    if (repository.Show(commit, "eng/winget.cs") is not null && descriptor.Version is { } tagged)
+    {
+        string version = tagged.TrimStart('v');
+        System.Text.RegularExpressions.Match rids = System.Text.RegularExpressions.Regex.Match(
+            repository.Show(commit, "Directory.Build.props") ?? "", "<VarveNativeRuntimeIdentifiers>([^<]*)</VarveNativeRuntimeIdentifiers>");
+
+        foreach (string rid in rids.Groups[1].Value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            expected.Add($"binary: varve-{version}-{rid}{(rid.StartsWith("win", StringComparison.Ordinal) ? ".zip" : ".tar.gz")}");
+        }
+    }
+
     // The Web UI bundle is published and never packed (ADR 0200): a release
     // asset, named by its file (ADR 0225, amended 2026-11-06).
     if (repository.Show(commit, "src/Varve.WebUi/Varve.WebUi.csproj") is { } webUi
@@ -543,7 +557,7 @@ static void CheckSbom(Repository repository, Descriptor descriptor, string commi
         problems.Add($"{descriptor.Path}: no sbom line for {missing}; eng/sbom.cs writes it (sbom.txt)");
     }
 
-    foreach (SbomLine line in descriptor.Sbom.Where(line => (line.Kind is "nupkg" or "tool" or "image" || line.Name.StartsWith("varve-webui-", StringComparison.Ordinal)) && !expected.Contains($"{line.Kind}: {line.Name}")))
+    foreach (SbomLine line in descriptor.Sbom.Where(line => (line.Kind is "nupkg" or "tool" or "image" or "binary" || line.Name.StartsWith("varve-webui-", StringComparison.Ordinal)) && !expected.Contains($"{line.Kind}: {line.Name}")))
     {
         problems.Add($"{descriptor.Path}:{line.Line}: {line.Kind} {line.Name} is not an artefact {commit[..12]} ships");
     }

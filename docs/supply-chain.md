@@ -26,7 +26,7 @@ Every artefact Varve ships has one **SPDX 2.3 SBOM** of its runtime closure:
 | Each `Varve.*` package | nuget.org | what a consumer of the package resolves |
 | The `varve` tool (`Varve.Server`) | nuget.org | everything the tool package carries |
 | The container image | `ghcr.io/hafeok/varve` | each platform's binary and its closure, the .NET runtime, and the base image's OS packages |
-| The CLI binaries, per RID | the GitHub release, once #129 distributes them | the closure compiled in, and the .NET runtime |
+| The CLI binaries, per RID | the GitHub release, as `varve-<version>-<rid>.tar.gz` or `.zip`; Homebrew and winget install them | the closure compiled in, and the .NET runtime |
 | The Web UI bundle, `varve-webui-<version>.zip` | the GitHub release | the packages its browser build deploys, the package that carries `blazor.webassembly.js`, the .NET runtime relinked into it, and Emscripten's packs: its system libraries as contained, its compiler and Node.js as build tools |
 
 **Each component has:**
@@ -50,7 +50,8 @@ records them (below).
 **Where to get them:**
 - **Inside each package**, at `_manifest/spdx_2.3/manifest.spdx.json`.
 - **Attached to each GitHub release**, as `<Package>.<version>.spdx.json`. The
-  image's is `varve-image-<version>.spdx.json`.
+  image's is `varve-image-<version>.spdx.json`, and each binary's is
+  `<archive>.spdx.json`.
 - **As attestations** on each package and on the image (below).
 
 **The release descriptor records them.** Each release's descriptor,
@@ -155,6 +156,16 @@ code-signing key, and the keyless attestations take its place.
     - an Action not pinned by commit SHA.
   - Each failure has a deliberately broken fixture in
     `tests/fixtures/dependency-register/`.
+- **Updates arrive as Dependabot pull requests** for packages, Actions, the
+  base image and the SDK. One kind is left red on purpose:
+  - **an SDK update to `global.json` stays red until a maintainer completes
+    it.** The SDK's patch fixes the versions of the packages it brings itself
+    (ILLink, ILCompiler), and every lockfile records them. So the pull request
+    fails its locked restore, and the failure names the command:
+    `dotnet run eng/lockfiles.cs`, run on the new SDK.
+  - That step is manual on purpose. Its diff shows ILLink and ILCompiler move
+    with the SDK, and a person reads it before it lands. No bot regenerates
+    lockfiles ([ADR 0224](adr/0224-supply-chain-transparency.md) point 5).
 - **Licences.**
   - **What ships:** MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause or MPL-2.0.
   - **Build and test packages:** also another OSI-approved licence, since

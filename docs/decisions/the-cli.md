@@ -39,6 +39,8 @@ decisions:
     statement: "A second executable moves the host wiring both would share into a layer-5 Varve.Hosting package and supersedes the one-executable ruling"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-09T00:00:00Z
+  - key: TheReleaseCarriesTheBinary
+    statement: "Point 6 amended 2026-11-06 under ADR 0226: besides the tool package, every release carries the Native AOT binary for each RID the CLI ships, attested and named in the descriptor, and installed through Homebrew, winget or the archive"
 ---
 
 The rulings of [ADR 0105](../adr/0105-the-cli.md), filed unaccepted by milestone 7b of #11
