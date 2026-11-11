@@ -102,10 +102,10 @@ jobs:
 
       - name: Set up .NET
         # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        # and the WebAssembly workloads from the workload set it pins (#276).
         uses: ./.github/actions/setup-dotnet
-
-      - name: Install the WebAssembly workloads
-        run: dotnet workload install wasm-tools wasm-experimental
+        with:
+          workloads: wasm-tools wasm-experimental
 
       - name: Dependency register
         # ADR 0224: the register against every lockfile, the Action pins and
@@ -839,10 +839,10 @@ jobs:
 
       - name: Set up .NET
         # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        # and the WebAssembly workloads from the workload set it pins (#276).
         uses: ./.github/actions/setup-dotnet
-
-      - name: Install the WebAssembly workloads
-        run: dotnet workload install wasm-tools wasm-experimental
+        with:
+          workloads: wasm-tools wasm-experimental
 
       - name: Publish the Web UI
         run: dotnet publish src/Varve.WebUi --configuration Release --output "$RUNNER_TEMP/webui"

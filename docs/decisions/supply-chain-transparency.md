@@ -55,6 +55,8 @@ decisions:
     statement: "Every workflow installs exactly the SDK patch global.json pins through the composite action .github/actions/setup-dotnet, no step names a version, Dependabot bumps global.json, and eng/lockfiles.cs regenerates every lockfile for it and fails a lockfile written with another patch before the restore, naming itself"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-28T00:00:00Z
+  - key: CiInstallsTheWorkloadSetGlobalJsonPins
+    statement: "global.json pins sdk.workloadVersion equal to sdk.version, workloads are installed only through .github/actions/setup-dotnet, and eng/sdk-pin.cs fails a workflow that sets up .NET or installs a workload any other way, unless its step is marked sdk-pin exempt with the reason; amended 2026-11-11"
   - key: AuditExemptionsNeedVex
     statement: "NuGetAudit runs over every package with its findings as errors, and a NuGetAuditSuppress stands only with an OpenVEX not_affected statement in security/vex.openvex.json, published with every release"
     accepted-by: mailto:emil@okkels-klein.dk
