@@ -554,6 +554,33 @@ jobs:
               --out "$RUNNER_TEMP/sbom-$version" --syft "${{ steps.syft.outputs.cmd }}" --descriptor "$descriptor"
           done
 
+      - name: A descriptor's digests rewritten on a later day
+        # #248, docs/releases.md rule 3 (amended 2026-11-10): eng/release.cs
+        # --sbom writes the SBOMs and sets date: to the day it ran, in one
+        # edit, and eng/sbom.cs --descriptor, created at that date, matches
+        # every line. The descriptor is the newest with an sbom: block, renamed
+        # and backdated, in a scratch releases/ directory, so nothing in the
+        # repository changes.
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=v0.0.0-sbom-rewrite
+          scratch="$RUNNER_TEMP/sbom-rewrite"
+          mkdir -p "$scratch/releases"
+          newest=$(grep -l '^sbom:' releases/v*.yaml | sort -V | tail -1)
+          sed -e "s/^version: .*/version: $version/" -e "s/^date: .*/date: 2026-01-01/" \
+            "$newest" > "$scratch/releases/$version.yaml"
+          dotnet run eng/release.cs -- --sbom "$version" --releases "$scratch/releases" --out "$scratch/written"
+          today=$(date -u +%F)
+          grep -qx "date: $today" "$scratch/releases/$version.yaml" \
+            || { echo "::error::release.cs --sbom did not set date: to $today"; exit 1; }
+          if grep -rhoE '"created": *"[^"]*"' "$scratch/written" | grep -v "\"$today"'T00:00:00Z"' ; then
+            echo "::error::an SBOM was not created at ${today}T00:00:00Z"; exit 1
+          fi
+          dotnet run eng/sbom.cs -- --version "${version#v}" --created "$today" \
+            --out "$scratch/again" --descriptor "$scratch/releases/$version.yaml"
+
       - name: Upload the test results
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
@@ -665,7 +692,7 @@ jobs:
         uses: ./.github/actions/setup-dotnet
 
       - name: Log in to GHCR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -731,7 +758,7 @@ jobs:
         uses: ./.github/actions/setup-dotnet
 
       - name: Log in to GHCR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -831,7 +858,7 @@ jobs:
         uses: ./.github/actions/setup-dotnet
 
       - name: Log in to GHCR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -904,12 +931,12 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224,
+        # #276): never actions/setup-dotnet with global.json's roll-forward.
+        uses: ./.github/actions/setup-dotnet
 
       - name: Log in to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -970,7 +997,7 @@ jobs:
         # #126: every run keeps its TRX, pass or fail, so a slow or red run
         # can be explained test by test from its own artifacts.
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results-handover-services
           path: ${{ github.workspace }}/artifacts/test-results
@@ -1038,7 +1065,7 @@ jobs:
         uses: ./.github/actions/setup-dotnet
 
       - name: Log in to GHCR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1076,16 +1103,26 @@ jobs:
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
 
-  # The real-provider legs (ADR 0100): one test each for Entra ID and Google,
-  # with secrets from the auth-providers environment, which only main can
-  # deploy to — so no pull request, and no fork, ever sees them. Not a required
-  # check: a pull request cannot run it. Each leg skips while its secrets are
-  # not configured.
+  # The real-provider legs (ADR 0100, point 4 superseded by ADR 0223): one
+  # test each for Entra ID and Google, by federated credentials. The job's own
+  # OIDC token for the auth-providers environment, which only main can deploy
+  # to, is the only credential: the test exchanges it itself, in plain HTTP
+  # calls, for an Entra token (client_assertion) and a Google ID token (STS,
+  # then generateIdToken). No action does either exchange, and no secret or
+  # key is stored. The environment holds identifiers only; until they are
+  # configured (docs/auth-providers.md) each leg skips, and a configured leg
+  # that fails is red. Not a required check: a pull request cannot run it.
   auth-providers:
     name: auth (providers)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: auth-providers
+    # id-token: write on this job, not on the workflow. The providers trust
+    # only a token whose subject names the auth-providers environment, which
+    # only this job, on main, runs in.
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout
@@ -1098,12 +1135,15 @@ jobs:
         uses: ./.github/actions/setup-dotnet
 
       - name: Test against Entra ID and Google
+        # Identifiers, not credentials. They are environment secrets only
+        # because repo-standard cannot yet declare an environment's variables
+        # (#239).
         env:
           VARVE_ENTRA_TENANT: ${{ secrets.VARVE_ENTRA_TENANT }}
           VARVE_ENTRA_CLIENT_ID: ${{ secrets.VARVE_ENTRA_CLIENT_ID }}
-          VARVE_ENTRA_CLIENT_SECRET: ${{ secrets.VARVE_ENTRA_CLIENT_SECRET }}
           VARVE_ENTRA_AUDIENCE: ${{ secrets.VARVE_ENTRA_AUDIENCE }}
-          VARVE_GOOGLE_SERVICE_ACCOUNT: ${{ secrets.VARVE_GOOGLE_SERVICE_ACCOUNT }}
+          VARVE_GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.VARVE_GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}
+          VARVE_GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.VARVE_GOOGLE_SERVICE_ACCOUNT_EMAIL }}
         run: >
           dotnet test
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
@@ -1197,7 +1237,7 @@ jobs:
           --output ${{ github.workspace }}/artifacts/server-aot
 
       - name: Log in to GHCR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1484,7 +1524,7 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-aspire-
 
       - name: Log in to GHCR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1603,7 +1643,7 @@ jobs:
         uses: ./.github/actions/setup-dotnet
 
       - name: Log in to GHCR
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1684,7 +1724,7 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Log in to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1834,7 +1874,8 @@ jobs:
   # Constraint 3. CI publishes the browser build and requires it to be
   # warning-free; it does not run it, because running it needs a browser and a
   # server. The run happens where the browser is, and ADR 0020 records the
-  # result of the one that mattered.
+  # result of the one that mattered. The Web UI is published here too, trimmed
+  # and warning-free (ADR 0200).
   wasm:
     name: browser wasm
     runs-on: ubuntu-latest
@@ -1857,10 +1898,10 @@ jobs:
 
       - name: Set up .NET
         # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        # and the WebAssembly workloads from its SDK's workload set (#276).
         uses: ./.github/actions/setup-dotnet
-
-      - name: Install the WebAssembly workloads
-        run: dotnet workload install wasm-tools wasm-experimental
+        with:
+          workloads: wasm-tools wasm-experimental
 
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -1877,6 +1918,24 @@ jobs:
         with:
           name: wasm-app-bundle
           path: tests/Varve.WasmSmoke/bin/Release/net10.0/browser-wasm/AppBundle
+          if-no-files-found: error
+
+      - name: Publish the Web UI
+        # ADR 0200: trimmed, relinked, from the checkout's clean tree, with a
+        # trim or AOT warning an error like any other.
+        run: dotnet publish src/Varve.WebUi --configuration Release --output "$RUNNER_TEMP/webui"
+
+      - name: The Web UI's download budget
+        # ADR 0205: brotli-11 of _framework/ against eng/browser-size.json,
+        # on this publish from a clean tree. Over budget fails; a growth is an
+        # amendment to the ADR, never a quiet drift.
+        run: dotnet run eng/browser-size.cs -- "$RUNNER_TEMP/webui/wwwroot"
+
+      - name: Upload the Web UI
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: webui
+          path: ${{ runner.temp }}/webui/wwwroot
           if-no-files-found: error
 
   # The browser storage backends, run in a browser (ADR 0084): the storage
@@ -1906,10 +1965,10 @@ jobs:
 
       - name: Set up .NET
         # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        # and the WebAssembly workloads from its SDK's workload set (#276).
         uses: ./.github/actions/setup-dotnet
-
-      - name: Install the WebAssembly workloads
-        run: dotnet workload install wasm-tools wasm-experimental
+        with:
+          workloads: wasm-tools wasm-experimental
 
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -1923,6 +1982,107 @@ jobs:
 
       - name: Run in headless Chromium
         run: dotnet run eng/browser-tests.cs
+
+  # The Web UI in a browser (ADR 0204): the published bundle from the wasm
+  # job, served in-process by Varve.Server and driven by Playwright on the
+  # runner's Chrome. axe on every screen and dialog in both themes, the
+  # keyboard's first stops, and the anonymous and OIDC modes:
+  # mock-oauth2-server by the refresh grant, the dual-audience refusal
+  # included, and Zitadel by token exchange (ADR 0201, amended 2026-10-28).
+  # Outside eng/ci.cs for the reason the wasm job is: the devcontainer has no
+  # browser (ADR 0036).
+  #
+  # Linux only, on purpose; do not make it a matrix. Both issuers are Linux
+  # containers started by docker compose, which GitHub's Windows and macOS
+  # runners cannot run, and the Web UI is the same bundle on every OS: what
+  # the job tests is the bundle against a server and an issuer, not the
+  # runner. The maintainer ruled so on #187 (2026-10-30).
+  webui-browser:
+    name: web ui in Chromium
+    runs-on: ubuntu-latest
+    needs: wasm
+    env:
+      VARVE_CHROME: ${{ vars.VARVE_CHROME || '/usr/bin/google-chrome' }}
+
+    # Its issuer comes from this repository's private mirror (#118).
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Download the Web UI
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: webui
+          path: ${{ runner.temp }}/webui
+
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start mock-oauth2-server
+        run: |
+          docker compose --file .github/mock-oauth2/compose.yaml up --detach
+          for attempt in $(seq 1 60); do
+            curl --silent --fail http://localhost:8080/varve/.well-known/openid-configuration > /dev/null && exit 0
+            sleep 1
+          done
+          docker compose --file .github/mock-oauth2/compose.yaml logs
+          exit 1
+
+      - name: Start Zitadel
+        run: docker compose --file .github/zitadel/compose.yaml up --detach --wait
+
+      - name: Seed it
+        # --webui is where the Web UI's client may redirect: the browser test
+        # serves the Web UI there for this leg.
+        run: dotnet run eng/zitadel-seed.cs -- --output ${{ github.workspace }}/artifacts/zitadel-seed.json --webui http://127.0.0.1:5081/ui/
+
+      - name: Test in headless Chromium
+        env:
+          VARVE_WEBUI: ${{ runner.temp }}/webui
+          VARVE_MOCK_OAUTH2: http://localhost:8080
+          VARVE_ZITADEL_SEED: ${{ github.workspace }}/artifacts/zitadel-seed.json
+          VARVE_AUTH_LEGS_REQUIRED: zitadel
+          VARVE_BROWSER_TESTS_REQUIRED: 1
+        run: >
+          dotnet test
+          --project tests/Varve.WebUi.Browser.Tests/Varve.WebUi.Browser.Tests.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.WebUi.Browser.Tests
+
+      - name: Store test durations
+        # #126: the slowest tests, in the job summary, from the step's own TRX.
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/Varve.WebUi.Browser.Tests
+          --label "Varve.WebUi.Browser.Tests on ubuntu-latest"
+
+      - name: Zitadel's log
+        if: failure()
+        run: docker compose --file .github/zitadel/compose.yaml logs zitadel
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test-results-webui-browser
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
 
   # Does not gate on the raw test result, and still should not now that all 883
   # cases pass: an exempt case is allowed to fail, and a case outside the

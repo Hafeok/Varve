@@ -79,8 +79,8 @@ superseding ADR rather than an edit.
 | [0085](0085-a-release-per-milestone.md) | A release per milestone, and the next milestone waits for it | **Superseded by 0102**; complemented 0029 and 0035 |
 | [0086](0086-home-of-the-eng-gates.md) | Home of the eng/ gates | Accepted; complements 0036 and 0039 |
 | [0087](0087-the-identity-map.md) | The identity map: who signs off, accepts and approves for an agent | Accepted; enforces 0034 point 3; amended 2026-10-06 (approval by comment on one's own pull request; the exit to a signed ledger Review); amended again 2026-10-06 (the judging script is always main's; only App-pinned checks count; approval by comment is not a valid workflow); amended 2026-10-08 (an approved head lands through land/) |
-| [0088](0088-only-checked-commits-reach-main.md) | Only checked commits reach main | Accepted; **supersedes 0032**; amended 2026-10-06 (required check names are checked); amended 2026-10-08 (a release's review is its descriptor's approval; `HumanReviewGatesReleases` superseded by 0102) |
-| [0102](0102-a-release-is-a-descriptor.md) | A release is a descriptor, and landing it cuts it | **Accepted** (filed unaccepted, ADR 0066); **supersedes 0085** and 0088's `HumanReviewGatesReleases`; amends 0087 rule 3 |
+| [0088](0088-only-checked-commits-reach-main.md) | Only checked commits reach main | Accepted; **supersedes 0032**; amended 2026-10-06 (required check names are checked); amended 2026-10-08 (a release's review is its descriptor's approval; `HumanReviewGatesReleases` superseded by 0102); amended 2026-11-11 (landing by fast-forward or merge commit, and trains; filed unaccepted, #230) |
+| [0102](0102-a-release-is-a-descriptor.md) | A release is a descriptor, and landing it cuts it | **Accepted** (filed unaccepted, ADR 0066); **supersedes 0085** and 0088's `HumanReviewGatesReleases`; amends 0087 rule 3; amended 2026-11-11 (chain builds are not releases; filed unaccepted, #230) |
 | [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
 
 
@@ -148,7 +148,7 @@ Decided by the maintainer on the 5c report.
 
 | # | Title | Status |
 |---:|---|---|
-| [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table; amended 2026-10-07 (the protocol seam's revisit condition; proposed) |
+| [0060](0060-hosts-at-layer-6-the-composition-root.md) | Hosts at layer 6: the composition root, reserved to executables | Accepted; supersedes 0003's layer table; amended 2026-10-07 (the protocol seam's revisit condition; proposed); amended 2026-10-27 (a host may be a browser application; filed unaccepted, #167) |
 | [0061](0061-canonical-n-triples-is-rdf-1-2s.md) | Canonical N-Triples and N-Quads follow RDF 1.2; where 1.1 and 1.2 differ, 1.2 wins | Accepted |
 
 ## Adopting `DecisionDriven.Analyzers`
@@ -216,7 +216,7 @@ Filed by milestone 7a ([#11](https://github.com/Hafeok/Varve/issues/11)), unacce
 | [0097](0097-the-change-feed-and-the-diff.md) | The change feed and the diff: a line format, SSE for tailing | Accepted; `docs/spec/change-feed.md`; amended 2026-10-09 (the commits resource) |
 | [0098](0098-blank-nodes-at-the-protocol-boundary.md) | Blank nodes at the protocol boundary: stable labels out, fresh in, no skolem IRIs | Accepted; closes Q1, spec 1.6 |
 | [0099](0099-register-jwtbearer-and-the-workflows-containers.md) | Register: `JwtBearer` in the server; no Testcontainers; the shared framework | Accepted; conditional on the server's AOT publish; amended 2026-10-15 (storage services, filed unaccepted) |
-| [0100](0100-authentication-tested-in-three-layers.md) | Authentication tested in three layers | Accepted; refines 0037 |
+| [0100](0100-authentication-tested-in-three-layers.md) | Authentication tested in three layers | Accepted; refines 0037; point 4 **superseded in part by 0223** (the provider legs' credentials) |
 | [0101](0101-the-server-configuration-aot-shutdown-readiness.md) | The server: configuration, Native AOT, shutdown, readiness, status | Accepted; amended 2026-10-09 (health paths, unknown keys); amended 2026-10-15 (ObjectStorage, filed unaccepted) |
 
 Filed by milestone 7b ([#11](https://github.com/Hafeok/Varve/issues/11)), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 7b, likewise unaccepted: 0004 (`Varve.Protocol.Client` speaks HTTP), 0057 (a data-only request expects no position), 0091 (the 7b seams).
@@ -275,7 +275,7 @@ Filed by milestone Client and integration ([#93](https://github.com/Hafeok/Varve
 
 | # | Title | Status |
 |---:|---|---|
-| [0127](0127-on-behalf-of-and-the-token-provider.md) | On-behalf-of: the client's token provider, `azp` on the span, and the attribution rule; amends 0103 and 0112 | Filed unaccepted (Client and integration, #93) |
+| [0127](0127-on-behalf-of-and-the-token-provider.md) | On-behalf-of: the client's token provider, `azp` on the span, and the attribution rule; amends 0103 and 0112; amended 2026-10-27 (the fixed provider moves out of the model, unaccepted) | Filed unaccepted (Client and integration, #93) |
 | [0128](0128-varve-delta-and-the-read-forever-rule.md) | `Varve.Delta`: the delta format as a package of its own, read for ever; amends 0097, 0102 and 0103 | Filed unaccepted (Client and integration, #93) |
 | [0129](0129-following-the-commits-resource.md) | Following the commits resource: `FollowAsync`, a checkpoint the caller owns, at least once | Filed unaccepted (Client and integration, #93) |
 | [0130](0130-client-side-setup-and-system-graphs.md) | Client-side setup: a declared dataset, migrations recorded as data, and the first system graph | Filed unaccepted (Client and integration, #93); amended 2026-10-15 (ObjectStorage, filed unaccepted) |
@@ -401,10 +401,16 @@ Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)),
 
 ## Web UI, part 1 (#167)
 
-Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. 0206 lands first, in a docs-only pull request; 0200–0205 come with the milestone's.
+Filed by Web UI part 1 ([#167](https://github.com/Hafeok/Varve/issues/167), milestone [#96](https://github.com/Hafeok/Varve/issues/96)), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. 0206 lands first, in a docs-only pull request; 0200–0205 come with the milestone's. Amended by it, likewise unaccepted: 0060 (a host may be a browser application published as static files).
 
 | # | Title | Status |
 |---:|---|---|
+| [0200](0200-varve-webui-a-blazor-webassembly-host.md) | `Varve.WebUi`: a Blazor WebAssembly host at layer 6, and what Blazor costs | Filed unaccepted (Web UI part 1, #167) |
+| [0201](0201-the-web-uis-own-oidc-client.md) | The Web UI's own OIDC client: one token per plane | Filed unaccepted (Web UI part 1, #167) |
+| [0202](0202-serving-the-web-ui-and-its-content-security-policy.md) | Serving the Web UI under `/ui/`, and its Content Security Policy | Filed unaccepted (Web UI part 1, #167) |
+| [0203](0203-typed-reads-in-the-protocol-client.md) | Typed reads in `Varve.Protocol.Client`: health, problems, response facts and the management plane | Filed unaccepted (Web UI part 1, #167) |
+| [0204](0204-test-dependencies-for-the-web-ui.md) | Test dependencies for the Web UI: bUnit, Playwright on the runner's Chrome, axe-core | Filed unaccepted (Web UI part 1, #167) |
+| [0205](0205-the-web-uis-size-budget-and-no-aot.md) | The Web UI's size budget, and why it is not AOT-compiled | Filed unaccepted (Web UI part 1, #167) |
 | [0206](0206-the-web-ui-design-source.md) | The Web UI's design source, its levels, and the markup contract | Filed unaccepted (Web UI part 1, #167) |
 
 ## 1.0 readiness A — correctness and the read-forever contract (#129)
@@ -421,7 +427,7 @@ Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 
 
 | # | Title | Status |
 |---:|---|---|
-| [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119) |
+| [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119); amended 2026-11-11 (the pin covers workload sets, #276) |
 | [0225](0225-the-sbom-generator.md) | The SBOM generator: `eng/sbom.cs`, SPDX 2.3, from the restore | Filed unaccepted (#119) |
 
 ## Milestone 9, part 1 — row-level access through the classifier (#202)
@@ -447,6 +453,30 @@ Filed by the landing session for [#244](https://github.com/Hafeok/Varve/issues/2
 | # | Title | Status |
 |---:|---|---|
 | [0239](0239-the-maintainers-delegate.md) | The maintainer's delegate: one session on his machine may approve, land and accept for him | Filed unaccepted (#244) |
+
+## The provider legs by federated credentials (#101)
+
+Filed by [#101](https://github.com/Hafeok/Varve/issues/101), unaccepted until the maintainer accepts it on its pull request (ADR 0066). Numbered 0223, between readiness A's 0213–0222 and readiness B's 0224 onward. Supersedes in part, likewise unaccepted: 0100 (point 4: the Entra and Google legs by GitHub's OIDC token, with no secret; `EntraAndGoogleBySecret` moves).
+
+| # | Title | Status |
+|---:|---|---|
+| [0223](0223-provider-legs-by-federated-credentials.md) | The provider legs by federated credentials: GitHub's OIDC token for Entra ID and Google | Filed unaccepted (#101) |
+
+## Model names in commit messages (#257)
+
+Filed by the session for [#257](https://github.com/Hafeok/Varve/issues/257), recording the maintainer's ruling of 2026-10-27 for [#169](https://github.com/Hafeok/Varve/issues/169), unaccepted until he accepts it (ADR 0066). Numbered 0241: 0240 is taken on another branch. It supersedes one ruling of 0033.
+
+| # | Title | Status |
+|---:|---|---|
+| [0241](0241-model-names-refused-identifiers-allowed.md) | A commit message never names a model; a model's identifier is allowed; supersedes one ruling of 0033 | Filed unaccepted (#257) |
+
+## Chain builds and landing trains (#230)
+
+Filed by the session for [#230](https://github.com/Hafeok/Varve/issues/230), recording the maintainer's decision of 2026-11-06 and his review of 2026-11-11, unaccepted until he accepts it (ADR 0066). Numbered 0243: 0240–0242 are taken by open pull requests (#268; #259 and #264, #278; #267). It amends 0088 and 0102 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0243](0243-chain-builds-ahead-of-main.md) | Chain builds ahead of main, and landing trains | Filed unaccepted (#230) |
 
 ## Conformance — differential testing against Oxigraph
 

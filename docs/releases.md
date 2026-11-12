@@ -21,7 +21,7 @@ pull request at its approved head cuts it.
 format: 2                       # mandatory; the format this file conforms to
 version: v0.1.0-preview.2       # v<SemVer 2.0.0>, prerelease allowed; equals the file's name
 title: The protocols and the server   # one line; the tag message is "<version> — <title>"
-date: 2026-10-20                # the preparation date; CHANGELOG.md's heading
+date: 2026-10-20                # the day the sbom: digests were last written; CHANGELOG.md's heading
 commit: 0123…cdef               # optional; a retro-cut only (§3). Omitted is normal
 basis:                          # mandatory; resolved at the commit under release
   - issue: 11                   # each milestone issue it closes, at least one
@@ -65,9 +65,27 @@ takes them for numbers.
      nuget.org cannot be replaced.
 2. **The title carries no version.** The tag message and the GitHub
    Release's title are composed as `<version> — <title>`.
-3. **`date` is the preparation date**, the day the descriptor was written.
+3. **`date` is the preparation date**, ~~the day the descriptor was written~~.
    It is the heading of the version's section in `CHANGELOG.md`, which is a
    projection and must not depend on when the cut ran.
+
+   **Amended 2026-11-10** (#248, under ADR 0102's amendment of that day):
+   the preparation date is **the day the descriptor's `sbom:` digests were
+   last written**, which is the day the artefacts being released were
+   prepared. The SBOMs are created at `date` (ADR 0224 point 2, unchanged),
+   so the two move together:
+   - `eng/release.cs -- --sbom <version>` writes the SBOMs, replaces the
+     `sbom:` block and sets `date:` to the current UTC day in one edit, and
+     regenerates `CHANGELOG.md` (rule 11);
+   - `eng/land.cs -- N` refuses a descriptor the pull request adds or
+     changes whose `date:` is more than three days before the landing day
+     (UTC), and prints that command. Three days is the release gate's
+     freshness window, and it spares a landing that crosses midnight or waits
+     out one red run;
+   - a descriptor with no `sbom:` block (format 1) keeps its date as it is.
+
+   `CHANGELOG.md` still does not depend on when the cut ran. A descriptor
+   already cut keeps its date (rule 9): preview.18's stays 2026-10-27.
 4. **`commit` is optional, and omitting it is normal.** A pull request
    cannot know the sha it will land as, so the default is "the commit that
    lands this file". When set, it must be a full sha and an ancestor of
@@ -114,12 +132,14 @@ takes them for numbers.
     - **written, not typed.** After a restore, run:
 
       ```bash
-      dotnet run eng/sbom.cs -- --version <version without v> --created <date> \
-        --out artifacts/sbom --syft <syft v1.54.0>
+      dotnet run eng/release.cs -- --sbom <version> --syft <syft v1.54.0>
       ```
 
-      and copy `artifacts/sbom/sbom.txt`. The CLI binaries add `--binary
-      <rid>` each, once they are released (#129);
+      which runs `eng/sbom.cs` created at the current UTC day, writes its
+      `sbom.txt` into the block and that day into `date:` (rule 3, amended
+      2026-11-10), and regenerates `CHANGELOG.md`. The CLI binaries add
+      `--binary <rid>` each, once they are released (#129). Run it again
+      whenever the digests change, a merge of `main` included;
     - **checked three times:**
       - `eng/release.cs` requires format 2 at a commit that carries
         `eng/sbom.cs`, with a line for every packable project and the image;
@@ -170,6 +190,24 @@ one.
    is `git push origin <approved head>:land/release-<version>`, then `git push
    origin <approved head>:main`, with the checks that make either fail
    later.
+
+   **A release can ride in a landing train** (#277, ADR 0243 point 10), as
+   its **last** member, and a train carries at most one:
+
+   ```bash
+   dotnet run eng/land.cs -- --train <pr> … <release pr>          # pushes the train to land/release-<version>
+   dotnet run eng/land.cs -- --train <pr> … <release pr> --main   # once its checks are green
+   ```
+
+   The train's head merges each approved head onto `main` by `git
+   merge-tree`, in `Landing-only: merge` commits, and every gate and the
+   release's dry run run once there. `agent review` posts its check on that
+   head when every merge's second parent is an approved pull request's head.
+   So the head guard (below) holds for it, and the release is cut from the
+   train's head, the commit `main` is fast-forwarded to. The review that
+   gates the release is still the approval of the descriptor's pull request
+   on its own head. A train that goes red lands nothing; land it shorter, or
+   the release alone.
 4. **Cut.** The push to `main` starts `.github/workflows/release.yml`:
    - **plan** validates and resolves the descriptor and applies the head
      guard;
@@ -209,7 +247,8 @@ one.
 
 **The head guard.** A release is cut only at a commit that carries a
 successful `agent review` check run from the gates App, which that App posts
-only on an approved pull request's head or a `land/` head. **A descriptor
+only on an approved pull request's head or a `land/` head: an approved head,
+or a train of approved heads. **A descriptor
 landed by the merge button is not cut and leaves no tag**: the merge commit
 is not the head anyone approved. It is recovered by a **retro-cut**: a new
 pull request that adds `commit: <approved head>` to the same descriptor, which

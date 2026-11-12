@@ -27,6 +27,14 @@ decisions:
     statement: "Only Varve.WebUi.Pages, the routed screens, references or injects the client's service types, Varve.Protocol.Client outside its Model namespace; Parts and Pages may use the client's model types, and Atoms to Templates use neither; the model holds values only and names no service type"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-28T00:00:00Z
+  - key: TheAppIsTheTopLevel
+    statement: "Varve.WebUi.App, holding the root component, the layout and the services the shell reads, is the level above Pages: it may use the client's service and model types, no level names a type of it, and its root does not name its layout, which the composition root hands in; a namespace below a level is that level"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-30T00:00:00Z
+  - key: NoTypeOutsideTheLevelsHoldsAService
+    statement: "No type of the Web UI outside the level namespaces names a client service type, and no type names a type of a higher level, component or not, so no level reaches the server except Pages and App"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-10-30T00:00:00Z
   - key: OneStateToToneMapping
     statement: "One tested mapping in Varve.WebUi.Tones maps API state words and problem types to the five tones, called by parts and pages; atoms take a Tone and never map"
     accepted-by: mailto:emil@okkels-klein.dk

@@ -1,0 +1,102 @@
+@page "/"
+@page "/datasets"
+@inject VarveManagementClient Management
+@inject VarveHealthClient Health
+@inject WebUiSettings Settings
+@inject TimeProvider Clock
+@* Datasets (docs/ui/screens/datasets--*.html): every dataset the management
+   plane knows, at the management position the list was read at, with this
+   instance's role, its head and its lag. Placement comes from the
+   declarations, and lag from readiness, which lists every dataset when the
+   instance is ready and only the troubled ones when it is not. *@
+<PageTitle>Datasets · Varve</PageTitle>
+<ViewHead Title="Datasets">@if (_list is not null)
+{<ReadStamps Facts="_list.Facts" />}</ViewHead>
+
+@if (_failure is not null)
+{
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="_lastRead" OnReadAgain="ReadAsync" />
+}
+
+@if (_list?.Problem is Problem problem)
+{
+    <ProblemView Problem="problem" Facts="_list.Facts" Management="true" />
+}
+else if (_list is not null || _failure is null)
+{
+    <Panel StaleSince="@LastAnswered" Title="Datasets" TitleId="datasets-title" Flush="true">
+        <Head>@if (_list is not null)
+        {<Button Small="true" Disabled="_reading" OnClick="ReadAsync">Read again</Button>}</Head>
+        <ChildContent>
+            <ResourceTable ColumnCount="6" LabelledBy="datasets-title" Loading="_list is null" Empty="_list?.Value?.Datasets.Count == 0">
+                <Columns>
+                    <th scope="col">Dataset</th><th scope="col">State</th><th scope="col">This instance</th><th scope="col" class="vw-num">Head</th><th scope="col" class="vw-num">Lag</th><th scope="col">Storage</th>
+                </Columns>
+                <EmptyContent>No datasets are declared. Declare one in TriG and run <code>varve apply</code>.</EmptyContent>
+                <Rows>
+                    @foreach (DatasetEntry dataset in _list?.Value?.Datasets ?? [])
+                    {
+                        <tr><td class="vw-table__name"><a href="@("datasets/" + Uri.EscapeDataString(dataset.Name.Value))">@dataset.Name.Value</a>@if (Placement(dataset.Name) is InstanceName placed)
+                        {<span class="vw-table__sub">placed on @placed.Value</span>}</td><td><StateWord Word="@dataset.State?.Value" /></td><td><StateWord Word="@dataset.Role?.Value" /></td><td class="vw-num">@(dataset.Head?.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "—")</td><td class="vw-num">@Lag(dataset.Name)</td><td>@(dataset.Storage?.Value ?? "—")</td></tr>
+                    }
+                </Rows>
+            </ResourceTable>
+        </ChildContent>
+    </Panel>
+}
+
+@code {
+    private VarveResult<DatasetList>? _list;
+    private IReadOnlyDictionary<DatasetName, InstanceName> _placements = new Dictionary<DatasetName, InstanceName>();
+    private IReadOnlyList<DatasetReadiness> _readiness = [];
+    private DateTimeOffset? _lastRead;
+    private string? _failure;
+    private bool _reading;
+
+    // While the server does not answer, what the panels show is as last read.
+    private string? LastAnswered => _failure is not null && _lastRead is { } read ? Times.Utc(read) : null;
+
+    /// <inheritdoc />
+    protected override Task OnInitializedAsync() => ReadAsync();
+
+    private async Task ReadAsync()
+    {
+        _reading = true;
+
+        try
+        {
+            Task<VarveResult<DatasetList>> list = Management.DatasetsAsync(CancellationToken.None);
+            Task<VarveResult<PlacementList>> placements = Management.PlacementsAsync(CancellationToken.None);
+            Task<VarveResult<Readiness>> readiness = Health.ReadyAsync(CancellationToken.None);
+            _list = await list;
+            _placements = (await placements).Value?.Placements ?? _placements;
+            _readiness = (await readiness).Value?.Datasets ?? _readiness;
+            _lastRead = Clock.GetUtcNow();
+            _failure = null;
+        }
+        catch (HttpRequestException e)
+        {
+            _failure = e.Message;
+        }
+        finally
+        {
+            _reading = false;
+        }
+    }
+
+    private InstanceName? Placement(DatasetName name) => _placements.TryGetValue(name, out InstanceName placed) ? placed : null;
+
+    private string Lag(DatasetName name)
+    {
+        foreach (DatasetReadiness dataset in _readiness)
+        {
+            if (dataset.Name == name && dataset.Lag is PositionLag lag)
+            {
+                return lag.ToString();
+            }
+        }
+
+        return "—";
+    }
+
+}

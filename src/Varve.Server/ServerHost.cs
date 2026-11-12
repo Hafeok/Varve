@@ -542,6 +542,13 @@ internal static partial class ServerHost
             app.UseForwardedHeaders();
         }
 
+        // The Web UI is static files, public, before CORS, rate limits and
+        // tokens (ADR 0202).
+        if (!string.IsNullOrWhiteSpace(settings.WebUi.Path))
+        {
+            MapWebUi(app, settings.WebUi.Path, anonymous ? null : settings.Auth.Authority);
+        }
+
         // CORS first (ADR 0132): a preflight is answered before a token or a
         // rate limit is asked for, and every response after it, a problem
         // included, carries the headers a browser needs to show it. With no
@@ -697,7 +704,8 @@ internal static partial class ServerHost
                 warm,
                 spill,
                 cache,
-                open && dataset!.StorageFull));
+                open && dataset!.StorageFull,
+                datasets.DegradedOf(entry.Name)));
         }
 
         ManagementStatus management = fleet.Status;
@@ -732,6 +740,17 @@ internal static partial class ServerHost
             {
                 json.WriteBoolean("tailing", state.Tailing);
                 json.WriteBoolean("warm", state.Warm);
+            }
+
+            // Released by this instance for storage-error or local-disk-error,
+            // and not yet written again for long (ADR 0163, amended 2026-11-10).
+            if (state.Degraded is { } degraded)
+            {
+                json.WriteStartObject("degraded");
+                json.WriteString("reason", degraded.Reason);
+                json.WriteNumber("releases", degraded.Releases);
+                json.WriteString("since", degraded.Since.UtcDateTime);
+                json.WriteEndObject();
             }
 
             if (state.Spill is { } spill)

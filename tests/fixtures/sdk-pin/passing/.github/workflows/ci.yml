@@ -1,0 +1,21 @@
+# The sdk-pin gate's passing fixture: every rule kept (README.md).
+name: fixture
+on: push
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Set up .NET, and the WebAssembly workloads from the pinned set
+        uses: ./.github/actions/setup-dotnet
+        with:
+          workloads: wasm-tools wasm-experimental
+      # A comment naming dotnet workload install is not an install.
+  judge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up .NET
+        # sdk-pin: exempt (checks out main and restores nothing)
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
