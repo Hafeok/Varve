@@ -192,7 +192,7 @@ build before this one reads what this one writes, and the reverse.
 
 ## Checks
 
-- **Checked against the accepted ADRs** (0001–0239). Touches:
+- **Checked against the accepted ADRs** (0001–0239, and 0241, which `main` accepted on 2026-11-11 and which this does not touch). Touches:
   - **0072, 0139, 0177**: the format is unchanged; how a directory is held
     is not part of it. 0177 amended.
   - **0080**: its sparse sections were for checkpoints of derived format 2,

@@ -13,6 +13,11 @@ the records.
 under *The wording rule splits*: what "named exactly" means for the model, and
 that a commit message never carries a model's identifier.
 
+**Superseded in part by [0241](0241-model-names-refused-identifiers-allowed.md)**
+(filed 2026-11-10): the amendment's ruling on the commit message is reversed.
+A commit message never names a model, and a model's identifier is allowed. The
+record still names the model exactly.
+
 ## Context
 
 The Mind Over Machine stewardship standard asks for one thing under this

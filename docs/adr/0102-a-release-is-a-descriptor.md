@@ -42,6 +42,10 @@ revisited.
 [0224](0224-supply-chain-transparency.md): descriptor format 2, with an `sbom:`
 list naming every artefact and its SBOM's digest; see the end.
 
+**Amended 2026-11-10** (ADR 0068), by #248: a format-2 descriptor's `date`
+is the day its `sbom:` digests were last written, and `eng/land.cs` refuses
+one more than three days old; see the end.
+
 ## Context
 
 A release is a decision, and this repository files decisions: an ADR, a
@@ -413,3 +417,42 @@ sbom:
 **The ledger.** The rulings of this ADR stand; the ruling of this block is
 `TheDescriptorNamesEveryArtefactsSbom`, unaccepted until the maintainer
 accepts it.
+
+## Amendment, 2026-11-10 — `date` follows the digests
+
+Filed by the session for #248 (step 3 of the "issues are the work log"
+session), on the maintainer's ruling on #248 of 2026-11-10, unaccepted until
+he accepts it (ADR 0066). It adds detail to what `date` means for a format-2
+descriptor, and leaves ADR 0224 as it is.
+
+**The problem.** `date` was the day the descriptor was written, set once by
+`--draft`. A milestone pull request takes days to land, and its digests are
+rewritten on the way, while the date stays. Under ADR 0224 point 2 (D3) every
+SBOM is created at `date`, so a correction by hand changes every digest:
+preview.18's descriptor says 2026-10-27, and its digests were last written on
+2026-11-06, the day it landed.
+
+**The detail.** The preparation date is **the day the digests were last
+written**, which is the preparation date of the artefacts being released:
+- `eng/release.cs -- --sbom <version>` runs `eng/sbom.cs` created at the
+  current UTC day, replaces the `sbom:` block with its `sbom.txt` and sets
+  `date:` to that day in one edit, then regenerates `CHANGELOG.md`;
+- `eng/land.cs -- N` refuses a descriptor the head adds or changes whose
+  `date:` is more than three days before the landing day (UTC), and prints
+  that command. Three days is the release gate's freshness window;
+- a descriptor with no `sbom:` block keeps its date, and a cut descriptor is
+  never edited (rule 9), so preview.18 keeps 2026-10-27.
+
+`CHANGELOG.md` is still a projection that does not depend on when the cut
+ran. `docs/releases.md` rule 3 and rule 11 say the same.
+
+**Not chosen:**
+- a second field, `sbom-created:`, beside a free `date:`: a format bump to
+  fix a date, for two fields that move together anyway;
+- the landing day exactly: a landing across midnight, or one waiting a day,
+  would need a new head and a new run for nothing;
+- the tag's date: `CHANGELOG.md` is generated inside the pull request,
+  before any tag exists.
+
+**The ledger.** No ruling changes; the block adds detail to the descriptor's
+`date` (ADR 0068 point 2).

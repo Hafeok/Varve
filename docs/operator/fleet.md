@@ -68,6 +68,15 @@ and the two together are the **writer set**: only a member ever claims.
   `local-disk-error`, every warm member races, and the store's conditional
   write picks one. The winner claims in place: it keeps what it has applied
   and cached, and commits at once.
+- **The member that released for `storage-error` or `local-disk-error` holds
+  off before it races for that release** (see
+  [Readiness](#readiness) for the hold-off's figures). It has just failed
+  against the store or its own disk, so another warm member takes the
+  dataset first: it has a whole round to itself. When no other member is
+  warm, the releaser takes the dataset back by itself once its hold-off has
+  passed, two rounds after the release at the earliest, and answers writes
+  again with no restart. While its store still fails, each claim fails and
+  lengthens the hold-off, to one claim every 15 to 30 seconds.
 - **A placement change still works by events**: changing `placedOn` makes the
   holder release for `placement`, whoever it is, and the new `placedOn`
   claims. Taking the holder out of `standbyOn` does the same. A holder that
@@ -159,6 +168,25 @@ Request ids are `<instance>:<id>`, unique across the fleet.
 
 ## Readiness
 
+A declared dataset that did not open on this instance is listed as `failed`
+with a `reason`, and the instance is not ready. For a store's failure the
+reason names the request and the status the store answered. The instance
+tries again by itself, and logs the first failure as a warning with the
+writer epoch the open had taken, so it needs no restart: it turns `ready`
+once the store answers. `PUT /manage/datasets/{name}` answers for the
+declaration alone, which is committed before any instance has opened the
+dataset.
+
+**An instance holds off between claims that fail.** After an open or a write
+against the store fails for a dataset, the instance waits before it claims
+that dataset again: one `Varve:Fleet:FollowInterval` at first, doubled with
+each failure in a row, to 30 seconds, each wait shortened by up to half at
+random. So a store that keeps failing sees one claim every 15 to 30 seconds
+from each instance, and a dataset is writable again within about 30 seconds
+of its store recovering. A successful open as the writer resets the wait. A
+takeover request is not held off. The wait is kept in memory, so a restart
+claims at once.
+
 `/health/ready` carries a `management` object: the instance's `role` in the
 system dataset (`writer`, `follower` or `superseded`), the `epoch`, the
 applied `position`, the `lag` behind the system tail, and the `bootstrap`
@@ -174,6 +202,17 @@ state (`recorded`, `absent` or `mismatch`). Each dataset carries:
   reads;
 - `validation`: each shapes binding's projection lag, beside `warm` and never
   part of it;
+- `degraded`, `{"reason": …, "releases": n, "since": …}`, on a dataset this
+  instance released for `storage-error` or `local-disk-error`: the reason of
+  its last such release, how many it has made in a row, and when the first
+  was. It stays through the hold-off, the claim that follows and the writing
+  after it, and goes once this instance has written the dataset for 30
+  seconds with no spill failing. An instance that is alone and whose disk
+  fails takes the dataset back after each release, because the store
+  answers, and releases again when its memtable fills: `degraded` with
+  `local-disk-error` and a growing `releases` is that cycle. Fix the disk,
+  or bring a standby up. It is information, and does not make the instance
+  unready;
 - `spill`, `{"state": "failing", "kind": …}`, while the memtable's spills to
   the local disk fail. The writer goes on committing. With a standby, it
   releases the epoch for `local-disk-error` at the first commit where the

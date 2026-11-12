@@ -1,0 +1,13 @@
+{
+  "step": "push",
+  "body": "Completes: #1\n",
+  "commits": [
+    {
+      "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "message": "fix(x): the change\n\nThe body names #1 in prose.\n\nRefs #1\nSigned-off-by: A <a@example.org>\n"
+    }
+  ],
+  "says": [
+    "completes #1, and no pushed commit closes it"
+  ]
+}

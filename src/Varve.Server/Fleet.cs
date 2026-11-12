@@ -45,6 +45,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     private readonly ServerSettings _settings;
     private readonly ObjectStores? _objects;
     private readonly TimeProvider _clock;
+    private readonly ClaimHoldOff _systemHoldOff;
     private readonly ILogger _logger;
     private readonly IHttpContextAccessor _accessor;
     private readonly ManagementOrder _order;
@@ -68,6 +69,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         _settings = settings;
         _objects = objects;
         _clock = clock;
+        _systemHoldOff = new ClaimHoldOff(settings.Fleet.FollowInterval, clock, SystemProbeRandomness.Instance);
         _logger = logger;
         _accessor = accessor;
         _order = new ManagementOrder();
@@ -724,6 +726,12 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     // (ADR 0179 point 13, ADR 0180 point 4). A loser follows again.
     private async Task RaceForSystemAsync(CancellationToken cancellationToken)
     {
+        // Held off after a claim that failed against the store (ADR 0163, amended 2026-11-10).
+        if (_systemHoldOff.Round())
+        {
+            return;
+        }
+
         if (_systemStorage is not Backend storage
             || await _objects!.ReadWriterAsync(SystemName, cancellationToken).ConfigureAwait(false) is not { Released: { } reason } record
             || !MemberDecision.ReleaseRace.Races(reason, _settings.Fleet.WriterSet![0] == _instance.Value, IsSystemWarm))
@@ -750,11 +758,13 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         catch (Exception error) when (error is not OperationCanceledException)
         {
             FleetLog.AdvanceFailed(_logger, SystemName, error.Message);
+            _systemHoldOff.Failed();
             won = false;
         }
 
         if (won)
         {
+            _systemHoldOff.Succeeded();
             _role = ManagementRole.Writer;
             _routes.TryRemove(SystemName, out _);
             string why = record.Released is { } reason ? Commands.ObjectLease.Shown(reason) : Commands.ObjectLease.Shown(trigger);

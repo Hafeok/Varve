@@ -420,11 +420,23 @@ internal static class EventMoves
         {
             response = await forwarder.SendAsync(message, cancellationToken).ConfigureAwait(false);
         }
-        catch (HttpRequestException unreachable)
+        catch (HttpRequestException unreachable) when (Forwarding.NeverSent(unreachable))
         {
+            // No connection to the system writer was made, so no byte of the
+            // write went: nothing was committed, and the move is resumed by
+            // the next request (ADR 0168 point 4; ADR 0167, amended 2026-11-02).
             directory.Stale(WriterTarget.System);
             return new Written(0, false, c => HttpProblems.WriteAsync(c, ProblemType.Unavailable, "The system writer at " + address + " could not be reached: " + unreachable.Message,
                 m => m.String("reason", "writer-unreachable")));
+        }
+        catch (HttpRequestException lost)
+        {
+            // Sent, and the answer lost: the system writer may have committed
+            // the freeze or the switch, and nothing here knows a position to
+            // look at (ADR 0214). The move is idempotent, so the next request
+            // finds what was committed.
+            directory.Stale(WriterTarget.System);
+            return new Written(0, false, c => Forwarding.LostAnswerAsync(c, "The move's write was sent to the system writer at " + address + " and its answer was lost: " + lost.Message));
         }
 
         using (response)
