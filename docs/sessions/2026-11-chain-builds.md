@@ -14,7 +14,7 @@ tagged and accepted nothing.
 | PR | Step | Closes |
 |---|---|---|
 | [#280](https://github.com/Hafeok/Varve/pull/280), stacked on #261 | 0: ADR 0243, chain builds ahead of main, and landing trains; notes on 0088 and 0102 | #230 |
-| stacked on #280 | 1: `land.cs --train`; `agent review` admits a train | #277 |
+| [#281](https://github.com/Hafeok/Varve/pull/281), stacked on #280 | 1: `land.cs --train`; `agent review` admits a train; the merge pinned | #277 |
 
 They land after #259, #260 and #261, in that order. Once `agent review`'s
 change is on `main`, they could themselves land as a train.
@@ -45,3 +45,35 @@ cases. No test project changed.
 2. Do you want to overrule the `chain#` namespace before step 2?
 3. Keep or strike the two things this session added to 0243: GitHub's merge
    queue as a rejected alternative, and the revisit condition on trains.
+
+## The maintainer's decisions, 2026-11-11
+
+1. The rulings are accepted on #280 before it lands, and #230 closes with
+   it. Done: accepted on #280 by his delegate at his word.
+2. The `chain#` namespace stays.
+3. Both additions stay: GitHub's merge queue as a rejected alternative, and
+   the revisit condition on trains.
+4. A one-member train stays refused. A failed train whose shorter form has
+   one member prints the plain landing command.
+
+Two additions to #281 followed:
+- the pinned merge settings, in `land.cs`, in `agent-review.cs`, and in ADR
+  0243 point 10;
+- two more tamper cases: an extra commit between the merges, and a `main`
+  that has moved.
+
+## `eng/ci.cs` before landing
+
+The whole pipeline, 66 jobs, passed on both heads:
+- #280 at `d6ffddca8f50`, in 18 min 6 s;
+- #281 at `d1c6d9911eb1`, in 17 min 6 s.
+
+The final counts: `land-fixtures` 12 → 25 cases; `agent-review-tamper`, six
+train cases. No test project changed.
+
+## Landed
+
+#280 and #281 landed on 2026-11-12, and #230 and #277 are closed. The first
+train ran the same day: four members went red on #282's new gate, and the
+shorter train of three landed. #278 closes when #264, renumbered to 0244,
+lands.

@@ -64,3 +64,46 @@ and post your plan on each issue before building."
   - consulting the trial-merge record when both members are chain branches
     is step 5's;
   - who may land a train is today's rule (ADR 0239). #246 would change it.
+
+## The maintainer's review of #281, 2026-11-11, and what followed
+
+The maintainer's decisions, given in the session:
+- A one-member train stays refused. When a failed train's shorter form has
+  one member, `land.cs` prints the plain landing command. It already did, and
+  the fixture `fail-train-shorter-is-a-plain-landing` now holds it to that.
+- **The merge is pinned.** `land.cs` (`Trains.MergeTree`) and `agent review`
+  (`PinnedMergeTree`) run `git merge-tree` under the same settings:
+  - `--attr-source` of the first parent, the global attribute file off and
+    `GIT_ATTR_NOSYSTEM=1`;
+  - renames on, directory renames off, rename limits 7000;
+  - a repository-local `info/attributes` refuses the train.
+
+  A tree mismatch refuses the train and says a different git may have built
+  it. ADR 0243 point 10 says the same (#280, `d6ffddc`). The reason, found
+  by a test: without the pin, `git merge-tree` read the checkout's
+  `.gitattributes`, and a `merge=union` there turned a conflict into a clean
+  merge.
+- **Two tamper cases added**, beside the four of the first head: an extra
+  commit on the first-parent line between the merges, and a train built on a
+  `main` that has since moved. Every train failure case now checks its own
+  reason in the judge's output.
+- Step 6's `merge=union` needs a tamper case of its own; noted on #277.
+
+**`dotnet run eng/ci.cs`, the whole pipeline**, on a 4-core Linux container
+with the W3C submodules:
+
+| Head | Jobs | Result | Time |
+|---|---:|---|---:|
+| #280 at `d6ffddca8f50` | 66 | all pass, exit 0 | 18 min 6 s |
+| #281 at `d1c6d9911eb1` | 66 | all pass, exit 0 | 17 min 6 s |
+
+- **On #281:** `land-fixtures` ran 25 cases with 0 judged wrong, and
+  `agent-review-tamper` held all six train cases.
+- **On both:** `issue-refs` and `dco` checked 14 and 19 commits, skipping only
+  merges.
+- **Not run:** the jobs that run only on GitHub.
+
+**Landed.** #280 and #281 landed on 2026-11-12, with ADR 0243 accepted on
+#280 by the maintainer's delegate at his word. #230 and #277 are closed. The
+first train ran the same day: four members went red on #282's new gate, and
+the shorter train of three landed.
