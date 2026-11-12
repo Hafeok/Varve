@@ -24,7 +24,7 @@ decisions:
 The rulings of [ADR 0070](../adr/0070-the-storage-engine-is-our-own.md), filed unaccepted by session
 6a of #10 (ADR 0066). The revisit condition is not a ruling and is not enumerated.
 
-`MaintenanceOffTheSequencer` is superseded in part by ADR 0241 (2026-11-10,
+`MaintenanceOffTheSequencer` is superseded in part by ADR 0244 (2026-11-10,
 #227) and moves to its set, [`memory-bounds`](memory-bounds.md), under its
 key, restated: maintenance still runs off the sequencer, and a commit waits
 for a flush only once the memtable holds twice its limit. ADR 0070's revisit

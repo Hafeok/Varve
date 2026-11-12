@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 namespace Varve.Benchmarks;
 
 /// <summary>
-/// What a served dataset needs to be written and to be reopened (ADR 0241,
+/// What a served dataset needs to be written and to be reopened (ADR 0244,
 /// #227): an import in the shape of a package catalog — one commit a package,
 /// one small named graph a version, then small commits that drop and replace
 /// a few graphs each — over HTTP against the Varve.Server binary, then a

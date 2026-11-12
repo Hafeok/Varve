@@ -1,0 +1,12 @@
+{
+  "step": "landed",
+  "commits": [
+    {
+      "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "message": "fix(x): the change\n\nThe body names #1 in prose.\n\nCloses #1\n"
+    }
+  ],
+  "states": {
+    "1": "closed"
+  }
+}

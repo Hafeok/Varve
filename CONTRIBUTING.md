@@ -162,7 +162,9 @@ and tied to issues ([ADR 0033](docs/adr/0033-commit-traceability.md)).
 and the model, named exactly**, and the report it returned. The model is the
 identifier the session's metadata reports; where the tool will not write it,
 the record says so and the maintainer fills it in. A commit message never
-carries a model's identifier (ADR 0033, amended 2026-10-02).
+carries a model's name; a model's identifier is allowed, and so is a co-author
+trailer naming only the product (ADR 0241, superseding ADR 0033's amendment of
+2026-10-02).
 
 Prose in `README.md`, `CONTRIBUTING.md`, `GOVERNANCE.md` and the documentation
 describes the project as developed with AI assistance under human review and

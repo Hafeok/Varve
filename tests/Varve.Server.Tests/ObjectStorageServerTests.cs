@@ -92,7 +92,7 @@ public sealed class ObjectStorageServerTests
 
     /// <summary>
     /// Unset, the memtable's limit follows the collector's heap limit (ADR
-    /// 0241): a sixteenth of it at 215 bytes an entry, never more than the
+    /// 0244): a sixteenth of it at 215 bytes an entry, never more than the
     /// 1,000,000 it was and never less than 10,000; unset is not an error.
     /// </summary>
     [Theory]
@@ -114,7 +114,7 @@ public sealed class ObjectStorageServerTests
 
     /// <summary>
     /// After a checkpoint the server releases memory only for a dataset that
-    /// has gone quiet (ADR 0241 point 6): not when a commit moved the head
+    /// has gone quiet (ADR 0244 point 6): not when a commit moved the head
     /// during the wait, and not when its maintenance failed or it was closed.
     /// </summary>
     [Theory]

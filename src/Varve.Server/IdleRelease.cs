@@ -14,7 +14,7 @@ namespace Varve.Server;
 
 /// <summary>
 /// What the server does once a checkpoint a caller asked for has been taken
-/// (ADR 0241 point 6): if the dataset then takes no commit for
+/// (ADR 0244 point 6): if the dataset then takes no commit for
 /// <see cref="IdleFor"/>, it asks the collector for one aggressive,
 /// compacting collection, which returns to the operating system what the
 /// import and the checkpoint left behind. The checkpoint's answer does not

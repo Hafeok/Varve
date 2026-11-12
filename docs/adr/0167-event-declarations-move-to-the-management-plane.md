@@ -17,6 +17,10 @@ cancel is a commit of its own (point 4).
 [0166](0166-varve-management-and-the-vocabulary.md) (four terms; event nodes in a
 dataset's graph), each by a dated block (ADR 0068).
 
+**Amended 2026-11-02:** the move's own forward to the system writer answers
+by what happened (point 3; see the end, "the move's forward answers by what
+happened"; [#216](https://github.com/Hafeok/Varve/issues/216)).
+
 **Related:** ADR [0163](0163-the-management-plane.md) (the planes), ADR
 [0165](0165-the-management-position-on-the-commit.md) (the position on the
 commit, which decides the boundary) and ADR
@@ -222,3 +226,42 @@ Three things are hard about the move.
   - `Varve.Server` (6): the move's driver, the barrier and the resume.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-02 — the move's forward answers by what happened
+
+Ruled by the maintainer on
+[#175](https://github.com/Hafeok/Varve/pull/175), 2026-11-02, and written on
+[#216](https://github.com/Hafeok/Varve/issues/216). Filed by the session for
+#216 on 2026-11-10.
+
+Point 3 has the dataset's writer forward the freeze and the switch to the
+system writer. It did not say what the move answers when that forward fails.
+The code answered `503 unavailable`, reason `writer-unreachable`, for every
+transport failure, including one after the write had been sent.
+
+**The two answers,** one for each situation:
+- **The forward never reached the system writer.** The name did not resolve,
+  or no connection, TLS session or proxy tunnel was made, so no byte of the
+  write went. Nothing was committed, and the outcome is known. The move is
+  answered `503 unavailable` with `reason` `writer-unreachable`, which is ADR
+  0168 point 4's answer for a forward that cannot connect.
+- **The forward was sent, and its answer was lost.** Any other transport
+  failure. The system writer may have committed the freeze or the switch.
+  The move is answered `503 commit-outcome-unknown` with `requestId` and no
+  `position`, which is ADR 0214's answer for a forwarded write whose answer
+  was lost.
+
+**Either way the move is resumable,** as point 3 rules. The next request
+finds `Moving` or `Moved` at the applied position, if the write was
+committed, and goes on from there.
+
+**What this does not change.** A client's forwarded write
+(`Forwarding.ForwardAsync`) keeps the one answer ADR 0214 gave it,
+`commit-outcome-unknown`, for both situations. No ruling of the ledger
+changes, and no problem type is added.
+
+**Code and tests.** `Forwarding.NeverSent` reads
+`HttpRequestException.HttpRequestError`. `ForwardingTests` holds it to the
+transport: a refused connection, and one that takes the request and closes.
+The fleet suite sends a move through an instance whose system writer's
+address refuses, and one whose address takes the request and never answers.

@@ -678,7 +678,7 @@ public sealed partial class Dataset
         string load = "extents-" + Interlocked.Read(ref _extentSequence).ToString(CultureInfo.InvariantCulture);
         ExtentRowBuilder rows = new(_storage.Derived, load, expected);
 
-        // The window's terms go the way its rows do (ADR 0241): held up to a
+        // The window's terms go the way its rows do (ADR 0244): held up to a
         // budget, then written to a spill as a term section and read back
         // from it, so a checkpoint holds its buffers and never its window's
         // dictionary, which a first checkpoint's window is the whole of.
@@ -1422,7 +1422,7 @@ public sealed partial class Dataset
 
         await DeleteClosedRunsAsync(cancellationToken).ConfigureAwait(false);
 
-        // A checkpoint releases what it makes unnecessary (ADR 0241): what a
+        // A checkpoint releases what it makes unnecessary (ADR 0244): what a
         // new set covers need not be held in memory, so the memtable is
         // flushed by the maintenance that starts here, whatever it holds.
         if (replaced.Count == 0 && written.Count > 0)

@@ -534,7 +534,7 @@ internal sealed class Harness : IAsyncDisposable
         // Reopening rebuilds from the newest checkpoint and the tail: I7 and I8.
         // The second dataset opens on the first's storage, and an open
         // deletes the runs no state names, so the first's own maintenance,
-        // which a checkpoint now starts (ADR 0241), has finished its round
+        // which a checkpoint now starts (ADR 0244), has finished its round
         // before it does.
         await Dataset.MaintainAsync(cancellationToken);
 

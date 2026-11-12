@@ -17,7 +17,7 @@ namespace Varve.Store.Tests;
 
 /// <summary>
 /// What a dataset holds while it writes, checkpoints and reopens is bounded
-/// by its memtable's limit (ADR 0241, #227), by the store's own count and
+/// by its memtable's limit (ADR 0244, #227), by the store's own count and
 /// with no collector involved: a writer cannot outrun the flush, an open
 /// replays through the same limit and keeps nothing of its scan, a
 /// checkpoint spills its window's terms, and a checkpoint has the

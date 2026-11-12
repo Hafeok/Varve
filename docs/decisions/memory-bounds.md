@@ -1,10 +1,10 @@
 ---
 set: memory-bounds
 namespace: varve
-adr: 0241
+adr: 0244
 decisions:
   - key: MaintenanceOffTheSequencer
-    statement: "Memtable flushes, disk merges and checkpoint writes are maintenance, run off the sequencer on a task the dataset owns when DatasetOptions.Maintenance says so, or by Dataset.MaintainAsync; maintenance blocks a commit only as ACommitWaitsForTheFlush says, at twice the memtable's limit; moved from ADR 0070 by ADR 0241's supersession in part, restated"
+    statement: "Memtable flushes, disk merges and checkpoint writes are maintenance, run off the sequencer on a task the dataset owns when DatasetOptions.Maintenance says so, or by Dataset.MaintainAsync; maintenance blocks a commit only as ACommitWaitsForTheFlush says, at twice the memtable's limit; moved from ADR 0070 by ADR 0244's supersession in part, restated"
   - key: ACommitWaitsForTheFlush
     statement: "With background maintenance, a commit that arrives while the memtable holds twice DatasetOptions.MemtableLimit or more waits, before it queues, for maintenance's next step; it does not wait while spills fail, while maintenance has failed or cannot shrink the memtable, or once the dataset is closing, and no timer is involved"
   - key: TheOpenStaysWithinTheWritersBound
@@ -19,7 +19,7 @@ decisions:
     statement: "Once a checkpoint a caller asked for has been taken, Varve.Server lets the dataset's maintenance finish and, if the dataset then takes no commit for five seconds, asks the collector for one aggressive, compacting collection, unless Varve:Store:ReleaseMemoryAfterCheckpoint is false; the checkpoint's answer does not wait for it, no runtime setting releases an idle server's memory, and the store itself never forces a collection"
 ---
 
-The rulings of [ADR 0241](../adr/0241-memory-bounds-for-writing-checkpointing-and-reopening.md),
+The rulings of [ADR 0244](../adr/0244-memory-bounds-for-writing-checkpointing-and-reopening.md),
 filed unaccepted by #227 (ADR 0066).
 
 `MaintenanceOffTheSequencer` moves here from ADR 0070's set under its key,

@@ -72,7 +72,7 @@ writes, not one that enforces them only one request at a time
 ## What a dataset needs, to be written and to be reopened
 
 **The dataset measured below was written and reopened in a 256 MB
-container** (ADR 0241). The server sizes its memtable to the memory it is given, a writer
+container** (ADR 0244). The server sizes its memtable to the memory it is given, a writer
 cannot outrun the flush, and an open replays within the same bound. What a
 dataset holds, by part:
 

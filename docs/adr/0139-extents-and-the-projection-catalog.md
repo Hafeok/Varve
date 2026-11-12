@@ -26,7 +26,7 @@ set is read, and rewritten by maintenance
 
 **Amended 2026-11-10** (ADR 0068), by #227, unaccepted until the maintainer
 accepts it (ADR 0066): a set written from the log spills its window's terms
-([ADR 0241](0241-memory-bounds-for-writing-checkpointing-and-reopening.md)
+([ADR 0244](0244-memory-bounds-for-writing-checkpointing-and-reopening.md)
 point 3). See the end.
 
 Builds on [ADR 0138](0138-validity-intervals-in-the-default-projection.md),
@@ -279,7 +279,7 @@ Filed by #133, unaccepted until the maintainer accepts it (ADR 0066).
 
 ## Amendment, 2026-11-10 — a set written from the log spills its window's terms
 
-Filed by #227 with ADR 0241, unaccepted until the maintainer accepts it
+Filed by #227 with ADR 0244, unaccepted until the maintainer accepts it
 (ADR 0066).
 
 A set's rows are sorted outside memory, so writing one "holds the sorts'
@@ -293,7 +293,7 @@ the whole log, so its dictionary was the dataset's: 1.2 million terms were
 window's terms. Past that it writes them to a spill under the spill prefix
 as a term section in a run of kind 7, reads the section back from the
 spill, and writes the dictionary extent from the spilled sections and the
-last, the way a merge writes one from its inputs' (ADR 0241 point 3). The
+last, the way a merge writes one from its inputs' (ADR 0244 point 3). The
 spills are deleted once the set is written, and by the open's sweep after a
 crash.
 

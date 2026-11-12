@@ -293,7 +293,7 @@ public sealed partial class Dataset
         }
 
         // The most bytes of the log whose bodies the scan keeps for the
-        // replay (ADR 0241): the commits past it are read from the log again
+        // replay (ADR 0244): the commits past it are read from the log again
         // as they are applied, so an open holds at most this much of the log
         // decoded, whatever lies above derived/.
         private readonly long _bodiesBudget;

@@ -12,7 +12,7 @@
 | **Model** | `claude-fable-5-2`, the session's model and the one last served, from the session's own metadata; the session was configured for `claude-opus-5-5` |
 | **Session identifier** | `session_01NbWSYPHhKjTr9XFCti1cCs` |
 | **Branch** | `claude/elegant-brahmagupta-h086d2-227`, from `main` at 2f7573d |
-| **ADRs** | [0241](../adr/0241-memory-bounds-for-writing-checkpointing-and-reopening.md) (filed), [0070](../adr/0070-the-storage-engine-is-our-own.md) (superseded in part), [0110](../adr/0110-the-shipped-runtime-configuration.md), [0139](../adr/0139-extents-and-the-projection-catalog.md) and [0164](../adr/0164-the-tier-1-follower.md) (amended) |
+| **ADRs** | [0244](../adr/0244-memory-bounds-for-writing-checkpointing-and-reopening.md) (filed), [0070](../adr/0070-the-storage-engine-is-our-own.md) (superseded in part), [0110](../adr/0110-the-shipped-runtime-configuration.md), [0139](../adr/0139-extents-and-the-projection-catalog.md) and [0164](../adr/0164-the-tier-1-follower.md) (amended) |
 
 ## The prompts
 
@@ -35,7 +35,7 @@
 > Good results on #227, and #255 and #256 are right. Two things before the pull requests.
 >
 > 1. #222’s soak. […]
-> 2. `ReleaseMemoryAfterCheckpoint`. Measure the pause the aggressive collection causes, and p99 write latency across a checkpoint with it on and off, on the 1.75M-quad workload. Then make it run only when the dataset has had no write for a stated interval after the checkpoint, unless the measured pause is small enough to state as acceptable. Put the figures in ADR 0241 and `configure.md`.
+> 2. `ReleaseMemoryAfterCheckpoint`. Measure the pause the aggressive collection causes, and p99 write latency across a checkpoint with it on and off, on the 1.75M-quad workload. Then make it run only when the dataset has had no write for a stated interval after the checkpoint, unless the measured pause is small enough to state as acceptable. Put the figures in ADR 0244 and `configure.md`.
 > 3. Post the disk figures for the superseded runs on #227 itself, as you noted.
 
 The elided points are #222's and are in its record.
@@ -97,6 +97,13 @@ limit in 0.4 s.
   waits for maintenance first.
 - A disk-full event in the session's container spoiled one 512 MB run,
   which was rerun.
+
+**Renumbered and rebased, 2026-11-11.** This ADR was filed as 0241. `main`
+accepted another ADR under that number (a commit message never names a
+model) before this landed, so it is ADR 0244 in every file and commit
+message. The branch's commits were recreated on `main` for that, with the
+co-author trailer that ADR 0241 allows; their content is otherwise as
+pushed on 2026-11-10.
 
 **What the session could not show.**
 - The container job the plan named, the AOT image under `docker run

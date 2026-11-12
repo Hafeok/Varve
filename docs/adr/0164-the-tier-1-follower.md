@@ -16,7 +16,7 @@ attaches the catalog, then keeps tailing the log.
 **Amended 2026-11-10** (ADR 0068), by #227, unaccepted until the maintainer
 accepts it (ADR 0066): what the server's default memtable limit means for
 point 5, and what a follower's open keeps
-([ADR 0241](0241-memory-bounds-for-writing-checkpointing-and-reopening.md)).
+([ADR 0244](0244-memory-bounds-for-writing-checkpointing-and-reopening.md)).
 See the end.
 
 ## Context
@@ -202,18 +202,18 @@ it (ADR 0066).
 
 ## Amendment, 2026-11-10 — a follower under the memtable's new default
 
-Filed by #227 with ADR 0241, unaccepted until the maintainer accepts it
+Filed by #227 with ADR 0244, unaccepted until the maintainer accepts it
 (ADR 0066).
 
 Point 5 re-opens a follower from the writer's newest catalog once its
 memtable has grown by `MemtableLimit` since it opened. Two things change
 around it, and the rule itself does not:
 
-- **The server's default limit follows the heap limit** (ADR 0241 point 5),
+- **The server's default limit follows the heap limit** (ADR 0244 point 5),
   so a follower in a small container is re-opened sooner: in 512 MB, after
   about 117,000 entries where it was 1,000,000.
 - **A follower's open flushes nothing.** A writer's open now writes the
-  memtable to a run whenever it fills (ADR 0241 point 2); a follower writes
+  memtable to a run whenever it fills (ADR 0244 point 2); a follower writes
   no run, so what its open replays is bounded by the distance to its
   writer's catalog, as before. It does keep the scan's commit bodies only
   up to 8 MiB of log, and none once it is open.

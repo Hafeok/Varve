@@ -123,13 +123,13 @@ internal sealed class StoreSettings
     /// It bounds a writer's memory before a spill, and a follower's before it
     /// is opened again (ADR 0164 point 5). Unset, it is what fits the
     /// machine: <see cref="MemtableDefault.For"/> the collector's heap limit
-    /// (ADR 0241).
+    /// (ADR 0244).
     /// </summary>
     public long? MemtableLimit { get; set; }
 
     /// <summary>
     /// Whether the server returns memory to the operating system once a
-    /// checkpoint a caller asked for has been taken (ADR 0241 point 6): it
+    /// checkpoint a caller asked for has been taken (ADR 0244 point 6): it
     /// lets the dataset's maintenance finish, then asks the collector for
     /// one compacting collection that decommits what it frees. On by
     /// default: an idle server otherwise keeps what the checkpoint's work
@@ -139,7 +139,7 @@ internal sealed class StoreSettings
 }
 
 /// <summary>
-/// The memtable's limit when the operator sets none (ADR 0241): 1,000,000
+/// The memtable's limit when the operator sets none (ADR 0244): 1,000,000
 /// entries where the collector's heap limit has room for them, and otherwise
 /// a sixteenth of that limit at 215 bytes an entry. The memtable holds
 /// between its limit and twice it while a flush runs, and a tier merge needs

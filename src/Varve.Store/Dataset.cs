@@ -110,10 +110,10 @@ public sealed class DatasetOptions
     /// </summary>
     internal long TornWindow { get; set; } = LogFormat.WriteWindowBytes;
 
-    /// <summary>Test seam: the bytes of log whose bodies an open's scan keeps for its replay (ADR 0241); 8 MiB.</summary>
+    /// <summary>Test seam: the bytes of log whose bodies an open's scan keeps for its replay (ADR 0244); 8 MiB.</summary>
     internal long OpenBodiesBudget { get; set; } = 8L << 20;
 
-    /// <summary>Test seam: what a checkpoint holds of its window's terms before it spills them (ADR 0241); 16 MiB.</summary>
+    /// <summary>Test seam: what a checkpoint holds of its window's terms before it spills them (ADR 0244); 16 MiB.</summary>
     internal long CheckpointTermSpillBytes { get; set; } = 16L << 20;
 
     /// <summary>Test seam: the derived version extent sets are written in — 5 (ADR 0177), or 4 for a dataset an earlier release wrote.</summary>
@@ -285,7 +285,7 @@ public sealed partial class Dataset : IAsyncDisposable
     // The most the memtable held while the open replayed the log.
     private long _openMemtablePeak;
 
-    /// <summary>Test seam: the most entries the memtable held while this dataset's open replayed the log (ADR 0241).</summary>
+    /// <summary>Test seam: the most entries the memtable held while this dataset's open replayed the log (ADR 0244).</summary>
     internal long OpenMemtablePeakForTests() => _openMemtablePeak;
 
     /// <summary>Test seam: the bytes of the log's records after <paramref name="from"/> up to <paramref name="to"/>.</summary>
@@ -396,7 +396,7 @@ public sealed partial class Dataset : IAsyncDisposable
         // an object that holds the dataset and nothing else, because the
         // index keeps what it reads through for as long as the dataset
         // lives, and a closure over this method's locals kept the opener and
-        // every commit it had read (ADR 0241, #227).
+        // every commit it had read (ADR 0244, #227).
         Opened owner = new();
         CommitIndexOpener opener = await CommitIndexOpener.StartAsync(storage.Derived, id, options.CommitCache, owner.Commits, options.OpenBodiesBudget, cancellationToken).ConfigureAwait(false);
 
@@ -468,7 +468,7 @@ public sealed partial class Dataset : IAsyncDisposable
         GraphVersions graphs = await dataset.LoadGraphsAsync(new State(head, commits, index, checkpoints, null), opener.Bodies, cancellationToken).ConfigureAwait(false);
 
         // The replay stays within the memtable's bound, as the writer that
-        // wrote these commits did (ADR 0241): once the memtable holds its
+        // wrote these commits did (ADR 0244): once the memtable holds its
         // limit it is written to derived/ as a run, by the flush maintenance
         // runs, and the replay goes on above it. Only where the dataset runs
         // its own maintenance: with it off the host flushes, and a follower

@@ -16,11 +16,11 @@ it; this closes it.
 up with the commit rate — the memtable grows without bound, or a commit waits
 on a merge — supersedes this ADR.
 
-**Superseded in part 2026-11-10 by [ADR 0241](0241-memory-bounds-for-writing-checkpointing-and-reopening.md)**
+**Superseded in part 2026-11-10 by [ADR 0244](0244-memory-bounds-for-writing-checkpointing-and-reopening.md)**
 (filed unaccepted): the revisit condition above was met. A writer faster
 than maintenance grew the memtable without bound (#227), so a commit now
 waits for the flush once the memtable holds twice its limit, and an open
-flushes as it replays. `MaintenanceOffTheSequencer` moves to 0241's set
+flushes as it replays. `MaintenanceOffTheSequencer` moves to 0244's set
 under its key, restated. See the end.
 
 ## Context
@@ -161,7 +161,7 @@ registry it declined.
 
 ## Amendment, 2026-11-10 — a commit waits at twice the memtable's limit, and the open flushes
 
-Filed by #227 with ADR 0241, unaccepted until the maintainer accepts it
+Filed by #227 with ADR 0244, unaccepted until the maintainer accepts it
 (ADR 0066).
 
 **The revisit condition was met.** "A workload … where tier merges cannot
@@ -172,7 +172,7 @@ writer with no pause held about 350,000 entries in a memtable limited to
 memtable at 153 MB, before its first flush. Nothing held the writer to the
 limit, because "a commit never waits for it".
 
-**What changes** (ADR 0241 points 1 and 2):
+**What changes** (ADR 0244 points 1 and 2):
 - Maintenance still runs off the sequencer, and a writer no faster than the
   flush never waits. A commit that arrives while the memtable holds twice
   `MemtableLimit` waits, before it queues, for maintenance's next step. It
@@ -184,7 +184,7 @@ limit, because "a commit never waits for it".
   finds ten memtables' worth above `derived/` holds one.
 
 - A checkpoint, once published, has the dataset's own maintenance flush the
-  memtable whatever it holds (ADR 0241 point 4): what the checkpoint covers
+  memtable whatever it holds (ADR 0244 point 4): what the checkpoint covers
   is not kept in memory as well.
 
 Everything else stands: the tiers, the six orders, immutable runs, the

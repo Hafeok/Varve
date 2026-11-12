@@ -95,8 +95,10 @@ severity on every project in `src/`. Every ADR is also a decision set in
 **Every milestone ends in a release, and a milestone PR carries its
 descriptor** (ADR 0102, `docs/releases.md`). The close-out:
 - adds `releases/<version>.yaml` (`dotnet run eng/release.cs -- --draft
-  <version>` starts it), with a commit whose trailer line says `Closes
-  #<milestone issue>`;
+  <version>` starts it, and `-- --sbom <version>` writes its digests and sets
+  its `date:` to that day, whenever they change), with a commit whose
+  trailer line says `Closes #<milestone issue>`; `eng/land.cs` refuses one
+  dated more than three days before the landing (#248);
 - runs `dotnet run eng/changelog.cs -- --release <version>`, because
   `CHANGELOG.md` is the projection of `releases/` and never edited by hand;
 - brings `README.md`'s **Status** section current: its opening line names the
@@ -159,10 +161,51 @@ Conventional commits, one logical change each, and three things in each:
 exactly**, and the report. The model is the identifier the session's metadata
 reports. A tool that will not write it says so in the record, and the maintainer
 fills it in: a blank model is an incomplete record. **A commit message never
-carries a model's identifier** (the string an API takes to select a model); a
-tool's co-author trailer naming the product is not one (ADR 0033, amended
-2026-10-02). Prose says "developed with AI assistance under human review" and
-**names no product**.
+carries a model's name** (a family word, alone or after the product, followed
+by a version); a model's identifier (the string an API takes to select a
+model) is allowed, and so is a co-author trailer naming only the product
+(ADR 0241, superseding ADR 0033's amendment of 2026-10-02). Prose says
+"developed with AI assistance under human review" and **names no product**.
+
+## Issues are the work log
+
+The issue, not the session's transcript or close-out, is where anyone looks to
+see what is being worked on, what was decided and what is left.
+
+- **Starting.** Work starts from an issue. The session comments on it when it
+  starts (branch, and the prompt step it is working from) and posts its plan
+  there once the plan is agreed. Before opening an issue, search for an open
+  one that covers the work; a duplicate is closed pointing at the original.
+- **While working.** Decisions taken, questions for the maintainer and blockers
+  go on the issue when they arise, not only in the close-out. The pull request
+  names its issues as bare #N in prose.
+- **Found work is filed when it is found.** A defect, a follow-up or a deferred
+  part becomes its own issue at once, linked from the issue it came from. A
+  close-out, a TODO or a commit message is not a place to keep work.
+- **Landing.** Before asking for approval, the session lists in the pull
+  request every issue the change touches, and its `Completes:` line names
+  those it resolves fully, or says `none`:
+  - each one it resolves fully gets its own `Closes #N` trailer, and
+    `eng/land.cs -- N` lists what the push will close and refuses a landing
+    whose `Completes:` line is missing or names an issue no trailer closes
+    (#209);
+  - each one it resolves in part gets a comment saying what landed and what is
+    left, and tracking issues (#15 and the milestone issues) get their boxes
+    ticked.
+
+  "The session" here and below is whichever session lands. The maintainer's
+  delegate lands and checks the closings (ADR 0239); a cloud session posts its
+  head, lists the issues its change touches, and asks.
+- **After landing.** The session checks that every issue it meant to close is
+  closed: `eng/land.cs -- N --main`, once `main` has moved, prints every issue
+  a pushed trailer names that is still open, with its commit, and exits
+  non-zero, as it does when GitHub cannot be read. It closes nothing itself.
+  If a trailer did not take, the session closes the issue by hand with a
+  comment naming the commit on `main`.
+- **Stopping.** Work abandoned or superseded is closed as not planned, with a
+  comment saying why and what replaces it.
+- The traceability record and the close-out link the issues; they do not
+  replace them.
 
 ## `Varve.Store` behaviour
 
@@ -567,8 +610,8 @@ exists.
 - A native dependency, or any package that ships a native asset.
 - `System.Uri` where an IRI is meant. Use `Varve.Iri` (ADR 0004).
 - A commit with no issue reference or no DCO sign-off, or one whose message
-  carries a model's identifier; a long-lived branch; a trunk left
-  un-releasable.
+  carries a model's name (its identifier is allowed, ADR 0241); a long-lived
+  branch; a trunk left un-releasable.
 - Reflection, `Reflection.Emit` or `dynamic` in shipped code.
 - A `Common` / `Core` / `Utils` / `Abstractions` package, or an upward or
   same-layer reference. A `.cs` file without the MPL-2.0 notice (ADR 0031).

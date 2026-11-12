@@ -142,7 +142,7 @@ public sealed partial class Dataset
 
     /// <summary>
     /// How many times <see cref="DatasetOptions.MemtableLimit"/> the memtable
-    /// may hold before a commit waits for the flush in progress (ADR 0241):
+    /// may hold before a commit waits for the flush in progress (ADR 0244):
     /// maintenance starts a flush at the limit, off the sequencer, and a
     /// writer that outruns it is held here rather than left to grow the
     /// memtable without bound.
@@ -152,7 +152,7 @@ public sealed partial class Dataset
     private TaskCompletionSource _maintained = NewSignal();
 
     // A checkpoint has been published: the next round of the dataset's own
-    // maintenance flushes the memtable whatever it holds (ADR 0241).
+    // maintenance flushes the memtable whatever it holds (ADR 0244).
     private bool _flushAsked;
 
     private bool FlushAsked => _options.Maintenance == MaintenanceMode.Background && Volatile.Read(ref _flushAsked);
@@ -173,7 +173,7 @@ public sealed partial class Dataset
         && !_disposing
         && !_closing.IsCancellationRequested;
 
-    // Before a commit queues (ADR 0241): while the memtable holds the wait
+    // Before a commit queues (ADR 0244): while the memtable holds the wait
     // bound, waits for maintenance's next step, which is a flush whenever
     // the memtable holds its limit. No timer: every step of maintenance, and
     // its end, wakes the waiters, and each looks again.

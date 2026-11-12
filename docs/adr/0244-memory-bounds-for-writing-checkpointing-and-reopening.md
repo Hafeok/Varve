@@ -1,4 +1,4 @@
-# 0241 — Memory bounds for writing, checkpointing and reopening
+# 0244 — Memory bounds for writing, checkpointing and reopening
 
 ## Status
 
@@ -227,7 +227,7 @@ the difference between 372 MB and 155 MB.
 
 ## Checks
 
-- **Checked against the accepted ADRs** (0001–0240). Touches:
+- **Checked against the accepted ADRs** (0001–0241; 0241, a commit message never names a model, is not touched). Touches:
   - **0011, 0124**: the sequencer and group commit are unchanged; the wait
     is before a commit queues.
   - **0070**: "a commit never waits for maintenance" becomes "waits only at
