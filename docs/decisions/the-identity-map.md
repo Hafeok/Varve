@@ -41,9 +41,7 @@ decisions:
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-07T00:00:00Z
   - key: ApprovalIsAConversationComment
-    statement: "The approval is a pull request conversation comment containing approve and at least twelve characters of the current head, by a holder of Approve for every agent in the pull request; review submissions are not consulted"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-07T00:00:00Z
+    statement: "The approval is a pull request conversation comment whose whole body is the approval line with the current head's full sha, never edited, by a holder of Approve for every agent in the pull request; the check is judged again when a comment is edited or deleted, and review submissions are not consulted; amended 2026-11-12"
   - key: CommentApprovalIsNotAValidWorkflow
     statement: "Approval by pull request comment is not a valid workflow: it is tolerated only until the ledger's review gate exists, and the pull request that adopts that gate removes it"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -68,3 +66,9 @@ ledger project cites for why the comment form exists at all.
 `ApprovedHeadLandsThroughLand` is the amendment of 2026-10-08, filed without `accepted-by` by the
 release-descriptor session of #73 (ADR 0066), so that an approved head can be fast-forwarded to
 `main` and a release cut at it (ADR 0102).
+
+`ApprovalIsAConversationComment` is restated by the ADR's amendment of
+2026-11-12 (#290): the whole body, the full sha, never edited, judged again on
+an edit or a deletion. It is unaccepted until the maintainer accepts it as
+restated. It is in the protected class: he accepts it himself, not his
+delegate.
