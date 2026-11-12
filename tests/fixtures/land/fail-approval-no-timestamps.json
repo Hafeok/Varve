@@ -1,0 +1,10 @@
+{
+  "step": "approval",
+  "head": "0123456789abcdef0123456789abcdef01234567",
+  "comment": {
+    "body": "{line}"
+  },
+  "says": [
+    "the comment approves nothing"
+  ]
+}

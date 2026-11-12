@@ -15,8 +15,9 @@
 # request defines can post it. The job that posts it:
 #
 #   - runs only on triggers whose workflow comes from main:
-#     pull_request_target, issue_comment (a new comment), and a push to
-#     land/**, which only the maintainer may push (ruleset `land`);
+#     pull_request_target, issue_comment (a comment created, edited or
+#     deleted), and a push to land/**, which only the maintainer may push
+#     (ruleset `land`);
 #   - checks out main and runs main's eng/agent-review.cs, never the pull
 #     request's: no ref from the pull request is checked out, fetched, built
 #     or run;
@@ -24,10 +25,18 @@
 #     the API, as data.
 #
 # Review submissions are not a trigger and are not consulted: the approval is
-# a conversation comment "approve <sha>", at least 12 characters of the head,
-# by a holder of Approve for every agent in the pull request. That form is
-# not a valid workflow, only tolerated until the ledger's review gate exists;
-# the pull request that adopts it removes it (ADR 0087).
+# a conversation comment that is the approval line and nothing else, with the
+# head's full sha, never edited, by a holder of Approve for every agent in the
+# pull request (eng/lib/Approvals.cs; ADR 0087, amended 2026-11-12, #290).
+# That form is not a valid workflow, only tolerated until the ledger's review
+# gate exists; the pull request that adopts it removes it (ADR 0087).
+#
+# A WITHDRAWN APPROVAL. The check on a head is the last one posted, so it must
+# be posted again whenever an approval could have stopped counting: when a
+# comment is edited, which makes it approve nothing, and when it is deleted.
+# An edit's event carries the body as it is now, so the job also asks what the
+# body was before (`changes.body.from`): an approval edited into anything else
+# no longer contains the word, and must still start a run.
 #
 # No job here runs on `pull_request`, and none may: its workflow would come
 # from the pull request (eng/agent-review-tamper.cs holds this).
@@ -39,7 +48,7 @@ on:
     types: [opened, synchronize, reopened]
     branches: [main]
   issue_comment:
-    types: [created]
+    types: [created, edited, deleted]
   push:
     branches: ["land/**"]
 
@@ -63,7 +72,8 @@ jobs:
       || github.event_name == 'push'
       || (github.event_name == 'issue_comment'
           && github.event.issue.pull_request
-          && contains(github.event.comment.body, 'approve'))
+          && (contains(github.event.comment.body, 'approve')
+              || contains(github.event.changes.body.from, 'approve')))
     runs-on: ubuntu-latest
     environment: gates
 

@@ -22,10 +22,15 @@
 // data. Nothing from the pull request is built or run (ADR 0087, amendments
 // of 2026-10-06).
 //
-// THE APPROVAL. A pull-request conversation comment whose text contains
-// "approve <sha>", where <sha> is at least 12 characters of the current head,
-// written by a login the identity map makes a holder of Approve for the
-// agent. Review submissions are not consulted. This form is NOT a valid
+// THE APPROVAL. A pull-request conversation comment that is the approval line
+// and nothing else: its whole body the word, a space and the current head's
+// full sha, never edited (lib/Approvals.cs; ADR 0087, amended 2026-11-12,
+// #290), written by a login the identity map makes a holder of Approve for the
+// agent. The line inside a sentence, a quotation or a code span approves
+// nothing, and neither does a prefix of the head. A deleted comment is not
+// served, so it stops counting when the check runs again, which the workflow
+// does on every edit and deletion. Review submissions are not consulted. This
+// form is NOT a valid
 // workflow: it is tolerated only until the ledger's review gate exists, and the
 // pull request that adopts that gate removes it (ADR 0087).
 //
@@ -68,6 +73,7 @@
 
 // CA2266 is off for this file only, for the reason eng/dco.cs gives (ADR 0087).
 #:include lib/Identities.cs
+#:include lib/Approvals.cs
 #:property NoWarn=$(NoWarn);CA2266
 
 using System.Diagnostics;
@@ -262,32 +268,25 @@ if (pullNumber is int pr && agents.Count > 0)
 {
     try
     {
-        Regex approve = new(@"\bapprove\s+(?<sha>[0-9a-fA-F]{" + MinimumShaPrefix + @",40})\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
         foreach (JsonElement comment in await api.GetAll($"issues/{pr}/comments"))
         {
             string? login = comment.TryGetProperty("user", out JsonElement user) && user.ValueKind == JsonValueKind.Object
                 ? user.GetProperty("login").GetString()
                 : null;
-            string body = comment.TryGetProperty("body", out JsonElement text) ? text.GetString() ?? "" : "";
 
-            if (login is null)
+            // The whole comment is the approval line for this head, and it
+            // was never edited (lib/Approvals.cs).
+            if (login is null || !string.Equals(Approvals.Head(comment), headSha, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            foreach (Match match in approve.Matches(body))
+            if (!approvedBy.TryGetValue(login, out HashSet<string>? shas))
             {
-                if (headSha.StartsWith(match.Groups["sha"].Value, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (!approvedBy.TryGetValue(login, out HashSet<string>? shas))
-                    {
-                        approvedBy[login] = shas = [];
-                    }
-
-                    shas.Add(headSha);
-                }
+                approvedBy[login] = shas = [];
             }
+
+            shas.Add(headSha);
         }
     }
     catch (Exception exception) when (exception is HttpRequestException or JsonException)
@@ -363,8 +362,8 @@ foreach (Agent agent in agents.Values)
 
     if (approver is null)
     {
-        findings.Add($"'{agent.Id}' authored commits in #{pullNumber}; it needs a comment 'approve {headSha}' "
-            + $"(at least {MinimumShaPrefix} characters of the head) from {who}");
+        findings.Add($"'{agent.Id}' authored commits in #{pullNumber}; head {headSha} needs an approval comment from {who}: "
+            + "the approval line as the comment's whole body, with the full sha, never edited (eng/approve.sh posts it)");
     }
     else
     {

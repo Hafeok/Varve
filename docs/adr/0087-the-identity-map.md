@@ -257,3 +257,65 @@ his key. Rules 2 and 3 read its acts as his:
 - its acceptance names his email, which rule 2 requires.
 
 The map and the three rules are unchanged.
+
+## Amendment, 2026-11-12 — an approval is a whole comment, never edited
+
+Filed by the delegate session for
+[#290](https://github.com/Hafeok/Varve/issues/290), unaccepted until the
+maintainer accepts it (ADR 0066). It changes what counts as an approval, so
+it is in the protected class: the maintainer accepts it himself, and his
+delegate does not (ADR 0239).
+
+**What happened.** On 2026-11-12 `agent review` reported #264 as approved at
+a head the maintainer had not approved. A cloud session's status comment
+quoted the approval line with that head's full sha, as what the check would
+ask for. Rule 3 of the second amendment of 2026-10-06 matched the line
+anywhere in a comment, and a cloud session comments under the maintainer's
+login, so the sentence was read as his approval. Nothing landed.
+
+**The rule.** Rule 3 of that amendment is replaced:
+
+1. **The whole body.** A comment approves only when its body, trimmed of
+   surrounding whitespace, is the approval line and nothing else: the word
+   `approve`, one space, and the sha. A delegate's line ends ` (delegate)`
+   (ADR 0239). Any other character and the comment approves nothing: a
+   sentence around the line, a second line, a quotation mark, a code span.
+2. **The full sha.** The sha is the current head's 40 lowercase hexadecimal
+   characters, compared for equality. The 12-character prefix of 2026-10-06
+   no longer counts.
+3. **Never edited.** A comment whose `updated_at` differs from its
+   `created_at` approves nothing, and so does one with either missing. An
+   approval is given once, for one head.
+4. **Judged again when it is withdrawn.** `agent review` runs when a comment
+   is edited or deleted, as it does when one is created, so that the check on
+   a head is never an approval that is no longer there.
+5. **One reader.** `eng/lib/Approvals.cs` says what an approval comment is,
+   and `eng/agent-review.cs` and `eng/land.cs` both read approvals through
+   it. Who wrote the comment is still decided by the map, in
+   `eng/agent-review.cs`, unchanged.
+6. **A session never writes the line.** For any sha, in a comment, a
+   description or a commit message. It reports a head as "head `<sha>`".
+   Only the maintainer writes the line, with `eng/approve.sh`, or his
+   delegate when he tells it to for a head he names. The gates' own messages
+   no longer print the line for a head either.
+
+**What this does not close.** A comment whose whole body is the line still
+approves when a session posts it, because a cloud session posts under the
+maintainer's login. Points 1 to 5 stop the accident, and point 6 is a rule a
+session must follow. The approval that a session cannot produce is #290's
+part 3, a signed statement, and is not decided here.
+
+**When it takes effect.** The workflow and the judging script are always
+main's, so the pull request that carries this amendment is judged by the rule
+of 2026-10-06, and every head after it lands by this one.
+
+**The gate.** `eng/agent-review-tamper.cs`: the line as the whole comment
+passes, with the delegate's suffix and with a trailing newline; inside a
+sentence, in a code span, after another line, with 12 characters of the head,
+with the head in capitals, in an edited comment and in one with no timestamps
+it fails; an approval deleted, or edited, fails when judged again; and the
+workflow runs on a comment created, edited and deleted. `eng/land.cs
+--fixtures` runs the same bodies against the reader.
+
+**The ledger.** `ApprovalIsAConversationComment` is restated, and unaccepted
+until the maintainer accepts it as restated.
