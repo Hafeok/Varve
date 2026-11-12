@@ -21,10 +21,12 @@
 // Every commit the range adds, merges included, since a merge's message lands
 // on main too. The range is worked out as eng/issue-refs.cs works it out: a
 // pull request's GITHUB_BASE_REF, a push to main's before, otherwise
-// origin/main..HEAD. Commits reachable from 2cad18d5, the last commit on main
-// that names a model, are left out: ADR 0241 point 4 leaves history as it is
-// (#169, the delegate's comment of 2026-11-11). Each finding names the commit
-// and the line.
+// origin/main..HEAD. Commits reachable from e684009a are left out: ADR 0241
+// point 4 leaves history as it is. The bound was 2cad18d5 (#169, the
+// delegate's comment of 2026-11-11), and moved to e684009a, main's head of
+// 2026-11-12, when #236 landed two older commits that name a model in a
+// co-author trailer (2d94eb94, 195a8cdf). Each finding names the commit and
+// the line.
 //
 // --- --message (eng/hooks/commit-msg) ------------------------------------------
 //
@@ -48,7 +50,7 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
-const string LowerBound = "2cad18d53eac54e4b485ad7161916b9f17d2259b";
+const string LowerBound = "e684009a4f202d760fccd452f2e4d6d2e79692ed";
 
 string root = FindRepositoryRoot();
 string? baseRef = null;

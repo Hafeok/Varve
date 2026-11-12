@@ -33,8 +33,10 @@ both run that script.
 3. **The gate.** `dotnet run eng/model-names.cs` checks every commit a pull
    request or a `land/` push adds over `main`, merges included, worked out from
    the environment as `eng/issue-refs.cs` does. Commits reachable from
-   `2cad18d5`, the last commit on `main` that names a model, are left out: ADR
-   0241 point 4 leaves history as it is. `ci.yml`'s release call skips it, as
+   `e684009a` are left out: ADR 0241 point 4 leaves history as it is. The
+   bound was `2cad18d5`, the last such commit on `main` on 2026-11-11, and moved
+   to `e684009a`, `main`'s head of 2026-11-12, when #236 landed two older
+   commits whose co-author trailers name a model (`2d94eb94`, `195a8cdf`). `ci.yml`'s release call skips it, as
    it skips the other range gates.
 
 ## How to satisfy it

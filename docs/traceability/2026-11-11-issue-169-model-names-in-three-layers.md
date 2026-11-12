@@ -54,3 +54,14 @@
   with the delegate's count.
 - **Not in this change:** the port to the analyzer repository (#65), which is
   #169's last box.
+
+## Addendum, 2026-11-12: the lower bound moves
+
+A train of #236, #233, #232 and #282 went red on `model-names` alone: two
+commits from #236's branch, `2d94eb94` and `195a8cdf`, made before ADR 0241,
+name a model in a co-author trailer. The train landed nothing. #236, #233 and
+#232 then landed as their own train, with those commits, and `main` was at
+`e684009a`. At the maintainer's direction on #282, the bound moves to
+`e684009a`. `main` was merged in, and over `2cad18d5..e684009a` the gate
+finds exactly those two commits and nothing else.
+
