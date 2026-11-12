@@ -126,7 +126,7 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     // land.cs's closing-trailer checks, before a push and after main moved,
     // and its landing trains, built in a scratch repository, on every run
     // (#209, #277, tests/fixtures/land/README.md).
-    ("land-fixtures", "land.cs refuses a missing or unmet Completes: line and a descriptor dated over three days before landing, reports an issue left open after landing, and builds, refuses and verifies landing trains, as its fixtures say",
+    ("land-fixtures", "land.cs refuses a missing or unmet Completes: line and a descriptor dated over three days before landing, reports an issue left open after landing, builds, refuses and verifies landing trains, and reads an approval only from a comment that is the approval line whole, with the full sha and never edited, as its fixtures say",
         () => Run("dotnet", ["run", "eng/land.cs", "--", "--fixtures", "tests/fixtures/land"])),
 
     // The release gate's refusal of stale or red evidence from main, preview and not, proven on
@@ -148,7 +148,7 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("ci-images-fixture", "the CI image gate fails its fixture",
         () => Run("dotnet", ["run", "eng/ci-images.cs", "--", "--root", "tests/fixtures/ci-images"]) == 1 ? 0 : 1),
 
-    ("agent-review-tamper", "a pull request that edits eng/agent-review.cs to always pass still fails under main's copy",
+    ("agent-review-tamper", "a pull request that edits eng/agent-review.cs to always pass still fails under main's copy, and an approval is a whole, unedited comment with the full sha",
         () => Run("dotnet", ["run", "eng/agent-review-tamper.cs"])),
 
     ("release-pending", "a change that closes a milestone issue carries the release descriptor naming it",

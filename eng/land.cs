@@ -34,8 +34,10 @@
 // Before the first push it checks what would make the landing fail later:
 // main must be an ancestor of the head, or the fast-forward is impossible. For
 // a pull request, when the GitHub CLI is installed and signed in, it also
-// looks for an `approve <sha>` comment on the head and says when there is
-// none; the verdict stays `agent review`'s, so that is a warning.
+// looks for an approval comment for the head and says when there is none:
+// a comment that is the approval line and nothing else, with the full sha,
+// never edited (lib/Approvals.cs, the reader `agent review` uses; #290). The
+// verdict stays `agent review`'s, so that is a warning.
 //
 // `--main` refuses unless land/<name> on origin is the same commit, so main
 // moves only to the commit that was checked there.
@@ -61,8 +63,9 @@
 // Landing trains (#277, ADR 0243 point 10, `LandingTrains`). A train is one
 // head that merges two or more pull request heads onto main, in the order
 // given, so that every gate runs once for all of them:
-// - each member's head must be approved for its exact sha (an `approve <sha>`
-//   comment, refused here rather than warned, because the train's verdict
+// - each member's head must be approved for its exact sha (an approval
+//   comment as lib/Approvals.cs reads one: the whole body, the full sha,
+//   never edited; refused here rather than warned, because the train's verdict
 //   rests on each member's own), and green on its own: every check ruleset 1
 //   requires (.github/repo-standard.yaml) concluded on that head;
 // - each member's `Completes:` line is checked against its own commits;
@@ -86,6 +89,7 @@
 // See docs/adr/0088-only-checked-commits-reach-main.md.
 
 // CA2266 is off for this file only, for the reason eng/dco.cs gives (ADR 0087).
+#:include lib/Approvals.cs
 #:property NoWarn=$(NoWarn);CA2266
 
 using System.Diagnostics;
@@ -436,22 +440,16 @@ static string? RemoteHead(string reference)
 // Advisory only: `agent review` on the land/ push is the verdict (ADR 0087).
 static void WarnWithoutApproval(int number, string head)
 {
-    (int exit, string output) = Try("gh", "api", "--paginate", $"repos/{{owner}}/{{repo}}/issues/{number}/comments", "--jq", ".[].body");
-    if (exit != 0)
+    if (ApprovedShas(number) is not List<string> approved)
     {
         Console.WriteLine("land: the GitHub CLI could not read the pull request's comments; not checking for an approval.");
         return;
     }
 
-    foreach (Match match in Regex.Matches(output, @"\bapprove\s+([0-9a-f]{12,40})\b", RegexOptions.IgnoreCase))
+    if (!approved.Contains(head, StringComparer.Ordinal))
     {
-        if (head.StartsWith(match.Groups[1].Value.ToLowerInvariant(), StringComparison.Ordinal))
-        {
-            return;
-        }
+        Console.WriteLine($"land: warning: no approval comment for head {head} on #{number}: the approval line as a comment's whole body, with the full sha, never edited. If it has an agent's commits, `agent review` will fail on land/ until there is one.");
     }
-
-    Console.WriteLine($"land: warning: no `approve {head[..12]}` comment on #{number}. If it has an agent's commits, `agent review` will fail on land/ until there is one.");
 }
 
 // A train (#277): build it and push it to land/<name>, or, with --main,
@@ -468,7 +466,7 @@ static int LandTrain(List<int> numbers, bool toMain, bool print, string? name, s
         Git("fetch", "--quiet", "--no-tags", Remote, $"refs/pull/{number}/head");
         string head = Git("rev-parse", "FETCH_HEAD");
         string? body = PullRequestBody(number);
-        List<string>? approvals = Approvals(number);
+        List<string>? approvals = ApprovedShas(number);
         Dictionary<string, string>? checks = CheckConclusions(head);
         if (body is null || approvals is null || checks is null)
         {
@@ -598,14 +596,39 @@ static int LandTrain(List<int> numbers, bool toMain, bool print, string? name, s
     return afterExit;
 }
 
-// The shas a pull request's `approve <sha>` comments name, or null when
-// GitHub cannot be read. Whose comment it is stays `agent review`'s verdict.
-static List<string>? Approvals(int number)
+// The full shas a pull request's approval comments name, or null when GitHub
+// cannot be read. What an approval comment is, is lib/Approvals.cs's to say,
+// for this script and for `agent review` alike (#290): the whole body, the
+// full sha, never edited. Whose comment it is stays `agent review`'s verdict.
+static List<string>? ApprovedShas(int number)
 {
-    (int exit, string output) = Try("gh", "api", "--paginate", $"repos/{{owner}}/{{repo}}/issues/{number}/comments", "--jq", ".[].body");
-    return exit != 0
-        ? null
-        : [.. Regex.Matches(output, @"\bapprove\s+([0-9a-f]{12,40})\b", RegexOptions.IgnoreCase).Select(static match => match.Groups[1].Value.ToLowerInvariant())];
+    // One comment a line, as compact JSON, so that a body's own newlines
+    // cannot split or join comments.
+    (int exit, string output) = Try("gh", "api", "--paginate", $"repos/{{owner}}/{{repo}}/issues/{number}/comments",
+        "--jq", ".[] | {body, created_at, updated_at} | tojson");
+    if (exit != 0)
+    {
+        return null;
+    }
+
+    List<string> shas = [];
+    foreach (string line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    {
+        try
+        {
+            using JsonDocument comment = JsonDocument.Parse(line);
+            if (Approvals.Head(comment.RootElement) is string sha)
+            {
+                shas.Add(sha);
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    return shas;
 }
 
 // Each check's latest conclusion on a commit, by name, or null when GitHub
@@ -911,10 +934,10 @@ static class Trains
         foreach (TrainMember member in members)
         {
             string head = member.Head[..12];
-            if (!member.Approvals.Any(approved => member.Head.StartsWith(approved, StringComparison.Ordinal)))
+            if (!member.Approvals.Contains(member.Head, StringComparer.Ordinal))
             {
                 string others = member.Approvals.Count == 0 ? "it has none" : $"its approvals are for {string.Join(", ", member.Approvals.Distinct().Select(static sha => sha.Length > 12 ? sha[..12] : sha))}";
-                refusals.Add($"#{member.Number}'s head {head} has no `approve {head}`; {others}. A train lands only heads approved as they are.");
+                refusals.Add($"#{member.Number}'s head {head} has no approval comment (the approval line as the whole body, the full sha, never edited); {others}. A train lands only heads approved as they are.");
             }
 
             if (member.Unmet.Count > 0)
@@ -1111,7 +1134,11 @@ static class Shell
 // A "date" case holds a descriptor's `version`, `date` and the `landing` day,
 // and no commits. `commits` are the pushed commits ({sha, message}); `body`
 // the pull request's body; `states` the issues' states, null when GitHub
-// cannot be read. A
+// cannot be read. An "approval" case holds a `head` and one `comment` (`body`,
+// `created_at`, `updated_at`), and passes when lib/Approvals.cs reads the
+// comment as an approval of that head; in the body `{line}` stands for the
+// approval line for the head, `{line12}` for the same with 12 characters of
+// it and `{lineupper}` for the same in capitals, so that no fixture file holds the line itself (#290). A
 // `pass-` case must pass and a `fail-` case be refused, and `says` lists text
 // the output must contain.
 static class Fixtures
@@ -1134,6 +1161,7 @@ static class Fixtures
                 "landed" => Landed(root, closing),
                 "date" => Date(root),
                 "train" => Train(root),
+                "approval" => Approval(root),
                 _ => throw new InvalidOperationException($"{file}: unknown step '{step}'"),
             };
 
@@ -1159,6 +1187,22 @@ static class Fixtures
     {
         List<string> refusals = Closings.CheckCompletes(root.GetProperty("body").GetString()!, closing);
         return (refusals.Count == 0, refusals);
+    }
+
+    // The reader both scripts share (#290), on one comment.
+    static (bool, List<string>) Approval(JsonElement root)
+    {
+        string head = root.GetProperty("head").GetString()!;
+        JsonElement comment = root.GetProperty("comment");
+        string body = comment.GetProperty("body").GetString()!
+            .Replace("{line12}", "approve " + head[..12], StringComparison.Ordinal)
+            .Replace("{lineupper}", "approve " + head.ToUpperInvariant(), StringComparison.Ordinal)
+            .Replace("{line}", "approve " + head, StringComparison.Ordinal);
+        string? Text(string property) => comment.TryGetProperty(property, out JsonElement value) ? value.GetString() : null;
+        string? approved = Approvals.Head(body, Text("created_at"), Text("updated_at"));
+        return string.Equals(approved, head, StringComparison.Ordinal)
+            ? (true, [])
+            : (false, [approved is null ? "the comment approves nothing" : $"the comment approves {approved}, not the head"]);
     }
 
     static (bool, List<string>) Date(JsonElement root)
@@ -1208,8 +1252,8 @@ static class Fixtures
                 string head = Commit(scratch, main, member.GetProperty("files"), message);
                 List<string> approvals = member.GetProperty("approval").GetString() switch
                 {
-                    "head" => [head[..12]],
-                    "other" => [main[..12]],
+                    "head" => [head],
+                    "other" => [main],
                     _ => [],
                 };
                 List<string> unmet = member.GetProperty("green").GetBoolean() ? [] : ["build (ubuntu-latest) (failure)"];
