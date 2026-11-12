@@ -143,6 +143,14 @@ public sealed class ProtocolOptions
     /// </summary>
     public IEntailmentBindings? Entailment { get; init; }
 
+    /// <summary>
+    /// What the host does once a checkpoint a caller asked for has been
+    /// taken, before the request is answered; nothing when unset. The server
+    /// lets the dataset's maintenance finish and returns the memory the
+    /// checkpoint's work left to the operating system (ADR 0244 point 6).
+    /// </summary>
+    public Func<Varve.Store.Dataset, CancellationToken, System.Threading.Tasks.ValueTask>? AfterCheckpoint { get; init; }
+
     /// <summary><see cref="Evaluation"/> with the functions a rewritten query calls, composed once.</summary>
     internal EvaluationOptions EntailedEvaluation => field ??= Endpoints.EntailmentFunctions.With(Evaluation);
 

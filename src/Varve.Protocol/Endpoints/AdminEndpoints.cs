@@ -281,6 +281,11 @@ internal static class AdminEndpoints
         try
         {
             await dataset.CheckpointAsync(at, context.RequestAborted).ConfigureAwait(false);
+
+            if (options.AfterCheckpoint is { } after)
+            {
+                await after(dataset, context.RequestAborted).ConfigureAwait(false);
+            }
         }
         catch (DatasetUnavailableException failed)
         {

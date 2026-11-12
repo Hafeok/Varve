@@ -101,7 +101,7 @@ public enum MaintenanceMode
 /// runs no state names are deleted on open.
 /// </para>
 /// </remarks>
-[DesignDecision(typeof(TheStorageEngineIsOurOwn.MaintenanceOffTheSequencer), Scope = ExceptionScope.Boundary)]
+[DesignDecision(typeof(MemoryBounds.MaintenanceOffTheSequencer), Scope = ExceptionScope.Boundary)]
 public sealed partial class Dataset
 {
     private const string RunPrefix = "index/runs/";
@@ -139,6 +139,93 @@ public sealed partial class Dataset
     public const int SpillBoundFactor = 4;
 
     private int _spillBound;
+
+    /// <summary>
+    /// How many times <see cref="DatasetOptions.MemtableLimit"/> the memtable
+    /// may hold before a commit waits for the flush in progress (ADR 0244):
+    /// maintenance starts a flush at the limit, off the sequencer, and a
+    /// writer that outruns it is held here rather than left to grow the
+    /// memtable without bound.
+    /// </summary>
+    public const int WaitBoundFactor = 2;
+
+    private TaskCompletionSource _maintained = NewSignal();
+
+    // A checkpoint has been published: the next round of the dataset's own
+    // maintenance flushes the memtable whatever it holds (ADR 0244).
+    private bool _flushAsked;
+
+    private bool FlushAsked => _options.Maintenance == MaintenanceMode.Background && Volatile.Read(ref _flushAsked);
+
+    // Whether a commit that arrives now waits before it queues: the memtable
+    // holds the wait bound, the dataset runs its own maintenance, and a
+    // flush can still succeed. While spills fail nothing waits: the writer
+    // goes on, and the spill bound decides (ADR 0179 point 6).
+    private bool MemtableAtTheWaitBound() =>
+        _options.Maintenance == MaintenanceMode.Background
+        && _state.Index.MemtableCount >= WaitBoundFactor * _options.MemtableLimit.Value
+        && _state.Failed is null
+        && Volatile.Read(ref _spillFailure) is null
+        && _maintenanceFailure is null
+        && _broken is null
+        && _steppedDown is null
+        && !_appendFailed
+        && !_disposing
+        && !_closing.IsCancellationRequested;
+
+    // Before a commit queues (ADR 0244): while the memtable holds the wait
+    // bound, waits for maintenance's next step, which is a flush whenever
+    // the memtable holds its limit. No timer: every step of maintenance, and
+    // its end, wakes the waiters, and each looks again.
+    private async ValueTask WaitForTheMemtableAsync(CancellationToken cancellationToken)
+    {
+        int idle = 0;
+
+        while (true)
+        {
+            Task maintained;
+
+            lock (_signalGate)
+            {
+                maintained = _maintained.Task;
+            }
+
+            if (!MemtableAtTheWaitBound())
+            {
+                return;
+            }
+
+            long held = _state.Index.MemtableCount;
+            StartMaintenance();
+            await maintained.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            // Maintenance that ends its steps without shrinking the memtable
+            // has nothing it can flush now; the commit goes on rather than
+            // wait for what will not come.
+            idle = _state.Index.MemtableCount < held ? 0 : idle + 1;
+
+            if (idle == MaxIdleWaits)
+            {
+                return;
+            }
+        }
+    }
+
+    private const int MaxIdleWaits = 8;
+
+    // A step of maintenance has ended, or maintenance itself: whoever waits for the memtable looks again.
+    private void Maintained()
+    {
+        TaskCompletionSource maintained;
+
+        lock (_signalGate)
+        {
+            maintained = _maintained;
+            _maintained = NewSignal();
+        }
+
+        maintained.TrySetResult();
+    }
 
     /// <summary>
     /// Whether the writer's memory can no longer be bounded, and by which
@@ -199,16 +286,18 @@ public sealed partial class Dataset
         {
             while (await MaintainOnceAsync(cancellationToken).ConfigureAwait(false))
             {
+                Maintained();
             }
         }
         finally
         {
             _maintenanceGate.Release();
+            Maintained();
         }
     }
 
     private bool MaintenanceDue(State state) =>
-        state.Index.MemtableCount >= _options.MemtableLimit.Value && state.Index.Runs.Length > LeadingBlobRuns(state.Index)
+        (state.Index.MemtableCount >= _options.MemtableLimit.Value || (FlushAsked && state.Index.MemtableCount > 0)) && state.Index.Runs.Length > LeadingBlobRuns(state.Index)
         || DiskMergeDue(state.Index)
         || CheckpointDue(state)
         || CommitPagingDue(state)
@@ -286,6 +375,10 @@ public sealed partial class Dataset
             // DisposeAsync reports it.
             _maintenanceFailure = error;
         }
+        finally
+        {
+            Maintained();
+        }
     }
 
     private async ValueTask<Exception?> StopMaintenanceAsync()
@@ -321,7 +414,12 @@ public sealed partial class Dataset
         IndexVersion index = state.Index;
         int disk = LeadingBlobRuns(index);
 
-        if (index.MemtableCount >= _options.MemtableLimit.Value && index.Runs.Length > disk)
+        bool asked = FlushAsked;
+        Volatile.Write(ref _flushAsked, false);
+
+        // Asked for, only a memtable that holds something: runs whose
+        // changes cancelled hold nothing to write.
+        if ((index.MemtableCount >= _options.MemtableLimit.Value || (asked && index.MemtableCount > 0)) && index.Runs.Length > disk)
         {
             return await FlushAsync(cancellationToken).ConfigureAwait(false);
         }

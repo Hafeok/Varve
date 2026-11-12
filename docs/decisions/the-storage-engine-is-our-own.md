@@ -19,11 +19,13 @@ decisions:
     statement: "No managed storage engine is adopted, ZoneTree for owning its file I/O and FASTER for its hash model among them"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-05T07:32:09Z
-  - key: MaintenanceOffTheSequencer
-    statement: "Memtable flushes, disk merges and checkpoint writes are maintenance, run off the sequencer on a task the dataset owns when DatasetOptions.Maintenance says so, or by Dataset.MaintainAsync, and never block a commit"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-05T07:32:09Z
 ---
 
 The rulings of [ADR 0070](../adr/0070-the-storage-engine-is-our-own.md), filed unaccepted by session
 6a of #10 (ADR 0066). The revisit condition is not a ruling and is not enumerated.
+
+`MaintenanceOffTheSequencer` is superseded in part by ADR 0244 (2026-11-10,
+#227) and moves to its set, [`memory-bounds`](memory-bounds.md), under its
+key, restated: maintenance still runs off the sequencer, and a commit waits
+for a flush only once the memtable holds twice its limit. ADR 0070's revisit
+condition, a memtable that grows without bound, was met.

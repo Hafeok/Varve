@@ -66,7 +66,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         _leaseWait = settings.Lease.WaitFor;
         _logger = logger;
         _address = settings.Fleet.InternalUrl is { } url ? new WriterAddress(url) : null;
-        _memtableLimit = new Varve.Rdf.QuadCount(settings.Store.MemtableLimit);
+        _memtableLimit = new Varve.Rdf.QuadCount(settings.Store.MemtableLimit ?? MemtableDefault.For(MemtableDefault.HeapLimit()));
         _merges = new ExtentMergePolicy
         {
             Enabled = settings.Store.ExtentMerges.Enabled,

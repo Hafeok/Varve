@@ -124,6 +124,12 @@ internal static class Program
             return;
         }
 
+        if (args.Length is >= 2 and <= 4 && args[0] == "--import-memory")
+        {
+            Environment.ExitCode = ImportMemory.RunAsync(args[1], args.Length >= 3 ? int.Parse(args[2], CultureInfo.InvariantCulture) : 3000, args.Length == 4 ? args[3] : null).GetAwaiter().GetResult();
+            return;
+        }
+
         if (args.Length >= 2 && args[0] == "--bulk-gate")
         {
             BulkGate.RunAsync(args).GetAwaiter().GetResult();

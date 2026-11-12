@@ -587,3 +587,11 @@ From ADR 0003:
   name and could not be closed. Withdrawn 2026-09-21: it was wrong on both
   counts, and the rule now checks `IsPackable` and refuses the analyzer as a
   library reference.
+
+## Memory bounds (#227)
+
+Filed by the session for [#227](https://github.com/Hafeok/Varve/issues/227), unaccepted until the maintainer accepts it (ADR 0066). It supersedes 0070 in part, its revisit condition being met, and amends 0110, 0139 and 0164 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0244](0244-memory-bounds-for-writing-checkpointing-and-reopening.md) | Memory bounds for writing, checkpointing and reopening | Filed unaccepted (#227) |
