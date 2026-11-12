@@ -17,7 +17,11 @@
 //      and the check run main's copy posts is read back. The stand-in also
 //      covers the approval form: 12 characters of the head pass, 11 fail, an
 //      earlier head fails, a stranger fails, a review submission is not
-//      consulted;
+//      consulted; and a land/ push of a landing train (#277), built for real
+//      in a scratch repository: approved members pass, a member that is no
+//      approved head fails, a merge edited by hand fails, a merge without the
+//      trailer fails, an extra commit between the merges fails, and a train
+//      built on a main that has since moved fails;
 //   3. the workflow cannot run the tampered copy: the job that posts the
 //      check in .github/workflows/agent-review.yml checks out main by name,
 //      never a pull request ref; the workflow runs on no trigger whose
@@ -161,6 +165,58 @@ try
         (int exit, _) = RunJudge(root, server, "push", "{}", "refs/heads/land/first");
         Require(exit == 0 && server.Posted is ["failure"], "main's copy, a land/ push of an approved sha that is no pull request's head: posts failure");
     }
+
+    // #277, ADR 0243 point 10: a landing train of approved heads, built for
+    // real in a scratch repository that GIT_DIR names, as eng/land.cs builds it.
+    string trains = Path.Combine(scratch, "trains.git");
+    ScratchGit(trains, null, "init", "--quiet", "--bare", trains);
+    string trainMain = ScratchCommit(trains, [], new() { ["README.md"] = "Varve\n" }, "chore: main\n");
+    string first = ScratchCommit(trains, [trainMain], new() { ["a.md"] = "a\n" }, "feat: a\n\nRefs #11\n");
+    string second = ScratchCommit(trains, [trainMain], new() { ["b.md"] = "b\n" }, "feat: b\n\nRefs #12\n");
+    string mergedFirst = ScratchMerge(trains, trainMain, first, "Merge #11 into the train for main\n\nLanding-only: merge\n", edit: false);
+    string trainHead = ScratchMerge(trains, mergedFirst, second, "Merge #12 into the train for main\n\nLanding-only: merge\n", edit: false);
+    string editedHead = ScratchMerge(trains, mergedFirst, second, "Merge #12 into the train for main\n\nLanding-only: merge\n", edit: true);
+    string unmarkedHead = ScratchMerge(trains, mergedFirst, second, "Merge #12 into the train for main\n", edit: false);
+    string extra = ScratchCommit(trains, [mergedFirst], new() { ["c.md"] = "c, which no member's head carries\n" }, "feat: c\n\nRefs #11\n");
+    string extraHead = ScratchMerge(trains, extra, second, "Merge #12 into the train for main\n\nLanding-only: merge\n", edit: false);
+    string movedMain = ScratchCommit(trains, [trainMain], new() { ["d.md"] = "d\n" }, "chore: main moved on\n");
+    Dictionary<string, string> inScratch = new() { ["GIT_DIR"] = trains };
+
+    using (StandIn server = StandIn.Start(identities, trainHead, "Hafeok", [], [], approvedBy: GatesApp, main: trainMain, pulls: new() { [first] = 11, [second] = 12 }))
+    {
+        (int exit, string output) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", trainHead, inScratch);
+        Require(exit == 0 && server.Posted is ["success"], "main's copy, a land/ push of a train of approved heads: posts success" + (server.Posted is ["success"] ? "" : $"\n{output}"));
+    }
+
+    using (StandIn server = StandIn.Start(identities, trainHead, "Hafeok", [], [], approvedBy: GatesApp, main: trainMain, pulls: new() { [first] = 11 }))
+    {
+        (int exit, string output) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", trainHead, inScratch);
+        Require(exit == 0 && server.Posted is ["failure"] && output.Contains("is not an approved pull request's head", StringComparison.Ordinal), "main's copy, a train with a member that is no approved pull request's head: posts failure, saying it is not an approved pull request's head" + (output.Contains("is not an approved pull request's head", StringComparison.Ordinal) ? "" : $"\n{output}"));
+    }
+
+    using (StandIn server = StandIn.Start(identities, editedHead, "Hafeok", [], [], approvedBy: GatesApp, main: trainMain, pulls: new() { [first] = 11, [second] = 12 }))
+    {
+        (int exit, string output) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", editedHead, inScratch);
+        Require(exit == 0 && server.Posted is ["failure"] && output.Contains("is not `git merge-tree` of its parents under the pinned settings", StringComparison.Ordinal), "main's copy, a train whose merge was edited by hand: posts failure, saying it is not `git merge-tree` of its parents under the pinned settings" + (output.Contains("is not `git merge-tree` of its parents under the pinned settings", StringComparison.Ordinal) ? "" : $"\n{output}"));
+    }
+
+    using (StandIn server = StandIn.Start(identities, unmarkedHead, "Hafeok", [], [], approvedBy: GatesApp, main: trainMain, pulls: new() { [first] = 11, [second] = 12 }))
+    {
+        (int exit, string output) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", unmarkedHead, inScratch);
+        Require(exit == 0 && server.Posted is ["failure"] && output.Contains("has no `Landing-only: merge` trailer", StringComparison.Ordinal), "main's copy, a train whose merge has no `Landing-only: merge` trailer: posts failure, saying it has no `Landing-only: merge` trailer" + (output.Contains("has no `Landing-only: merge` trailer", StringComparison.Ordinal) ? "" : $"\n{output}"));
+    }
+
+    using (StandIn server = StandIn.Start(identities, extraHead, "Hafeok", [], [], approvedBy: GatesApp, main: trainMain, pulls: new() { [first] = 11, [second] = 12 }))
+    {
+        (int exit, string output) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", extraHead, inScratch);
+        Require(exit == 0 && server.Posted is ["failure"] && output.Contains("is not a merge of two parents", StringComparison.Ordinal), "main's copy, a train with an extra commit on the first-parent line between its merges: posts failure, saying it is not a merge of two parents" + (output.Contains("is not a merge of two parents", StringComparison.Ordinal) ? "" : $"\n{output}"));
+    }
+
+    using (StandIn server = StandIn.Start(identities, trainHead, "Hafeok", [], [], approvedBy: GatesApp, main: movedMain, pulls: new() { [first] = 11, [second] = 12 }))
+    {
+        (int exit, string output) = RunJudge(root, server, "push", "{}", "refs/heads/land/train-11-12", trainHead, inScratch);
+        Require(exit == 0 && server.Posted is ["failure"] && output.Contains("is not a merge of two parents, and main is not below it", StringComparison.Ordinal), "main's copy, a train built on a main that has since moved: posts failure, saying it is not a merge of two parents, and main is not below it" + (output.Contains("is not a merge of two parents, and main is not below it", StringComparison.Ordinal) ? "" : $"\n{output}"));
+    }
 }
 finally
 {
@@ -212,7 +268,8 @@ static JsonObject Review(string login, string state, string commit) => new()
 // Runs <directory>/eng/agent-review.cs as the judge job runs it, on
 // pull_request_target, against the stand-in.
 static (int Exit, string Output) RunJudge(
-    string directory, StandIn server, string eventName = "pull_request_target", string eventJson = """{"pull_request":{"number":7}}""", string? reference = null)
+    string directory, StandIn server, string eventName = "pull_request_target", string eventJson = """{"pull_request":{"number":7}}""", string? reference = null,
+    string sha = "1234567890abcdef1234567890abcdef12345678", Dictionary<string, string>? environment = null)
 {
     string payload = Path.Combine(Path.GetTempPath(), $"agent-review-event-{Guid.NewGuid():N}.json");
     File.WriteAllText(payload, eventJson);
@@ -228,7 +285,12 @@ static (int Exit, string Output) RunJudge(
     start.ArgumentList.Add("run");
     start.ArgumentList.Add("eng/agent-review.cs");
     start.Environment["GITHUB_EVENT_NAME"] = eventName;
-    start.Environment["GITHUB_SHA"] = "1234567890abcdef1234567890abcdef12345678";
+    start.Environment["GITHUB_SHA"] = sha;
+
+    foreach ((string key, string value) in environment ?? [])
+    {
+        start.Environment[key] = value;
+    }
 
     if (reference is not null)
     {
@@ -248,6 +310,76 @@ static (int Exit, string Output) RunJudge(
     File.Delete(payload);
 
     return (process.ExitCode, output + error.Result);
+}
+
+// git in a scratch repository, with standard input; the output, trimmed.
+static string ScratchGit(string gitDir, string? input, params string[] arguments)
+{
+    ProcessStartInfo start = new("git")
+    {
+        RedirectStandardInput = input is not null,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+    };
+
+    foreach (string argument in arguments)
+    {
+        start.ArgumentList.Add(argument);
+    }
+
+    start.Environment["GIT_DIR"] = gitDir;
+    start.Environment["GIT_INDEX_FILE"] = gitDir + ".index";
+    start.Environment["GIT_AUTHOR_NAME"] = start.Environment["GIT_COMMITTER_NAME"] = "Fixture";
+    start.Environment["GIT_AUTHOR_EMAIL"] = start.Environment["GIT_COMMITTER_EMAIL"] = "fixture@example.org";
+
+    using Process process = Process.Start(start) ?? throw new InvalidOperationException("Could not start git.");
+    if (input is not null)
+    {
+        process.StandardInput.Write(input);
+        process.StandardInput.Close();
+    }
+
+    Task<string> error = process.StandardError.ReadToEndAsync();
+    string output = process.StandardOutput.ReadToEnd();
+    process.WaitForExit();
+    return process.ExitCode is 0 or 1 ? output.Trim() : throw new InvalidOperationException($"git {string.Join(' ', arguments)}: {error.Result}");
+}
+
+// A commit of `files` over the first parent's tree.
+static string ScratchCommit(string gitDir, string[] parents, Dictionary<string, string> files, string message)
+{
+    File.Delete(gitDir + ".index");
+    if (parents.Length > 0)
+    {
+        ScratchGit(gitDir, null, "read-tree", $"{parents[0]}^{{tree}}");
+    }
+
+    foreach ((string path, string content) in files)
+    {
+        string blob = ScratchGit(gitDir, content, "hash-object", "-w", "--stdin");
+        ScratchGit(gitDir, null, "update-index", "--add", "--cacheinfo", $"100644,{blob},{path}");
+    }
+
+    string tree = ScratchGit(gitDir, null, "write-tree");
+    return ScratchGit(gitDir, message, ["commit-tree", tree, .. parents.SelectMany(static parent => new[] { "-p", parent }), "-F", "-"]);
+}
+
+// A merge whose tree is `git merge-tree` of its parents, or, with `edit`,
+// that tree with a file added by hand.
+static string ScratchMerge(string gitDir, string ours, string theirs, string message, bool edit)
+{
+    string tree = ScratchGit(gitDir, null, "merge-tree", "--write-tree", "--name-only", "--no-messages", ours, theirs).Split('\n')[0];
+    if (edit)
+    {
+        File.Delete(gitDir + ".index");
+        ScratchGit(gitDir, null, "read-tree", tree);
+        string blob = ScratchGit(gitDir, "a line nobody reviewed\n", "hash-object", "-w", "--stdin");
+        ScratchGit(gitDir, null, "update-index", "--add", "--cacheinfo", $"100644,{blob},unreviewed.txt");
+        tree = ScratchGit(gitDir, null, "write-tree");
+    }
+
+    return ScratchGit(gitDir, message, "commit-tree", tree, "-p", ours, "-p", theirs, "-F", "-");
 }
 
 // The text of a top-level key's block (`on:` and what it holds), comments out.
@@ -328,13 +460,18 @@ sealed class StandIn : IDisposable
     private readonly string commitEmail;
     private readonly long? approvedBy;
     private readonly bool pullHead;
+    private readonly string main;
+    private readonly Dictionary<string, int> pulls;
 
     public List<string> Posted { get; } = [];
 
     public string Url { get; }
 
-    private StandIn(string identities, string head, string author, JsonArray comments, JsonArray reviews, string commitEmail, long? approvedBy, bool pullHead)
+    private StandIn(string identities, string head, string author, JsonArray comments, JsonArray reviews, string commitEmail, long? approvedBy, bool pullHead,
+        string main, Dictionary<string, int> pulls)
     {
+        this.main = main;
+        this.pulls = pulls;
         this.commitEmail = commitEmail;
         this.approvedBy = approvedBy;
         this.pullHead = pullHead;
@@ -355,9 +492,9 @@ sealed class StandIn : IDisposable
 
     public static StandIn Start(
         string identities, string head, string author, JsonArray comments, JsonArray reviews, string commitEmail = "noreply@anthropic.com",
-        long? approvedBy = null, bool pullHead = false)
+        long? approvedBy = null, bool pullHead = false, string main = "0000000000000000000000000000000000000000", Dictionary<string, int>? pulls = null)
     {
-        StandIn server = new(identities, head, author, comments, reviews, commitEmail, approvedBy, pullHead);
+        StandIn server = new(identities, head, author, comments, reviews, commitEmail, approvedBy, pullHead, main, pulls ?? []);
         server.listener.Start();
         _ = Task.Run(server.Serve);
         return server;
@@ -441,10 +578,21 @@ sealed class StandIn : IDisposable
                     }.ToJsonString()
                     : """{"total_count":0,"check_runs":[]}""";
             }
+            else if (path.EndsWith("/commits/main", StringComparison.Ordinal))
+            {
+                body = new JsonObject { ["sha"] = main }.ToJsonString();
+            }
             else if (path.EndsWith($"/commits/{head}/pulls", StringComparison.Ordinal))
             {
                 body = firstPage && pullHead
                     ? new JsonArray(new JsonObject { ["number"] = 7, ["head"] = new JsonObject { ["sha"] = head } }).ToJsonString()
+                    : "[]";
+            }
+            else if (Regex.Match(path, @"/commits/(?<sha>[0-9a-f]{40})/pulls$") is { Success: true } member)
+            {
+                // A train's member: its pull request, or none, as GitHub answers.
+                body = firstPage && pulls.TryGetValue(member.Groups["sha"].Value, out int number)
+                    ? new JsonArray(new JsonObject { ["number"] = number, ["head"] = new JsonObject { ["sha"] = member.Groups["sha"].Value } }).ToJsonString()
                     : "[]";
             }
             else

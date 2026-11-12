@@ -125,7 +125,26 @@ form is **not a valid workflow**, only tolerated until the ledger's review gate
 replaces it. `agent review` is judged by main's script on trusted triggers and
 posted by the gates App; a required check is spoofable by name unless pinned to
 an App. A human pushes to a `land/` branch and fast-forwards `main`
-to its checked head, or merges a review-free pull request. Work not ready for
+to its checked head, or merges a review-free pull request.
+
+**Several approved heads land as one train** (#277, ADR 0243 point 10), so
+that every gate runs once for all of them:
+- `eng/land.cs -- --train N1 N2 …` merges the heads onto `main`, in that
+  order, by `git merge-tree`. Each merge is a `Landing-only: merge` commit, and
+  a conflict refuses the train, because a merge is never resolved by hand.
+  The train's head is pushed to `land/train-N1-N2-…`.
+- Each member's head must be approved for its exact sha and green on its own,
+  and its `Completes:` line is checked against its own commits.
+- At most one member carries a release descriptor, and it goes last. The
+  branch is then `land/release-<version>`, and the release is cut from the
+  train's head.
+- `agent review` admits the train's head when every merge's second parent is
+  an approved pull request's head.
+- `--main` fast-forwards `main` only to that verified train. If a gate is
+  red, the train lands nothing: `land.cs` prints it without its last member,
+  and each member can still land on its own.
+
+Work not ready for
 the trunk lives behind a feature flag or stays local, **not on a long-lived
 branch**. Human review gates a *release*, as the approval of its descriptor's
 pull request.
@@ -195,7 +214,7 @@ see what is being worked on, what was decided and what is left.
   - each one it resolves fully gets its own `Closes #N` trailer, and
     `eng/land.cs -- N` lists what the push will close and refuses a landing
     whose `Completes:` line is missing or names an issue no trailer closes
-    (#209);
+    (#209). A train checks each member's line against its own commits;
   - each one it resolves in part gets a comment saying what landed and what is
     left, and tracking issues (#15 and the milestone issues) get their boxes
     ticked.
@@ -204,7 +223,8 @@ see what is being worked on, what was decided and what is left.
   delegate lands and checks the closings (ADR 0239); a cloud session posts its
   head, lists the issues its change touches, and asks.
 - **After landing.** The session checks that every issue it meant to close is
-  closed: `eng/land.cs -- N --main`, once `main` has moved, prints every issue
+  closed: `eng/land.cs -- N --main` (or `--train … --main`, for every member),
+  once `main` has moved, prints every issue
   a pushed trailer names that is still open, with its commit, and exits
   non-zero, as it does when GitHub cannot be read. It closes nothing itself.
   If a trailer did not take, the session closes the issue by hand with a
@@ -254,6 +274,8 @@ dotnet run eng/ci.cs                               # the whole pipeline, as CI r
 dotnet run eng/ci.cs -- --list                     # and what it consists of, to run one
 dotnet run eng/land.cs -- <pr>                     # maintainer: push an approved head to land/
 dotnet run eng/land.cs -- <pr> --main              # then fast-forward main to it
+dotnet run eng/land.cs -- --train <pr> <pr> …      # maintainer: several approved heads as one train, in one run
+dotnet run eng/land.cs -- --train <pr> <pr> … --main
 dotnet build Varve.slnx -c Release                 # zero warnings, or it is broken
 dotnet run eng/dependency-register.cs -- --base origin/main
 git submodule update --init --recursive            # needed for conformance
