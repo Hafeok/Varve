@@ -117,6 +117,46 @@ public sealed partial class Dataset
     /// <summary>Test seam: whether each extent set of the current state, oldest first, is sought inside its window (ADR 0177).</summary>
     internal bool[] SeekableSetsForTests() => [.. SetsOf(_state).ConvertAll(s => s.Seekable)];
 
+    /// <summary>
+    /// Test seam: the bytes the seek directories of the chain's sets would
+    /// take in memory if every one were held, which is what they grow to
+    /// with the history (ADR 0240).
+    /// </summary>
+    internal long SeekDirectoryBytesOfTheChainForTests()
+    {
+        long bytes = 0;
+
+        foreach (ExtentSet set in SetsOf(_state))
+        {
+            foreach (LoadedRun order in set.Orders)
+            {
+                bytes += order.Extent!.SeekDirectoryBytes;
+            }
+        }
+
+        return bytes;
+    }
+
+    /// <summary>Test seam: every order extent of the chain's sets, oldest set first.</summary>
+    internal List<ExtentInfo> ExtentsOfTheChainForTests()
+    {
+        List<ExtentInfo> extents = [];
+
+        foreach (ExtentSet set in SetsOf(_state))
+        {
+            foreach (LoadedRun order in set.Orders)
+            {
+                extents.Add(order.Extent!);
+            }
+        }
+
+        return extents;
+    }
+
+    /// <summary>Test seam: whether any set of the chain holds a seek directory itself, outside the cache; none does (ADR 0240).</summary>
+    internal bool AnySetHoldsItsSeekDirectoryForTests() =>
+        SetsOf(_state).Exists(set => Array.Exists(set.Orders, order => order.Extent is { Seekable: true, HoldsSeekDirectory: true }));
+
     /// <summary>Test seam: the extent sets of the current state, oldest first, for the layout statistics of ADR 0177.</summary>
     internal IReadOnlyList<ExtentSet> ExtentSetsForTests() => SetsOf(_state);
 
@@ -307,6 +347,12 @@ public sealed partial class Dataset
         {
             _openRetired[set.Name] = set.Sequence;
             _removedAt[set.Name] = removedAt;
+        }
+
+        // No new read seeks it; one in flight holds the directories it took.
+        foreach (LoadedRun order in set.Orders)
+        {
+            _seekDirectories.Forget(order.Extent!);
         }
 
         set.Run.Blob!.Retire(_closedRuns.Enqueue);
@@ -826,10 +872,20 @@ public sealed partial class Dataset
         Healing(await ExtentSet.TryLoadAsync(_storage.Derived, name, Id, from, to, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("An extent set just written does not read back."));
 
-    /// <summary>A set, its run from now on healed from the log when a read finds a blob of it damaged (ADR 0213).</summary>
+    /// <summary>
+    /// A set, its run from now on healed from the log when a read finds a
+    /// blob of it damaged (ADR 0213), and its extents' seek directories read
+    /// through this dataset's cache (ADR 0240).
+    /// </summary>
     private ExtentSet Healing(ExtentSet set)
     {
         Healing(set.Run);
+
+        foreach (LoadedRun order in set.Orders)
+        {
+            order.Extent!.CacheSeekDirectoryIn(_seekDirectories);
+        }
+
         return set;
     }
 

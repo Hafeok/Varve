@@ -124,6 +124,12 @@ internal sealed class StoreSettings
     /// is opened again (ADR 0164 point 5).
     /// </summary>
     public long MemtableLimit { get; set; } = 1_000_000;
+
+    /// <summary>
+    /// The most bytes of extents' seek directories a dataset holds in memory
+    /// for as-of reads inside a set's window (ADR 0240); zero keeps none.
+    /// </summary>
+    public long SeekDirectoryCacheBytes { get; set; } = 32L << 20;
 }
 
 /// <summary>

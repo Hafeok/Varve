@@ -763,16 +763,34 @@ internal static partial class DerivedFormat
         // them, and kept by the policy's count they were most of the soak's
         // live heap (issue #61, ADR 0080).
         int stride = kind == KindCheckpoint ? KeySection.SparseStride : 1;
-        Chunked<QuadKey>[] fences = new Chunked<QuadKey>[sectionCount];
+        Chunked<QuadKey>?[] fences = new Chunked<QuadKey>?[sectionCount];
+
+        // A format-5 extent's seek directory — its rows within's fences, block
+        // starts and block checks, and every column's checks — is read here,
+        // hashed with the rest and checked slice by slice, and not kept: only
+        // an as-of read inside the window reads it, and it grows with the
+        // window's history, not with the data (ADR 0240). Where each slice is,
+        // and its check, is what stays.
+        int seekSection = hasColumns ? Sections : -1;
+        long seekFencesAt = 0;
+        long seekChecksAt = 0;
+        ulong seekFencesCheck = 0;
+        ulong seekStartsCheck = 0;
+        ulong seekChecksCheck = 0;
 
         for (int section = 0; section < sectionCount; section++)
         {
-            fences[section] = new Chunked<QuadKey>((blockCounts[section] + stride - 1) / stride);
+            bool kept = section != seekSection;
+            fences[section] = kept ? new Chunked<QuadKey>((blockCounts[section] + stride - 1) / stride) : null;
+            seekFencesAt = kept ? seekFencesAt : directory.Position;
+            directory.StartCheck();
 
             if (!directory.TryReadKeys(blockCounts[section], stride, fences[section]))
             {
                 return null;
             }
+
+            seekFencesCheck = kept ? seekFencesCheck : directory.Check;
         }
 
         Chunked<long>?[] starts = new Chunked<long>?[sectionCount];
@@ -780,34 +798,53 @@ internal static partial class DerivedFormat
 
         for (int section = 0; section < sectionCount; section++)
         {
+            bool kept = section != seekSection;
             startsAt[section] = directory.Position;
-            starts[section] = stride == 1 ? new Chunked<long>(blockCounts[section] + 1) : null;
+            starts[section] = stride == 1 && kept ? new Chunked<long>(blockCounts[section] + 1) : null;
+            directory.StartCheck();
 
             if (!directory.TryReadStarts(blockCounts[section], lengths[section], starts[section]))
             {
                 return null;
             }
+
+            seekStartsCheck = kept ? seekStartsCheck : directory.Check;
         }
 
-        Chunked<ulong>[]? checks = null;
-        Chunked<ulong>[]? columnChecks = null;
+        Chunked<ulong>?[]? checks = null;
+        long[] columnChecksAt = new long[sectionCount];
+        ulong[] columnChecksCheck = new ulong[sectionCount];
 
         if (isChecked)
         {
-            checks = new Chunked<ulong>[sectionCount];
-            columnChecks = hasColumns ? new Chunked<ulong>[sectionCount] : null;
+            checks = new Chunked<ulong>?[sectionCount];
 
-            foreach (Chunked<ulong>[] read in hasColumns ? (Chunked<ulong>[][])[checks, columnChecks!] : [checks])
+            for (int section = 0; section < sectionCount; section++)
             {
-                for (int section = 0; section < sectionCount; section++)
-                {
-                    read[section] = new Chunked<ulong>(blockCounts[section]);
+                bool kept = section != seekSection;
+                checks[section] = kept ? new Chunked<ulong>(blockCounts[section]) : null;
+                seekChecksAt = kept ? seekChecksAt : directory.Position;
+                directory.StartCheck();
 
-                    if (!directory.TryReadChecks(blockCounts[section], read[section]))
-                    {
-                        return null;
-                    }
+                if (!directory.TryReadChecks(blockCounts[section], checks[section]))
+                {
+                    return null;
                 }
+
+                seekChecksCheck = kept ? seekChecksCheck : directory.Check;
+            }
+
+            for (int section = 0; hasColumns && section < sectionCount; section++)
+            {
+                columnChecksAt[section] = directory.Position;
+                directory.StartCheck();
+
+                if (!directory.TryReadChecks(blockCounts[section], null))
+                {
+                    return null;
+                }
+
+                columnChecksCheck[section] = directory.Check;
             }
         }
 
@@ -914,8 +951,8 @@ internal static partial class DerivedFormat
         for (int section = 0; section < Sections; section++)
         {
             KeySection keys = starts[section] is { } held
-                ? KeySection.On(blob, offsets[section], counts[section], fences[section], held, checks?[section])
-                : KeySection.Sparse(blob, offsets[section], counts[section], fences[section], startsAt[section], lengths[section]);
+                ? KeySection.On(blob, offsets[section], counts[section], fences[section]!, held, checks?[section])
+                : KeySection.Sparse(blob, offsets[section], counts[section], fences[section]!, startsAt[section], lengths[section]);
 
             if (section % 2 == 0)
             {
@@ -928,22 +965,31 @@ internal static partial class DerivedFormat
         }
 
         ExtentInfo? extent = null;
-
-        KeySection? within = null;
-
-        if (sectionCount > Sections)
-        {
-            within = starts[Sections] is { } held
-                ? KeySection.On(blob, offsets[Sections], counts[Sections], fences[Sections], held, checks![Sections])
-                : null;
-        }
-
         ulong extentOrder = kind == KindExtent ? BinaryPrimitives.ReadUInt64LittleEndian(tail[(9 * 8)..]) : 0;
+        SeekDirectorySource? seek = null;
+
+        if (hasColumns && extentOrder < Orders.Count)
+        {
+            int open = (int)extentOrder * 2;
+            seek = new SeekDirectorySource(
+                blob,
+                offsets[Sections],
+                counts[Sections],
+                lengths[Sections],
+                new SeekSlice(seekFencesAt, blockCounts[Sections], seekFencesCheck),
+                new SeekSlice(startsAt[Sections], blockCounts[Sections], seekStartsCheck),
+                new SeekSlice(seekChecksAt, blockCounts[Sections], seekChecksCheck),
+                [
+                    new SeekSlice(columnChecksAt[open], blockCounts[open], columnChecksCheck[open]),
+                    new SeekSlice(columnChecksAt[open + 1], blockCounts[open + 1], columnChecksCheck[open + 1]),
+                    new SeekSlice(columnChecksAt[Sections], blockCounts[Sections], columnChecksCheck[Sections]),
+                ]);
+        }
 
         if (kind == KindExtent
             && (header.Version < 4
                 || extentOrder >= Orders.Count
-                || (extent = ExtentInfo.TryRead(blob, tail[(9 * 8)..], header, sectionsEnd, within, counts[(int)extentOrder * 2], counts[((int)extentOrder * 2) + 1], ColumnChecksOf(columnChecks, (int)extentOrder))) is null))
+                || (extent = ExtentInfo.TryRead(blob, tail[(9 * 8)..], header, sectionsEnd, seek, counts[(int)extentOrder * 2], counts[((int)extentOrder * 2) + 1])) is null))
         {
             return null;
         }
@@ -957,10 +1003,56 @@ internal static partial class DerivedFormat
     private static IReadableBlob Terms(IReadableBlob blob, Chunked<ulong>? pageChecks, long from, long to) =>
         pageChecks is null ? blob : new CheckedPages(blob, from, to, pageChecks);
 
-    // A format-5 extent's column checks by column: its open positions',
-    // its closing positions' and its rows within's (ADR 0177).
-    private static (Chunked<ulong> Open, Chunked<ulong> Close, Chunked<ulong> Within)? ColumnChecksOf(Chunked<ulong>[]? columnChecks, int order) =>
-        columnChecks is null || order >= Orders.Count ? null : (columnChecks[order * 2], columnChecks[(order * 2) + 1], columnChecks[Sections]);
+    /// <summary>
+    /// A format-5 extent's seek directory, read from where the extent's open
+    /// found it and checked against the checks the open took (ADR 0240): the
+    /// rows within's key section, and the three columns' checks.
+    /// </summary>
+    /// <exception cref="DerivedDamageException">A slice is short or does not match its check: the extent is damaged.</exception>
+    [DesignDecision(typeof(VerifiedDerivedData.EveryBlockIsChecked), Scope = ExceptionScope.Boundary)]
+    internal static (KeySection Within, Chunked<ulong>[] ColumnChecks) LoadSeekDirectory(SeekDirectorySource source)
+    {
+        long blocks = source.Fences.Count;
+        Chunked<QuadKey> fences = new(blocks);
+        Chunked<long> starts = new(blocks + 1);
+        Chunked<ulong> checks = new(blocks);
+        Chunked<ulong>[] columns = new Chunked<ulong>[source.Columns.Length];
+        bool sound;
+
+        using (DirectoryReader reader = new(source.Blob, source.Fences.At, blocks * QuadKey.Size))
+        {
+            reader.StartCheck();
+            sound = reader.TryReadKeys(blocks, 1, fences) && reader.Check == source.Fences.Check;
+        }
+
+        using (DirectoryReader reader = new(source.Blob, source.Starts.At, blocks * 8))
+        {
+            reader.StartCheck();
+            sound = sound && reader.TryReadStarts(blocks, source.KeysLength, starts) && reader.Check == source.Starts.Check;
+        }
+
+        using (DirectoryReader reader = new(source.Blob, source.Checks.At, blocks * 8))
+        {
+            reader.StartCheck();
+            sound = sound && reader.TryReadChecks(blocks, checks) && reader.Check == source.Checks.Check;
+        }
+
+        for (int column = 0; column < columns.Length; column++)
+        {
+            SeekSlice slice = source.Columns[column];
+            columns[column] = new Chunked<ulong>(slice.Count);
+            using DirectoryReader reader = new(source.Blob, slice.At, slice.Count * 8);
+            reader.StartCheck();
+            sound = sound && reader.TryReadChecks(slice.Count, columns[column]) && reader.Check == slice.Check;
+        }
+
+        if (!sound)
+        {
+            throw new DerivedDamageException("An extent's seek directory does not match the check its open took; the extent is damaged.");
+        }
+
+        return (KeySection.On(source.Blob, source.KeysAt, source.KeysCount, fences, starts, checks), columns);
+    }
 
     /// <summary>
     /// A version-6 run's term section on its way to the blob, a check taken of
@@ -1054,6 +1146,7 @@ internal static partial class DerivedFormat
         private readonly IncrementalHash _hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         private readonly byte[] _buffer = ArrayPool<byte>.Shared.Rent(Chunked<byte>.ChunkBytes);
         private long _at;
+        private ulong _check;
 
         internal bool TryRead(Span<byte> destination)
         {
@@ -1063,15 +1156,22 @@ internal static partial class DerivedFormat
             }
 
             _hash.AppendData(destination);
+            _check = WordCheck.Add(_check, destination);
             _at += destination.Length;
             return true;
         }
+
+        /// <summary>Begins the check of a slice: of every word read from here on, in order, however the reads are cut.</summary>
+        internal void StartCheck() => _check = WordCheck.Seed;
+
+        /// <summary>The check of the words read since <see cref="StartCheck"/>.</summary>
+        internal ulong Check => WordCheck.Finish(_check);
 
         /// <summary>Where the next byte read is, in the blob.</summary>
         internal long Position => offset + _at;
 
         // Every stride-th of the next count fences, the first included.
-        internal bool TryReadKeys(long count, int stride, Chunked<QuadKey> keys)
+        internal bool TryReadKeys(long count, int stride, Chunked<QuadKey>? keys)
         {
             int per = _buffer.Length / QuadKey.Size;
 
@@ -1089,7 +1189,7 @@ internal static partial class DerivedFormat
 
                 for (int i = 0; i < read.Length; i++)
                 {
-                    if ((done + i) % stride == 0)
+                    if (keys is not null && (done + i) % stride == 0)
                     {
                         keys.Add(read[i]);
                     }
@@ -1139,7 +1239,7 @@ internal static partial class DerivedFormat
         }
 
         // The next count checks, eight bytes each.
-        internal bool TryReadChecks(long count, Chunked<ulong> checks)
+        internal bool TryReadChecks(long count, Chunked<ulong>? checks)
         {
             int per = _buffer.Length / 8;
 
@@ -1155,7 +1255,7 @@ internal static partial class DerivedFormat
 
                 for (int i = 0; i < take; i++)
                 {
-                    checks.Add(BinaryPrimitives.ReadUInt64LittleEndian(bytes[(i * 8)..]));
+                    checks?.Add(BinaryPrimitives.ReadUInt64LittleEndian(bytes[(i * 8)..]));
                 }
 
                 done += take;

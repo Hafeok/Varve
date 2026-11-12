@@ -123,12 +123,12 @@ internal sealed class CommitSegment
     /// <summary>The entries of a block, whose first timestamp is its fence.</summary>
     internal const int BlockEntries = 128;
 
-    internal CommitSegment(RunBlob blob, long from, long to, Chunked<long> fences)
+    internal CommitSegment(RunBlob blob, long from, long to, long firstTicks)
     {
         Blob = blob;
         From = from;
         To = to;
-        Fences = fences;
+        FirstTicks = firstTicks;
     }
 
     internal RunBlob Blob { get; }
@@ -139,8 +139,15 @@ internal sealed class CommitSegment
 
     internal long Count => To - From;
 
-    /// <summary>The first timestamp of every block.</summary>
-    internal Chunked<long> Fences { get; }
+    /// <summary>
+    /// The first entry's timestamp: the first block's fence. The other
+    /// blocks' fences are not held (ADR 0240): a block's fence is its first
+    /// entry's timestamp, and <see cref="PositionAt"/> reads it there.
+    /// </summary>
+    internal long FirstTicks { get; }
+
+    // The first timestamp of a block, read from its first entry.
+    private long Fence(long block) => block == 0 ? FirstTicks : Read(From + 1 + (block * BlockEntries)).TimestampTicks;
 
     /// <summary>The entry at <paramref name="position"/>, which the caller holds the blob for.</summary>
     internal CommitEntry Read(long position)
@@ -158,15 +165,16 @@ internal sealed class CommitSegment
     /// <summary>The greatest position whose timestamp is at or before <paramref name="ticks"/>, given the first one is.</summary>
     internal long PositionAt(long ticks)
     {
-        // The last block whose fence is at or before the timestamp.
+        // The last block whose fence is at or before the timestamp: a
+        // binary search of the blocks' first entries, one small read a step.
         long low = 0;
-        long high = Fences.Count - 1;
+        long high = ((Count + BlockEntries - 1) / BlockEntries) - 1;
 
         while (low < high)
         {
             long middle = low + ((high - low + 1) / 2);
 
-            if (Fences[middle] <= ticks)
+            if (Fence(middle) <= ticks)
             {
                 low = middle;
             }
@@ -392,7 +400,7 @@ internal sealed class CommitIndex
         {
             int middle = lowSegment + ((highSegment - lowSegment) / 2);
 
-            if (Segments[middle].Fences[0] <= ticks)
+            if (Segments[middle].FirstTicks <= ticks)
             {
                 found = middle;
                 lowSegment = middle + 1;
@@ -626,7 +634,7 @@ internal sealed class CommitPrefix : IDisposable
 
         try
         {
-            return segment.Fences[0] > ticks ? 0 : Math.Min(To, segment.PositionAt(ticks));
+            return segment.FirstTicks > ticks ? 0 : Math.Min(To, segment.PositionAt(ticks));
         }
         finally
         {
@@ -777,19 +785,14 @@ internal static class CommitIndexFormat
             return null;
         }
 
-        Chunked<long> fences = new(blocks);
-
-        for (long i = 0; i < blocks; i++)
-        {
-            fences.Add(BinaryPrimitives.ReadInt64LittleEndian(directory.AsSpan((int)(12 + (i * 8)))));
-        }
-
         if (checks && !BlocksMatch(blob, count, blocks, directory.AsSpan((int)(12 + (blocks * 8)))))
         {
             return null;
         }
 
-        CommitSegment segment = new(new RunBlob(name, blob), header.From, header.To, fences);
+        // The fences are verified with the directory and not kept: only the
+        // first, which says whether a timestamp is in the blob at all (ADR 0240).
+        CommitSegment segment = new(new RunBlob(name, blob), header.From, header.To, BinaryPrimitives.ReadInt64LittleEndian(directory.AsSpan(12)));
 
         // The end hash names the commit the blob reaches; its last entry must agree.
         return segment.Read(header.To).HashEquals(header.ToHash) ? segment : null;
