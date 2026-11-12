@@ -462,6 +462,14 @@ Filed by [#101](https://github.com/Hafeok/Varve/issues/101), unaccepted until th
 |---:|---|---|
 | [0223](0223-provider-legs-by-federated-credentials.md) | The provider legs by federated credentials: GitHub's OIDC token for Entra ID and Google | Filed unaccepted (#101) |
 
+## Model names in commit messages (#257)
+
+Filed by the session for [#257](https://github.com/Hafeok/Varve/issues/257), recording the maintainer's ruling of 2026-10-27 for [#169](https://github.com/Hafeok/Varve/issues/169), unaccepted until he accepts it (ADR 0066). Numbered 0241: 0240 is taken on another branch. It supersedes one ruling of 0033.
+
+| # | Title | Status |
+|---:|---|---|
+| [0241](0241-model-names-refused-identifiers-allowed.md) | A commit message never names a model; a model's identifier is allowed; supersedes one ruling of 0033 | Filed unaccepted (#257) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

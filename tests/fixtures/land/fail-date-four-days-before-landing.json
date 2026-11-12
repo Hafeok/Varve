@@ -1,0 +1,10 @@
+{
+  "step": "date",
+  "version": "v0.1.0-preview.21",
+  "date": "2026-11-06",
+  "landing": "2026-11-10",
+  "says": [
+    "4 days before the landing day 2026-11-10",
+    "dotnet run eng/release.cs -- --sbom v0.1.0-preview.21"
+  ]
+}
