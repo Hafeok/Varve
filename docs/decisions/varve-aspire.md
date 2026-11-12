@@ -23,9 +23,12 @@ decisions:
     statement: "MessagePack, which Aspire.Hosting brings into Varve.Aspire's and the sample's closures, is pinned by central transitive pinning to 2.5.303, past GHSA-qhrr-8q5h-9q3h, scoped to src/Varve.Aspire/ and samples/, until Aspire.Hosting's own dependency moves past it; amended 2026-10-16"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-16T00:00:00Z
+    revoked-at: 2026-11-12T00:00:00Z
 ---
 
 The rulings of [ADR 0117](../adr/0117-varve-aspire.md), filed unaccepted by milestone Operability of #12
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.
 
 Moved to a later set: `WithDatasetDeclaresTheDataset` is superseded by ADR 0163, under which a dataset is declared by `varve apply`, in its set.
+
+Revoked with no successor: `MessagePackPinnedPastTheAdvisory`, on 2026-11-12, at the maintainer's word, by his delegate (ADR 0239). Its pin left with `Aspire.Hosting` 13.6.5 (#285), whose own `MessagePack` dependency is past the advisory; see ADR 0117's note of that day.

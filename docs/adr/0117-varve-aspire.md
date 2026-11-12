@@ -20,6 +20,9 @@ past an advisory; see the end.
 moves to 13.6.5, past an advisory against it, and the `MessagePack` pin leaves
 as its own amendment said it would; see the end.
 
+**Noted 2026-11-12** (ADR 0062): `MessagePackPinnedPastTheAdvisory` is revoked
+with no successor, its pin having left; see the end.
+
 ## Context
 
 ADR 0037 expected the server to run under Aspire in development and said
@@ -196,3 +199,23 @@ already made, and applies the leaving condition of the amendment of
 the set as accepted; its condition, "until Aspire.Hosting's own dependency
 moves past it", is met from this amendment on. Whether the key is revoked is
 the maintainer's call (ADR 0062).
+
+## Note, 2026-11-12 — `MessagePackPinnedPastTheAdvisory` is revoked
+
+The maintainer answered the question the amendment above left open, on
+2026-11-12: the ruling is revoked. It is written by his delegate at his word
+(ADR 0239).
+
+- **Why revoked, with no successor.** The ruling admitted one register entry,
+  `MessagePack` 2.5.303, until `Aspire.Hosting`'s own dependency moved past
+  GHSA-qhrr-8q5h-9q3h. With `Aspire.Hosting` 13.6.5 it has (2.5.307), the entry
+  is gone from `Directory.Packages.props` (#285), and nothing takes its place:
+  `MessagePack` is again an ordinary transitive dependency of `Aspire.Hosting`.
+- **What cited it.** Nothing in code. It is named in its set, in this ADR, in
+  the decision report's baseline and in the traceability record of the session
+  that filed it.
+- **The ledger.** `MessagePackPinnedPastTheAdvisory` carries
+  `revoked-at: 2026-11-12T00:00:00Z` in `docs/decisions/varve-aspire.md`. Where
+  the amendment above says the key "stays in the set as accepted", this note
+  is the later word. `eng/decision-sets.cs` lists it among the rulings revoked
+  with no successor, as ADR 0062 asks of every such use.
