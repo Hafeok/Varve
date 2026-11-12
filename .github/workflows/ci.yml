@@ -931,9 +931,9 @@ jobs:
           ref: ${{ inputs.ref }}
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          global-json-file: global.json
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224,
+        # #276): never actions/setup-dotnet with global.json's roll-forward.
+        uses: ./.github/actions/setup-dotnet
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -1103,16 +1103,26 @@ jobs:
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
 
-  # The real-provider legs (ADR 0100): one test each for Entra ID and Google,
-  # with secrets from the auth-providers environment, which only main can
-  # deploy to — so no pull request, and no fork, ever sees them. Not a required
-  # check: a pull request cannot run it. Each leg skips while its secrets are
-  # not configured.
+  # The real-provider legs (ADR 0100, point 4 superseded by ADR 0223): one
+  # test each for Entra ID and Google, by federated credentials. The job's own
+  # OIDC token for the auth-providers environment, which only main can deploy
+  # to, is the only credential: the test exchanges it itself, in plain HTTP
+  # calls, for an Entra token (client_assertion) and a Google ID token (STS,
+  # then generateIdToken). No action does either exchange, and no secret or
+  # key is stored. The environment holds identifiers only; until they are
+  # configured (docs/auth-providers.md) each leg skips, and a configured leg
+  # that fails is red. Not a required check: a pull request cannot run it.
   auth-providers:
     name: auth (providers)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: auth-providers
+    # id-token: write on this job, not on the workflow. The providers trust
+    # only a token whose subject names the auth-providers environment, which
+    # only this job, on main, runs in.
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout
@@ -1125,12 +1135,15 @@ jobs:
         uses: ./.github/actions/setup-dotnet
 
       - name: Test against Entra ID and Google
+        # Identifiers, not credentials. They are environment secrets only
+        # because repo-standard cannot yet declare an environment's variables
+        # (#239).
         env:
           VARVE_ENTRA_TENANT: ${{ secrets.VARVE_ENTRA_TENANT }}
           VARVE_ENTRA_CLIENT_ID: ${{ secrets.VARVE_ENTRA_CLIENT_ID }}
-          VARVE_ENTRA_CLIENT_SECRET: ${{ secrets.VARVE_ENTRA_CLIENT_SECRET }}
           VARVE_ENTRA_AUDIENCE: ${{ secrets.VARVE_ENTRA_AUDIENCE }}
-          VARVE_GOOGLE_SERVICE_ACCOUNT: ${{ secrets.VARVE_GOOGLE_SERVICE_ACCOUNT }}
+          VARVE_GOOGLE_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.VARVE_GOOGLE_WORKLOAD_IDENTITY_PROVIDER }}
+          VARVE_GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.VARVE_GOOGLE_SERVICE_ACCOUNT_EMAIL }}
         run: >
           dotnet test
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
@@ -1885,10 +1898,10 @@ jobs:
 
       - name: Set up .NET
         # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        # and the WebAssembly workloads from its SDK's workload set (#276).
         uses: ./.github/actions/setup-dotnet
-
-      - name: Install the WebAssembly workloads
-        run: dotnet workload install wasm-tools wasm-experimental
+        with:
+          workloads: wasm-tools wasm-experimental
 
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -1952,10 +1965,10 @@ jobs:
 
       - name: Set up .NET
         # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        # and the WebAssembly workloads from its SDK's workload set (#276).
         uses: ./.github/actions/setup-dotnet
-
-      - name: Install the WebAssembly workloads
-        run: dotnet workload install wasm-tools wasm-experimental
+        with:
+          workloads: wasm-tools wasm-experimental
 
       - name: Cache NuGet packages
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6

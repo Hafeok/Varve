@@ -2,7 +2,9 @@
 
 ## Status
 
-**Filed unaccepted by the session for #230, 2026-11-11** (ADR 0066). Decided
+**Accepted — filed unaccepted by the session for #230, 2026-11-11** (ADR 0066),
+its thirteen rulings accepted on #280 on 2026-11-12, at the maintainer's word,
+by his delegate (ADR 0239). Decided
 by the maintainer on [#230](https://github.com/Hafeok/Varve/issues/230),
 accepted there as written on 2026-11-06; the review of 2026-11-11, posted on
 the same issue, settled its four open questions and added seven rulings.

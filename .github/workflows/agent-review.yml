@@ -94,6 +94,7 @@ jobs:
         # that cannot set up fails every land/ push that changes it. It judges
         # with main's code and restores nothing, so global.json's SDK with its
         # roll-forward is enough here (ADR 0224).
+        # sdk-pin: exempt (main's checkout, restores nothing; eng/sdk-pin.cs)
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           global-json-file: global.json

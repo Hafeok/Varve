@@ -189,6 +189,17 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     // SDK global.json pins, whose own packages (ILLink, ILCompiler) it records.
     // Before the restore, so a lockfile from another patch fails here with
     // the script that regenerates them, not with NuGet's NU1004.
+    // ADR 0224 point 5, amended 2026-11-11 (#276): .NET is set up, and
+    // workloads installed, only through .github/actions/setup-dotnet, from
+    // the workload set of global.json's SDK, which global.json does not name.
+    ("sdk-pin", "every workflow sets up .NET and installs workloads only through the composite action, and global.json names no workload set",
+        () => Run("dotnet", ["run", "eng/sdk-pin.cs"])),
+
+    // Both of its paths (tests/fixtures/sdk-pin/README.md).
+    ("sdk-pin-fixtures", "the SDK pin gate fails its failing fixture and passes its passing one",
+        () => Run("dotnet", ["run", "eng/sdk-pin.cs", "--", "--root", "tests/fixtures/sdk-pin/failing"]) == 1
+            && Run("dotnet", ["run", "eng/sdk-pin.cs", "--", "--root", "tests/fixtures/sdk-pin/passing"]) == 0 ? 0 : 1),
+
     ("lockfiles", "every lockfile was written with global.json's SDK, before a locked restore says so less clearly",
         () => Run("dotnet", ["run", "eng/lockfiles.cs", "--", "--check"])),
 
