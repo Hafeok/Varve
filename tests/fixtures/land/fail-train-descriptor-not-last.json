@@ -1,0 +1,11 @@
+{
+  "step": "train",
+  "main": { "README.md": "Varve\n" },
+  "members": [
+    { "number": 11, "files": { "releases/v0.1.0-preview.99.yaml": "version: v0.1.0-preview.99\n" }, "approval": "head", "green": true },
+    { "number": 12, "files": { "docs/b.md": "b\n" }, "approval": "head", "green": true }
+  ],
+  "says": [
+    "#11 carries the release descriptor v0.1.0-preview.99, so it goes last in the train."
+  ]
+}

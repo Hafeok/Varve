@@ -46,6 +46,15 @@
 //                 approved head by pushing it to land/<name> and fast-forwarding
 //                 main to it, and the merged head is the reviewed head. Posts
 //                 the same check.
+//                 Or a landing train (#277, ADR 0243 point 10): a head whose
+//                 first-parent line down to main is only `Landing-only: merge`
+//                 commits of two parents, each one's tree `git merge-tree` of
+//                 its parents, each one's second parent an approved pull
+//                 request's head, by the same test, and two or more of them.
+//                 The workflow fetches the history for a push, as data; git
+//                 reads it, and nothing from it is built or run. The
+//                 approvals are the members' own, so nothing on the land/
+//                 branch can add one, and no hand-resolved merge passes.
 //   none          a local run: says what it would need and exits 0.
 //
 // GITHUB_API_URL points it at a stand-in, which is how eng/agent-review-tamper.cs
@@ -61,6 +70,7 @@
 #:include lib/Identities.cs
 #:property NoWarn=$(NoWarn);CA2266
 
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -307,6 +317,24 @@ if (pullNumber is null && agents.Count > 0)
     }
 }
 
+// A land/ push that is no approved head may be a landing train of approved
+// heads (#277, ADR 0243 point 10).
+List<int>? train = null;
+string notATrain = "";
+
+if (pullNumber is null && agents.Count > 0 && approvedPull is null)
+{
+    try
+    {
+        (train, notATrain) = await ApprovedTrain(api, headSha, PinnedIntegration(repositoryRoot, checkName), checkName);
+    }
+    catch (Exception exception) when (exception is HttpRequestException or JsonException or KeyNotFoundException or InvalidOperationException or TaskCanceledException)
+    {
+        Console.Error.WriteLine($"agent-review: could not read whether {headSha} is a train of approved heads: {exception.Message}");
+        return 2;
+    }
+}
+
 foreach (Agent agent in agents.Values)
 {
     IReadOnlyList<Human> holders = baseMap.ActingFor(agent);
@@ -320,8 +348,14 @@ foreach (Agent agent in agents.Values)
             continue;
         }
 
+        if (train is not null)
+        {
+            Console.WriteLine($"ok  '{agent.Id}' authored commits here, and {headSha[..MinimumShaPrefix]} is a train of the approved heads of {string.Join(", ", train.Select(static number => $"#{number}"))}");
+            continue;
+        }
+
         findings.Add($"'{agent.Id}' authored commits on this branch, and {headSha[..MinimumShaPrefix]} is not the head of a pull request "
-            + $"approved by {who}; push an approved pull request's head, unchanged");
+            + $"approved by {who}, nor a train of approved heads ({notATrain}); push an approved pull request's head, unchanged, or a train eng/land.cs --train built");
         continue;
     }
 
@@ -420,6 +454,130 @@ static async Task<int?> ApprovedPullRequestHead(Api api, string head, long? inte
     }
 
     return null;
+}
+
+// A landing train (#277): the pull requests whose approved heads it merges,
+// in order, or null and why not. eng/land.cs's Trains.Verify is the same rule;
+// this copy is main's, so a train cannot change how it is judged.
+static async Task<(List<int>? Members, string Why)> ApprovedTrain(Api api, string head, long? integration, string name)
+{
+    if (integration is null)
+    {
+        return (null, "no App is pinned for the check");
+    }
+
+    string main;
+    using (JsonDocument branch = await api.Get("commits/main"))
+    {
+        main = branch.RootElement.GetProperty("sha").GetString()!;
+    }
+
+    string infoAttributes = Git("rev-parse", "--git-path", "info/attributes").Output.Trim();
+
+    if (File.Exists(infoAttributes) && File.ReadAllLines(infoAttributes).Any(static line => line.Trim() is { Length: > 0 } text && !text.StartsWith('#')))
+    {
+        return (null, $"{infoAttributes} sets attributes, which change how a merge resolves");
+    }
+
+    List<int> members = [];
+    string at = head;
+
+    while (at != main)
+    {
+        if (members.Count >= 100)
+        {
+            return (null, "its first-parent line does not reach main within 100 merges");
+        }
+
+        (int exit, string parents) = Git("rev-list", "--parents", "-n", "1", at);
+        string[] shas = parents.Trim().Split(' ');
+
+        if (exit != 0)
+        {
+            return (null, $"{at[..MinimumShaPrefix]} is not in the checkout");
+        }
+
+        if (shas.Length != 3)
+        {
+            return (null, $"{at[..MinimumShaPrefix]} is not a merge of two parents, and main is not below it on its first-parent line");
+        }
+
+        if (!Regex.IsMatch(Git("log", "-1", "--format=%B", at).Output, @"^Landing-only:[ \t]*merge[ \t]*$", RegexOptions.Multiline | RegexOptions.CultureInvariant))
+        {
+            return (null, $"{at[..MinimumShaPrefix]} has no `Landing-only: merge` trailer");
+        }
+
+        (int mergeExit, string merged) = PinnedMergeTree(shas[1], shas[2]);
+
+        if (mergeExit != 0 || merged.Split('\n')[0].Trim() != Git("rev-parse", $"{at}^{{tree}}").Output.Trim())
+        {
+            return (null, $"{at[..MinimumShaPrefix]}'s tree is not `git merge-tree` of its parents under the pinned settings");
+        }
+
+        if (await ApprovedPullRequestHead(api, shas[2], integration, name) is not int member)
+        {
+            return (null, $"{shas[2][..MinimumShaPrefix]}, which {at[..MinimumShaPrefix]} merges, is not an approved pull request's head");
+        }
+
+        members.Insert(0, member);
+        at = shas[1];
+    }
+
+    return members.Count < 2 ? (null, "a train has two or more members") : (members, "");
+}
+
+// `git merge-tree` under the settings every train merge runs under (ADR 0243
+// point 10, the merge is pinned). eng/land.cs's Trains.MergeTree states the
+// same; change both together. Attributes come from the train so far (the
+// first parent), never main's checkout, with the global and system files off;
+// renames are fixed. A different git that merges differently refuses the
+// train, and the lander builds it again.
+static (int Exit, string Output) PinnedMergeTree(string ours, string theirs) =>
+    GitWith(new Dictionary<string, string> { ["GIT_ATTR_NOSYSTEM"] = "1" },
+        "-c", "core.attributesFile=",
+        "-c", "merge.renames=true",
+        "-c", "merge.directoryRenames=false",
+        "-c", "merge.renameLimit=7000",
+        "-c", "diff.renames=true",
+        "-c", "diff.renameLimit=7000",
+        $"--attr-source={ours}", "merge-tree", "--write-tree", "--name-only", "--no-messages", ours, theirs);
+
+// git in the working directory (main's checkout, which holds the pushed
+// history for a push), or GIT_DIR. Read only.
+static (int Exit, string Output) Git(params string[] arguments) => GitWith(null, arguments);
+
+static (int Exit, string Output) GitWith(Dictionary<string, string>? environment, params string[] arguments)
+{
+    ProcessStartInfo start = new("git")
+    {
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+    };
+
+    foreach ((string key, string value) in environment ?? [])
+    {
+        start.Environment[key] = value;
+    }
+
+    foreach (string argument in arguments)
+    {
+        start.ArgumentList.Add(argument);
+    }
+
+    try
+    {
+        using Process process = Process.Start(start) ?? throw new InvalidOperationException("could not start git");
+        Task<string> error = process.StandardError.ReadToEndAsync();
+        string output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        _ = error.Result;
+        return (process.ExitCode, output);
+    }
+    catch (System.ComponentModel.Win32Exception)
+    {
+        return (127, "");
+    }
 }
 
 // The integration id ruleset 1 pins the check to, read from main's

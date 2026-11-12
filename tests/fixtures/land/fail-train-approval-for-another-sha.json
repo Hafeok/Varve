@@ -1,0 +1,13 @@
+{
+  "step": "train",
+  "main": { "README.md": "Varve\n" },
+  "members": [
+    { "number": 11, "files": { "docs/a.md": "a\n" }, "approval": "head", "green": true },
+    { "number": 12, "files": { "docs/b.md": "b\n" }, "approval": "other", "green": true }
+  ],
+  "says": [
+    "#12's head",
+    "its approvals are for",
+    "A train lands only heads approved as they are."
+  ]
+}
