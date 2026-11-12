@@ -29,3 +29,12 @@ No `VARVE` rule is suppressed. `DD0008` reports a `#pragma`, a
 `.editorconfig` sets `dd_rule_id_prefixes = VARVE`. The only exception path is
 `[DesignDecision(typeof(<Set>.<Key>), Scope = …)]` on the symbol, citing a filed
 decision.
+
+## Commit-message gates
+
+Rules about commits, not code, are scripts under `eng/`, run as jobs of
+`eng/ci.cs`, each with fixtures that prove its failure path on every build.
+
+| Gate | Rule | Decision |
+|---|---|---|
+| [`model-names`](model-names.md) | A commit message never names a model; a model's identifier is allowed | ADR [0241](../adr/0241-model-names-refused-identifiers-allowed.md), superseding one ruling of [0033](../adr/0033-commit-traceability.md) |

@@ -1,0 +1,8 @@
+fix(store): a change
+
+What it does.
+
+Refs #1
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: A Person <person@example.org>
