@@ -77,6 +77,15 @@ commit against the nightly's 36.5, of which the seek cache's fill is
 and noted on #229. No lower allowance is adopted from it; from this run
 alone it would be about 33.
 
+**The pipeline, 2026-11-11.** `eng/ci.cs` stops at `build` on `CS0618`
+alone. With `CS0618` not treated as an error for the run, each of its 64
+jobs passes on the head pushed on 2026-11-10, and the gates, the build, the
+judge's fixtures and the store, server and protocol suites pass on the
+merge with `main`. `main` accepted ADR 0241 (a commit message never names a
+model) after this branch's commits were pushed: they stand as pushed, and
+the commits from the merge on carry the trailer it allows. The judge's
+allowance is #270's, after three nightly runs with this on `main`.
+
 **What the session could not show.**
 - The gate's second half: the four-hour soaks on Linux and Windows.
 - Windows at all.
