@@ -1,0 +1,5 @@
+fix(store): a change
+
+Claude Sonnet 9 suggested the shape.
+
+Refs #1

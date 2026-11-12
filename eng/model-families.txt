@@ -1,0 +1,10 @@
+# The model families a commit message may not name with a version (ADR 0241,
+# #169). One word per line. eng/model-names.cs reads this file, and both the
+# commit-msg hook and the gate run that script, so the pattern lives here once.
+# A name is one of these words, optionally after "Claude", followed by a
+# version; the API identifier, hyphenated, and the bare "Claude" are allowed.
+Opus
+Sonnet
+Haiku
+Fable
+Mythos
