@@ -59,6 +59,10 @@ decisions:
     statement: "varve:placedOn names the instance that writes a dataset, by default the system writer's; a change is made by the old writer abdicating with the reason placement when it applies the change, and the newly placed instance claiming after it observes the release"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-19T00:00:00Z
+  - key: ClaimsHoldOffAfterAStoreFailure
+    statement: "A member whose open or write against the store fails for a dataset holds off before it claims that dataset again: one claim round at first, doubled with each failure in a row to a cap of 30 seconds, each wait drawn between half the step and all of it and never less than one whole round; a successful open as the writer resets it; added by the amendment of 2026-11-10"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-10T00:00:00Z
   - key: ReadinessReportsManagement
     statement: "Readiness reports the system role, epoch, applied position, lag and bootstrap state, and each dataset's role and lag; superseded, a bootstrap mismatch or a lag past Varve:Fleet:AllowedLag is not ready"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -144,3 +148,7 @@ and `StatusIsTheAdminEndpoint` (0101); `AdminEndpoints`, `ServerAdminGrant` and
 `ReadinessIsEveryDatasetOpenAndWithinLag` (0113); `WithDatasetDeclaresTheDataset` (0117);
 `StateIsAResource`, `SettingsAreAResource` and `PutDatasetIsIdempotent` (0118); `SetupIsDeclared`,
 `ApplyOrder` and `SettingsAreDesiredState` (0130).
+
+`ClaimsHoldOffAfterAStoreFailure` is added by the ADR's amendment of
+2026-11-10 (#251), and accepted on #252 on 2026-11-10, at the maintainer's
+word, by his delegate (ADR 0239).

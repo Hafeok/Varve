@@ -2,7 +2,9 @@
 
 ## Status
 
-**Filed unaccepted by the session for #257, 2026-11-10** (ADR 0066). Decided
+**Accepted — filed unaccepted by the session for #257, 2026-11-10** (ADR 0066),
+its ruling accepted on #259 on 2026-11-11, at the maintainer's word, by his
+delegate (ADR 0239). Decided
 by the maintainer on 2026-10-27, in the scope of
 [#169](https://github.com/Hafeok/Varve/issues/169). Acceptance is the
 maintainer's act, or his delegate's for a decision he has read (ADR 0239).
