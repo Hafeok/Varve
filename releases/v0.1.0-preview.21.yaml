@@ -1,0 +1,86 @@
+format: 2
+version: v0.1.0-preview.21
+title: Varve.Aspire requires the patched Aspire.Hosting
+date: 2026-11-12
+basis:
+  - issue: 285
+  - storage-format: 1
+  - delta-format: 1
+  - adr: "0223"
+  - adr: "0241"
+  - adr: "0243"
+sbom:
+  - asset: varve-webui-0.1.0-preview.21.zip sha256:173836ae6c85160812d27f8c69748bb10eda144aa82d0431df075cbfb8d2616f
+  - image: ghcr.io/hafeok/varve sha256:f68535bf299323879f32ba4dc49a297917aaf9984785675903265ab957e4352c
+  - nupkg: Varve.Aspire sha256:4a0c5d81a7fddea0d839e1df9674bec6aa2ded78c412265dfa4512cc40312d68
+  - nupkg: Varve.Classification sha256:b0fe4b40ab07ab07a88faa57af0be5be8910f111d2f51ce0ec5eeb2787a59df1
+  - nupkg: Varve.Delta sha256:3b30cd7ca748819af2f30c3df8601b65bbec3fdeebdd802dd6cf80100388735a
+  - nupkg: Varve.Derivation sha256:0ec7d7faecb0344a3df7a3f22bb2f586a7316cf4a8c016a8c40f4ff83e1fa4ce
+  - nupkg: Varve.Events sha256:3211a91e05e3b8ed40497b3c1655cee8c3fad4321084f76f2d392021322d991b
+  - nupkg: Varve.Iri sha256:57eb2c15836d35877641a27d8c6ce351f84b87987b316450c8b381f6b7a2b268
+  - nupkg: Varve.Json.Canonical sha256:1cdd259648b5780284d2352f90fc32488f82c0c768036704ee2a41c1f93a53f4
+  - nupkg: Varve.JsonLd sha256:18648bd3c11fb1fa1b6ae6b565dc45310ddbf0905ccc4f7ba4d6388da5393a4c
+  - nupkg: Varve.Management sha256:ab5b71b0bacaa7af366741b2024992261f3ca61f81d219c226672fce25bdc312
+  - nupkg: Varve.Protocol sha256:bacdf9965aa2e436ced815b60d81d65c7a190470e51eb4aecf80c4709a90c63b
+  - nupkg: Varve.Protocol.Client sha256:d8621d52b464aeef703cf400829f57f883395c4985bffff6c926091463c4a612
+  - nupkg: Varve.Rdf sha256:11175cd4a88e92a9c5453198697d911eaddeddd7f308f41b2c39f2aed01c60a4
+  - nupkg: Varve.RdfXml sha256:46aa42da5f8bf736090dda9383ba3f98ff0cf7c986e94d1f9cc5ac507ef421e4
+  - nupkg: Varve.Shacl sha256:4d95440b5c63e2f5c2f20ee7dfc1c10e2b5375a2d3c3cd04a4e8b049d531f066
+  - nupkg: Varve.Shacl.Sparql sha256:8445ab94429c8e5193cfb60105c6e827b858842ba802b8602285c98000cd9169
+  - nupkg: Varve.Shacl.Store sha256:32c655e57ef74a981cbf23b683d3120f25f89133bc708a4671b03b5fab18053a
+  - nupkg: Varve.Sparql sha256:5613be7a2454d72b1f109dee9bc9e8449babc6b6c0e9c830662d38d92e7d7eb7
+  - nupkg: Varve.Sparql.Entailment sha256:cbd96b750c0c92469d6666275c5c4638e315eed224a6010bcda036a1b18e3b1e
+  - nupkg: Varve.Sparql.Evaluation sha256:fb1e59e2924dceae11dd71924c243976de647fcf69d03c35d9ee2475d66f87a6
+  - nupkg: Varve.Sparql.Results sha256:73aeca952a290bc9980ac189d68f6e45f61033079bc65a821d1f08a914c246c2
+  - nupkg: Varve.Sparql.Store sha256:396429e123a513225792379621d585fe8b60b921ec701c823e9e17a688d67f41
+  - nupkg: Varve.Store sha256:983f52725ac7fd179507a1fbf0a0076eb82c0838fe3038e282fe06b3f5a1dc24
+  - nupkg: Varve.Store.Azure sha256:1908e3198ea0858bcba6d17a0542d1072518f115f2c3665c479ca5dda3d6bb2b
+  - nupkg: Varve.Store.Browser sha256:4275edb9237e80375965ad62a8d48ded6969466431de06eb59f0dd34e6563ff2
+  - nupkg: Varve.Store.ObjectStorage sha256:60a2b368e124fb8ae941c79f7f089cc2c981cc5e9be8ff09b123c74fea9cc3f0
+  - nupkg: Varve.Store.S3 sha256:f058947faca09d8f986bcc5065eec4fdba06d5cb22e811df7f9d28f6ff6fa3e4
+  - nupkg: Varve.Turtle sha256:9dad9cdf0f289a62642b7aed5f9b7af0eb59c8a3ae9fd0b42a9c95baea71262f
+  - nupkg: Varve.Xsd sha256:2d9f81a42acb14fb6ec95aaa2a6446940412a62573307d862285d283a4e00382
+  - tool: Varve.Server sha256:905f1acd0de2ff24b88d8a20a5a043b2bbf9845b1b48c02b4fa629a2e2a35595
+accepted-by: mailto:emil@okkels-klein.dk
+summary: |
+  ### Security: `Varve.Aspire` requires the patched `Aspire.Hosting` (#285)
+
+  `Aspire.Hosting` below 13.6.5 has a known high-severity vulnerability,
+  [GHSA-f7vh-h5g3-7jrh](https://github.com/advisories/GHSA-f7vh-h5g3-7jrh)
+  (CVE-2026-120006, elevation of privilege). `Varve.Aspire` up to
+  v0.1.0-preview.20 depends on `Aspire.Hosting` 13.6.1, which is affected.
+
+  From this release `Varve.Aspire` requires `Aspire.Hosting` 13.6.5, the
+  patched release. If you use `Varve.Aspire`, update to this version; an
+  AppHost that references it then resolves `Aspire.Hosting` 13.6.5 or later.
+  `Varve.Aspire`'s own code is unchanged, and no other package depends on
+  `Aspire.Hosting`.
+
+  `Aspire.Hosting` 13.6.5 depends on `MessagePack` 2.5.307, so the pin that
+  lifted `MessagePack` to 2.5.303 past GHSA-qhrr-8q5h-9q3h is removed, and
+  its ruling, `MessagePackPinnedPastTheAdvisory`, is revoked (ADR 0117, noted
+  2026-11-12).
+
+  ### Also in this release
+
+  What landed on `main` since v0.1.0-preview.20:
+  - **The server holds off after a store failure** (#251, #216). A member
+    whose open or write against the store fails for a dataset waits before
+    it claims that dataset again, from one claim round up to 30 seconds. A
+    writer that releases a dataset for a storage or local-disk error starts
+    the same wait, so another warm member takes over at once, and a member
+    left alone takes the dataset back by itself. A dataset's readiness entry
+    gains `degraded` while this goes on; it never makes the instance
+    unready (ADRs 0163 and 0180, amended 2026-11-10).
+  - **An event move's forward answers by what happened.** When the forward
+    to the system writer fails, the answer is `unavailable` with
+    `writer-unreachable` only if no connection was made; if the write was
+    sent and its answer lost, it is `commit-outcome-unknown` with the request
+    id. The move resumes either way (ADR 0167, amended 2026-11-02).
+  - **The Entra and Google authentication legs** are tested with federated
+    credentials, with no stored secret (#101, ADR 0223).
+  - **Process:** the SDK pin covers the workload set (#276); issues are the
+    work log and a commit message never names a model (#257, ADR 0241);
+    several approved heads can land as one train (#230, #277, ADR 0243).
+
+  The storage and delta formats are unchanged.

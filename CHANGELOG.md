@@ -12,6 +12,52 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.21] - 2026-11-12
+
+**Varve.Aspire requires the patched Aspire.Hosting**
+
+### Security: `Varve.Aspire` requires the patched `Aspire.Hosting` (#285)
+
+`Aspire.Hosting` below 13.6.5 has a known high-severity vulnerability,
+[GHSA-f7vh-h5g3-7jrh](https://github.com/advisories/GHSA-f7vh-h5g3-7jrh)
+(CVE-2026-120006, elevation of privilege). `Varve.Aspire` up to
+v0.1.0-preview.20 depends on `Aspire.Hosting` 13.6.1, which is affected.
+
+From this release `Varve.Aspire` requires `Aspire.Hosting` 13.6.5, the
+patched release. If you use `Varve.Aspire`, update to this version; an
+AppHost that references it then resolves `Aspire.Hosting` 13.6.5 or later.
+`Varve.Aspire`'s own code is unchanged, and no other package depends on
+`Aspire.Hosting`.
+
+`Aspire.Hosting` 13.6.5 depends on `MessagePack` 2.5.307, so the pin that
+lifted `MessagePack` to 2.5.303 past GHSA-qhrr-8q5h-9q3h is removed, and
+its ruling, `MessagePackPinnedPastTheAdvisory`, is revoked (ADR 0117, noted
+2026-11-12).
+
+### Also in this release
+
+What landed on `main` since v0.1.0-preview.20:
+- **The server holds off after a store failure** (#251, #216). A member
+  whose open or write against the store fails for a dataset waits before
+  it claims that dataset again, from one claim round up to 30 seconds. A
+  writer that releases a dataset for a storage or local-disk error starts
+  the same wait, so another warm member takes over at once, and a member
+  left alone takes the dataset back by itself. A dataset's readiness entry
+  gains `degraded` while this goes on; it never makes the instance
+  unready (ADRs 0163 and 0180, amended 2026-11-10).
+- **An event move's forward answers by what happened.** When the forward
+  to the system writer fails, the answer is `unavailable` with
+  `writer-unreachable` only if no connection was made; if the write was
+  sent and its answer lost, it is `commit-outcome-unknown` with the request
+  id. The move resumes either way (ADR 0167, amended 2026-11-02).
+- **The Entra and Google authentication legs** are tested with federated
+  credentials, with no stored secret (#101, ADR 0223).
+- **Process:** the SDK pin covers the workload set (#276); issues are the
+  work log and a commit message never names a model (#257, ADR 0241);
+  several approved heads can land as one train (#230, #277, ADR 0243).
+
+The storage and delta formats are unchanged.
+
 ## [0.1.0-preview.20] - 2026-10-28
 
 **Web UI, part 1 — the operator console in the browser**
@@ -2167,7 +2213,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.20...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.21...HEAD
+[0.1.0-preview.21]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.20...v0.1.0-preview.21
 [0.1.0-preview.20]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.19...v0.1.0-preview.20
 [0.1.0-preview.19]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.18...v0.1.0-preview.19
 [0.1.0-preview.18]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.17...v0.1.0-preview.18
