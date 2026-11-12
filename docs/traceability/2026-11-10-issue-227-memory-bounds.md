@@ -98,12 +98,21 @@ limit in 0.4 s.
 - A disk-full event in the session's container spoiled one 512 MB run,
   which was rerun.
 
-**Renumbered and rebased, 2026-11-11.** This ADR was filed as 0241. `main`
-accepted another ADR under that number (a commit message never names a
-model) before this landed, so it is ADR 0244 in every file and commit
-message. The branch's commits were recreated on `main` for that, with the
-co-author trailer that ADR 0241 allows; their content is otherwise as
-pushed on 2026-11-10.
+**Renumbered, 2026-11-11.** This ADR was filed as 0241. `main` accepted
+another ADR under that number (a commit message never names a model) before
+this landed, so it is ADR 0244 from the merge of `main` on, in its file
+name, its decision set and every reference. The commits pushed on
+2026-11-10 stand as pushed: their messages say 0241 and their co-author
+trailer names a model, which ADR 0241 refuses for commits made after it.
+The commits from the merge on carry the trailer it allows.
+
+**The pipeline, 2026-11-11 and 12.** `eng/ci.cs` stops at `build` on
+`CS0618` alone. With `CS0618` not treated as an error for the run, each of
+its 64 jobs passes on the head pushed on 2026-11-10, and the gates, the
+build and the store, server, protocol and SPARQL-store suites pass on the
+merge with `main`. `AllocationTests.a_solution_costs_the_evaluators_row_and_nothing_else`
+failed once in 47 runs of the protocol suite, 55 bytes a solution against
+56; it is not attributed to this change and is filed as its own issue.
 
 **What the session could not show.**
 - The container job the plan named, the AOT image under `docker run
