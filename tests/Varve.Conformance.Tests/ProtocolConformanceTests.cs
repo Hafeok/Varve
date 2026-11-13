@@ -49,6 +49,17 @@ public class ProtocolConformanceTests
         string? failure = ProtocolCatalogue.ByIri.TryGetValue(testIri, out ProtocolEntry? entry)
             ? await ProtocolRunner.RunAsync(entry, on, TestContext.Current.CancellationToken)
             : await ServiceDescriptionChecks.RunAsync(testIri, on, TestContext.Current.CancellationToken);
-        Assert.True(failure is null, testIri + "@" + subject + ": " + failure);
+        Assert.True(failure is null, testIri + "@" + subject + ": " + Exempt(testIri, subject) + failure);
     }
+
+    /// <summary>
+    /// A note that the baseline expects this failure, for whoever reads the
+    /// log: the case still fails, and the ratchet counts it as exempt (#262).
+    /// The image's cases are exempt as the in-process memory store's are, as
+    /// CI's ratchet reads them.
+    /// </summary>
+    internal static string Exempt(string testIri, string subject) =>
+        Exemptions.Covers(testIri + "@" + subject) || (subject == "server" && Exemptions.Covers(testIri + "@memory"))
+            ? "exempt (baseline/exemptions.txt), expected to fail: "
+            : "";
 }
