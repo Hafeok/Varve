@@ -143,7 +143,10 @@ internal static class ManagementEndpoints
     /// state and role in the dataset, and for an object-store dataset its
     /// epoch, warm, writer set and epoch history (ADR 0180 point 7);
     /// <c>{"state": "open" | "closed"}</c>
-    /// declares it, and every instance converges to it.
+    /// declares it, and every instance converges to it. Both read and write
+    /// the dataset's declaration graph, so <c>GET</c> sends its version as the
+    /// <c>ETag</c> and a declaring <c>PUT</c> honours <c>If-Match</c> against
+    /// it, as <c>/manage/datasets/{name}</c> does (ADR 0163 point 6; #189).
     /// <c>{"takeover": {"epoch": n}}</c> asks this instance, a warm standby, to
     /// take the dataset over from epoch <c>n</c> (ADR 0179 point 6); the
     /// system dataset's path is <c>_fleet</c>.
@@ -211,6 +214,7 @@ internal static class ManagementEndpoints
             }
 
             System.Action<System.Text.Json.Utf8JsonWriter>? handover = await plane.DescribeHandoverAsync(name, context.RequestAborted).ConfigureAwait(false);
+            Preconditions.DescribeGraph(context.Response, plane.System.GraphVersion(RequestTerm.FromTerm(ManagementVocabulary.DatasetGraph(name.Value))));
             context.Response.Headers.CacheControl = "no-store";
             await WriteJsonAsync(context, StatusCodes.Status200OK, json =>
             {
@@ -239,6 +243,12 @@ internal static class ManagementEndpoints
         Dataset system = plane.System;
         RdfTerm graph = ManagementVocabulary.DatasetGraph(name.Value);
 
+        if (!TryExpected(context, system, graph, out List<GraphPrecondition>? expected))
+        {
+            await HttpProblems.BadRequest(context, "If-Match names the graph's version, as its ETag does.").ConfigureAwait(false);
+            return;
+        }
+
         if (!plane.Table.Declarations.Datasets.TryGetValue(name.Value, out DatasetDeclaration? declared))
         {
             await HttpProblems.DatasetNotFound(context).ConfigureAwait(false);
@@ -247,7 +257,7 @@ internal static class ManagementEndpoints
 
         bool closed = ReadState(body.Bytes) == StateRequest.Closed;
         Dictionary<RdfTerm, List<Triple>> desired = new() { [graph] = Merge(Current(system, graph), [new Triple(declared.Node, Term("closed"), Boolean(closed))]) };
-        await CommitAsync(context, options, plane, desired, null, StatusCodes.Status204NoContent).ConfigureAwait(false);
+        await CommitAsync(context, options, plane, desired, expected, StatusCodes.Status204NoContent).ConfigureAwait(false);
     }
 
     /// <summary>
