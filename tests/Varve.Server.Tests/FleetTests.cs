@@ -98,6 +98,23 @@ public abstract class FleetCases : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Each_instance_names_itself_in_the_management_system_read_the_follower_included()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container);
+        long declared = await DeclareAsync(a, "d");
+        Server b = await StartAsync("b", container);
+        await WaitDeclaredAsync(b, declared, "d", "follower");
+
+        foreach ((Server server, string name, string role) in new[] { (a, "a", "writer"), (b, "b", "follower") })
+        {
+            using JsonDocument system = JsonDocument.Parse(await server.Http.GetStringAsync(new Uri(server.Address, "manage/system"), Ct));
+            Assert.Equal(name, system.RootElement.GetProperty("instance").GetString());
+            Assert.Equal(role, system.RootElement.GetProperty("role").GetString());
+        }
+    }
+
+    [Fact]
     public async Task The_data_plane_keeps_serving_with_the_system_writer_killed()
     {
         FleetLocation container = await Store.NewAsync();

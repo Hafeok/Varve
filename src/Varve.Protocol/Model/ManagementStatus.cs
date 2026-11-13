@@ -46,4 +46,11 @@ public readonly record struct ManagementStatus(ManagementRole Role, long Epoch, 
 {
     /// <summary>How far the applied position is behind the tail.</summary>
     public long Lag => Tail.Value - Applied.Value;
+
+    /// <summary>
+    /// This instance's name in the fleet, the one placement, the hop header and
+    /// request ids use (ADR 0168); <c>/manage/system</c> answers it, so a reader
+    /// can tell which instance behind one address answered.
+    /// </summary>
+    public string? Instance { get; init; }
 }

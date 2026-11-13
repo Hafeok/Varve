@@ -356,7 +356,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             string? address = _role == ManagementRole.Writer
                 ? _settings.Fleet.InternalUrl
                 : _routes.TryGetValue(SystemName, out WriterRoute route) ? route.Address : null;
-            return new ManagementStatus(_role, epoch, current.Table.Position, new ManagementPosition(Math.Max(system.Head.Value, current.Table.Position.Value)), current.Bootstrap, address);
+            return new ManagementStatus(_role, epoch, current.Table.Position, new ManagementPosition(Math.Max(system.Head.Value, current.Table.Position.Value)), current.Bootstrap, address) { Instance = _instance.Value };
         }
     }
 

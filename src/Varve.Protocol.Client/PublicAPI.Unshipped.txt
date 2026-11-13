@@ -438,6 +438,7 @@ Varve.Protocol.Client.Model.StorageKind.Value.get -> string!
 Varve.Protocol.Client.Model.SystemPlane
 Varve.Protocol.Client.Model.SystemPlane.Bootstrap.get -> Varve.Protocol.Client.Model.BootstrapState?
 Varve.Protocol.Client.Model.SystemPlane.Epoch.get -> Varve.Protocol.Client.Model.WriterEpoch?
+Varve.Protocol.Client.Model.SystemPlane.Instance.get -> Varve.Protocol.Client.Model.InstanceName?
 Varve.Protocol.Client.Model.SystemPlane.Lag.get -> Varve.Protocol.Client.Model.PositionLag?
 Varve.Protocol.Client.Model.SystemPlane.Members.get -> System.Collections.Generic.IReadOnlyDictionary<string!, System.Text.Json.JsonElement>!
 Varve.Protocol.Client.Model.SystemPlane.Position.get -> Varve.Delta.Model.FeedPosition?

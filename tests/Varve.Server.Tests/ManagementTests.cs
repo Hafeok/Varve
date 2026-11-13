@@ -122,8 +122,15 @@ public class ManagementTests
             Assert.Equal(HttpStatusCode.NotFound, (await Send(server, HttpMethod.Get, "manage/datasets/people/state")).StatusCode);
 
             // Every declaration is a commit of the system dataset, at a position the management plane names.
-            JsonDocument system = await Json(await Send(server, HttpMethod.Get, "manage/system"));
+            HttpResponseMessage systemRead = await Send(server, HttpMethod.Get, "manage/system");
+            string requestId = systemRead.Headers.GetValues("Varve-Request-Id").Single();
+            JsonDocument system = await Json(systemRead);
             Assert.Equal("writer", system.RootElement.GetProperty("role").GetString());
+
+            // It names the instance that answered, as its request ids do (#193).
+            string instance = system.RootElement.GetProperty("instance").GetString()!;
+            Assert.NotEmpty(instance);
+            Assert.StartsWith(instance + ":", requestId, StringComparison.Ordinal);
             Assert.True(system.RootElement.GetProperty("position").GetInt64() >= 6);
         }
         finally
