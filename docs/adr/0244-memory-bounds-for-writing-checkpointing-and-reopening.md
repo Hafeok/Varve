@@ -2,9 +2,10 @@
 
 ## Status
 
-**Accepted — filed unaccepted by #227, 2026-11-10** (ADR 0066). Acceptance is
-the maintainer's act on the pull request. Point 6 was changed at his
-direction of 2026-11-16: the idle test is the whole server's.
+**Accepted — filed unaccepted by #227, 2026-11-10** (ADR 0066), its seven
+rulings accepted on #264 on 2026-11-16, at the maintainer's word, by his
+delegate (ADR 0239). Point 6 was changed first, at his direction of that
+day: the idle test is the whole server's.
 
 **Amends** by dated amendment:
 - [ADR 0070](0070-the-storage-engine-is-our-own.md), which it **supersedes
