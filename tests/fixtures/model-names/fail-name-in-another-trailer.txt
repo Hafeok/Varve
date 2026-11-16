@@ -1,0 +1,8 @@
+fix(store): a change
+
+What it does.
+
+Refs #1
+
+Assisted-by: Claude Fable 9.9
+Signed-off-by: A Person <person@example.org>
