@@ -478,6 +478,14 @@ Filed by the session for [#230](https://github.com/Hafeok/Varve/issues/230), rec
 |---:|---|---|
 | [0243](0243-chain-builds-ahead-of-main.md) | Chain builds ahead of main, and landing trains | Filed unaccepted (#230) |
 
+## The docs site (#317)
+
+Filed by the session for [#317](https://github.com/Hafeok/Varve/issues/317), under [#129](https://github.com/Hafeok/Varve/issues/129)'s docs-site deliverable, recording the maintainer's answers of 2026-11-16, unaccepted until he accepts it (ADR 0066). Numbered 0247: 0244–0246 are taken on other branches. It amends 0224 by a dated amendment.
+
+| # | Title | Status |
+|---:|---|---|
+| [0247](0247-the-docs-site.md) | The docs site: a generator in eng/ on Markdig, Mermaid drawn at build time, no script | Filed unaccepted (#317) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |
@@ -587,3 +595,4 @@ From ADR 0003:
   name and could not be closed. Withdrawn 2026-09-21: it was wrong on both
   counts, and the rule now checks `IsPackable` and refuses the analyzer as a
   library reference.
+
