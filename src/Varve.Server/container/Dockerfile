@@ -27,6 +27,14 @@
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble@sha256:f87d6824cd56fa4ad117d06461e4eb0058f46a159872dbcc4a836a72efdd1bec AS layout
 RUN mkdir -p /var/lib/varve && chown 1654:1654 /var/lib/varve
 
+# The Web UI's bundle (ADR 0245 point 1), its modes set here by GNU chmod:
+# directories 755 and files 644, whatever the build context had. COPY --chmod
+# with a symbolic X is not applied to directories by every builder (#296: a
+# runner's left them 644, and uid 1654 could enter none of them), so the
+# modes are never left to it.
+COPY webui /webui
+RUN chmod -R u=rwX,go=rX /webui && chown -R 0:0 /webui
+
 FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled@sha256:e9346023014b406b9bc8be969b3aa4d39efa3a43b6abcc495f01be566acb10e9
 
 # Varve.Server on Linux and macOS, Varve.Server.exe on Windows; here Linux.
@@ -35,7 +43,7 @@ COPY --chmod=755 ${BINARY} /app/varve
 # The Web UI's bundle (ADR 0245 point 1), read-only and root's like the
 # binary: the zip's contents exactly, appsettings.json included, which the
 # server never serves here because it answers the settings itself.
-COPY --chmod=u=rwX,go=rX webui /app/webui
+COPY --from=layout /webui /app/webui
 COPY --from=layout --chown=1654:1654 /var/lib/varve /var/lib/varve
 
 # Where it listens and where datasets live, in the image and nowhere else

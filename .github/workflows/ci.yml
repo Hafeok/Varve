@@ -1321,6 +1321,12 @@ jobs:
           for sibling in appsettings.json.br appsettings.json.gz; do
             test "$(curl --silent --output /dev/null --write-out '%{http_code}' "http://localhost:8080/ui/$sibling")" = 404
           done
+          # Every file of the bundle, in every directory, is served: the
+          # image's user can read each one (#296: directories left 644).
+          (cd "${{ github.workspace }}/artifacts/server-aot/webui" && find . -type f ! -name 'appsettings.json*' | sed 's#^\./##') | while read -r file; do
+            code=$(curl --silent --output /dev/null --write-out '%{http_code}' "http://localhost:8080/ui/$file")
+            test "$code" = 200 || { echo "::error::/ui/$file answered $code"; exit 1; }
+          done
 
       - name: The Web UI in Chromium, against the image
         # At least one browser test runs against the image, not only the
