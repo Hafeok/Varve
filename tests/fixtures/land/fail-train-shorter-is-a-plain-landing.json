@@ -1,0 +1,12 @@
+{
+  "step": "train",
+  "main": { "README.md": "Varve\n" },
+  "members": [
+    { "number": 11, "files": { "README.md": "Varve, as #11 has it\n" }, "approval": "head", "green": true },
+    { "number": 12, "files": { "README.md": "Varve, as #12 has it\n" }, "approval": "head", "green": true }
+  ],
+  "says": [
+    "#12 conflicts with the train before it (#11 on main) in README.md",
+    "the train without #12 is #11 alone: dotnet run eng/land.cs -- 11"
+  ]
+}
