@@ -6,10 +6,14 @@
 # binary the gate ran; publish.yml joins the two by digest into one manifest.
 #
 #   dotnet publish src/Varve.Server -c Release -o artifacts/server-aot
+#   dotnet publish src/Varve.WebUi -c Release -o artifacts/webui
+#   cp -R artifacts/webui/wwwroot artifacts/server-aot/webui
 #   docker build -f src/Varve.Server/container/Dockerfile -t varve artifacts/server-aot
 #   docker run --rm --read-only -v varve:/var/lib/varve -p 8080:8080 varve serve --anonymous
 #
-# The build context is the publish output: the binary alone is copied.
+# The build context is the publish output: the binary and the Web UI's bundle,
+# webui/, are copied, nothing else. In CI and at a release the bundle is the
+# attested zip's contents from the same run, unpacked as they are (ADR 0245).
 
 # The datasets root, owned by the non-root user the base image runs as (uid
 # 1654, `app`). Made on the full image, which has a shell, and copied: the
@@ -28,12 +32,20 @@ FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled@sha256:4309626281
 # Varve.Server on Linux and macOS, Varve.Server.exe on Windows; here Linux.
 ARG BINARY=Varve.Server
 COPY --chmod=755 ${BINARY} /app/varve
+# The Web UI's bundle (ADR 0245 point 1), read-only and root's like the
+# binary: the zip's contents exactly, appsettings.json included, which the
+# server never serves here because it answers the settings itself.
+COPY --chmod=u=rwX,go=rX webui /app/webui
 COPY --from=layout --chown=1654:1654 /var/lib/varve /var/lib/varve
 
 # Where it listens and where datasets live, in the image and nowhere else
-# (ADR 0111 point 4); any VARVE__* variable or argument overrides.
+# (ADR 0111 point 4); any VARVE__* variable or argument overrides. The Web UI
+# is served at /ui/ with its settings from the server's own configuration
+# (ADR 0245); VARVE__WEBUI__ENABLED=false turns it off.
 ENV ASPNETCORE_URLS=http://+:8080 \
-    VARVE__DATASETSROOT=/var/lib/varve
+    VARVE__DATASETSROOT=/var/lib/varve \
+    VARVE__WEBUI__PATH=/app/webui \
+    VARVE__WEBUI__SETTINGS=Generated
 
 VOLUME /var/lib/varve
 EXPOSE 8080

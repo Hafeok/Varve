@@ -529,10 +529,13 @@ jobs:
   # image and pushed by digest; the manifest job joins the two, tags the
   # release's version (and latest for a version with no prerelease part),
   # attests build provenance and an SPDX SBOM for the manifest's digest, and
-  # verifies both as an operator would.
+  # verifies both as an operator would. The Web UI's bundle is in it, served
+  # by default (ADR 0245).
   image:
     name: image (${{ matrix.rid }})
-    needs: publish
+    # The image carries the Web UI's bundle: the zip the webui job attested,
+    # from this run, unpacked as it is (ADR 0245 point 1).
+    needs: [publish, webui]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -581,6 +584,28 @@ jobs:
           --runtime ${{ matrix.rid }}
           --no-restore
           --output ${{ github.workspace }}/artifacts/server-aot
+
+      - name: Download the Web UI's bundle
+        # The zip exactly as the webui job attested it, never a release
+        # download: the same run, the same commit.
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: webui-zip
+          path: ${{ runner.temp }}/webui-zip
+
+      - name: Unpack it into the build context
+        # The zip's contents, appsettings.json and its compressed copies
+        # included, as the Dockerfile copies them to /app/webui. The server
+        # in the image answers the settings itself and never serves that
+        # file (ADR 0245 point 3).
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir "${{ github.workspace }}/artifacts/server-aot/webui"
+          unzip -q "$RUNNER_TEMP/webui-zip/varve-webui-$RELEASE_VERSION.zip" -d "${{ github.workspace }}/artifacts/server-aot/webui"
+          test -f "${{ github.workspace }}/artifacts/server-aot/webui/index.html"
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -818,7 +843,8 @@ jobs:
   # attested keylessly with its build provenance and its SBOM, as a package is
   # (ADR 0224 point 3). The SBOM is the publish job's, from the restore, its
   # digest the descriptor's asset line (ADR 0225, amended 2026-11-06). The
-  # release carries the zip and its SBOM. Not in the server's image.
+  # release carries the zip and its SBOM, and the image job unpacks this zip
+  # into the server's image (ADR 0245).
   webui:
     name: web ui bundle, attested
     needs: publish
