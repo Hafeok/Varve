@@ -588,6 +588,15 @@ From ADR 0003:
   counts, and the rule now checks `IsPackable` and refuses the analyzer as a
   library reference.
 
+## Resident memory (#222)
+
+Filed by the session for [#222](https://github.com/Hafeok/Varve/issues/222), unaccepted until the maintainer accepts it (ADR 0066). It amends 0082, 0089 and 0177 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0240](0240-resident-memory-is-bounded-by-data-and-configuration.md) | Resident memory is bounded by data and by configuration, never by commits | Filed unaccepted (#222) |
+
+
 ## Memory bounds (#227)
 
 Filed by the session for [#227](https://github.com/Hafeok/Varve/issues/227), unaccepted until the maintainer accepts it (ADR 0066). It supersedes 0070 in part, its revisit condition being met, and amends 0110, 0139 and 0164 by dated amendments.

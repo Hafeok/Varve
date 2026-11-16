@@ -1,0 +1,5 @@
+docs: the haiku in the README
+
+An opus of a change, in sonnet form.
+
+Refs #1

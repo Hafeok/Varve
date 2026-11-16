@@ -128,6 +128,12 @@ internal sealed class StoreSettings
     public long? MemtableLimit { get; set; }
 
     /// <summary>
+    /// The most bytes of extents' seek directories a dataset holds in memory
+    /// for as-of reads inside a set's window (ADR 0240); zero keeps none.
+    /// </summary>
+    public long SeekDirectoryCacheBytes { get; set; } = 32L << 20;
+
+    /// <summary>
     /// Whether the server returns memory to the operating system once a
     /// checkpoint a caller asked for has been taken (ADR 0244 point 6): it
     /// lets the dataset's maintenance finish, then asks the collector for
