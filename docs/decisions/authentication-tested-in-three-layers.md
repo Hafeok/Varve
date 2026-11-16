@@ -15,10 +15,6 @@ decisions:
     statement: "Zitadel and PostgreSQL on Linux CI, seeded through the management API by eng/zitadel-seed.cs, are the real-provider leg with one test each for client credentials and device code"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-08T00:00:00Z
-  - key: EntraAndGoogleBySecret
-    statement: "Entra ID and Google have one end-to-end test each, skipped unless their secrets exist in a main-restricted environment"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-08T00:00:00Z
   - key: MissingLegFailsWhereRequired
     statement: "A provider test skips when its address is absent, and fails instead where VARVE_AUTH_LEGS_REQUIRED names its leg"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -31,3 +27,7 @@ decisions:
 
 The rulings of [ADR 0100](../adr/0100-authentication-tested-in-three-layers.md), filed unaccepted by milestone 7a of #11
 (ADR 0066). Every citation is `CS0618` until the maintainer accepts them.
+
+`EntraAndGoogleBySecret` moved to
+[`provider-legs-by-federated-credentials`](provider-legs-by-federated-credentials.md)
+by ADR 0223's supersession in part of point 4 (ADR 0068 point 4).

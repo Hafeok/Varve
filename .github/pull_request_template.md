@@ -12,6 +12,16 @@ be able to decide from the body alone whether the work is sound, without
 reconstructing a finding from the diff.
 -->
 
+Completes: none
+
+<!--
+`Completes:` names every issue this pull request completes, as `#N, #M`, or
+`none`. It is not a closing keyword (#108): each issue it names needs a
+`Closes #N` trailer line on a commit in the pull request, and
+`eng/land.cs` refuses the landing when one is missing, or when this line is
+(#209).
+-->
+
 ## What this changes, and why
 
 ## What was measured

@@ -165,25 +165,39 @@ public sealed class ProviderTests
         Assert.Equal(HttpStatusCode.Forbidden, (await UpdateAsync(server, token)).StatusCode);
     }
 
-    // ---- Entra ID and Google: secrets from a main-only environment, absent elsewhere.
+    // ---- Entra ID and Google: federated credentials from GitHub's OIDC token (ADR 0223).
+    //
+    // No secret and no key anywhere: the job's own OIDC token for the
+    // auth-providers environment, which only main can deploy to, is the only
+    // credential. The configuration is identifiers. A leg with none of them
+    // skips; a leg with any of them is configured, and then a missing one or
+    // a failed exchange fails it.
 
     /// <summary>
-    /// Entra's client credentials. The API's application registration issues
-    /// v2 tokens (<c>accessTokenAcceptedVersion</c> 2) and grants the client
-    /// the app role in <c>VARVE_ENTRA_ROLE</c> (default <c>Varve.Write</c>).
+    /// Entra's client credentials with a federated identity credential. The
+    /// job's OIDC token, for the audience <c>api://AzureADTokenExchange</c>, is
+    /// the client assertion; the client's registration trusts the subject
+    /// <c>repo:Hafeok/Varve:environment:auth-providers</c>. The API's
+    /// registration issues v2 tokens (<c>accessTokenAcceptedVersion</c> 2) and
+    /// grants the client the app role in <c>VARVE_ENTRA_ROLE</c> (default
+    /// <c>Varve.Write</c>), which arrives in <c>roles</c>; the subject is <c>oid</c>.
     /// </summary>
     [Fact]
-    public async Task Entra_client_credentials_token_writes()
+    public async Task Entra_federated_client_credentials_token_writes()
     {
-        string tenant = Leg("entra", "VARVE_ENTRA_TENANT");
-        string audience = Environment.GetEnvironmentVariable("VARVE_ENTRA_AUDIENCE") ?? throw new InvalidOperationException("VARVE_ENTRA_AUDIENCE");
-        string role = Environment.GetEnvironmentVariable("VARVE_ENTRA_ROLE") ?? "Varve.Write";
+        Dictionary<string, string> config = Configured("entra", "VARVE_ENTRA_TENANT", "VARVE_ENTRA_CLIENT_ID", "VARVE_ENTRA_AUDIENCE");
+        string tenant = config["VARVE_ENTRA_TENANT"];
+        string audience = config["VARVE_ENTRA_AUDIENCE"];
+        string role = Environment.GetEnvironmentVariable("VARVE_ENTRA_ROLE") is { Length: > 0 } named ? named : "Varve.Write";
+
         using HttpClient provider = new();
+        string assertion = await GitHubOidcTokenAsync(provider, "entra", "api://AzureADTokenExchange");
         string token = await TokenAsync(provider, "https://login.microsoftonline.com/" + tenant + "/oauth2/v2.0/token", new()
         {
             ["grant_type"] = "client_credentials",
-            ["client_id"] = Environment.GetEnvironmentVariable("VARVE_ENTRA_CLIENT_ID") ?? throw new InvalidOperationException("VARVE_ENTRA_CLIENT_ID"),
-            ["client_secret"] = Environment.GetEnvironmentVariable("VARVE_ENTRA_CLIENT_SECRET") ?? throw new InvalidOperationException("VARVE_ENTRA_CLIENT_SECRET"),
+            ["client_id"] = config["VARVE_ENTRA_CLIENT_ID"],
+            ["client_assertion_type"] = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+            ["client_assertion"] = assertion,
             ["scope"] = audience + "/.default",
         });
 
@@ -192,42 +206,103 @@ public sealed class ProviderTests
     }
 
     /// <summary>
-    /// Google: a service account's ID token for an audience of our choosing,
-    /// by the JWT-bearer grant with a self-signed assertion. Google issues no
-    /// roles, so the permission is granted to the account's e-mail claim.
-    /// <c>VARVE_GOOGLE_SERVICE_ACCOUNT</c> is the key file's JSON.
+    /// Google by Workload Identity Federation: the job's OIDC token, for the
+    /// workload identity provider's audience, is exchanged at Google's STS for
+    /// a federated access token, which asks IAM Credentials'
+    /// <c>generateIdToken</c> for the service account's ID token for an
+    /// audience of our choosing. The pool's provider admits only this
+    /// repository's <c>auth-providers</c> environment, by an attribute
+    /// condition. Google issues no roles, so the permission is granted to the
+    /// account's <c>email</c> claim.
     /// </summary>
     [Fact]
-    public async Task Google_service_account_id_token_writes()
+    public async Task Google_workload_identity_id_token_writes()
     {
-        JsonNode account = JsonNode.Parse(Leg("google", "VARVE_GOOGLE_SERVICE_ACCOUNT"))!;
-        string email = (string)account["client_email"]!;
+        Dictionary<string, string> config = Configured("google", "VARVE_GOOGLE_WORKLOAD_IDENTITY_PROVIDER", "VARVE_GOOGLE_SERVICE_ACCOUNT_EMAIL");
+        string workloadProvider = config["VARVE_GOOGLE_WORKLOAD_IDENTITY_PROVIDER"].Trim('/');
+        string email = config["VARVE_GOOGLE_SERVICE_ACCOUNT_EMAIL"];
         const string Audience = "https://w3id.org/varve/tests";
-        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        string unsigned = Base64Url(Encoding.UTF8.GetBytes(new JsonObject { ["alg"] = "RS256", ["typ"] = "JWT", ["kid"] = (string)account["private_key_id"]! }.ToJsonString()))
-            + "." + Base64Url(Encoding.UTF8.GetBytes(new JsonObject
-            {
-                ["iss"] = email,
-                ["sub"] = email,
-                ["aud"] = "https://oauth2.googleapis.com/token",
-                ["iat"] = now,
-                ["exp"] = now + 300,
-                ["target_audience"] = Audience,
-            }.ToJsonString()));
-        using RSA key = RSA.Create();
-        key.ImportFromPem((string)account["private_key"]!);
-        string assertion = unsigned + "." + Base64Url(key.SignData(Encoding.ASCII.GetBytes(unsigned), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
 
         using HttpClient provider = new();
-        using HttpResponseMessage response = await provider.PostAsync(new Uri("https://oauth2.googleapis.com/token"), new FormUrlEncodedContent(new Dictionary<string, string>
+
+        // The provider's default allowed audience is its own full resource URL.
+        string subjectToken = await GitHubOidcTokenAsync(provider, "google", "https://iam.googleapis.com/" + workloadProvider);
+        using HttpResponseMessage exchanged = await provider.PostAsync(new Uri("https://sts.googleapis.com/v1/token"), new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["grant_type"] = "urn:ietf:params:oauth:grant-type:jwt-bearer",
-            ["assertion"] = assertion,
+            ["grant_type"] = "urn:ietf:params:oauth:grant-type:token-exchange",
+            ["audience"] = "//iam.googleapis.com/" + workloadProvider,
+            ["scope"] = "https://www.googleapis.com/auth/cloud-platform",
+            ["requested_token_type"] = "urn:ietf:params:oauth:token-type:access_token",
+            ["subject_token_type"] = "urn:ietf:params:oauth:token-type:jwt",
+            ["subject_token"] = subjectToken,
         }), TestContext.Current.CancellationToken);
-        string token = (string)(await JsonAsync(response))["id_token"]!;
+        string federated = (string)(await JsonAsync(exchanged))["access_token"]!;
+
+        using HttpRequestMessage generate = new(HttpMethod.Post, new Uri("https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/" + Uri.EscapeDataString(email) + ":generateIdToken"))
+        {
+            Content = Json(new JsonObject { ["audience"] = Audience, ["includeEmail"] = true }),
+        };
+        generate.Headers.Authorization = new AuthenticationHeaderValue("Bearer", federated);
+        using HttpResponseMessage generated = await provider.SendAsync(generate, TestContext.Current.CancellationToken);
+        string token = (string)(await JsonAsync(generated))["token"]!;
 
         await using RunningServer server = await StartAsync("https://accounts.google.com", Audience, "email", "sub", read: [], write: [email]);
         Assert.Equal(HttpStatusCode.NoContent, (await UpdateAsync(server, token)).StatusCode);
+    }
+
+    /// <summary>
+    /// The job's own OIDC token from GitHub Actions for the audience, which
+    /// the runner offers only to a job with <c>id-token: write</c>. Its absence
+    /// in a configured leg is a failure, never a skip.
+    /// </summary>
+    private static async Task<string> GitHubOidcTokenAsync(HttpClient client, string leg, string audience)
+    {
+        string? url = Environment.GetEnvironmentVariable("ACTIONS_ID_TOKEN_REQUEST_URL");
+        string? bearer = Environment.GetEnvironmentVariable("ACTIONS_ID_TOKEN_REQUEST_TOKEN");
+        Assert.False(string.IsNullOrEmpty(url) || string.IsNullOrEmpty(bearer),
+            "The " + leg + " leg is configured and has no GitHub OIDC token to exchange: ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are set only in a GitHub Actions job with id-token: write (ADR 0223).");
+
+        using HttpRequestMessage request = new(HttpMethod.Get, new Uri(url + "&audience=" + Uri.EscapeDataString(audience)));
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+        using HttpResponseMessage response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+        return (string)(await JsonAsync(response))["value"]!;
+    }
+
+    /// <summary>
+    /// A real-provider leg's identifiers. None set: a skip naming every one,
+    /// or a failure where <c>VARVE_AUTH_LEGS_REQUIRED</c> names the leg. Some
+    /// set: the leg is configured, and a missing one is a failure.
+    /// </summary>
+    private static Dictionary<string, string> Configured(string leg, params string[] variables)
+    {
+        Dictionary<string, string> present = new(StringComparer.Ordinal);
+        List<string> missing = [];
+
+        foreach (string variable in variables)
+        {
+            if (Environment.GetEnvironmentVariable(variable) is { Length: > 0 } value)
+            {
+                present[variable] = value;
+            }
+            else
+            {
+                missing.Add(variable);
+            }
+        }
+
+        if (missing.Count == 0)
+        {
+            return present;
+        }
+
+        if (present.Count > 0)
+        {
+            Assert.Fail("The " + leg + " leg is configured (" + string.Join(", ", present.Keys) + ") and is missing " + string.Join(", ", missing) + " (docs/auth-providers.md).");
+        }
+
+        // Every identifier absent: Leg skips, or fails where the leg is required.
+        Leg(leg, string.Join(", ", missing));
+        return present;
     }
 
     // ----
@@ -246,10 +321,10 @@ public sealed class ProviderTests
 
         if (required.Contains(leg, StringComparer.Ordinal))
         {
-            Assert.Fail("The " + leg + " leg is required here (VARVE_AUTH_LEGS_REQUIRED) and " + variable + " is not set.");
+            Assert.Fail("The " + leg + " leg is required here (VARVE_AUTH_LEGS_REQUIRED) and " + variable + (variable.Contains(',', StringComparison.Ordinal) ? " are" : " is") + " not set.");
         }
 
-        Assert.Skip("The " + leg + " leg needs " + variable + " (ADR 0100).");
+        Assert.Skip("The " + leg + " leg needs " + variable + " (ADR 0100" + (leg is "entra" or "google" ? ", ADR 0223; docs/auth-providers.md" : string.Empty) + ").");
         return string.Empty;
     }
 

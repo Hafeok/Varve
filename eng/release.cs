@@ -8,6 +8,9 @@
 //   dotnet run eng/release.cs -- --check [--base <ref>]
 //   dotnet run eng/release.cs -- --plan [--dry-run] [--landing] [--since <sha>] [--fallback <dir>] [--offline]
 //   dotnet run eng/release.cs -- --draft <version>
+//   dotnet run eng/release.cs -- --sbom <version> [--syft <syft>] [--binary <rid>]... [--image <p>=<json>]...
+//                                 [--today <yyyy-mm-dd>] [--from <dir> | --out <dir>]
+//   dotnet run eng/release.cs -- --sbom-fixtures tests/fixtures/release-sbom
 //   dotnet run eng/release.cs -- --notes <version> --into <dir>
 //   dotnet run eng/release.cs -- --fixtures tests/fixtures/releases
 //
@@ -79,6 +82,26 @@
 // and notes, for publish.yml. --fixtures runs every case under the directory:
 // each must fail, and say what its expect.txt says (tests/fixtures/releases/).
 //
+// --- --sbom (#248) -----------------------------------------------------------------
+//
+// Rewrites a pending descriptor's `sbom:` block and its `date:` in one edit,
+// then CHANGELOG.md. Under ADR 0224 point 2 (decision D3) the SBOMs are created
+// at the descriptor's date, so the two move together: the day the digests are
+// written is today (UTC, or --today), eng/sbom.cs is run with --created that
+// day, its sbom.txt replaces the block, and `date:` becomes that day
+// (docs/releases.md rule 3, amended 2026-11-10). --syft, --binary and --image
+// pass through to eng/sbom.cs, which writes to --out (artifacts/sbom by
+// default). --from <dir> takes SBOMs already written
+// there instead, and refuses them unless every one was created on that day.
+// A tagged version is refused (rule 9), and so is a descriptor with no
+// `sbom:` block, which keeps its date. eng/land.cs refuses a descriptor dated
+// more than three days before the landing day and prints this command.
+//
+// --sbom-fixtures runs the rewrite over every case under the directory, each
+// a descriptor.yaml, an sbom/ directory as eng/sbom.cs writes it, today.txt
+// and, for a pass- case, expected.yaml; a fail- case must be refused
+// (tests/fixtures/release-sbom/README.md).
+//
 // Exit codes: 0 valid (or planned), 1 findings, 2 could not run.
 //
 // See docs/adr/0102-a-release-is-a-descriptor.md.
@@ -111,6 +134,10 @@ string changelogPath = Path.Combine(repositoryRoot, "CHANGELOG.md");
 bool dryRun = false;
 bool landing = false;
 bool offline = false;
+string? today = null;
+string? sbomFrom = null;
+string? sbomOut = null;
+List<string> sbomArguments = [];
 
 string[] arguments = args;
 for (int i = 0; i < arguments.Length; i++)
@@ -120,7 +147,7 @@ for (int i = 0; i < arguments.Length; i++)
         case "--check" or "--plan":
             mode = arguments[i][2..];
             break;
-        case "--draft" or "--notes" or "--fixtures" when i + 1 < arguments.Length:
+        case "--draft" or "--notes" or "--fixtures" or "--sbom" or "--sbom-fixtures" when i + 1 < arguments.Length:
             mode = arguments[i][2..];
             modeArgument = arguments[++i];
             break;
@@ -151,6 +178,19 @@ for (int i = 0; i < arguments.Length; i++)
         case "--offline":
             offline = true;
             break;
+        case "--today" when i + 1 < arguments.Length:
+            today = arguments[++i];
+            break;
+        case "--from" when i + 1 < arguments.Length:
+            sbomFrom = Path.GetFullPath(arguments[++i]);
+            break;
+        case "--out" when i + 1 < arguments.Length:
+            sbomOut = Path.GetFullPath(arguments[++i]);
+            break;
+        case "--syft" or "--binary" or "--image" when i + 1 < arguments.Length:
+            sbomArguments.Add(arguments[i]);
+            sbomArguments.Add(arguments[++i]);
+            break;
         default:
             Console.Error.WriteLine($"release: '{arguments[i]}' is not an option (see the header of eng/release.cs).");
             return 2;
@@ -168,6 +208,9 @@ try
         "draft" => Draft(repository, modeArgument!),
         "notes" => Notes(repository, releasesPath, modeArgument!, into),
         "fixtures" => await Fixtures(repository, Path.GetFullPath(modeArgument!)),
+        "sbom" => Sbom(repository, releasesPath, modeArgument!, today, sbomFrom, sbomOut, sbomArguments,
+            regenerateChangelog: string.Equals(releasesPath, Path.Combine(repositoryRoot, ReleaseFormat.Directory), StringComparison.Ordinal)),
+        "sbom-fixtures" => SbomFixtures(Path.GetFullPath(modeArgument!)),
         _ => Usage(),
     };
 }
@@ -179,7 +222,7 @@ catch (GitException exception)
 
 static int Usage()
 {
-    Console.Error.WriteLine("release: one of --check, --plan, --draft <version>, --notes <version> --into <dir>, --fixtures <dir>.");
+    Console.Error.WriteLine("release: one of --check, --plan, --draft <version>, --notes <version> --into <dir>, --sbom <version>, --fixtures <dir>, --sbom-fixtures <dir>.");
     return 2;
 }
 
@@ -870,10 +913,10 @@ static int Draft(Repository repository, string requested)
         draft.Append(CultureInfo.InvariantCulture, $"#   {key}\n");
     }
 
-    draft.Append("# Every artefact's SBOM digest (ADR 0224 point 7), written after a restore with the descriptor's date:\n");
-    draft.Append(CultureInfo.InvariantCulture, $"#   dotnet run eng/sbom.cs -- --version {version} --created {DateTime.UtcNow:yyyy-MM-dd} --out artifacts/sbom \\\n");
-    draft.Append("#     --binary <rid>... --image linux/amd64=<syft.json> --image linux/arm64=<syft.json>\n");
-    draft.Append("# and paste artifacts/sbom/sbom.txt below; publish.yml checks every line before anything is pushed.\n");
+    draft.Append("# Every artefact's SBOM digest (ADR 0224 point 7), written after a restore. This rewrites the block\n");
+    draft.Append("# and sets date: to the day it ran, which is the SBOMs' creation time (docs/releases.md rule 3):\n");
+    draft.Append(CultureInfo.InvariantCulture, $"#   dotnet run eng/release.cs -- --sbom {version} --syft <syft v1.54.0> --binary <rid>...\n");
+    draft.Append("# publish.yml checks every line before anything is pushed.\n");
     draft.Append("sbom:\n");
     draft.Append("  - <kind: name sha256:digest, from sbom.txt>\n");
     draft.Append("accepted-by: mailto:<the human who approves the pull request>\n");
@@ -990,6 +1033,106 @@ static string? ResolveBase(Repository repository)
     }
 
     return repository.Exists("origin/main") ? "origin/main" : repository.Exists("main") ? "main" : null;
+}
+
+// --- --sbom ------------------------------------------------------------------------
+
+static int Sbom(Repository repository, string releasesPath, string requested, string? today, string? from, string? output, List<string> sbomArguments, bool regenerateChangelog)
+{
+    string version = requested.StartsWith('v') ? requested : "v" + requested;
+    string path = Path.Combine(releasesPath, version + ".yaml");
+
+    if (!File.Exists(path))
+    {
+        Console.Error.WriteLine($"release: no descriptor at {repository.Relative(path)}.");
+        return 2;
+    }
+
+    if (repository.Tags().Contains(version))
+    {
+        Console.Error.WriteLine($"release: {version} is tagged, and a cut descriptor is never edited (docs/releases.md rule 9).");
+        return 1;
+    }
+
+    string day = today ?? DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    if (!DateOnly.TryParseExact(day, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+    {
+        Console.Error.WriteLine($"release: --today '{day}' is not yyyy-mm-dd.");
+        return 2;
+    }
+
+    if (from is not null && output is not null)
+    {
+        Console.Error.WriteLine("release: --from reads SBOMs already written and --out names where to write them; give one.");
+        return 2;
+    }
+
+    string directory = from ?? output ?? Path.Combine(repository.Root, "artifacts", "sbom");
+    if (from is null)
+    {
+        List<string> generate = ["run", "eng/sbom.cs", "--", "--version", version[1..], "--created", day, "--out", directory, .. sbomArguments];
+        Console.WriteLine($"$ dotnet {string.Join(' ', generate)}");
+        if (RunProcess("dotnet", generate) != 0)
+        {
+            Console.Error.WriteLine("release: eng/sbom.cs failed; the descriptor is unchanged.");
+            return 1;
+        }
+    }
+
+    (string? rewritten, string? refusal) = SbomRewrite.Apply(File.ReadAllText(path), directory, day);
+    if (rewritten is null)
+    {
+        Console.Error.WriteLine($"release: {repository.Relative(path)}: {refusal}");
+        return 1;
+    }
+
+    File.WriteAllText(path, rewritten);
+    Console.WriteLine($"release: {repository.Relative(path)}: the sbom: block rewritten, and date: {day}.");
+
+    if (!regenerateChangelog)
+    {
+        Console.WriteLine("release: --releases is not releases/, so CHANGELOG.md is left as it is.");
+        return 0;
+    }
+
+    List<string> changelog = ["run", "eng/changelog.cs", "--", "--release", version];
+    Console.WriteLine($"$ dotnet {string.Join(' ', changelog)}");
+    return RunProcess("dotnet", changelog) == 0 ? 0 : 1;
+}
+
+static int RunProcess(string file, List<string> arguments)
+{
+    ProcessStartInfo start = new() { FileName = file, UseShellExecute = false };
+    foreach (string argument in arguments)
+    {
+        start.ArgumentList.Add(argument);
+    }
+
+    using Process process = Process.Start(start) ?? throw new InvalidOperationException($"could not start {file}");
+    process.WaitForExit();
+    return process.ExitCode;
+}
+
+static int SbomFixtures(string directory)
+{
+    int wrong = 0;
+    string[] cases = [.. Directory.GetDirectories(directory).Order(StringComparer.Ordinal)];
+    foreach (string folder in cases)
+    {
+        string name = Path.GetFileName(folder);
+        string day = File.ReadAllText(Path.Combine(folder, "today.txt")).Trim();
+        (string? rewritten, string? refusal) = SbomRewrite.Apply(File.ReadAllText(Path.Combine(folder, "descriptor.yaml")), Path.Combine(folder, "sbom"), day);
+        bool expected = name.StartsWith("pass-", StringComparison.Ordinal);
+        string expectedPath = Path.Combine(folder, "expected.yaml");
+        bool right = expected
+            ? rewritten is not null && File.Exists(expectedPath) && rewritten == File.ReadAllText(expectedPath).ReplaceLineEndings("\n")
+            : rewritten is null;
+        wrong += right ? 0 : 1;
+        Console.WriteLine((right ? "ok   " : "FAIL ") + name + ": " + (refusal ?? $"rewritten, date: {day}"));
+    }
+
+    Console.WriteLine(cases.Length + " cases, " + wrong + " judged wrong");
+    return cases.Length > 0 && wrong == 0 ? 0 : 1;
 }
 
 static string FindRepositoryRoot()
@@ -1236,5 +1379,62 @@ sealed class Api
     {
         using HttpResponseMessage response = await client.GetAsync(root + path);
         return response.IsSuccessStatusCode ? JsonDocument.Parse(await response.Content.ReadAsStringAsync()) : null;
+    }
+}
+
+// The rewrite itself, over text, so that the fixtures can judge it.
+static class SbomRewrite
+{
+    static readonly Regex DateLine = new(@"^date:[ \t]*\S*[ \t]*$", RegexOptions.Multiline | RegexOptions.CultureInvariant);
+
+    // The descriptor with its sbom: block replaced by <directory>/sbom.txt and
+    // its date: set to day, or why not.
+    public static (string? Rewritten, string? Refusal) Apply(string descriptor, string directory, string day)
+    {
+        string text = descriptor.ReplaceLineEndings("\n");
+        string sbomTxt = Path.Combine(directory, "sbom.txt");
+        if (!File.Exists(sbomTxt))
+        {
+            return (null, $"no sbom.txt in {directory}; run eng/sbom.cs first, or drop --from.");
+        }
+
+        string expectedCreated = day + "T00:00:00Z";
+        foreach (string document in Directory.EnumerateFiles(directory, "*.spdx.json", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+        {
+            using JsonDocument spdx = JsonDocument.Parse(File.ReadAllText(document));
+            string? created = spdx.RootElement.TryGetProperty("creationInfo", out JsonElement info) && info.TryGetProperty("created", out JsonElement value) ? value.GetString() : null;
+            if (created != expectedCreated)
+            {
+                return (null, $"{Path.GetRelativePath(directory, document)} was created at {created ?? "no time"}, not {expectedCreated}; the digests and the date must be written on the same day (ADR 0224 point 2).");
+            }
+        }
+
+        if (DateLine.Matches(text).Count != 1)
+        {
+            return (null, "the descriptor has no single date: line.");
+        }
+
+        List<string> lines = [.. text.Split('\n')];
+        int start = lines.IndexOf("sbom:");
+        if (start < 0)
+        {
+            return (null, "the descriptor has no sbom: block, so its digests and date stay as they are (format 1).");
+        }
+
+        int end = start + 1;
+        while (end < lines.Count && lines[end].StartsWith("  ", StringComparison.Ordinal))
+        {
+            end++;
+        }
+
+        string[] block = File.ReadAllText(sbomTxt).ReplaceLineEndings("\n").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        if (block.Length == 0 || block.Any(static line => !line.StartsWith("  - ", StringComparison.Ordinal)))
+        {
+            return (null, "sbom.txt is empty, or a line is not `  - <kind>: <name> sha256:<digest>`.");
+        }
+
+        lines.RemoveRange(start + 1, end - start - 1);
+        lines.InsertRange(start + 1, block);
+        return (DateLine.Replace(string.Join('\n', lines), "date: " + day), null);
     }
 }

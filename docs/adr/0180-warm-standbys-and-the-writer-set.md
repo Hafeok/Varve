@@ -37,6 +37,12 @@ restart, and the operator guide says so.
 Records decision set
 [`warm-standbys-and-the-writer-set`](../decisions/warm-standbys-and-the-writer-set.md).
 
+**Amended 2026-11-10:** a release for `storage-error` or `local-disk-error`
+starts the releaser's hold-off (point 4; see the end, "a release for a
+storage or local-disk error starts the releaser's hold-off";
+[#216](https://github.com/Hafeok/Varve/issues/216)).
+`ClaimAfterAReleaseByItsReason` is restated.
+
 ## Context
 
 ADR [0179](0179-writer-handover-within-a-store.md) lets a warm standby take a
@@ -238,3 +244,80 @@ built until now, is built:
     readiness.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-10 — a release for a storage or local-disk error starts the releaser's hold-off
+
+Ruled by the maintainer on 2026-11-10, in the session for
+[#216](https://github.com/Hafeok/Varve/issues/216). The restated key was
+accepted on #252 on 2026-11-10 at the maintainer's word, by his delegate
+(ADRs 0066 and 0239).
+
+**What point 4 said, and why it did not hold.** Point 4 has every warm member
+race for a release for `shutdown`, `storage-error` or `local-disk-error`, and
+adds: "The instance that released is not warm, so it does not race." For a
+shutdown that is true, because the instance is gone. For the other two it is
+true only for a while. The writer that releases for `storage-error` or
+`local-disk-error` stands by in the same process (ADR 0179 point 6), and its
+standby is warm after one advance. On
+[#175](https://github.com/Hafeok/Varve/pull/175) it was warm in time: it
+claimed the epoch it had just released, failed at the fence, and held the
+record while the standby that could write lost the race (7453a21's account).
+Since that fix a failed claim releases again, so the race settles, but only
+after the releaser has claimed and failed.
+
+**The rule.** A release for `storage-error` or `local-disk-error` starts the
+releaser's hold-off for that dataset: the hold-off of
+[ADR 0163](0163-the-management-plane.md)'s amendment of 2026-11-10
+(`ClaimsHoldOffAfterAStoreFailure`), with its figures. The release counts as
+a failure against the store.
+- **Every warm member still races,** the releaser among them. It races once
+  its hold-off has passed.
+- **So another warm member wins at once.** The releaser sits out the round
+  after its release whole, and then the rest of its wait. A member that
+  reaches the store reads the release within one round and claims.
+- **And the releaser, alone, takes the dataset back.** With every other
+  member down or cold nothing else claims, and the releaser claims its own
+  release two rounds after it, or later when it has failed before. A writer
+  whose store failed once and recovered answers writes again with no
+  restart.
+- **While its store still fails,** its claim fails at the fence, releases
+  what it won (ADR 0179 point 6) and lengthens the hold-off, to a claim
+  every 15 to 30 seconds at the cap.
+- **`shutdown` and `placement` are unchanged,** and so is the start rule
+  (point 3). The system dataset's writer does not release for these two
+  reasons, so nothing changes for it here.
+
+**The ruling of 2026-11-02 that this replaces.** On #175 the maintainer first
+ruled that the releaser does not race for its own release at all, and #216
+was written so. Built that way, it left a writer set whose standbys were all
+down or cold with no writer after one failed batch, until a takeover request
+or a restart. The session reported that cost, and the maintainer replaced
+the exclusion with the hold-off. The exclusion never landed.
+
+**A consequence for `local-disk-error`.** A releaser whose disk still fails,
+and which is alone, claims in place after its hold-off, and that claim
+succeeds, because the store answers. A successful open as the writer resets
+the hold-off. It then commits until its memtable passes the bound again and
+releases again (ADR 0179 point 6). So alone, it cycles at the rate its
+memtable fills, and the hold-off does not lengthen. With another warm
+member, that member has the dataset after the first release.
+
+**The ledger.** `ClaimAfterAReleaseByItsReason` is restated with the
+hold-off, in this ADR's set (ADR 0068 point 4).
+
+**Code and tests.**
+- `ConvergeMemberAsync` starts the entry's hold-off where it releases for
+  either reason. `MemberDecision` is unchanged: the hold-off gates the claim
+  it decides, as it gates every claim.
+- The fleet suite:
+  - **b wins at once:** the storage-error abdication's epoch history holds
+    one claim after the release, the other member's at epoch 2, and none by
+    the releaser.
+  - **The releaser alone:** a, with its standby not running, fails a batch
+    and releases. The store recovers. a claims epoch 2 itself and answers
+    writes, in the same process. With one-second rounds the claim comes more
+    than 1.5 s after the release; without the hold-off it came after 1.2 s.
+
+**Checked against the accepted ADRs.** ADR 0179 point 6 (the releases, their
+reasons, and a failed claim's release) and point 8 (the claim in place) are
+unchanged. ADR 0163's hold-off is applied as it stands. No other conflict.

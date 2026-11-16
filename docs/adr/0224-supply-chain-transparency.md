@@ -26,6 +26,12 @@ Each amendment is dated 2026-10-27 and filed unaccepted.
 - point 5: CI installs exactly the SDK `global.json` pins, and every lockfile
   is written with it.
 
+**Amended 2026-11-11:** point 5's pin covers the workload set: workloads are
+installed only through the composite action, from the workload set that
+carries `global.json`'s SDK version, and `eng/sdk-pin.cs` fails a workflow
+that sets up .NET or installs a workload any other way (#276; see the end,
+"the pin covers workload sets").
+
 **Builds on:**
 - constraint 1 (no native assets) and constraint 4 (an ADR per third-party
   package);
@@ -484,3 +490,54 @@ component due diligence.
 workflows, which no compilation sees. Their failure paths are the fixtures.
 
 **Open questions owned.** None.
+
+## Amendment, 2026-11-11: the pin covers workload sets
+
+Filed unaccepted (ADR 0066), by #276, and accepted on #279 on 2026-11-11, at
+the maintainer's word, by his delegate (ADR 0239). It adds detail to point 5 and changes
+nothing it decided (ADR 0068 point 2).
+
+The .NET 10.0.15 servicing release reached GitHub's runners on 2026-11-11,
+and `main` went red twice with NuGet's NU1004 against lockfiles written with
+10.0.403, whose runtime packages are 10.0.14:
+- `handover (services)` called `actions/setup-dotnet` directly with
+  `global.json`'s roll-forward and took the runner's newer SDK, against
+  `CiInstallsTheSdkGlobalJsonPins`. So did the release gate's four jobs and
+  one nightly job, which had not yet run since;
+- `browser wasm` had exactly the pinned SDK, but `dotnet workload install`
+  took the newest workload manifests on the feed, whose WebAssembly packs were
+  10.0.15, against `Varve.WebUi`'s lockfile.
+
+So:
+- **The composite action installs workloads from the SDK's workload set**,
+  through its `workloads:` input, by `dotnet workload install … --version
+  <global.json's sdk.version>`. The workload set that ships with an SDK
+  carries that SDK's version, and `--version` pins the install to that set,
+  not the newest manifests on the feed (the .NET documentation, "Pin the
+  install command"). Set 10.0.403 holds the Mono toolchain manifest 10.0.114,
+  whose packs are 10.0.14. 10.0.404 moved it to 10.0.115. The action fails
+  when `dotnet workload --version` is then not that version.
+- **`global.json` names no workload set.** Its `sdk.workloadVersion` pins the
+  set too, and was tried first. But the SDK resolves workloads for every
+  build, and with a set named that isn't installed, every build in the
+  repository fails, a plain class library included: MSB4242, "Workload version
+  … was not found". That took down the `publish` dry run, which installs no
+  workload, on #279's first push. It would do the same on every developer
+  machine.
+- **`eng/sdk-pin.cs`**, a job of `eng/ci.cs`, fails on:
+  - a workflow or action that uses `actions/setup-dotnet` directly;
+  - a workflow or action that installs a workload;
+  - a `global.json` that names `sdk.workloadVersion`.
+
+  One exception is marked in its step, `sdk-pin: exempt`: the agent-review
+  judge, which checks out `main` and restores nothing.
+- **An SDK bump moves the SDK, the workload version and every lockfile
+  together.** The action takes the workload version from `sdk.version`. A
+  bump to an SDK without a workload set of its own fails the action's install
+  by name, and is then decided on its pull request.
+
+Rejected: moving the SDK and the lockfiles to 10.0.15. That fixes the day,
+and the next servicing release breaks it again.
+
+The ruling is `CiInstallsTheWorkloadSetGlobalJsonPins`, filed with this
+amendment's date and accepted on #279 the same day.

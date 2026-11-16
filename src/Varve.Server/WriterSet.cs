@@ -34,6 +34,17 @@ internal sealed partial class OpenDatasets
         }
     }
 
+    /// <summary>The dataset's releases by this instance for storage-error or local-disk-error, as readiness reports them (ADR 0163, amended 2026-11-10); none when it reports nothing.</summary>
+    internal DatasetDegraded? DegradedOf(DatasetName name)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(name.Value, out Entry? entry) && entry.Degraded is { Reason: { } reason } released
+                ? new DatasetDegraded(Commands.ObjectLease.Shown(reason), released.Releases, released.Since)
+                : null;
+        }
+    }
+
     internal (bool Tailing, bool Warm) StandbyOf(DatasetName name)
     {
         lock (_gate)
@@ -78,7 +89,9 @@ internal sealed partial class OpenDatasets
             // for storage-error and stands by, so a warm standby claims rather
             // than the dataset waiting for a re-open (ADR 0179 point 6).
             ReconcileLog.AbdicatedForStorage(_logger, name);
+            entry.Degraded?.Released(ReleaseReason.StorageError);
             await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: ReleaseReason.StorageError, cancellationToken).ConfigureAwait(false);
+            HeldOffItsOwnRelease(entry);
             return;
         }
 
@@ -90,7 +103,9 @@ internal sealed partial class OpenDatasets
             // the GC's high-load threshold. A standby with its own disk can
             // spill; an idle writer never gets here.
             ReconcileLog.AbdicatedForLocalDisk(_logger, name, unbounded.MemtableEntries.Value, unbounded.SpillBound == SpillBound.MemoryLoad ? "the memory load reached the GC's high-load threshold" : "the memtable passed " + Dataset.SpillBoundFactor + " times its limit");
+            entry.Degraded?.Released(ReleaseReason.LocalDiskError);
             await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: ReleaseReason.LocalDiskError, cancellationToken).ConfigureAwait(false);
+            HeldOffItsOwnRelease(entry);
             return;
         }
 
@@ -117,7 +132,14 @@ internal sealed partial class OpenDatasets
         }
 
         MemberStep step = MemberDecision.Decide(previous, declared, placement, state, seen, entry.Warm, entry.Started);
-        entry.Started = true;
+
+        if (entry.Held && step is MemberStep.Start or MemberStep.Open or MemberStep.Claim)
+        {
+            // Held off (ADR 0163, amended 2026-11-10): its last open or write
+            // against the store failed, so it claims nothing this round. It
+            // does not stand by instead: a start is still to be decided.
+            return;
+        }
 
         switch (step)
         {
@@ -143,7 +165,30 @@ internal sealed partial class OpenDatasets
                 await ClaimInPlaceAsync(name, entry, record!, placement, ClaimTrigger.Abdication, cancellationToken).ConfigureAwait(false);
                 break;
         }
+
+        // A start is decided once the dataset is open (ADR 0163 point 12,
+        // amended 2026-11-10; #251): an open that failed leaves the entry
+        // unstarted, and the next round decides by the start rule again, by
+        // what the record shows then. Marked started whatever the outcome, a
+        // member whose first open as the writer failed stood by for a dataset
+        // nobody had created, until it restarted.
+        if (entry.State == DatasetState.Open)
+        {
+            entry.Started = true;
+        }
+
+        if (step is MemberStep.Start or MemberStep.Open)
+        {
+            entry.Claimed(entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && !entry.Superseded);
+        }
     }
+
+    // A release for storage-error or local-disk-error starts the releaser's
+    // hold-off (ADR 0180 point 4, amended 2026-11-10; ADR 0163's hold-off):
+    // it races for its own release like any warm member, but not before the
+    // round it sits out and the wait after it, so a member that reaches the
+    // store claims first, and the releaser, alone, takes the dataset back.
+    private static void HeldOffItsOwnRelease(Entry entry) => entry.HoldOff?.Failed();
 
     /// <summary>What a member of a dataset's writer set holds of it, as the decision sees it.</summary>
     internal enum MemberState
@@ -238,6 +283,8 @@ internal sealed partial class OpenDatasets
             // (ADR 0179 point 6).
             ReconcileLog.ClaimFailed(_logger, name, error.Message);
             entry.ReleaseFor(ReleaseReason.StorageError);
+            entry.Degraded?.Released(ReleaseReason.StorageError);
+            entry.Claimed(opened: false);
             won = false;
         }
 
@@ -249,6 +296,7 @@ internal sealed partial class OpenDatasets
         }
 
         entry.Placed(DatasetRole.Writer);
+        entry.Claimed(opened: true);
         string why = record.Released is { } reason ? Commands.ObjectLease.Shown(reason) : Commands.ObjectLease.Shown(trigger);
         ReconcileLog.Claimed(_logger, name, storage.Epoch?.Value ?? 0, why);
         await SeedOrderAsync(new DatasetName(name), dataset, cancellationToken).ConfigureAwait(false);
