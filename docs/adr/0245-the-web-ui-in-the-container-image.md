@@ -138,7 +138,12 @@ Measured on linux-x64 with `docker save`: the same AOT binary built into `main`'
 | the bundle's layer | **+6.44 MB (+32 %)** | +10.4 MB |
 
 - **The digest:** every image digest changes, because there is one more layer.
-- **The bundle's layer in the release** is a function of the zip: `zip -X` records DOS times, which unzip restores, on a UTC runner, and both platforms unpack the same zip. In `ci.yml`'s `container` job the bundle comes from a workflow artifact, so its files carry the download's times, and that layer is not reproducible.
+- **The bundle's files carry the zip's times in the release:** `zip -X` records DOS times, which unzip restores, on a UTC runner, and both platforms unpack the same zip. In `ci.yml`'s `container` job they carry the artifact download's times instead.
+- **The bundle's layer is still not reproducible.** Its tar also holds the `app/` directory, whose time is the build's. Measured:
+  - two builds of one context, here, differ in that one entry and nothing else;
+  - #308's first run gave the two platforms different bundle layers (`f997f5…`, 6,439,128 B, and `3786aa…`, 6,439,133 B).
+
+  So the platforms do not share one blob. #326 fixes it with the rest of the image.
 - **The bundle's modes are set in the `layout` stage** by GNU `chmod -R u=rwX,go=rX`, then copied across. They are never left to `COPY --chmod`: one builder did not apply a symbolic `X` to directories, and the image it built could read no file below `/app/webui` (#308's first run).
 - **Reproducibility is no worse than before.** The binary's layer already records its publish time, so the image as a whole is still not byte-reproducible. Making it so (`SOURCE_DATE_EPOCH` with `rewrite-timestamp`) is #326, outside the 1.0 list. Equal times would still satisfy ADR 0202's rule that a sibling older than its file is never sent, because that check is `>=`.
 - **CI time:** the time `ci.yml`'s `container` job now spends waiting for `wasm` is recorded on #296 from the pull request's first run.
