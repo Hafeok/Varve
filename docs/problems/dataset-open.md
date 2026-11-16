@@ -9,6 +9,13 @@
 
 `DELETE /manage/datasets/{name}` while the dataset is declared open; declare it closed first, with `PUT /manage/datasets/{name}/state` (ADRs 0106, 0163). Every instance closes it, and its writer deletes its storage once the declaration is removed.
 
+## What to do
+
+An operator or the dataset's admin: declare the dataset closed with `PUT
+/manage/datasets/{name}/state` and `{"state": "closed"}`, then send the
+`DELETE` again. Deleting removes its storage for good
+([Datasets](../operator/datasets.md#the-management-resources)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).
