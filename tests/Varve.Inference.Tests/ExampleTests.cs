@@ -24,6 +24,8 @@ public class ExampleTests
     [InlineData(InferenceProfile.Rdfs, "BackwardForward")]
     [InlineData(InferenceProfile.Owl2Rl, "DeleteAndRederive")]
     [InlineData(InferenceProfile.Owl2Rl, "BackwardForward")]
+    [InlineData(InferenceProfile.Rdfs, "RecursiveCounting")]
+    [InlineData(InferenceProfile.Owl2Rl, "RecursiveCounting")]
     public void an_axiom_asserted_then_retracted_stays(InferenceProfile profile, string strategy)
     {
         Terms terms = new();
@@ -42,6 +44,7 @@ public class ExampleTests
     [Theory]
     [InlineData("DeleteAndRederive")]
     [InlineData("BackwardForward")]
+    [InlineData("RecursiveCounting")]
     public void retracting_a_link_takes_what_it_alone_supported(string strategy)
     {
         Terms terms = new();

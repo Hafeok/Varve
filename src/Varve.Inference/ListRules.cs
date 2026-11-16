@@ -124,6 +124,64 @@ internal abstract class ListRule : Rule
         }
     }
 
+    internal sealed override void Instances(in Fact head, FactSet facts, List<Fact[]> into)
+    {
+        List<Fact[]> extras = [];
+        foreach (Fact axiom in AxiomsFor(head, facts))
+        {
+            foreach (List<Cell> path in Paths(axiom.Object, facts))
+            {
+                extras.Clear();
+                Extras(head, axiom, path, facts, extras);
+                foreach (Fact[] extra in extras)
+                {
+                    into.Add(Premises(axiom, path, extra));
+                }
+            }
+        }
+    }
+
+    internal sealed override void Derivations(in Fact anchor, FactSet facts, List<Instance> into)
+    {
+        List<(Fact Head, Fact[] Extras)> all = [];
+        foreach (Fact axiom in Touched(anchor, facts))
+        {
+            foreach (List<Cell> path in Paths(axiom.Object, facts))
+            {
+                all.Clear();
+                All(axiom, path, facts, all);
+                foreach ((Fact head, Fact[] extra) in all)
+                {
+                    Fact[] premises = Premises(axiom, path, extra);
+                    if (Array.IndexOf(premises, anchor) >= 0)
+                    {
+                        into.Add(new Instance(head, premises));
+                    }
+                }
+            }
+        }
+    }
+
+    private static Fact[] Premises(in Fact axiom, List<Cell> path, Fact[] extra)
+    {
+        Fact[] premises = new Fact[1 + (2 * path.Count) + extra.Length];
+        premises[0] = axiom;
+        for (int i = 0; i < path.Count; i++)
+        {
+            premises[1 + (2 * i)] = path[i].FirstFact;
+            premises[2 + (2 * i)] = path[i].RestFact;
+        }
+
+        extra.CopyTo(premises, 1 + (2 * path.Count));
+        return premises;
+    }
+
+    /// <summary>Adds the premises beyond the axiom and its cells of each instance of one axiom and one path that concludes <paramref name="head"/>, every one present, one array an instance.</summary>
+    protected abstract void Extras(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact[]> into);
+
+    /// <summary>Adds every instance of one axiom and one path whose premises are present: its head, and its premises beyond the axiom and its cells.</summary>
+    protected abstract void All(in Fact axiom, List<Cell> path, FactSet facts, List<(Fact Head, Fact[] Extras)> into);
+
     /// <summary>Adds every fact beyond the axiom and its cells that an instance of one axiom and one path concluding <paramref name="head"/> can have as a premise.</summary>
     protected abstract void Premises(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact> into);
 
@@ -346,6 +404,48 @@ internal sealed class IntersectionMembership(TermHandle axiom, ListTerms list) :
 
     protected override IEnumerable<TermHandle> MembersNamedBy(Fact fact) =>
         fact.Predicate.Value == List.Type.Value ? [fact.Object] : [];
+
+    protected override void Extras(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact[]> into)
+    {
+        if (path.Count > 0 && head.Predicate.Value == List.Type.Value && head.Object.Value == axiom.Subject.Value)
+        {
+            Typings(head.Subject, path, facts, into);
+        }
+    }
+
+    protected override void All(in Fact axiom, List<Cell> path, FactSet facts, List<(Fact Head, Fact[] Extras)> into)
+    {
+        if (path.Count == 0)
+        {
+            return;
+        }
+
+        List<Fact[]> found = [];
+        foreach (Fact candidate in facts.Match(TermHandle.None, List.Type, path[0].Member))
+        {
+            found.Clear();
+            Typings(candidate.Subject, path, facts, found);
+            foreach (Fact[] extra in found)
+            {
+                into.Add((new Fact(candidate.Subject, List.Type, axiom.Subject), extra));
+            }
+        }
+    }
+
+    private void Typings(TermHandle subject, List<Cell> path, FactSet facts, List<Fact[]> into)
+    {
+        Fact[] typings = new Fact[path.Count];
+        for (int i = 0; i < path.Count; i++)
+        {
+            typings[i] = new Fact(subject, List.Type, path[i].Member);
+            if (!facts.Contains(typings[i]))
+            {
+                return;
+            }
+        }
+
+        into.Add(typings);
+    }
 }
 
 /// <summary>cls-int2: an instance of an intersection is an instance of each of its classes.</summary>
@@ -397,6 +497,26 @@ internal sealed class IntersectionParts(TermHandle axiom, ListTerms list) : List
 
     protected override IEnumerable<TermHandle> AxiomSubjectsNamedBy(Fact fact) =>
         fact.Predicate.Value == List.Type.Value ? [fact.Object] : [];
+
+    protected override void Extras(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact[]> into)
+    {
+        Fact instance = new(head.Subject, List.Type, axiom.Subject);
+        if (head.Predicate.Value == List.Type.Value && Holds(path, head.Object) && facts.Contains(instance))
+        {
+            into.Add([instance]);
+        }
+    }
+
+    protected override void All(in Fact axiom, List<Cell> path, FactSet facts, List<(Fact Head, Fact[] Extras)> into)
+    {
+        foreach (Fact instance in facts.Match(TermHandle.None, List.Type, axiom.Subject))
+        {
+            foreach (Cell cell in path)
+            {
+                into.Add((new Fact(instance.Subject, List.Type, cell.Member), [instance]));
+            }
+        }
+    }
 }
 
 /// <summary>cls-uni: an instance of any class of a union is an instance of it.</summary>
@@ -446,6 +566,34 @@ internal sealed class UnionMembership(TermHandle axiom, ListTerms list) : ListRu
 
     protected override IEnumerable<TermHandle> MembersNamedBy(Fact fact) =>
         fact.Predicate.Value == List.Type.Value ? [fact.Object] : [];
+
+    protected override void Extras(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact[]> into)
+    {
+        if (head.Predicate.Value != List.Type.Value || head.Object.Value != axiom.Subject.Value)
+        {
+            return;
+        }
+
+        foreach (Cell cell in path)
+        {
+            Fact typing = new(head.Subject, List.Type, cell.Member);
+            if (facts.Contains(typing))
+            {
+                into.Add([typing]);
+            }
+        }
+    }
+
+    protected override void All(in Fact axiom, List<Cell> path, FactSet facts, List<(Fact Head, Fact[] Extras)> into)
+    {
+        foreach (Cell cell in path)
+        {
+            foreach (Fact instance in facts.Match(TermHandle.None, List.Type, cell.Member))
+            {
+                into.Add((new Fact(instance.Subject, List.Type, axiom.Subject), [instance]));
+            }
+        }
+    }
 }
 
 /// <summary>cls-oo: each member of an enumeration is an instance of it.</summary>
@@ -470,6 +618,22 @@ internal sealed class Enumeration(TermHandle axiom, ListTerms list) : ListRule("
         head.Predicate.Value == List.Type.Value ? AxiomsOf(head.Object, facts) : [];
 
     protected override IEnumerable<TermHandle> MembersNamedBy(Fact fact) => [];
+
+    protected override void Extras(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact[]> into)
+    {
+        if (head.Predicate.Value == List.Type.Value && head.Object.Value == axiom.Subject.Value && Holds(path, head.Subject))
+        {
+            into.Add([]);
+        }
+    }
+
+    protected override void All(in Fact axiom, List<Cell> path, FactSet facts, List<(Fact Head, Fact[] Extras)> into)
+    {
+        foreach (Cell cell in path)
+        {
+            into.Add((new Fact(cell.Member, List.Type, axiom.Subject), []));
+        }
+    }
 }
 
 /// <summary>
@@ -499,6 +663,24 @@ internal sealed class ListSubClasses(string name, TermHandle axiom, ListTerms li
         head.Predicate.Value != subClassOf.Value ? [] : AxiomsOf(union ? head.Object : head.Subject, facts);
 
     protected override IEnumerable<TermHandle> MembersNamedBy(Fact fact) => [];
+
+    protected override void Extras(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact[]> into)
+    {
+        bool named = head.Predicate.Value == subClassOf.Value
+            && (union ? head.Object.Value == axiom.Subject.Value : head.Subject.Value == axiom.Subject.Value);
+        if (named && Holds(path, union ? head.Subject : head.Object))
+        {
+            into.Add([]);
+        }
+    }
+
+    protected override void All(in Fact axiom, List<Cell> path, FactSet facts, List<(Fact Head, Fact[] Extras)> into)
+    {
+        foreach (Cell cell in path)
+        {
+            into.Add((union ? new Fact(cell.Member, subClassOf, axiom.Subject) : new Fact(axiom.Subject, subClassOf, cell.Member), []));
+        }
+    }
 }
 
 /// <summary>prp-spo2: a chain of the properties of a property chain implies the property.</summary>
@@ -600,6 +782,59 @@ internal sealed class PropertyChain(TermHandle axiom, ListTerms list) : ListRule
     protected override IEnumerable<Fact> AxiomsFor(Fact head, FactSet facts) => AxiomsOf(head.Predicate, facts);
 
     protected override IEnumerable<TermHandle> MembersNamedBy(Fact fact) => [fact.Predicate];
+
+    protected override void Extras(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact[]> into)
+    {
+        if (path.Count == 0 || head.Predicate.Value != axiom.Subject.Value)
+        {
+            return;
+        }
+
+        TermHandle end = head.Object;
+        Chains(head.Subject, 0, path, facts, new Fact[path.Count], steps =>
+        {
+            if (steps[^1].Object.Value == end.Value)
+            {
+                into.Add([.. steps]);
+            }
+        });
+    }
+
+    protected override void All(in Fact axiom, List<Cell> path, FactSet facts, List<(Fact Head, Fact[] Extras)> into)
+    {
+        if (path.Count == 0)
+        {
+            return;
+        }
+
+        TermHandle property = axiom.Subject;
+        HashSet<ulong> starts = [];
+        foreach (Fact first in facts.Match(TermHandle.None, path[0].Member, TermHandle.None))
+        {
+            if (starts.Add(first.Subject.Value))
+            {
+                Chains(first.Subject, 0, path, facts, new Fact[path.Count], steps =>
+                    into.Add((new Fact(steps[0].Subject, property, steps[^1].Object), [.. steps])));
+            }
+        }
+    }
+
+    /// <summary>Every chain of steps along the path's properties from <paramref name="from"/>, one step a property.</summary>
+    private static void Chains(TermHandle from, int index, List<Cell> path, FactSet facts, Fact[] steps, Action<Fact[]> found)
+    {
+        foreach (Fact step in facts.Match(from, path[index].Member, TermHandle.None))
+        {
+            steps[index] = step;
+            if (index == path.Count - 1)
+            {
+                found(steps);
+            }
+            else
+            {
+                Chains(step.Object, index + 1, path, facts, steps, found);
+            }
+        }
+    }
 }
 
 /// <summary>prp-key: two instances of a class that agree on every property of its key are the same.</summary>
@@ -699,4 +934,65 @@ internal sealed class Key(TermHandle axiom, ListTerms list, TermHandle sameAs) :
 
     protected override IEnumerable<TermHandle> AxiomSubjectsNamedBy(Fact fact) =>
         fact.Predicate.Value == List.Type.Value ? [fact.Object] : [];
+
+    protected override void Extras(in Fact head, in Fact axiom, List<Cell> path, FactSet facts, List<Fact[]> into)
+    {
+        if (head.Predicate.Value == sameAs.Value)
+        {
+            Witnesses(head.Subject, head.Object, axiom, path, facts, into);
+        }
+    }
+
+    protected override void All(in Fact axiom, List<Cell> path, FactSet facts, List<(Fact Head, Fact[] Extras)> into)
+    {
+        List<Fact> instances = [.. facts.Match(TermHandle.None, List.Type, axiom.Subject)];
+        List<Fact[]> found = [];
+        foreach (Fact x in instances)
+        {
+            foreach (Fact y in instances)
+            {
+                found.Clear();
+                Witnesses(x.Subject, y.Subject, axiom, path, facts, found);
+                foreach (Fact[] extra in found)
+                {
+                    into.Add((new Fact(x.Subject, sameAs, y.Subject), extra));
+                }
+            }
+        }
+    }
+
+    /// <summary>Each instance's premises for x and y: their typings, then a pair of agreeing values for every key property, every choice of pair.</summary>
+    private void Witnesses(TermHandle x, TermHandle y, in Fact axiom, List<Cell> path, FactSet facts, List<Fact[]> into)
+    {
+        Fact xType = new(x, List.Type, axiom.Subject), yType = new(y, List.Type, axiom.Subject);
+        if (path.Count == 0 || !facts.Contains(xType) || !facts.Contains(yType))
+        {
+            return;
+        }
+
+        Fact[] premises = new Fact[2 + (2 * path.Count)];
+        premises[0] = xType;
+        premises[1] = yType;
+        Choose(0);
+
+        void Choose(int index)
+        {
+            if (index == path.Count)
+            {
+                into.Add([.. premises]);
+                return;
+            }
+
+            foreach (Fact xz in facts.Match(x, path[index].Member, TermHandle.None))
+            {
+                Fact yz = new(y, path[index].Member, xz.Object);
+                if (facts.Contains(yz))
+                {
+                    premises[2 + (2 * index)] = xz;
+                    premises[3 + (2 * index)] = yz;
+                    Choose(index + 1);
+                }
+            }
+        }
+    }
 }

@@ -47,9 +47,28 @@ internal abstract class Rule
     /// </summary>
     internal abstract void AllPremises(in Fact head, FactSet facts, List<Fact> into);
 
+    /// <summary>
+    /// Adds the premises of every instance concluding <paramref name="head"/>
+    /// whose premises are all in <paramref name="facts"/>, one array an
+    /// instance: what recursive counting counts (ADR 0196). An instance may
+    /// be added more than once; the counter keeps each premise set once.
+    /// </summary>
+    internal abstract void Instances(in Fact head, FactSet facts, List<Fact[]> into);
+
+    /// <summary>
+    /// Adds every instance with <paramref name="anchor"/> among its premises
+    /// and every premise in <paramref name="facts"/>, with the fact it
+    /// concludes: the instances <see cref="Instances"/> answers backwards,
+    /// found forwards from one fact.
+    /// </summary>
+    internal abstract void Derivations(in Fact anchor, FactSet facts, List<Instance> into);
+
     /// <inheritdoc/>
     public override string ToString() => Name;
 }
+
+/// <summary>One instance of a rule: the fact it concludes, and the premises it matched.</summary>
+internal readonly record struct Instance(Fact Head, Fact[] Premises);
 
 /// <summary>A position of an atom: a variable by index, or a constant handle.</summary>
 internal readonly record struct Slot(int Variable, TermHandle Constant)
@@ -129,6 +148,67 @@ internal sealed class PatternRule : Rule
             if (Unify(atom, head, bindings))
             {
                 Every(facts, bindings, 0, chosen, into);
+            }
+        }
+    }
+
+    internal override void Instances(in Fact head, FactSet facts, List<Fact[]> into)
+    {
+        TermHandle[] bindings = new TermHandle[_variables];
+        Fact[] chosen = new Fact[_body.Length];
+        foreach (Atom atom in _head)
+        {
+            Array.Clear(bindings);
+            if (Unify(atom, head, bindings))
+            {
+                Collect(facts, bindings, skip: -1, next: 0, chosen, (_, premises) => into.Add([.. premises]));
+            }
+        }
+    }
+
+    internal override void Derivations(in Fact anchor, FactSet facts, List<Instance> into)
+    {
+        TermHandle[] bindings = new TermHandle[_variables];
+        Fact[] chosen = new Fact[_body.Length];
+        for (int i = 0; i < _body.Length; i++)
+        {
+            Array.Clear(bindings);
+            if (Unify(_body[i], anchor, bindings))
+            {
+                chosen[i] = anchor;
+                Collect(facts, bindings, skip: i, next: 0, chosen, (bound, premises) =>
+                {
+                    foreach (Atom atom in _head)
+                    {
+                        into.Add(new Instance(new Fact(Resolve(atom.S, bound), Resolve(atom.P, bound), Resolve(atom.O, bound)), [.. premises]));
+                    }
+                });
+            }
+        }
+    }
+
+    /// <summary>Every way to match the body's atoms but <paramref name="skip"/> from <paramref name="next"/> on, each with its premises.</summary>
+    private void Collect(FactSet facts, TermHandle[] bindings, int skip, int next, Fact[] chosen, Action<TermHandle[], Fact[]> found)
+    {
+        if (next == skip)
+        {
+            next++;
+        }
+
+        if (next == _body.Length)
+        {
+            found(bindings, chosen);
+            return;
+        }
+
+        Atom pattern = _body[next];
+        foreach (Fact fact in facts.Match(Resolve(pattern.S, bindings), Resolve(pattern.P, bindings), Resolve(pattern.O, bindings)))
+        {
+            TermHandle[] inner = (TermHandle[])bindings.Clone();
+            if (Unify(pattern, fact, inner))
+            {
+                chosen[next] = fact;
+                Collect(facts, inner, skip, next + 1, chosen, found);
             }
         }
     }
@@ -295,6 +375,27 @@ internal sealed class LiteralTyping : Rule
         into.AddRange(facts.Match(TermHandle.None, TermHandle.None, head.Subject));
     }
 
+    internal override void Instances(in Fact head, FactSet facts, List<Fact[]> into)
+    {
+        if (head.Predicate.Value != _type.Value || !Typing(head.Subject, out TermHandle datatype) || datatype.Value != head.Object.Value)
+        {
+            return;
+        }
+
+        foreach (Fact premise in facts.Match(TermHandle.None, TermHandle.None, head.Subject))
+        {
+            into.Add([premise]);
+        }
+    }
+
+    internal override void Derivations(in Fact anchor, FactSet facts, List<Instance> into)
+    {
+        if (Typing(anchor.Object, out TermHandle datatype))
+        {
+            into.Add(new Instance(new Fact(anchor.Object, _type, datatype), [anchor]));
+        }
+    }
+
     private bool Typing(TermHandle literal, out TermHandle datatype) =>
         _terms.IsLiteral(literal) && _terms.TryDatatype(literal, out datatype) && _recognised.Contains(datatype.Value)
         || Fail(out datatype);
@@ -362,6 +463,26 @@ internal sealed class ContainerMembershipAxioms : Rule
         into.AddRange(facts.Match(term, TermHandle.None, TermHandle.None));
         into.AddRange(facts.Match(TermHandle.None, term, TermHandle.None));
         into.AddRange(facts.Match(TermHandle.None, TermHandle.None, term));
+    }
+
+    internal override void Instances(in Fact head, FactSet facts, List<Fact[]> into)
+    {
+        List<Fact> premises = [];
+        AllPremises(head, facts, premises);
+        foreach (Fact premise in premises)
+        {
+            into.Add([premise]);
+        }
+    }
+
+    internal override void Derivations(in Fact anchor, FactSet facts, List<Instance> into)
+    {
+        List<Fact> heads = [];
+        Fire(anchor, facts, heads);
+        foreach (Fact head in heads)
+        {
+            into.Add(new Instance(head, [anchor]));
+        }
     }
 
     private static bool Names(IEnumerable<Fact> facts, Func<Fact, bool> accept, List<Fact>? premises)

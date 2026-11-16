@@ -23,7 +23,7 @@ namespace Varve.Inference;
 /// one and publishes what it reads of it.
 /// </remarks>
 [Contract(typeof(TheInferenceProjection.IncrementalEqualsFromScratch), Role = "a graph's closure, maintained by insertion and retraction")]
-public sealed class Closure
+public sealed partial class Closure
 {
     private readonly HashSet<Fact> _explicit = [];
     private readonly HashSet<Fact> _axioms = [];
@@ -72,6 +72,7 @@ public sealed class Closure
     /// <summary>Every fact of the closure.</summary>
     public IEnumerable<Fact> All => Facts.All;
 
+
     internal FactSet Facts { get; } = new();
 
     internal Program Program { get; }
@@ -117,6 +118,12 @@ public sealed class Closure
     /// </summary>
     internal void Insert(IEnumerable<Fact> facts)
     {
+        if (Strategy == Retraction.RecursiveCounting)
+        {
+            CountingInsert(facts);
+            return;
+        }
+
         Propagation<Fact, Rule> pass = new(Program.Dependencies, Program.Strata, EqualityComparer<Fact>.Default);
         foreach (Fact fact in facts)
         {
@@ -150,6 +157,9 @@ public sealed class Closure
                 break;
             case Retraction.BackwardForward:
                 BackwardForward(gone);
+                break;
+            case Retraction.RecursiveCounting:
+                CountingRetract(gone);
                 break;
             case Retraction.FromScratch:
                 Rebuild();
@@ -287,4 +297,7 @@ internal enum Retraction
 
     /// <summary>Backward/Forward: delete only what has no proof left.</summary>
     BackwardForward,
+
+    /// <summary>Recursive counting: each fact's round and the instances that derive it there.</summary>
+    RecursiveCounting,
 }

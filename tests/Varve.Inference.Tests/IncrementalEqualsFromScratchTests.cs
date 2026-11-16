@@ -105,6 +105,12 @@ public class IncrementalEqualsFromScratchTests
     [Fact]
     public void under_owl_2_rl_backward_forward_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Owl2Rl, Retraction.BackwardForward);
 
+    [Fact]
+    public void recursive_counting_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Rdfs, Retraction.RecursiveCounting);
+
+    [Fact]
+    public void under_owl_2_rl_recursive_counting_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Owl2Rl, Retraction.RecursiveCounting);
+
     /// <summary>The naive oracle recomputes a whole closure per round, so its OWL 2 RL case runs fewer histories.</summary>
     private static readonly int NaiveHistories = Long ? 40 : 8;
 
@@ -174,6 +180,21 @@ public class IncrementalEqualsFromScratchTests
             foreach (Fact fact in explicitFacts)
             {
                 Assert.True(closure.IsExplicit(fact));
+            }
+
+            if (strategy == Retraction.RecursiveCounting)
+            {
+                // Each fact's round is the earliest any instance gives it, and
+                // its count the instances that give it that round.
+                foreach (Fact fact in actual)
+                {
+                    (int round, int count) = closure.Earliest(fact);
+                    (int held, int counted) = closure.Standing(fact);
+                    bool given = closure.IsExplicit(fact) || program.Axioms.Contains(fact);
+                    Assert.True(
+                        given ? held == 0 : held == round && counted == count,
+                        $"after commit {c + 1}, {terms.Text(fact)}: round {held} count {counted}, earliest {round} by {count}");
+                }
             }
         }
     }
