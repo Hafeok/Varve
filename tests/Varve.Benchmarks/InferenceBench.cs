@@ -237,6 +237,7 @@ internal static class InferenceBench
         Dictionary<string, HashSet<Fact>> graphs = State(terms, history.Take(cut));
         List<RecCommit> tail = [.. history.Skip(cut)];
         history = [];
+        Stage("history read");
 
         // How many graphs hold each fact: the merge's delta, without a copy of the merge.
         Dictionary<Fact, int> holders = [];
@@ -256,10 +257,13 @@ internal static class InferenceBench
 
         Closure tboxClosure = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive);
         tboxClosure.Apply(tbox, []);
+        Stage("TBox closed");
         Stopwatch clock = Stopwatch.StartNew();
         Closure merge = new(InferenceProgram.Of(profile, terms), Retraction.RecursiveCounting, tbox: tboxClosure);
         merge.Apply([.. holders.Keys], []);
+        Stage("merge closed");
         PremiseSets sets = new(merge, graphs.SelectMany(g => g.Value.Select(f => (f, new DataGraphIndex(indices[g.Key])))));
+        Stage("premise sets");
         Console.WriteLine($"//   built in {clock.Elapsed.TotalSeconds:F1} s: {merge.Count.Value} facts, {sets.CrossGraph().Count} cross-graph sets");
 
         List<double> times = [];
@@ -344,6 +348,9 @@ internal static class InferenceBench
         Console.WriteLine($"cross-graph: {times.Count} commits; per commit p50 {Percentile(times, 0.5):F2} ms, p99 {Percentile(times, 0.99):F2} ms, worst {worst.Worst:F1} ms (commit {worst.At}, {worst.Kind}); {touched} facts' sets changed in all; {sets.CrossGraph().Count} cross-graph sets after; in all, reach {reachMs:F0} ms, the merge's closure {closeMs:F0} ms, the sets {updateMs:F0} ms, the rest the harness's");
         GC.KeepAlive(merge);
     }
+
+    private static void Stage(string stage) =>
+        Console.WriteLine($"//   {stage}: heap {GC.GetTotalMemory(forceFullCollection: false) / 1048576.0:F0} MiB, working set {Environment.WorkingSet / 1048576.0:F0} MiB, peak {System.Diagnostics.Process.GetCurrentProcess().PeakWorkingSet64 / 1048576.0:F0} MiB");
 
     private static double Percentile(List<double> sorted, double p) => sorted.Count == 0 ? 0 : sorted[Math.Min(sorted.Count - 1, (int)(p * sorted.Count))];
 
