@@ -79,8 +79,8 @@ superseding ADR rather than an edit.
 | [0085](0085-a-release-per-milestone.md) | A release per milestone, and the next milestone waits for it | **Superseded by 0102**; complemented 0029 and 0035 |
 | [0086](0086-home-of-the-eng-gates.md) | Home of the eng/ gates | Accepted; complements 0036 and 0039 |
 | [0087](0087-the-identity-map.md) | The identity map: who signs off, accepts and approves for an agent | Accepted; enforces 0034 point 3; amended 2026-10-06 (approval by comment on one's own pull request; the exit to a signed ledger Review); amended again 2026-10-06 (the judging script is always main's; only App-pinned checks count; approval by comment is not a valid workflow); amended 2026-10-08 (an approved head lands through land/) |
-| [0088](0088-only-checked-commits-reach-main.md) | Only checked commits reach main | Accepted; **supersedes 0032**; amended 2026-10-06 (required check names are checked); amended 2026-10-08 (a release's review is its descriptor's approval; `HumanReviewGatesReleases` superseded by 0102) |
-| [0102](0102-a-release-is-a-descriptor.md) | A release is a descriptor, and landing it cuts it | **Accepted** (filed unaccepted, ADR 0066); **supersedes 0085** and 0088's `HumanReviewGatesReleases`; amends 0087 rule 3 |
+| [0088](0088-only-checked-commits-reach-main.md) | Only checked commits reach main | Accepted; **supersedes 0032**; amended 2026-10-06 (required check names are checked); amended 2026-10-08 (a release's review is its descriptor's approval; `HumanReviewGatesReleases` superseded by 0102); amended 2026-11-11 (landing by fast-forward or merge commit, and trains; filed unaccepted, #230) |
+| [0102](0102-a-release-is-a-descriptor.md) | A release is a descriptor, and landing it cuts it | **Accepted** (filed unaccepted, ADR 0066); **supersedes 0085** and 0088's `HumanReviewGatesReleases`; amends 0087 rule 3; amended 2026-11-11 (chain builds are not releases; filed unaccepted, #230) |
 | [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
 
 
@@ -469,6 +469,14 @@ Filed by the session for [#257](https://github.com/Hafeok/Varve/issues/257), rec
 | # | Title | Status |
 |---:|---|---|
 | [0241](0241-model-names-refused-identifiers-allowed.md) | A commit message never names a model; a model's identifier is allowed; supersedes one ruling of 0033 | Filed unaccepted (#257) |
+
+## Chain builds and landing trains (#230)
+
+Filed by the session for [#230](https://github.com/Hafeok/Varve/issues/230), recording the maintainer's decision of 2026-11-06 and his review of 2026-11-11, unaccepted until he accepts it (ADR 0066). Numbered 0243: 0240–0242 are taken by open pull requests (#268; #259 and #264, #278; #267). It amends 0088 and 0102 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0243](0243-chain-builds-ahead-of-main.md) | Chain builds ahead of main, and landing trains | Filed unaccepted (#230) |
 
 ## Conformance — differential testing against Oxigraph
 

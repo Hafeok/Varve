@@ -80,9 +80,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # main, by name, on every path: never the pull request's head or
-          # merge ref, and never the pushed land/ commit.
+          # merge ref, and never the pushed land/ commit. On a land/ push the
+          # whole history is fetched, the pushed commit's included, so that
+          # git can read a landing train's merges (#277): read as data, never
+          # checked out, built or run.
           ref: ${{ github.event.repository.default_branch }}
-          fetch-depth: 1
+          fetch-depth: ${{ github.event_name == 'push' && '0' || '1' }}
           persist-credentials: false
 
       - name: Set up .NET
@@ -92,7 +95,7 @@ jobs:
         # with main's code and restores nothing, so global.json's SDK with its
         # roll-forward is enough here (ADR 0224).
         # sdk-pin: exempt (main's checkout, restores nothing; eng/sdk-pin.cs)
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           global-json-file: global.json
 

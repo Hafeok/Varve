@@ -456,3 +456,25 @@ ran. `docs/releases.md` rule 3 and rule 11 say the same.
 
 **The ledger.** No ruling changes; the block adds detail to the descriptor's
 `date` (ADR 0068 point 2).
+
+## Amendment, 2026-11-11 — chain builds are not releases
+
+Filed by the session for #230 with ADR
+[0243](0243-chain-builds-ahead-of-main.md), unaccepted until the maintainer
+accepts it (ADR 0066). It adds detail to what a release is, and changes no
+ruling.
+
+- **A chain build is outside a release's scope** (0243 point 4,
+  `ThreeBuildClasses`):
+  - it has no descriptor, no `CHANGELOG.md` entry and no `v*` tag;
+  - it publishes to a GitHub Release marked prerelease, never to nuget.org;
+  - it is not read forever.
+- **The release workflow refuses `chain/*`**, a branch or a tag, and a commit
+  that only a `chain/*` ref reaches. The chain-build workflow refuses a commit
+  that is not a chain stable tag. Both checks are built in step 4 of #230.
+- **A release can ride in a landing train**, as its last member, and at most
+  one per train (0243 point 10). The release is cut from the train's head,
+  which is the commit `main` is fast-forwarded to. The human review that gates
+  it is still the approval of the descriptor's pull request on its own head;
+  the train's head is that head merged onto `main` by a reproducible
+  `Landing-only: merge`.

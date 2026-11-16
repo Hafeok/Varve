@@ -190,6 +190,24 @@ one.
    is `git push origin <approved head>:land/release-<version>`, then `git push
    origin <approved head>:main`, with the checks that make either fail
    later.
+
+   **A release can ride in a landing train** (#277, ADR 0243 point 10), as
+   its **last** member, and a train carries at most one:
+
+   ```bash
+   dotnet run eng/land.cs -- --train <pr> … <release pr>          # pushes the train to land/release-<version>
+   dotnet run eng/land.cs -- --train <pr> … <release pr> --main   # once its checks are green
+   ```
+
+   The train's head merges each approved head onto `main` by `git
+   merge-tree`, in `Landing-only: merge` commits, and every gate and the
+   release's dry run run once there. `agent review` posts its check on that
+   head when every merge's second parent is an approved pull request's head.
+   So the head guard (below) holds for it, and the release is cut from the
+   train's head, the commit `main` is fast-forwarded to. The review that
+   gates the release is still the approval of the descriptor's pull request
+   on its own head. A train that goes red lands nothing; land it shorter, or
+   the release alone.
 4. **Cut.** The push to `main` starts `.github/workflows/release.yml`:
    - **plan** validates and resolves the descriptor and applies the head
      guard;
@@ -229,7 +247,8 @@ one.
 
 **The head guard.** A release is cut only at a commit that carries a
 successful `agent review` check run from the gates App, which that App posts
-only on an approved pull request's head or a `land/` head. **A descriptor
+only on an approved pull request's head or a `land/` head: an approved head,
+or a train of approved heads. **A descriptor
 landed by the merge button is not cut and leaves no tag**: the merge commit
 is not the head anyone approved. It is recovered by a **retro-cut**: a new
 pull request that adds `commit: <approved head>` to the same descriptor, which
