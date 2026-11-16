@@ -93,8 +93,20 @@ answers:
    - **So keys survive a writer change.** A predecessor's keyed commits are
      known after a restart, a handover (abdication, takeover, claim in place)
      or a reopen, because they are in the same log.
-   - **Warming.** `IdempotencyKeys.PrepareAsync` lets a host read the window
-     when it becomes the writer, so its first keyed write doesn't wait.
+   - **Read ahead, in the background.** The server calls
+     `IdempotencyKeys.PrepareAsync` whenever it becomes a dataset's writer:
+     on opening it as the writer, on a claim in place, and for the system
+     dataset.
+     - The read runs on the thread pool, and the server does not wait for
+       it, so neither the open nor a takeover is made longer.
+     - A keyed write that arrives before the read finishes waits for it, then
+       reads only what it didn't reach.
+     - If the read fails, it is logged, and the first keyed write reads the
+       log itself.
+     - Decided by the maintainer on #132, 2026-11-16.
+   - **Its memory.** About 56 bytes per keyed commit in the window: 5.4 MiB
+     for a full window of 100,000 keyed commits, measured at REC M.
+     `docs/operator/small-machine.md` gives the figure per written dataset.
    - **Claims.** A request holds its key, as a claim, from the lookup until it
      is answered. On one writer, two requests with one key therefore never
      reach the sequencer together.
@@ -118,6 +130,19 @@ answers:
      is at a position above `p`, so inside the window. A key not found there
      is a write that never committed, and it commits.
    - A key that is found is answered from its commit, whatever `p` says.
+   - **What a client is promised.** Decided by the maintainer on #132,
+     2026-11-16.
+     - **With `Varve-Key-Position`: once, or refused.** A retry of a keyed
+       write either commits it exactly once or is refused. It is never
+       committed twice, however late the retry comes.
+     - **Without it: once within the window.** A retry is committed at most
+       once while the original's commit is among the window's commits. A
+       retry later than that cannot be told from a new write, and may commit
+       a second time.
+     - `Varve.Protocol.Client` always sends the header on a retry, with the
+       head it knew when it made the key, or 0 when it knew none, so its
+       writes have the first guarantee. A client that sends no header has
+       only the second.
 7. **Checked before every precondition.** The key is looked up after
    authorisation and before `If-Match`, `Varve-If-Graphs-Match` or a graph's
    version. So a retry whose original moved the head is answered from its
@@ -162,6 +187,7 @@ answers:
       - `409 idempotency-key-in-flight`.
     - Between attempts it waits for the server's `Retry-After` (at most five
       seconds), or else 100 ms, doubled each time.
+    - **Its guarantee** is point 6's first: once, or refused.
     - **Why ADR 0011 is satisfied.** ADR 0011 bans ambient randomness so that
       §10's determinism property holds: two stores fed the same requests
       write `log/` byte for byte alike, and the store draws no randomness of
@@ -216,8 +242,9 @@ answers:
 - **The change feed's `attachment` lines** leave the idempotency attachment
   out. Change feed specification §2 says so.
 - **Measured** at REC M over the full window (#132): the rebuild after a
-  restart and after a takeover, its time and the heap it holds. The figures
-  are posted on #132 and in the traceability record.
+  restart and after a takeover, its time and the heap it holds.
+  - It takes 311 to 468 ms and holds 2.6 to 5.4 MiB.
+  - It runs in the background, after the open or the claim.
 - **Replication part 2 (#166)** must carry each commit's agent and
   attachments unchanged, and must pass both headers through any new hop, as
   the comment on #132 sets out.

@@ -301,6 +301,113 @@ public sealed class IdempotencyKeyTests
         }
     }
 
+    /// <summary>
+    /// A takeover by claim in place (ADR 0179), in the order the server takes
+    /// it: the claim, then the key index's warm-up started and not waited for
+    /// (ADR 0246). The warm-up is held open throughout, so the takeover
+    /// cannot be waiting on it: the claim completes, the warm-up is still
+    /// pending, and the takeover's time is what it was before. A keyed retry
+    /// of a write the old writer committed, sent straight after, waits for
+    /// the warm-up and is then answered from that commit.
+    /// </summary>
+    [Fact]
+    public async Task A_takeover_does_not_wait_for_the_key_index_and_a_keyed_retry_straight_after_finds_its_key()
+    {
+        Varve.Store.Tests.Objects.MemoryObjectStore store = new();
+        List<string> caches = [];
+
+        try
+        {
+            Varve.Store.ObjectStorage.ObjectStorage written = await OpenObjectsAsync(store, caches, "a", Varve.Store.ObjectStorage.Model.ObjectStorageAccess.Write);
+            Dataset writer = await Dataset.CreateAsync(written, new DatasetId(new Guid("6f8c0000-0000-4000-8000-000000000246")), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+            Varve.Store.ObjectStorage.ObjectStorage followed = await OpenObjectsAsync(store, caches, "b", Varve.Store.ObjectStorage.Model.ObjectStorageAccess.ReadOnly);
+            await using Dataset follower = await Dataset.OpenFollowerAsync(followed, new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+
+            // The old writer commits keyed writes, the last one's answer lost.
+            await using (ProtocolTestHost old = await StartAsync(writer))
+            {
+                for (int i = 0; i < 20; i++)
+                {
+                    Assert.Equal(HttpStatusCode.NoContent, (await old.Client.SendAsync(Keyed(Update("INSERT DATA { <http://ex/k" + i.ToString(CultureInfo.InvariantCulture) + "> <http://ex/p> 1 }"), "alice", "k" + i.ToString(CultureInfo.InvariantCulture)), P.Ct)).StatusCode);
+                }
+
+                Assert.Equal(HttpStatusCode.NoContent, (await old.Client.SendAsync(Keyed(Update(Insert), "alice", "lost"), P.Ct)).StatusCode);
+            }
+
+            long head = writer.Head.Value;
+            await follower.AdvanceAsync(P.Ct);
+            Assert.Equal(head, follower.Head.Value);
+
+            // The writer stalls; the standby claims in place, then starts the warm-up.
+            TaskCompletionSource gate = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            IdempotencyKeys keys = new() { WarmGate = gate.Task };
+            Varve.Store.ObjectStorage.Model.WriterEpoch from = (await Varve.Store.ObjectStorage.ObjectStorage.ReadWriterAsync(store, null, P.Ct))!.Epoch;
+            Assert.True(await follower.TakeWriteAsync(ct => followed.ClaimInPlaceAsync(new Varve.Store.ObjectStorage.Model.WriterInstance("b"), null, Probe.Instance, Varve.Store.ObjectStorage.Model.ClaimTrigger.Probe, from, ct), P.Ct));
+            ValueTask warming = keys.PrepareAsync(follower);
+
+            // The takeover is done; the warm-up has not read a commit.
+            Assert.False(follower.IsFollower);
+            Assert.False(warming.IsCompleted);
+
+            await using ProtocolTestHost taken = await StartAsync(follower, keys: keys);
+            Task<HttpResponseMessage> retry = taken.Client.SendAsync(Keyed(Update(Insert), "alice", "lost"), P.Ct);
+
+            // The retry waits for the warm-up, rather than reading the log itself.
+            await Task.Delay(200, P.Ct);
+            Assert.False(retry.IsCompleted);
+
+            gate.SetResult();
+            await warming;
+            using HttpResponseMessage answered = await retry;
+
+            Assert.Equal(HttpStatusCode.NoContent, answered.StatusCode);
+            Assert.Equal("true", P.Header(answered, "Varve-Replayed"));
+            Assert.Equal(head.ToString(CultureInfo.InvariantCulture), P.Header(answered, "Varve-Position"));
+            Assert.Equal(head, follower.Head.Value);
+
+            await writer.DisposeAsync();
+            await written.DisposeAsync();
+            await followed.DisposeAsync();
+        }
+        finally
+        {
+            foreach (string cache in caches)
+            {
+                try
+                {
+                    System.IO.Directory.Delete(cache, recursive: true);
+                }
+                catch (System.IO.IOException)
+                {
+                }
+            }
+        }
+    }
+
+    private static async Task<Varve.Store.ObjectStorage.ObjectStorage> OpenObjectsAsync(Varve.Store.Tests.Objects.MemoryObjectStore store, List<string> caches, string instance, Varve.Store.ObjectStorage.Model.ObjectStorageAccess access)
+    {
+        string cache = System.IO.Directory.CreateTempSubdirectory("varve-keys-").FullName;
+        caches.Add(cache);
+        return await Varve.Store.ObjectStorage.ObjectStorage.OpenAsync(new Varve.Store.ObjectStorage.Model.ObjectStorageOptions
+        {
+            Store = store,
+            Cache = new Varve.Store.ObjectStorage.Model.CacheDirectory(cache),
+            CacheBytes = new ByteCount(1L << 30),
+            Instance = new Varve.Store.ObjectStorage.Model.WriterInstance(instance),
+            Access = access,
+            Clock = TimeProvider.System,
+            ProbeRandomness = Probe.Instance,
+        }, P.Ct);
+    }
+
+    /// <summary>A writer's probe key's random part (ADR 0134), fixed: the test needs none.</summary>
+    private sealed class Probe : Varve.Store.ObjectStorage.Model.IProbeRandomness
+    {
+        internal static Probe Instance { get; } = new();
+
+        public void Fill(Span<byte> destination) => destination.Fill(7);
+    }
+
     [Fact]
     public async Task A_key_a_request_holds_is_409_until_that_request_is_answered()
     {
@@ -470,7 +577,7 @@ public sealed class IdempotencyKeyTests
 
     private const string AgentHeader = "X-Test-Agent";
 
-    private static Task<ProtocolTestHost> StartAsync(Dataset dataset, CommitWindow? window = null, Func<ISparqlUpdateExecutor, ISparqlUpdateExecutor>? updates = null, IWriterDirectory? writers = null, ProtocolTestHost.Datasets? resolver = null)
+    private static Task<ProtocolTestHost> StartAsync(Dataset dataset, CommitWindow? window = null, Func<ISparqlUpdateExecutor, ISparqlUpdateExecutor>? updates = null, IWriterDirectory? writers = null, ProtocolTestHost.Datasets? resolver = null, IdempotencyKeys? keys = null)
     {
         ProtocolTestHost.Datasets datasets = resolver ?? new();
 
@@ -493,7 +600,7 @@ public sealed class IdempotencyKeyTests
 
                     return next(context);
                 });
-                ProtocolOptions keyed = window is { } w ? CopyWith(options, new IdempotencyKeys(w)) : options;
+                ProtocolOptions keyed = keys is not null ? CopyWith(options, keys) : window is { } w ? CopyWith(options, new IdempotencyKeys(w)) : options;
                 app.MapGroup("/datasets/{dataset}").MapVarveDataset(keyed);
             },
             identity: new HeaderAgent(),

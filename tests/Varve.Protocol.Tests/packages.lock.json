@@ -332,6 +332,12 @@
           "Varve.Xsd": "[1.0.0, )"
         }
       },
+      "varve.store.objectstorage": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Store": "[1.0.0, )"
+        }
+      },
       "varve.turtle": {
         "type": "Project",
         "dependencies": {

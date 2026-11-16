@@ -123,11 +123,29 @@ renders an attachment.
 - Server 237, with 58 skipped for services absent here;
 - Store 470, with 93 skipped.
 
-## Questions for the maintainer
+## The second review
 
-- The index's first rebuild is 0.3 to 0.5 s at REC M. The server does not yet
-  call `IdempotencyKeys.PrepareAsync` when it becomes a dataset's writer.
-  Should it?
+The maintainer's answers on #132:
+
+- **The server reads the keys ahead.** It calls `PrepareAsync` whenever it
+  becomes a dataset's writer, in the background, and a keyed write that comes
+  first waits for it. Two tests cover it:
+  - `A_takeover_does_not_wait_for_the_key_index_and_a_keyed_retry_straight_after_finds_its_key`
+    runs locally. It does a real claim in place over an in-memory object
+    store, with the warm-up held open by a test gate. The takeover completes
+    while the warm-up is pending. A keyed retry sent straight after waits
+    for the warm-up and is then answered from the old writer's commit.
+  - `A_keyed_retry_straight_after_a_takeover_is_answered_from_the_old_writer_s_commit`
+    is in the fleet suite, which runs only in CI, on Azurite and RustFS. It
+    uses separate server processes, with 201 keyed commits in the window, and
+    reports the takeover's time.
+- **ADR 0246 states both guarantees.** With `Varve-Key-Position`, a write
+  commits once or is refused. Without it, it commits once within the window.
+- **The small-machine guide** gives the index's memory per written dataset:
+  about 56 bytes per keyed commit, so 5.4 MiB for a full window.
+
+**Tests run here, all passing:** Protocol 184; Protocol client 117; Server
+239, with 60 skipped for services absent here, the new fleet test among them.
 
 ## Deferred
 

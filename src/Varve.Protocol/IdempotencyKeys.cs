@@ -51,18 +51,26 @@ public sealed class IdempotencyKeys
 
     /// <summary>
     /// Reads the keys of <paramref name="dataset"/>'s window from its log, up
-    /// to its head: what the first keyed write would otherwise do. A host
-    /// calls it when it becomes the dataset's writer, so that write does not
-    /// wait; the keys of the commits it adds later are read as they come.
+    /// to its head, on the thread pool: what the first keyed write would
+    /// otherwise do. A host starts it when it becomes the dataset's writer
+    /// and does not wait for it, so neither the open nor a takeover is made
+    /// longer; a keyed write that arrives before it finishes waits for it.
+    /// Started once per open dataset: a second call answers the first's task.
     /// </summary>
-    public async ValueTask PrepareAsync(Dataset dataset, CancellationToken cancellationToken = default)
+    public ValueTask PrepareAsync(Dataset dataset)
     {
         ArgumentNullException.ThrowIfNull(dataset);
-        await IndexOf(dataset).CatchUpAsync(dataset, cancellationToken).ConfigureAwait(false);
+        return new ValueTask(IndexOf(dataset).WarmAsync(dataset));
     }
 
+    /// <summary>
+    /// What a warm-up waits for before it reads: completed, except where a
+    /// test holds it open to show that nothing else waits for the warm-up.
+    /// </summary>
+    internal Task WarmGate { get; set; } = Task.CompletedTask;
+
     /// <summary>The index of <paramref name="dataset"/>: one per open <see cref="Dataset"/>, so that a reopened dataset reads its log afresh.</summary>
-    internal KeyIndex IndexOf(Dataset dataset) => indexes.GetValue(dataset, _ => new KeyIndex(Window.Commits));
+    internal KeyIndex IndexOf(Dataset dataset) => indexes.GetValue(dataset, _ => new KeyIndex(Window.Commits, () => WarmGate));
 }
 
 /// <summary>
@@ -182,7 +190,7 @@ internal sealed class KeyClaim : IDisposable
 /// is evaluated until it is answered, so two requests with one key never
 /// reach the sequencer together on one writer.
 /// </summary>
-internal sealed class KeyIndex(long window)
+internal sealed class KeyIndex(long window, Func<Task> gate)
 {
     private readonly Lock _gate = new();
     private readonly Dictionary<KeyPrefix, long> _committed = [];
@@ -191,6 +199,7 @@ internal sealed class KeyIndex(long window)
     private const int Readers = 4;
     private long _readTo;
     private long _sweptAt;
+    private Task? _warming;
 
     internal long Window => window;
 
@@ -211,6 +220,39 @@ internal sealed class KeyIndex(long window)
     /// at or below the head it answers is then known, whoever wrote it.
     /// </summary>
     internal async ValueTask<long> CatchUpAsync(Dataset dataset, CancellationToken cancellationToken)
+    {
+        // A warm-up in progress has the window to read: wait for it, then
+        // read what it did not reach. One that failed leaves the reading to
+        // this request.
+        if (Volatile.Read(ref _warming) is { IsCompleted: false } warming)
+        {
+            try
+            {
+                await warming.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception failed) when (failed is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+            {
+                // The request reads the log itself.
+            }
+        }
+
+        return await CatchUpCoreAsync(dataset, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The warm-up: the window read on the thread pool, once per index.</summary>
+    internal Task WarmAsync(Dataset dataset)
+    {
+        lock (_gate)
+        {
+            return _warming ??= Task.Run(async () =>
+            {
+                await gate().ConfigureAwait(false);
+                await CatchUpCoreAsync(dataset, CancellationToken.None).ConfigureAwait(false);
+            });
+        }
+    }
+
+    private async ValueTask<long> CatchUpCoreAsync(Dataset dataset, CancellationToken cancellationToken)
     {
         // Two requests may read the same commits at once: adding a key is
         // idempotent, and the position read to only rises.

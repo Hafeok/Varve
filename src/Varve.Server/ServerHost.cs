@@ -623,7 +623,7 @@ internal static partial class ServerHost
             Authorization = app.Services.GetRequiredService<IAuthorizationService>(),
             Clock = clock,
             Limits = Limits(settings),
-            Idempotency = new IdempotencyKeys(new CommitWindow(settings.Limits.IdempotencyWindow)),
+            Idempotency = fleet.Keys,
             Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service, MemoryBudget = new MemoryBytes(settings.Limits.MaxQueryMemory) },
             Stopping = stopping,
             Telemetry = new TelemetryOptions { QueryText = settings.Telemetry.QueryText },

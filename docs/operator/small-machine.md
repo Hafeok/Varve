@@ -78,6 +78,26 @@ writes, not one that enforces them only one request at a time
 | `Varve:ObjectStorage:CacheBytes` | 1–2 GiB | when the datasets are in an object store; the cache is on the SSD |
 | `Varve:Limits:MaxQueryMemory` | the default, 256 MiB | one query's bound (ADR 0114) |
 | `Varve:Limits:MaxConcurrentReads` | 4 | one per core |
+| `Varve:Limits:IdempotencyWindow` | the default, 100,000 | see below |
+
+**The idempotency index, per dataset this instance writes** (ADR 0246). The
+writer holds 16 bytes of each key's hash and its commit's position for every
+keyed commit in the window. That is **about 56 bytes per keyed commit**:
+- 5.4 MiB for a full window of 100,000 keyed commits;
+- 2.6 MiB when 75,000 of them are keyed.
+
+These were measured at REC M with `Varve.Benchmarks -- --idempotency-index M`.
+The index grows with the keyed writes in the window, never with the size of
+the data.
+
+A follower and a standby hold none: an instance reads a dataset's keys only
+when it becomes that dataset's writer, in the background, in 0.3 to 0.5 s at
+REC M.
+
+Ten written datasets with full windows hold about 55 MiB. If that is too
+much on 8 GB, a smaller `IdempotencyWindow` shrinks the index in proportion.
+It also shortens how long a client may wait before retrying: a retry from
+further back is refused with `422 idempotency-key-expired`.
 
 ## Measured
 

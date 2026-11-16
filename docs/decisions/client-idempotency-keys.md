@@ -11,6 +11,10 @@ decisions:
     statement: "The writer honours a key while its commit is among the dataset's last Window commits, 100000 by default, holding the key's hash read from the log before its first keyed check and kept under the request's claim; never bounded by time"
   - key: RetryPastTheWindowIsRefused
     statement: "A write may carry Varve-Key-Position, the head the client knew when it made the key; a key not found whose position is more than the window below the head is 422 idempotency-key-expired, because whether its original committed cannot be determined, and commits nothing"
+  - key: OnceOrRefusedWithTheKeyPosition
+    statement: "A keyed retry with Varve-Key-Position commits its write once or is refused, never twice; without it, a retry commits at most once while the original's commit is in the window"
+  - key: KeysReadAheadInTheBackground
+    statement: "The server starts reading a dataset's keys from its log whenever it becomes the dataset's writer, without waiting for it, so the open and a takeover are no longer; a keyed write that arrives first waits for that reading"
   - key: KeyCheckedBeforePreconditions
     statement: "The key is looked up after authorisation and before any precondition, so a retry whose original moved the head is answered from its commit and not 412"
   - key: ReplayAnswersTheOriginalOutcome
