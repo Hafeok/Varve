@@ -704,7 +704,8 @@ internal static partial class ServerHost
                 warm,
                 spill,
                 cache,
-                open && dataset!.StorageFull));
+                open && dataset!.StorageFull,
+                datasets.DegradedOf(entry.Name)));
         }
 
         ManagementStatus management = fleet.Status;
@@ -739,6 +740,17 @@ internal static partial class ServerHost
             {
                 json.WriteBoolean("tailing", state.Tailing);
                 json.WriteBoolean("warm", state.Warm);
+            }
+
+            // Released by this instance for storage-error or local-disk-error,
+            // and not yet written again for long (ADR 0163, amended 2026-11-10).
+            if (state.Degraded is { } degraded)
+            {
+                json.WriteStartObject("degraded");
+                json.WriteString("reason", degraded.Reason);
+                json.WriteNumber("releases", degraded.Releases);
+                json.WriteString("since", degraded.Since.UtcDateTime);
+                json.WriteEndObject();
             }
 
             if (state.Spill is { } spill)

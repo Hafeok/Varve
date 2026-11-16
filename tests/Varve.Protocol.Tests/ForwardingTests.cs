@@ -108,6 +108,44 @@ public sealed class ForwardingTests
     }
 
     /// <summary>
+    /// What tells a forward that never reached its writer from one whose
+    /// answer was lost (ADR 0167, amended 2026-11-02; #216), over the
+    /// transport the server forwards with: a connection that is refused sent
+    /// nothing, and a connection that took the request and closed without an
+    /// answer sent it.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_refused_connection_never_sent_the_forward_and_a_closed_one_did(bool sent)
+    {
+        using System.Net.Sockets.TcpListener listener = new(IPAddress.Loopback, 0);
+        listener.Start();
+        int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        Task serving = Task.CompletedTask;
+
+        if (sent)
+        {
+            serving = Task.Run(async () =>
+            {
+                using System.Net.Sockets.TcpClient client = await listener.AcceptTcpClientAsync(P.Ct);
+                _ = await client.GetStream().ReadAsync(new byte[4096], P.Ct);
+            }, P.Ct);
+        }
+        else
+        {
+            listener.Stop();
+        }
+
+        using HttpMessageInvoker forwarder = new(new SocketsHttpHandler { UseProxy = false });
+        using HttpRequestMessage message = new(HttpMethod.Put, "http://127.0.0.1:" + port + "/manage/datasets/d") { Content = new StringContent("x") };
+        HttpRequestException error = await Assert.ThrowsAsync<HttpRequestException>(() => forwarder.SendAsync(message, P.Ct));
+        await serving;
+
+        Assert.Equal(!sent, Varve.Protocol.Endpoints.Forwarding.NeverSent(error));
+    }
+
+    /// <summary>
     /// A writer that refuses a forwarded batch as superseded or stepped down
     /// committed nothing (ADR 0179 point 12): the forwarding instance answers
     /// writer-moved, with the writer's answer as its reason, marks the route

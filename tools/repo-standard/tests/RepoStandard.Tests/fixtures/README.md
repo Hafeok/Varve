@@ -16,6 +16,8 @@ is missing or extra.
   kind**, each including something added by hand that the declaration does not
   name: a topic, a label, a ruleset, an environment secret, a repository secret,
   a Discussions category, a linked board, an allowed-actions pattern.
+  `rulesets-check-defaults` adds the two spellings of a rule at its default
+  parameters, which are one rule, beside one off its default, which is not.
 - **`*-apply*`** — the contract tests for the writes: each write endpoint the
   tool calls appears in at least one, with its exact request body.
 - **`rate-limit-check`**, **`apply-stops-at-failure`**, **`export-all`**,

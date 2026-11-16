@@ -1,0 +1,12 @@
+{
+  "step": "train",
+  "main": { "README.md": "Varve\n" },
+  "members": [
+    { "number": 11, "files": { "docs/a.md": "a\n" }, "approval": "head", "green": true },
+    { "number": 12, "files": { "docs/b.md": "b\n" }, "approval": "head", "green": true }
+  ],
+  "edit": true,
+  "says": [
+    "'s tree is not `git merge-tree` of its parents under the pinned settings: it was resolved or edited by hand"
+  ]
+}
