@@ -70,7 +70,33 @@ New tests (before → after, in the projects they join):
   - the not-configured console in-process;
   - `WebUiImageTests`, 2 cases, run against the image in the `container` job.
 
-`eng/ci.cs` here, with SDK 10.0.403: all 68 jobs pass, `conformance` and `pack` included. The full result is posted with the head on the pull request.
+`eng/ci.cs` here, after merging `main` (SDK 10.0.404): all 70 jobs pass, `conformance`, `pack`, `sbom` and `release` included. The hosted result is posted with the head on #296.
+
+## What the first hosted run found
+
+#308's first run, at `5ad44884`, was red for two real reasons. The causes are on #296.
+
+- **The descriptor was stale.**
+  - It was written on the branch's base with SDK 10.0.403, and the pull request's CI tests the merge with `main`, which had moved to 10.0.404 (#293) and a new base image digest (#234).
+  - The Web UI's SBOM, and the image's that contains it, changed with them.
+  - The fix: `main` merged in, and `eng/release.cs --sbom` run again on the merged tree. Merging also brought ADRs 0240 and 0242 into the release's basis.
+- **The image's bundle directories were `644`.**
+  - The runner's builder did not apply `COPY --chmod`'s symbolic `X` to directories, so uid 1654 could read no file below `/app/webui`.
+  - The fix: the modes are now set by GNU `chmod` in the `layout` stage.
+  - The `container` job now requests every file of the bundle.
+- **`eng/ci.cs` could not see either.** It has no container job, and it never compares a descriptor against a fresh generation.
+- **The two platforms' bundle layers differ.** The layer records the `app/` directory's build time, so ADR 0245's first claim that they are one blob was wrong. Corrected in 0245, and part of #326.
+
+## CI time
+
+The `container` jobs now wait for `browser wasm`, and start about 4 minutes into the run.
+
+| `container` job | `main` (`c5d148fb`) | this branch |
+|---|---|---|
+| linux-x64 | 4m16s | 5m30s |
+| linux-arm64 | 3m51s | 4m17s |
+
+They finish at 9m43s, about 7 minutes before the run's slowest job, so the run's wall-clock does not change.
 
 ## Questions for the maintainer
 
