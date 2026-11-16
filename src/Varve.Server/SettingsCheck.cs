@@ -46,6 +46,7 @@ internal static class SettingsCheck
         "Cors:AllowedOrigins:*", "Cors:MaxAge",
         "Store:GroupCommit:MaxRecords", "Store:GroupCommit:MaxBytes",
         "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes", "Store:MemtableLimit", "Store:SeekDirectoryCacheBytes",
+        "Inference:HistoryBytes", "Inference:ClosureBytes",
         "Events:Source", "Events:EventHubs:Host", "Events:EventHubs:Hub",
         "WebUi:Path",
     ];
@@ -257,6 +258,16 @@ internal static class SettingsCheck
         if (settings.Store.SeekDirectoryCacheBytes < 0)
         {
             errors.Add("Varve:Store:SeekDirectoryCacheBytes is zero or more: the bytes of extents' seek directories kept in memory for as-of reads (ADR 0240).");
+        }
+
+        if (settings.Inference.HistoryBytes < 0)
+        {
+            errors.Add("Varve:Inference:HistoryBytes is zero or more: the bytes of closed rows an inference projection keeps for as-of reads (ADR 0195).");
+        }
+
+        if (settings.Inference.ClosureBytes is < 1)
+        {
+            errors.Add("Varve:Inference:ClosureBytes is at least 1, or unset for a quarter of the heap limit: the bytes a binding's closures may hold together (ADR 0195).");
         }
 
         // The follower's record is the id with "-follower" (ObjectStores), so

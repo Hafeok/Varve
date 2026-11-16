@@ -58,6 +58,8 @@ internal sealed class ServerSettings
     /// <summary>How every dataset's store writes (ADR 0124).</summary>
     public StoreSettings Store { get; set; } = new();
 
+    public InferenceSettings Inference { get; set; } = new();
+
     /// <summary>Domain events (ADRs 0143, 0144): the base their URLs are built on, and the Event Hubs server the AsyncAPI document names.</summary>
     public EventsSettings Events { get; set; } = new();
 
@@ -130,6 +132,24 @@ internal sealed class StoreSettings
     /// for as-of reads inside a set's window (ADR 0240); zero keeps none.
     /// </summary>
     public long SeekDirectoryCacheBytes { get; set; } = 32L << 20;
+}
+
+/// <summary>What each binding's inference projection may hold in memory (ADR 0195 points 5a and 6).</summary>
+internal sealed class InferenceSettings
+{
+    /// <summary>
+    /// The bytes of closed rows a projection keeps for as-of reads, oldest
+    /// positions out first; zero keeps none, and an as-of read below the
+    /// projection's position is then from scratch.
+    /// </summary>
+    public long HistoryBytes { get; set; } = 32L << 20;
+
+    /// <summary>
+    /// The bytes a binding's closures may hold together; past it the binding
+    /// stops and answers <c>inference-unavailable</c>. Unset, a quarter of the
+    /// collector's heap limit.
+    /// </summary>
+    public long? ClosureBytes { get; set; }
 }
 
 /// <summary>

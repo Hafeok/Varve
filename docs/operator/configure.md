@@ -299,6 +299,16 @@ this is the setting that bounds a follower's memory.
 | `Store:MemtableLimit` | `1000000` | the memtable's bound, in entries: one per quad asserted or retracted, and one per term it adds. An entry holds about 215 bytes for a quad and about 90 for a short term (measured on .NET 10), so the default is roughly 100 to 220 MiB; at least 1. Lower spills and re-opens more often; a read is never wrong for it |
 | `Store:SeekDirectoryCacheBytes` | `33554432` | the most bytes of extent sets' seek directories a dataset keeps in memory (ADR 0240). A read as of a position inside a checkpointed window finds a quad's history through its set's seek directory, which is read from the set when such a read first needs it and kept here, the least recently used out first. It bounds what a dataset's history costs in memory: nothing is held per commit. `0` keeps none, and every such read reads its directories again. A read is never wrong for it; a read of the present never uses it |
 
+### Inference
+
+Each materialising TBox binding keeps its closure in memory, with the rows it
+has closed for as-of reads ([Inference](inference.md), ADR 0195).
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Inference:HistoryBytes` | `33554432` | the most bytes of closed rows one binding's projection keeps for as-of reads, the oldest positions out first (ADR 0195 point 5a). A closure read as of a position below what is held is computed from scratch, as below the projection's floor. `0` keeps none. A read is never wrong for it; a read at the projection's position never uses it |
+| `Inference:ClosureBytes` | unset: a quarter of the heap limit | the most bytes one binding's closures may hold together (ADR 0195 point 6). Past it the binding stops, its closure reads answer `503 inference-unavailable` with no `Retry-After`, and readiness says `stopped (memory-limit)`; tier-1 regimes are still served. A commit to one of its TBox graphs tries it again. At least 1 when set |
+
 The writer merges its extent sets in the background (ADRs 0158, 0159), so a
 read of the present merges a bounded number of runs however many
 checkpoints are taken; see [Back up and restore](backup-and-restore.md#checkpoints).

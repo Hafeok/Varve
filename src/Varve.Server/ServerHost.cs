@@ -632,6 +632,7 @@ internal static partial class ServerHost
             EventHubs = string.IsNullOrEmpty(settings.Events.EventHubs.Host) ? null : new EventHubsServer(settings.Events.EventHubs.Host, settings.Events.EventHubs.Hub!),
             ValidationReports = fleet.Projections,
             RowClassifications = fleet.Classifications,
+            InferenceClosures = fleet.Inference,
             Entailment = fleet.Entailment,
         };
         fleet.Resume = (name, cancellationToken) => EventDeclarationMove.ResumeAsync(options, fleet, name, cancellationToken);
@@ -828,6 +829,42 @@ internal static partial class ServerHost
             json.WriteEndObject();
         }
 
+        // Each materialising binding's state (ADR 0195 point 6): its lag, its held history,
+        // its clashes, and whether it is stopped. Reported, and never a reason to be unready.
+        void Inference(Utf8JsonWriter json, string name)
+        {
+            if (!DatasetName.TryParse(name, out DatasetName dataset))
+            {
+                return;
+            }
+
+            SortedDictionary<string, InferenceStatus> statuses = fleet.Inference.StatusOf(dataset);
+            if (statuses.Count == 0)
+            {
+                return;
+            }
+
+            json.WriteStartObject("inference");
+            foreach ((string binding, InferenceStatus status) in statuses)
+            {
+                json.WriteStartObject(binding);
+                json.WriteString("state", status.State);
+                json.WriteNumber("lag", status.Lag);
+                json.WriteNumber("heldFrom", status.HeldFrom);
+                json.WriteBoolean("inconsistent", status.Clashes > 0);
+                json.WriteNumber("clashes", status.Clashes);
+                if (status.Reached > 0)
+                {
+                    json.WriteNumber("limit", status.Limit);
+                    json.WriteNumber("reached", status.Reached);
+                }
+
+                json.WriteEndObject();
+            }
+
+            json.WriteEndObject();
+        }
+
         // The full reads a dataset's entailment bindings made (ADR 0193).
         void FullReads(Utf8JsonWriter json, string name)
         {
@@ -876,6 +913,7 @@ internal static partial class ServerHost
                     Standby(json, state);
                     Validation(json, state.Name);
                     Classification(json, state.Name);
+                    Inference(json, state.Name);
                     FullReads(json, state.Name);
                     json.WriteEndObject();
                 }
@@ -923,6 +961,7 @@ internal static partial class ServerHost
                 Standby(json, state);
                 Validation(json, state.Name);
                 Classification(json, state.Name);
+                Inference(json, state.Name);
                 FullReads(json, state.Name);
                 json.WriteEndObject();
             }
