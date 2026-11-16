@@ -11,6 +11,12 @@ answer that saved plans are versioned and positional, not read forever.
 amendment: a saved plan of an unknown format is refused with a message that
 tells the operator to plan again.
 
+**Amended 2026-11-16** (ADR 0068), by Replication part 2 (#166) for #117,
+unaccepted until the maintainer accepts it (ADR 0066): the verification
+record and the result record join the inventory
+([ADR 0183](0183-object-store-verification-and-the-compatibility-page.md)).
+See the end.
+
 Records decision set [`the-format-inventory`](../decisions/the-format-inventory.md).
 
 ## Context
@@ -137,3 +143,24 @@ the release that introduced the version, from nuget.org:
   and one message in `Varve.Management`.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-16 — the verification record and the result record
+
+Filed by Replication part 2 (#166) for #117 with ADR 0183, unaccepted until
+the maintainer accepts it (ADR 0066).
+
+Two formats join the inventory, both **versioned**: a later release reads
+the format while it can, and an unknown one is answered by running
+`varve storage verify` again.
+
+- **The verification record** `varve-verification`, format 1, at a store's
+  root. One this build does not read is not a verification (ADR 0183
+  decision 4).
+- **The result record** under `testdata/object-stores/results/`, format 1,
+  which `eng/object-stores.cs` reads.
+
+No release has written either yet. Their fixture is `verification-next`,
+written by this branch as `store-next` is for derived format 6, and the
+release that ships them is their writer.
+
+**The ledger.** No ruling changes.

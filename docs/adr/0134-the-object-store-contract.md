@@ -15,6 +15,12 @@ unaccepted until the maintainer accepts it (ADR 0066):
 - the create may stream its content from a staged file;
 - a refusal for the identity is its own error.
 
+**Amended 2026-11-16** (ADR 0068), by Replication part 2 (#166) for #117,
+unaccepted until the maintainer accepts it (ADR 0066): the contract suite is
+shipped code, and a second broken store gates it
+([ADR 0183](0183-object-store-verification-and-the-compatibility-page.md)).
+See the end.
+
 ## Context
 
 Azure Container Apps has no block disk. Azure Files breaks three things the
@@ -309,3 +315,25 @@ which the service echoed.
   follower read a segment whole the moment the writer sealed it.
 
 **The ledger.** No ruling changes; `LostRaceIsMappedPerProvider` stands.
+
+## Amendment, 2026-11-16 — the suite is shipped code, and the supported stores are a page
+
+Filed by Replication part 2 (#166) for #117 with ADR 0183, unaccepted until
+the maintainer accepts it (ADR 0066).
+
+- **The contract suite of decision 7 is shipped code.** Its seven cases are
+  `ObjectStoreVerification` in `Varve.Store.ObjectStorage`, run by
+  `varve storage verify` against any store. The tests call the same cases.
+  Sixteen racers stand; the rounds of each race are a parameter, eight by
+  default.
+- **A second broken store gates it.** Beside the store that ignores
+  conditions, the tests keep one that enforces each condition a request at
+  a time and loses races. It is the store decision 9 says the probe cannot
+  detect: it passes the probe, and the race property refuses it.
+- **"The supported stores are those the suite has passed" now points at
+  `docs/operator/object-stores.md`,** which is generated from result
+  records. An emulator's record is the emulator's: Azurite's does not
+  verify Azure Blob Storage, whose evidence is a real account's.
+
+**The ledger.** No ruling changes. `ConditionalWritesProbedAtOpen` and
+`S3ServerChosenByTheSuite` stand, and ADR 0183's set holds the rest.
