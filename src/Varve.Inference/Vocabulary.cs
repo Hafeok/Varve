@@ -80,6 +80,21 @@ internal static class Vocabulary
     internal static readonly RdfTerm OnClass = Owl("onClass");
     internal static readonly RdfTerm MaxCardinality = Owl("maxCardinality");
     internal static readonly RdfTerm MaxQualifiedCardinality = Owl("maxQualifiedCardinality");
+    internal static readonly RdfTerm DifferentFrom = Owl("differentFrom");
+    internal static readonly RdfTerm AllDifferent = Owl("AllDifferent");
+    internal static readonly RdfTerm Members = Owl("members");
+    internal static readonly RdfTerm DistinctMembers = Owl("distinctMembers");
+    internal static readonly RdfTerm IrreflexiveProperty = Owl("IrreflexiveProperty");
+    internal static readonly RdfTerm AsymmetricProperty = Owl("AsymmetricProperty");
+    internal static readonly RdfTerm PropertyDisjointWith = Owl("propertyDisjointWith");
+    internal static readonly RdfTerm AllDisjointProperties = Owl("AllDisjointProperties");
+    internal static readonly RdfTerm SourceIndividual = Owl("sourceIndividual");
+    internal static readonly RdfTerm AssertionProperty = Owl("assertionProperty");
+    internal static readonly RdfTerm TargetIndividual = Owl("targetIndividual");
+    internal static readonly RdfTerm TargetValue = Owl("targetValue");
+    internal static readonly RdfTerm ComplementOf = Owl("complementOf");
+    internal static readonly RdfTerm DisjointWith = Owl("disjointWith");
+    internal static readonly RdfTerm AllDisjointClasses = Owl("AllDisjointClasses");
 
     /// <summary>The annotation properties OWL 2 RL/RDF types as such (prp-ap).</summary>
     internal static readonly ImmutableArray<RdfTerm> AnnotationProperties =

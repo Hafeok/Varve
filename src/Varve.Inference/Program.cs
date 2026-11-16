@@ -17,10 +17,11 @@ namespace Varve.Inference;
 /// </summary>
 internal sealed class Program
 {
-    private Program(Rule[] rules, Fact[] axioms)
+    private Program(Rule[] rules, Fact[] axioms, Check[] checks)
     {
         Rules = rules;
         Axioms = axioms;
+        Checks = checks;
         Dependencies = new DependencyGraph<Rule>(1);
         foreach (Rule rule in rules)
         {
@@ -38,6 +39,9 @@ internal sealed class Program
     /// <summary>The facts every closure of the profile holds, whatever the graph.</summary>
     internal Fact[] Axioms { get; }
 
+    /// <summary>The rules whose head is <c>false</c>, evaluated over the closure (ADR 0197 point 5).</summary>
+    internal Check[] Checks { get; }
+
     internal DependencyGraph<Rule> Dependencies { get; }
 
     internal Stratification<Rule> Strata { get; }
@@ -52,7 +56,7 @@ internal sealed class Program
             book.Owl2Rl();
         }
 
-        return new Program([.. book.Rules], [.. book.Axioms]);
+        return new Program([.. book.Rules], [.. book.Axioms], [.. book.Checks]);
     }
 
     /// <summary>The rules of a profile, written as their specifications give them.</summary>
@@ -70,6 +74,11 @@ internal sealed class Program
         internal List<Rule> Rules { get; } = [];
 
         internal List<Fact> Axioms { get; } = [];
+
+        internal List<Check> Checks { get; } = [];
+
+        private void Check(string name, Atom[] body, Func<TermHandle[], bool>? condition = null) =>
+            Checks.Add(new PatternCheck("owl2rl", name, body, condition));
 
         private Slot C(RdfTerm term) => Slot.Const(terms.Handle(term));
 
@@ -123,6 +132,19 @@ internal sealed class Program
             Rule("rdfs11", [new(X, subClass, Y), new(Y, subClass, Z)], new Atom(X, subClass, Z));
             Rule("rdfs12", [new(X, type, C(Vocabulary.ContainerMembershipProperty))], new Atom(X, subProperty, C(Vocabulary.Member)));
             Rule("rdfs13", [new(X, type, C(Vocabulary.Datatype))], new Atom(X, subClass, C(Vocabulary.Literal)));
+
+            // The D clash over the recognised datatypes (ADR 0197 point 2): a
+            // literal typed, by any rule, as a recognised datatype whose value
+            // space does not hold it. Of xsd:string and rdf:langString, each
+            // holds exactly the literals of its own datatype, so a literal of
+            // one typed as the other clashes; a literal of an unrecognised
+            // datatype has a value nothing here decides, and never does.
+            Checks.Add(new PatternCheck("rdfs", "dt-not-type", [new(X, type, Y)], bound =>
+                recognised.Contains(bound[Y.Variable].Value)
+                && terms.IsLiteral(bound[X.Variable])
+                && terms.TryDatatype(bound[X.Variable], out TermHandle own)
+                && recognised.Contains(own.Value)
+                && own.Value != bound[Y.Variable].Value));
         }
 
         /// <summary>
@@ -204,6 +226,61 @@ internal sealed class Program
             Rules.Add(new ListSubClasses("scm-uni", unionOf, list, terms.Handle(Vocabulary.SubClassOf), union: true));
             Rules.Add(new PropertyChain(terms.Handle(Vocabulary.PropertyChainAxiom), list));
             Rules.Add(new Key(terms.Handle(Vocabulary.HasKey), list, terms.Handle(Vocabulary.SameAs)));
+
+            // The rules whose head is false (OWL 2 Profiles §4.3, tables 4 to
+            // 9; ADR 0197 point 3), less dt-not-type, which the RDFS profile's
+            // check answers for the datatypes recognised.
+            Slot zero = C(Vocabulary.Cardinality("0"));
+            Check("eq-diff1", [new(X, sameAs, Y), new(X, C(Vocabulary.DifferentFrom), Y)]);
+            Check("prp-irp", [new(A, type, C(Vocabulary.IrreflexiveProperty)), new(X, A, X)]);
+            Check("prp-asyp", [new(A, type, C(Vocabulary.AsymmetricProperty)), new(X, A, Y), new(Y, A, X)]);
+            Check("prp-pdw", [new(A, C(Vocabulary.PropertyDisjointWith), B), new(X, A, Y), new(X, B, Y)]);
+            Check("prp-npa1", [new(X, C(Vocabulary.SourceIndividual), U), new(X, C(Vocabulary.AssertionProperty), A), new(X, C(Vocabulary.TargetIndividual), V), new(U, A, V)]);
+            Check("prp-npa2", [new(X, C(Vocabulary.SourceIndividual), U), new(X, C(Vocabulary.AssertionProperty), A), new(X, C(Vocabulary.TargetValue), V), new(U, A, V)]);
+            Check("cls-nothing2", [new(X, type, nothing)]);
+            Check("cls-com", [new(X, C(Vocabulary.ComplementOf), Y), new(Z, type, X), new(Z, type, Y)]);
+            Check("cls-maxc1", [new(X, C(Vocabulary.MaxCardinality), zero), new(X, onProperty, A), new(U, type, X), new(U, A, Y)]);
+            Check("cls-maxqc1", [new(X, C(Vocabulary.MaxQualifiedCardinality), zero), new(X, onProperty, A), new(X, onClass, B), new(U, type, X), new(U, A, Y), new(Y, type, B)]);
+            Check("cls-maxqc2", [new(X, C(Vocabulary.MaxQualifiedCardinality), zero), new(X, onProperty, A), new(X, onClass, thing), new(U, type, X), new(U, A, Y)]);
+            Check("cax-dw", [new(X, C(Vocabulary.DisjointWith), Y), new(Z, type, X), new(Z, type, Y)]);
+
+            TermHandle typeOf = terms.Handle(Vocabulary.Type), sameAsOf = terms.Handle(Vocabulary.SameAs);
+            TermHandle members = terms.Handle(Vocabulary.Members);
+            Checks.Add(new MembersCheck("owl2rl", "eq-diff2", typeOf, terms.Handle(Vocabulary.AllDifferent), members, list, (facts, a, b, into) =>
+                Same(facts, a, b, sameAsOf, into)));
+            Checks.Add(new MembersCheck("owl2rl", "eq-diff3", typeOf, terms.Handle(Vocabulary.AllDifferent), terms.Handle(Vocabulary.DistinctMembers), list, (facts, a, b, into) =>
+                Same(facts, a, b, sameAsOf, into)));
+            Checks.Add(new MembersCheck("owl2rl", "prp-adp", typeOf, terms.Handle(Vocabulary.AllDisjointProperties), members, list, (facts, a, b, into) =>
+            {
+                foreach (Fact first in facts.Match(TermHandle.None, a, TermHandle.None))
+                {
+                    Fact second = new(first.Subject, b, first.Object);
+                    if (facts.Contains(second))
+                    {
+                        into.Add([first, second]);
+                    }
+                }
+            }));
+            Checks.Add(new MembersCheck("owl2rl", "cax-adc", typeOf, terms.Handle(Vocabulary.AllDisjointClasses), members, list, (facts, a, b, into) =>
+            {
+                foreach (Fact first in facts.Match(TermHandle.None, typeOf, a))
+                {
+                    Fact second = new(first.Subject, typeOf, b);
+                    if (facts.Contains(second))
+                    {
+                        into.Add([first, second]);
+                    }
+                }
+            }));
+        }
+
+        private static void Same(FactSet facts, TermHandle a, TermHandle b, TermHandle sameAs, List<Fact[]> into)
+        {
+            Fact same = new(a, sameAs, b);
+            if (facts.Contains(same))
+            {
+                into.Add([same]);
+            }
         }
     }
 }

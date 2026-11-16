@@ -187,6 +187,10 @@ internal sealed class PatternRule : Rule
         }
     }
 
+    /// <summary>Every match of the whole body over <paramref name="facts"/>, with its bindings and premises: a check's matches.</summary>
+    internal void Matches(FactSet facts, Action<TermHandle[], Fact[]> found) =>
+        Collect(facts, new TermHandle[_variables], skip: -1, next: 0, new Fact[_body.Length], found);
+
     /// <summary>Every way to match the body's atoms but <paramref name="skip"/> from <paramref name="next"/> on, each with its premises.</summary>
     private void Collect(FactSet facts, TermHandle[] bindings, int skip, int next, Fact[] chosen, Action<TermHandle[], Fact[]> found)
     {

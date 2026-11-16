@@ -72,6 +72,36 @@ public sealed partial class Closure
     /// <summary>Every fact of the closure.</summary>
     public IEnumerable<Fact> All => Facts.All;
 
+    /// <summary>
+    /// Every clash the profile's checks find over the closure (ADR 0197
+    /// point 5), each check and set of premises once. A clash changes nothing
+    /// the closure holds: it is reported, never served as everything.
+    /// </summary>
+    public IReadOnlyList<Clash> Clashes()
+    {
+        List<Clash> clashes = [];
+        List<Fact[]> matches = [];
+        foreach (Check check in Program.Checks)
+        {
+            matches.Clear();
+            check.Matches(Facts, matches);
+            HashSet<string> seen = [];
+            foreach (Fact[] premises in matches)
+            {
+                Fact[] ordered = [.. premises];
+                Array.Sort(ordered, static (x, y) =>
+                    x.Subject.Value != y.Subject.Value ? x.Subject.Value.CompareTo(y.Subject.Value)
+                    : x.Predicate.Value != y.Predicate.Value ? x.Predicate.Value.CompareTo(y.Predicate.Value)
+                    : x.Object.Value.CompareTo(y.Object.Value));
+                if (seen.Add(string.Join(' ', ordered)))
+                {
+                    clashes.Add(new Clash(check.Iri, premises));
+                }
+            }
+        }
+
+        return clashes;
+    }
 
     internal FactSet Facts { get; } = new();
 

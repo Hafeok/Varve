@@ -26,3 +26,8 @@ override Varve.Inference.Model.Fact.GetHashCode() -> int
 override Varve.Inference.Model.Fact.ToString() -> string!
 static Varve.Inference.Model.Fact.operator !=(Varve.Inference.Model.Fact left, Varve.Inference.Model.Fact right) -> bool
 static Varve.Inference.Model.Fact.operator ==(Varve.Inference.Model.Fact left, Varve.Inference.Model.Fact right) -> bool
+Varve.Inference.Closure.Clashes() -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>!
+Varve.Inference.Model.Clash
+Varve.Inference.Model.Clash.Clash(Varve.Rdf.RdfTerm! rule, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Fact>! premises) -> void
+Varve.Inference.Model.Clash.Premises.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Fact>!
+Varve.Inference.Model.Clash.Rule.get -> Varve.Rdf.RdfTerm!
