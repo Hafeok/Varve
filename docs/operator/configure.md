@@ -297,6 +297,7 @@ this is the setting that bounds a follower's memory.
 | Key | Default | Meaning |
 |---|---|---|
 | `Store:MemtableLimit` | `1000000` | the memtable's bound, in entries: one per quad asserted or retracted, and one per term it adds. An entry holds about 215 bytes for a quad and about 90 for a short term (measured on .NET 10), so the default is roughly 100 to 220 MiB; at least 1. Lower spills and re-opens more often; a read is never wrong for it |
+| `Store:SeekDirectoryCacheBytes` | `33554432` | the most bytes of extent sets' seek directories a dataset keeps in memory (ADR 0240). A read as of a position inside a checkpointed window finds a quad's history through its set's seek directory, which is read from the set when such a read first needs it and kept here, the least recently used out first. It bounds what a dataset's history costs in memory: nothing is held per commit. `0` keeps none, and every such read reads its directories again. A read is never wrong for it; a read of the present never uses it |
 
 The writer merges its extent sets in the background (ADRs 0158, 0159), so a
 read of the present merges a bounded number of runs however many

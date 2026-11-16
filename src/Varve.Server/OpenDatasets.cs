@@ -44,6 +44,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     private readonly GroupCommitOptions _groupCommit;
     private readonly ExtentMergePolicy _merges;
     private readonly Varve.Rdf.QuadCount _memtableLimit;
+    private readonly ByteCount _seekDirectoryCache;
     private readonly ObjectStores? _objects;
     private readonly ManagementOrder _order;
     private readonly WriterAddress? _address;
@@ -67,6 +68,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         _logger = logger;
         _address = settings.Fleet.InternalUrl is { } url ? new WriterAddress(url) : null;
         _memtableLimit = new Varve.Rdf.QuadCount(settings.Store.MemtableLimit);
+        _seekDirectoryCache = new ByteCount(settings.Store.SeekDirectoryCacheBytes);
         _merges = new ExtentMergePolicy
         {
             Enabled = settings.Store.ExtentMerges.Enabled,
@@ -566,7 +568,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         // The bounds are a durable backend's; the memory backend has no flush
         // for a batch to share, and writes each request alone (ADR 0124).
         // The event catalogue's check gates every write path (ADR 0145).
-        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, MemtableLimit = _memtableLimit, Validators = [new EventCatalogueValidator(new DatasetName(name), () => _moved(name)), new ReportGraphGuard()] };
+        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, MemtableLimit = _memtableLimit, SeekDirectoryCache = _seekDirectoryCache, Validators = [new EventCatalogueValidator(new DatasetName(name), () => _moved(name)), new ReportGraphGuard()] };
 
         try
         {
