@@ -169,7 +169,9 @@
         "dependencies": {
           "Varve.Inference": "[1.0.0, )",
           "Varve.Rdf": "[1.0.0, )",
-          "Varve.Store": "[1.0.0, )"
+          "Varve.Sparql.Entailment": "[1.0.0, )",
+          "Varve.Store": "[1.0.0, )",
+          "Varve.Xsd": "[1.0.0, )"
         }
       },
       "varve.iri": {
@@ -179,6 +181,22 @@
         "type": "Project",
         "dependencies": {
           "Varve.Iri": "[1.0.0, )"
+        }
+      },
+      "varve.sparql": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )"
+        }
+      },
+      "varve.sparql.entailment": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Sparql": "[1.0.0, )",
+          "Varve.Xsd": "[1.0.0, )"
         }
       },
       "varve.store": {

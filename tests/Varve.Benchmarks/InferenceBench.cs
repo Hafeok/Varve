@@ -27,8 +27,8 @@ namespace Varve.Benchmarks;
 /// The TBox is REC 4.1.0 and Brick with its patches
 /// (<c>testdata/rec/v4.1.0</c>), the data each site's graph at the head.
 /// <strong>From scratch:</strong> the TBox closure and one closure per site
-/// graph of its quads and the TBox's, as a cold start or a read below what
-/// is held computes them; its time, its facts, and the managed heap it
+/// graph of its quads over it, the TBox closure shared beneath each, as a
+/// cold start or a read below what is held computes them; its time, its facts, and the managed heap it
 /// holds, measured after a full collection, per fact and per data quad.
 /// </para>
 /// <para>
@@ -70,8 +70,8 @@ internal static class InferenceBench
         foreach ((string graph, HashSet<Fact> graphFacts) in graphs)
         {
             TimeSpan start = clock.Elapsed;
-            Closure closure = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive);
-            closure.Apply([.. tbox, .. graphFacts], []);
+            Closure closure = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive, tbox: tboxClosure);
+            closure.Apply([.. graphFacts], []);
             closures[graph] = closure;
             Console.WriteLine($"//   {graph}: {graphFacts.Count} quads, {(clock.Elapsed - start).TotalSeconds:F1} s, {closure.Count.Value} facts");
         }
@@ -79,7 +79,7 @@ internal static class InferenceBench
         TimeSpan built = clock.Elapsed;
         long after = Heap();
         long facts = tboxClosure.Count.Value + closures.Values.Sum(c => c.Count.Value);
-        long rows = tboxClosure.Implicit.LongCount() + closures.Values.Sum(c => c.Implicit.LongCount(f => !tboxClosure.Contains(f)));
+        long rows = tboxClosure.Implicit.LongCount() + closures.Values.Sum(c => c.Own.LongCount(f => !c.IsExplicit(f)));
         Console.WriteLine($"from scratch: {built.TotalSeconds:F1} s; {facts} facts held ({tboxClosure.Count.Value} in the TBox closure); {rows} rows; heap {(after - before) / 1048576.0:F0} MiB, {(double)(after - before) / facts:F0} B a fact, {(double)(after - before) / Math.Max(1, quads):F0} B a data quad; working set {Environment.WorkingSet / 1048576.0:F0} MiB");
         GC.KeepAlive(closures);
 
@@ -89,7 +89,6 @@ internal static class InferenceBench
         }
 
         closures.Clear();
-        tboxClosure = null!;
         foreach (Retraction strategy in new[] { Retraction.RecursiveCounting, Retraction.DeleteAndRederive, Retraction.BackwardForward })
         {
             long start = Heap();
@@ -97,8 +96,8 @@ internal static class InferenceBench
             Dictionary<string, Closure> mine = [];
             foreach ((string graph, HashSet<Fact> graphFacts) in graphs)
             {
-                Closure closure = new(InferenceProgram.Of(profile, terms), strategy);
-                closure.Apply([.. tbox, .. graphFacts], []);
+                Closure closure = new(InferenceProgram.Of(profile, terms), strategy, tbox: tboxClosure);
+                closure.Apply([.. graphFacts], []);
                 mine[graph] = closure;
             }
 
@@ -130,8 +129,7 @@ internal static class InferenceBench
                 {
                     if (!mine.TryGetValue(graph, out Closure? closure))
                     {
-                        closure = new Closure(InferenceProgram.Of(profile, terms), strategy);
-                        closure.Apply(tbox, []);
+                        closure = new Closure(InferenceProgram.Of(profile, terms), strategy, tbox: tboxClosure);
                         mine[graph] = closure;
                     }
 

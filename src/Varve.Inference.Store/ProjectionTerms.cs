@@ -8,7 +8,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using Varve.Inference.Model;
 using Varve.Rdf;
+using Varve.Sparql.Entailment;
+using Varve.Xsd;
 
 namespace Varve.Inference.Store;
 
@@ -37,6 +40,9 @@ namespace Varve.Inference.Store;
 internal sealed class ProjectionTerms(IQuadSource source) : IInferenceTerms
 {
     private const string RdfNamespace = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+
+    private static readonly RdfTerm XsdString = RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#string"u8);
+    private static readonly RdfTerm LangString = RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#langString"u8);
 
     // In the canonical class, above the staging view's provisional bit and
     // every counter a dictionary reaches: a dataset never issues one.
@@ -165,6 +171,39 @@ internal sealed class ProjectionTerms(IQuadSource source) : IInferenceTerms
         datatype = Handle(RdfTerm.Iri(term.DatatypeIri));
         return true;
     }
+
+    /// <summary>
+    /// The datatypes recognised (ADR 0197 points 2 and 3): RDFS's two under
+    /// <c>varve:RDFS</c>; under <c>varve:OWL2RL</c>, every datatype of
+    /// Varve.Xsd's map and <c>rdf:langString</c>.
+    /// </summary>
+    public IReadOnlyCollection<RdfTerm> RecognisedDatatypes(InferenceProfile profile)
+    {
+        if (profile != InferenceProfile.Owl2Rl)
+        {
+            return [XsdString, LangString];
+        }
+
+        List<RdfTerm> datatypes = [LangString];
+        foreach (XsdDatatype datatype in Enum.GetValues<XsdDatatype>())
+        {
+            if (datatype != XsdDatatype.None)
+            {
+                datatypes.Add(RdfTerm.Iri(XsdDatatypes.Iri(datatype)));
+            }
+        }
+
+        return datatypes;
+    }
+
+    /// <summary>Whether a literal's value is in a datatype's value space, by Varve.Xsd: never for an ill-typed literal.</summary>
+    public bool HasValueType(TermHandle literal, TermHandle datatype) =>
+        TryExternalise(literal, out RdfTerm? value) && TryExternalise(datatype, out RdfTerm? type)
+        && value.Kind == RdfTermKind.Literal && LiteralValues.IsWellTyped(value) && LiteralValues.HasValueType(value, type);
+
+    /// <summary>Whether every value of one datatype is a value of another, by Varve.Xsd.</summary>
+    public bool ValueSpaceWithin(TermHandle datatype, TermHandle super) =>
+        TryExternalise(datatype, out RdfTerm? inner) && TryExternalise(super, out RdfTerm? outer) && LiteralValues.ValueSpaceWithin(inner, outer);
 
     public bool IsContainerMembership(TermHandle handle)
     {

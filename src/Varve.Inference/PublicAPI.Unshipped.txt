@@ -103,3 +103,6 @@ Varve.Inference.Model.Explanation.Explanation(Varve.Inference.Model.ExplainedQua
 Varve.Inference.Model.Explanation.Proof.get -> Varve.Inference.Model.ExplainedQuad?
 Varve.Inference.Closure.Closure(Varve.Inference.Model.InferenceProfile profile, Varve.Inference.IInferenceTerms! terms, Varve.Inference.FactBudget! budget, Varve.Inference.Closure! tbox) -> void
 Varve.Inference.Closure.Own.get -> System.Collections.Generic.IEnumerable<Varve.Inference.Model.Fact>!
+Varve.Inference.IInferenceTerms.HasValueType(Varve.Rdf.TermHandle literal, Varve.Rdf.TermHandle datatype) -> bool
+Varve.Inference.IInferenceTerms.RecognisedDatatypes(Varve.Inference.Model.InferenceProfile profile) -> System.Collections.Generic.IReadOnlyCollection<Varve.Rdf.RdfTerm!>!
+Varve.Inference.IInferenceTerms.ValueSpaceWithin(Varve.Rdf.TermHandle datatype, Varve.Rdf.TermHandle super) -> bool

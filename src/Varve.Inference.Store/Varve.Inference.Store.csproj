@@ -14,6 +14,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../Varve.Inference/Varve.Inference.csproj" />
+    <ProjectReference Include="../Varve.Sparql.Entailment/Varve.Sparql.Entailment.csproj" />
+    <ProjectReference Include="../Varve.Xsd/Varve.Xsd.csproj" />
     <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
     <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
   </ItemGroup>

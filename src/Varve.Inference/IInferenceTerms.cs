@@ -4,6 +4,8 @@
 
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using System.Collections.Generic;
+using Varve.Inference.Model;
 using Varve.Rdf;
 
 namespace Varve.Inference;
@@ -32,4 +34,24 @@ public interface IInferenceTerms
 
     /// <summary>Whether a handle names a container membership property, <c>rdf:_n</c>.</summary>
     bool IsContainerMembership(TermHandle handle);
+
+    /// <summary>
+    /// The datatypes a profile recognises (RDF 1.1 Semantics §7, ADR 0197
+    /// points 2 and 3): by default <c>xsd:string</c> and <c>rdf:langString</c>,
+    /// RDFS's; a host that knows more datatypes recognises them under
+    /// <c>OWL2RL</c>.
+    /// </summary>
+    IReadOnlyCollection<RdfTerm> RecognisedDatatypes(InferenceProfile profile) => [Vocabulary.XsdString, Vocabulary.LangString];
+
+    /// <summary>
+    /// Whether a literal's value is in a recognised datatype's value space:
+    /// false for an ill-typed literal, whatever the datatype. By default a
+    /// literal of <c>xsd:string</c> or <c>rdf:langString</c> is in exactly its
+    /// own, and any other literal's value is not known, so in none.
+    /// </summary>
+    bool HasValueType(TermHandle literal, TermHandle datatype) =>
+        TryDatatype(literal, out TermHandle own) && own.Value == datatype.Value;
+
+    /// <summary>Whether every value of one recognised datatype is a value of another; by default only of itself.</summary>
+    bool ValueSpaceWithin(TermHandle datatype, TermHandle super) => datatype.Value == super.Value;
 }

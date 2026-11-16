@@ -10,8 +10,10 @@ using System.Threading.Tasks;
 using Varve.Inference.Model;
 using Varve.Inference.Store.Model;
 using Varve.Rdf;
+using Varve.Sparql.Entailment;
 using Varve.Store;
 using Varve.Store.Log;
+using Varve.Xsd;
 
 namespace Varve.Inference.Store.Tests;
 
@@ -197,6 +199,33 @@ internal static class Support
             return term.Kind == RdfTermKind.Iri && iri.StartsWith(RdfNs + "_", StringComparison.Ordinal) && iri.Length > RdfNs.Length + 1
                 && iri[RdfNs.Length + 1] != '0' && iri.AsSpan(RdfNs.Length + 1).IndexOfAnyExceptInRange('0', '9') < 0;
         }
+
+        // The datatypes as the projection's terms recognise them: Varve.Xsd's
+        // semantics are not what the property checks.
+        public IReadOnlyCollection<RdfTerm> RecognisedDatatypes(InferenceProfile profile)
+        {
+            List<RdfTerm> datatypes = [RdfTerm.Iri("http://www.w3.org/2001/XMLSchema#string"u8), RdfTerm.Iri(Encoding.UTF8.GetBytes(RdfNs + "langString"))];
+            if (profile == InferenceProfile.Owl2Rl)
+            {
+                foreach (XsdDatatype datatype in Enum.GetValues<XsdDatatype>())
+                {
+                    if (datatype != XsdDatatype.None)
+                    {
+                        datatypes.Add(RdfTerm.Iri(XsdDatatypes.Iri(datatype)));
+                    }
+                }
+            }
+
+            return datatypes;
+        }
+
+        public bool HasValueType(TermHandle literal, TermHandle datatype)
+        {
+            RdfTerm value = Term(literal);
+            return value.Kind == RdfTermKind.Literal && LiteralValues.IsWellTyped(value) && LiteralValues.HasValueType(value, Term(datatype));
+        }
+
+        public bool ValueSpaceWithin(TermHandle datatype, TermHandle super) => LiteralValues.ValueSpaceWithin(Term(datatype), Term(super));
 
         internal bool Servable(Fact fact) => Term(fact.Subject).Kind != RdfTermKind.Literal && Term(fact.Predicate).Kind == RdfTermKind.Iri;
 

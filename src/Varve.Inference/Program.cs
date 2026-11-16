@@ -50,7 +50,7 @@ internal sealed class Program
     {
         ArgumentNullException.ThrowIfNull(terms);
         RuleBook book = new(terms);
-        book.Rdfs();
+        book.Rdfs(terms.RecognisedDatatypes(profile));
         int rdfs = book.Rules.Count;
         if (profile == InferenceProfile.Owl2Rl)
         {
@@ -92,7 +92,7 @@ internal sealed class Program
         private void Axiom(RdfTerm s, RdfTerm p, RdfTerm o) => Axioms.Add(new Fact(terms.Handle(s), terms.Handle(p), terms.Handle(o)));
 
         /// <summary>RDF 1.1 Semantics §9.2.1, with §8's RDF rules, bounded as ADR 0197 point 2 has it.</summary>
-        internal void Rdfs()
+        internal void Rdfs(IReadOnlyCollection<RdfTerm> datatypes)
         {
             Slot type = C(Vocabulary.Type), subClass = C(Vocabulary.SubClassOf), subProperty = C(Vocabulary.SubPropertyOf);
             Slot resource = C(Vocabulary.Resource), cls = C(Vocabulary.Class), property = C(Vocabulary.Property);
@@ -107,10 +107,14 @@ internal sealed class Program
                 Axiom(s, p, o);
             }
 
+            // rdfs1, and OWL 2 RL's dt-type1: each recognised datatype is a datatype.
+            // xsd:string and rdf:langString are recognised always (RDF 1.1 Semantics §7).
+            HashSet<RdfTerm> all = new(datatypes, RdfTerm.Comparer);
+            all.UnionWith(Vocabulary.RdfsDatatypes);
             HashSet<ulong> recognised = [];
-            foreach (RdfTerm datatype in Vocabulary.RdfsDatatypes)
+            foreach (RdfTerm datatype in all)
             {
-                Axiom(datatype, Vocabulary.Type, Vocabulary.Datatype); // rdfs1
+                Axiom(datatype, Vocabulary.Type, Vocabulary.Datatype);
                 recognised.Add(terms.Handle(datatype).Value);
             }
 
@@ -138,18 +142,26 @@ internal sealed class Program
             Rule("rdfs12", [new(X, type, C(Vocabulary.ContainerMembershipProperty))], new Atom(X, subProperty, C(Vocabulary.Member)));
             Rule("rdfs13", [new(X, type, C(Vocabulary.Datatype))], new Atom(X, subClass, C(Vocabulary.Literal)));
 
-            // The D clash over the recognised datatypes (ADR 0197 point 2): a
-            // literal typed, by any rule, as a recognised datatype whose value
-            // space does not hold it. Of xsd:string and rdf:langString, each
-            // holds exactly the literals of its own datatype, so a literal of
-            // one typed as the other clashes; a literal of an unrecognised
-            // datatype has a value nothing here decides, and never does.
+            // The D clashes over the recognised datatypes (RDF 1.1 Semantics §7,
+            // §9; ADR 0197 point 2). A literal typed, by any rule, as a
+            // recognised datatype whose value space does not hold its value:
+            // a range meeting another datatype's literal, or an ill-typed
+            // literal of a recognised datatype, which rdfD1 types as its own.
+            // A literal of an unrecognised datatype has a value nothing here
+            // knows, and is in no recognised datatype's value space.
             Checks.Add(new PatternCheck("rdfs", "dt-not-type", [new(X, type, Y)], bound =>
                 recognised.Contains(bound[Y.Variable].Value)
                 && terms.IsLiteral(bound[X.Variable])
                 && terms.TryDatatype(bound[X.Variable], out TermHandle own)
-                && recognised.Contains(own.Value)
-                && own.Value != bound[Y.Variable].Value));
+                && (recognised.Contains(own.Value) || own.Value == bound[Y.Variable].Value)
+                && !terms.HasValueType(bound[X.Variable], bound[Y.Variable])));
+
+            // A recognised datatype's class extension is its value space, so a
+            // subclass between two whose value spaces do not nest is false.
+            Checks.Add(new PatternCheck("rdfs", "dt-subclass", [new(X, subClass, Y)], bound =>
+                recognised.Contains(bound[X.Variable].Value)
+                && recognised.Contains(bound[Y.Variable].Value)
+                && !terms.ValueSpaceWithin(bound[X.Variable], bound[Y.Variable])));
         }
 
         /// <summary>
