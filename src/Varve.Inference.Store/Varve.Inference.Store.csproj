@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 5 (ADR 0191, ADR 0195): the inference projection, a closure per
+         materialising binding kept as of every position over Varve.Store.
+         Varve.Store learns nothing about inference, and a binding reaches
+         this package as a value the host maps. -->
+    <ArchLayer>5</ArchLayer>
+    <ArchContractTypeAssemblies>$(ArchContractTypeAssemblies);Varve.Inference;Varve.Store</ArchContractTypeAssemblies>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>The inference projection for Varve.Store: a binding's closure under the RDFS or OWL 2 RL/RDF rules, kept commit by commit with validity intervals, read as of any position.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Inference/Varve.Inference.csproj" />
+    <ProjectReference Include="../Varve.Store/Varve.Store.csproj" />
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Varve.Inference.Store.Tests" />
+  </ItemGroup>
+
+</Project>
