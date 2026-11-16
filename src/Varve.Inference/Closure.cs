@@ -31,7 +31,7 @@ public sealed partial class Closure
 
     /// <summary>The empty graph's closure under <paramref name="profile"/>: its axioms and what they entail.</summary>
     public Closure(InferenceProfile profile, IInferenceTerms terms)
-        : this(Program.Of(profile, terms), Retraction.DeleteAndRederive)
+        : this(Program.Of(profile, terms), Retraction.RecursiveCounting)
     {
     }
 
@@ -42,7 +42,7 @@ public sealed partial class Closure
     /// </summary>
     /// <exception cref="ClosureLimitExceededException">The axioms alone would pass the budget.</exception>
     public Closure(InferenceProfile profile, IInferenceTerms terms, FactBudget budget)
-        : this(Program.Of(profile, terms), Retraction.DeleteAndRederive, budget)
+        : this(Program.Of(profile, terms), Retraction.RecursiveCounting, budget)
     {
     }
 
@@ -54,7 +54,7 @@ public sealed partial class Closure
     /// </summary>
     /// <exception cref="ClosureLimitExceededException">The axioms alone would pass the budget.</exception>
     public Closure(InferenceProfile profile, IInferenceTerms terms, FactBudget budget, Closure tbox)
-        : this(Program.Of(profile, terms), Retraction.DeleteAndRederive, budget, tbox)
+        : this(Program.Of(profile, terms), Retraction.RecursiveCounting, budget, tbox)
     {
     }
 

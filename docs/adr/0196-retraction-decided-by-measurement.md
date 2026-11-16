@@ -8,8 +8,8 @@ question 4b: three candidates, measured on REC M histories with retractions,
 the choice made on the measurement. Acceptance is the maintainer's act on the
 pull request.
 
-**The measurement and the choice are not in yet.** Point 5 says what decides
-it. Until it is recorded, this ADR is not ready to accept.
+**The measurement and the choice are in** (point 6, 2026-11-16): recursive
+counting, by point 5's rule.
 
 Amends **0172** (deletion as a second `Propagation`; join anchors in
 Inference), by a dated amendment there.
@@ -94,8 +94,59 @@ from-scratch generation (ADR 0195 point 4).
 
 ### 6. The measurement
 
-*Filed empty. The amendment that fills it records the machine, the tables of
-point 4, the worst cases, and the choice by point 5.*
+Filled 2026-11-16. The machine: 4 cores, 15 GB, .NET 10.0.15, Release.
+`Varve.Benchmarks --inference-closure <size> <profile> 50`: the closures
+built at the history less its last 50 commits, each graph's over the shared
+TBox closure (ADR 0195 point 3), then those commits applied one by one under
+each candidate.
+
+**REC M, `owl2rl`** (63 graphs, 5,053,093 quads at commit 24,950 of 25,000;
+23.1 million facts held, 18.0 million rows):
+
+| Candidate | Built from scratch | Heap held | Per commit p50 | p99 | Worst, and its commit |
+|---|---:|---:|---:|---:|---|
+| Recursive counting | 575.1 s | 3,621 MiB, 165 B a fact | 0.92 ms | 19.84 ms | 19.8 ms, 24,991 (a merge of rooms) |
+| DRed | 302.4 s | 3,607 MiB, 164 B a fact | 0.92 ms | 32.65 ms | 32.6 ms, 24,958 (a merge) |
+| Backward/Forward | 292.8 s | 3,607 MiB, 164 B a fact | 459.47 ms | 1,615.56 ms | 1,615.6 ms, 24,990 (a split) |
+
+**REC S** (3 graphs, 203,047 quads; measured before the fact store held
+counting's state in its records, so its memory column is that store's):
+
+| Profile | Candidate | p99 | Worst | B a fact |
+|---|---|---:|---:|---:|
+| `rdfs` | Recursive counting | 7.5 ms | 7.5 ms | 590 |
+| `rdfs` | DRed | 42.8 ms | 42.8 ms | 371 |
+| `rdfs` | Backward/Forward | 520 ms | 520 ms | 391 |
+| `owl2rl` | Recursive counting | 10.5 ms | 10.5 ms | 668 |
+| `owl2rl` | DRed | 26.9 ms | 26.9 ms | 377 |
+| `owl2rl` | Backward/Forward | 880 ms | 880 ms | 408 |
+
+**The choice: recursive counting.** It has the lowest p99 on `owl2rl` at
+REC M, 19.8 ms; DRed's, 32.6 ms, is 65% above it, outside point 5's band.
+Counting's memory premium is gone since the fact store keeps each fact's
+round and count in its record (ADR 0195 point 5a, revised 2026-11-16): 165
+bytes a fact against DRed's 164.
+
+**The trade it carries.** Counting builds from scratch in about twice
+DRed's time, 575 s against 302 s at REC M under `owl2rl`: what a cold start
+and a generation pay (ADR 0195 points 4 and 5). Settling facts in round
+order costs that; a commit does not.
+
+**Where each wins.** Counting and DRed tie at the median; DRed's worst
+commits are merges whose over-deletion reaches far, which counting's counts
+stop at once. Backward/Forward checks every fact a retraction reaches for a
+proof, which on a large closure costs its median alone half a second.
+
+**No size threshold.** A data commit's worst, 19.8 ms, is five orders of
+magnitude under a generation's 575 s; there is no share of the closure past
+which a generation is cheaper on this measurement. A TBox commit is a
+generation already (ADR 0195 point 4).
+
+**The losers.** Backward/Forward's check stays in `src/` as explain's proof
+search (ADR 0199). DRed and Backward/Forward as retraction strategies move
+to `tests/Varve.Benchmarks` once this ADR is accepted; until then they stay
+behind the internal strategy, under the same property, so the measurement
+can be rerun as it was taken.
 
 ## Alternatives considered
 
