@@ -165,7 +165,9 @@ public sealed partial class Closure
     /// </summary>
     /// <returns>
     /// The facts whose membership in the closure changed: each one held
-    /// before and not after, or after and not before.
+    /// before and not after, or after and not before. For a closure that
+    /// held nothing of its own before, a view of what it holds, read before
+    /// it next changes.
     /// </returns>
     /// <exception cref="ClosureLimitExceededException">
     /// The closure would pass its budget. It is then partly applied, and its
@@ -173,6 +175,15 @@ public sealed partial class Closure
     /// </exception>
     public IReadOnlyCollection<Fact> Apply(ReadOnlySpan<Fact> asserted, ReadOnlySpan<Fact> retracted)
     {
+        if (Facts.Count == 0 && retracted.IsEmpty)
+        {
+            // A closure holding nothing of its own, a data graph's or a merge's
+            // from scratch: every fact it holds after is a change, so none is
+            // recorded on the way, which for a large one costs as much again.
+            ApplyDelta(asserted, retracted);
+            return new Held(Facts);
+        }
+
         Dictionary<Fact, bool> touched = [];
         Facts.Touched = touched;
         try
@@ -480,6 +491,16 @@ public sealed partial class Closure
         Insert(Program.Axioms);
         Insert(_explicit);
     }
+}
+
+/// <summary>The facts a closure holds itself, as a collection: what <see cref="Closure.Apply"/> answers for one that held nothing before.</summary>
+internal sealed class Held(FactSet facts) : IReadOnlyCollection<Fact>
+{
+    public int Count => facts.Count;
+
+    public IEnumerator<Fact> GetEnumerator() => facts.All.GetEnumerator();
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 }
 
 /// <summary>How a closure retracts (ADR 0196): the candidates measured, and the baseline.</summary>
