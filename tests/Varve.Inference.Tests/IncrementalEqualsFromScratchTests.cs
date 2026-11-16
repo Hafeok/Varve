@@ -160,7 +160,8 @@ public class IncrementalEqualsFromScratchTests
                 }
             }
 
-            closure.Apply([.. asserted], [.. retracted]);
+            HashSet<Fact> previous = [.. closure.All];
+            IReadOnlyCollection<Fact> changed = closure.Apply([.. asserted], [.. retracted]);
             explicitFacts.ExceptWith(retracted);
             explicitFacts.UnionWith(asserted);
 
@@ -170,6 +171,9 @@ public class IncrementalEqualsFromScratchTests
                 ? Oracle.Closure(program, explicitFacts)
                 : FromScratch(program, explicitFacts);
             HashSet<Fact> actual = [.. closure.All];
+            HashSet<Fact> difference = [.. previous];
+            difference.SymmetricExceptWith(actual);
+            Assert.True(difference.SetEquals(changed), $"after commit {c + 1}, Apply answered {changed.Count} changed facts where {difference.Count} changed");
             if (!expected.SetEquals(actual))
             {
                 string missing = string.Join("\n  ", expected.Except(actual).Select(terms.Text).Order(StringComparer.Ordinal));

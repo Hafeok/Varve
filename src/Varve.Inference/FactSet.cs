@@ -24,16 +24,26 @@ internal sealed class FactSet
 
     internal int Count => _all.Count;
 
+    /// <summary>The budget each fact added takes from, if the closure has one.</summary>
+    internal FactBudget? Budget { get; set; }
+
+    /// <summary>While a pass records its changes: each fact added or removed, and whether it was held before its first change.</summary>
+    internal Dictionary<Fact, bool>? Touched { get; set; }
+
     internal IEnumerable<Fact> All => _all;
 
     internal bool Contains(in Fact fact) => _all.Contains(fact);
 
     internal bool Add(in Fact fact)
     {
-        if (!_all.Add(fact))
+        if (_all.Contains(fact))
         {
             return false;
         }
+
+        Budget?.Take();
+        _all.Add(fact);
+        Touched?.TryAdd(fact, false);
 
         Index(_bySubject, fact.Subject.Value, fact);
         Index(_byPredicate, fact.Predicate.Value, fact);
@@ -49,6 +59,9 @@ internal sealed class FactSet
         {
             return false;
         }
+
+        Budget?.Give();
+        Touched?.TryAdd(fact, true);
 
         Unindex(_bySubject, fact.Subject.Value, fact);
         Unindex(_byPredicate, fact.Predicate.Value, fact);

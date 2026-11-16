@@ -62,4 +62,32 @@ public class ExampleTests
         Assert.False(closure.Contains(terms.Fact(Named("A"), subClassOf, Named("C"))));
         Assert.True(closure.Contains(terms.Fact(Named("x"), type, Named("B"))));
     }
+
+    /// <summary>
+    /// A budget is shared by the closures of a binding (ADR 0195 point 6):
+    /// a closure that would pass it throws before it adds the fact, and a
+    /// closure released gives its facts back.
+    /// </summary>
+    [Fact]
+    public void a_closure_past_its_budget_throws_and_a_released_one_gives_its_facts_back()
+    {
+        Terms terms = new();
+        Closure probe = new(InferenceProfile.Rdfs, terms);
+        long axioms = probe.Count.Value;
+
+        FactBudget budget = new(new QuadCount((2 * axioms) + 5));
+        Closure first = new(InferenceProfile.Rdfs, terms, budget);
+        Closure second = new(InferenceProfile.Rdfs, terms, budget);
+        Assert.Equal(2 * axioms, budget.Used.Value);
+
+        RdfTerm subClassOf = IriOf(RdfsNs + "subClassOf"), type = IriOf(RdfNs + "type");
+        Assert.Throws<ClosureLimitExceededException>(() => second.Apply(
+            [terms.Fact(Named("A"), subClassOf, Named("B")), terms.Fact(Named("B"), subClassOf, Named("C")), terms.Fact(Named("x"), type, Named("A"))], []));
+        Assert.Equal(budget.Limit, budget.Used);
+
+        second.Release();
+        Assert.Equal(axioms, budget.Used.Value);
+        first.Apply([terms.Fact(Named("x"), type, Named("A"))], []);
+        Assert.True(budget.Used.Value <= budget.Limit.Value);
+    }
 }

@@ -8,6 +8,7 @@ using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Derivation;
 using Varve.Inference.Model;
+using Varve.Rdf;
 
 namespace Varve.Inference;
 
@@ -34,10 +35,22 @@ public sealed partial class Closure
     {
     }
 
-    internal Closure(Program program, Retraction retraction)
+    /// <summary>
+    /// The empty graph's closure under <paramref name="profile"/>, its facts
+    /// taken from <paramref name="budget"/>, which the closures of one binding
+    /// share (ADR 0195 point 6).
+    /// </summary>
+    /// <exception cref="ClosureLimitExceededException">The axioms alone would pass the budget.</exception>
+    public Closure(InferenceProfile profile, IInferenceTerms terms, FactBudget budget)
+        : this(Program.Of(profile, terms), Retraction.DeleteAndRederive, budget)
+    {
+    }
+
+    internal Closure(Program program, Retraction retraction, FactBudget? budget = null)
     {
         Program = program;
         Strategy = retraction;
+        Facts.Budget = budget;
         foreach (Fact axiom in program.Axioms)
         {
             _axioms.Add(axiom);
@@ -113,7 +126,50 @@ public sealed partial class Closure
     /// after equals the closure of the explicit facts after, from scratch
     /// (ADR 0195 point 9).
     /// </summary>
-    public void Apply(ReadOnlySpan<Fact> asserted, ReadOnlySpan<Fact> retracted)
+    /// <returns>
+    /// The facts whose membership in the closure changed: each one held
+    /// before and not after, or after and not before.
+    /// </returns>
+    /// <exception cref="ClosureLimitExceededException">
+    /// The closure would pass its budget. It is then partly applied, and its
+    /// owner drops it.
+    /// </exception>
+    public IReadOnlyCollection<Fact> Apply(ReadOnlySpan<Fact> asserted, ReadOnlySpan<Fact> retracted)
+    {
+        Dictionary<Fact, bool> touched = [];
+        Facts.Touched = touched;
+        try
+        {
+            ApplyDelta(asserted, retracted);
+        }
+        finally
+        {
+            Facts.Touched = null;
+        }
+
+        List<Fact> changed = [];
+        foreach ((Fact fact, bool held) in touched)
+        {
+            if (Facts.Contains(fact) != held)
+            {
+                changed.Add(fact);
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>The facts the closure holds, explicit, axioms and derived alike: its owner's accounting.</summary>
+    public QuadCount Count => new(Facts.Count);
+
+    /// <summary>Gives back to the budget every fact this closure holds: its owner is dropping it.</summary>
+    public void Release()
+    {
+        Facts.Budget?.GiveAll(new QuadCount(Facts.Count));
+        Facts.Budget = null;
+    }
+
+    private void ApplyDelta(ReadOnlySpan<Fact> asserted, ReadOnlySpan<Fact> retracted)
     {
         List<Fact> gone = [];
         foreach (Fact fact in retracted)
