@@ -194,6 +194,12 @@ internal sealed class Materialisation
         return dropped;
     }
 
+    /// <summary>The closure a graph's rows are drawn from: the TBox closure for its conclusions' graph, a data graph's own; null for a graph with none.</summary>
+    internal Closure? ClosureOf(TermHandle graph) => graph == TBoxGraph ? _tbox : _graphs.GetValueOrDefault(graph);
+
+    /// <summary>Whether the TBox closure holds a fact: a node of a proof it holds is a TBox conclusion.</summary>
+    internal bool InTBox(in Fact fact) => _tbox.Contains(fact);
+
     /// <summary>Whether a fact is a row of a graph now.</summary>
     internal bool IsRow(TermHandle graph, in Fact fact)
     {

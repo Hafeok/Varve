@@ -73,3 +73,31 @@ static Varve.Inference.Model.PlacedClash.operator ==(Varve.Inference.Model.Place
 ~override Varve.Inference.Model.PlacedClash.Equals(object obj) -> bool
 ~override Varve.Inference.Model.PlacedClash.ToString() -> string
 Varve.Inference.Model.InferredRows.InferredRows(System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.InferredRow>! rows, System.Func<Varve.Rdf.TermHandle, Varve.Rdf.RdfTerm?>! local) -> void
+Varve.Inference.Closure.Explain(Varve.Inference.Model.Fact fact) -> Varve.Inference.Model.Proof?
+Varve.Inference.Model.Proof
+Varve.Inference.Model.Proof.Fact.get -> Varve.Inference.Model.Fact
+Varve.Inference.Model.Proof.Premises.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Proof!>!
+Varve.Inference.Model.Proof.Proof(Varve.Inference.Model.Fact fact, Varve.Inference.Model.ProofStatus status, Varve.Rdf.RdfTerm? rule, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Proof!>! premises) -> void
+Varve.Inference.Model.Proof.Rule.get -> Varve.Rdf.RdfTerm?
+Varve.Inference.Model.Proof.Status.get -> Varve.Inference.Model.ProofStatus
+Varve.Inference.Model.ProofStatus
+Varve.Inference.Model.ProofStatus.Axiom = 1 -> Varve.Inference.Model.ProofStatus
+Varve.Inference.Model.ProofStatus.Explicit = 0 -> Varve.Inference.Model.ProofStatus
+Varve.Inference.Model.ProofStatus.Implicit = 2 -> Varve.Inference.Model.ProofStatus
+Varve.Inference.Model.ExplainedClash
+Varve.Inference.Model.ExplainedClash.ExplainedClash(Varve.Rdf.RdfTerm! rule, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.ExplainedQuad!>! premises) -> void
+Varve.Inference.Model.ExplainedClash.Premises.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.ExplainedQuad!>!
+Varve.Inference.Model.ExplainedClash.Rule.get -> Varve.Rdf.RdfTerm!
+Varve.Inference.Model.ExplainedQuad
+Varve.Inference.Model.ExplainedQuad.ExplainedQuad(Varve.Rdf.RdfTerm! subject, Varve.Rdf.RdfTerm! predicate, Varve.Rdf.RdfTerm! object, Varve.Rdf.RdfTerm? graph, Varve.Inference.Model.ProofStatus status, Varve.Rdf.RdfTerm? rule, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.ExplainedQuad!>! premises) -> void
+Varve.Inference.Model.ExplainedQuad.Graph.get -> Varve.Rdf.RdfTerm?
+Varve.Inference.Model.ExplainedQuad.Object.get -> Varve.Rdf.RdfTerm!
+Varve.Inference.Model.ExplainedQuad.Predicate.get -> Varve.Rdf.RdfTerm!
+Varve.Inference.Model.ExplainedQuad.Premises.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.ExplainedQuad!>!
+Varve.Inference.Model.ExplainedQuad.Rule.get -> Varve.Rdf.RdfTerm?
+Varve.Inference.Model.ExplainedQuad.Status.get -> Varve.Inference.Model.ProofStatus
+Varve.Inference.Model.ExplainedQuad.Subject.get -> Varve.Rdf.RdfTerm!
+Varve.Inference.Model.Explanation
+Varve.Inference.Model.Explanation.Clashes.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.ExplainedClash!>!
+Varve.Inference.Model.Explanation.Explanation(Varve.Inference.Model.ExplainedQuad? proof, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.ExplainedClash!>! clashes) -> void
+Varve.Inference.Model.Explanation.Proof.get -> Varve.Inference.Model.ExplainedQuad?

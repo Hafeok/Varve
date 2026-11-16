@@ -51,9 +51,14 @@ internal sealed class Program
         ArgumentNullException.ThrowIfNull(terms);
         RuleBook book = new(terms);
         book.Rdfs();
+        int rdfs = book.Rules.Count;
         if (profile == InferenceProfile.Owl2Rl)
         {
             book.Owl2Rl();
+            for (int i = rdfs; i < book.Rules.Count; i++)
+            {
+                book.Rules[i].Family = "owl2rl";
+            }
         }
 
         return new Program([.. book.Rules], [.. book.Axioms], [.. book.Checks]);

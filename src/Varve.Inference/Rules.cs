@@ -21,6 +21,12 @@ internal abstract class Rule
     /// <summary>The rule's name as its profile gives it: <c>rdfs9</c>, <c>cax-sco</c>.</summary>
     internal string Name { get; }
 
+    /// <summary>The rules it is one of, as its IRI names them: <c>rdfs</c> or <c>owl2rl</c>.</summary>
+    internal string Family { get; set; } = "rdfs";
+
+    /// <summary>Its IRI, which a proof names (ADR 0199): <c>https://w3id.org/varve/ns#rule/{family}/{name}</c>.</summary>
+    internal RdfTerm Iri => RdfTerm.Iri(System.Text.Encoding.UTF8.GetBytes(Check.RuleNamespace + Family + "/" + Name));
+
     /// <summary>
     /// Adds to <paramref name="into"/> the head of every instance whose
     /// premises are all in <paramref name="facts"/>, one of them

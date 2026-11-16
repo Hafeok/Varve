@@ -254,6 +254,53 @@ public sealed class InferenceProjection : IProjection
     }
 
     /// <summary>
+    /// Explains a quad at <paramref name="at"/> (ADR 0199): in a data graph,
+    /// <paramref name="graph"/> null for the default graph, or in
+    /// <see cref="TBoxGraph"/>. Answered from the binding's closures at the
+    /// projection's position, or below it from scratch; behind and stopped as
+    /// a read is.
+    /// </summary>
+    /// <exception cref="ClosureLimitExceededException">A closure from scratch would pass the binding's limit.</exception>
+    public async ValueTask<(InferenceReadOutcome Outcome, Explanation? Explanation)> ExplainAsync(Position at, RdfTerm? graph, RdfTerm subject, RdfTerm predicate, RdfTerm @object, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(subject);
+        ArgumentNullException.ThrowIfNull(predicate);
+        ArgumentNullException.ThrowIfNull(@object);
+        lock (_rowsLock)
+        {
+            if (at.Value > _position)
+            {
+                return (InferenceReadOutcome.Behind, null);
+            }
+
+            if (at.Value >= _stoppedAt)
+            {
+                return (InferenceReadOutcome.Unavailable, null);
+            }
+        }
+
+        using DatasetView view = await _dataset.AsOfAsync(at, cancellationToken).ConfigureAwait(false);
+        lock (_applying)
+        {
+            if (at.Value == Volatile.Read(ref _position) && _state is { } live)
+            {
+                live.Terms.Source = view;
+                return (InferenceReadOutcome.Held, new Explainer(live, view, Binding).Explain(graph, subject, predicate, @object));
+            }
+        }
+
+        Materialisation built = Materialisation.Build(view, new ProjectionTerms(view), this, cancellationToken);
+        try
+        {
+            return (InferenceReadOutcome.FromScratch, new Explainer(built, view, Binding).Explain(graph, subject, predicate, @object));
+        }
+        finally
+        {
+            built.Release();
+        }
+    }
+
+    /// <summary>
     /// The clashes in the binding's closures at <see cref="Position"/> (ADR
     /// 0197 point 5): those drawn from the TBox graphs alone placed in
     /// <see cref="TBoxGraph"/>, the rest in the data graph whose closure
@@ -263,7 +310,15 @@ public sealed class InferenceProjection : IProjection
     {
         lock (_applying)
         {
-            return _state?.Clashes() ?? [];
+            if (_state is not { } state)
+            {
+                return [];
+            }
+
+            // A check names terms through the source: a pinned view of its own, at or above every handle the closure holds.
+            using DatasetView view = _dataset.Pin();
+            state.Terms.Source = view;
+            return state.Clashes();
         }
     }
 

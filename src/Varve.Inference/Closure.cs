@@ -159,6 +159,66 @@ public sealed partial class Closure
         return changed;
     }
 
+    /// <summary>
+    /// A well-founded proof of a fact the closure holds (ADR 0199), or null
+    /// when it does not hold it. Found by Backward/Forward's check (ADR 0196):
+    /// every fact a proof reaches is proved in an order, and each node is
+    /// concluded from premises proved before it.
+    /// </summary>
+    public Proof? Explain(Fact fact)
+    {
+        if (!Facts.Contains(fact))
+        {
+            return null;
+        }
+
+        ProofSearch search = new(this);
+        if (!search.Proved(fact))
+        {
+            // A fact the closure holds always has a proof; a closure that does not is no closure.
+            throw new InvalidOperationException("A fact of the closure has no well-founded proof.");
+        }
+
+        Dictionary<Fact, Proof> built = [];
+        return Build(fact, search, built);
+    }
+
+    private Proof Build(Fact fact, ProofSearch search, Dictionary<Fact, Proof> built)
+    {
+        if (built.TryGetValue(fact, out Proof? done))
+        {
+            return done;
+        }
+
+        if (_explicit.Contains(fact) || _axioms.Contains(fact))
+        {
+            Proof leaf = new(fact, _explicit.Contains(fact) ? ProofStatus.Explicit : ProofStatus.Axiom, null, []);
+            built[fact] = leaf;
+            return leaf;
+        }
+
+        search.TryOrder(fact, out int order);
+        List<Fact> premises = [];
+        foreach (Rule rule in Program.Rules)
+        {
+            premises.Clear();
+            if (rule.Proves(fact, Facts, premise => !premise.Equals(fact) && search.Proved(premise) && search.TryOrder(premise, out int before) && before < order, premises))
+            {
+                List<Proof> proofs = [];
+                foreach (Fact premise in premises)
+                {
+                    proofs.Add(Build(premise, search, built));
+                }
+
+                Proof proof = new(fact, ProofStatus.Implicit, rule.Iri, proofs);
+                built[fact] = proof;
+                return proof;
+            }
+        }
+
+        throw new InvalidOperationException("A proved fact has no instance whose premises were proved before it.");
+    }
+
     /// <summary>The facts the closure holds, explicit, axioms and derived alike: its owner's accounting.</summary>
     public QuadCount Count => new(Facts.Count);
 

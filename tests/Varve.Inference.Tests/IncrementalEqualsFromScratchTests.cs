@@ -46,7 +46,7 @@ public class IncrementalEqualsFromScratchTests
     private static readonly RdfTerm[] Nodes = [.. Individuals, .. Classes, .. Properties, .. Schema, .. Vocab];
 
     /// <summary>A triple: mostly data and schema, now and then one about the vocabulary itself.</summary>
-    private static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> Triple = Gen.Frequency(
+    internal static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> Triple = Gen.Frequency(
         (6, Gen.Select(Gen.OneOfConst(Individuals), Gen.OneOfConst(Properties), Gen.OneOfConst([.. Individuals, .. Literals]))),
         (4, Gen.Select(Gen.OneOfConst(Individuals), Gen.Const(Schema[0]), Gen.OneOfConst(Classes))),
         (4, Gen.Select(Gen.OneOfConst([.. Classes, .. Properties]), Gen.OneOfConst(Schema[1..]), Gen.OneOfConst([.. Classes, .. Properties]))),
@@ -73,7 +73,7 @@ public class IncrementalEqualsFromScratchTests
     ];
 
     /// <summary>OWL's axioms beside RDFS's: property characteristics, restrictions, and lists, well formed or not.</summary>
-    private static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> OwlTriple = Gen.Frequency(
+    internal static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> OwlTriple = Gen.Frequency(
         (10, Triple),
         (2, Gen.Select(Gen.OneOfConst(Properties), Gen.Const(Schema[0]), Gen.OneOfConst(OwlTypes))),
         (2, Gen.Select(Gen.OneOfConst([.. Classes, .. Properties]), Gen.OneOfConst(OwlPairs), Gen.OneOfConst([.. Classes, .. Properties]))),

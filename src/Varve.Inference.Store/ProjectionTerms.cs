@@ -104,6 +104,20 @@ internal sealed class ProjectionTerms(IQuadSource source) : IInferenceTerms
         }
     }
 
+    /// <summary>The handle a term already has, the dataset's or the projection's own, without giving it one.</summary>
+    internal bool TryHandle(RdfTerm term, out TermHandle handle)
+    {
+        if (Source.TryInternalise(term, out handle))
+        {
+            return true;
+        }
+
+        lock (_lock)
+        {
+            return _local.TryGetValue(term, out handle);
+        }
+    }
+
     /// <summary>Whether a handle is the projection's own, not the dataset's.</summary>
     internal static bool IsLocal(TermHandle handle) => (handle.Value & LocalTag) == LocalTag && (handle.Value >> 62) == 0;
 

@@ -300,6 +300,45 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 
         public IReadOnlyList<PlacedClash> Clashes() => Projection.Clashes();
 
+        public Explanation Explain(Position position, RdfTerm? graph, RdfTerm subject, RdfTerm predicate, RdfTerm @object)
+        {
+            (InferenceReadOutcome outcome, Explanation? explanation) = Once();
+            if (outcome == InferenceReadOutcome.Behind)
+            {
+                // The one bounded wait, as a read makes.
+                try
+                {
+                    using CancellationTokenSource bound = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
+                    bound.CancelAfter(_wait);
+                    Projection.WaitForAsync(position, bound.Token).AsTask().GetAwaiter().GetResult();
+                }
+                catch (Exception ended) when (ended is OperationCanceledException or ObjectDisposedException)
+                {
+                }
+
+                (outcome, explanation) = Once();
+            }
+
+            return outcome switch
+            {
+                InferenceReadOutcome.Behind => throw new InferenceBehindException(Binding, position, Projection.Position),
+                InferenceReadOutcome.Unavailable => throw Unavailable(),
+                _ => explanation!,
+            };
+
+            (InferenceReadOutcome, Explanation?) Once()
+            {
+                try
+                {
+                    return Projection.ExplainAsync(position, graph, subject, predicate, @object, _stop.Token).AsTask().GetAwaiter().GetResult();
+                }
+                catch (ClosureLimitExceededException)
+                {
+                    throw Unavailable();
+                }
+            }
+        }
+
         internal InferenceStatus Status()
         {
             (ByteCount limit, ByteCount reached) = Projection.MemoryLimit;

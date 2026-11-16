@@ -189,6 +189,76 @@ public class InferenceSurfaceTests
         Assert.Contains(RdfTerm.Iri("http://ex/Agent"u8), yielded);
     }
 
+    [Fact]
+    public async Task Explain_answers_a_well_founded_proof_explicit_or_absent()
+    {
+        await using Fixture fixture = await Fixture.StartAsync(InferenceProfile.Rdfs);
+
+        using (JsonDocument implicitQuad = await fixture.ExplainAsync("<http://ex/ann> <" + Rdf + "type> <http://ex/Agent> <http://ex/g/1> ."))
+        {
+            JsonElement root = implicitQuad.RootElement;
+            Assert.Equal("implicit", root.GetProperty("status").GetString());
+            Assert.Equal(1, root.GetProperty("position").GetInt64());
+            JsonElement proof = root.GetProperty("proof");
+            Assert.Equal("https://w3id.org/varve/ns#rule/rdfs/rdfs9", proof.GetProperty("rule").GetString());
+            JsonElement[] premises = [.. proof.GetProperty("premises").EnumerateArray()];
+            Assert.Equal(2, premises.Length);
+            Assert.Equal("<http://ex/Person> <" + Rdfs + "subClassOf> <http://ex/Agent> <http://ex/tbox> .", premises[0].GetProperty("quad").GetString());
+            Assert.Equal("explicit", premises[0].GetProperty("status").GetString());
+            Assert.Equal("http://ex/tbox", premises[0].GetProperty("graph").GetString());
+            Assert.Equal("<http://ex/ann> <" + Rdf + "type> <http://ex/Person> <http://ex/g/1> .", premises[1].GetProperty("quad").GetString());
+            Assert.False(root.TryGetProperty("inconsistent", out _));
+        }
+
+        using (JsonDocument asserted = await fixture.ExplainAsync("<http://ex/ann> <" + Rdf + "type> <http://ex/Person> <http://ex/g/1> ."))
+        {
+            Assert.Equal("explicit", asserted.RootElement.GetProperty("status").GetString());
+            Assert.False(asserted.RootElement.TryGetProperty("proof", out _));
+        }
+
+        using (JsonDocument absent = await fixture.ExplainAsync("<http://ex/ann> <" + Rdf + "type> <http://ex/Nobody> <http://ex/g/1> ."))
+        {
+            Assert.Equal("absent", absent.RootElement.GetProperty("status").GetString());
+        }
+
+        using (JsonDocument conclusion = await fixture.ExplainAsync("<http://ex/Person> <" + Rdfs + "subClassOf> <" + Rdfs + "Resource> <" + Conclusions + "> ."))
+        {
+            Assert.Equal("implicit", conclusion.RootElement.GetProperty("status").GetString());
+        }
+
+        // A malformed request, or one with a blank node, is a bad request.
+        Assert.Equal(HttpStatusCode.BadRequest, (await fixture.Host.Client.GetAsync(new Uri("datasets/d/explain?quad=" + Uri.EscapeDataString("_:b <http://ex/p> <http://ex/o> ."), UriKind.Relative), P.Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Explain_names_the_clash_and_is_refused_as_a_read_is()
+    {
+        await using (Fixture fixture = await Fixture.StartAsync(InferenceProfile.Owl2Rl))
+        {
+            CommitRequestBuilder request = new();
+            request.Assert(Term("http://ex/Person"), Term("http://www.w3.org/2002/07/owl#disjointWith"), Term("http://ex/Robot"), Term("http://ex/tbox"));
+            request.Assert(Term("http://ex/ann"), Term(Rdf + "type"), Term("http://ex/Robot"), Term("http://ex/g/1"));
+            Assert.Equal(CommitOutcome.Committed, (await fixture.Dataset.CommitAsync(request, P.Ct)).Outcome);
+            await fixture.Dataset.CatchUpAsync(fixture.Closures.Projection, P.Ct);
+
+            using JsonDocument explained = await fixture.ExplainAsync("<http://ex/ann> <" + Rdf + "type> <http://ex/Robot> <http://ex/g/1> .");
+            JsonElement root = explained.RootElement;
+            Assert.Equal("explicit", root.GetProperty("status").GetString());
+            Assert.True(root.GetProperty("inconsistent").GetBoolean());
+            JsonElement clash = Assert.Single(root.GetProperty("clashes").EnumerateArray());
+            Assert.Equal("https://w3id.org/varve/ns#rule/owl2rl/cax-dw", clash.GetProperty("rule").GetString());
+            Assert.Equal(3, clash.GetProperty("premises").GetArrayLength());
+
+            HttpResponseMessage owl = await fixture.QueryAsync("ASK { GRAPH <http://ex/g/1> { <http://ex/ann> a <http://ex/Agent> } }", "owl2-rl");
+            Assert.Equal("true", P.Header(owl, "Varve-Inconsistent"));
+        }
+
+        await using Fixture behind = await Fixture.StartAsync(InferenceProfile.Rdfs, refuse: Refusal.Behind);
+        HttpResponseMessage response = await behind.Host.Client.GetAsync(new Uri("datasets/d/explain?quad=" + Uri.EscapeDataString("<http://ex/ann> <" + Rdf + "type> <http://ex/Agent> <http://ex/g/1> ."), UriKind.Relative), P.Ct);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Contains("inference-behind", await response.Content.ReadAsStringAsync(P.Ct), StringComparison.Ordinal);
+    }
+
     private static string[] Column(string json, string variable)
     {
         using JsonDocument document = JsonDocument.Parse(json);
@@ -240,6 +310,14 @@ public class InferenceSurfaceTests
             return await Host.Client.SendAsync(request, P.Ct);
         }
 
+        internal async Task<JsonDocument> ExplainAsync(string quad)
+        {
+            HttpResponseMessage answered = await Host.Client.GetAsync(new Uri("datasets/d/explain?quad=" + Uri.EscapeDataString(quad), UriKind.Relative), P.Ct);
+            string body = await answered.Content.ReadAsStringAsync(P.Ct);
+            Assert.True(answered.StatusCode == HttpStatusCode.OK, body);
+            return JsonDocument.Parse(body);
+        }
+
         internal async Task<string[]> ColumnAsync(string query, string variable)
         {
             HttpResponseMessage answered = await QueryAsync(query, null);
@@ -278,6 +356,8 @@ public class InferenceSurfaceTests
 
         internal int Reads => Volatile.Read(ref _reads);
 
+        internal InferenceProjection Projection => projection;
+
         public RdfTerm Binding => projection.Binding.Binding;
 
         public RdfTerm TBoxConclusions => projection.TBoxGraph;
@@ -310,5 +390,16 @@ public class InferenceSurfaceTests
         }
 
         public IReadOnlyList<PlacedClash> Clashes() => projection.Clashes();
+
+        public Explanation Explain(Position position, RdfTerm? graph, RdfTerm subject, RdfTerm predicate, RdfTerm @object)
+        {
+            Interlocked.Increment(ref _reads);
+            return refuse switch
+            {
+                Refusal.Behind => throw new InferenceBehindException(Binding, position, new Position(0)),
+                Refusal.Stopped => throw new InferenceUnavailableException(Binding, new ByteCount(1024), new ByteCount(2048)),
+                _ => projection.ExplainAsync(position, graph, subject, predicate, @object, CancellationToken.None).AsTask().GetAwaiter().GetResult().Explanation!,
+            };
+        }
     }
 }

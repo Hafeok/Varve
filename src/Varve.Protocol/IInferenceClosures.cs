@@ -63,6 +63,17 @@ public interface IInferenceClosure
 
     /// <summary>The clashes in the closure at the projection's position (ADR 0197 point 5).</summary>
     IReadOnlyList<PlacedClash> Clashes();
+
+    /// <summary>
+    /// Explains <paramref name="subject"/> <paramref name="predicate"/>
+    /// <paramref name="object"/> in <paramref name="graph"/> at
+    /// <paramref name="position"/> (ADR 0199): one of the binding's data
+    /// graphs, null for the default graph, or its TBox conclusions. After one
+    /// bounded wait, as a read.
+    /// </summary>
+    /// <exception cref="InferenceBehindException">The projection had not reached the position when the wait ended.</exception>
+    /// <exception cref="InferenceUnavailableException">The binding is stopped by its memory limit at the position.</exception>
+    Explanation Explain(Position position, RdfTerm? graph, RdfTerm subject, RdfTerm predicate, RdfTerm @object);
 }
 
 /// <summary>
