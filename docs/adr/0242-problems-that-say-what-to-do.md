@@ -2,9 +2,9 @@
 
 ## Status
 
-**Accepted — filed unaccepted by the session for #194, 2026-11-10** (ADR 0066).
-Acceptance is the maintainer's act, or his delegate's for a decision he has
-read (ADR 0239). Records decision set
+**Accepted — filed unaccepted by the session for #194, 2026-11-10** (ADR 0066),
+its six rulings accepted on #267 on 2026-11-16, with the maintainer's two
+changes of that day, at his word, by his delegate (ADR 0239). Records decision set
 [`problems-that-say-what-to-do`](../decisions/problems-that-say-what-to-do.md).
 
 Adds members to four types of ADR [0119](0119-headers-and-the-problem-catalogue.md)'s
