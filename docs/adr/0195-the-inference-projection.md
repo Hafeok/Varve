@@ -118,9 +118,15 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   --inference-premise-sets S <profile>`): no cross-graph premise set on
   REC S under `rdfs` or `owl2rl`, its buildings sharing nothing but the
   TBox; 37 to 41 of 0.9 million facts have more than one set, each of one
-  graph. REC M is expected to give none too, and so cannot answer the
-  growth question: a workload with links between buildings is put to the
-  maintainer on #171.
+  graph. REC M gives none either, closing 7, 15, 31 and all 63 of its
+  buildings' graphs under `rdfs` (17.4 million facts at 63), so it cannot
+  answer the growth question: a workload with links between buildings is
+  put to the maintainer on #171.
+- **What recomputing costs.** The sets over REC M's 63 graphs take 236 s,
+  after a 90 s closure, and about 50 bytes a fact beside it (4,378 MiB held
+  in all). Recomputed on every data commit, that is minutes a commit: a
+  cross-graph binding of that size is not served at commit rate until the
+  sets are maintained incrementally, from the delta, as the closure is.
 
 ### 4. Commits and generations
 
