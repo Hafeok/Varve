@@ -52,6 +52,9 @@ public sealed class PremiseSets
     // While an update runs: each fact's sets before its first change in it.
     private Dictionary<Fact, IReadOnlyList<PremiseSet>>? _before;
 
+    // The graphs of the pairs the last reach was for: the sets Update derives again are those holding one.
+    private HashSet<int> _retracted = [];
+
     /// <summary>
     /// The minimal premise sets of every fact of <paramref name="closure"/>,
     /// the closure of the data graphs' merge, each explicit fact held by the
@@ -172,6 +175,7 @@ public sealed class PremiseSets
         ArgumentNullException.ThrowIfNull(heldAfter);
         HashSet<Fact> reached = [];
         HashSet<int> graphs = [];
+        _retracted = graphs;
         Queue<Fact> work = new();
         foreach ((Fact fact, DataGraphIndex graph) in removed)
         {
@@ -230,6 +234,72 @@ public sealed class PremiseSets
     private static bool AtRisk(in Fact fact, int[] set, HashSet<int> graphs, Func<Fact, DataGraphIndex, bool> heldAfter) =>
         Holds(set, graphs) && !(set.Length == 1 && heldAfter(fact, new DataGraphIndex(set[0])));
 
+    /// <summary>Whether an instance over the closure derives <paramref name="fact"/> from premises each with a set within <paramref name="set"/>.</summary>
+    private bool Confirmed(in Fact fact, int[] set)
+    {
+        foreach (Rule rule in _closure.Program.Rules)
+        {
+            Fact head = fact;
+            if (rule.Proves(fact, _closure.Facts, premise => premise != head && Within(premise, set), premises: null))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether a fact has a set within <paramref name="set"/>: always for one of the TBox closure beneath.</summary>
+    private bool Within(in Fact fact, int[] set)
+    {
+        if (IsBeneath(fact))
+        {
+            return true;
+        }
+
+        if (!_labels.TryGetValue(fact, out int label))
+        {
+            return false;
+        }
+
+        foreach (int held in Ids(label))
+        {
+            if (Subset(_sets[held], set))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private List<int> Ids(int label) => label >= 0 ? [label] : [.. _antichains[~label]!];
+
+    /// <summary>Gives a fact the sets <paramref name="kept"/> in place of those <paramref name="label"/> named; none takes its label away.</summary>
+    private void Relabel(in Fact fact, int label, List<int> kept)
+    {
+        if (label < 0)
+        {
+            _antichains[~label] = null;
+            _freeAntichains.Push(~label);
+        }
+
+        if (kept.Count == 0)
+        {
+            _labels.Remove(fact);
+        }
+        else if (kept.Count == 1)
+        {
+            _labels[fact] = kept[0];
+        }
+        else
+        {
+            int slot = _freeAntichains.Count > 0 ? _freeAntichains.Pop() : Grow();
+            _antichains[slot] = kept;
+            _labels[fact] = ~slot;
+        }
+    }
+
     private static bool Same(IReadOnlyList<PremiseSet> a, IReadOnlyList<PremiseSet> b)
     {
         if (a.Count != b.Count)
@@ -271,17 +341,21 @@ public sealed class PremiseSets
     /// <summary>
     /// Brings the sets in line with the closure after a commit, the closure
     /// having applied it: <paramref name="affected"/>, what
-    /// <see cref="Reach"/> found before, are computed again from their
-    /// instances over the closure, the axioms and <paramref name="held"/>;
-    /// <paramref name="held"/> holds every explicit pair of an affected fact
-    /// and every pair asserted. A fact the closure no longer holds has no
-    /// sets. Answers each fact whose sets changed, with its sets before.
+    /// <see cref="Reach"/> found for the same commit before, have their sets
+    /// confirmed again; <paramref name="held"/> holds every explicit pair of
+    /// an affected fact and every pair asserted. A fact the closure no longer
+    /// holds has no sets. Answers each fact whose sets changed, with its sets
+    /// before.
     /// </summary>
     /// <remarks>
-    /// Delete-and-rederive over the sets: a fact out of the reach keeps sets
-    /// none of whose derivations used a fact retracted, so they stand; one in
-    /// it is derived again from what stands. Insertion is monotone and
-    /// propagates as a computation from scratch does.
+    /// A set holding no graph of a retracted pair was drawn through none, so
+    /// it stands. A set holding one is confirmed by an instance whose premises
+    /// each have a set within it, to a fixpoint, so that a premise is
+    /// confirmed before its head; such an instance gives the set itself,
+    /// since none smaller was derivable. Only a fact left with a set not
+    /// confirmed is derived again from every instance, since a larger set it
+    /// absorbed may now be minimal; what that gives, and the pairs asserted,
+    /// propagate as a computation from scratch does.
     /// </remarks>
     public IReadOnlyDictionary<Fact, IReadOnlyList<PremiseSet>> Update(IReadOnlySet<Fact> affected, IEnumerable<(Fact Fact, DataGraphIndex Graph)> held)
     {
@@ -290,30 +364,78 @@ public sealed class PremiseSets
         _before = [];
         try
         {
-            foreach (Fact fact in affected)
-            {
-                if (_labels.Remove(fact, out int label))
-                {
-                    _before[fact] = Of(label);
-                    if (label < 0)
-                    {
-                        _antichains[~label] = null;
-                        _freeAntichains.Push(~label);
-                    }
-                }
-            }
-
+            // A set holding no retracted graph was drawn through no retracted
+            // pair: it stands, and absorbs what it absorbed. Only a set holding
+            // one is at risk, and is confirmed again or dropped.
             Queue<(Fact Fact, int Set)> work = new();
-            HashSet<Fact> axioms = [.. _closure.Program.Axioms];
-            List<Fact[]> instances = [];
-            List<int> products = [];
+            List<(Fact Fact, int Set)> risked = [];
             foreach (Fact fact in affected)
             {
-                if (!_closure.Facts.Contains(fact))
+                if (!_labels.TryGetValue(fact, out int label))
                 {
                     continue;
                 }
 
+                _before[fact] = Of(label);
+                List<int> kept = [];
+                foreach (int set in Ids(label))
+                {
+                    if (Holds(_sets[set], _retracted) && _closure.Facts.Contains(fact))
+                    {
+                        risked.Add((fact, set));
+                    }
+                    else if (_closure.Facts.Contains(fact))
+                    {
+                        kept.Add(set);
+                    }
+                }
+
+                Relabel(fact, label, kept);
+            }
+
+            foreach ((Fact fact, DataGraphIndex graph) in held)
+            {
+                if (graph.Value < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(held), graph.Value, "A data graph's index is not negative.");
+                }
+
+                Offer(fact, Intern([graph.Value]), work);
+            }
+
+            // Confirm each risked set by an instance whose premises each have a set
+            // within it, to a fixpoint, so a premise is confirmed before its head.
+            // Such an instance gives the set itself: none smaller was derivable.
+            HashSet<Fact> axioms = [.. _closure.Program.Axioms];
+            Queue<(Fact Fact, int Set)> quiet = new();
+            bool progress = true;
+            while (progress && risked.Count > 0)
+            {
+                progress = false;
+                for (int i = risked.Count - 1; i >= 0; i--)
+                {
+                    (Fact fact, int set) = risked[i];
+                    if (Has(fact, set) || (set == Empty && axioms.Contains(fact)) || Confirmed(fact, _sets[set]))
+                    {
+                        Offer(fact, set, quiet);
+                        risked.RemoveAt(i);
+                        progress = true;
+                    }
+                }
+            }
+
+            // A fact with a set not confirmed may now have larger minimal sets:
+            // derived again from every instance, and propagated.
+            HashSet<Fact> rescan = [];
+            foreach ((Fact fact, int _) in risked)
+            {
+                rescan.Add(fact);
+            }
+
+            List<Fact[]> instances = [];
+            List<int> products = [];
+            foreach (Fact fact in rescan)
+            {
                 if (axioms.Contains(fact))
                 {
                     Offer(fact, Empty, work);
@@ -333,16 +455,6 @@ public sealed class PremiseSets
                         }
                     }
                 }
-            }
-
-            foreach ((Fact fact, DataGraphIndex graph) in held)
-            {
-                if (graph.Value < 0)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(held), graph.Value, "A data graph's index is not negative.");
-                }
-
-                Offer(fact, Intern([graph.Value]), work);
             }
 
             Propagate(work);
