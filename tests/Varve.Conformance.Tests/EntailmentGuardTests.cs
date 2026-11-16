@@ -40,7 +40,8 @@ public class EntailmentGuardTests
             return;
         }
 
-        Assert.Equal(["lang", "plainLit", "sparqldl-13"], Named("pending: OWL 2 RL"));
+        Assert.Equal(["sparqldl-13"], Named("pending: owl:sameAs"));
+        Assert.Equal(27, EntailmentClosureTests.Cases().Count());
         Assert.Equal(["paper-sparqldl-Q1", "paper-sparqldl-Q4"], Named("pending: OWL 2 QL"));
     }
 
