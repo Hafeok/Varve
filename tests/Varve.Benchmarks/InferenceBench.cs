@@ -235,6 +235,19 @@ internal static class InferenceBench
         List<RecCommit> history = [.. RecPortfolio.Generate(size, Seed)];
         int cut = Math.Max(0, history.Count - held);
         Dictionary<string, HashSet<Fact>> graphs = State(terms, history.Take(cut));
+        List<RecCommit> tail = [.. history.Skip(cut)];
+        history = [];
+
+        // How many graphs hold each fact: the merge's delta, without a copy of the merge.
+        Dictionary<Fact, int> holders = [];
+        foreach (HashSet<Fact> facts in graphs.Values)
+        {
+            foreach (Fact fact in facts)
+            {
+                holders[fact] = holders.GetValueOrDefault(fact) + 1;
+            }
+        }
+
         Dictionary<string, int> indices = new(StringComparer.Ordinal);
         foreach (string name in graphs.Keys.Order(StringComparer.Ordinal))
         {
@@ -245,7 +258,7 @@ internal static class InferenceBench
         tboxClosure.Apply(tbox, []);
         Stopwatch clock = Stopwatch.StartNew();
         Closure merge = new(InferenceProgram.Of(profile, terms), Retraction.RecursiveCounting, tbox: tboxClosure);
-        merge.Apply([.. graphs.Values.SelectMany(g => g).Distinct()], []);
+        merge.Apply([.. holders.Keys], []);
         PremiseSets sets = new(merge, graphs.SelectMany(g => g.Value.Select(f => (f, new DataGraphIndex(indices[g.Key])))));
         Console.WriteLine($"//   built in {clock.Elapsed.TotalSeconds:F1} s: {merge.Count.Value} facts, {sets.CrossGraph().Count} cross-graph sets");
 
@@ -254,18 +267,24 @@ internal static class InferenceBench
         long touched = 0;
         (double Worst, int At, string Kind) worst = (0, 0, string.Empty);
         int number = cut;
-        foreach (RecCommit commit in history.Skip(cut))
+        foreach (RecCommit commit in tail)
         {
             number++;
             Stopwatch one = Stopwatch.StartNew();
-            HashSet<Fact> before = [.. Merged()];
+            List<Fact> gone = [], come = [];
             List<(Fact, DataGraphIndex)> unpaired = [];
             List<(Fact, DataGraphIndex)> paired = [];
             foreach (RecQuad quad in commit.Retracted)
             {
                 if (graphs.TryGetValue(quad.Graph, out HashSet<Fact>? facts) && facts.Remove(Fact(terms, quad)))
                 {
-                    unpaired.Add((Fact(terms, quad), new DataGraphIndex(indices[quad.Graph])));
+                    Fact fact = Fact(terms, quad);
+                    unpaired.Add((fact, new DataGraphIndex(indices[quad.Graph])));
+                    if ((holders[fact] -= 1) == 0)
+                    {
+                        holders.Remove(fact);
+                        gone.Add(fact);
+                    }
                 }
             }
 
@@ -279,17 +298,25 @@ internal static class InferenceBench
 
                 if (facts.Add(Fact(terms, quad)))
                 {
-                    paired.Add((Fact(terms, quad), new DataGraphIndex(indices[quad.Graph])));
+                    Fact fact = Fact(terms, quad);
+                    paired.Add((fact, new DataGraphIndex(indices[quad.Graph])));
+                    int now = holders.GetValueOrDefault(fact) + 1;
+                    holders[fact] = now;
+                    if (now == 1)
+                    {
+                        come.Add(fact);
+                    }
                 }
             }
 
-            HashSet<Fact> after = [.. Merged()];
             string[] names = [.. indices.OrderBy(i => i.Value).Select(i => i.Key)];
             Stopwatch step = Stopwatch.StartNew();
             IReadOnlySet<Fact> affected = sets.Reach(unpaired, (fact, graph) => graphs.TryGetValue(names[graph.Value], out HashSet<Fact>? held) && held.Contains(fact));
             reachMs += step.Elapsed.TotalMilliseconds;
             step.Restart();
-            merge.Apply([.. after.Except(before)], [.. before.Except(after)]);
+            // A fact gone and back within the commit is no change to the merge.
+            HashSet<Fact> back = [.. gone.Intersect(come)];
+            merge.Apply([.. come.Where(f => !back.Contains(f))], [.. gone.Where(f => !back.Contains(f))]);
             closeMs += step.Elapsed.TotalMilliseconds;
             step.Restart();
             foreach ((string graph, HashSet<Fact> facts) in graphs)
@@ -316,18 +343,6 @@ internal static class InferenceBench
         times.Sort();
         Console.WriteLine($"cross-graph: {times.Count} commits; per commit p50 {Percentile(times, 0.5):F2} ms, p99 {Percentile(times, 0.99):F2} ms, worst {worst.Worst:F1} ms (commit {worst.At}, {worst.Kind}); {touched} facts' sets changed in all; {sets.CrossGraph().Count} cross-graph sets after; in all, reach {reachMs:F0} ms, the merge's closure {closeMs:F0} ms, the sets {updateMs:F0} ms, the rest the harness's");
         GC.KeepAlive(merge);
-
-        // The merge as a set, rebuilt each commit: the harness's own cost, inside the time measured, an upper bound.
-        IEnumerable<Fact> Merged()
-        {
-            foreach (HashSet<Fact> facts in graphs.Values)
-            {
-                foreach (Fact fact in facts)
-                {
-                    yield return fact;
-                }
-            }
-        }
     }
 
     private static double Percentile(List<double> sorted, double p) => sorted.Count == 0 ? 0 : sorted[Math.Min(sorted.Count - 1, (int)(p * sorted.Count))];
