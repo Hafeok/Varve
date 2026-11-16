@@ -18,6 +18,12 @@ streams, may meet it after: the response is then cut, with a
 `Varve-Error: not-acceptable` trailer where it carries trailers and an
 aborted connection where it does not (ADR 0095).
 
+## What to do
+
+A client: put a format the endpoint writes in `Accept`. For a graph the
+chosen format cannot spell, read `detail` and ask for N-Triples, Turtle,
+N-Quads or TriG.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

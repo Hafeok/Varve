@@ -81,7 +81,7 @@ jobs:
           # Called for a release, the jobs that judge a range rather than a
           # tree are skipped: the range under release landed through them
           # already, and its base is not this event's (ADR 0102).
-          runCmd: dotnet run eng/ci.cs ${{ inputs.ref && '-- --skip issue-refs --skip dco --skip release-pending --skip release' || '' }}
+          runCmd: dotnet run eng/ci.cs ${{ inputs.ref && '-- --skip issue-refs --skip dco --skip model-names --skip release-pending --skip release' || '' }}
 
   # ADR 0102: a change that closes a milestone issue carries the release
   # descriptor whose basis names it. Also a job in eng/ci.cs; a job of its own

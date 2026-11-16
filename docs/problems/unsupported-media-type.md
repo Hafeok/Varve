@@ -9,6 +9,11 @@
 
 A request body in a media type or charset the endpoint does not read, UTF-8 being the only charset (ADR 0092).
 
+## What to do
+
+A client: send the body in a media type the endpoint reads, with no charset
+or `charset=utf-8`. The same body is refused again.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

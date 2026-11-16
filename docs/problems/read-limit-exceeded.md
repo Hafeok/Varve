@@ -9,6 +9,14 @@
 
 A read cut by `Varve:Limits:QueryTimeout`, `PinnedReadLifetime` or `ResultSizeCap` before the first byte; after it the type arrives in the `Varve-Error` trailer or ends a commits stream as an `error` record (ADR 0095).
 
+## What to do
+
+- A client: narrow the read, or read in smaller parts, such as shorter
+  commits ranges. The same read is likely cut again.
+- An operator: raise `Varve:Limits:QueryTimeout`,
+  `Varve:Limits:PinnedReadLifetime` or `Varve:Limits:ResultSizeCap` if such
+  reads are expected ([Configure](../operator/configure.md)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

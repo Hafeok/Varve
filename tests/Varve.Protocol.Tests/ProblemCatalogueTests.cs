@@ -77,7 +77,7 @@ public class ProblemCatalogueTests
     private static readonly ImmutableArray<ProblemType> ManagementTriggered = [ProblemType.DeclarationInvalid, ProblemType.DatasetOpen, ProblemType.WriterMoved];
 
     [Fact]
-    public void every_problem_type_is_catalogued_with_a_page_stating_the_same_shape()
+    public void every_problem_type_is_catalogued_with_a_page_stating_the_same_shape_and_what_to_do()
     {
         IEnumerable<ProblemType> types = typeof(ProblemType)
             .GetProperties(BindingFlags.Public | BindingFlags.Static)
@@ -99,6 +99,9 @@ public class ProblemCatalogueTests
             Assert.Contains("| **Status** | `" + shape.Status.ToString(System.Globalization.CultureInfo.InvariantCulture) + "` |", text, StringComparison.Ordinal);
             string members = shape.Members.Length == 0 ? "none" : string.Join(", ", shape.Members.Select(m => "`" + m + "`"));
             Assert.Contains("| **Members** | " + members + " |", text, StringComparison.Ordinal);
+
+            // Every page says what to do next (ADR 0242, #194).
+            Assert.True(text.ReplaceLineEndings("\n").Contains("\n## What to do\n", StringComparison.Ordinal), page + " has no '## What to do' section");
             Assert.Contains("[`" + shape.Name + "`](" + shape.Name + ".md)", index, StringComparison.Ordinal);
         }
 
@@ -252,6 +255,14 @@ public class ProblemCatalogueTests
                 Assert.Equal(shape.Status, root.GetProperty("status").GetInt32());
                 Assert.Equal(P.Header(response, "Varve-Request-Id"), root.GetProperty("instance").GetString());
                 Assert.Equal("Accept,Varve-As-Of,Authorization,Varve-Entailment", string.Join(",", response.Headers.Vary));
+
+                if (type == ProblemType.Unavailable)
+                {
+                    // A damaged dataset says a retry will not fix it (ADR 0242).
+                    Assert.Equal("failed", root.GetProperty("reason").GetString());
+                    Assert.Equal("damaged", root.GetProperty("failure").GetString());
+                    Assert.Contains("restore it from a backup", root.GetProperty("detail").GetString(), StringComparison.Ordinal);
+                }
 
                 foreach (JsonProperty member in root.EnumerateObject())
                 {
@@ -417,7 +428,7 @@ public class ProblemCatalogueTests
         {
             lock (_entries)
             {
-                return [.. _entries.Select(e => new DatasetEntry(new DatasetName(e.Key), e.Value.State, e.Value.Storage, DatasetOrigin.Created, e.Value.State == DatasetState.Failed ? "the lease is held elsewhere" : null, null, null))];
+                return [.. _entries.Select(e => new DatasetEntry(new DatasetName(e.Key), e.Value.State, e.Value.Storage, DatasetOrigin.Created, e.Value.State == DatasetState.Failed ? "segment 41 does not continue the chain" : null, null, null) { Failure = e.Value.State == DatasetState.Failed ? DatasetFailure.Damaged : null })];
             }
         }
 
