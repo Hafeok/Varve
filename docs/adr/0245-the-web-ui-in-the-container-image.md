@@ -116,9 +116,9 @@ The first thing anyone trying Varve wants is `docker run` and a browser.
      - Emscripten's compiler and Node.js stay `BUILD_TOOL_OF` the bundle.
    - **The check:** `ci.yml` fails a proposed release whose image SBOM lacks any package of the zip's.
    - **The workload packs:** `publish.yml`'s check that the packs the build used are the ones the SBOM names stays in the `webui` job, where the bundle is built. The image takes that job's zip.
-7. **The `Varve.Server` .NET tool is out of scope,** and left open on #296. Carrying the bundle would cost the tool:
+7. **The `Varve.Server` .NET tool is out of scope;** it is #325, linked from #129, which also leaves open whether the tool serves `/ui/` by default. Carrying the bundle would cost the tool:
    - **+6.40 MB** to the `.nupkg` (16.5 to 22.9 MB) and **+10.1 MB** installed;
-   - the `wasm-tools` and `wasm-experimental` workloads in the pack job;
+   - nothing in the pack job's toolchain: it can take the `webui` job's attested zip, as the image job does, and needs no wasm workloads;
    - the bundle's 45 packages in the tool's SBOM;
    - a default path relative to the tool's directory instead of a fixed one.
 8. **A separate management listener is not supported by the console**, in any of its ways of hosting, until #297:
@@ -138,8 +138,9 @@ Measured on linux-x64 with `docker save`: the same AOT binary built into `main`'
 | the bundle's layer | **+6.44 MB (+32 %)** | +10.4 MB |
 
 - **The digest:** every image digest changes, because there is one more layer.
-- **The bundle's layer** is a function of the zip: `zip -X` records DOS times, which unzip restores, on a UTC runner. Both platforms take identical files with identical times.
-- **Reproducibility is no worse than before.** The binary's layer already records its publish time, so the image as a whole is still not byte-reproducible. Making it so (`SOURCE_DATE_EPOCH` with `rewrite-timestamp`) is a separate change. Equal times would still satisfy ADR 0202's rule that a sibling older than its file is never sent, because that check is `>=`.
+- **The bundle's layer in the release** is a function of the zip: `zip -X` records DOS times, which unzip restores, on a UTC runner, and both platforms unpack the same zip. In `ci.yml`'s `container` job the bundle comes from a workflow artifact, so its files carry the download's times, and that layer is not reproducible.
+- **The bundle's modes are set in the `layout` stage** by GNU `chmod -R u=rwX,go=rX`, then copied across. They are never left to `COPY --chmod`: one builder did not apply a symbolic `X` to directories, and the image it built could read no file below `/app/webui` (#308's first run).
+- **Reproducibility is no worse than before.** The binary's layer already records its publish time, so the image as a whole is still not byte-reproducible. Making it so (`SOURCE_DATE_EPOCH` with `rewrite-timestamp`) is #326, outside the 1.0 list. Equal times would still satisfy ADR 0202's rule that a sibling older than its file is never sent, because that check is `>=`.
 - **CI time:** the time `ci.yml`'s `container` job now spends waiting for `wasm` is recorded on #296 from the pull request's first run.
 
 ## Alternatives considered

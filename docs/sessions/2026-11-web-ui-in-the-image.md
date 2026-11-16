@@ -59,7 +59,7 @@ The CI time the `container` job's wait for `wasm` adds is posted on #296 after t
 
 - **Opened:** #297, the Web UI cannot reach a separate management listener.
 - **Closed by the pull request:** #296.
-- **Left open on #296**, by ruling 5: whether the .NET tool carries the bundle.
+- **Opened since, at the maintainer's direction:** #325, the .NET tool carries the bundle (linked from #129); #326, a byte-reproducible image, outside the 1.0 list.
 
 ## Test counts
 
@@ -74,5 +74,4 @@ New tests (before → after, in the projects they join):
 
 ## Questions for the maintainer
 
-1. **The tool.** Ruling 5 leaves this open, and #296 has the measured cost. Should `Varve.Server`'s tool carry the bundle?
-2. **The image's reproducibility.** `SOURCE_DATE_EPOCH` with `rewrite-timestamp` would make the whole image byte-reproducible, not only the bundle's layer. Do you want it as its own issue?
+None open: the tool (#325) and reproducibility (#326) are issues of their own.
