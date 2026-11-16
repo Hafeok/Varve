@@ -124,9 +124,20 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   put to the maintainer on #171.
 - **What recomputing costs.** The sets over REC M's 63 graphs take 236 s,
   after a 90 s closure, and about 50 bytes a fact beside it (4,378 MiB held
-  in all). Recomputed on every data commit, that is minutes a commit: a
-  cross-graph binding of that size is not served at commit rate until the
-  sets are maintained incrementally, from the delta, as the closure is.
+  in all). Recomputed on every data commit, that would be minutes a commit,
+  so they are maintained from the delta instead, as the closure is
+  (revised 2026-11-16): `PremiseSets.Reach` and `Update`, delete and
+  derive again over the sets of the facts a retraction can reach.
+- **What maintaining costs** (`Varve.Benchmarks --inference-premise-sets
+  M rdfs 50`, the last 50 commits of REC M, one cross-graph merge of its
+  63 graphs). It builds in 463 s, 17.4 million facts, a peak working set
+  of 7.6 GB. A commit's median is 4 ms: the merge's closure 76 ms over all
+  50 commits, the reach 17 s, the sets 2,008 s, the worst commit 199 s (a
+  merge of rooms), though only 658 facts' sets changed in all. The cost is
+  in deriving again a fact many graphs derive, `p rdf:type rdf:Property`
+  for a property every building uses: each of its instances is read again.
+  A cross-graph binding of REC M's size is not served at commit rate until
+  that is narrowed; #171 carries the work.
 
 ### 4. Commits and generations
 
