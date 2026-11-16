@@ -2,8 +2,9 @@
 
 ## Status
 
-**Accepted — filed unaccepted by #222, 2026-11-10** (ADR 0066). Acceptance is
-the maintainer's act on the pull request.
+**Accepted — filed unaccepted by #222, 2026-11-10** (ADR 0066), its four
+rulings and the restated `SeekDontNarrow` accepted on #268 on 2026-11-16, at
+the maintainer's word, by his delegate (ADR 0239).
 
 **Amends** by dated amendment:
 - [ADR 0082](0082-the-soak-gate.md): the dataset's own, retired on
