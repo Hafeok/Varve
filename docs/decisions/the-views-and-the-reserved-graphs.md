@@ -13,6 +13,8 @@ decisions:
     statement: "The implicit view, the reserved graphs and the staged vocabulary constants never deny a term they will yield, answering with a staged handle while the closure is behind"
   - key: InferenceGraphsNotWritable
     statement: "InferenceGraphGuard refuses a quad in varve:explicit, varve:implicit or under varve:inferred/ as graph-not-writable on every write path"
+  - key: BothViewsBehindTheSeam
+    statement: "A read of varve:explicit, varve:implicit or a reserved graph resolves the closure through ADR 0195's seam and answers its refusals in its order, with no check of its own"
 ---
 
 The rulings of [ADR 0198](../adr/0198-the-views-and-the-reserved-graphs.md), one line each. The ADR is the

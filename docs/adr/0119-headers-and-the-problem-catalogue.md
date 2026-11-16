@@ -289,7 +289,7 @@ The catalogue gains:
 
 Each has its page in `docs/problems/` when it is catalogued.
 
-## Amendment, 2026-11-06 — `inference-behind`, and the inference guard's `graph-not-writable`
+## Amendment, 2026-11-06 — `inference-behind`, `inference-unavailable`, and the inference guard's `graph-not-writable`
 
 Filed by Inference, part 2 (#171, under #95), unaccepted until the maintainer
 accepts it (ADR 0066).
@@ -300,6 +300,18 @@ accepts it (ADR 0066).
   two-second wait (ADR [0195](0195-the-inference-projection.md) point 6). A
   query that streams has its cut after the first byte as a `Varve-Error`
   trailer (ADR 0095).
+- **`inference-unavailable`** (`503`, **no `Retry-After`**; members
+  `binding`, `reason`, `failure`, and for `reason` `memory-limit` also
+  `limit` and `reached`, in bytes): a tier-2 read of a binding whose
+  materialisation stopped at `Varve:Inference:ClosureBytes`, answered at once
+  (ADR [0195](0195-the-inference-projection.md) point 6, revised
+  2026-11-16). `failure` is `configuration`, ADR
+  [0242](0242-problems-that-say-what-to-do.md) ruling 2's class: no retry
+  helps. Added on the maintainer's answer C of 2026-11-16 (#171), with the
+  shape proposed there (comment 6916253220).
+- **`entailment-not-available`** carries no `binding` (ADR 0238, amended
+  2026-11-16), which replaces that member in the amendment of 2026-10-30
+  above.
 - **`graph-not-writable`** is also `InferenceGraphGuard`'s, for a quad in
   `varve:explicit`, `varve:implicit` or under `varve:inferred/`
   (ADR [0198](0198-the-views-and-the-reserved-graphs.md) point 4).
@@ -307,5 +319,6 @@ accepts it (ADR 0066).
   under `owl2-rl` over a graph that holds a clash
   (ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md) point 5).
 
-**The ledger.** The rulings are ADR 0195's `InferenceBehind` and ADR 0197's
-`ClashReportedNotServed`.
+**The ledger.** The rulings are ADR 0195's `InferenceBehind` and
+`ClosureMemoryLimit`, ADR 0197's `ClashReportedNotServed`, and ADR 0238's
+`EntailmentNotAvailableNamesNoBinding`.

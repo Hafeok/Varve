@@ -6,6 +6,11 @@
 (ADR 0066). Decided by the maintainer on the plan in #95 (2026-10-27),
 question 4d. Acceptance is the maintainer's act on the pull request.
 
+**Revised 2026-11-16**, before acceptance, on the maintainer's answers on
+#171 (comment 6916253220): explain names the clash (point 2, the condition on
+ADR 0197's `Varve-Inconsistent`), and answers the seam's refusals in its
+order (point 5).
+
 ## Context
 
 A reader shown an implicit quad needs to know why it holds. Nothing per
@@ -45,6 +50,21 @@ honouring `Varve-As-Of`, answering `application/json`.
 - **Well-founded:** no quad's proof uses that quad, so the tree is finite and
   each node is proved from below.
 - **A TBox premise** is `explicit` with its TBox graph.
+- **The clash is named.** When the quad's graph, or the graph of any premise
+  in its proof, holds a clash the caller may see (ADR 0197 point 5), the
+  answer carries `"inconsistent": true` and `clashes`: each one the check that
+  fired, as a rule IRI, and its premises, each with its proof as above. A
+  clash in a graph the caller does not read is not named, and does not set
+  `inconsistent`.
+
+```json
+"inconsistent": true,
+"clashes": [
+  { "rule": "https://w3id.org/varve/ns#rule/owl2rl/cax-dw",
+    "premises": [ { "quad": "…", "status": "implicit", "proof": { … } },
+                  { "quad": "…", "status": "explicit", "graph": "…" } ] }
+]
+```
 
 ### 3. How it is found
 
@@ -62,9 +82,12 @@ see is `absent`, as if it were not entailed.
 
 ### 5. Through the tier-2 seam
 
-Explain resolves the closure through ADR 0195 point 7's seam, so it waits or
-answers `503 inference-behind` like any tier-2 read, and is refused where tier
-2 is refused (ADR 0195 point 8; #14).
+Explain resolves the closure through ADR 0195 point 7's seam, so it answers
+the seam's refusals in the seam's order: `403 entailment-not-available` under
+a row-restricted grant (ADR 0238, with no `binding` since its amendment of
+2026-11-16), `503 inference-unavailable` for a binding stopped by its memory
+limit, the refusal after erasure (ADR 0195 point 8), and `503
+inference-behind` after the wait.
 
 ## Alternatives considered
 
@@ -82,8 +105,9 @@ answers `503 inference-behind` like any tier-2 read, and is refused where tier
 ## Checks
 
 - **Checked against the accepted ADRs** (0001–0194, 0206, 0213–0217, 0224,
-  0225). Touches **0107**/**0190** (grants), **0114** (the work limit),
-  **0195**, **0196**. No conflict.
+  0225, 0239–0241, 0243), and 0230–0238 and 0242. Touches **0107**/**0190**
+  (grants), **0114** (the work limit), **0195**, **0196**, **0197** (the
+  clash), **0238** (the refusal). No conflict.
 - **Layer ownership.** `Varve.Inference` (4): the proof search.
   `Varve.Protocol` (5): the route.
 - **Analyzer rule.** None new.

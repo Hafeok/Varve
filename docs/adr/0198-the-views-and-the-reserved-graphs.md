@@ -7,6 +7,11 @@
 question 6, and the answer to D5 that moved the views into this part.
 Acceptance is the maintainer's act on the pull request.
 
+**Revised 2026-11-16**, before acceptance, on the maintainer's answers on
+#171 (comment 6916253220): both views are tier-2 surfaces behind the seam
+(ADR 0238 point 2), the refusals they answer are listed in point 5, and
+writing them is `graph-not-writable` with a `## What to do` (ADR 0242).
+
 Amends **0130** point 5 (the closure's computed graphs are not writable), by a
 dated amendment there.
 
@@ -77,12 +82,24 @@ behind; it answers with a staged handle instead, as `ReportGraphs` does since
 `varve:implicit` or any graph under `varve:inferred/` as
 `graph-not-writable`, on every write path, an administrator's included
 (ADR 0130 point 5, amended). The server puts it on every dataset.
+`docs/problems/graph-not-writable.md`'s `## What to do` (ADR 0242 point 5)
+says to write the graph a quad belongs in, never a view or a graph under
+`varve:inferred/`, whose content is the closure's.
 
 ### 5. Tier 2 refused at one point
 
 Every read of a view or a reserved graph resolves the closure through ADR
-0195 point 7's seam, so ADR 0195 point 8's refusal after erasure, and the
-row-level refusal #14 adds, apply to them without a check of their own.
+0195 point 7's seam, **`varve:explicit` included**: it is a part of the
+closure's partition, and ADR 0238 point 2 names it a tier-2 surface. So these
+apply to them without a check of their own, in the seam's order:
+- `403 entailment-not-available` under a row-restricted grant (ADR 0238);
+- `503 inference-unavailable` for a binding stopped by its memory limit (ADR
+  0195 point 6);
+- the refusal after erasure (ADR 0195 point 8);
+- `503 inference-behind`.
+
+A graph with no materialising binding has no closure to refuse: its explicit
+part is its quads, and its implicit part is empty, under every grant.
 
 ## Alternatives considered
 
@@ -102,9 +119,10 @@ row-level refusal #14 adds, apply to them without a check of their own.
 ## Checks
 
 - **Checked against the accepted ADRs** (0001–0194, 0206, 0213–0217, 0224,
-  0225). Touches **0022** (the contract), **0107**/**0190** (the read rule),
-  **0130** (amended), **0174** (the twin guard and graph tagging), **0195**.
-  No conflict.
+  0225, 0239–0241, 0243), and 0230–0238 and 0242. Touches **0022** (the
+  contract), **0107**/**0190** (the read rule), **0130** (amended), **0174**
+  (the twin guard and graph tagging), **0195**, **0238** (both views tier 2),
+  **0242** (the page's section). No conflict.
 - **Layer ownership.** `Varve.Protocol` (5): the guard, the dataset's
   composition; `Varve.Inference.Store` (5): the sources over the projection.
 - **Analyzer rule.** None new.

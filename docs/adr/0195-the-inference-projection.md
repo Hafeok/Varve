@@ -8,7 +8,15 @@ question 4a, and on #171's plan comment (2026-11-06), which verified this
 ADR's two premises and fixed its erasure precondition. Acceptance is the
 maintainer's act on the pull request.
 
-Amends **0119** (`inference-behind`), by a dated amendment there.
+**Revised 2026-11-16**, before acceptance, on the maintainer's answers to
+#171's status comment (comment 6916253220): closed rows held under a ceiling
+in bytes (point 5), the closure's memory limit and `inference-unavailable`
+(point 6), `varve:explicit` among the surfaces of the seam (point 7), and the
+inconsistency on readiness (point 6). The changes follow ADRs 0238, 0240,
+0242 and 0244, which main gained after this ADR was first filed.
+
+Amends **0119** (`inference-behind`, `inference-unavailable`), by a dated
+amendment there.
 
 ## Context
 
@@ -78,6 +86,10 @@ position, and writes nothing to the log.
   datatype rules) are held for the rules' joins and never served (SPARQL 1.1
   Entailment Regimes §3.3).
 - **Indices.** SPO, POS and OSP over handles, in memory, for the rules' joins.
+- **What is held is bounded by the data and by configuration, never by the
+  commits** (ADR 0240 point 1). The open rows and the indices are the closure
+  at the projection's position, bounded by the data. Closed rows are history,
+  and are held only up to a ceiling (point 5).
 
 ### 3. Placement
 
@@ -139,12 +151,43 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   it is the binding's from-scratch closure as of that position, computed when
   read, on every instance and after every restart, under the read's memory
   limit (`memory-limit-exceeded`). The operator guide says so.
+- **The state holds the open rows and the closed rows in memory**, nothing
+  older: no blob format for history. Durable history through the extent
+  machinery is #313, after 1.0.
 
-### 6. Lag and `inference-behind`
+### 5a. Closed rows under a ceiling in bytes
 
-- **Readiness** reports each binding's lag, head minus projection position,
-  under its dataset's line as `inference`, with `premiseSets` for a
-  cross-graph binding. The lag never makes the dataset unready or "behind".
+- **Closed rows are kept in memory up to `InferenceOptions.HistoryBytes`**,
+  32 MiB a binding by default, as ADR 0240's seek directory cache is; zero
+  keeps none. Past it, the oldest are dropped first, **whole positions at a
+  time**, so what is held is always a contiguous window of positions
+  `[heldFrom, position]` ending at the projection's position.
+- **An as-of read below `heldFrom` is from scratch**, exactly as below the
+  floor: the binding's closure as of that position, computed when read, under
+  the read's memory limit. A read holds the rows it was given until it ends;
+  dropping never takes them from under it.
+- **The server's setting** is `Varve:Inference:HistoryBytes`. The gauge
+  `varve.inference.history.bytes`, per binding, reports what is held, and
+  readiness reports `heldFrom`.
+- **What a from-scratch closure costs** is measured on REC M and stated here
+  before this ADR is accepted (the benchmark of point 9's list): the time to
+  close the dataset at the head under `rdfs` and under `owl2rl`, and its peak
+  memory. It is what an old as-of read and a cold start pay. *Not yet
+  measured; reported on #171 when it is.*
+
+### 6. Lag, `inference-behind`, and the memory limit
+
+- **Readiness** reports, per binding, under its dataset's line as
+  `inference`:
+  - its lag, head minus projection position;
+  - `heldFrom` (point 5a);
+  - `premiseSets` for a cross-graph binding;
+  - `inconsistent` and `clashes`, the count of clashes at its position
+    (ADR 0197 point 5);
+  - its state: `following`, `regenerating after erasure` (point 8), or
+    `stopped (memory-limit)`, with `limit` and `reached`.
+
+  None of these ever makes the dataset unready or "behind".
 - **A read that needs the closure at a position the projection has not
   reached** waits two seconds, then answers `503 inference-behind`, with
   members `binding`, `position` and `projectedPosition`, and `Retry-After: 1`
@@ -157,16 +200,53 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   2026-10-30 (`DenialCoversQuadsNotYetLoaded`), and every source this part
   adds is held to `tests/QuadSourceContract.cs`.
 
+**The closure's memory is limited, and a binding over the limit stops.**
+- `Varve:Inference:ClosureBytes` bounds what one binding's closure may hold:
+  its facts, indices and open rows, by the projection's own accounting at a
+  stated cost per quad. Unset, it is a quarter of the collector's heap limit
+  (`GCMemoryInfo.TotalAvailableMemoryBytes`), the share ADR 0244 point 5
+  gives the memtable's worst case. A value the operator sets is kept as set.
+- **A materialisation that would pass it stops**, a cold start's or a
+  generation's or a commit's, and serves no partial closure. Spilling the
+  closure to disk is not in this part.
+- **Every tier-2 read of a stopped binding answers `503
+  inference-unavailable` at once**, with no wait and **no `Retry-After`**:
+  members `binding`, `reason` `memory-limit`, `failure` `configuration` (ADR
+  0242 ruling 2's class: the host's configuration cannot run it, and no retry
+  helps), `limit` and `reached` in bytes, `reached` a lower bound on what the
+  closure needs. The `detail` names the setting and says to raise it or the
+  instance's memory and restart. Tier-1 regimes on the same graphs are still
+  served.
+- **It is tried again** at a restart, where the setting is read, and on a
+  commit that starts a generation, under the same limit; never on a timer.
+- **`docs/operator/small-machine.md` states the closure's bytes per quad**
+  under each profile, from the benchmark, beside ADR 0244's figures, so that
+  an operator can size `ClosureBytes` for a binding before applying it.
+- **An idle server returns what a generation's work left**, as it does after a
+  checkpoint (ADR 0244 point 6): the host's, not the projection's.
+
 ### 7. One point serves every tier-2 surface
 
 The host resolves the closure for a read through one seam,
 `IInferenceClosures` in `Varve.Protocol` (the twin of `IValidationReports`),
 which `Varve.Protocol` defines and the server implements over the
-projections. Every tier-2 surface goes through it: the views and the reserved
-graphs (ADR 0198), `Varve-Entailment: owl2-rl` where the closure serves it
-(ADR 0197), and explain (ADR 0199). **A refusal of tier 2 sits there and
-nowhere else**: point 8's, and the row-level refusal #14 adds under ADR 0190's
-amendment.
+projections. Every tier-2 surface goes through it:
+- the views `varve:explicit` and `varve:implicit`, and the reserved graphs
+  (ADR 0198);
+- `Varve-Entailment: owl2-rl` where the closure serves it (ADR 0197);
+- explain (ADR 0199).
+
+**A refusal of tier 2 sits there and nowhere else**, in this order:
+1. the row-level refusal, `403 entailment-not-available` (ADR 0238, amended
+   2026-11-16 to carry no `binding`), which #14 adds at this seam;
+2. a binding stopped by its memory limit, `503 inference-unavailable`
+   (point 6);
+3. point 8's refusal after erasure;
+4. a projection behind the read's position, `503 inference-behind` after the
+   wait (point 6).
+
+So a caller who may not see the closure learns nothing of the binding's
+state.
 
 ### 8. Erasure: equality by id, and the precondition milestone 9 must meet
 
@@ -204,7 +284,12 @@ amendment.
   retractions, TBox changes and rules changes, for each retraction candidate
   (ADR 0196). 40 histories × 60 commits on a pull request, 400 × 200 nightly.
 - **As-of reads of the closure equal the from-scratch closure of the log at
-  that position**, above and below the floor.
+  that position**, above and below the floor and below `heldFrom`, with the
+  history ceiling at zero, at a few hundred bytes and at its default; and what
+  is held never passes the ceiling.
+- **A binding over its memory limit** answers `inference-unavailable` on every
+  tier-2 surface and serves no partial closure, with the limit set below the
+  closure's size in the tests.
 - **ADR 0190's grant property**, over the tier-2 surfaces: 200 cases on a pull
   request, 5,000 nightly.
 - **The cache-damage gate.** A byte zeroed, flipped or cut at any offset of a
@@ -244,7 +329,8 @@ amendment.
 ## Checks
 
 - **Checked against the accepted ADRs** (0001–0194, 0206, 0213–0217, 0224,
-  0225). Touches:
+  0225, 0239–0241, 0243), and against 0230–0238 (row-level access, filed
+  unaccepted) and 0242 and 0244 (accepted on their pull requests). Touches:
   - **0012** and **0042**: the handles the rows are over;
   - **0016** and **0174**: the projection's contract and the rulings it shares;
   - **0019**: erasure, by point 8's precondition, owned by milestone 9;
@@ -253,7 +339,14 @@ amendment.
   - **0095**, **0119**: `inference-behind`, amended in 0119;
   - **0138**: validity intervals;
   - **0190**: placement;
-  - **0213**: the checked envelope.
+  - **0213**: the checked envelope;
+  - **0238**: the row-level refusal at the seam, first in order;
+  - **0240**: nothing held grows with the commits; closed rows under a
+    ceiling, as its seek directories are;
+  - **0242**: `inference-unavailable` classed by its ruling 2, and every
+    problem page with its `## What to do`;
+  - **0244**: the closure's limit follows the heap limit, and the idle
+    release after a generation.
 
   No conflict.
 - **Layer ownership.** `Varve.Inference.Store` (5): the projection and its

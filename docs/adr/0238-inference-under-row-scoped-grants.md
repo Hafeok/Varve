@@ -89,3 +89,30 @@ tier-1 answers equal a from-scratch closure over the quads it sees.
   `Varve.Protocol` (5): the guard.
 - **Analyzer rule.** None.
 - **Open questions owned.** #205.
+
+## Amendment, 2026-11-16 — `entailment-not-available` carries no `binding`
+
+Filed by Inference, part 2 ([#171](https://github.com/Hafeok/Varve/issues/171)),
+at the maintainer's direction of 2026-11-16 (#171, answer D), unaccepted until
+the maintainer accepts it (ADR 0066). Point 2's refusal is unchanged. What
+changes is its members.
+
+**`403 entailment-not-available` has no `binding` member.** ADR
+[0242](0242-problems-that-say-what-to-do.md) point 1 holds a `403` to what the
+caller sent: the dataset in its path, the permission its request needs, the
+agent its token resolves to. The binding is none of those; the server looks it
+up. It confirms no hidden row or graph, but it tells a data-plane caller which
+management declaration covers the graphs it reads, and the caller can act on
+nothing in its IRI. So the problem carries `type`, `title`, `status`,
+`instance` and a `detail` that says the materialised closure is not available
+under a row-restricted grant, and that tier-1 regimes are; no extension
+member. The amendment of 2026-10-30 to ADR 0119, which listed `binding`, is
+read with this one.
+
+`docs/problems/entailment-not-available.md`, added with the guard (#14), has
+the `## What to do` section ADR 0242 point 5 requires: query under a regime
+tier 1 serves (`rdfs`, `rdf`, `d`), or ask for a grant without subject terms
+over the binding's graphs.
+
+Records `EntailmentNotAvailableNamesNoBinding` in decision set
+[`inference-under-row-scoped-grants`](../decisions/inference-under-row-scoped-grants.md).

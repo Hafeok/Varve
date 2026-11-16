@@ -15,6 +15,8 @@ decisions:
     statement: "A cross-graph inference binding meeting a classified graph set is refused at apply while a read grant with subject terms covers it"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-30T00:00:00Z
+  - key: EntailmentNotAvailableNamesNoBinding
+    statement: "403 entailment-not-available carries no extension member, the binding included, since the caller did not send it (ADR 0242 point 1); its detail says tier-1 regimes are still served"
 ---
 
 The rulings of [ADR 0238](../adr/0238-inference-under-row-scoped-grants.md), filed unaccepted by milestone 9, part 1 ([#202](https://github.com/Hafeok/Varve/issues/202), under #14)

@@ -9,6 +9,8 @@ decisions:
     statement: "An implicit quad's proof names its rule and its premises, each explicit with its graph or implicit with a proof that never uses a quad on its path, found by backward search under the read's work limit"
   - key: ExplainUnderGrants
     statement: "Explain answers only for a quad the caller sees, so every premise is in a graph it reads or a TBox or rules graph, and an unseen quad is absent"
+  - key: ExplainNamesTheClash
+    statement: "An explain whose quad or any premise of its proof is in a graph with a clash the caller may see carries inconsistent and clashes, each the check that fired and a proof of each premise it matched"
 ---
 
 The rulings of [ADR 0199](../adr/0199-explain.md), one line each. The ADR is the

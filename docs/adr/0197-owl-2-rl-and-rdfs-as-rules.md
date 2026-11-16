@@ -90,11 +90,20 @@ reads it (Theorem PR1 requires consistency for completeness, not for
 soundness).
 - **Each check that fires is a clash**: the rule, and the premises it matched.
 - **The binding's description** names the graphs that hold clashes, behind
-  admin (ADR 0194 point 8's resource), and **readiness** counts them per
-  binding as `clashes`, naming no graph. Neither makes the dataset unready.
+  admin (ADR 0194 point 8's resource), and **readiness reports the
+  inconsistency** per binding: `inconsistent: true` and `clashes`, their
+  count at the projection's position, naming no graph. Neither makes the
+  dataset unready.
 - **A query under `owl2-rl`** over a graph with a clash is answered from the
   fixpoint, and the response carries `Varve-Inconsistent: true`. Refusing
   commits that cause one is tier 3, in part 3.
+- **Explain names the clash** (ADR 0199 point 2): an explain whose quad, or
+  any premise of its proof, is in a graph with a clash the caller may see
+  carries `clashes`, each the check that fired and a proof of each premise it
+  matched.
+- The header was accepted by the maintainer on 2026-11-16 (#171) on these two
+  conditions: readiness reports the inconsistency, and explain names the
+  clash.
 
 ### 6. `Varve-Entailment: owl2-rl`
 

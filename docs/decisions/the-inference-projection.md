@@ -16,9 +16,13 @@ decisions:
   - key: FromScratchBelowTheFloor
     statement: "A cold start puts the floor at the head, and a closure read below it is the binding's from-scratch closure as of that position, computed when read, under the read's memory limit"
   - key: InferenceBehind
-    statement: "Readiness reports each binding's lag and never turns unready for it, and a read that needs the closure at an unreached position waits two seconds, then answers 503 inference-behind; a lookup never denies a term while the closure is behind"
+    statement: "Readiness reports each binding's lag, heldFrom, clashes and state and never turns unready for them, and a read that needs the closure at an unreached position waits two seconds, then answers 503 inference-behind; a lookup never denies a term while the closure is behind"
+  - key: ClosedRowsUnderACeiling
+    statement: "Closed rows are held in memory up to HistoryBytes, oldest positions out first, the held window contiguous to the projection's position, with a setting and a gauge; an as-of read below it is from scratch, and no blob holds history"
+  - key: ClosureMemoryLimit
+    statement: "A binding's closure is bounded by ClosureBytes, by default a quarter of the heap limit; a materialisation past it stops, serves no partial closure, and every tier-2 read answers 503 inference-unavailable at once with failure configuration and no Retry-After"
   - key: OneSeamForTierTwo
-    statement: "Every tier-2 surface resolves the closure through IInferenceClosures, and a refusal of tier 2 sits there and nowhere else"
+    statement: "Every tier-2 surface, the views varve:explicit and varve:implicit included, resolves the closure through IInferenceClosures, and a refusal of tier 2 sits there and nowhere else, the row-level refusal first"
   - key: JoinsByIdWhileErasureIsOff
     statement: "Rows are over store handles and joins are by id, exact while erasure mode is off; before erasure mode and a materialising binding coexist, joins are by value, an Erasure commit starts a generation from scratch and stops serving the old one at once, every tier-2 surface unavailable and readiness saying why"
   - key: IncrementalEqualsFromScratch

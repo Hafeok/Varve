@@ -14,7 +14,7 @@ decisions:
   - key: SameAsOff
     statement: "With varve:SameAsOff owl:sameAs is an ordinary triple: the rules that conclude it fire, the eq-* substitution rules do not, and the cases that need them are exempted by name until part 3"
   - key: ClashReportedNotServed
-    statement: "A rule with a false head is a check whose firing is a clash, counted on readiness and named in the binding's description, and a query under owl2-rl over such a graph is answered from the fixpoint with Varve-Inconsistent"
+    statement: "A rule with a false head is a check whose firing is a clash, reported on readiness as inconsistent with its count, named in the binding's description and in explain, and a query under owl2-rl over such a graph is answered from the fixpoint with Varve-Inconsistent"
   - key: OwlRlServedByTheClosure
     statement: "owl2-rl is answered by simple evaluation over the explicit quads and the rows valid at the position, with C1 applied, on graphs an OWL2RL binding covers, and is entailment-unsupported elsewhere"
 ---
