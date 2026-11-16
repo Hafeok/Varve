@@ -73,8 +73,15 @@ writes, not one that enforces them only one request at a time
 
 **The dataset measured below was written and reopened in a 256 MB
 container** (ADR 0244). The server sizes its memtable to the memory it is given, a writer
-cannot outrun the flush, and an open replays within the same bound. What a
-dataset holds, by part:
+cannot outrun the flush, and an open replays within the same bound.
+
+**Every figure on this page is per open dataset**, except the server's own
+50 MB. Each open dataset has its own memtable, its own key directories and
+its own seek directory cache, and nothing here bounds their sum: a server
+with ten open datasets can hold ten memtables. A budget across datasets is
+[#295](https://github.com/Hafeok/Varve/issues/295).
+
+What a dataset holds, by part:
 
 | Part | In memory | Bounded by |
 |---|---|---|
@@ -114,8 +121,10 @@ minute idle and a restart.
 - Of the 108 MB at rest, 33 MB is the 515,000 named graphs and about 50 MB
   the server.
 - With no limit the collector lets the heap run to 704 MB during the
-  import, and gives it back once the dataset has been idle for five seconds
-  after its checkpoint (`Varve:Store:ReleaseMemoryAfterCheckpoint`).
+  import, and gives it back once no dataset on the server has taken a
+  commit for five seconds after the checkpoint
+  (`Varve:Store:ReleaseMemoryAfterCheckpoint`). The collection pauses the
+  whole process, so one busy dataset keeps it from running.
 - Killed mid-import under 512 MB and started again under it, the server
   answered in 0.4 s at 91 MB.
 

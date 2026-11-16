@@ -113,30 +113,88 @@ public sealed class ObjectStorageServerTests
     }
 
     /// <summary>
-    /// After a checkpoint the server releases memory only for a dataset that
-    /// has gone quiet (ADR 0244 point 6): not when a commit moved the head
-    /// during the wait, and not when its maintenance failed or it was closed.
+    /// After a checkpoint the server releases memory only when it has gone
+    /// quiet (ADR 0244 point 6): not when a commit moved the checkpointed
+    /// dataset's head during the wait, not when one moved another dataset's,
+    /// not when a dataset was opened meanwhile, and not when the checkpointed
+    /// dataset's maintenance failed or it was closed.
     /// </summary>
     [Theory]
-    [InlineData(false, false, true)]
-    [InlineData(true, false, false)]
-    [InlineData(false, true, false)]
-    public async Task memory_is_released_after_a_checkpoint_only_when_the_dataset_is_idle(bool written, bool closed, bool released)
+    [InlineData(false, false, false, false, true)]
+    [InlineData(true, false, false, false, false)]
+    [InlineData(false, true, false, false, false)]
+    [InlineData(false, false, true, false, false)]
+    [InlineData(false, false, false, true, false)]
+    public async Task memory_is_released_after_a_checkpoint_only_when_the_server_is_idle(bool written, bool otherWritten, bool opened, bool closed, bool released)
     {
-        long head = 7;
+        List<long> heads = [7, 3];
         int releases = 0;
         bool answer = await IdleRelease.WhenIdleAsync(
             () => closed ? throw new ObjectDisposedException("Dataset") : ValueTask.CompletedTask,
-            () => new Varve.Store.Log.Position(head),
+            () => [.. heads.Select(static head => new Position(head))],
             () =>
             {
-                head += written ? 1 : 0;
+                heads[0] += written ? 1 : 0;
+                heads[1] += otherWritten ? 1 : 0;
+                if (opened)
+                {
+                    heads.Add(0);
+                }
+
                 return Task.CompletedTask;
             },
             () => releases++);
         Assert.Equal(released, answer);
         Assert.Equal(released ? 1 : 0, releases);
     }
+
+    /// <summary>
+    /// The idle test is the whole server's (ADR 0244 point 6, as accepted):
+    /// with two datasets open, a checkpoint of the quiet one releases nothing
+    /// while the other takes commits, because the collection would pause the
+    /// busy one too. Once the busy dataset has gone quiet as well, the same
+    /// wait releases. The datasets are real; only the wait and the collection
+    /// are stood in for.
+    /// </summary>
+    [Fact]
+    public async Task a_busy_second_dataset_keeps_memory_from_being_released_after_a_checkpoint()
+    {
+        CancellationToken ct = TestContext.Current.CancellationToken;
+        await using Varve.Store.Dataset checkpointed = await Varve.Store.Dataset.CreateAsync(new Varve.Store.MemoryStorage(), new DatasetId(Guid.NewGuid()), new Varve.Store.DatasetOptions { Clock = TimeProvider.System }, ct);
+        await using Varve.Store.Dataset busy = await Varve.Store.Dataset.CreateAsync(new Varve.Store.MemoryStorage(), new DatasetId(Guid.NewGuid()), new Varve.Store.DatasetOptions { Clock = TimeProvider.System }, ct);
+        int number = 0;
+        Assert.Equal(CommitOutcome.Committed, (await checkpointed.CommitAsync(Quad(number++), ct)).Outcome);
+        Assert.Equal(CommitOutcome.Committed, (await busy.CommitAsync(Quad(number++), ct)).Outcome);
+
+        int releases = 0;
+        IReadOnlyList<Position> Heads() => [checkpointed.Head, busy.Head];
+
+        // The other dataset takes a commit during the wait: nothing is released.
+        Position quiet = checkpointed.Head;
+        bool whileBusy = await IdleRelease.WhenIdleAsync(
+            () => checkpointed.MaintainAsync(ct),
+            Heads,
+            async () => Assert.Equal(CommitOutcome.Committed, (await busy.CommitAsync(Quad(number++), ct)).Outcome),
+            () => releases++);
+        Assert.False(whileBusy);
+        Assert.Equal(0, releases);
+        Assert.Equal(quiet, checkpointed.Head);
+
+        // Both quiet through the wait: released once.
+        bool whenQuiet = await IdleRelease.WhenIdleAsync(
+            () => checkpointed.MaintainAsync(ct),
+            Heads,
+            static () => Task.CompletedTask,
+            () => releases++);
+        Assert.True(whenQuiet);
+        Assert.Equal(1, releases);
+    }
+
+    private static CommitRequestBuilder Quad(int number) =>
+        new CommitRequestBuilder().Assert(
+            Varve.Rdf.RdfTerm.Iri(Encoding.UTF8.GetBytes("https://example.org/s" + number.ToString(System.Globalization.CultureInfo.InvariantCulture))),
+            Varve.Rdf.RdfTerm.Iri("https://example.org/p"u8),
+            Varve.Rdf.RdfTerm.Iri("https://example.org/o"u8));
 
     [Fact]
     public void a_storage_credential_in_configuration_is_refused_by_name()

@@ -108,6 +108,21 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         }
     }
 
+    /// <summary>The head of every dataset this instance holds open, in name order (ADR 0244 point 6).</summary>
+    internal void HeadsInto(List<Varve.Store.Log.Position> heads)
+    {
+        lock (_gate)
+        {
+            foreach (Entry entry in _entries.Values)
+            {
+                if (entry is { State: DatasetState.Open, Dataset: { } dataset })
+                {
+                    heads.Add(dataset.Head);
+                }
+            }
+        }
+    }
+
     public IReadOnlyList<DatasetEntry> List()
     {
         List<DatasetEntry> list = [];

@@ -16,11 +16,16 @@ decisions:
   - key: TheDefaultMemtableFollowsTheHeapLimit
     statement: "Varve.Server's default memtable limit is the smaller of 1,000,000 entries and a sixteenth of the collector's heap limit at 215 bytes an entry, never less than 10,000; a value an operator sets is kept as set"
   - key: TheServerReleasesMemoryAfterACheckpoint
-    statement: "Once a checkpoint a caller asked for has been taken, Varve.Server lets the dataset's maintenance finish and, if the dataset then takes no commit for five seconds, asks the collector for one aggressive, compacting collection, unless Varve:Store:ReleaseMemoryAfterCheckpoint is false; the checkpoint's answer does not wait for it, no runtime setting releases an idle server's memory, and the store itself never forces a collection"
+    statement: "Once a checkpoint a caller asked for has been taken, Varve.Server lets the dataset's maintenance finish and, if no dataset on the server then takes a commit for five seconds, asks the collector for one aggressive, compacting collection, unless Varve:Store:ReleaseMemoryAfterCheckpoint is false; the wait decides only when memory is returned and never correctness; the checkpoint's answer does not wait for it, no runtime setting releases an idle server's memory, and the store itself never forces a collection"
 ---
 
 The rulings of [ADR 0244](../adr/0244-memory-bounds-for-writing-checkpointing-and-reopening.md),
 filed unaccepted by #227 (ADR 0066).
+
+`TheServerReleasesMemoryAfterACheckpoint` was restated, at the maintainer's direction of 2026-11-16: the idle test is that
+no dataset on the server took a commit in the five seconds, not only the one
+checkpointed, because the collection pauses the whole process; and the wait
+decides only when memory is returned, never correctness.
 
 `MaintenanceOffTheSequencer` moves here from ADR 0070's set under its key,
 restated (ADR 0068 point 4): ADR 0070's revisit condition, a memtable that

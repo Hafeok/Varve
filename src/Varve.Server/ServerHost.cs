@@ -610,7 +610,16 @@ internal static partial class ServerHost
         IAccessScopes scopes = anonymous ? EveryoneEverything.Instance : new ManagedScopes(app.Services.GetRequiredService<FleetHandle>(), settings.Auth, app.Services.GetRequiredService<IHttpContextAccessor>());
         ProtocolOptions options = new()
         {
-            AfterCheckpoint = settings.Store.ReleaseMemoryAfterCheckpoint ? IdleRelease.AfterCheckpoint : null,
+            // Every dataset's head, the system dataset's first: the collection
+            // pauses the whole process (ADR 0244 point 6).
+            AfterCheckpoint = settings.Store.ReleaseMemoryAfterCheckpoint
+                ? IdleRelease.Over(() =>
+                {
+                    List<Varve.Store.Log.Position> heads = [fleet.System.Head];
+                    datasets.HeadsInto(heads);
+                    return heads;
+                })
+                : null,
             Datasets = datasets,
             Administration = datasets,
             Updates = updates,

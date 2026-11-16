@@ -3,7 +3,8 @@
 ## Status
 
 **Accepted — filed unaccepted by #227, 2026-11-10** (ADR 0066). Acceptance is
-the maintainer's act on the pull request.
+the maintainer's act on the pull request. Point 6 was changed at his
+direction of 2026-11-16: the idle test is the whole server's.
 
 **Amends** by dated amendment:
 - [ADR 0070](0070-the-storage-engine-is-our-own.md), which it **supersedes
@@ -143,11 +144,23 @@ least 10,000.
 
 **6. An idle server returns what a checkpoint's work left.** Once a
 checkpoint a caller asked for has been taken, `Varve.Server` lets the
-dataset's maintenance finish and waits five seconds. If the dataset took no
-commit in them, it asks the collector for one aggressive, compacting
-collection. `Varve:Store:ReleaseMemoryAfterCheckpoint`, true by default,
-turns it off. The checkpoint's answer does not wait for it, and the store
-itself never forces a collection: this is the host's.
+dataset's maintenance finish and waits five seconds. If no dataset on the
+server took a commit in them, it asks the collector for one aggressive,
+compacting collection. `Varve:Store:ReleaseMemoryAfterCheckpoint`, true by
+default, turns it off. The checkpoint's answer does not wait for it, and the
+store itself never forces a collection: this is the host's.
+
+- **The idle test is the whole server's**, not the checkpointed dataset's
+  (the maintainer's direction of 2026-11-16). The collection pauses the
+  whole process, so a commit to any other dataset would pay the pause the
+  second table below measures. The server compares the head of every dataset
+  it holds open, the system dataset included, before and after the wait; a
+  dataset opened or closed meanwhile leaves it not known to be idle, and
+  nothing is released.
+- **The wait decides only when memory is returned, never correctness.** A
+  commit that arrives after the five seconds, or during the collection, is
+  delayed by it and is otherwise untouched. Nothing a read or a write
+  answers depends on whether the collection ran.
 
 Measured, Native AOT, the import of the context:
 
@@ -160,7 +173,7 @@ Measured, Native AOT, the import of the context:
 | an aggressive, compacting collection | 155 MB |
 
 So no documented setting gives the release, and only the aggressive mode
-decommits. Why it waits for the dataset to be idle, at 1.75 million quads
+decommits. Why it waits for the server to be idle, at 1.75 million quads
 with one writer committing back to back across the checkpoint:
 
 | | Release on, no wait | Off |

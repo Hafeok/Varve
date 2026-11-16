@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DecisionDriven;
@@ -14,7 +15,7 @@ namespace Varve.Server;
 
 /// <summary>
 /// What the server does once a checkpoint a caller asked for has been taken
-/// (ADR 0244 point 6): if the dataset then takes no commit for
+/// (ADR 0244 point 6): if no dataset on the server then takes a commit for
 /// <see cref="IdleFor"/>, it asks the collector for one aggressive,
 /// compacting collection, which returns to the operating system what the
 /// import and the checkpoint left behind. The checkpoint's answer does not
@@ -26,43 +27,62 @@ namespace Varve.Server;
 /// and no ordinary forced collection releases any of it. Under a writer it
 /// would buy nothing, 315 MB against 330 MB, since a server that allocates
 /// collects on its own, and the longest commit beside it was 136 ms against
-/// 24 ms. So it runs only for a dataset that has gone quiet.
+/// 24 ms. The collection pauses the whole process, so a commit to any
+/// other dataset would pay that pause too: it runs only on a server whose
+/// datasets have all gone quiet, the system dataset included. The wait
+/// decides only when memory is returned, and never correctness.
 /// </remarks>
 [DesignDecision(typeof(MemoryBounds.TheServerReleasesMemoryAfterACheckpoint), Scope = ExceptionScope.Boundary)]
 internal static class IdleRelease
 {
-    /// <summary>How long the dataset takes no commit, after its checkpoint's maintenance, before memory is released.</summary>
+    /// <summary>How long no dataset on the server takes a commit, after the checkpoint's maintenance, before memory is released.</summary>
     internal static readonly TimeSpan IdleFor = TimeSpan.FromSeconds(5);
 
-    /// <summary>The hook <c>ProtocolOptions.AfterCheckpoint</c> takes: starts the wait and returns at once.</summary>
-    internal static ValueTask AfterCheckpoint(Dataset dataset, CancellationToken cancellationToken)
-    {
-        _ = Task.Run(
-            () => WhenIdleAsync(
-                () => dataset.MaintainAsync(CancellationToken.None),
-                () => dataset.Head,
-                () => Task.Delay(IdleFor, CancellationToken.None),
-                static () => GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true)),
-            CancellationToken.None);
-        return ValueTask.CompletedTask;
-    }
+    /// <summary>
+    /// The hook <c>ProtocolOptions.AfterCheckpoint</c> takes, over the heads of
+    /// every dataset the server holds open: it starts the wait and returns at once.
+    /// </summary>
+    internal static Func<Dataset, CancellationToken, ValueTask> Over(Func<IReadOnlyList<Position>> heads) =>
+        (dataset, cancellationToken) =>
+        {
+            _ = Task.Run(
+                () => WhenIdleAsync(
+                    () => dataset.MaintainAsync(CancellationToken.None),
+                    heads,
+                    () => Task.Delay(IdleFor, CancellationToken.None),
+                    static () => GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true)),
+                CancellationToken.None);
+            return ValueTask.CompletedTask;
+        };
 
     /// <summary>
-    /// Lets maintenance finish, waits, and releases only if the head has not
-    /// moved meanwhile; true when it released. A dataset closed in the
-    /// meantime, or whose maintenance failed, is left alone.
+    /// Lets the checkpointed dataset's maintenance finish, waits, and
+    /// releases only if no dataset's head has moved meanwhile; true when it
+    /// released. <paramref name="heads"/> answers every open dataset's head
+    /// in a stable order. A dataset opened or closed during the wait leaves
+    /// the server not known to be idle, so nothing is released; so does a
+    /// dataset closed in the meantime, or whose maintenance failed.
     /// </summary>
-    internal static async Task<bool> WhenIdleAsync(Func<ValueTask> maintain, Func<Position> head, Func<Task> wait, Action release)
+    internal static async Task<bool> WhenIdleAsync(Func<ValueTask> maintain, Func<IReadOnlyList<Position>> heads, Func<Task> wait, Action release)
     {
         try
         {
             await maintain().ConfigureAwait(false);
-            Position before = head();
+            IReadOnlyList<Position> before = heads();
             await wait().ConfigureAwait(false);
+            IReadOnlyList<Position> after = heads();
 
-            if (head() != before)
+            if (after.Count != before.Count)
             {
                 return false;
+            }
+
+            for (int i = 0; i < after.Count; i++)
+            {
+                if (after[i] != before[i])
+                {
+                    return false;
+                }
             }
 
             release();

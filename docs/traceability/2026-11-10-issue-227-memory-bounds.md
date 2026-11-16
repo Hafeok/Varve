@@ -124,3 +124,19 @@ failed once in 47 runs of the protocol suite, 55 bytes a solution against
 **Unaccepted decisions the code cites** (ADR 0066): `MemoryBounds`' rulings,
 `MaintenanceOffTheSequencer` among them, moved from ADR 0070's set and
 restated.
+
+**Changed at acceptance, 2026-11-16** (the maintainer's delegate, ADR 0239,
+developed with AI assistance under human review; tool Claude Code, model
+`claude-fable-5-2`). The maintainer read ADR 0244 and directed one change
+before accepting it:
+- ruling 6's idle test is that no dataset on the server took a commit in
+  the five seconds, not only the one checkpointed, because the collection
+  pauses the whole process. `IdleRelease` now compares the head of every
+  open dataset, the system dataset included;
+- `TheServerReleasesMemoryAfterACheckpoint` is restated to match, and says
+  the wait decides only when memory is returned and never correctness;
+- a test with a second, busy dataset;
+- `docs/operator/small-machine.md` says every figure is per open dataset.
+
+The seven rulings were then accepted at his word. The sessions of
+2026-11-10 are gone; this entry is the delegate's.
