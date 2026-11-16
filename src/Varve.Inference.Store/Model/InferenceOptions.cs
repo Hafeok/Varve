@@ -20,8 +20,11 @@ public sealed class InferenceOptions
 
     /// <summary>
     /// What one fact of a closure costs, as the projection counts it against
-    /// <see cref="ClosureBytes"/>: the fact and its five indices' entries.
-    /// The figure the operator guide states is the benchmark's.
+    /// <see cref="ClosureBytes"/>: the fact, counting's round and count, and
+    /// its links in the five indices. The benchmark measures 166 bytes a
+    /// fact on REC S under OWL 2 RL, after a compacting collection; this
+    /// leaves a margin over it. The figure the operator guide states is the
+    /// benchmark's.
     /// </summary>
     public static ByteCount BytesPerFact { get; } = new(256);
 
