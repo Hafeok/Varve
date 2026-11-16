@@ -61,6 +61,9 @@ public enum BindingKind : byte
 
     /// <summary>A TBox graph, for inference.</summary>
     TBox,
+
+    /// <summary>An annotated shapes graph, for row-level access (ADR 0234).</summary>
+    Classifier,
 }
 
 /// <summary>What an apply changes about a dataset-public graph (ADR 0194 point 6).</summary>

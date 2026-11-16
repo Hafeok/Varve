@@ -1,0 +1,64 @@
+{
+  "parameters": {
+    "Server": "https://varve.example/",
+    "Navigation": [
+      {
+        "Name": "Operate",
+        "Entries": [
+          {
+            "Text": "Datasets",
+            "Href": "datasets",
+            "Current": false
+          },
+          {
+            "Text": "Health",
+            "Href": "health",
+            "Current": false
+          }
+        ]
+      }
+    ],
+    "ChildContent": "<p>Body.</p>",
+    "Planes": [
+      {
+        "Name": "Data plane",
+        "Word": "signed in",
+        "Anonymous": false,
+        "Absent": false
+      },
+      {
+        "Name": "Management",
+        "Word": "signed in",
+        "Anonymous": false,
+        "Absent": false
+      }
+    ],
+    "Datasets": [
+      "catalog",
+      "notes"
+    ],
+    "Dataset": "notes",
+    "DatasetNavigation": [
+      {
+        "Name": "History",
+        "Entries": [
+          {
+            "Text": "Commits",
+            "Href": "datasets/notes/commits",
+            "Current": true
+          }
+        ]
+      },
+      {
+        "Name": "Declarations",
+        "Entries": [
+          {
+            "Text": "Grants",
+            "Href": "datasets/notes/grants",
+            "Current": false
+          }
+        ]
+      }
+    ]
+  }
+}

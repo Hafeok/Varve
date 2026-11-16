@@ -33,7 +33,7 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 | 2 | syntax: `Varve.Turtle`, `Varve.RdfXml`, `Varve.JsonLd`, `Varve.Sparql.Results`, and `Varve.Sparql` (the algebra, parser and serialiser); `Varve.Derivation` (dependency graphs, regular paths, propagation — ADR 0172, amending 0003) |
 | 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128), `Varve.Sparql.Entailment` (entailment regimes by query rewriting — ADR 0191) |
 | 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143); `Varve.Shacl.Sparql` (SHACL-SPARQL over the evaluator, through `Varve.Shacl`'s extension contract — ADR 0148); `Varve.Management` (the management plane's declarations and grants, by dependency — ADR 0166) |
-| 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Shacl.Store` (commit-time gating under a shapes binding — ADR 0169) |
+| 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Shacl.Store` (commit-time gating under a shapes binding — ADR 0169), `Varve.Classification` (the shape-derived classifier and the classification projection — ADR 0232) |
 | 6 | hosts — every executable, and only executables: the server, the CLI, the smoke apps, the benchmarks (ADR 0060) |
 
 **Same-layer references are violations.** Contracts live in the lowest layer that
@@ -78,10 +78,11 @@ severity on every project in `src/`. Every ADR is also a decision set in
   primitive rules).
 - **Never `#pragma`, `[SuppressMessage]` or an `.editorconfig` downgrade** for
   a `DD` or `VARVE` id; `DD0008` reports each.
-- **A new decision is filed unaccepted.** Its citations are `CS0618` until the
-  maintainer adds `accepted-by`, which **a session never writes**; the pull
-  request is red on that alone (ADR 0066). An accepted ADR changes by a dated
-  amendment (ADR 0068), never by editing.
+- **A new decision is filed unaccepted.** Its citations are `CS0618` until
+  `accepted-by` is added, and the pull request is red on that alone
+  (ADR 0066). The maintainer writes it, or his delegate for a decision he has
+  read (ADR 0239). **No other session ever writes it.** An accepted ADR
+  changes by a dated amendment (ADR 0068), never by editing.
 - **A finding about the analyzers themselves** (a false positive, a wrong
   message, a missing exemption) is an issue in the analyzer repository, with
   the reproduction, never a local workaround. That repository never names
@@ -94,8 +95,10 @@ severity on every project in `src/`. Every ADR is also a decision set in
 **Every milestone ends in a release, and a milestone PR carries its
 descriptor** (ADR 0102, `docs/releases.md`). The close-out:
 - adds `releases/<version>.yaml` (`dotnet run eng/release.cs -- --draft
-  <version>` starts it), with a commit whose trailer line says `Closes
-  #<milestone issue>`;
+  <version>` starts it, and `-- --sbom <version>` writes its digests and sets
+  its `date:` to that day, whenever they change), with a commit whose
+  trailer line says `Closes #<milestone issue>`; `eng/land.cs` refuses one
+  dated more than three days before the landing (#248);
 - runs `dotnet run eng/changelog.cs -- --release <version>`, because
   `CHANGELOG.md` is the projection of `releases/` and never edited by hand;
 - brings `README.md`'s **Status** section current: its opening line names the
@@ -115,12 +118,33 @@ App tags it. A session never tags.
 requires every gate by job name, `dco` and `agent review` included, with no
 bypass. A session lands through a pull request from its branch, which needs an
 approval on its head from the session's responsible human or a delegate (ADR
-0087): a conversation comment `approve <head sha>`, at least 12 characters. That
+0087): a conversation comment `approve <head sha>`, at least 12 characters. The
+maintainer's delegate, one session on his machine with his key, writes
+`approve <head sha> (delegate)` (ADR 0239). That
 form is **not a valid workflow**, only tolerated until the ledger's review gate
 replaces it. `agent review` is judged by main's script on trusted triggers and
 posted by the gates App; a required check is spoofable by name unless pinned to
 an App. A human pushes to a `land/` branch and fast-forwards `main`
-to its checked head, or merges a review-free pull request. Work not ready for
+to its checked head, or merges a review-free pull request.
+
+**Several approved heads land as one train** (#277, ADR 0243 point 10), so
+that every gate runs once for all of them:
+- `eng/land.cs -- --train N1 N2 …` merges the heads onto `main`, in that
+  order, by `git merge-tree`. Each merge is a `Landing-only: merge` commit, and
+  a conflict refuses the train, because a merge is never resolved by hand.
+  The train's head is pushed to `land/train-N1-N2-…`.
+- Each member's head must be approved for its exact sha and green on its own,
+  and its `Completes:` line is checked against its own commits.
+- At most one member carries a release descriptor, and it goes last. The
+  branch is then `land/release-<version>`, and the release is cut from the
+  train's head.
+- `agent review` admits the train's head when every merge's second parent is
+  an approved pull request's head.
+- `--main` fast-forwards `main` only to that verified train. If a gate is
+  red, the train lands nothing: `land.cs` prints it without its last member,
+  and each member can still land on its own.
+
+Work not ready for
 the trunk lives behind a feature flag or stays local, **not on a long-lived
 branch**. Human review gates a *release*, as the approval of its descriptor's
 pull request.
@@ -145,15 +169,63 @@ Conventional commits, one logical change each, and three things in each:
 - **A signature**, for human committers. Cloud AI sessions are exempt by ruleset
   bypass; ADR 0034 records why, as a stated deviation.
 
+**The maintainer's delegate marks what it does for him** (ADR 0239):
+- a commit that accepts a decision, or is made to land a pull request,
+  carries `Delegated-by: Emil Okkels Klein <emil@okkels-klein.dk>`;
+- a commit containing the delegate's own implementation work is authored
+  `Claude (Emil)`, the agent of the identity map.
+
 **Every AI-assisted session files a record** in `docs/traceability/`, named
 `YYYY-MM-DD-issue-N-<slug>.md`, with the prompt, **the tool and model named
 exactly**, and the report. The model is the identifier the session's metadata
 reports. A tool that will not write it says so in the record, and the maintainer
 fills it in: a blank model is an incomplete record. **A commit message never
-carries a model's identifier** (the string an API takes to select a model); a
-tool's co-author trailer naming the product is not one (ADR 0033, amended
-2026-10-02). Prose says "developed with AI assistance under human review" and
-**names no product**.
+carries a model's name** (a family word, alone or after the product, followed
+by a version); a model's identifier (the string an API takes to select a
+model) is allowed, and so is a co-author trailer naming only the product
+(ADR 0241, superseding ADR 0033's amendment of 2026-10-02). Prose says
+"developed with AI assistance under human review" and **names no product**.
+
+## Issues are the work log
+
+The issue, not the session's transcript or close-out, is where anyone looks to
+see what is being worked on, what was decided and what is left.
+
+- **Starting.** Work starts from an issue. The session comments on it when it
+  starts (branch, and the prompt step it is working from) and posts its plan
+  there once the plan is agreed. Before opening an issue, search for an open
+  one that covers the work; a duplicate is closed pointing at the original.
+- **While working.** Decisions taken, questions for the maintainer and blockers
+  go on the issue when they arise, not only in the close-out. The pull request
+  names its issues as bare #N in prose.
+- **Found work is filed when it is found.** A defect, a follow-up or a deferred
+  part becomes its own issue at once, linked from the issue it came from. A
+  close-out, a TODO or a commit message is not a place to keep work.
+- **Landing.** Before asking for approval, the session lists in the pull
+  request every issue the change touches, and its `Completes:` line names
+  those it resolves fully, or says `none`:
+  - each one it resolves fully gets its own `Closes #N` trailer, and
+    `eng/land.cs -- N` lists what the push will close and refuses a landing
+    whose `Completes:` line is missing or names an issue no trailer closes
+    (#209). A train checks each member's line against its own commits;
+  - each one it resolves in part gets a comment saying what landed and what is
+    left, and tracking issues (#15 and the milestone issues) get their boxes
+    ticked.
+
+  "The session" here and below is whichever session lands. The maintainer's
+  delegate lands and checks the closings (ADR 0239); a cloud session posts its
+  head, lists the issues its change touches, and asks.
+- **After landing.** The session checks that every issue it meant to close is
+  closed: `eng/land.cs -- N --main` (or `--train … --main`, for every member),
+  once `main` has moved, prints every issue
+  a pushed trailer names that is still open, with its commit, and exits
+  non-zero, as it does when GitHub cannot be read. It closes nothing itself.
+  If a trailer did not take, the session closes the issue by hand with a
+  comment naming the commit on `main`.
+- **Stopping.** Work abandoned or superseded is closed as not planned, with a
+  comment saying why and what replaces it.
+- The traceability record and the close-out link the issues; they do not
+  replace them.
 
 ## `Varve.Store` behaviour
 
@@ -195,6 +267,8 @@ dotnet run eng/ci.cs                               # the whole pipeline, as CI r
 dotnet run eng/ci.cs -- --list                     # and what it consists of, to run one
 dotnet run eng/land.cs -- <pr>                     # maintainer: push an approved head to land/
 dotnet run eng/land.cs -- <pr> --main              # then fast-forward main to it
+dotnet run eng/land.cs -- --train <pr> <pr> …      # maintainer: several approved heads as one train, in one run
+dotnet run eng/land.cs -- --train <pr> <pr> … --main
 dotnet build Varve.slnx -c Release                 # zero warnings, or it is broken
 dotnet run eng/dependency-register.cs -- --base origin/main
 git submodule update --init --recursive            # needed for conformance
@@ -210,6 +284,54 @@ ledger gates to
 and a dependency; `GOVERNANCE.md` has who decides.
 
 ## State
+
+Web UI part 1, the operator console (#167, part 1 of #96), complete as
+`v0.1.0-preview.20` (ADRs 0200–0206, filed unaccepted). **`Varve.WebUi`** is
+a Blazor WebAssembly client of the public API (0200), trimmed and
+interpreted. Its download is gated by `eng/browser-size.cs` (0205).
+- **Its design source is `docs/ui/`** (0206):
+  - every component's markup is pinned by its cases, and bUnit checks it;
+  - `VARVE0006` holds the levels apart (Atoms … Parts, Pages);
+  - only Pages use a client service, and a `.Model` type references none;
+  - new markup gets its case first.
+- **Sign-in is its own OIDC client** (0201): code with PKCE, one token per
+  plane (the code exchange for data, a refresh grant for the management
+  scope), tokens in the heap.
+- **Hosting** (0202): `Varve:WebUi:Path` serves it under `/ui/` with a
+  strict CSP.
+- **Its SBOM** (0225, amended 2026-11-06): `eng/sbom.cs` writes the
+  bundle's from its locked restore for `browser-wasm`, the descriptor names
+  the zip in an `asset:` line, and `publish.yml` attests the zip with it.
+  The bundle resolves nothing outside NuGet.
+- **The client's reads** (0203): `Varve.Protocol.Client` answers
+  `VarveResult<T>`.
+- **Browser tests** (0204): `tests/Varve.WebUi.Browser.Tests` runs
+  Playwright and axe on the runner's Chrome, in the job `web ui in
+  Chromium`.
+- **Open on #96:** Zitadel's management token (token exchange), `If-Match`
+  on the state route, and part 2, the data explorer.
+
+Milestone 9, part 1 (#202, under #14; ADRs 0230–0238, filed unaccepted):
+**row-level access through the classifier**, in 1.0 and stable, with erasure
+mode off. A `varve:ClassifierBinding` names an annotated shapes graph and the
+graphs it classifies (0234). `Varve.Classification` (layer 5) reads
+`varve:dataSubject`, `varve:subjectLink` and `varve:publicLink` as RDF (0232):
+a node belongs to the data subjects it is and those its links reach, and a
+quad is about its subject's subjects and, unless its predicate is a public
+link, its object's (0230). A caller sees a classified quad when every subject
+it is about is in its subject set for the binding: a grant's `varve:subject`,
+prefix, template, class or link terms, all subjects when it has none, and a
+grant with them must cover the whole binding. `RowScopedQuadSource` in
+`Varve.Rdf` is two probes and a memoised set decision per quad, and is not
+built for `RowScope.All` (0235). A row-restricted writer writes only rows
+already wholly its own, creates at fresh blank nodes or under
+`varve:createUnder`, links only to rows it reads, and every breach is one
+`403 row-not-writable` (0236). The feed and the diff deliver the caller's view;
+report graphs are withheld; inference's closure waits for #171 (0237, 0238).
+The classification projection is incremental, served at any position,
+verified in the local cache, `503 classification-behind` to a row-restricted
+read it has not reached, and kept by every tier-1 follower (0233). The access
+route answers an admin a subject's quads (0231). Part 2 (#203) is erasure mode.
 
 Replication (#97), part 1 within a store (#165; ADRs 0179–0181, 0136/0137/
 0163/0164/0166/0168 amended), complete; part 2, across copies, is #166.
@@ -510,15 +632,15 @@ exists.
 - A native dependency, or any package that ships a native asset.
 - `System.Uri` where an IRI is meant. Use `Varve.Iri` (ADR 0004).
 - A commit with no issue reference or no DCO sign-off, or one whose message
-  carries a model's identifier; a long-lived branch; a trunk left
-  un-releasable.
+  carries a model's name (its identifier is allowed, ADR 0241); a long-lived
+  branch; a trunk left un-releasable.
 - Reflection, `Reflection.Emit` or `dynamic` in shipped code.
 - A `Common` / `Core` / `Utils` / `Abstractions` package, or an upward or
   same-layer reference. A `.cs` file without the MPL-2.0 notice (ADR 0031).
 - Code copied from Oxigraph or dotNetRDF, a version taken from memory, an
   IL-prefixed warning in `NoWarn`, or editing an accepted ADR.
 - A suppression of a `DD` or `VARVE` rule, an `accepted-by` written by a
-  session, or a workaround for an analyzer's false positive in place of an
-  upstream issue.
+  session other than the maintainer's delegate (ADR 0239), or a workaround
+  for an analyzer's false positive in place of an upstream issue.
 - **API keys, or any credential scheme other than OIDC bearer tokens** (ADR 0037).
 - A placeholder body not explicitly marked as a stub and reported.

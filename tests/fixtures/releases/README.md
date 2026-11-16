@@ -23,6 +23,7 @@ The `release-fixtures` job in `eng/ci.cs` runs it.
 | `wrong-storage-format` | `storage-format: 99`, where `Varve.Store` writes 1 (ADR 0072) |
 | `wrong-delta-format` | `delta-format: 2`, where `Varve.Delta` writes 1 (ADR 0128) |
 | `missing-delta-format` | no `delta-format` line, at a commit that carries `DeltaFormat` (ADR 0102, amended 2026-10-13) |
+| `missing-asset-line` | a format-2 descriptor with no `asset:` line for the Web UI bundle, at a commit that ships it (ADR 0225, amended 2026-11-06) |
 | `hand-edited-changelog` | a `CHANGELOG.md` with one line edited by hand, so it is not the projection of its `releases/` |
 
 Each descriptor is otherwise a real one. Findings that come from the

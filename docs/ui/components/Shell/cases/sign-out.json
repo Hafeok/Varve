@@ -1,0 +1,48 @@
+{
+  "parameters": {
+    "Server": "https://varve.example/",
+    "Navigation": [
+      {
+        "Name": "Operate",
+        "Entries": [
+          {
+            "Text": "Datasets",
+            "Href": "datasets",
+            "Current": true
+          },
+          {
+            "Text": "Health",
+            "Href": "health",
+            "Current": false
+          }
+        ]
+      },
+      {
+        "Name": "History",
+        "Entries": [
+          {
+            "Text": "Commits",
+            "Href": "commits",
+            "Current": false
+          }
+        ]
+      }
+    ],
+    "ChildContent": "<p>Body.</p>",
+    "BarActions": "<button class=\"vw-button vw-button--small\" type=\"button\">Sign out</button>",
+    "Planes": [
+      {
+        "Name": "Data plane",
+        "Word": "signed in",
+        "Anonymous": false,
+        "Absent": false
+      },
+      {
+        "Name": "Management",
+        "Word": "signed in",
+        "Anonymous": false,
+        "Absent": false
+      }
+    ]
+  }
+}

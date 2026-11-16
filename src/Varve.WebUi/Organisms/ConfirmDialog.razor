@@ -1,0 +1,99 @@
+@inject IJSRuntime Js
+@* ConfirmDialog (docs/ui/components/ConfirmDialog): the confirmation every act
+   passes through, a native dialog opened modal. It names the act and its
+   effect and, for a close, asks for the name typed. The note (the drift
+   note) and the result (the new position, or a problem panel) are slots the
+   page fills: a component uses only lower levels, never its own (ADR 0206
+   point 4). It never closes on a failure; Escape and Cancel close it without
+   acting. *@
+<dialog class="vw-dialog" aria-labelledby="@(Id + "-title")" @ref="_dialog" @onclose="ClosedAsync"><div class="vw-dialog__body"><h2 class="vw-dialog__title" id="@(Id + "-title")">@Title</h2><p class="vw-dialog__effect">@Effect</p>@Note@if (ConfirmName is not null)
+{<Field Id="@(Id + "-name")" Exact="true" Value="@_typed" ValueChanged="Typed">
+    <Label>Type <code>@ConfirmName</code> to confirm</Label>
+</Field>}@Result</div><div class="vw-dialog__foot"><Button OnClick="CancelAsync">@(Done ? "Done" : "Cancel")</Button>@if (!Done)
+{<Button Kind="@(Danger ? ButtonKind.DangerSolid : ButtonKind.Primary)" Disabled="@(!Ready)" OnClick="OnConfirm">@ConfirmLabel</Button>}</div></dialog>
+
+@code {
+    private ElementReference _dialog;
+    private string _typed = "";
+    private bool _shown;
+
+    /// <summary>A stable id, unique on the page.</summary>
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    /// <summary>Whether the dialog is open.</summary>
+    [Parameter]
+    public bool Open { get; set; }
+
+    /// <summary>Raised when the dialog closes, by Escape, Cancel or Done.</summary>
+    [Parameter]
+    public EventCallback OnClosed { get; set; }
+
+    /// <summary>The act as a question: "Close notes?".</summary>
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = "";
+
+    /// <summary>One sentence naming the act's effect on the fleet.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? Effect { get; set; }
+
+    /// <summary>A note above the field, such as the drift note: a Notice the page passes in.</summary>
+    [Parameter]
+    public RenderFragment? Note { get; set; }
+
+    /// <summary>The name to type to confirm; close only.</summary>
+    [Parameter]
+    public string? ConfirmName { get; set; }
+
+    /// <summary>The confirming button, repeating the act and the name: "Close notes".</summary>
+    [Parameter, EditorRequired]
+    public string ConfirmLabel { get; set; } = "";
+
+    /// <summary>The act stops service.</summary>
+    [Parameter]
+    public bool Danger { get; set; }
+
+    /// <summary>The write is in flight.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>The write succeeded: the confirming button gives way to Done.</summary>
+    [Parameter]
+    public bool Done { get; set; }
+
+    /// <summary>The result, in place: the new position, or the problem panel.</summary>
+    [Parameter]
+    public RenderFragment? Result { get; set; }
+
+    /// <summary>Makes the write.</summary>
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+
+    private bool Ready => !Busy && (ConfirmName is null || string.Equals(_typed, ConfirmName, StringComparison.Ordinal));
+
+    private void Typed(string value) => _typed = value;
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Open && !_shown)
+        {
+            _shown = true;
+            _typed = "";
+            await Js.InvokeVoidAsync("varveWebUi.showModal", _dialog);
+        }
+        else if (!Open && _shown)
+        {
+            _shown = false;
+            await Js.InvokeVoidAsync("varveWebUi.close", _dialog);
+        }
+    }
+
+    private Task CancelAsync() => Js.InvokeVoidAsync("varveWebUi.close", _dialog).AsTask();
+
+    private async Task ClosedAsync()
+    {
+        _shown = false;
+        await OnClosed.InvokeAsync();
+    }
+}

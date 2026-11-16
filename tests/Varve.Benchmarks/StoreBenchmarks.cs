@@ -157,6 +157,8 @@ public class ScanBenchmarks
     private DatasetView? _view;
     private TermHandle _predicate;
     private TermHandle[] _subjects = [];
+    private TenantClassification? _rows;
+    private TenantClassification? _rowsAllPublic;
 
     [GlobalSetup]
     public void Setup()
@@ -167,6 +169,8 @@ public class ScanBenchmarks
         _view.TryInternalise(quads[3].P, out _predicate);
         _subjects = [.. Enumerable.Range(0, 10_000).Select(i => _view.TryInternalise(quads[i * 97].S, out TermHandle h) ? h : TermHandle.None)];
 
+        _rows = new TenantClassification(_view, _subjects);
+        _rowsAllPublic = new TenantClassification(_view, _subjects, allPublic: true);
         long count = Count(TermHandle.None, TermHandle.None, GraphPattern.Any);
 
         if (count != StoreDataset.Quads)
@@ -226,6 +230,67 @@ public class ScanBenchmarks
         GraphScope scope = GraphScope.Of([], ["http://example.org/dataset/graph/"], DefaultGraphAccess.Included);
         return Count(new GraphScopedQuadSource(_view!, scope), TermHandle.None, TermHandle.None, GraphPattern.Any);
     }
+
+    /// <summary>
+    /// Every quad through a <see cref="RowScopedQuadSource"/> whose scope
+    /// restricts nothing (ADR 0235): <c>Wrap</c> builds no wrapper, so this
+    /// must equal <see cref="FullScan"/>.
+    /// </summary>
+    [Benchmark]
+    public long FullScanRowScopedAll() =>
+        Count(RowScopedQuadSource.Wrap(_view!, _rows!, RowScope.All), TermHandle.None, TermHandle.None, GraphPattern.Any);
+
+    /// <summary>Every quad through a row scope of one tenant of a hundred: two probes per quad and a decision per subject set.</summary>
+    [Benchmark]
+    public long FullScanRowScopedOneTenant() =>
+        Count(new RowScopedQuadSource(_view!, _rows!, Tenants(1)), TermHandle.None, TermHandle.None, GraphPattern.Any);
+
+    /// <summary>Every quad through a row scope of half the tenants.</summary>
+    [Benchmark]
+    public long FullScanRowScopedHalf() =>
+        Count(new RowScopedQuadSource(_view!, _rows!, Tenants(50)), TermHandle.None, TermHandle.None, GraphPattern.Any);
+
+    /// <summary>
+    /// As <see cref="FullScanRowScopedHalf"/>, every predicate a public link:
+    /// the subject's probe alone, so the difference is the object half of
+    /// about(q).
+    /// </summary>
+    [Benchmark]
+    public long FullScanRowScopedHalfSubjectOnly() =>
+        Count(new RowScopedQuadSource(_view!, _rowsAllPublic!, Tenants(50)), TermHandle.None, TermHandle.None, GraphPattern.Any);
+
+    /// <summary>
+    /// Every quad through a wrapper that forwards each one and decides
+    /// nothing: the cost of being wrapped at all, a cursor's dispatch per
+    /// quad, which every scoped source pays before its own check.
+    /// </summary>
+    [Benchmark]
+    public long FullScanPassThrough() =>
+        Count(new PassThroughSource(_view!), TermHandle.None, TermHandle.None, GraphPattern.Any);
+
+    /// <summary>Every quad through a row scope of every tenant: the whole rule, every lookup made, nothing hidden.</summary>
+    [Benchmark]
+    public long FullScanRowScopedEveryTenant() =>
+        Count(new RowScopedQuadSource(_view!, _rows!, Tenants(100)), TermHandle.None, TermHandle.None, GraphPattern.Any);
+
+    /// <summary>The 10,000 subject lookups through a row scope of half the tenants.</summary>
+    [Benchmark]
+    public long TenThousandSubjectLookupsRowScopedHalf()
+    {
+        RowScopedQuadSource scoped = new(_view!, _rows!, Tenants(50));
+        long count = 0;
+
+        foreach (TermHandle subject in _subjects)
+        {
+            count += Count(scoped, subject, TermHandle.None, GraphPattern.Any);
+        }
+
+        return count;
+    }
+
+    // The first `n` of the hundred tenants, named by IRI as a grant names them.
+    private RowScope Tenants(int n) =>
+        RowScope.Of([new(TenantClassification.Binding, SubjectScope.Of([.. _rows!.Tenants.Take(n)], [], [], [], []))]);
 
     /// <summary>10,000 subject lookups, ten quads each: SPOG ranges.</summary>
     [Benchmark]
@@ -292,5 +357,84 @@ internal static class StoreSizes
             Console.WriteLine(string.Create(
                 CultureInfo.InvariantCulture,
                 $"{what}: {value:N0}{(perQuad is double p ? $" ({p:N1} bytes per quad)" : string.Empty)}"));
+    }
+}
+
+/// <summary>
+/// A classification for the row benchmarks (ADR 0235): one binding over every
+/// graph; every node belongs to one of a hundred tenants, chosen by its
+/// handle, so both of a quad's probes decide. It measures the filter, not a
+/// classifier: the classifier's own cost is the projection's, measured apart.
+/// </summary>
+internal sealed class TenantClassification : IRowClassification
+{
+    internal static readonly RdfTerm Binding = RdfTerm.Iri("http://example.org/binding"u8);
+    private readonly TermHandle[][] _members;
+
+    private readonly bool _allPublic;
+
+    internal TenantClassification(DatasetView view, TermHandle[] subjects, bool allPublic = false)
+    {
+        _allPublic = allPublic;
+        TermHandle[] tenants = [.. subjects.Take(100)];
+        _members = [[], .. tenants.Select(t => new[] { t })];
+        Tenants = [.. tenants.Select(t => view.TryExternalise(t, out RdfTerm? term) ? term : throw new InvalidOperationException("A tenant has no name."))];
+    }
+
+    internal RdfTerm[] Tenants { get; }
+
+    public System.Collections.Generic.IReadOnlyList<RdfTerm> Bindings { get; } = [Binding];
+
+    public BindingIndex BindingOf(TermHandle graph) => new(0);
+
+    public SubjectSetId SubjectsOf(BindingIndex binding, TermHandle node) => new(1 + (int)(node.Value % 100));
+
+    public ReadOnlySpan<TermHandle> Members(BindingIndex binding, SubjectSetId set) => _members[set.Value];
+
+    public bool IsPublicLink(BindingIndex binding, TermHandle predicate) => _allPublic;
+}
+
+/// <summary>A source that forwards every call and every quad, for the cost of a wrapper alone.</summary>
+internal sealed class PassThroughSource(IQuadSource inner) : IQuadSource
+{
+    public System.Collections.Generic.IEqualityComparer<TermHandle> TermComparer => inner.TermComparer;
+
+    public bool TryInternalise(RdfTerm term, out TermHandle handle) => inner.TryInternalise(term, out handle);
+
+    public bool TryExternalise(TermHandle handle, [System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out RdfTerm term) => inner.TryExternalise(handle, out term);
+
+    public bool TryGetTripleTermComponents(TermHandle handle, out TermHandle subject, out TermHandle predicate, out TermHandle @object) =>
+        inner.TryGetTripleTermComponents(handle, out subject, out predicate, out @object);
+
+    public bool TryGetInlineValue(TermHandle handle, out InlineValue value) => inner.TryGetInlineValue(handle, out value);
+
+    public bool Contains(in Quad quad) => inner.Contains(in quad);
+
+    public IQuadCursor Match(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
+        new Cursor(inner.Match(subject, predicate, @object, graph));
+
+    public CardinalityEstimate Estimate(TermHandle subject, TermHandle predicate, TermHandle @object, GraphPattern graph) =>
+        inner.Estimate(subject, predicate, @object, graph);
+
+    private sealed class Cursor(IQuadCursor inner) : IQuadCursor
+    {
+        public Quad Current => inner.Current;
+
+        public bool MoveNext()
+        {
+            while (inner.MoveNext())
+            {
+                Quad quad = inner.Current;
+
+                if (!quad.Graph.IsNone || quad.Graph.IsNone)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public void Dispose() => inner.Dispose();
     }
 }

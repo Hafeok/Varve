@@ -76,6 +76,8 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm TBoxBinding = Term("TBoxBinding");
     internal static readonly RdfTerm ClassifierBinding = Term("ClassifierBinding");
     internal static readonly RdfTerm KeyStoreBinding = Term("KeyStoreBinding");
+    internal static readonly RdfTerm SubjectTemplate = Term("SubjectTemplate");
+    internal static readonly RdfTerm SubjectLink = Term("SubjectLink");
 
     // Properties.
     internal static readonly RdfTerm DatasetName = Term("datasetName");
@@ -103,6 +105,14 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm SubClassOfInShapesGraph = Term("subClassOfInShapesGraph");
     internal static readonly RdfTerm BootstrapOperator = Term("bootstrapOperator");
     internal static readonly RdfTerm EventDeclarations = Term("eventDeclarations");
+    internal static readonly RdfTerm Subject = Term("subject");
+    internal static readonly RdfTerm SubjectPrefix = Term("subjectPrefix");
+    internal static readonly RdfTerm SubjectTemplateProperty = Term("subjectTemplate");
+    internal static readonly RdfTerm SubjectClass = Term("subjectClass");
+    internal static readonly RdfTerm SubjectLinkProperty = Term("subjectLink");
+    internal static readonly RdfTerm LinkPredicate = Term("linkPredicate");
+    internal static readonly RdfTerm LinkTarget = Term("linkTarget");
+    internal static readonly RdfTerm CreateUnder = Term("createUnder");
     internal static readonly RdfTerm Profile = Term("profile");
     internal static readonly RdfTerm DefaultEntailment = Term("defaultEntailment");
 
@@ -125,6 +135,7 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm InDataset = Term("InDataset");
     internal static readonly RdfTerm Moving = Term("Moving");
     internal static readonly RdfTerm Moved = Term("Moved");
+    internal static readonly RdfTerm CallerAgent = Term("CallerAgent");
     internal static readonly RdfTerm Rewriting = Term("Rewriting");
 
     // Outside varve:.
@@ -167,16 +178,18 @@ public static class ManagementVocabulary
         "File", "Memory", "ObjectStorage", "AllHistory", "Current", "read", "write", "admin", "operator", "defaultGraph", "Exact", "Prefix",
         "Reject", "Report", "Off",
         "eventDeclarations", "InDataset", "Moving", "Moved",
+        "ClassifierBinding", "SubjectTemplate", "SubjectLink", "subject", "subjectPrefix", "subjectTemplate", "subjectClass", "subjectLink",
+        "linkPredicate", "linkTarget", "createUnder", "CallerAgent",
         "profile", "defaultEntailment", "Rewriting",
     }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>The terms reserved for later milestones, refused with the reason.</summary>
     internal static readonly FrozenDictionary<string, string> Reserved = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        ["Binding"] = "varve:Binding is abstract; declare a varve:ShapesBinding or a varve:TBoxBinding",
-        ["ClassifierBinding"] = "varve:ClassifierBinding is reserved for erasure and row-level access (#14)",
-        ["KeyStoreBinding"] = "varve:KeyStoreBinding is reserved for erasure and row-level access (#14)",
-        ["erasureMode"] = "varve:erasureMode is reserved for erasure mode (#14)",
+        ["Binding"] = "varve:Binding is abstract; declare a varve:ShapesBinding, a varve:TBoxBinding or a varve:ClassifierBinding",
+        ["KeyStoreBinding"] = "varve:KeyStoreBinding is reserved for erasure mode (#203)",
+        ["erasureMode"] = "varve:erasureMode is reserved for erasure mode (#203)",
+        ["privacy"] = "varve:privacy is reserved for erasure mode (#203)",
         ["RDFS"] = "varve:RDFS is a materialising profile, reserved for the inference projection (#171); varve:Rewriting is the profile in effect",
         ["OWL2RL"] = "varve:OWL2RL is a materialising profile, reserved for the inference projection (#171); varve:Rewriting is the profile in effect",
         ["RulesOnly"] = "varve:RulesOnly is a materialising profile, reserved for the inference projection (#171); varve:Rewriting is the profile in effect",

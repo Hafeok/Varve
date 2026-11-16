@@ -1,0 +1,17 @@
+{
+  "parameters": {
+    "Label": "Grants",
+    "Items": [
+      {
+        "Text": "Table",
+        "Href": "datasets/notes/grants",
+        "Current": true
+      },
+      {
+        "Text": "Source",
+        "Href": "datasets/notes/grants?view=source",
+        "Current": false
+      }
+    ]
+  }
+}

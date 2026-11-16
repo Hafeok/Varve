@@ -1,0 +1,143 @@
+format: 2
+version: v0.1.0-preview.20
+title: Web UI, part 1 — the operator console in the browser
+date: 2026-10-28
+basis:
+  - issue: 167
+  - storage-format: 1
+  - delta-format: 1
+  - adr: "0200"
+  - adr: "0201"
+  - adr: "0202"
+  - adr: "0203"
+  - adr: "0204"
+  - adr: "0205"
+  - adr: "0239"
+sbom:
+  - asset: varve-webui-0.1.0-preview.20.zip sha256:46c795d560268c02f3bb9397a03ff0c6884e4de29c4dd3ff27bdbf8bd7a27e9d
+  - image: ghcr.io/hafeok/varve sha256:0952862b6d9b2900e01960cd1be910ecb6bacc673e28fe244e0740b93e9c099d
+  - nupkg: Varve.Aspire sha256:0831143565207787972f9f7c6be914d0cb699a0dcd12feeeeb3d40ce25c99e69
+  - nupkg: Varve.Classification sha256:66d9150ba2a535e1a520a3ce890f9cdef51a2ec3447975c52e3a8e00e7095632
+  - nupkg: Varve.Delta sha256:c5cf6f38bb5c3a96385176e70967d80cd90916a191fc1a2f640cc6bb516d0a67
+  - nupkg: Varve.Derivation sha256:aba63ff23873caf8677edaf87fb23ad11a094b7378816e170dd3aeadd0beda8c
+  - nupkg: Varve.Events sha256:7c60dea2a8f14f882cc5dc2fdbec936d20bea470b983ebb8e062cb18675b31b1
+  - nupkg: Varve.Iri sha256:2b5706ad675a3aa2e60396e1f9a070542c6ed9ef09984ab48ff93de77a65e4fe
+  - nupkg: Varve.Json.Canonical sha256:b8d04d0d45b3cc462407301b1d046a567c077f7ba2476dc1950b3cca21500f66
+  - nupkg: Varve.JsonLd sha256:e68b726912387c89dc6d604161a7538d820455734fc9f2a7af262bdf03a78455
+  - nupkg: Varve.Management sha256:90aa04fb42c493adcb7ea82d0c905899b2474fcd4a5e3eab762ac8c3df278263
+  - nupkg: Varve.Protocol sha256:f2e425ae0ca244a870c5fc2705ddc7b315fb18d1698fafe5917e1d9faac1741b
+  - nupkg: Varve.Protocol.Client sha256:7e35e6f5278cd9fb00082aa148bdec9f92f4fe334705d159fb7efd02fe6faadc
+  - nupkg: Varve.Rdf sha256:3f6a742a5943635e3db899fd662e7148834544847a5e152ac4b3d49228f717c9
+  - nupkg: Varve.RdfXml sha256:34ed282f49d4a73d3a37debcf9c767337898d3fd0b573de7d4515764626debde
+  - nupkg: Varve.Shacl sha256:322a08b9d5c20298cd9bce5f55854e1193e3b5e521081afe2eb2aa6493bfdfb0
+  - nupkg: Varve.Shacl.Sparql sha256:54a65456e2a8c4c9564537ddfcf074efd8a2b68a8d29828445a9f79dde68a265
+  - nupkg: Varve.Shacl.Store sha256:3e7a5a828f628426d8f3f7f487fadea8f706566bc11d2ac342900941144d65aa
+  - nupkg: Varve.Sparql sha256:1097280aecce5f65f78ba144cd092ab887471ff76eafc5e1db0186320cfe3e4f
+  - nupkg: Varve.Sparql.Entailment sha256:96f3496963d5a2eac29b25435f6487966ad0eb00233300d78f2908f18cdc587d
+  - nupkg: Varve.Sparql.Evaluation sha256:6897c3fb6ad3a50070cf649a7001346f79b848941bbe5aaf4f7e3df30c86a2fa
+  - nupkg: Varve.Sparql.Results sha256:40cbdca94d7579dcb76eea20dfd337bc543ccc361759722e81e14b70c6575c00
+  - nupkg: Varve.Sparql.Store sha256:a2061358417657cce251742a32978abf152f25f51f0c7c50fdadceb6953e0ea3
+  - nupkg: Varve.Store sha256:3e3c4c15865d66bf66d09815cec0eff5bb3fa7f7cd8f1b65daa4ada7781c9891
+  - nupkg: Varve.Store.Azure sha256:b4fe6254e42ece08c58371be3680c9f5208b1d508aacb4fee32f5f46a13c1de6
+  - nupkg: Varve.Store.Browser sha256:87f834c256b15fa25c06df7cef9998fc6350f1ebd2301a70842c432281a8cbde
+  - nupkg: Varve.Store.ObjectStorage sha256:692c7741f867ddf6c74ca70ffb6f9a55b9fe11ce880f14afa75adf9c4bdbaa45
+  - nupkg: Varve.Store.S3 sha256:179a615466c08aa8f8ed5e2f4011f8586356bc479ac6de62cc7e02f0002666e6
+  - nupkg: Varve.Turtle sha256:deb44152f120558b9b9a0bfb3deef5f05a4f82367276db1bacb2a1175e4e0cdd
+  - nupkg: Varve.Xsd sha256:c47f41bb6204816cd21484b68616029260643fe2cb97483e523e06bbbf481150
+  - tool: Varve.Server sha256:d32615bbe5fa0382a0c89bfce98dfb4e3112571067803a475655d8e8d21f4ec9
+accepted-by: mailto:emil@okkels-klein.dk
+summary: |
+  ### Milestone Web UI, part 1 — the operator console (#167, part 1 of #96)
+
+  `Varve.WebUi` is a Blazor WebAssembly client of the public API, with no
+  endpoints of its own. It shows:
+  - the datasets, a dataset's status (at its head or as of a position);
+  - the fleet;
+  - a dataset's commits, followed live, and a commit's delta;
+  - a dataset's declarations: its grants as a table and as source, its
+    agents and roles, its graph templates and its shapes.
+
+  The shell names the instance that answered, by its role in the system
+  dataset, and who is signed in on each plane, and the navigation holds a
+  dataset's own screens under a dataset selector.
+
+  It takes a checkpoint, and closes and opens a dataset, each through a
+  confirmation that names the drift from Git. It is published as
+  `varve-webui-<version>.zip`, attested with its build provenance and its
+  SBOM, as every package is. The server serves it
+  under `/ui/` when `Varve:WebUi:Path` names it, and any static host can
+  serve it too. The storage and delta formats are unchanged. The seven ADRs
+  are filed unaccepted and accepted on the pull request (ADR 0066). #96
+  stays open for part 2, the data explorer.
+
+  #### Added
+
+  - **The Web UI** (ADR 0200).
+    - It is trimmed and interpreted, not AOT-compiled.
+    - Its download is 1.85 MB brotli-compressed, gated at 1,920,000 bytes
+      by `eng/browser-size.cs` (ADR 0205).
+    - AOT measured at 4.11 MB, and loaded no faster.
+  - **Its design source is `docs/ui/`** (ADR 0206): the tokens, the
+    components' cases, and the reference screens.
+    - Every component renders the markup its cases pin, checked by bUnit.
+    - `VARVE0006` holds the levels apart, `App` at the top, and only pages
+      and the app call the API. Every type of the Web UI is checked: one in
+      no level holds no service.
+  - **Its own OIDC client** (ADR 0201).
+    - Sign-in is authorisation code with PKCE, written on the BCL.
+    - Each plane gets its own token: the data plane from the code exchange,
+      the management plane from a refresh grant for its scope alone. Where
+      `Varve:Auth:ManageGrant` is `exchange` (Zitadel), each plane's token
+      is exchanged (RFC 8693) from the sign-in's, and the Web UI refuses to
+      send any token naming more than one audience.
+    - Tokens live in the tab's memory. A reload signs in again with
+      `prompt=none`.
+    - The shell names the agent each plane's token names, with its roles
+      (`Varve:Auth:RoleClaimType`), for display only.
+  - **`Varve:WebUi:Path`** (ADR 0202).
+    - The server serves the bundle under `/ui/`, with a Content Security
+      Policy: `script-src 'self' 'wasm-unsafe-eval'`, no inline script or
+      style, and the issuer's origin in `connect-src`.
+    - A compressed copy older than its file is never sent.
+  - **Typed reads in `Varve.Protocol.Client`** (ADR 0203).
+    - `VarveManagementClient` and `VarveHealthClient` answer a
+      `VarveResult<T>`, with the problem read whole.
+    - New calls: the checkpoint and state acts, and
+      `SparqlHttpClient.ReadCommitsAsync` and `ReadCommitAsync`.
+    - Nothing was removed.
+  - **Browser tests on the runner's Chrome** (ADR 0204), in the required job
+    `web ui in Chromium`:
+    - axe-core on every screen and dialog, in both themes, with no violation
+      and no policy violation;
+    - the skip link first;
+    - anonymous mode, and sign-in against mock-oauth2-server and Zitadel;
+    - a token naming both audiences, refused by both planes.
+  - **The operator guide's Web UI page,** `docs/operator/web-ui.md`.
+  - **The bundle's SBOM** (ADRs 0224 and 0225, amended). `eng/sbom.cs`
+    writes it from the Web UI's locked restore: the packages its browser
+    build deploys, Varve's own libraries, the package that carries
+    `blazor.webassembly.js`, the .NET runtime relinked into it, and
+    Emscripten's packs by package URL: its system libraries as contained,
+    its compiler and Node.js as build tools. The bundle resolves nothing
+    outside NuGet. This descriptor names the zip
+    with its SBOM's SHA-256 as an `asset:` line, and the release carries
+    both. Verify with `gh attestation verify varve-webui-<version>.zip
+    --owner hafeok`.
+
+  #### Changed
+
+  - **`BearerToken.Fixed` is `BearerTokens.Fixed`** (ADR 0127, amended).
+    The fixed provider sits beside the delegate type, not on it.
+  - **The maintainer's delegate** (ADR 0239, amending ADRs 0066 and 0087).
+    One session on the maintainer's own machine, with his key, may approve
+    a pull request's head, land it, and write an acceptance for a decision
+    he has read. Its approvals read `approve <sha> (delegate)`, and its
+    commits for him carry a `Delegated-by` trailer. Nothing ships in a
+    package for it; `AGENTS.md` says the same.
+
+  #### Not yet
+
+  - **The state route ignores `If-Match`,** so the "Reload at head" path a
+    `412` would take is tested against a fake server only (#189).
+  - **The instance's name:** `/manage/system` does not serve it, so the
+    shell shows the instance's role alone (#193).

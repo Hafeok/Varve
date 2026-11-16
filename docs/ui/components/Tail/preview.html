@@ -1,0 +1,16 @@
+<!-- @dsCard group="Atoms" height=200 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../../bundle.css"><title>Tail — preview</title>
+<style>html,body{margin:0}body.vw-root{padding:16px}.cases{display:grid;gap:16px}.case{margin:0}.case figcaption{margin-bottom:4px;font-size:11px;line-height:16px;color:var(--ink-muted)}</style></head>
+<body class="vw-root">
+<!-- One figure per contract case in cases/: the markup inside each data-case
+     element is the case's, verbatim, and a test checks it (ADR 0206 point 6). -->
+<div class="cases">
+<figure class="case"><figcaption>live</figcaption><div data-case="live"><span class="vw-tail" aria-live="polite">Live</span></div></figure>
+<figure class="case"><figcaption>paused</figcaption><div data-case="paused"><span class="vw-tail vw-tail--paused" aria-live="polite">Paused while you read · <button class="vw-tail__show" type="button">Show 3 new</button></span></div></figure>
+<figure class="case"><figcaption>paused-nothing-new</figcaption><div data-case="paused-nothing-new"><span class="vw-tail vw-tail--paused" aria-live="polite">Paused while you read</span></div></figure>
+</div>
+</body>
+</html>

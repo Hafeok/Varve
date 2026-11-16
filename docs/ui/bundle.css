@@ -45,6 +45,9 @@ body.vw-root { margin: 0; }
 }
 .vw-panel__title { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; margin-right: auto; }
 .vw-panel__body { padding: var(--space-4); }
+/* Stale: under the server-unreachable notice, the panel shows what it last read, and says when. */
+.vw-panel--stale { border-style: dashed; }
+.vw-panel__stale { margin: 0; padding: var(--space-2) var(--space-4); border-bottom: 1px dashed var(--rule); font-size: 12px; line-height: 16px; color: var(--ink-muted); }
 
 /* ---------- Shell ---------- */
 /* The skip link (WCAG 2.4.1): the shell's first focusable element, hidden
@@ -75,6 +78,15 @@ body.vw-root { margin: 0; }
 .vw-shell__brand { display: flex; align-items: center; gap: var(--space-2); font-weight: 600; color: var(--ink); text-decoration: none; }
 .vw-shell__brand img { width: 24px; height: 24px; border-radius: var(--radius-sm); }
 .vw-shell__server { font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); margin-right: auto; overflow-wrap: anywhere; }
+/* The instance that answered, and its role in the system dataset (review F01). */
+.vw-shell__instance { font-family: var(--font-sans); color: var(--ink); margin-left: var(--space-2); }
+.vw-shell__instance::before { content: "→ "; color: var(--ink-muted); }
+/* The dataset selector heading the dataset's own screens (review F22). */
+.vw-shell__dataset {
+  display: block; width: calc(100% - 2 * var(--space-3)); margin: 0 var(--space-3) var(--space-2);
+  font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--control-border); border-radius: var(--radius-sm); padding: 4px var(--space-2);
+}
 .vw-shell__nav { grid-area: nav; background: var(--surface-sunk); border-right: 1px solid var(--rule); padding: var(--space-3) var(--space-2); }
 .vw-shell__nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .vw-shell__nav a {
@@ -93,6 +105,8 @@ body.vw-root { margin: 0; }
   .vw-shell__nav { border-right: 0; border-bottom: 1px solid var(--rule); }
   .vw-shell__nav ul { display: flex; flex-wrap: wrap; }
   .vw-shell__navgroup { display: none; }
+  label.vw-shell__navgroup { display: block; }
+  .vw-shell__dataset { width: auto; display: inline-block; }
   .vw-shell__main { padding: var(--space-4); }
 }
 
@@ -104,6 +118,28 @@ body.vw-root { margin: 0; }
 }
 .vw-plane strong { color: var(--ink); font-weight: 600; }
 .vw-plane--absent strong { color: var(--warn); }
+/* Who is signed in: once when both planes name the same agent, else on each
+   plane. An IRI over 40 characters is truncated in the middle. The roles show
+   on hover or focus; Escape hides them (WCAG 1.4.13). */
+.vw-shell__who, .vw-plane { position: relative; }
+.vw-shell__who { font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.vw-shell__agent { font-family: var(--font-mono); font-size: 12px; color: var(--ink); white-space: nowrap; }
+.vw-shell__roles {
+  display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 10;
+  padding: var(--space-1) var(--space-2); white-space: nowrap; font-size: 12px; line-height: 16px;
+  background: var(--surface); color: var(--ink); border: 1px solid var(--rule); border-radius: var(--radius-sm); box-shadow: var(--shadow-overlay);
+}
+.vw-shell__who:hover .vw-shell__roles, .vw-plane:hover .vw-shell__roles, .vw-shell__agent:focus + .vw-shell__roles { display: block; }
+.vw-shell__bar.vw-quiet .vw-shell__roles { display: none !important; }
+
+/* ---------- Tabs: the views of one screen, as links ---------- */
+.vw-tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--rule); }
+.vw-tabs__tab {
+  padding: 6px var(--space-3); margin-bottom: -1px; border: 1px solid transparent; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  color: var(--ink); text-decoration: none;
+}
+.vw-tabs__tab:hover { background: var(--layer); }
+.vw-tabs__tab[aria-current="page"] { background: var(--surface); border-color: var(--rule); border-bottom-color: var(--surface); font-weight: 600; }
 
 /* ---------- View head: the title and the position it was read at ---------- */
 .vw-viewhead { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2) var(--space-4); }
@@ -201,6 +237,7 @@ body.vw-root { margin: 0; }
 .vw-table tr:last-child td { border-bottom: 0; }
 .vw-table .vw-num { text-align: right; font-family: var(--font-mono); font-size: 13px; white-space: nowrap; }
 .vw-table td.vw-num { padding-top: 9px; }
+.vw-table th.vw-num { font-family: var(--font-sans); font-size: 11px; }
 .vw-table tbody tr:hover { background: var(--ground); }
 .vw-table tbody tr[aria-selected="true"] { background: var(--layer); }
 .vw-table__name { font-weight: 600; }
@@ -266,6 +303,7 @@ body.vw-root { margin: 0; }
 .vw-notice--warn::before { border: 0; width: 9px; background: var(--warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); border-radius: 0; }
 .vw-notice__title { margin: 0; font-weight: 600; }
 .vw-notice__body { grid-column: 2; margin: 0; }
+.vw-notice > .vw-actions { grid-column: 2; }
 .vw-notice__body code { overflow-wrap: anywhere; }
 
 /* ---------- Problem panel: RFC 9457, rendered from its type ---------- */
@@ -280,6 +318,7 @@ body.vw-root { margin: 0; }
 .vw-problem__title { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--ink); }
 .vw-problem__body { padding: var(--space-4); display: grid; gap: var(--space-3); }
 .vw-problem__detail { margin: 0; }
+.vw-problem__caller { margin: 0; color: var(--ink-muted); }
 .vw-problem__type { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
 
 /* ---------- Turtle / TriG source ---------- */
@@ -313,6 +352,7 @@ body.vw-root { margin: 0; }
 .vw-tail::before { content: ""; width: 8px; height: 8px; border-radius: var(--radius-round); background: var(--ok); animation: vw-pulse 2s ease-in-out infinite; }
 .vw-tail--paused { color: var(--ink-muted); }
 .vw-tail--paused::before { background: transparent; border: 1.5px solid var(--ink-muted); animation: none; }
+.vw-tail__show { font: inherit; color: var(--accent); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
 @keyframes vw-pulse { 50% { opacity: 0.35; } }
 @media (prefers-reduced-motion: reduce) { .vw-tail::before { animation: none; } }
 
@@ -359,15 +399,17 @@ body.vw-root { margin: 0; }
 .vw-term--added { background: var(--added-soft); border-color: var(--added); }
 .vw-term--removed { background: var(--removed-soft); border-color: var(--removed); text-decoration: line-through; text-decoration-color: var(--removed); }
 
-/* ---------- Triple row: subject, predicate, object ---------- */
-.vw-triples { list-style: none; margin: 0; padding: 0; }
-.vw-triple {
-  display: grid; grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr) auto;
-  align-items: start; gap: var(--space-1) var(--space-3);
-  padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--rule);
+/* ---------- Triple rows: a table of subject, predicate, object ---------- */
+.vw-triples { width: 100%; border-collapse: collapse; }
+.vw-triples th {
+  padding: var(--space-2) var(--space-3); background: var(--surface-sunk); border-bottom: 1px solid var(--rule); text-align: left;
+  font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);
 }
-.vw-triple:last-child { border-bottom: 0; }
-.vw-triple__sign { font-family: var(--font-mono); font-weight: 600; text-align: center; padding-top: 2px; color: var(--ink-muted); }
+.vw-triples td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
+.vw-triples th:first-child, .vw-triples td:first-child { width: 20px; padding-left: var(--space-4); }
+.vw-triples th:last-child, .vw-triples td:last-child { padding-right: var(--space-4); }
+.vw-triples tbody tr:last-child td { border-bottom: 0; }
+.vw-triple__sign { font-family: var(--font-mono); font-weight: 600; text-align: center; color: var(--ink-muted); }
 .vw-triple__note { font-size: 12px; line-height: 20px; color: var(--ink-muted); white-space: nowrap; }
 .vw-triple--added { background: var(--added-soft); }
 .vw-triple--added .vw-triple__sign { color: var(--added); }
@@ -375,13 +417,7 @@ body.vw-root { margin: 0; }
 .vw-triple--removed .vw-triple__sign { color: var(--removed); }
 .vw-triple--removed .vw-term { text-decoration: line-through; text-decoration-color: var(--removed); }
 .vw-triple--inferred .vw-triple__p .vw-term { text-decoration: underline dashed var(--edge-inferred); text-underline-offset: 4px; }
-.vw-triples__head {
-  display: grid; grid-template-columns: 20px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: var(--space-3);
-  padding: var(--space-2) var(--space-4); background: var(--surface-sunk); border-bottom: 1px solid var(--rule);
-  font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);
-}
 @media (max-width: 640px) {
-  .vw-triple, .vw-triples__head { grid-template-columns: 20px minmax(0, 1fr); }
-  .vw-triple > :not(.vw-triple__sign) { grid-column: 2; }
-  .vw-triples__head > :nth-child(n+3) { display: none; }
+  .vw-triples th:last-child, .vw-triples td:last-child { display: none; }
+}
 }

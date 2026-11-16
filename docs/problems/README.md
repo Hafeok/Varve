@@ -55,6 +55,8 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`management-behind`](management-behind.md) | 503 | `position`, `appliedPosition` | The server has not applied the management position asked for. |
 | [`dataset-behind`](dataset-behind.md) | 503 | `position`, `appliedPosition` | This instance has not applied the dataset position asked for. |
 | [`validation-behind`](validation-behind.md) | 503 | `binding`, `position`, `projectedPosition` | The validation report has not reached the position asked for. |
+| [`classification-behind`](classification-behind.md) | 503 | `binding`, `position`, `projectedPosition` | The classification has not reached the position asked for. |
+| [`row-not-writable`](row-not-writable.md) | 403 |  | The request writes a row outside the writable subject set. |
 | [`writer-moved`](writer-moved.md) | 503 | `epoch`, `requestId`, `reason` | The instance a write was forwarded to no longer writes the dataset. |
 | [`writer-stepped-down`](writer-stepped-down.md) | 503 | `reason` | The writer released the dataset and commits nothing more. |
 | [`takeover-refused`](takeover-refused.md) | 409 | `reason`, `epoch` | This instance refuses to take the dataset over. |

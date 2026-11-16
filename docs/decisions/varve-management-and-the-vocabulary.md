@@ -27,10 +27,6 @@ decisions:
     statement: "A graph template is RFC 6570 level 1 over sub, agent and single-valued claims, percent-encoded, expanding to an absolute IRI matched exactly or as a prefix; a caller without the variable gets nothing from the grant"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-19T00:00:00Z
-  - key: BindingsReservedForErasure
-    statement: "varve:ClassifierBinding and varve:KeyStoreBinding are reserved for #14 and refused, with no properties defined"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-19T00:00:00Z
   - key: DeclarationsHaveNoBlankNodes
     statement: "A declaration with a blank node is refused, so that applying it twice leaves the second plan empty"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -52,3 +48,5 @@ decisions:
 The rulings of [ADR 0166](../adr/0166-varve-management-and-the-vocabulary.md), one line each.
 Filed unaccepted by milestone Management plane of #105 (ADR 0066); every citation is `CS0618`
 until the maintainer accepts them.
+
+Moved to a later set: `BindingsReservedForErasure` is superseded by ADR 0234, under which `varve:ClassifierBinding` is defined and the erasure terms stay reserved, in its set.

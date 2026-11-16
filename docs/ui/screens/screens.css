@@ -1,0 +1,5 @@
+/* Reference screens only. A screen shows an opened ConfirmDialog as the
+   browser renders it after showModal(): over a backdrop, centred. The app
+   needs none of this; the browser's top layer does it. */
+.rv-overlay { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(13, 19, 25, 0.5); z-index: 5; }
+.rv-overlay .vw-dialog { position: static; margin: 0; }

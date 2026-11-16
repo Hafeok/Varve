@@ -1,0 +1,6 @@
+exit: 1
+--- stdout
+~ rulesets fetch and merge
+    rules: [{"type":"creation"},{"type":"update"}] -> [{"type":"update","parameters":{"update_allows_fetch_and_merge":true}},{"type":"creation"}]
+1 difference: 0 to create, 1 to update, 0 to delete, 0 repo-standard cannot change.
+--- stderr

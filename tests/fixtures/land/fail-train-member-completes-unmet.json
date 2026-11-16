@@ -1,0 +1,11 @@
+{
+  "step": "train",
+  "main": { "README.md": "Varve\n" },
+  "members": [
+    { "number": 11, "files": { "docs/a.md": "a\n" }, "approval": "head", "green": true, "body": "Completes: #5\n" },
+    { "number": 12, "files": { "docs/b.md": "b\n" }, "approval": "head", "green": true, "body": "Completes: #6\n", "message": "feat: b\n\nRefs #12\n\nCloses #6\n" }
+  ],
+  "says": [
+    "#11: the pull request completes #5, and no pushed commit closes it."
+  ]
+}

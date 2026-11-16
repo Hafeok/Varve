@@ -542,6 +542,13 @@ internal static partial class ServerHost
             app.UseForwardedHeaders();
         }
 
+        // The Web UI is static files, public, before CORS, rate limits and
+        // tokens (ADR 0202).
+        if (!string.IsNullOrWhiteSpace(settings.WebUi.Path))
+        {
+            MapWebUi(app, settings.WebUi.Path, anonymous ? null : settings.Auth.Authority);
+        }
+
         // CORS first (ADR 0132): a preflight is answered before a token or a
         // rate limit is asked for, and every response after it, a problem
         // included, carries the headers a browser needs to show it. With no
@@ -623,6 +630,7 @@ internal static partial class ServerHost
             EventSource = settings.Events.Source,
             EventHubs = string.IsNullOrEmpty(settings.Events.EventHubs.Host) ? null : new EventHubsServer(settings.Events.EventHubs.Host, settings.Events.EventHubs.Hub!),
             ValidationReports = fleet.Projections,
+            RowClassifications = fleet.Classifications,
             Entailment = fleet.Entailment,
         };
         fleet.Resume = (name, cancellationToken) => EventDeclarationMove.ResumeAsync(options, fleet, name, cancellationToken);
@@ -696,7 +704,8 @@ internal static partial class ServerHost
                 warm,
                 spill,
                 cache,
-                open && dataset!.StorageFull));
+                open && dataset!.StorageFull,
+                datasets.DegradedOf(entry.Name)));
         }
 
         ManagementStatus management = fleet.Status;
@@ -731,6 +740,17 @@ internal static partial class ServerHost
             {
                 json.WriteBoolean("tailing", state.Tailing);
                 json.WriteBoolean("warm", state.Warm);
+            }
+
+            // Released by this instance for storage-error or local-disk-error,
+            // and not yet written again for long (ADR 0163, amended 2026-11-10).
+            if (state.Degraded is { } degraded)
+            {
+                json.WriteStartObject("degraded");
+                json.WriteString("reason", degraded.Reason);
+                json.WriteNumber("releases", degraded.Releases);
+                json.WriteString("since", degraded.Since.UtcDateTime);
+                json.WriteEndObject();
             }
 
             if (state.Spill is { } spill)
@@ -784,6 +804,30 @@ internal static partial class ServerHost
             json.WriteEndObject();
         }
 
+        // Each binding's classification projection lag (ADR 0233): reported, and never a reason to be unready.
+        void Classification(Utf8JsonWriter json, string name)
+        {
+            if (!DatasetName.TryParse(name, out DatasetName dataset))
+            {
+                return;
+            }
+
+            SortedDictionary<string, long> lags = fleet.Classifications.LagOf(dataset);
+            if (lags.Count == 0)
+            {
+                return;
+            }
+
+            json.WriteStartObject("classification");
+            foreach ((string binding, long lag) in lags)
+            {
+                json.WriteNumber(binding, lag);
+            }
+
+            json.WriteEndObject();
+        }
+
+        // The full reads a dataset's entailment bindings made (ADR 0193).
         void FullReads(Utf8JsonWriter json, string name)
         {
             if (fullReads.TryGetValue(name, out int count) && count > 0)
@@ -830,6 +874,7 @@ internal static partial class ServerHost
 
                     Standby(json, state);
                     Validation(json, state.Name);
+                    Classification(json, state.Name);
                     FullReads(json, state.Name);
                     json.WriteEndObject();
                 }
@@ -876,6 +921,7 @@ internal static partial class ServerHost
 
                 Standby(json, state);
                 Validation(json, state.Name);
+                Classification(json, state.Name);
                 FullReads(json, state.Name);
                 json.WriteEndObject();
             }
@@ -1115,6 +1161,9 @@ internal static partial class ServerHost
                 LoadSource = outbound.Load,
                 ReadScope = scope.Readable,
                 WriteScope = scope.Writable,
+                ReadRows = scope.ReadableRows,
+                WriteRows = scope.WritableRows,
+                Classifier = preconditions.Classifier,
             }, cancellationToken);
     }
 

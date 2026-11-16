@@ -98,7 +98,7 @@ internal static class ServiceDescriptionEndpoint
         string service = ServiceAddress(exchange);
         EntailmentBindings bindings = exchange.Options.Entailment?.Of(exchange.Name) ?? EntailmentBindings.None;
         SparqlEvaluator evaluator = new(exchange.Options.Evaluation);
-        IQuadSource source = exchange.Readable(view);
+        IQuadSource source = exchange.ReadableGraphs(view);
 
         await BoundedReads.RunAsync(context, exchange.Options, async (output, cancellationToken) =>
         {

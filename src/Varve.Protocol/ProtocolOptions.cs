@@ -130,6 +130,13 @@ public sealed class ProtocolOptions
     public IValidationReports? ValidationReports { get; init; }
 
     /// <summary>
+    /// The host's classification projections (ADR 0233), which row-restricted
+    /// callers are read and written by; null when the host keeps none, and
+    /// then a row scope restricts nothing.
+    /// </summary>
+    public IRowClassifications? RowClassifications { get; init; }
+
+    /// <summary>
     /// The host's TBox bindings, which a query under a regime other than simple
     /// is rewritten against (ADRs 0192, 0193); none by default, when every
     /// graph's TBox is empty and the default regime is simple.

@@ -131,12 +131,15 @@ internal static class QueryRun
         }
 
         SparqlEvaluator evaluator = new(regime == EntailmentRegime.Simple ? exchange.Options.Evaluation : exchange.Options.EntailedEvaluation);
-        IQuadSource source = exchange.Readable(view);
 
         await BoundedReads.RunAsync(context, exchange.Options, async (output, cancellationToken) =>
         {
-            // The rewriting reads the caller's scoped view, the TBox graphs
-            // through it (ADRs 0190, 0193); simple entailment is the query as sent.
+            // Composed inside the bounded read, so a classification behind is its problem (ADR 0233).
+            IQuadSource source = exchange.Readable(view);
+
+            // The rewriting reads the caller's scoped view, by graph and by row, the
+            // TBox graphs through it (ADRs 0190, 0193, 0238 point 1); simple
+            // entailment is the query as sent.
             EntailedQuery entailed = EntailmentRewriter.Rewrite(query, source, bindings.Covers, regime, schemas: bindings.Schemas, cancellationToken: cancellationToken);
             using QueryResults answer = evaluator.Evaluate(entailed.Query, entailed.Source, cancellationToken);
 

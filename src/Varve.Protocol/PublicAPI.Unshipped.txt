@@ -335,6 +335,8 @@ Varve.Protocol.Model.ManagementStatus.Bootstrap.get -> Varve.Protocol.Model.Boot
 Varve.Protocol.Model.ManagementStatus.Bootstrap.init -> void
 Varve.Protocol.Model.ManagementStatus.Deconstruct(out Varve.Protocol.Model.ManagementRole Role, out long Epoch, out Varve.Management.Model.ManagementPosition Applied, out Varve.Management.Model.ManagementPosition Tail, out Varve.Protocol.Model.BootstrapState Bootstrap, out string? WriterAddress) -> void
 Varve.Protocol.Model.ManagementStatus.Epoch.get -> long
+Varve.Protocol.Model.ManagementStatus.Instance.get -> string?
+Varve.Protocol.Model.ManagementStatus.Instance.init -> void
 Varve.Protocol.Model.ManagementStatus.Epoch.init -> void
 Varve.Protocol.Model.ManagementStatus.Equals(Varve.Protocol.Model.ManagementStatus other) -> bool
 Varve.Protocol.Model.ManagementStatus.Lag.get -> long
@@ -422,6 +424,28 @@ Varve.Protocol.EventDeclarationMove
 static Varve.Protocol.EventDeclarationMove.ResumeAsync(Varve.Protocol.ProtocolOptions! options, Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
 Varve.Protocol.EventCatalogueValidator.EventCatalogueValidator(Varve.Protocol.Model.DatasetName dataset, System.Func<bool>! moved) -> void
 static Varve.Protocol.EventDeclarationMove.MovingSinceAsync(Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<long?>!
+Varve.Protocol.ClassificationBehindException
+Varve.Protocol.ClassificationBehindException.Binding.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.ClassificationBehindException.ClassificationBehindException() -> void
+Varve.Protocol.ClassificationBehindException.ClassificationBehindException(Varve.Rdf.RdfTerm! binding, Varve.Store.Log.Position position, Varve.Store.Log.Position projected) -> void
+Varve.Protocol.ClassificationBehindException.ClassificationBehindException(string! message) -> void
+Varve.Protocol.ClassificationBehindException.ClassificationBehindException(string! message, System.Exception! innerException) -> void
+Varve.Protocol.ClassificationBehindException.Position.get -> Varve.Store.Log.Position
+Varve.Protocol.ClassificationBehindException.Projected.get -> Varve.Store.Log.Position
+Varve.Protocol.IRowClassifications
+Varve.Protocol.IRowClassifications.At(Varve.Protocol.Model.DatasetName dataset, Varve.Store.DatasetView! view) -> Varve.Rdf.IRowClassification?
+Varve.Protocol.IRowClassifications.ChangedAt(Varve.Protocol.Model.DatasetName dataset, Varve.Store.Log.Position position) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.TermHandle>!
+Varve.Protocol.IRowClassifications.Classifier(Varve.Protocol.Model.DatasetName dataset) -> Varve.Store.IClassifier?
+Varve.Protocol.ProtocolOptions.RowClassifications.get -> Varve.Protocol.IRowClassifications?
+Varve.Protocol.ProtocolOptions.RowClassifications.init -> void
+Varve.Protocol.RowWriteGuard
+Varve.Protocol.RowWriteGuard.RowWriteGuard(Varve.Store.IClassifier! classifier, Varve.Rdf.RowScope! readable, Varve.Rdf.RowScope! writable) -> void
+Varve.Protocol.RowWriteGuard.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Rdf.QuadDelta delta) -> Varve.Store.Log.ValidationVerdict
+static Varve.Protocol.Model.ProblemType.ClassificationBehind.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.RowNotWritable.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.VarveEndpoints.MapAccess(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
+Varve.Protocol.Model.UpdatePreconditions.Classifier.get -> Varve.Store.IClassifier?
+Varve.Protocol.Model.UpdatePreconditions.Classifier.init -> void
 Varve.Protocol.EntailmentBindings
 Varve.Protocol.EntailmentBindings.Covers.get -> System.Collections.Generic.IReadOnlyList<Varve.Sparql.Entailment.TBoxCover!>!
 Varve.Protocol.EntailmentBindings.Default.get -> Varve.Sparql.Entailment.Model.EntailmentRegime

@@ -4,6 +4,7 @@
 
 using System;
 using System.Globalization;
+using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Running;
 
 namespace Varve.Benchmarks;
@@ -99,9 +100,21 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 2 && args[0] == "--row-scope-breakdown")
+        {
+            RowScopeBreakdown.RunAsync(args[1]).GetAwaiter().GetResult();
+            return;
+        }
+
         if (args.Length == 2 && args[0] == "--validation-projection")
         {
             ValidationProjectionBench.RunAsync(args[1]).GetAwaiter().GetResult();
+            return;
+        }
+
+        if (args.Length == 2 && args[0] == "--classification-projection")
+        {
+            ClassificationProjectionBench.RunAsync(args[1]).GetAwaiter().GetResult();
             return;
         }
 
@@ -171,7 +184,10 @@ internal static class Program
             return;
         }
 
-        BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
+        // The generated project's build is the whole solution's below it: on a
+        // four-core container it takes longer than BenchmarkDotNet's default
+        // two minutes, which ends the run with no results.
+        BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, ManualConfig.Create(DefaultConfig.Instance).WithBuildTimeout(TimeSpan.FromMinutes(20)));
     }
 
     /// <summary>

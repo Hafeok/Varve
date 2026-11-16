@@ -269,6 +269,30 @@ it (ADR 0066). Ruled in [ADR 0180](0180-warm-standbys-and-the-writer-set.md).
 - **`varve:placedOn` keeps `maxCount 1`**, and now means the preferred writer.
 - **`varve:automaticHandover` is acted on** (ADR 0179), no longer only
   recorded.
+
+## Amendment, 2026-10-30 — the classifier binding and subject-scoped grants
+
+Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066). The rulings are ADR [0234](0234-subject-scoped-grants-and-the-classifier-binding.md)'s.
+
+- **Point 3.**
+  - `varve:ClassifierBinding` is no longer reserved. It has one
+    `varve:boundGraph` and a graph set.
+  - A grant gains `varve:subject`, `varve:subjectPrefix`,
+    `varve:subjectTemplate` (a `varve:SubjectTemplate`), `varve:subjectClass`,
+    `varve:subjectLink` (a `varve:SubjectLink` with `varve:linkPredicate` and
+    `varve:linkTarget`, which is `varve:CallerAgent` or a template), and, on
+    a write grant, `varve:createUnder`.
+  - `varve:KeyStoreBinding`, `varve:erasureMode` and `varve:privacy` stay
+    reserved for #203.
+- **Point 4's validator** refuses, beside what it refused, ADR 0234's P1 to
+  P5 and its other refusals.
+- **Point 5.** `GrantTable.ScopesOf` answers a `RowScope` per classifier
+  binding, readable and writable.
+- **Point 6.** The plan names row restrictions, and says when an apply widens
+  one.
+
+`BindingsReservedForErasure` moves to ADR 0234's set, superseded.
+
 ## Amendment, 2026-11-02 — a saved plan is versioned, not read forever
 
 Filed by 1.0 readiness A (#129) under [ADR 0216](0216-the-format-inventory.md),

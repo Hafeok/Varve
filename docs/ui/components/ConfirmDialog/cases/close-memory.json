@@ -1,0 +1,10 @@
+{
+  "parameters": {
+    "Id": "dlg",
+    "Title": "Close scratch?",
+    "Effect": "Every instance stops serving <strong>scratch</strong> and its writer releases the dataset. Reads and writes answer <code>404</code> until it is opened again. Its data is lost: Memory storage keeps nothing once the dataset is closed.",
+    "ConfirmName": "scratch",
+    "ConfirmLabel": "Close scratch",
+    "Danger": true
+  }
+}

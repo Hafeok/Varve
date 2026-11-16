@@ -122,9 +122,63 @@ public class ManagementTests
             Assert.Equal(HttpStatusCode.NotFound, (await Send(server, HttpMethod.Get, "manage/datasets/people/state")).StatusCode);
 
             // Every declaration is a commit of the system dataset, at a position the management plane names.
-            JsonDocument system = await Json(await Send(server, HttpMethod.Get, "manage/system"));
+            HttpResponseMessage systemRead = await Send(server, HttpMethod.Get, "manage/system");
+            string requestId = systemRead.Headers.GetValues("Varve-Request-Id").Single();
+            JsonDocument system = await Json(systemRead);
             Assert.Equal("writer", system.RootElement.GetProperty("role").GetString());
+
+            // It names the instance that answered, as its request ids do (#193).
+            string instance = system.RootElement.GetProperty("instance").GetString()!;
+            Assert.NotEmpty(instance);
+            Assert.StartsWith(instance + ":", requestId, StringComparison.Ordinal);
             Assert.True(system.RootElement.GetProperty("position").GetInt64() >= 6);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    // #189, ADR 0163 point 6: the state route reads and writes the dataset's
+    // declaration graph, so its GET sends that graph's version as the ETag,
+    // the same as /manage/datasets/{name}, and a declaring PUT is made under
+    // If-Match against it.
+    [Fact]
+    public async Task The_state_route_sends_the_declarations_version_and_a_put_honours_if_match()
+    {
+        string root = Directory.CreateTempSubdirectory("varve-manage-").FullName;
+
+        try
+        {
+            await using RunningServer server = await Start(root);
+            Assert.Equal(HttpStatusCode.Created, (await Declare(server, "people", "File")).StatusCode);
+
+            string tag = (await Send(server, HttpMethod.Get, "manage/datasets/people")).Headers.ETag!.Tag;
+            Assert.Equal(tag, (await Send(server, HttpMethod.Get, "manage/datasets/people/state")).Headers.ETag!.Tag);
+
+            // A stale tag is refused, naming the graph that moved, and nothing is committed.
+            long version = long.Parse(tag.Trim('"'), System.Globalization.CultureInfo.InvariantCulture);
+            HttpResponseMessage stale = await State(server, Closed, "\"" + (version - 1).ToString(System.Globalization.CultureInfo.InvariantCulture) + "\"");
+            Assert.Equal(HttpStatusCode.PreconditionFailed, stale.StatusCode);
+            string problem = await stale.Content.ReadAsStringAsync(Ct);
+            Assert.Contains("precondition-failed", problem, StringComparison.Ordinal);
+            Assert.Contains("https://w3id.org/varve/ns#manage/dataset/people", problem, StringComparison.Ordinal);
+            Assert.Equal("open", (await Json(await Send(server, HttpMethod.Get, "manage/datasets/people/state"))).RootElement.GetProperty("state").GetString());
+            Assert.Equal(tag, (await Send(server, HttpMethod.Get, "manage/datasets/people")).Headers.ETag!.Tag);
+
+            // A malformed tag, or more than one, is a bad request.
+            Assert.Equal(HttpStatusCode.BadRequest, (await State(server, Closed, "people")).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await State(server, Closed, tag + ", \"1\"")).StatusCode);
+
+            // The tag as read applies, and the version moves with it.
+            Assert.Equal(HttpStatusCode.NoContent, (await State(server, Closed, tag)).StatusCode);
+            string closed = (await Send(server, HttpMethod.Get, "manage/datasets/people/state")).Headers.ETag!.Tag;
+            Assert.NotEqual(tag, closed);
+
+            // Any version, or none named, applies as before.
+            Assert.Equal(HttpStatusCode.NoContent, (await State(server, Open, "*")).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await State(server, Closed, null)).StatusCode);
+            Assert.Equal("closed", (await Json(await Send(server, HttpMethod.Get, "manage/datasets/people/state"))).RootElement.GetProperty("state").GetString());
         }
         finally
         {
@@ -287,6 +341,18 @@ public class ManagementTests
         }
 
         return RunningServer.StartAsync(settings);
+    }
+
+    private static async Task<HttpResponseMessage> State(RunningServer server, string json, string? ifMatch)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Put, new Uri("manage/datasets/people/state", UriKind.Relative)) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+
+        if (ifMatch is not null)
+        {
+            request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
+        }
+
+        return await server.Client.SendAsync(request, Ct);
     }
 
     private static async Task<HttpResponseMessage> Send(RunningServer server, HttpMethod method, string path, string? json = null)

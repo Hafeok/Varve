@@ -383,6 +383,14 @@
           "xunit.v3.runner.common": "[4.0.2]"
         }
       },
+      "varve.classification": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Store": "[1.0.0, )"
+        }
+      },
       "varve.delta": {
         "type": "Project",
         "dependencies": {
@@ -496,6 +504,7 @@
           "OpenTelemetry.Extensions.Hosting": "[1.20.1, )",
           "System.CommandLine": "[2.0.14, )",
           "System.Security.Cryptography.ProtectedData": "[10.0.14, )",
+          "Varve.Classification": "[1.0.0, )",
           "Varve.Events": "[1.0.0, )",
           "Varve.Protocol": "[1.0.0, )",
           "Varve.Protocol.Client": "[1.0.0, )",

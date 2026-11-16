@@ -1,0 +1,42 @@
+@* Button (docs/ui/components/Button): quiet by default, primary at most once
+   per view. A disabled act explains itself in a caption beside it. *@
+<button class="@Classes" type="button" disabled="@Disabled" @onclick="OnClick">@ChildContent</button>@if (Disabled && DisabledReason is not null)
+{
+    <span class="vw-muted">@DisabledReason</span>
+}
+
+@code {
+    /// <summary>A verb-first label in sentence case, naming the effect.</summary>
+    [Parameter, EditorRequired]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>The button's weight.</summary>
+    [Parameter]
+    public ButtonKind Kind { get; set; }
+
+    /// <summary>The small size, for dense rows and stamps.</summary>
+    [Parameter]
+    public bool Small { get; set; }
+
+    /// <summary>Whether the act is unavailable.</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>Why the act is unavailable: a button never disables silently.</summary>
+    [Parameter]
+    public string? DisabledReason { get; set; }
+
+    /// <summary>What a click does.</summary>
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+
+    private string Classes => "vw-button"
+        + Kind switch
+        {
+            ButtonKind.Primary => " vw-button--primary",
+            ButtonKind.Danger => " vw-button--danger",
+            ButtonKind.DangerSolid => " vw-button--danger-solid",
+            _ => "",
+        }
+        + (Small ? " vw-button--small" : "");
+}

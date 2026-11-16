@@ -163,3 +163,25 @@ about how Varve accepts a token. It changes three other things.
 - **Analyzer rule.** None. `VarveDeterministic` already forbids the ambient
   clock the expiry check would otherwise reach for.
 - **Open questions owned.** None.
+
+## Amendment, 2026-10-27 — the fixed provider moves out of the model
+
+Filed by Web UI part 1 (#167, milestone #96), unaccepted until the maintainer
+accepts it (ADR 0066). Decided by the maintainer on that milestone.
+
+Point 1 named the convenience `BearerToken.Fixed(value)`. `BearerToken` is in
+`Varve.Protocol.Client.Model`, which ADR [0206](0206-the-web-ui-design-source.md)
+point 4 makes values only: a model type names no other type of the client, so
+the model cannot carry a service to the Web UI's parts. `Fixed` returns a
+`BearerTokenProvider`, the delegate the client calls for every request. That
+is a service, so `Fixed` was the one name in the model that broke the rule
+(VARVE0006).
+
+The convenience moves, unchanged in behaviour, to a static class beside the
+delegate: **`BearerTokens.Fixed(value)`** in `Varve.Protocol.Client`. The
+provider stays a service; it is not moved into the model. `BearerToken.Fixed`
+is removed, not aliased (ADR 0118). It was never shipped in a release, so no
+caller outside the repository breaks. The CLI's `--token` and the tests call
+the new name.
+
+The ruling is `FixedProviderBesideTheDelegate`.
