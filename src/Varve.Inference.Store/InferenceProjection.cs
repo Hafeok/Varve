@@ -222,7 +222,7 @@ public sealed class InferenceProjection : IProjection
         }
 
         ProjectionTerms terms = _terms;
-        rows = new InferredRows(at, found, handle => terms.TryExternalise(handle, out RdfTerm? term) ? term : null);
+        rows = new InferredRows(found, handle => ProjectionTerms.IsLocal(handle) && terms.TryExternalise(handle, out RdfTerm? term) ? term : null);
         return InferenceReadOutcome.Held;
     }
 
@@ -245,7 +245,7 @@ public sealed class InferenceProjection : IProjection
             }
 
             ProjectionTerms terms = built.Terms;
-            return new InferredRows(at, rows, handle => terms.TryExternalise(handle, out RdfTerm? term) ? term : null);
+            return new InferredRows(rows, handle => ProjectionTerms.IsLocal(handle) && terms.TryExternalise(handle, out RdfTerm? term) ? term : null);
         }
         finally
         {

@@ -2,18 +2,15 @@
 Varve.Inference.Store.InferenceProjection
 Varve.Inference.Store.InferenceProjection.ApplyAsync(Varve.Store.Log.Commit! commit, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Varve.Inference.Store.InferenceProjection.Binding.get -> Varve.Inference.Store.Model.InferenceBinding!
-Varve.Inference.Store.InferenceProjection.Clashes() -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Store.Model.PlacedClash>!
 Varve.Inference.Store.InferenceProjection.Floor.get -> Varve.Store.Log.Position
 Varve.Inference.Store.InferenceProjection.HeldFrom.get -> Varve.Store.Log.Position
 Varve.Inference.Store.InferenceProjection.HistoryHeld.get -> Varve.Store.Log.ByteCount
 Varve.Inference.Store.InferenceProjection.InferenceProjection(Varve.Store.Dataset! dataset, Varve.Inference.Store.Model.InferenceBinding! binding, Varve.Inference.Store.Model.InferenceOptions? options = null) -> void
 Varve.Inference.Store.InferenceProjection.MemoryLimit.get -> (Varve.Store.Log.ByteCount Limit, Varve.Store.Log.ByteCount Reached)
 Varve.Inference.Store.InferenceProjection.Position.get -> Varve.Store.Log.Position
-Varve.Inference.Store.InferenceProjection.ReadFromScratchAsync(Varve.Store.Log.Position at, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Inference.Store.Model.InferredRows!>
 Varve.Inference.Store.InferenceProjection.ResetAsync(Varve.Store.DatasetView? checkpoint, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Varve.Inference.Store.InferenceProjection.Stopped.get -> bool
 Varve.Inference.Store.InferenceProjection.TBoxGraph.get -> Varve.Rdf.RdfTerm!
-Varve.Inference.Store.InferenceProjection.TryRead(Varve.Store.Log.Position at, out Varve.Inference.Store.Model.InferredRows? rows) -> Varve.Inference.Store.Model.InferenceReadOutcome
 Varve.Inference.Store.InferenceProjection.WaitForAsync(Varve.Store.Log.Position position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Varve.Inference.Store.Model.InferenceBinding
 Varve.Inference.Store.Model.InferenceBinding.Binding.get -> Varve.Rdf.RdfTerm!
@@ -34,39 +31,10 @@ Varve.Inference.Store.Model.InferenceReadOutcome.Behind = 1 -> Varve.Inference.S
 Varve.Inference.Store.Model.InferenceReadOutcome.FromScratch = 2 -> Varve.Inference.Store.Model.InferenceReadOutcome
 Varve.Inference.Store.Model.InferenceReadOutcome.Held = 0 -> Varve.Inference.Store.Model.InferenceReadOutcome
 Varve.Inference.Store.Model.InferenceReadOutcome.Unavailable = 3 -> Varve.Inference.Store.Model.InferenceReadOutcome
-Varve.Inference.Store.Model.InferredRow
-Varve.Inference.Store.Model.InferredRow.Deconstruct(out Varve.Rdf.TermHandle Graph, out Varve.Inference.Model.Fact Fact) -> void
-Varve.Inference.Store.Model.InferredRow.Equals(Varve.Inference.Store.Model.InferredRow other) -> bool
-Varve.Inference.Store.Model.InferredRow.Fact.get -> Varve.Inference.Model.Fact
-Varve.Inference.Store.Model.InferredRow.Fact.init -> void
-Varve.Inference.Store.Model.InferredRow.Graph.get -> Varve.Rdf.TermHandle
-Varve.Inference.Store.Model.InferredRow.Graph.init -> void
-Varve.Inference.Store.Model.InferredRow.InferredRow() -> void
-Varve.Inference.Store.Model.InferredRow.InferredRow(Varve.Rdf.TermHandle Graph, Varve.Inference.Model.Fact Fact) -> void
-Varve.Inference.Store.Model.InferredRows
-Varve.Inference.Store.Model.InferredRows.Position.get -> Varve.Store.Log.Position
-Varve.Inference.Store.Model.InferredRows.Rows.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Store.Model.InferredRow>!
-Varve.Inference.Store.Model.InferredRows.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
-Varve.Inference.Store.Model.PlacedClash
-Varve.Inference.Store.Model.PlacedClash.Clash.get -> Varve.Inference.Model.Clash!
-Varve.Inference.Store.Model.PlacedClash.Clash.init -> void
-Varve.Inference.Store.Model.PlacedClash.Deconstruct(out Varve.Rdf.TermHandle Graph, out Varve.Inference.Model.Clash! Clash) -> void
-Varve.Inference.Store.Model.PlacedClash.Equals(Varve.Inference.Store.Model.PlacedClash other) -> bool
-Varve.Inference.Store.Model.PlacedClash.Graph.get -> Varve.Rdf.TermHandle
-Varve.Inference.Store.Model.PlacedClash.Graph.init -> void
-Varve.Inference.Store.Model.PlacedClash.PlacedClash() -> void
-Varve.Inference.Store.Model.PlacedClash.PlacedClash(Varve.Rdf.TermHandle Graph, Varve.Inference.Model.Clash! Clash) -> void
-override Varve.Inference.Store.Model.InferredRow.GetHashCode() -> int
-override Varve.Inference.Store.Model.PlacedClash.GetHashCode() -> int
 static Varve.Inference.Store.Model.InferenceOptions.BytesPerClosedRow.get -> Varve.Store.Log.ByteCount
 static Varve.Inference.Store.Model.InferenceOptions.BytesPerFact.get -> Varve.Store.Log.ByteCount
-static Varve.Inference.Store.Model.InferredRow.operator !=(Varve.Inference.Store.Model.InferredRow left, Varve.Inference.Store.Model.InferredRow right) -> bool
-static Varve.Inference.Store.Model.InferredRow.operator ==(Varve.Inference.Store.Model.InferredRow left, Varve.Inference.Store.Model.InferredRow right) -> bool
-static Varve.Inference.Store.Model.PlacedClash.operator !=(Varve.Inference.Store.Model.PlacedClash left, Varve.Inference.Store.Model.PlacedClash right) -> bool
-static Varve.Inference.Store.Model.PlacedClash.operator ==(Varve.Inference.Store.Model.PlacedClash left, Varve.Inference.Store.Model.PlacedClash right) -> bool
-~override Varve.Inference.Store.Model.InferredRow.Equals(object obj) -> bool
-~override Varve.Inference.Store.Model.InferredRow.ToString() -> string
-~override Varve.Inference.Store.Model.PlacedClash.Equals(object obj) -> bool
-~override Varve.Inference.Store.Model.PlacedClash.ToString() -> string
 Varve.Inference.Store.InferenceProjection.LoadAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
 Varve.Inference.Store.InferenceProjection.SaveAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Inference.Store.InferenceProjection.Clashes() -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>!
+Varve.Inference.Store.InferenceProjection.ReadFromScratchAsync(Varve.Store.Log.Position at, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Inference.Model.InferredRows!>
+Varve.Inference.Store.InferenceProjection.TryRead(Varve.Store.Log.Position at, out Varve.Inference.Model.InferredRows? rows) -> Varve.Inference.Store.Model.InferenceReadOutcome

@@ -113,11 +113,24 @@ internal static class BoundedReads
             detail = error.Message;
             members = ClassificationBehind(error);
         }
+        catch (InferenceBehindException error)
+        {
+            cut = ProblemType.InferenceBehind;
+            detail = error.Message;
+            members = InferenceBehind(error);
+        }
+        catch (InferenceUnavailableException error)
+        {
+            // No Retry-After: waiting does not help (ADR 0195 point 6).
+            cut = ProblemType.InferenceUnavailable;
+            detail = error.Message;
+            members = InferenceUnavailable(error);
+        }
 
         if (!output.HasStarted && !response.HasStarted)
         {
             output.Discard();
-            if (cut == ProblemType.ValidationBehind || cut == ProblemType.ClassificationBehind)
+            if (cut == ProblemType.ValidationBehind || cut == ProblemType.ClassificationBehind || cut == ProblemType.InferenceBehind)
             {
                 response.Headers.RetryAfter = "1";
             }
@@ -140,6 +153,24 @@ internal static class BoundedReads
         m.String("binding", System.Text.Encoding.UTF8.GetString(error.Binding.Lexical));
         m.Number("position", error.Position.Value);
         m.Number("projectedPosition", error.Projected.Value);
+    };
+
+    /// <summary>The members of <c>inference-behind</c>: the binding, the position read, and the position its projection reached.</summary>
+    internal static Action<ProblemMembers> InferenceBehind(InferenceBehindException error) => m =>
+    {
+        m.String("binding", System.Text.Encoding.UTF8.GetString(error.Binding.Lexical));
+        m.Number("position", error.Position.Value);
+        m.Number("projectedPosition", error.Projected.Value);
+    };
+
+    /// <summary>The members of <c>inference-unavailable</c>: the binding, why, the failure's class (ADR 0242 ruling 2), the limit and what the closure reached.</summary>
+    internal static Action<ProblemMembers> InferenceUnavailable(InferenceUnavailableException error) => m =>
+    {
+        m.String("binding", System.Text.Encoding.UTF8.GetString(error.Binding.Lexical));
+        m.String("reason", "memory-limit");
+        m.String("failure", "configuration");
+        m.Number("limit", error.Limit.Value);
+        m.Number("reached", error.Reached.Value);
     };
 
     /// <summary>The members of <c>validation-behind</c>: the binding, the position read, and the position its projection reached.</summary>

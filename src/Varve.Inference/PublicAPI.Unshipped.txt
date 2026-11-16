@@ -41,3 +41,35 @@ Varve.Inference.FactBudget
 Varve.Inference.FactBudget.FactBudget(Varve.Rdf.QuadCount limit) -> void
 Varve.Inference.FactBudget.Limit.get -> Varve.Rdf.QuadCount
 Varve.Inference.FactBudget.Used.get -> Varve.Rdf.QuadCount
+Varve.Inference.Model.InferredRow
+Varve.Inference.Model.InferredRow.Deconstruct(out Varve.Rdf.TermHandle Graph, out Varve.Inference.Model.Fact Fact) -> void
+Varve.Inference.Model.InferredRow.Equals(Varve.Inference.Model.InferredRow other) -> bool
+Varve.Inference.Model.InferredRow.Fact.get -> Varve.Inference.Model.Fact
+Varve.Inference.Model.InferredRow.Fact.init -> void
+Varve.Inference.Model.InferredRow.Graph.get -> Varve.Rdf.TermHandle
+Varve.Inference.Model.InferredRow.Graph.init -> void
+Varve.Inference.Model.InferredRow.InferredRow() -> void
+Varve.Inference.Model.InferredRow.InferredRow(Varve.Rdf.TermHandle Graph, Varve.Inference.Model.Fact Fact) -> void
+Varve.Inference.Model.InferredRows
+Varve.Inference.Model.InferredRows.Rows.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.InferredRow>!
+Varve.Inference.Model.InferredRows.TryExternalise(Varve.Rdf.TermHandle handle, out Varve.Rdf.RdfTerm! term) -> bool
+Varve.Inference.Model.PlacedClash
+Varve.Inference.Model.PlacedClash.Clash.get -> Varve.Inference.Model.Clash!
+Varve.Inference.Model.PlacedClash.Clash.init -> void
+Varve.Inference.Model.PlacedClash.Deconstruct(out Varve.Rdf.TermHandle Graph, out Varve.Inference.Model.Clash! Clash) -> void
+Varve.Inference.Model.PlacedClash.Equals(Varve.Inference.Model.PlacedClash other) -> bool
+Varve.Inference.Model.PlacedClash.Graph.get -> Varve.Rdf.TermHandle
+Varve.Inference.Model.PlacedClash.Graph.init -> void
+Varve.Inference.Model.PlacedClash.PlacedClash() -> void
+Varve.Inference.Model.PlacedClash.PlacedClash(Varve.Rdf.TermHandle Graph, Varve.Inference.Model.Clash! Clash) -> void
+override Varve.Inference.Model.InferredRow.GetHashCode() -> int
+override Varve.Inference.Model.PlacedClash.GetHashCode() -> int
+static Varve.Inference.Model.InferredRow.operator !=(Varve.Inference.Model.InferredRow left, Varve.Inference.Model.InferredRow right) -> bool
+static Varve.Inference.Model.InferredRow.operator ==(Varve.Inference.Model.InferredRow left, Varve.Inference.Model.InferredRow right) -> bool
+static Varve.Inference.Model.PlacedClash.operator !=(Varve.Inference.Model.PlacedClash left, Varve.Inference.Model.PlacedClash right) -> bool
+static Varve.Inference.Model.PlacedClash.operator ==(Varve.Inference.Model.PlacedClash left, Varve.Inference.Model.PlacedClash right) -> bool
+~override Varve.Inference.Model.InferredRow.Equals(object obj) -> bool
+~override Varve.Inference.Model.InferredRow.ToString() -> string
+~override Varve.Inference.Model.PlacedClash.Equals(object obj) -> bool
+~override Varve.Inference.Model.PlacedClash.ToString() -> string
+Varve.Inference.Model.InferredRows.InferredRows(System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.InferredRow>! rows, System.Func<Varve.Rdf.TermHandle, Varve.Rdf.RdfTerm?>! local) -> void

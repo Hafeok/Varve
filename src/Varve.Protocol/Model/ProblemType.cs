@@ -142,6 +142,12 @@ public readonly record struct ProblemType
     /// <summary><c>503</c>: a row-restricted read at a position the classification projection has not reached, after one bounded wait (ADR 0233).</summary>
     public static ProblemType ClassificationBehind { get; } = new("classification-behind");
 
+    /// <summary><c>503</c>: a read of a binding's closure at a position its inference projection has not reached, after one bounded wait (ADR 0195).</summary>
+    public static ProblemType InferenceBehind { get; } = new("inference-behind");
+
+    /// <summary><c>503</c>, with no <c>Retry-After</c>: a binding's closure stopped by its memory limit; a retry does not help (ADR 0195, ADR 0242 ruling 2).</summary>
+    public static ProblemType InferenceUnavailable { get; } = new("inference-unavailable");
+
     /// <summary><c>503</c>: a forwarded write reached an instance that does not write the dataset; it is never forwarded again (ADR 0168).</summary>
     public static ProblemType WriterMoved { get; } = new("writer-moved");
 

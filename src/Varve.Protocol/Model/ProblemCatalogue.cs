@@ -108,6 +108,8 @@ public static class ProblemCatalogue
         new(ProblemType.DatasetBehind, 503, "This instance has not applied the dataset position asked for.", "position", "appliedPosition"),
         new(ProblemType.ValidationBehind, 503, "The validation report has not reached the position asked for.", "binding", "position", "projectedPosition"),
         new(ProblemType.ClassificationBehind, 503, "The classification has not reached the position asked for.", "binding", "position", "projectedPosition"),
+        new(ProblemType.InferenceBehind, 503, "The closure has not reached the position asked for.", "binding", "position", "projectedPosition"),
+        new(ProblemType.InferenceUnavailable, 503, "The binding's materialised closure is not available.", "binding", "reason", "failure", "limit", "reached"),
         new(ProblemType.RowNotWritable, 403, "The request writes a row outside the writable subject set."),
         new(ProblemType.WriterMoved, 503, "The instance a write was forwarded to no longer writes the dataset.", "epoch", "requestId", "reason"),
         new(ProblemType.WriterSteppedDown, 503, "The writer released the dataset and commits nothing more.", "reason"),

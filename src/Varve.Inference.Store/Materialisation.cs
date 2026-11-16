@@ -7,7 +7,6 @@ using System.Threading;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Inference.Model;
-using Varve.Inference.Store.Model;
 using Varve.Rdf;
 
 namespace Varve.Inference.Store;
