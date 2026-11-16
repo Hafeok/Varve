@@ -4,9 +4,9 @@ namespace: varve
 adr: 0177
 decisions:
   - key: SeekDontNarrow
-    statement: "A read at a position inside a format-5 extent set's window looks its keys up in the set as a read of the present does and classifies only the matching rows' intervals against the position; it writes nothing and reads only the matching keys' blocks and column entries"
+    statement: "A read at a position inside a format-5 extent set's window looks its keys up in the set as a read of the present does and classifies only the matching rows' intervals against the position; it writes nothing and reads only the matching keys' blocks and column entries, and the seek directory of each order it uses when the dataset's cache does not hold it; restated by ADR 0177's amendment of 2026-11-10 under ADR 0240"
     accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-26T00:00:00Z
+    accepted-at: 2026-11-16T00:00:00Z
   - key: IntervalsBesideTheKey
     statement: "A format-5 extent's positions are fixed-width columns aligned with its key sections, one distance per open and per closing key, and its rows within are a thirteenth key section with a column of two distances a row, so a key's intervals are reached from the key"
     accepted-by: mailto:emil@okkels-klein.dk
@@ -27,3 +27,8 @@ decisions:
 
 The rulings of [ADR 0177](../adr/0177-seek-dont-narrow-intervals-beside-the-key.md),
 filed unaccepted by #133 (ADR 0066).
+
+`SeekDontNarrow` is restated by the amendment of 2026-11-10: a set's seek
+directory is read when a read needs it and kept under a ceiling, not held
+with the set (ADR 0240, #222). The restatement was accepted on #268 on
+2026-11-16, at the maintainer's word, by his delegate (ADR 0239).
