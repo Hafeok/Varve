@@ -85,6 +85,9 @@ internal static class StorageVerify
         return verify;
     }
 
+    /// <summary>The result record's format (ADR 0216): its lines, their order and their quoting.</summary>
+    internal const int Format = 1;
+
     /// <summary>What <c>--record</c> and its options ask for.</summary>
     internal sealed record ResultRecord(string File, string Provider, string ServerVersion, string Deployment, string RunBy, string SignedOffBy);
 
@@ -138,7 +141,7 @@ internal static class StorageVerify
     internal static string Render(ResultRecord result, VerificationOutcome outcome, DateTimeOffset now)
     {
         StringBuilder text = new();
-        text.Append("format: 1\n");
+        text.Append("format: ").Append(Format).Append('\n');
         Line(text, "provider", result.Provider);
         Line(text, "server-version", result.ServerVersion);
         Line(text, "deployment", result.Deployment);

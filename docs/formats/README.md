@@ -11,7 +11,10 @@ release wrote ([ADR 0216](../adr/0216-the-format-inventory.md)). The rules:
   rebuilds it from the log, to the same results (ADR 0072, ADR 0139).
 - **versioned:** a saved plan names positions. A later release reads its
   format while it can, and refuses an unknown one, telling the operator to
-  plan again.
+  plan again. The verification record at a store's root and the result
+  records behind the compatibility page are versioned too (ADR 0183): one a
+  release does not read is not a verification, and the answer is to run
+  `varve storage verify` again.
 
 Each fixture is under [`testdata/formats/`](../../testdata/formats/), written
 by its generator against the published packages of the release named. The
@@ -33,6 +36,8 @@ named in its README.
 | Writer record, with `address` and the `placement` release | 1 | — | v0.1.0-preview.10 | read forever | `objects-preview.10` |
 | Reader record `readers/<id>` | 1 | `src/Varve.Store.ObjectStorage/ReaderRecordFormat.cs` `Version` | v0.1.0-preview.11 | read forever | `objects-preview.11` |
 | Reader record, with `maxDerived` | 1 | — | v0.1.0-preview.15 | read forever | `objects-preview.15` |
+| Verification record `varve-verification` | 1 | `src/Varve.Store.ObjectStorage/Verification/VerificationRecordFormat.cs` `Version` | the release that ships `varve storage verify` (#117) | versioned | `verification-next` |
+| Object-store result record | 1 | `src/Varve.Server/Commands/StorageVerify.cs` `Format` | the release that ships `varve storage verify` (#117) | versioned | `verification-next` |
 | Lineage record (Replication) | — | — | not on `main` (#175) | read forever | gap: written by the release that lands #175 |
 | Delta (`application/vnd.varve.delta`) | 1 | `src/Varve.Delta/DeltaFormat.cs` `Current` | v0.1.0-preview.6 | read forever | `delta-preview.6` |
 | CloudEvents rendering | unversioned | — | v0.1.0-preview.7 | read forever | `events-preview.7` |

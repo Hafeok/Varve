@@ -55,22 +55,8 @@ public sealed class StorageVerifyTests
 
             """.ReplaceLineEndings("\n") + "result record: " + file + "\nverified: the store kept the contract. The verification record 'varve-verification' is at its root.\n",
             output);
-        Assert.Equal(
-            """
-            format: 1
-            provider: "example-store"
-            server-version: "1.2.3"
-            deployment: "a test, \"in memory\""
-            suite: 1
-            date: "2026-11-16"
-            racers: 16
-            rounds: 8
-            result: pass
-            run-by: "ci"
-            signed-off-by: "A Tester <tester@example.org>"
-
-            """.ReplaceLineEndings("\n"),
-            await File.ReadAllTextAsync(file, Ct));
+        // Format 1 of the result record, as testdata/formats/verification-next holds it (ADR 0216).
+        Assert.Equal(await FixtureAsync("result-pass.yaml", file), await File.ReadAllTextAsync(file, Ct));
         Assert.Equal(["varve-verification"], store.Names());
     }
 
@@ -90,8 +76,7 @@ public sealed class StorageVerifyTests
         Assert.Contains("not verified: the store broke the object-store contract", error, StringComparison.Ordinal);
         Assert.Contains("docs/operator/object-stores.md", error, StringComparison.Ordinal);
 
-        string record = await File.ReadAllTextAsync(file, Ct);
-        Assert.Contains("result: fail\ncounterexample-case: \"create-if-absent writes once and reads back\"\ncounterexample: \"a second create of the same name returned a version\"\n", record, StringComparison.Ordinal);
+        Assert.Equal(await FixtureAsync("result-fail.yaml", file), await File.ReadAllTextAsync(file, Ct));
         Assert.Empty(store.Names());
     }
 
@@ -135,6 +120,29 @@ public sealed class StorageVerifyTests
 
         Assert.Equal(1, exit);
         Assert.Contains(says, error.ToString(), StringComparison.Ordinal);
+    }
+
+    // A file of the fixture, its sum checked first; written from what the run wrote when the variable asks.
+    private static async Task<string> FixtureAsync(string name, string written)
+    {
+        DirectoryInfo? root = new(AppContext.BaseDirectory);
+
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "Varve.slnx")))
+        {
+            root = root.Parent;
+        }
+
+        string fixture = Path.Combine(root?.FullName ?? throw new DirectoryNotFoundException("No repository root above " + AppContext.BaseDirectory + "."), "testdata", "formats", "verification-next");
+
+        if (Environment.GetEnvironmentVariable("VARVE_WRITE_VERIFICATION_FIXTURE") is { Length: > 0 } write)
+        {
+            File.Copy(written, Path.Combine(write, "verification-next", name), overwrite: true);
+        }
+
+        byte[] bytes = await File.ReadAllBytesAsync(Path.Combine(fixture, name), Ct);
+        string sum = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes));
+        Assert.Contains(sum + "  ./" + name, await File.ReadAllLinesAsync(Path.Combine(fixture, "SHA256SUMS"), Ct));
+        return Encoding.UTF8.GetString(bytes);
     }
 
     private static async Task<(int Exit, string Out, string Error)> RunAsync(ScratchStore store, StorageVerify.ResultRecord? record)
