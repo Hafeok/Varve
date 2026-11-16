@@ -231,7 +231,6 @@ public sealed class VarveManagementClient
 
     private async Task<VarveResult<Acknowledgement>> SendAsync(HttpMethod method, string path, string? json, CancellationToken cancellationToken, FeedPosition? ifMatch = null)
     {
-        BearerToken? token = await Tokens.ForRequestAsync(_tokens, _clock, cancellationToken).ConfigureAwait(false);
         HttpRequestMessage request = new(method, new Uri(_server, path));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/problem+json"));
 
@@ -245,12 +244,8 @@ public sealed class VarveManagementClient
             request.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
         }
 
-        if (token is BearerToken bearer)
-        {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer.Value);
-        }
-
-        using HttpResponseMessage response = await Requests.SendAsync(_http, request, _limits, cancellationToken).ConfigureAwait(false);
+        // A management write carries a key and is retried with it (ADR 0246).
+        using HttpResponseMessage response = await Requests.SendWriteAsync(_http, request, _limits, AuthorizeAsync, cancellationToken).ConfigureAwait(false);
         (ResponseFacts facts, byte[] body) = await ReadAsync(response, cancellationToken).ConfigureAwait(false);
 
         if (response.IsSuccessStatusCode)
@@ -267,6 +262,14 @@ public sealed class VarveManagementClient
         ResponseFacts facts = ResponseFacts.Of(response);
         (byte[]? body, string? failure) = await ResponseBodies.ReadAsync(response.Content, _limits.MaxResponseBytes, cancellationToken).ConfigureAwait(false);
         return body is null ? throw new HttpRequestException(failure) : (facts, body);
+    }
+
+    private async ValueTask AuthorizeAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        if (await Tokens.ForRequestAsync(_tokens, _clock, cancellationToken).ConfigureAwait(false) is BearerToken bearer)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer.Value);
+        }
     }
 
     private async Task<HttpResponseMessage> GetAsync(string path, string accept, FeedPosition? asOf, CancellationToken cancellationToken)

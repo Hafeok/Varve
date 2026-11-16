@@ -376,6 +376,11 @@ internal static class GraphStoreEndpoint
             return;
         }
 
+        // What this write answers if it commits, recorded with its key
+        // (ADR 0246): §5.3's 201 for new graph content, and its address.
+        bool creates = !existed && triples.Count > 0;
+        Keyed.Answering(exchange, new KeyedAnswer(creates ? StatusCodes.Status201Created : StatusCodes.Status204NoContent, creates && target.Kind == TargetKind.Named ? target.Address : null));
+
         foreach (BodyTriple triple in triples)
         {
             if (target.Kind == TargetKind.Default)

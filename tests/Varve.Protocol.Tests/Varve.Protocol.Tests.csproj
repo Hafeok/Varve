@@ -15,6 +15,8 @@
     <ProjectReference Include="../../src/Varve.Sparql.Store/Varve.Sparql.Store.csproj" />
     <ProjectReference Include="../../src/Varve.Shacl.Store/Varve.Shacl.Store.csproj" />
     <ProjectReference Include="../../src/Varve.Classification/Varve.Classification.csproj" />
+    <!-- The client, for the idempotency gate: its keys and retries against the server (ADR 0246). -->
+    <ProjectReference Include="../../src/Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>

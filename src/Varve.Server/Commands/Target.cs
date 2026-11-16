@@ -58,6 +58,13 @@ internal sealed class Local(Dataset dataset, IAsyncDisposable files, Outbound ou
         }
     }
 
+    /// <summary>
+    /// The client's limits with a key for every write, drawn from the
+    /// operating system at the composition root (ADR 0246): a write the
+    /// command retries commits once.
+    /// </summary>
+    internal static ClientLimits KeyedLimits => ClientLimits.Default with { IdempotencyKeys = static () => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(16)) };
+
     /// <summary>RAND(), UUID() and STRUUID() at the composition root: the operating system's (ADR 0056).</summary>
     private sealed class SystemRandomness : IRandomSource
     {
@@ -255,8 +262,8 @@ internal sealed class Target
         {
             BearerTokenProvider? tokens = await TokensAsync(parsed, io, dataset, http, cancellationToken).ConfigureAwait(false);
             SparqlHttpClient client = tokens is null
-                ? new(http, dataset, ClientLimits.Default)
-                : new(http, dataset, ClientLimits.Default, tokens, TimeProvider.System);
+                ? new(http, dataset, Local.KeyedLimits)
+                : new(http, dataset, Local.KeyedLimits, tokens, TimeProvider.System);
             return new Remote(client, http);
         }
         catch

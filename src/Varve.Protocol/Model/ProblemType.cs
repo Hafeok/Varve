@@ -142,6 +142,12 @@ public readonly record struct ProblemType
     /// <summary><c>503</c>: a row-restricted read at a position the classification projection has not reached, after one bounded wait (ADR 0233).</summary>
     public static ProblemType ClassificationBehind { get; } = new("classification-behind");
 
+    /// <summary><c>409</c>: a write's idempotency key is held by a request of the same agent still being answered (ADR 0246).</summary>
+    public static ProblemType IdempotencyKeyInFlight { get; } = new("idempotency-key-in-flight");
+
+    /// <summary><c>422</c>: a write's idempotency key is the same agent's key of a commit made by another request (ADR 0246).</summary>
+    public static ProblemType IdempotencyKeyReused { get; } = new("idempotency-key-reused");
+
     /// <summary><c>503</c>: a forwarded write reached an instance that does not write the dataset; it is never forwarded again (ADR 0168).</summary>
     public static ProblemType WriterMoved { get; } = new("writer-moved");
 

@@ -172,6 +172,7 @@ examples.
 | `MaxAsOfDistance` | 10,000 | how many positions below the head a `Varve-As-Of` read may go; further is `422 as-of-distance-exceeded`; a checkpoint at or below the position makes any distance cheap (ADR 0114) |
 | `MaxLiveTailsPerClient` | 16 | live tails of `/commits` open per caller (per subject, or per address anonymous); one more is `429 too-many-live-tails` |
 | `CommitsPageSize` | 1,000 | commits a `GET /commits` range answers before a `Link rel="next"` |
+| `IdempotencyWindow` | 100,000 | how many of a dataset's last commits a client's `Idempotency-Key` is honoured for; a retry of an older write commits again. Counted in commits, never time; the writer reads this many commits of the log before its first keyed write (ADR 0246) |
 
 Every duration is positive and every count at least one, or the server does
 not start. Each limit's problem type is in `docs/problems/`, with its

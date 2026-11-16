@@ -478,6 +478,14 @@ Filed by the session for [#230](https://github.com/Hafeok/Varve/issues/230), rec
 |---:|---|---|
 | [0243](0243-chain-builds-ahead-of-main.md) | Chain builds ahead of main, and landing trains | Filed unaccepted (#230) |
 
+## Client idempotency keys (#132)
+
+Filed by the session for [#132](https://github.com/Hafeok/Varve/issues/132), 1.0 readiness (#129), unaccepted until the maintainer accepts it (ADR 0066). Numbered 0246, because 0244 and 0245 are taken on open branches. It amends 0094 and 0168 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0246](0246-client-idempotency-keys.md) | Client idempotency keys, scoped to the agent: a retried write commits once | Filed unaccepted (#132) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

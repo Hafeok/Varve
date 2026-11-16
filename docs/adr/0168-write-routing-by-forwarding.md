@@ -182,3 +182,21 @@ point 12, which adds to point 5 and point 4 here.
   sent again. Such a batch was not committed.
 - **Point 9's automatic handover layout** is ADR 0181's, filed with the
   automation.
+
+## Amendment, 2026-11-16 — a forwarded write keeps its key
+
+Filed by the session for #132 under ADR
+[0246](0246-client-idempotency-keys.md), unaccepted until the maintainer
+accepts it (ADR 0066). It adds to points 3 and 7.
+
+- **Point 3.** `Idempotency-Key` joins the headers passed through. The
+  forwarder neither checks the key nor adds one. The writer checks it,
+  against a fingerprint of the method, the path and query, the
+  `Content-Type` and the body, all of which the forward leaves unchanged.
+- **Point 7.** The lost answer of a forwarded write, and of a direct one, is
+  settled by the key. A retry with the same key reaches whichever instance
+  writes the dataset by then. That instance finds the key in the log if the
+  first attempt committed, and commits it otherwise.
+
+**The ledger.** The ruling of this block is `ForwardedWriteKeepsItsKey`,
+unaccepted until the maintainer accepts it.

@@ -22,6 +22,22 @@ internal static class RequestBodies
     /// <summary>Reads the body, refusing one over <see cref="ProtocolLimits.MaxRequestBody"/>.</summary>
     internal static async Task<Body> ReadAsync(HttpContext context, ProtocolLimits limits)
     {
+        // A body read once is kept for the request: a keyed write reads it
+        // for its fingerprint before the endpoint reads it (ADR 0246).
+        if (context.Items.TryGetValue(ReadKey, out object? kept) && kept is Body read)
+        {
+            return read;
+        }
+
+        Body body = await ReadCoreAsync(context, limits).ConfigureAwait(false);
+        context.Items[ReadKey] = body;
+        return body;
+    }
+
+    private const string ReadKey = "Varve.Protocol.RequestBody";
+
+    private static async Task<Body> ReadCoreAsync(HttpContext context, ProtocolLimits limits)
+    {
         long limit = limits.MaxRequestBody.Value;
 
         if (context.Request.ContentLength is long declared && declared > limit)

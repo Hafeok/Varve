@@ -144,7 +144,8 @@ writer's address in the writer record, `Varve:Fleet:InternalUrl`:
 - A forward whose writer cannot be reached, or whose answer is lost, is
   [`503 commit-outcome-unknown`](../problems/commit-outcome-unknown.md),
   with `requestId` and no `position` (ADR 0214): the writer may have
-  committed it, so send it again only conditionally. No instance holding the
+  committed it, so send it again only conditionally, or with the same
+  `Idempotency-Key` (below). No instance holding the
   epoch is `503 unavailable`, reason `no-writer`. A forward is never sent
   twice.
 
@@ -153,6 +154,32 @@ writer's address in the writer record, `Varve:Fleet:InternalUrl`:
 app's internal FQDN.
 
 Request ids are `<instance>:<id>`, unique across the fleet.
+
+## Retrying a write: `Idempotency-Key`
+
+A write may carry `Idempotency-Key: "<key>"` (ADR 0246). The key is the
+caller's own: keys are scoped to the agent, so two callers never share one.
+The writer records the key with the commit. A retry with the same key and the
+same request is answered from that commit, with its status, `Varve-Position`,
+`ETag`, the original `Varve-Request-Id` and `Varve-Replayed: true`. It is
+never committed again: not after a lost response, a forward, a restart or a
+handover, because the new writer reads the key from the log.
+
+- **Forwarded unchanged.** The forwarder passes the key on and the writer
+  checks it.
+- **Checked before `If-Match`.** A retry whose original moved the head gets
+  the original's answer, not `412`.
+- **Another request under the same key** is
+  [`422 idempotency-key-reused`](../problems/idempotency-key-reused.md).
+- **A key whose request is still being answered** is
+  [`409 idempotency-key-in-flight`](../problems/idempotency-key-in-flight.md).
+- **Only a commit holds a key**, for the dataset's last
+  `Varve:Limits:IdempotencyWindow` commits, 100,000 by default. Counted in
+  commits, never time.
+
+`Varve.Protocol.Client` sends a key on every write and retries with it when
+its host gives `ClientLimits.IdempotencyKeys` a source of keys. The `varve`
+command line does.
 
 ## Reading your writes
 

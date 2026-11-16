@@ -39,6 +39,8 @@ decisions:
     statement: "Container Apps runs two apps from one image, varve-writer with one replica that claims and varve with N replicas that never claim and forward writes to varve-writer's internal FQDN"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-19T00:00:00Z
+  - key: ForwardedWriteKeepsItsKey
+    statement: "Idempotency-Key is among the headers forwarded unchanged and is checked by the writer, never by the forwarder, which adds none (ADR 0246); amended 2026-11-16"
 ---
 
 The rulings of [ADR 0168](../adr/0168-write-routing-by-forwarding.md), one line each. Filed

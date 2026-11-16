@@ -511,3 +511,22 @@ Varve.Protocol.Model.TakeoverRefusal.EpochMoved = 4 -> Varve.Protocol.Model.Take
 static Varve.Protocol.Model.ProblemType.StorageFull.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.CommitOutcomeUnknown.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.LoadSpillDamaged.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.IdempotencyKeys
+Varve.Protocol.IdempotencyKeys.IdempotencyKeys() -> void
+Varve.Protocol.IdempotencyKeys.IdempotencyKeys(Varve.Protocol.Model.CommitWindow window) -> void
+Varve.Protocol.IdempotencyKeys.Window.get -> Varve.Protocol.Model.CommitWindow
+Varve.Protocol.Model.CommitWindow
+Varve.Protocol.Model.CommitWindow.CommitWindow() -> void
+Varve.Protocol.Model.CommitWindow.CommitWindow(long commits) -> void
+Varve.Protocol.Model.CommitWindow.Commits.get -> long
+override Varve.Protocol.Model.CommitWindow.ToString() -> string!
+static Varve.Protocol.Model.CommitWindow.Default.get -> Varve.Protocol.Model.CommitWindow
+Varve.Protocol.ProtocolOptions.Idempotency.get -> Varve.Protocol.IdempotencyKeys?
+Varve.Protocol.ProtocolOptions.Idempotency.init -> void
+static Varve.Protocol.Model.ProblemType.IdempotencyKeyInFlight.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.IdempotencyKeyReused.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.Model.CommitWindow.Equals(Varve.Protocol.Model.CommitWindow other) -> bool
+override Varve.Protocol.Model.CommitWindow.GetHashCode() -> int
+static Varve.Protocol.Model.CommitWindow.operator !=(Varve.Protocol.Model.CommitWindow left, Varve.Protocol.Model.CommitWindow right) -> bool
+static Varve.Protocol.Model.CommitWindow.operator ==(Varve.Protocol.Model.CommitWindow left, Varve.Protocol.Model.CommitWindow right) -> bool
+~override Varve.Protocol.Model.CommitWindow.Equals(object obj) -> bool

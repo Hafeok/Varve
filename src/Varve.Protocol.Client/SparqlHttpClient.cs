@@ -382,22 +382,17 @@ public sealed partial class SparqlHttpClient
     public Task<HttpResponseMessage> CheckpointAsync(long? at, CancellationToken cancellationToken) =>
         SendAsync(new HttpRequestMessage(HttpMethod.Post, Management(at is long position ? "checkpoints?at=" + position.ToString(CultureInfo.InvariantCulture) : "checkpoints")), cancellationToken);
 
-    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        try
-        {
-            if (await TokenAsync(cancellationToken).ConfigureAwait(false) is BearerToken token)
-            {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            }
-        }
-        catch
-        {
-            request.Dispose();
-            throw;
-        }
+    // A read is sent once; a write carries a key and is retried with it
+    // (ADR 0246), each attempt with a token of its own.
+    private Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+        Requests.SendWriteAsync(_http, request, _limits, AuthorizeAsync, cancellationToken);
 
-        return await Requests.SendAsync(_http, request, _limits, cancellationToken).ConfigureAwait(false);
+    private async ValueTask AuthorizeAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        if (await TokenAsync(cancellationToken).ConfigureAwait(false) is BearerToken token)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+        }
     }
 
     // The token for one request (ADR 0127).

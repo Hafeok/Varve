@@ -114,6 +114,12 @@ public static class Tones
         ["entailment-unsupported"] = Tone.Critical,
         ["entailment-refused"] = Tone.Critical,
         ["row-not-writable"] = Tone.Critical,
+
+        // Client idempotency keys (ADR 0246). A key in flight is waiting: the
+        // same request is answered once the first has been. A key reused with
+        // another request is the client's mistake.
+        ["idempotency-key-in-flight"] = Tone.Warn,
+        ["idempotency-key-reused"] = Tone.Critical,
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>The tone of an API state word, neutral when the word is not one the mapping knows.</summary>

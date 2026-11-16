@@ -31,4 +31,21 @@ public readonly record struct ClientLimits
 
     /// <summary>How many bytes of response are read before the response is a failure: a count of bytes, so that the client needs no store (ADR 0128).</summary>
     public long MaxResponseBytes { get; }
+
+    /// <summary>
+    /// The source of each write's fresh <c>Idempotency-Key</c> (ADR 0246), so
+    /// that a retry of the write commits once: a key unique to the caller,
+    /// 1 to 255 printable ASCII characters. The host supplies it, as it
+    /// supplies the follow's jitter, because the key is recorded in the log
+    /// and the client draws no ambient randomness of its own (ADR 0011).
+    /// Null sends no key, and then no write is retried.
+    /// </summary>
+    public Func<string>? IdempotencyKeys { get; init; }
+
+    /// <summary>
+    /// How many times a keyed write is sent again with its key after a lost
+    /// response, a <c>503</c>, or <c>409 idempotency-key-in-flight</c>
+    /// (ADR 0246). Three by default; a write without a key is never retried.
+    /// </summary>
+    public int WriteRetries { get; init; } = 3;
 }

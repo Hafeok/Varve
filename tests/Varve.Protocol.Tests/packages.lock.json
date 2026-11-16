@@ -227,6 +227,20 @@
           "Varve.Turtle": "[1.0.0, )"
         }
       },
+      "varve.protocol.client": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Delta": "[1.0.0, )",
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.JsonLd": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.RdfXml": "[1.0.0, )",
+          "Varve.Sparql": "[1.0.0, )",
+          "Varve.Sparql.Evaluation": "[1.0.0, )",
+          "Varve.Sparql.Results": "[1.0.0, )",
+          "Varve.Turtle": "[1.0.0, )"
+        }
+      },
       "varve.rdf": {
         "type": "Project",
         "dependencies": {

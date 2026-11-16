@@ -37,6 +37,12 @@ commit when its cause is `requestId`, and another's when it is not.
 
 Never send the write again unconditionally: it may be committed twice.
 
+- **With its idempotency key** (ADR 0246). A write sent with an
+  `Idempotency-Key` is sent again with the same key. If the first was
+  committed, the retry is answered from that commit, with
+  `Varve-Replayed: true`, and nothing is committed again. If it wasn't, the
+  retry commits. `Varve.Protocol.Client` does this by itself when its host
+  gives it a source of keys.
 - **Conditional on the position before.** Send it again with `If-Match`
   naming the position the first attempt was based on: `position − 1` when
   the problem has a `position`, else the `Varve-Position` of the read the
