@@ -8,8 +8,8 @@ basis:
   - delta-format: 1
   - adr: "0245"
 sbom:
-  - asset: varve-webui-0.1.0-preview.22.zip sha256:88cb3e0674a90f6097c421278eda0b657afa96ac2128b23ab0b3f03893d8986f
-  - image: ghcr.io/hafeok/varve sha256:0886bb2536d7ab932f6a5811b3308da0345f0ce7d788813835e9477e8303c213
+  - asset: varve-webui-0.1.0-preview.22.zip sha256:7b5018f634f78b223f1c6be2b379cd78e54bd10ccae8bc71ec7185b6af92bda3
+  - image: ghcr.io/hafeok/varve sha256:08127fa9543dfd081750f6af108b8bfd00a8386d82b3bcdf25c70c9fb5803496
   - nupkg: Varve.Aspire sha256:716232cf6c992e77e571dbde92e6668228e998a1a7eae829e0352dba3259130e
   - nupkg: Varve.Classification sha256:9046468c72f4aaf07a0d0598331b467afbd7492453e19b7f517d2b2f542e4a94
   - nupkg: Varve.Delta sha256:d1b75d0c625651f4c56f339e60e0bd7cb6b52652de761ed07d70947b44a887d5
