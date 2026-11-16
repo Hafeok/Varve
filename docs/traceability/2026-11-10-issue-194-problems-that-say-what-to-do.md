@@ -87,3 +87,23 @@ management plane.
   and `HostTests.A_write_while_draining_is_shutting_down_and_says_what_to_do`
   checks both messages there, with no real stop.
 
+
+## The merge of main, 2026-11-16
+
+`main` (e684009a, through #286) conflicted in three files. The maintainer's
+delegate left them for a session to resolve ([comment](https://github.com/Hafeok/Varve/pull/267#issuecomment-6911254794)).
+The merge is 36642f77, and it keeps both sides of each:
+- `OpenDatasets.cs`: main's held epoch for a failed object-storage writer
+  and its `Causes(error)` reason, with this branch's `Classify(error)`.
+  `Take` carries both `FailedEpoch` and `Failure`.
+- `docs/problems/unavailable.md`: main's `writer-unreachable` paragraph,
+  and a `What to do` line for it.
+- `docs/adr/README.md`: main's sections for 0223, 0241 and 0243, then
+  0242's. 0242 is still this pull request's, as main's own index says.
+
+On the merge: Release build 0 warnings; protocol tests 166 passed; server
+(auth, management, host, object storage, fleet) 109 passed; the
+decision-set, licence-header, issue-ref and DCO gates pass.
+
+The maintainer said on 2026-11-16 that this pull request completes #194,
+so this commit carries its closing trailer.
