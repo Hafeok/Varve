@@ -111,6 +111,7 @@
 #:include lib/Identities.cs
 #:include lib/Releases.cs
 #:include lib/Status.cs
+#:include lib/ObjectStores.cs
 #:property NoWarn=$(NoWarn);CA2266
 
 using System.Diagnostics;

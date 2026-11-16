@@ -1,7 +1,7 @@
 # Operating Varve
 
 The operator's guide to `Varve.Server`: one executable that is the server and
-the `varve` command line (ADR 0105). Fifteen pages, each a task:
+the `varve` command line (ADR 0105). Eighteen pages, each a task:
 
 | Page | What it covers |
 |---|---|
@@ -19,6 +19,7 @@ the `varve` command line (ADR 0105). Fifteen pages, each a task:
 | [Back up and restore](backup-and-restore.md) | what the files are, taking a copy, checkpoints, restoring, and the change feed as an incremental copy |
 | [Upgrade](upgrade.md) | what a new build reads, what it rewrites, and the order of a rolling upgrade |
 | [A small machine](small-machine.md) | a Raspberry Pi 5: the file backend on NVMe, an object store on a NAS only by identity, the runtime limits for 8 GB |
+| [Object stores](object-stores.md) | which object stores keep the contract a log rests on, with the evidence for each; `varve storage verify` against your own store, and the record it leaves there |
 | [Azure Container Apps](azure-container-apps.md) | datasets in Blob Storage, the template, the writer app and the reader app, cold start, costs |
 | [Kubernetes](kubernetes.md) | a fleet as one StatefulSet with a headless service, workload identity for the store |
 | [The Web UI](web-ui.md) | the operator console in a browser: served by the server or a static host, its Content Security Policy, signing in per issuer, anonymous mode |
@@ -33,6 +34,6 @@ line), 0106 (the admin API), 0163–0168 (the management plane, the
 follower, the management position, the vocabulary, the event-schema move, write forwarding), 0169–0176 (shapes bindings, the validation projection and the REC gate), 0107 (graph-level authorisation), 0230–0238 (row-level access), 0104 (`SERVICE`
 and `LOAD` over HTTP), 0112 (telemetry), 0037, 0100 and 0127 (authentication
 and on-behalf-of), 0128 and 0129 (the feed's format and following it), 0130
-and 0131 (setup), 0132 (CORS), and 0200–0206 (the Web UI). The protocol a
+and 0131 (setup), 0132 (CORS), 0183 (object store verification), and 0200–0206 (the Web UI). The protocol a
 client speaks is in `src/Varve.Protocol/README.md` and
 `docs/spec/change-feed.md`.
