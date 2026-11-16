@@ -1,0 +1,11 @@
+{
+  "step": "train",
+  "main": { "README.md": "Varve\n" },
+  "members": [
+    { "number": 11, "files": { "docs/a.md": "a\n" }, "approval": "head", "green": false },
+    { "number": 12, "files": { "docs/b.md": "b\n" }, "approval": "head", "green": true }
+  ],
+  "says": [
+    "is not green on its own: build (ubuntu-latest) (failure)"
+  ]
+}

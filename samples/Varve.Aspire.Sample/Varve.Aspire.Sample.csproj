@@ -5,7 +5,7 @@
        orchestration and dashboard carry platform binaries, and this project
        is outside Varve.slnx's packable set, as the benchmark harness is. The
        SDK's version is the register's (Directory.Packages.props, ADR 0117). -->
-  <Sdk Name="Aspire.AppHost.Sdk" Version="13.6.1" />
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.6.5" />
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>

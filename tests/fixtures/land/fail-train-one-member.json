@@ -1,0 +1,10 @@
+{
+  "step": "train",
+  "main": { "README.md": "Varve\n" },
+  "members": [
+    { "number": 11, "files": { "docs/a.md": "a\n" }, "approval": "head", "green": true }
+  ],
+  "says": [
+    "a train has two or more members. Land #11 alone: dotnet run eng/land.cs -- 11"
+  ]
+}

@@ -8,6 +8,13 @@ act on the pull request. **Refines ADR 0037**'s testing consequence, which
 named a local issuer and an Entra leg skipped without secrets; this ADR keeps
 both and adds two legs between them.
 
+**Superseded in part 2026-11-06 by [ADR
+0223](0223-provider-legs-by-federated-credentials.md)** (filed unaccepted):
+point 4's secrets. The Entra and Google legs reach their providers by
+federated credentials from GitHub's OIDC token, and the `auth-providers`
+environment holds identifiers only. `EntraAndGoogleBySecret` moves to 0223's
+set under its key, restated. What point 4 asserts stands.
+
 ## Context
 
 The server accepts one credential, an OIDC bearer token (ADR 0037). Whether it
