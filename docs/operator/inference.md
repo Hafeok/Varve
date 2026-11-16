@@ -55,11 +55,17 @@ Apply it with `varve apply`, or `PUT` it to `/manage/datasets/zoo`.
   `varve:defaultEntailment` state the same one.
 - **No templates.** A binding names no `varve:graphTemplate`: a template
   expands per caller, and a binding has no caller.
-- **Reserved.** The materialising profiles `varve:RDFS`, `varve:OWL2RL` and
-  `varve:RulesOnly`, and `varve:rulesGraph`, `varve:crossGraph`,
-  `varve:sameAs` and `varve:inconsistencyMode`, are refused, each with the
-  part of #95 that gives it effect. A declaration written for a later part is
-  refused, not silently ignored.
+- **The materialising profiles.** `varve:profile varve:RDFS` and
+  `varve:OWL2RL` are read (ADR 0197), with `varve:crossGraph true` and
+  `varve:sameAs varve:SameAsOff` on them, and `varve:defaultEntailment
+  ent:OWL-RDF-Based` on an `OWL2RL` binding only. Tier 1 still answers `rdf`,
+  `rdfs` and `d` over a materialising binding's graphs. A cross-graph binding
+  whose data graphs meet a classifier binding's is refused while a grant with
+  subject terms reads them (ADR 0238 point 3).
+- **Reserved.** `varve:RulesOnly`, `varve:rulesGraph`, `varve:SameAsClasses`
+  and `varve:inconsistencyMode` are refused, each with the part of #95 that
+  gives it effect. A declaration written for a later part is refused, not
+  silently ignored.
 
 ## Who reads the TBox
 
