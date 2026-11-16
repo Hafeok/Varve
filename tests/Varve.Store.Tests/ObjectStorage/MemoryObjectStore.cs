@@ -48,6 +48,18 @@ internal sealed class MemoryObjectStore : IObjectStore
     /// </summary>
     public bool IgnoresConditions { get; set; }
 
+    /// <summary>
+    /// Whether the store enforces each condition one request at a time and
+    /// not under concurrency: it checks, lets go, and then writes without
+    /// checking again. Two creates that race both win, where a create after a
+    /// create is refused. The open's probe cannot see it (ADR 0134); only the
+    /// race property does (ADR 0183).
+    /// </summary>
+    public bool LosesRaces { get; set; }
+
+    /// <summary>With <see cref="LosesRaces"/>: whether creates hold all the same, so that only replaces race.</summary>
+    public bool CreatesHold { get; set; }
+
     public int Count(ObjectOperation operation)
     {
         lock (_gate)
@@ -110,7 +122,7 @@ internal sealed class MemoryObjectStore : IObjectStore
     }
 
     public ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ReadOnlyMemory<byte> content, CancellationToken cancellationToken) =>
-        Run(ObjectOperation.Create, name, () =>
+        LosesRaces && !CreatesHold ? Racing(ObjectOperation.Create, name, () => !_objects.ContainsKey(name.Value), content) : Run(ObjectOperation.Create, name, () =>
         {
             if (_objects.ContainsKey(name.Value) && !IgnoresConditions)
             {
@@ -122,7 +134,7 @@ internal sealed class MemoryObjectStore : IObjectStore
         });
 
     public ValueTask<ObjectVersion?> ReplaceIfUnchangedAsync(ObjectName name, ObjectVersion expected, ReadOnlyMemory<byte> content, CancellationToken cancellationToken) =>
-        Run(ObjectOperation.Replace, name, () =>
+        LosesRaces ? Racing(ObjectOperation.Replace, name, () => _objects.TryGetValue(name.Value, out var found) && Version(found.Version) == expected, content) : Run(ObjectOperation.Replace, name, () =>
         {
             if (!_objects.TryGetValue(name.Value, out var found) || (Version(found.Version) != expected && !IgnoresConditions))
             {
@@ -169,6 +181,24 @@ internal sealed class MemoryObjectStore : IObjectStore
     public override string ToString() => "memory://objects";
 
     private static ObjectVersion Version(long version) => new("v" + version.ToString(CultureInfo.InvariantCulture));
+
+    // The condition is checked, and the write made a moment later without
+    // checking again: every request that checked in that moment writes.
+    private async ValueTask<ObjectVersion?> Racing(ObjectOperation operation, ObjectName name, Func<bool> condition, ReadOnlyMemory<byte> content)
+    {
+        if (!await Run(operation, name, condition))
+        {
+            return null;
+        }
+
+        await Task.Delay(TimeSpan.FromMilliseconds(20));
+
+        lock (_gate)
+        {
+            _objects[name.Value] = (content.ToArray(), ++_versions);
+            return Version(_versions);
+        }
+    }
 
     private ValueTask<TResult> Run<TResult>(ObjectOperation operation, ObjectName name, Func<TResult> apply)
     {
