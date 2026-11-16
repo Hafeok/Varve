@@ -191,14 +191,21 @@ public sealed partial class Closure
                 bool again = before is not null && RoundAfter(premises, fact, before.Value) == now;
                 if (!Facts.Contains(head))
                 {
+                    // Queued once per round it improves to, not once per instance found:
+                    // a head of many instances would otherwise fill the queue with them.
+                    bool known = found.TryGetValue(head, out (int Round, int Count) prior);
                     if (!again)
                     {
-                        found[head] = found.TryGetValue(head, out (int Round, int Count) known) && known.Round <= now
-                            ? (known.Round, known.Count + (known.Round == now ? 1 : 0))
+                        found[head] = known && prior.Round <= now
+                            ? (prior.Round, prior.Count + (prior.Round == now ? 1 : 0))
                             : (now, 1);
                     }
 
-                    queue.Enqueue(head, now);
+                    if (!known || now < prior.Round || again)
+                    {
+                        queue.Enqueue(head, now);
+                    }
+
                     continue;
                 }
 
