@@ -12,7 +12,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [0.1.0-preview.21] - 2026-11-12
+## [0.1.0-preview.21] - 2026-11-16
 
 **Varve.Aspire requires the patched Aspire.Hosting**
 
