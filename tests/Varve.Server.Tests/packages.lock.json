@@ -270,7 +270,9 @@
         "dependencies": {
           "Varve.Inference": "[1.0.0, )",
           "Varve.Rdf": "[1.0.0, )",
-          "Varve.Store": "[1.0.0, )"
+          "Varve.Sparql.Entailment": "[1.0.0, )",
+          "Varve.Store": "[1.0.0, )",
+          "Varve.Xsd": "[1.0.0, )"
         }
       },
       "varve.iri": {
