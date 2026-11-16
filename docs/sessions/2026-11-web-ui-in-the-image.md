@@ -64,13 +64,13 @@ The CI time the `container` job's wait for `wasm` adds is posted on #296 after t
 ## Test counts
 
 New tests (before → after, in the projects they join):
-- `Varve.Server.Tests`: `WebUiGeneratedSettingsTests`, 9 cases.
+- `Varve.Server.Tests`: 232 → 241 (187 run here, 54 skipped for want of an issuer or a store service). `WebUiGeneratedSettingsTests` adds 9 cases.
 - `Varve.WebUi.Tests`: 233 → 241. `SignInNotConfiguredTests` adds 8 cases.
 - `Varve.WebUi.Browser.Tests`: 8 → 11.
   - the not-configured console in-process;
   - `WebUiImageTests`, 2 cases, run against the image in the `container` job.
 
-The full `eng/ci.cs` result is posted with the head on the pull request.
+`eng/ci.cs` here, with SDK 10.0.403: all 68 jobs pass, `conformance` and `pack` included. The full result is posted with the head on the pull request.
 
 ## Questions for the maintainer
 
