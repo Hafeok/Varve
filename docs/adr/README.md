@@ -478,6 +478,14 @@ Filed by the session for [#230](https://github.com/Hafeok/Varve/issues/230), rec
 |---:|---|---|
 | [0243](0243-chain-builds-ahead-of-main.md) | Chain builds ahead of main, and landing trains | Filed unaccepted (#230) |
 
+## The Web UI in the container image (#296)
+
+Filed by the session for [#296](https://github.com/Hafeok/Varve/issues/296), recording the maintainer's ruling of 2026-11-16 and his answers to the plan, unaccepted until he accepts it (ADR 0066). Numbered 0245: 0240, 0242 and 0244 are taken by open pull requests (#268, #267, #264). It supersedes 0202 point 6 in part, and amends 0111, 0201, 0202 and 0225 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0245](0245-the-web-ui-in-the-container-image.md) | The Web UI in the container image, served by default, with its settings from the server | Filed unaccepted (#296) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

@@ -224,3 +224,25 @@ names both planes, under the conditions below (2026-10-30).
    nothing, and the server decides.
 
 The ruling is `ManagementTokenByExchange`.
+
+## Amendment, 2026-11-16 — where the settings come from, and `NotConfigured`
+
+Filed by the session for #296 with [ADR 0245](0245-the-web-ui-in-the-container-image.md),
+unaccepted until the maintainer accepts it (ADR 0066).
+
+1. **Point 5's settings have a second source.**
+   - With `Varve:WebUi:Settings` `Generated`, which the container image sets, the server answers `/ui/appsettings.json` from its own configuration:
+     - the mode from `Varve:Auth:Mode`;
+     - `Authority` and `RoleClaimType` from the server's `Varve:Auth`;
+     - the client (`ClientId`, `DataScope`, `ManageScope`, and the grant and audiences of the amendment of 2026-10-28) from `Varve:WebUi:Auth:*`;
+     - `Server` from `Varve:WebUi:Server`.
+   - Otherwise the bundle's own file is read, as before.
+2. **A third mode, `NotConfigured`.**
+   - **What the server answers:** on an OIDC server with no client for the Web UI, the server answers `NotConfigured`, with `Missing`, the settings to add.
+   - **How the console reads the mode:**
+     - only `Anonymous` is anonymous, and only `Oidc` signs in;
+     - `NotConfigured`, a missing mode and an unknown one all show "Sign-in is not configured", naming what to add, with both planes "not configured";
+     - nothing reads the server.
+
+     Point 4's "anonymous mode shows both planes anonymous" is then never said of a server that checks tokens.
+3. **The client stays public.** The generated settings have no field for a secret, and `Varve:WebUi:Auth` accepts none.

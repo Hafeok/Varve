@@ -27,12 +27,11 @@ decisions:
     statement: "Another static host may serve the bundle if it sends the same policy with the server's origin in connect-src, answers routes with index.html, and the server lists its origin in Varve:Cors:AllowedOrigins"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-28T00:00:00Z
-  - key: ZipAssetNoImage
-    statement: "The Web UI ships as a release zip whose digest is in the build attestation, and in the release descriptor once #119 defines the field; it is in no container image"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-10-28T00:00:00Z
 ---
 
 The rulings of [ADR 0202](../adr/0202-serving-the-web-ui-and-its-content-security-policy.md), one line each.
 Filed unaccepted by Web UI part 1 (#167); every citation is `CS0618` until the maintainer accepts
 them (ADR 0066).
+
+Moved to a later set: `ZipAssetNoImage` is superseded by ADR 0245, which puts the same bundle in the
+server's container image, in its set.

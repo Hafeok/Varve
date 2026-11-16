@@ -151,3 +151,30 @@ an ingress serving files) and wants the Web UI there.
   - Layer ownership: `Varve.Server`, layer 6.
   - Analyzer rule: none new. `WebUiHostingTests` covers points 1 and 2, and
     the browser tests point 5.
+
+## Amendment, 2026-11-16 — the bundle in the image, and the management listener
+
+Filed by the session for #296 with [ADR 0245](0245-the-web-ui-in-the-container-image.md),
+unaccepted until the maintainer accepts it (ADR 0066). It records the
+maintainer's ruling of 2026-11-16: *the image ships the Web UI, and serves it
+by default.*
+
+- **Point 6 (D2) is superseded in part.**
+  - The zip stays a release asset, with its SBOM and attestations.
+  - The same bundle is now also in the server's image, at `/app/webui`, unpacked unchanged from the zip the same run attested.
+  - `ZipAssetNoImage` moves to ADR 0245's set.
+  - The Alternatives entry refusing the bundle in the image is reversed by that ruling. The reason given, a tie between two releases, does not hold, because one descriptor cuts both.
+- **Point 1's "unset by default" now holds outside the image only.**
+  - The image sets `Varve:WebUi:Path` to its bundle.
+  - `Varve:WebUi:Enabled`, `true` by default, turns the Web UI off: when it is `false`, the server adds no `/ui/` at all, as when the path is unset.
+- **Where `/ui/appsettings.json` comes from:**
+  - by default it is the bundle's own file, as point 1 serves it;
+  - with `Varve:WebUi:Settings` `Generated`, it is the server's own answer, with ADR 0202's four headers, and the bundle's `appsettings.json` and its `.br` and `.gz` copies are never served.
+
+  ADR 0245 point 3 states the rule.
+- **Point 2's policy is unchanged.** The generated settings are data, not script.
+- **Point 1's management listener paragraph is corrected.** It said the Web UI reaches `/manage` on a second listener once `Varve:Cors:AllowedOrigins` lists its origin. It does not:
+  - the console has one address for both planes;
+  - `/manage` on the data-plane port answers `404` (ADR 0163 point 1).
+
+  The console needs a single listener until [#297](https://github.com/Hafeok/Varve/issues/297) gives it an address per plane.

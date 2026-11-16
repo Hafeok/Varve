@@ -123,3 +123,22 @@ accepts it (ADR 0066).
 
 **The ledger.** The rulings of this ADR stand; the ruling of this block is
 `TheBaseIsPinnedAndTheSbomMerged`, unaccepted until the maintainer accepts it.
+
+## Amendment, 2026-11-16 — the Web UI in the image
+
+Filed by the session for #296 with [ADR 0245](0245-the-web-ui-in-the-container-image.md),
+unaccepted until the maintainer accepts it (ADR 0066).
+
+- **What the image holds.** Beside the binary, the image holds the Web UI's bundle at `/app/webui`:
+  - read-only, and owned by root;
+  - the contents of the zip the same run attested, unchanged.
+- **Point 4's variables gain two:**
+  - `VARVE__WEBUI__PATH=/app/webui`;
+  - `VARVE__WEBUI__SETTINGS=Generated`.
+
+  So `serve` answers `/ui/` with nothing else set. `VARVE__WEBUI__ENABLED=false` turns it off.
+- **The build:**
+  - `publish.yml`'s `image` job needs the `webui` job, and unpacks its zip into the build context;
+  - `ci.yml`'s `container` job needs `wasm`, and checks the console in the image.
+- **The image is otherwise as before:** non-root, a read-only root filesystem, the chiseled base by digest.
+- **Size:** 20.1 MB compressed before and 26.5 MB after, on linux-x64 (ADR 0245, *Size and digest*).

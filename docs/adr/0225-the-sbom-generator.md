@@ -193,3 +193,17 @@ SBOM of its own (ADR 0224 point 1).
   `eng/release.cs`'s case.
 
 Records decision `TheWebUiBundleFromItsRestore`.
+
+## Amendment, 2026-11-16 — the bundle in the image's SBOM
+
+Filed by the session for #296 with [ADR 0245](0245-the-web-ui-in-the-container-image.md),
+unaccepted until the maintainer accepts it (ADR 0066).
+
+The image now carries the Web UI's bundle. The amendment of 2026-11-06 said it was in neither the tool nor the image, and that no longer holds for the image. **The image's document now contains the asset document:**
+- **Once, not per platform,** because the bundle does not depend on the architecture.
+- **Its packages** are prefixed `SPDXRef-webui-`. They include the Mono `browser-wasm` runtime pack, Emscripten's packs and `Microsoft.AspNetCore.App.Internal.Assets`.
+- **Its relationships:**
+  - the asset document's `DESCRIBES` becomes the image's root `CONTAINS` the bundle's root;
+  - Emscripten's compiler and Node.js stay `BUILD_TOOL_OF` the bundle.
+- **The zip's own document is unchanged.**
+- **The check:** `ci.yml` fails a proposed release whose image SBOM lacks a package of the zip's.
