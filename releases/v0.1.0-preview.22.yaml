@@ -1,0 +1,86 @@
+format: 2
+version: v0.1.0-preview.22
+title: The container image ships the Web UI and serves it by default
+date: 2026-11-16
+basis:
+  - issue: 296
+  - storage-format: 1
+  - delta-format: 1
+  - adr: "0245"
+sbom:
+  - asset: varve-webui-0.1.0-preview.22.zip sha256:88cb3e0674a90f6097c421278eda0b657afa96ac2128b23ab0b3f03893d8986f
+  - image: ghcr.io/hafeok/varve sha256:0886bb2536d7ab932f6a5811b3308da0345f0ce7d788813835e9477e8303c213
+  - nupkg: Varve.Aspire sha256:716232cf6c992e77e571dbde92e6668228e998a1a7eae829e0352dba3259130e
+  - nupkg: Varve.Classification sha256:9046468c72f4aaf07a0d0598331b467afbd7492453e19b7f517d2b2f542e4a94
+  - nupkg: Varve.Delta sha256:d1b75d0c625651f4c56f339e60e0bd7cb6b52652de761ed07d70947b44a887d5
+  - nupkg: Varve.Derivation sha256:b3fb9ba4785ab9de311da6b4d459e9a7daac8550bc4093813ac4132fa3465244
+  - nupkg: Varve.Events sha256:a9325aaa97890f2a967a22d4341beb0290f0b68457ead4d2ff883d374494a066
+  - nupkg: Varve.Iri sha256:218fa19cd0c9483f9b5ebdd40e17bcb0066831d5525441cfa8d3ce1fbafd0a92
+  - nupkg: Varve.Json.Canonical sha256:ccbf00adf397cfa20082cf0b3dd1dc4189a33546ddb347074172e89176bb4a9d
+  - nupkg: Varve.JsonLd sha256:9cb5aeaf0c11ec6e66c2752298895d27ca63c57c569819d0a384e41c1905be7d
+  - nupkg: Varve.Management sha256:578c1a446bd68a98fe248bc0b3498d579620a31598786806c50f0b7ac0bada2c
+  - nupkg: Varve.Protocol sha256:f292acd5671a342f0517b38ce7194181bc6d3303b5dc352b685a7c8bea7c42b0
+  - nupkg: Varve.Protocol.Client sha256:25e478e49b9216a07f4a083aebe446d58d97a4273dd4955b99109503d49aa225
+  - nupkg: Varve.Rdf sha256:47642047bdd5bf79b23cd127c741598376c490baab03c532efc51073518f4f93
+  - nupkg: Varve.RdfXml sha256:c18997edab94e554b6be02a25850bfb0fae8d24e68c67510a9260be0141c6ef8
+  - nupkg: Varve.Shacl sha256:9b9ed647ce1f7e96502cd2d5acf4ea7de5afd90c1bf1963d3a3a502eab6f5b9f
+  - nupkg: Varve.Shacl.Sparql sha256:f8fca5fe3107fd925e6a3e113825b9741c15fb38bc1fcdbc939f66cf496d5a87
+  - nupkg: Varve.Shacl.Store sha256:c1b06aa04d9e5bdc08297f44691e5b6e747f5e20a147012aa2d32fd64abe3a70
+  - nupkg: Varve.Sparql sha256:9e958599a346160f256d3cc193ddab282ea094417fc894760391bb20d502d679
+  - nupkg: Varve.Sparql.Entailment sha256:22de0cb224da852d8957386924f99c7b2e0352758862ac9f3b92803c124fd272
+  - nupkg: Varve.Sparql.Evaluation sha256:66615157f1b26af5b51cb03e4d76af31b4d5f5d02d1a0445cdd8621bc65598c7
+  - nupkg: Varve.Sparql.Results sha256:b62789b95fd10b6fe51774b800726847176e07317e1ab2bc5b53bf282d5da941
+  - nupkg: Varve.Sparql.Store sha256:399f7d004bed73bcc65b4d2ba9fdb664ec66b392c7e995a85d44b2dec5942326
+  - nupkg: Varve.Store sha256:28b5be1b5d63c51b3ad0082e7b1cacb072c478a138ecc27e1c4281571315b803
+  - nupkg: Varve.Store.Azure sha256:baafb36f8970ca3e1301b8a0ed8a6c475fc7f91c84768f3d7492ef66c0ab3089
+  - nupkg: Varve.Store.Browser sha256:7978fe9fce66704d0302f6d096de38698abecfeae297becc5201a2e5606508e3
+  - nupkg: Varve.Store.ObjectStorage sha256:5068df2944c9256573d4a51802c800e9ca6815c784b22a41aaec7937794099cf
+  - nupkg: Varve.Store.S3 sha256:949f06510534fd201d5eafdd26e195a5262210026b35a34e1e16fd15c8405d1c
+  - nupkg: Varve.Turtle sha256:e971c18347dac98bc9ac51fdfdf9269c9be8e8793224f40d00aa6de49d268bb9
+  - nupkg: Varve.Xsd sha256:81682a7ca929e026d9d4e6bccab1536223487d023e88cd1f8ab7a1c9ae23fc8c
+  - tool: Varve.Server sha256:95e86a52e870a5fd0fa4b3afa72f637ea1587c350d13c706fcadee2ce0a8b88d
+accepted-by: mailto:emil@okkels-klein.dk
+summary: |
+  ### The container image ships the Web UI (#296)
+
+  `ghcr.io/hafeok/varve` now carries the operator console and serves it at
+  `/ui/` by default. The first run is the whole of it:
+
+  ```sh
+  docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.22 serve --anonymous
+  ```
+
+  and a browser at `http://localhost:8080/ui/` (ADR 0245, filed unaccepted).
+
+  - **The bundle** is at `/app/webui`, read-only: the contents of
+    `varve-webui-<version>.zip`, unpacked unchanged from the zip the same
+    release attests. The zip stays a release asset, with its own SBOM and
+    attestations, for anyone who hosts the Web UI elsewhere. The image's
+    SBOM now lists the bundle's components, the .NET runtime for the browser
+    and Emscripten's packs among them.
+  - **The settings come from the server.** The image sets
+    `Varve:WebUi:Settings` to `Generated`: the server answers
+    `/ui/appsettings.json` from its own configuration, so nobody edits a file
+    in the image. The console signs in with the server's own issuer, and the
+    Web UI's public client is given to the server as
+    `Varve:WebUi:Auth:ClientId`, `DataScope` and `ManageScope`. The answer is
+    built from an allow-list of fields, and nothing secret is ever in it.
+  - **A server with OIDC and no client for the Web UI** says so: the console
+    shows *Sign-in is not configured*, names the settings to add, and reads
+    nothing. It never calls itself anonymous on a server that checks tokens.
+    The console now treats only the exact mode `Anonymous` as anonymous.
+  - **`Varve:WebUi:Enabled`**, `true` by default, turns the Web UI off:
+    `VARVE__WEBUI__ENABLED=false` and the server adds no `/ui/` at all.
+  - **Outside the image nothing changes.** With `Varve:WebUi:Path` unset
+    there is no `/ui/`, and an unpacked bundle's own `appsettings.json` is
+    served as edited while `Varve:WebUi:Settings` is `File`, the default.
+  - **New start-time refusals:** `Varve:WebUi:Server` or any
+    `Varve:WebUi:Auth:*` set while `Settings` is `File`, a half-set client,
+    or a client on an anonymous server refuses the start, naming the setting.
+  - **The image is larger:** 26.5 MB compressed on linux-x64, from 20.1 MB.
+
+  The Content Security Policy is unchanged. The Web UI still needs a single
+  listener: with `Varve:Manage:Urls` its management screens cannot reach
+  `/manage`, and the guide no longer says otherwise (#297).
+
+  The storage and delta formats are unchanged.

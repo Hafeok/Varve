@@ -12,6 +12,54 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.22] - 2026-11-16
+
+**The container image ships the Web UI and serves it by default**
+
+### The container image ships the Web UI (#296)
+
+`ghcr.io/hafeok/varve` now carries the operator console and serves it at
+`/ui/` by default. The first run is the whole of it:
+
+```sh
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.22 serve --anonymous
+```
+
+and a browser at `http://localhost:8080/ui/` (ADR 0245, filed unaccepted).
+
+- **The bundle** is at `/app/webui`, read-only: the contents of
+  `varve-webui-<version>.zip`, unpacked unchanged from the zip the same
+  release attests. The zip stays a release asset, with its own SBOM and
+  attestations, for anyone who hosts the Web UI elsewhere. The image's
+  SBOM now lists the bundle's components, the .NET runtime for the browser
+  and Emscripten's packs among them.
+- **The settings come from the server.** The image sets
+  `Varve:WebUi:Settings` to `Generated`: the server answers
+  `/ui/appsettings.json` from its own configuration, so nobody edits a file
+  in the image. The console signs in with the server's own issuer, and the
+  Web UI's public client is given to the server as
+  `Varve:WebUi:Auth:ClientId`, `DataScope` and `ManageScope`. The answer is
+  built from an allow-list of fields, and nothing secret is ever in it.
+- **A server with OIDC and no client for the Web UI** says so: the console
+  shows *Sign-in is not configured*, names the settings to add, and reads
+  nothing. It never calls itself anonymous on a server that checks tokens.
+  The console now treats only the exact mode `Anonymous` as anonymous.
+- **`Varve:WebUi:Enabled`**, `true` by default, turns the Web UI off:
+  `VARVE__WEBUI__ENABLED=false` and the server adds no `/ui/` at all.
+- **Outside the image nothing changes.** With `Varve:WebUi:Path` unset
+  there is no `/ui/`, and an unpacked bundle's own `appsettings.json` is
+  served as edited while `Varve:WebUi:Settings` is `File`, the default.
+- **New start-time refusals:** `Varve:WebUi:Server` or any
+  `Varve:WebUi:Auth:*` set while `Settings` is `File`, a half-set client,
+  or a client on an anonymous server refuses the start, naming the setting.
+- **The image is larger:** 26.5 MB compressed on linux-x64, from 20.1 MB.
+
+The Content Security Policy is unchanged. The Web UI still needs a single
+listener: with `Varve:Manage:Urls` its management screens cannot reach
+`/manage`, and the guide no longer says otherwise (#297).
+
+The storage and delta formats are unchanged.
+
 ## [0.1.0-preview.21] - 2026-11-16
 
 **Varve.Aspire requires the patched Aspire.Hosting**
@@ -2213,7 +2261,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.21...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.22...HEAD
+[0.1.0-preview.22]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.21...v0.1.0-preview.22
 [0.1.0-preview.21]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.20...v0.1.0-preview.21
 [0.1.0-preview.20]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.19...v0.1.0-preview.20
 [0.1.0-preview.19]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.18...v0.1.0-preview.19
