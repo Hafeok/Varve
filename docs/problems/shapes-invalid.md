@@ -20,6 +20,14 @@ way. Nothing was committed.
 - `problems` lists each problem by `kind`, `message`, and, when known,
   `shape`, `focusNode` and the refused `cycle`.
 
+## What to do
+
+An operator or the dataset's admin: fix each entry `problems` lists in the
+shapes graph, and commit it again. `GET
+/manage/datasets/{name}/bindings/{enc(binding)}` shows any problem with the
+shapes graph ([Shapes](../operator/shapes.md)). The same commit is refused
+again.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

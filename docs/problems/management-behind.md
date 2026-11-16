@@ -16,6 +16,13 @@ request to the system writer. A write is refused with this problem too when
 its dataset already records a later management position than the one it was
 authorised at (ADR 0165): retry it, and it is authorised again.
 
+## What to do
+
+- A client: retry, or send the request to the system writer; `GET
+  /manage/system` names it ([Reading your writes](../operator/fleet.md#reading-your-writes)).
+- An operator: if it persists, check the `management` lag on
+  `/health/ready` ([The fleet](../operator/fleet.md#readiness)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

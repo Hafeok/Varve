@@ -478,9 +478,17 @@ Filed by the session for [#230](https://github.com/Hafeok/Varve/issues/230), rec
 |---:|---|---|
 | [0243](0243-chain-builds-ahead-of-main.md) | Chain builds ahead of main, and landing trains | Filed unaccepted (#230) |
 
+## Problems that say what to do (#194)
+
+Filed by the session for [#194](https://github.com/Hafeok/Varve/issues/194), unaccepted until the maintainer accepts it (ADR 0066). Numbered 0242: open branches hold 0240 and 0241.
+
+| # | Title | Status |
+|---:|---|---|
+| [0242](0242-problems-that-say-what-to-do.md) | Problems that say what to do: `forbidden`, a failed dataset, `writer-superseded` and `shutting-down` name the next step; every problem page says what to do | Filed unaccepted (#194) |
+
 ## The Web UI in the container image (#296)
 
-Filed by the session for [#296](https://github.com/Hafeok/Varve/issues/296), recording the maintainer's ruling of 2026-11-16 and his answers to the plan, unaccepted until he accepts it (ADR 0066). Numbered 0245: 0240, 0242 and 0244 are taken by open pull requests (#268, #267, #264). It supersedes 0202 point 6 in part, and amends 0111, 0201, 0202 and 0225 by dated amendments.
+Filed by the session for [#296](https://github.com/Hafeok/Varve/issues/296), recording the maintainer's ruling of 2026-11-16 and his answers to the plan, unaccepted until he accepts it (ADR 0066). Numbered 0245: 0240 and 0242 are on `main` (#268, #267), and 0244 is taken by an open pull request (#264). It supersedes 0202 point 6 in part, and amends 0111, 0201, 0202 and 0225 by dated amendments.
 
 | # | Title | Status |
 |---:|---|---|
@@ -595,3 +603,11 @@ From ADR 0003:
   name and could not be closed. Withdrawn 2026-09-21: it was wrong on both
   counts, and the rule now checks `IsPackable` and refuses the analyzer as a
   library reference.
+
+## Resident memory (#222)
+
+Filed by the session for [#222](https://github.com/Hafeok/Varve/issues/222), unaccepted until the maintainer accepts it (ADR 0066). It amends 0082, 0089 and 0177 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0240](0240-resident-memory-is-bounded-by-data-and-configuration.md) | Resident memory is bounded by data and by configuration, never by commits | Filed unaccepted (#222) |

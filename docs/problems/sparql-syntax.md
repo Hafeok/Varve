@@ -9,6 +9,12 @@
 
 A query or update that does not parse, on `/sparql`. `line`, `column` and `offset` (bytes) point into the request's own text (ADR 0092; `docs/spec/sparql-grammar.md`).
 
+## What to do
+
+A client: fix the text at `line` and `column` and send it again. The same
+text is refused again. The grammar is
+[`docs/spec/sparql-grammar.md`](../spec/sparql-grammar.md).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

@@ -356,7 +356,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             string? address = _role == ManagementRole.Writer
                 ? _settings.Fleet.InternalUrl
                 : _routes.TryGetValue(SystemName, out WriterRoute route) ? route.Address : null;
-            return new ManagementStatus(_role, epoch, current.Table.Position, new ManagementPosition(Math.Max(system.Head.Value, current.Table.Position.Value)), current.Bootstrap, address);
+            return new ManagementStatus(_role, epoch, current.Table.Position, new ManagementPosition(Math.Max(system.Head.Value, current.Table.Position.Value)), current.Bootstrap, address) { Instance = _instance.Value };
         }
     }
 
@@ -945,6 +945,24 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         }
 
         return route;
+    }
+
+    /// <summary>
+    /// The writer record's holder by its instance name, read from the store,
+    /// whatever this instance's role (ADR 0242); null when the record is
+    /// absent or released, or names this instance.
+    /// </summary>
+    public async ValueTask<WriterHolder?> HolderAsync(WriterTarget target, CancellationToken cancellationToken)
+    {
+        if (_objects is null)
+        {
+            return null;
+        }
+
+        WriterRecord? record = await _objects.ReadWriterAsync(target.Dataset is { } dataset ? dataset.Value : SystemName, cancellationToken).ConfigureAwait(false);
+        return record is null || record.Released is not null || record.Holder == _instance
+            ? null
+            : new WriterHolder(record.Holder.Value, record.Epoch.Value);
     }
 
     private WriterRoute RouteOf(WriterRecord? record)

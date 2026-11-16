@@ -23,6 +23,14 @@ instance's own restart, takes the dataset over. Send the write again: through
 any instance it is routed to the new writer, and a forwarded one that met this
 answer is answered `writer-moved`.
 
+## What to do
+
+- A client: send the write again; nothing was committed, and it is routed to
+  the new writer once one holds the dataset.
+- An operator: with no standby, restart the instance. For `storage-error` or
+  `local-disk-error`, check the store or the local disk
+  ([The fleet](../operator/fleet.md#standbys-a-writer-set)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).
