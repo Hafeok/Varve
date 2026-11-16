@@ -30,8 +30,8 @@ internal static class Support
 
     internal static RdfTerm IriOf(string iri) => RdfTerm.Iri(Encoding.UTF8.GetBytes(iri));
 
-    internal static InferenceBinding Binding(InferenceProfile profile, bool defaultGraph = true) =>
-        new(Ex("binding"), [TBox], GraphScope.Of([], ["http://ex/g"], defaultGraph ? DefaultGraphAccess.Included : DefaultGraphAccess.Excluded), profile);
+    internal static InferenceBinding Binding(InferenceProfile profile, bool defaultGraph = true, bool crossGraph = false) =>
+        new(Ex("binding"), [TBox], GraphScope.Of([], ["http://ex/g"], defaultGraph ? DefaultGraphAccess.Included : DefaultGraphAccess.Excluded), profile) { CrossGraph = crossGraph };
 
     internal static async Task<Dataset> CreateAsync(CancellationToken ct) =>
         await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, ct);
@@ -156,6 +156,143 @@ internal static class Support
                 {
                     rows.Add(graph + " " + terms.Text(fact));
                 }
+            }
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// The oracle for a cross-graph binding (ADR 0190 point 6): the closure of
+    /// the TBox with every subset of the data graphs present, each fact's
+    /// minimal premise sets the minimal subsets whose closure holds it. A
+    /// fact the TBox closure does not hold is a row once per minimal set: in
+    /// its graph for a set of one, unless explicit there; in
+    /// <c>varve:inferred/{enc(binding)}/{d}</c> for a set of more, <c>d</c>
+    /// the hex SHA-256 of the sorted lines <c>&lt;iri&gt;\n</c>.
+    /// </summary>
+    internal static HashSet<string> ExpectedCrossGraph(IQuadSource view, InferenceBinding binding)
+    {
+        TermTable terms = new();
+        List<Fact> tbox = [];
+        Dictionary<string, HashSet<Fact>> graphs = new(StringComparer.Ordinal);
+        using (IQuadCursor cursor = view.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
+        {
+            while (cursor.MoveNext())
+            {
+                Quad quad = cursor.Current;
+                RdfTerm? graph = null;
+                if (!quad.Graph.IsNone && !view.TryExternalise(quad.Graph, out graph))
+                {
+                    throw new InvalidOperationException("a graph the view cannot name");
+                }
+
+                Fact fact = terms.Fact(Of(view, quad.Subject), Of(view, quad.Predicate), Of(view, quad.Object));
+                if (graph is not null && graph.Equals(TBox))
+                {
+                    tbox.Add(fact);
+                }
+                else if (graph is null ? binding.DataGraphs.IncludesDefault : binding.DataGraphs.Allows(graph))
+                {
+                    string name = graph is null ? "DEFAULT" : Name(graph);
+                    if (!graphs.TryGetValue(name, out HashSet<Fact>? facts))
+                    {
+                        graphs[name] = facts = [];
+                    }
+
+                    facts.Add(fact);
+                }
+            }
+        }
+
+        string tboxGraph = Name(InferenceProjection.InferredTBox(binding.Binding.Lexical));
+        HashSet<string> rows = [];
+        Closure t = new(binding.Profile, terms);
+        t.Apply([.. tbox], []);
+        foreach (Fact fact in t.Implicit)
+        {
+            if (terms.Servable(fact))
+            {
+                rows.Add(tboxGraph + " " + terms.Text(fact));
+            }
+        }
+
+        string[] names = [.. graphs.Keys];
+        Dictionary<int, HashSet<Fact>> closures = [];
+        for (int mask = 0; mask < 1 << names.Length; mask++)
+        {
+            HashSet<Fact> facts = [.. tbox];
+            for (int g = 0; g < names.Length; g++)
+            {
+                if ((mask & (1 << g)) != 0)
+                {
+                    facts.UnionWith(graphs[names[g]]);
+                }
+            }
+
+            Closure closure = new(binding.Profile, terms);
+            closure.Apply([.. facts], []);
+            closures[mask] = [.. closure.All];
+        }
+
+        string prefix = tboxGraph[..^"tbox>".Length];
+        foreach (Fact fact in closures[(1 << names.Length) - 1])
+        {
+            if (t.Contains(fact) || !terms.Servable(fact))
+            {
+                continue;
+            }
+
+            List<int> entailing = [];
+            foreach ((int mask, HashSet<Fact> facts) in closures)
+            {
+                if (facts.Contains(fact))
+                {
+                    entailing.Add(mask);
+                }
+            }
+
+            foreach (int mask in entailing)
+            {
+                bool minimal = true;
+                foreach (int other in entailing)
+                {
+                    minimal &= other == mask || (other & mask) != other;
+                }
+
+                if (!minimal)
+                {
+                    continue;
+                }
+
+                List<string> members = [];
+                for (int g = 0; g < names.Length; g++)
+                {
+                    if ((mask & (1 << g)) != 0)
+                    {
+                        members.Add(names[g]);
+                    }
+                }
+
+                if (members.Count == 1)
+                {
+                    if (!graphs[members[0]].Contains(fact))
+                    {
+                        rows.Add(members[0] + " " + terms.Text(fact));
+                    }
+
+                    continue;
+                }
+
+                List<string> lines = [];
+                foreach (string member in members)
+                {
+                    lines.Add((member == "DEFAULT" ? "<https://w3id.org/varve/ns#defaultGraph>" : member) + "\n");
+                }
+
+                lines.Sort(StringComparer.Ordinal);
+                string digest = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(string.Concat(lines))));
+                rows.Add(prefix + digest + "> " + terms.Text(fact));
             }
         }
 

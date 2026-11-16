@@ -25,23 +25,34 @@ namespace Varve.Inference.Store;
 /// subject or a predicate that is not an IRI is held for the joins and never
 /// served.
 /// </remarks>
+/// <summary>
+/// A binding's closures at one position (ADR 0195 points 2 and 3), and where
+/// each row sits (ADR 0190 points 2 and 6): the TBox graphs' closure, under
+/// the data graphs' closures, all taking their facts from one budget. A TBox
+/// change rebuilds them all: a generation. An intra-graph binding's are
+/// <see cref="PerGraphMaterialisation"/>, a cross-graph binding's
+/// <see cref="CrossGraphMaterialisation"/>.
+/// </summary>
+/// <remarks>
+/// A TBox conclusion is a row of the TBox conclusions' graph when the TBox
+/// closure derives it and it is not explicit there. Only a well-formed fact
+/// is a row: a literal subject or a predicate that is not an IRI is held for
+/// the joins and never served.
+/// </remarks>
 [Contract(typeof(TheInferenceProjection.PlacedByPremiseSets), Role = "a binding's closures, placed by graph")]
-internal sealed class Materialisation
+internal abstract class Materialisation
 {
-    private readonly InferenceProjection _projection;
-    private readonly Closure _tbox;
-    private readonly Dictionary<TermHandle, Closure> _graphs = [];
     private readonly Dictionary<TermHandle, bool> _data = [];
     private readonly Dictionary<TermHandle, bool> _tboxGraphs = [];
     private readonly List<TermHandle> _dropped = [];
 
-    private Materialisation(ProjectionTerms terms, InferenceProjection projection)
+    protected Materialisation(ProjectionTerms terms, InferenceProjection projection)
     {
-        _projection = projection;
+        Projection = projection;
         Terms = terms;
         terms.BeginProgram();
         Budget = new FactBudget(projection.FactLimit);
-        _tbox = new Closure(projection.Binding.Profile, Terms, Budget);
+        TBox = new Closure(projection.Binding.Profile, Terms, Budget);
         TBoxGraph = Terms.Handle(projection.TBoxGraph);
     }
 
@@ -52,12 +63,16 @@ internal sealed class Materialisation
     /// <summary>The handle the TBox conclusions' graph's rows are placed under.</summary>
     internal TermHandle TBoxGraph { get; }
 
+    protected InferenceProjection Projection { get; }
+
+    protected Closure TBox { get; }
+
     /// <summary>The closures of <paramref name="source"/>'s quads, from scratch, over <paramref name="terms"/>, whose source it becomes.</summary>
     /// <exception cref="ClosureLimitExceededException">They would pass the binding's limit; nothing is kept.</exception>
     internal static Materialisation Build(IQuadSource source, ProjectionTerms terms, InferenceProjection projection, CancellationToken cancellationToken)
     {
         terms.Source = source;
-        Materialisation built = new(terms, projection);
+        Materialisation built = projection.Binding.CrossGraph ? new CrossGraphMaterialisation(terms, projection) : new PerGraphMaterialisation(terms, projection);
         try
         {
             List<Fact> tbox = [];
@@ -85,15 +100,9 @@ internal sealed class Materialisation
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            built._tbox.Apply([.. tbox], []);
-            foreach ((TermHandle graph, List<Fact> facts) in graphs)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                Closure closure = new(projection.Binding.Profile, built.Terms, built.Budget, built._tbox);
-                built._graphs[graph] = closure;
-                closure.Apply([.. facts], []);
-            }
-
+            built.TBox.Apply([.. tbox], []);
+            built.Load(graphs, cancellationToken);
+            projection.Learn(built);
             return built;
         }
         catch
@@ -104,9 +113,9 @@ internal sealed class Materialisation
     }
 
     /// <summary>
-    /// Applies a commit's exact delta, each data graph's part to its own
-    /// closure. Answers, per graph, the facts whose row may have changed; or
-    /// null when the commit changes a TBox graph, which is a generation.
+    /// Applies a commit's exact delta. Answers, per graph, the facts whose row
+    /// may have changed; or null when the commit changes a TBox graph, which
+    /// is a generation.
     /// </summary>
     /// <exception cref="ClosureLimitExceededException">A closure would pass the binding's limit.</exception>
     internal Dictionary<TermHandle, HashSet<Fact>>? Apply(IQuadSource view, QuadDelta delta)
@@ -122,32 +131,11 @@ internal sealed class Materialisation
         }
 
         Dictionary<TermHandle, HashSet<Fact>> changed = [];
-
-        foreach ((TermHandle graph, (List<Fact> asserted, List<Fact> retracted)) in graphs)
-        {
-            HashSet<Fact> into = Into(changed, graph);
-            if (!_graphs.TryGetValue(graph, out Closure? closure))
-            {
-                closure = new Closure(_projection.Binding.Profile, Terms, Budget, _tbox);
-                _graphs[graph] = closure;
-            }
-
-            into.UnionWith(closure.Apply([.. asserted], [.. retracted]));
-            into.UnionWith(asserted);
-            into.UnionWith(retracted);
-
-            if (retracted.Count > 0 && !HasQuads(view, graph))
-            {
-                closure.Release();
-                _graphs.Remove(graph);
-                _dropped.Add(graph);
-            }
-        }
-
+        ApplyData(view, graphs, changed);
         return changed;
     }
 
-    /// <summary>The data graphs whose closures were dropped since the last call, every quad of theirs retracted.</summary>
+    /// <summary>The data graphs whose quads were all retracted since the last call.</summary>
     internal List<TermHandle> TakeDropped()
     {
         List<TermHandle> dropped = [.. _dropped];
@@ -155,28 +143,20 @@ internal sealed class Materialisation
         return dropped;
     }
 
-    /// <summary>The closure a graph's rows are drawn from: the TBox closure for its conclusions' graph, a data graph's own; null for a graph with none.</summary>
-    internal Closure? ClosureOf(TermHandle graph) => graph == TBoxGraph ? _tbox : _graphs.GetValueOrDefault(graph);
+    /// <summary>The closure that explains a row of a graph: the TBox closure for its conclusions' graph; null for a graph with none.</summary>
+    internal abstract Closure? ClosureOf(TermHandle graph);
 
     /// <summary>Whether the TBox closure holds a fact: a node of a proof it holds is a TBox conclusion.</summary>
-    internal bool InTBox(in Fact fact) => _tbox.Contains(fact);
+    internal bool InTBox(in Fact fact) => TBox.Contains(fact);
 
     /// <summary>Whether a fact is a row of a graph now.</summary>
-    internal bool IsRow(TermHandle graph, in Fact fact)
-    {
-        if (graph == TBoxGraph)
-        {
-            return _tbox.Contains(fact) && !_tbox.IsExplicit(fact) && Servable(fact);
-        }
-
-        return _graphs.TryGetValue(graph, out Closure? closure)
-            && closure.Contains(fact) && !closure.IsExplicit(fact) && !_tbox.Contains(fact) && Servable(fact);
-    }
+    internal bool IsRow(TermHandle graph, in Fact fact) =>
+        graph == TBoxGraph ? TBox.Contains(fact) && !TBox.IsExplicit(fact) && Servable(fact) : IsDataRow(graph, fact);
 
     /// <summary>Every row now.</summary>
     internal IEnumerable<(TermHandle Graph, Fact Fact)> Rows()
     {
-        foreach (Fact fact in _tbox.Implicit)
+        foreach (Fact fact in TBox.Implicit)
         {
             if (Servable(fact))
             {
@@ -184,62 +164,48 @@ internal sealed class Materialisation
             }
         }
 
-        foreach ((TermHandle graph, Closure closure) in _graphs)
+        foreach ((TermHandle Graph, Fact Fact) row in DataRows())
         {
-            foreach (Fact fact in closure.Own)
-            {
-                if (!closure.IsExplicit(fact) && !_tbox.Contains(fact) && Servable(fact))
-                {
-                    yield return (graph, fact);
-                }
-            }
+            yield return row;
         }
     }
 
-    /// <summary>The clashes now: the TBox closure's under its graph, each data graph's that the TBox closure does not hold under that graph.</summary>
+    /// <summary>The clashes now, each under the graph whose closure finds it; the TBox closure's under its graph.</summary>
     internal IReadOnlyList<PlacedClash> Clashes()
     {
         List<PlacedClash> clashes = [];
-        foreach (Clash clash in _tbox.Clashes())
+        foreach (Clash clash in TBox.Clashes())
         {
             clashes.Add(new PlacedClash(TBoxGraph, clash));
         }
 
-        foreach ((TermHandle graph, Closure closure) in _graphs)
-        {
-            foreach (Clash clash in closure.Clashes())
-            {
-                bool tboxOnly = true;
-                foreach (Fact premise in clash.Premises)
-                {
-                    tboxOnly &= _tbox.Contains(premise);
-                }
-
-                if (!tboxOnly)
-                {
-                    clashes.Add(new PlacedClash(graph, clash));
-                }
-            }
-        }
-
+        DataClashes(clashes);
         return clashes;
     }
 
     /// <summary>Gives every closure's facts back to the budget.</summary>
-    internal void Release()
-    {
-        _tbox.Release();
-        foreach (Closure closure in _graphs.Values)
-        {
-            closure.Release();
-        }
+    internal virtual void Release() => TBox.Release();
 
-        _graphs.Clear();
-    }
+    /// <summary>Every premise-set graph minted, and the data graphs of each (ADR 0190 point 6): none for an intra-graph binding. A graph's name is its set's, so an entry never changes.</summary>
+    internal virtual IReadOnlyDictionary<TermHandle, TermHandle[]> PremiseSetGraphs => new Dictionary<TermHandle, TermHandle[]>();
 
-    private bool Servable(in Fact fact) => !Terms.IsLiteral(fact.Subject) && Terms.IsIri(fact.Predicate);
+    /// <summary>Closes the data graphs' quads over the TBox closure, from scratch.</summary>
+    protected abstract void Load(Dictionary<TermHandle, List<Fact>> graphs, CancellationToken cancellationToken);
 
-    private static HashSet<Fact> Into(Dictionary<TermHandle, HashSet<Fact>> changed, TermHandle graph)
+    /// <summary>Applies a data commit, graph by graph, recording per graph the facts whose row may have changed.</summary>
+    protected abstract void ApplyData(IQuadSource view, Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, Dictionary<TermHandle, HashSet<Fact>> changed);
+
+    protected abstract bool IsDataRow(TermHandle graph, in Fact fact);
+
+    protected abstract IEnumerable<(TermHandle Graph, Fact Fact)> DataRows();
+
+    protected abstract void DataClashes(List<PlacedClash> into);
+
+    protected void Dropped(TermHandle graph) => _dropped.Add(graph);
+
+    protected bool Servable(in Fact fact) => !Terms.IsLiteral(fact.Subject) && Terms.IsIri(fact.Predicate);
+
+    protected static HashSet<Fact> Into(Dictionary<TermHandle, HashSet<Fact>> changed, TermHandle graph)
     {
         if (!changed.TryGetValue(graph, out HashSet<Fact>? facts))
         {
@@ -247,6 +213,12 @@ internal sealed class Materialisation
         }
 
         return facts;
+    }
+
+    protected static bool HasQuads(IQuadSource view, TermHandle graph)
+    {
+        using IQuadCursor cursor = view.Match(TermHandle.None, TermHandle.None, TermHandle.None, graph.IsNone ? GraphPattern.DefaultGraph : GraphPattern.Named(graph));
+        return cursor.MoveNext();
     }
 
     private void Split(IQuadSource view, System.ReadOnlySpan<Quad> quads, List<Fact> tbox, Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, bool asserted)
@@ -270,12 +242,6 @@ internal sealed class Materialisation
         }
     }
 
-    private static bool HasQuads(IQuadSource view, TermHandle graph)
-    {
-        using IQuadCursor cursor = view.Match(TermHandle.None, TermHandle.None, TermHandle.None, graph.IsNone ? GraphPattern.DefaultGraph : GraphPattern.Named(graph));
-        return cursor.MoveNext();
-    }
-
     private bool IsTBox(IQuadSource source, TermHandle graph)
     {
         if (graph.IsNone)
@@ -288,7 +254,7 @@ internal sealed class Materialisation
             tbox = false;
             if (source.TryExternalise(graph, out RdfTerm? term))
             {
-                foreach (RdfTerm bound in _projection.Binding.TBoxGraphs)
+                foreach (RdfTerm bound in Projection.Binding.TBoxGraphs)
                 {
                     tbox |= bound.Equals(term);
                 }
@@ -305,11 +271,108 @@ internal sealed class Materialisation
         if (!_data.TryGetValue(graph, out bool data))
         {
             data = graph.IsNone
-                ? _projection.IsData(null)
-                : source.TryExternalise(graph, out RdfTerm? term) && _projection.IsData(term);
+                ? Projection.IsData(null)
+                : source.TryExternalise(graph, out RdfTerm? term) && Projection.IsData(term);
             _data[graph] = data;
         }
 
         return data;
+    }
+}
+
+/// <summary>
+/// An intra-graph binding's closures (ADR 0190 point 2): one per data graph,
+/// of its own quads over the TBox closure. A fact is a row of a data graph
+/// when that graph's closure derives it, it is not explicit there, and the
+/// TBox closure does not hold it.
+/// </summary>
+internal sealed class PerGraphMaterialisation(ProjectionTerms terms, InferenceProjection projection) : Materialisation(terms, projection)
+{
+    private readonly Dictionary<TermHandle, Closure> _graphs = [];
+
+    internal override Closure? ClosureOf(TermHandle graph) => graph == TBoxGraph ? TBox : _graphs.GetValueOrDefault(graph);
+
+    internal override void Release()
+    {
+        base.Release();
+        foreach (Closure closure in _graphs.Values)
+        {
+            closure.Release();
+        }
+
+        _graphs.Clear();
+    }
+
+    protected override void Load(Dictionary<TermHandle, List<Fact>> graphs, CancellationToken cancellationToken)
+    {
+        foreach ((TermHandle graph, List<Fact> facts) in graphs)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Closure closure = new(Projection.Binding.Profile, Terms, Budget, TBox);
+            _graphs[graph] = closure;
+            closure.Apply([.. facts], []);
+        }
+    }
+
+    protected override void ApplyData(IQuadSource view, Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, Dictionary<TermHandle, HashSet<Fact>> changed)
+    {
+        foreach ((TermHandle graph, (List<Fact> asserted, List<Fact> retracted)) in graphs)
+        {
+            HashSet<Fact> into = Into(changed, graph);
+            if (!_graphs.TryGetValue(graph, out Closure? closure))
+            {
+                closure = new Closure(Projection.Binding.Profile, Terms, Budget, TBox);
+                _graphs[graph] = closure;
+            }
+
+            into.UnionWith(closure.Apply([.. asserted], [.. retracted]));
+            into.UnionWith(asserted);
+            into.UnionWith(retracted);
+
+            if (retracted.Count > 0 && !HasQuads(view, graph))
+            {
+                closure.Release();
+                _graphs.Remove(graph);
+                Dropped(graph);
+            }
+        }
+    }
+
+    protected override bool IsDataRow(TermHandle graph, in Fact fact) =>
+        _graphs.TryGetValue(graph, out Closure? closure)
+        && closure.Contains(fact) && !closure.IsExplicit(fact) && !TBox.Contains(fact) && Servable(fact);
+
+    protected override IEnumerable<(TermHandle Graph, Fact Fact)> DataRows()
+    {
+        foreach ((TermHandle graph, Closure closure) in _graphs)
+        {
+            foreach (Fact fact in closure.Own)
+            {
+                if (!closure.IsExplicit(fact) && !TBox.Contains(fact) && Servable(fact))
+                {
+                    yield return (graph, fact);
+                }
+            }
+        }
+    }
+
+    protected override void DataClashes(List<PlacedClash> into)
+    {
+        foreach ((TermHandle graph, Closure closure) in _graphs)
+        {
+            foreach (Clash clash in closure.Clashes())
+            {
+                bool tboxOnly = true;
+                foreach (Fact premise in clash.Premises)
+                {
+                    tboxOnly &= TBox.Contains(premise);
+                }
+
+                if (!tboxOnly)
+                {
+                    into.Add(new PlacedClash(graph, clash));
+                }
+            }
+        }
     }
 }

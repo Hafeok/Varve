@@ -55,11 +55,19 @@ public class ProjectionPropertyTests
     public void every_read_at_every_position_is_the_closure_of_that_position(InferenceProfile profile, long historyBytes) =>
         History.Sample(commits => Check(profile, historyBytes, commits).GetAwaiter().GetResult(), iter: Histories, threads: 1);
 
-    private static async Task Check(InferenceProfile profile, long historyBytes, (RdfTerm S, RdfTerm P, RdfTerm O, int G)[][] commits)
+    /// <summary>A cross-graph binding's rows (ADR 0190 point 6), each placed by its minimal premise sets.</summary>
+    [Theory]
+    [InlineData(InferenceProfile.Rdfs, 32L << 20)]
+    [InlineData(InferenceProfile.Rdfs, 640L)]
+    [InlineData(InferenceProfile.Owl2Rl, 32L << 20)]
+    public void a_cross_graph_bindings_reads_place_each_row_by_its_minimal_premise_sets(InferenceProfile profile, long historyBytes) =>
+        History.Sample(commits => Check(profile, historyBytes, commits, crossGraph: true).GetAwaiter().GetResult(), iter: Histories, threads: 1);
+
+    private static async Task Check(InferenceProfile profile, long historyBytes, (RdfTerm S, RdfTerm P, RdfTerm O, int G)[][] commits, bool crossGraph = false)
     {
         CancellationToken ct = TestContext.Current.CancellationToken;
         await using Dataset dataset = await CreateAsync(ct);
-        InferenceBinding binding = Binding(profile);
+        InferenceBinding binding = Binding(profile, crossGraph: crossGraph);
         InferenceProjection projection = new(dataset, binding, new InferenceOptions { HistoryBytes = new ByteCount(historyBytes) });
         HashSet<(RdfTerm, RdfTerm, RdfTerm, RdfTerm?)> asserted = [];
         Random random = new(commits.Length);
@@ -109,7 +117,7 @@ public class ProjectionPropertyTests
         for (long p = 0; p <= dataset.Head.Value; p++)
         {
             using DatasetView view = await dataset.AsOfAsync(new Position(p), ct);
-            HashSet<string> expected = Expected(view, binding);
+            HashSet<string> expected = crossGraph ? ExpectedCrossGraph(view, binding) : Expected(view, binding);
             InferenceReadOutcome outcome = projection.TryRead(new Position(p), out InferredRows? rows);
             if (outcome == InferenceReadOutcome.FromScratch)
             {

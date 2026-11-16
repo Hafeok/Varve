@@ -39,3 +39,5 @@ Varve.Inference.Store.InferenceProjection.Clashes() -> System.Collections.Generi
 Varve.Inference.Store.InferenceProjection.ReadFromScratchAsync(Varve.Store.Log.Position at, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Inference.Model.InferredRows!>
 Varve.Inference.Store.InferenceProjection.TryRead(Varve.Store.Log.Position at, out Varve.Inference.Model.InferredRows? rows) -> Varve.Inference.Store.Model.InferenceReadOutcome
 Varve.Inference.Store.InferenceProjection.ExplainAsync(Varve.Store.Log.Position at, Varve.Rdf.RdfTerm? graph, Varve.Rdf.RdfTerm! subject, Varve.Rdf.RdfTerm! predicate, Varve.Rdf.RdfTerm! object, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<(Varve.Inference.Store.Model.InferenceReadOutcome Outcome, Varve.Inference.Model.Explanation? Explanation)>
+Varve.Inference.Store.InferenceProjection.PremiseSetOf(Varve.Rdf.RdfTerm! graph) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
+Varve.Inference.Store.InferenceProjection.PremiseSetGraphs() -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!

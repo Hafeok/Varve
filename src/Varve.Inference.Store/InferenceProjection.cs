@@ -4,6 +4,7 @@
 
 using System;
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
@@ -63,6 +64,7 @@ public sealed class InferenceProjection : IProjection
     private readonly Lock _applying = new();
     private readonly Dictionary<TermHandle, Dictionary<Fact, long>> _open = [];
     private readonly Queue<ClosedRow> _closed = new();
+    private readonly ConcurrentDictionary<RdfTerm, RdfTerm[]> _premiseSets = new(RdfTerm.Comparer);
     private long _closedBytes;
     private long _position;
     private long _floor;
@@ -74,17 +76,10 @@ public sealed class InferenceProjection : IProjection
     private TaskCompletionSource _advanced = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>The projection of <paramref name="binding"/> over <paramref name="dataset"/>, at position 0 until it is fed.</summary>
-    /// <exception cref="NotSupportedException">The binding is cross-graph, which is not built yet (#171).</exception>
     public InferenceProjection(Dataset dataset, InferenceBinding binding, InferenceOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(dataset);
         ArgumentNullException.ThrowIfNull(binding);
-        if (binding.CrossGraph)
-        {
-            // A stub, reported on #171: placement by premise set is the next slice.
-            throw new NotSupportedException("A cross-graph binding's projection is not built yet (#171): its conclusions are placed by premise set (ADR 0190 point 6).");
-        }
-
         _dataset = dataset;
         Binding = binding;
         _options = options ?? new InferenceOptions();
@@ -684,6 +679,8 @@ public sealed class InferenceProjection : IProjection
 
             Trim();
         }
+
+        Learn(state);
     }
 
     /// <summary>
@@ -760,6 +757,61 @@ public sealed class InferenceProjection : IProjection
             Volatile.Write(ref _stoppedAt, long.MaxValue);
         }
     }
+
+    /// <summary>
+    /// The data graphs of a cross-graph binding's premise-set graph (ADR 0190
+    /// point 6), the default graph as <c>varve:defaultGraph</c>; null for a
+    /// graph that is not one. A caller reads it when it reads every one of
+    /// them. A premise-set graph's name is its set's, so the answer never
+    /// changes once given.
+    /// </summary>
+    public IReadOnlyList<RdfTerm>? PremiseSetOf(RdfTerm graph)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        return _premiseSets.TryGetValue(graph, out RdfTerm[]? set) ? set : null;
+    }
+
+    /// <summary>The premise-set graphs with open rows at <see cref="Position"/>: <c>premiseSets</c> on readiness counts them.</summary>
+    public IReadOnlyList<RdfTerm> PremiseSetGraphs()
+    {
+        List<RdfTerm> graphs = [];
+        lock (_rowsLock)
+        {
+            foreach (TermHandle graph in _open.Keys)
+            {
+                if (ProjectionTerms.IsLocal(graph) && _terms.TryExternalise(graph, out RdfTerm? term) && _premiseSets.ContainsKey(term))
+                {
+                    graphs.Add(term);
+                }
+            }
+        }
+
+        return graphs;
+    }
+
+    /// <summary>Records the premise-set graphs a state has minted, while its terms' source can name their data graphs.</summary>
+    internal void Learn(Materialisation state)
+    {
+        foreach ((TermHandle graph, TermHandle[] members) in state.PremiseSetGraphs)
+        {
+            if (!state.Terms.TryExternalise(graph, out RdfTerm? name) || _premiseSets.ContainsKey(name))
+            {
+                continue;
+            }
+
+            RdfTerm[] set = new RdfTerm[members.Length];
+            for (int i = 0; i < set.Length; i++)
+            {
+                set[i] = members[i].IsNone ? DefaultGraphTerm
+                    : state.Terms.TryExternalise(members[i], out RdfTerm? member) ? member
+                    : throw new InvalidOperationException("A data graph the projection cannot name.");
+            }
+
+            _premiseSets[name] = set;
+        }
+    }
+
+    private static readonly RdfTerm DefaultGraphTerm = RdfTerm.Iri(Encoding.UTF8.GetBytes(Reserved + "defaultGraph"));
 
     private void Stop(Materialisation state, long position)
     {
