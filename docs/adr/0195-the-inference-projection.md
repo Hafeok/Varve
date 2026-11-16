@@ -130,14 +130,14 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   derive again over the sets of the facts a retraction can reach.
 - **What maintaining costs** (`Varve.Benchmarks --inference-premise-sets
   M rdfs 50`, the last 50 commits of REC M, one cross-graph merge of its
-  63 graphs). It builds in 463 s, 17.4 million facts, a peak working set
-  of 7.6 GB. A commit's median is 4 ms: the merge's closure 76 ms over all
-  50 commits, the reach 17 s, the sets 2,008 s, the worst commit 199 s (a
-  merge of rooms), though only 658 facts' sets changed in all. The cost is
-  in deriving again a fact many graphs derive, `p rdf:type rdf:Property`
-  for a property every building uses: each of its instances is read again.
-  A cross-graph binding of REC M's size is not served at commit rate until
-  that is narrowed; #171 carries the work.
+  63 graphs). It builds in 411 s, 17.4 million facts, a peak working set
+  of 7.6 GB. A commit's median is 3.4 ms and its worst 2.8 s (a merge of
+  rooms): over all 50, the merge's closure 87 ms, the reach 18 s, the sets
+  2.2 s, 658 facts' sets changing. A set holding no retracted graph stands;
+  one holding one is confirmed by a proof search before any fact is
+  derived again from all its instances, which a fact many graphs derive,
+  `p rdf:type rdf:Property`, would otherwise cost every use of `p`: 2,008
+  s over the same commits before. The reach is the larger part now.
 
 ### 4. Commits and generations
 
