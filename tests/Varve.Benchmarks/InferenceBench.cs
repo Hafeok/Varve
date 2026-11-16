@@ -250,6 +250,7 @@ internal static class InferenceBench
         Console.WriteLine($"//   built in {clock.Elapsed.TotalSeconds:F1} s: {merge.Count.Value} facts, {sets.CrossGraph().Count} cross-graph sets");
 
         List<double> times = [];
+        double reachMs = 0, closeMs = 0, updateMs = 0;
         long touched = 0;
         (double Worst, int At, string Kind) worst = (0, 0, string.Empty);
         int number = cut;
@@ -284,8 +285,13 @@ internal static class InferenceBench
 
             HashSet<Fact> after = [.. Merged()];
             string[] names = [.. indices.OrderBy(i => i.Value).Select(i => i.Key)];
+            Stopwatch step = Stopwatch.StartNew();
             IReadOnlySet<Fact> affected = sets.Reach(unpaired, (fact, graph) => graphs.TryGetValue(names[graph.Value], out HashSet<Fact>? held) && held.Contains(fact));
+            reachMs += step.Elapsed.TotalMilliseconds;
+            step.Restart();
             merge.Apply([.. after.Except(before)], [.. before.Except(after)]);
+            closeMs += step.Elapsed.TotalMilliseconds;
+            step.Restart();
             foreach ((string graph, HashSet<Fact> facts) in graphs)
             {
                 foreach (Fact fact in affected)
@@ -298,6 +304,7 @@ internal static class InferenceBench
             }
 
             touched += sets.Update(affected, paired).Count;
+            updateMs += step.Elapsed.TotalMilliseconds;
             double ms = one.Elapsed.TotalMilliseconds;
             times.Add(ms);
             if (ms > worst.Worst)
@@ -307,7 +314,7 @@ internal static class InferenceBench
         }
 
         times.Sort();
-        Console.WriteLine($"cross-graph: {times.Count} commits; per commit p50 {Percentile(times, 0.5):F2} ms, p99 {Percentile(times, 0.99):F2} ms, worst {worst.Worst:F1} ms (commit {worst.At}, {worst.Kind}); {touched} facts' sets changed in all; {sets.CrossGraph().Count} cross-graph sets after");
+        Console.WriteLine($"cross-graph: {times.Count} commits; per commit p50 {Percentile(times, 0.5):F2} ms, p99 {Percentile(times, 0.99):F2} ms, worst {worst.Worst:F1} ms (commit {worst.At}, {worst.Kind}); {touched} facts' sets changed in all; {sets.CrossGraph().Count} cross-graph sets after; in all, reach {reachMs:F0} ms, the merge's closure {closeMs:F0} ms, the sets {updateMs:F0} ms, the rest the harness's");
         GC.KeepAlive(merge);
 
         // The merge as a set, rebuilt each commit: the harness's own cost, inside the time measured, an upper bound.
