@@ -103,6 +103,7 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         _merge.Apply([.. merged], []);
         cancellationToken.ThrowIfCancellationRequested();
         _sets = Label();
+        Mint();
     }
 
     protected override void ApplyData(IQuadSource view, Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, Dictionary<TermHandle, HashSet<Fact>> changed)
@@ -147,6 +148,7 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         PremiseSets before = _sets;
         HashSet<Fact> moved = [.. _merge.Apply([.. asserted], [.. retracted])];
         _sets = Label();
+        Mint();
 
         // A fact whose sets changed may have moved between graphs: offer it to every graph it was or is placed in.
         foreach (Fact fact in _merge.Own)
@@ -257,6 +259,15 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         }
 
         return graphs;
+    }
+
+    /// <summary>Names every cross-graph set's reserved graph now, so the table the projection learns holds each one a row is placed in.</summary>
+    private void Mint()
+    {
+        foreach (PremiseSet set in _sets.CrossGraph())
+        {
+            SetGraph(set);
+        }
     }
 
     private PremiseSets Label()

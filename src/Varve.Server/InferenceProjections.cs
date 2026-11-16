@@ -34,9 +34,9 @@ namespace Varve.Server;
 /// reported on readiness and never make the dataset unready.
 /// </summary>
 /// <remarks>
-/// A cross-graph binding's projection is not built yet (#171): such a
-/// binding is reported on readiness as not served, and its graphs have no
-/// implicit part here.
+/// A cross-graph binding's rows are placed by premise set (ADR 0190 point
+/// 6); <see cref="TryGetPremiseSet"/> is the rule a caller's scope governs
+/// its premise-set graphs by.
 /// </remarks>
 [Contract(typeof(TheInferenceProjection.OneSeamForTierTwo), Role = "the server's inference projections, fed and served")]
 internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncDisposable
@@ -106,22 +106,39 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
             }
         }
 
-        if (held(dataset) is { } declared)
+        return statuses;
+    }
+
+    /// <summary>
+    /// The governing rule for a premise-set graph of one of
+    /// <paramref name="dataset"/>'s cross-graph bindings (ADR 0190 point 6;
+    /// ADR 0107, amended): its data graphs, null for the default graph.
+    /// </summary>
+    internal bool TryGetPremiseSet(DatasetName dataset, RdfTerm graph, out IReadOnlyList<RdfTerm?>? governors)
+    {
+        lock (_lock)
         {
-            foreach (TBoxBindingDeclaration binding in declared.TBoxBindings)
+            foreach (((string name, string _), Entry entry) in _entries)
             {
-                if (binding.CrossGraph && Materialises(binding.Profile))
+                if (name == dataset.Value && entry.Projection.PremiseSetOf(graph) is { } set)
                 {
-                    statuses[Encoding.UTF8.GetString(binding.Node.Lexical)] = InferenceStatus.NotBuilt;
+                    RdfTerm?[] members = new RdfTerm?[set.Count];
+                    for (int i = 0; i < members.Length; i++)
+                    {
+                        members[i] = set[i].Equals(DefaultGraph) ? null : set[i];
+                    }
+
+                    governors = members;
+                    return true;
                 }
             }
         }
 
-        return statuses;
-
-        DatasetDeclaration? held(DatasetName name) =>
-            _datasets.TryResolve(name, out _) && _declarations().Datasets.TryGetValue(name.Value, out DatasetDeclaration? declared) ? declared : null;
+        governors = null;
+        return false;
     }
+
+    private static readonly RdfTerm DefaultGraph = RdfTerm.Iri("https://w3id.org/varve/ns#defaultGraph"u8);
 
     /// <summary>
     /// Brings <paramref name="dataset"/>'s projections in line with its
@@ -137,7 +154,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
         {
             foreach (TBoxBindingDeclaration binding in declared.TBoxBindings)
             {
-                if (Materialises(binding.Profile) && !binding.CrossGraph)
+                if (Materialises(binding.Profile))
                 {
                     InferenceBinding mapped = Map(binding);
                     wanted[Identity(mapped)] = mapped;
@@ -202,13 +219,16 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
     private static bool Materialises(TBoxProfile profile) => profile is TBoxProfile.Rdfs or TBoxProfile.Owl2Rl;
 
     private static InferenceBinding Map(TBoxBindingDeclaration binding) =>
-        new(binding.Node, binding.TBoxGraphs, ShapesBindings.Scope(binding.DataGraphs), binding.Profile == TBoxProfile.Owl2Rl ? InferenceProfile.Owl2Rl : InferenceProfile.Rdfs);
+        new(binding.Node, binding.TBoxGraphs, ShapesBindings.Scope(binding.DataGraphs), binding.Profile == TBoxProfile.Owl2Rl ? InferenceProfile.Owl2Rl : InferenceProfile.Rdfs)
+        {
+            CrossGraph = binding.CrossGraph,
+        };
 
     /// <summary>What makes two bindings the same projection: everything the closure depends on.</summary>
     private static string Identity(InferenceBinding binding)
     {
         StringBuilder key = new();
-        key.Append(Encoding.UTF8.GetString(binding.Binding.Lexical)).Append('|').Append(binding.Profile).Append('|');
+        key.Append(Encoding.UTF8.GetString(binding.Binding.Lexical)).Append('|').Append(binding.Profile).Append('|').Append(binding.CrossGraph).Append('|');
         foreach (RdfTerm graph in binding.TBoxGraphs)
         {
             key.Append('<').Append(Encoding.UTF8.GetString(graph.Lexical)).Append('>');
@@ -264,6 +284,8 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
         public GraphScope DataGraphs => Projection.Binding.DataGraphs;
 
         public InferenceProfile Profile => Projection.Binding.Profile;
+
+        public IReadOnlyList<RdfTerm>? PremiseSetOf(RdfTerm graph) => Projection.PremiseSetOf(graph);
 
         public InferredRows RowsAt(Position position)
         {
@@ -348,7 +370,8 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
                 Projection.Stopped ? "stopped (memory-limit)" : "following",
                 Projection.Clashes().Count,
                 limit.Value,
-                Projection.Stopped ? reached.Value : 0);
+                Projection.Stopped ? reached.Value : 0,
+                Projection.Binding.CrossGraph ? Projection.PremiseSetGraphs().Count : null);
         }
 
         internal void Start(ILogger logger) => _feed = Task.Run(() => FeedAsync(logger, _stop.Token));
@@ -448,13 +471,10 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 /// <summary>One binding's state on readiness (ADR 0195 point 6): reported, and never a reason to be unready.</summary>
 /// <param name="Lag">Head minus the projection's position.</param>
 /// <param name="HeldFrom">The lowest position its held history serves.</param>
-/// <param name="State"><c>following</c>, <c>stopped (memory-limit)</c>, or <c>not built</c> for a cross-graph binding.</param>
+/// <param name="State"><c>following</c> or <c>stopped (memory-limit)</c>.</param>
 /// <param name="Clashes">The clashes at its position (ADR 0197 point 5).</param>
 /// <param name="Limit">Its memory limit, in bytes.</param>
 /// <param name="Reached">What a stopped binding's closure held when it stopped, in bytes.</param>
+/// <param name="PremiseSets">A cross-graph binding's premise-set graphs holding rows (ADR 0190 point 6); null for an intra-graph one.</param>
 [DesignDecision(typeof(TheInferenceProjection.InferenceBehind), Scope = ExceptionScope.Boundary)]
-internal sealed record InferenceStatus(long Lag, long HeldFrom, string State, int Clashes, long Limit, long Reached)
-{
-    /// <summary>A cross-graph binding, whose projection is not built yet (#171).</summary>
-    internal static InferenceStatus NotBuilt { get; } = new(0, 0, "not built (cross-graph, #171)", 0, 0, 0);
-}
+internal sealed record InferenceStatus(long Lag, long HeldFrom, string State, int Clashes, long Limit, long Reached, int? PremiseSets = null);

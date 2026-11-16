@@ -76,6 +76,7 @@ internal sealed class ClosureGraphs : IQuadSource
     private readonly ClosureMode _mode;
     private readonly TermHandle[] _reserved;
     private readonly Dictionary<TermHandle, List<Quad>> _implicit;
+    private readonly Dictionary<TermHandle, IReadOnlyList<RdfTerm>> _premiseSets;
     private bool _read;
 
     private ClosureGraphs(IQuadSource scoped, StagingView staging, IReadOnlyList<IInferenceClosure> closures, ClosureMode mode)
@@ -85,6 +86,7 @@ internal sealed class ClosureGraphs : IQuadSource
         _closures = closures;
         _mode = mode;
         _implicit = new Dictionary<TermHandle, List<Quad>>(staging.TermComparer);
+        _premiseSets = new Dictionary<TermHandle, IReadOnlyList<RdfTerm>>(staging.TermComparer);
         _reserved = new TermHandle[closures.Count];
         for (int i = 0; i < closures.Count; i++)
         {
@@ -111,6 +113,17 @@ internal sealed class ClosureGraphs : IQuadSource
             if (_closures[i].TBoxConclusions.Equals(term))
             {
                 handle = _reserved[i];
+                return true;
+            }
+        }
+
+        // A cross-graph binding's premise-set graph (ADR 0190 point 6), named as its rows name it.
+        foreach (IInferenceClosure closure in _closures)
+        {
+            if (term.Kind == RdfTermKind.Iri && closure.PremiseSetOf(term) is { } set)
+            {
+                handle = Stage(term);
+                _premiseSets[handle] = set;
                 return true;
             }
         }
@@ -179,7 +192,7 @@ internal sealed class ClosureGraphs : IQuadSource
 
     public bool TryGetInlineValue(TermHandle handle, out InlineValue value) => _base.TryGetInlineValue(handle, out value);
 
-    private bool IsReserved(GraphPattern graph) => graph.Match == GraphMatch.Named && Array.IndexOf(_reserved, graph.Graph) >= 0;
+    private bool IsReserved(GraphPattern graph) => graph.Match == GraphMatch.Named && (Array.IndexOf(_reserved, graph.Graph) >= 0 || _premiseSets.ContainsKey(graph.Graph));
 
     /// <summary>The default graph: the merge of its graphs' parts, each quad once.</summary>
     private void Default(TermHandle s, TermHandle p, TermHandle o, List<Quad> into)
@@ -217,6 +230,17 @@ internal sealed class ClosureGraphs : IQuadSource
         if (reserved >= 0)
         {
             Rows(graph, s, p, o, into, asDefault: false);
+            return;
+        }
+
+        if (_premiseSets.TryGetValue(graph, out IReadOnlyList<RdfTerm>? set))
+        {
+            // Read when the caller reads every graph of its set, and only when named.
+            if (EveryReadable(set))
+            {
+                Rows(graph, s, p, o, into, asDefault: false);
+            }
+
             return;
         }
 
@@ -295,6 +319,28 @@ internal sealed class ClosureGraphs : IQuadSource
         using IQuadCursor cursor = _base.Match(TermHandle.None, TermHandle.None, TermHandle.None, graph.IsNone ? GraphPattern.DefaultGraph : GraphPattern.Named(graph));
         return cursor.MoveNext();
     }
+
+    /// <summary>Whether the caller reads every data graph of a premise set (ADR 0190 point 6), each as <see cref="Readable(TermHandle)"/> decides.</summary>
+    private bool EveryReadable(IReadOnlyList<RdfTerm> set)
+    {
+        foreach (RdfTerm member in set)
+        {
+            TermHandle graph = TermHandle.None;
+            if (!member.Equals(DefaultGraphTerm) && !_base.TryInternalise(member, out graph))
+            {
+                return false;
+            }
+
+            if (!Readable(graph))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static readonly RdfTerm DefaultGraphTerm = RdfTerm.Iri("https://w3id.org/varve/ns#defaultGraph"u8);
 
     private void Rows(TermHandle graph, TermHandle s, TermHandle p, TermHandle o, List<Quad> into, bool asDefault)
     {

@@ -106,6 +106,22 @@ cross-graph binding over per-building graphs and reported per binding on
 readiness (`premiseSets`). If it grows faster than linearly in the bound
 graphs, this ADR's amendment says so before any other layout is chosen.
 
+- **How it is computed** (revised 2026-11-16). A cross-graph binding holds
+  one closure, of its data graphs' merge over the TBox closure, and each
+  fact's minimal premise sets over it, as pairs of a fact and a set kept
+  under absorption (ADR 0190 point 6). A data commit updates the merge
+  incrementally and recomputes the sets over the whole closure, diffing
+  them with the sets before to find the rows that moved: the cost of a
+  commit is the closure's, not the delta's. Explaining a row closes only
+  the graphs of its set, so no proof cites a graph outside it.
+- **What REC gives** (measured 2026-11-16, `Varve.Benchmarks
+  --inference-premise-sets S <profile>`): no cross-graph premise set on
+  REC S under `rdfs` or `owl2rl`, its buildings sharing nothing but the
+  TBox; 37 to 41 of 0.9 million facts have more than one set, each of one
+  graph. REC M is expected to give none too, and so cannot answer the
+  growth question: a workload with links between buildings is put to the
+  maintainer on #171.
+
 ### 4. Commits and generations
 
 - **A data commit** is applied by the retraction strategy ADR 0196 chooses,

@@ -160,8 +160,18 @@ still answers `rdf`, `rdfs` and `d` over the same graphs.
 the binding's reserved graph,
 `https://w3id.org/varve/ns#inferred/{enc(binding IRI)}/tbox`, which every
 reader of the dataset reads. Any other is in the data graph it was drawn in,
-read by that graph's readers. `varve:crossGraph` bindings are read but their
-projection is not built yet (#171): readiness says `not built`.
+read by that graph's readers.
+
+**Across graphs.** A binding with `varve:crossGraph true` closes the merge
+of its data graphs (ADR 0190 point 6). A conclusion is placed once for each
+smallest set of data graphs it can be drawn from: one graph's conclusion in
+that graph, and one drawn from two or more graphs in the set's own reserved
+graph, `https://w3id.org/varve/ns#inferred/{enc(binding IRI)}/{d}`, `d` the
+hex SHA-256 of the set's graph IRIs. A caller reads such a graph only when it
+reads every graph of its set, and only by naming it. Each data commit
+recomputes the sets over the whole closure, so a cross-graph binding's
+commits cost more than an intra-graph one's; readiness counts its reserved
+graphs as `premiseSets`.
 
 **Reading it.**
 - `FROM <https://w3id.org/varve/ns#implicit>` reads the implicit part of the
@@ -195,7 +205,7 @@ the settings.
 
 **On readiness**, each binding's `inference` line beside its dataset's gives
 its `state` (`following`, `stopped (memory-limit)`), its `lag`, `heldFrom`,
-`inconsistent` and `clashes`. None of them makes the dataset unready.
+`inconsistent` and `clashes`, and for a cross-graph binding `premiseSets`. None of them makes the dataset unready.
 
 ## Cost
 

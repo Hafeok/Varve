@@ -853,6 +853,10 @@ internal static partial class ServerHost
                 json.WriteNumber("heldFrom", status.HeldFrom);
                 json.WriteBoolean("inconsistent", status.Clashes > 0);
                 json.WriteNumber("clashes", status.Clashes);
+                if (status.PremiseSets is { } premiseSets)
+                {
+                    json.WriteNumber("premiseSets", premiseSets);
+                }
                 if (status.Reached > 0)
                 {
                     json.WriteNumber("limit", status.Limit);

@@ -333,6 +333,59 @@ public class InferenceSurfaceTests
         }
     }
 
+    /// <summary>
+    /// A cross-graph binding's conclusion drawn from two graphs (ADR 0190
+    /// point 6) sits in its premise set's reserved graph, read by a caller
+    /// who reads both graphs and by no caller who reads one.
+    /// </summary>
+    [Fact]
+    public async Task A_cross_graph_conclusion_is_read_in_its_premise_sets_graph_by_a_caller_who_reads_every_graph_of_it()
+    {
+        await using Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+        CommitRequestBuilder request = new();
+        request.Assert(Term("http://ex/ann"), Term(Rdf + "type"), Term("http://ex/Person"), Term("http://ex/g/1"));
+        request.Assert(Term("http://ex/Person"), Term(Rdfs + "subClassOf"), Term("http://ex/Agent"), Term("http://ex/g/2"));
+        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(request, P.Ct)).Outcome);
+        InferenceProjection projection = new(dataset, new InferenceBinding(RdfTerm.Iri("urn:b"u8), [RdfTerm.Iri("http://ex/tbox"u8)], GraphScope.Of([], ["http://ex/g/"], DefaultGraphAccess.Included), InferenceProfile.Rdfs) { CrossGraph = true });
+        await dataset.CatchUpAsync(projection, P.Ct);
+
+        string digest = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData("<http://ex/g/1>\n<http://ex/g/2>\n"u8));
+        string reserved = "https://w3id.org/varve/ns#inferred/urn%3Ab/" + digest;
+        Assert.Equal(["http://ex/g/1", "http://ex/g/2"], projection.PremiseSetOf(RdfTerm.Iri(Encoding.UTF8.GetBytes(reserved)))!.Select(g => Encoding.UTF8.GetString(g.Lexical)));
+        string query = "SELECT ?c WHERE { GRAPH <" + reserved + "> { <http://ex/ann> a ?c } }";
+
+        foreach ((string[] reads, bool sees) in new[] { (new[] { "http://ex/g/1", "http://ex/g/2" }, true), (new[] { "http://ex/g/1" }, false), (new[] { "http://ex/g/2" }, false) })
+        {
+            GraphScope readable = GraphScope.Of([.. reads.Select(g => RdfTerm.Iri(Encoding.UTF8.GetBytes(g)))], [], DefaultGraphAccess.Excluded);
+            await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(
+                new ProtocolTestHost.OneDataset(dataset),
+                accessScopes: new DefaultGraphOnly(new CallerScope(readable, readable, AdminAccess.None)),
+                inference: new Closures(projection, Refusal.None),
+                stopping: P.Ct);
+            HttpResponseMessage answered = await host.Client.SendAsync(P.Query(Sparql, query, "application/sparql-results+json"), P.Ct);
+            string body = await answered.Content.ReadAsStringAsync(P.Ct);
+            Assert.True(answered.StatusCode == HttpStatusCode.OK, body);
+            string[] classes = Column(body, "c");
+            Assert.True(sees ? classes.Contains("http://ex/Agent") : classes.Length == 0, string.Join(", ", reads) + ": " + body);
+        }
+
+        // Neither graph alone holds ann's being an agent: it is a row of the reserved graph only.
+        Assert.Equal(InferenceReadOutcome.Held, projection.TryRead(projection.Position, out InferredRows? rows));
+        using DatasetView view = dataset.Pin();
+        List<string> placed = [];
+        foreach (InferredRow row in rows!.Rows)
+        {
+            if ((rows.TryExternalise(row.Fact.Subject, out RdfTerm? s) || view.TryExternalise(row.Fact.Subject, out s)) && Encoding.UTF8.GetString(s.Lexical) == "http://ex/ann"
+                && (rows.TryExternalise(row.Fact.Object, out RdfTerm? o) || view.TryExternalise(row.Fact.Object, out o)) && Encoding.UTF8.GetString(o.Lexical) == "http://ex/Agent"
+                && (rows.TryExternalise(row.Graph, out RdfTerm? g) || view.TryExternalise(row.Graph, out g)))
+            {
+                placed.Add(Encoding.UTF8.GetString(g.Lexical));
+            }
+        }
+
+        Assert.Equal([reserved], placed);
+    }
+
     private static InferenceBinding Binding(InferenceProfile profile) =>
         new(RdfTerm.Iri("urn:b"u8), [RdfTerm.Iri("http://ex/tbox"u8)], GraphScope.Of([], ["http://ex/g/"], DefaultGraphAccess.Included), profile);
 
@@ -367,6 +420,8 @@ public class InferenceSurfaceTests
         public GraphScope DataGraphs => projection.Binding.DataGraphs;
 
         public InferenceProfile Profile => projection.Binding.Profile;
+
+        public IReadOnlyList<RdfTerm>? PremiseSetOf(RdfTerm graph) => projection.PremiseSetOf(graph);
 
         public IReadOnlyList<IInferenceClosure> Of(DatasetName dataset) => [this];
 

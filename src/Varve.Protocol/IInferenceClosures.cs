@@ -53,6 +53,14 @@ public interface IInferenceClosure
     InferenceProfile Profile { get; }
 
     /// <summary>
+    /// The data graphs of one of its premise-set graphs (ADR 0190 point 6),
+    /// the default graph as <c>varve:defaultGraph</c>; null for a graph that
+    /// is not one, and always for an intra-graph binding. A caller reads a
+    /// premise-set graph when it reads every one of them.
+    /// </summary>
+    IReadOnlyList<RdfTerm>? PremiseSetOf(RdfTerm graph);
+
+    /// <summary>
     /// The binding's implicit quads at <paramref name="position"/>: the rows
     /// held there, or, below what is held, the closure from scratch, after
     /// one bounded wait for the projection to reach the position.

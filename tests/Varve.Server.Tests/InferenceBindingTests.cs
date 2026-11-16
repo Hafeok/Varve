@@ -76,6 +76,53 @@ public class InferenceBindingTests
         }
     }
 
+    /// <summary>A cross-graph binding (ADR 0190 point 6) is projected: readiness counts its premise-set graphs, and a conclusion of two graphs is read in its set's graph.</summary>
+    [Fact]
+    public async Task A_cross_graph_binding_is_projected_and_its_premise_sets_reported_on_readiness()
+    {
+        string root = Directory.CreateTempSubdirectory("varve-inference-").FullName;
+        try
+        {
+            await using RunningServer server = await RunningServer.StartAsync(new Dictionary<string, string> { ["Varve:Auth:Mode"] = "Anonymous", ["Varve:DatasetsRoot"] = root });
+            string declaration = Declaration("people", "RDFS")[..^1] + " ; <" + Varve + "crossGraph> true .";
+            HttpResponseMessage declared = await Trig(server, "manage/datasets/people", declaration);
+            Assert.True(declared.StatusCode == HttpStatusCode.Created, await declared.Content.ReadAsStringAsync(Ct));
+            Assert.Equal(HttpStatusCode.NoContent, (await Update(server, "people", "INSERT DATA { GRAPH <http://ex/g/1> { <http://ex/ann> a <http://ex/Person> } GRAPH <http://ex/g/2> { <http://ex/Person> <" + Rdfs + "subClassOf> <http://ex/Agent> } }")).StatusCode);
+
+            JsonElement inference = default;
+            for (int attempt = 0; attempt < 50; attempt++)
+            {
+                HttpResponseMessage ready = await server.Client.GetAsync(new Uri("health/ready", UriKind.Relative), Ct);
+                using JsonDocument json = JsonDocument.Parse(await ready.Content.ReadAsStringAsync(Ct));
+                inference = json.RootElement.GetProperty("datasets").GetProperty("people").GetProperty("inference").GetProperty("urn:binding:people").Clone();
+                if (inference.GetProperty("lag").GetInt64() == 0)
+                {
+                    break;
+                }
+
+                await Task.Delay(100, Ct);
+            }
+
+            Assert.Equal("following", inference.GetProperty("state").GetString());
+            Assert.Equal(1, inference.GetProperty("premiseSets").GetInt32());
+
+            string digest = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData("<http://ex/g/1>\n<http://ex/g/2>\n"u8));
+            using HttpRequestMessage query = new(HttpMethod.Post, new Uri("datasets/people/sparql", UriKind.Relative))
+            {
+                Content = new StringContent("SELECT ?c WHERE { GRAPH <" + Varve + "inferred/urn%3Abinding%3Apeople/" + digest + "> { <http://ex/ann> a ?c } }", Encoding.UTF8, "application/sparql-query"),
+            };
+            query.Headers.Accept.ParseAdd("application/sparql-results+json");
+            HttpResponseMessage answered = await server.Client.SendAsync(query, Ct);
+            string body = await answered.Content.ReadAsStringAsync(Ct);
+            Assert.True(answered.StatusCode == HttpStatusCode.OK, body);
+            Assert.Contains("http://ex/Agent", body, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static async Task<HttpResponseMessage> Trig(RunningServer server, string path, string trig)
     {
         using HttpRequestMessage request = new(HttpMethod.Put, new Uri(path, UriKind.Relative)) { Content = new StringContent(trig, Encoding.UTF8, "application/trig") };
