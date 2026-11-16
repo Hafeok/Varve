@@ -9,6 +9,11 @@
 
 A method the endpoint does not serve. `Allow` lists the ones it does (ADR 0092).
 
+## What to do
+
+A client: send one of the methods `Allow` lists. Sending the same method
+again is refused again.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

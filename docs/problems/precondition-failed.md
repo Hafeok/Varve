@@ -14,6 +14,15 @@ A precondition that does not name the current version, checked before anything i
 - An `If-Match` on a management write, a dataset's declaration or its `…/state`, names the declaration graph's version, the `ETag` either sends; `graphs` gives the graph and the version it has (ADR 0163).
 - `Varve-If-Graphs-Match` on an update names graphs and the versions read; `graphs` lists each graph that is at another version, `{"graph": "<iri>" | "default", "version": n}` (ADR 0126).
 
+## What to do
+
+- A client: read the resource again, take the version it now has (`ETag`,
+  `Varve-Position`, or each graph's version in `graphs`), redo the change
+  against it, and send it with the new precondition. The same precondition
+  is refused again.
+- `varve apply --from-plan` with a stale plan: make a new plan
+  ([Datasets](../operator/datasets.md#varve-apply)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

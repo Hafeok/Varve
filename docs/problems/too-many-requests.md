@@ -9,6 +9,12 @@
 
 More probes of `/health/live` or `/health/ready` from one client address than `Varve:Health:RateLimit` allows a minute (ADR 0113). The health endpoints are unauthenticated, so they are the ones a scanner hits first; the limit is per address and the window a minute.
 
+## What to do
+
+- A client: probe less often; the window is a minute.
+- An operator: raise `Varve:Health:RateLimit` if one address probes for
+  several checkers ([Configure](../operator/configure.md)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).
