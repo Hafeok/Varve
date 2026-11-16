@@ -45,6 +45,9 @@ The `register-fixtures` job in `eng/ci.cs` runs them.
 | `undeclared-licence` | JsonSchema.Net 9.0.0 declares its licence by a file, the end-user agreement ADR 0146 pins 8.0.5 to avoid, and the register states none | yes |
 | `native-asset` | a shipped project depends on a package with native assets, and no `NativeAssetException` admits it (constraint 1) | yes |
 | `build-only-exception-shipped` | the build-only licence exception, depended on by a shipped project | yes |
+| `build-archive-licence` | the `mermaid` build archive (ADR 0247) is under `BUSL-1.1`, which is not on the build and test allow-list | no |
+| `build-archive-integrity` | its integrity is a SHA-256, not a SHA-512 | no |
+| `build-archive-url` | its URL names another version than its `Version` | no |
 
 The packages are real ones, chosen because each is the case:
 - JsonSchema.Net 9.0.0 is the end-user agreement this repository already

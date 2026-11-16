@@ -428,6 +428,67 @@ foreach (XElement item in register.Descendants().Where(static e => e.Name.LocalN
     implicitPackages.Add((pattern, adr, via));
 }
 
+// BuildArchive (ADR 0247): a package from outside NuGet that a build tool
+// fetches as one archive, by exact version and SHA-512, and nothing it
+// depends on. It is build-time only, so its licence is checked against the
+// build and test allow-list, and it names the directories that may fetch it.
+// The fetcher reads its URL and digest from this entry, so the register is
+// the one place the archive is pinned.
+foreach (XElement item in register.Descendants().Where(static e => e.Name.LocalName == "BuildArchive"))
+{
+    string name = item.Attribute("Include")?.Value ?? "(no Include)";
+    string adr = (ReadMetadata(item, "Adr") ?? "").Trim();
+    string version = (ReadMetadata(item, "Version") ?? "").Trim();
+    string url = (ReadMetadata(item, "Url") ?? "").Trim();
+    string integrity = (ReadMetadata(item, "Integrity") ?? "").Trim();
+    string licence = (ReadMetadata(item, "Licence") ?? "").Trim();
+    string scope = (ReadMetadata(item, "Scope") ?? "").Trim();
+    List<string> flaws = [];
+
+    if (!knownAdrs.Contains(adr))
+    {
+        flaws.Add($"cites ADR '{adr}', which does not exist");
+    }
+
+    if (!Regex.IsMatch(version, @"^\d+\.\d+\.\d+$", RegexOptions.CultureInvariant))
+    {
+        flaws.Add($"has version '{version}'; a build archive is pinned to an exact release version");
+    }
+
+    if (!url.StartsWith("https://", StringComparison.Ordinal) || !url.EndsWith($"-{version}.tgz", StringComparison.Ordinal))
+    {
+        flaws.Add($"has URL '{url}'; it must be https and name the archive of version {version}");
+    }
+
+    if (!integrity.StartsWith("sha512-", StringComparison.Ordinal) || !IsSha512(integrity["sha512-".Length..]))
+    {
+        flaws.Add($"has integrity '{integrity}'; it must be sha512- and the base64 of a SHA-512 digest");
+    }
+
+    if (!BuildAndTestLicences().Contains(licence))
+    {
+        flaws.Add($"is under '{licence}', which is not on the build and test allow-list");
+    }
+
+    if (scope.Length == 0)
+    {
+        flaws.Add("names no Scope, the directories whose tools fetch it");
+    }
+
+    foreach (string flaw in flaws)
+    {
+        failed = true;
+        Console.Error.WriteLine();
+        Console.Error.WriteLine($"FAIL: the build archive {name} {flaw}.");
+    }
+}
+
+static bool IsSha512(string base64)
+{
+    Span<byte> digest = stackalloc byte[66];
+    return Convert.TryFromBase64String(base64, digest, out int written) && written == 64;
+}
+
 HashSet<string> registered = new(currentVersions.Keys.Concat(missing).Concat(dangling.Select(static d => d.Package)), StringComparer.OrdinalIgnoreCase);
 bool IsImplicit(string id) => implicitPackages.Any(p => Matches(p.Pattern, id));
 
