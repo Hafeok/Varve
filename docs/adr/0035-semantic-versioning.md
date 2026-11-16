@@ -118,3 +118,22 @@ the same commit as the change that caused it.
   deleted.
 - **No new dependency.** The mechanism is the analyzers already in the register
   under ADR 0004, and MinVer already there under 0029.
+
+## Amendment, 2026-11-16 — the published package is the evidence before 1.0, and the freeze has a gate
+
+Filed by readiness B for #129 under
+[ADR 0227](0227-the-public-api-freeze-gate.md), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+- **Point 2.** The baseline files still declare every public member, and the
+  surface still moves to `PublicAPI.Shipped.txt` at release of 1.0. Before
+  1.0, nothing ever reaches `Shipped`, so a removal between previews edits
+  only `Unshipped` and the files cannot show it. Until 1.0, the evidence of a
+  break is the comparison of each package with its own published nupkg at
+  the newest release tag, by the SDK's package validation. This is the
+  alternative this ADR named "a candidate for the 1.0 freeze".
+- **Point 4.** The freeze has a gate, `ci.yml`'s `api freeze`:
+  - before 1.0, a break fails unless a commit since the tag marks it `!` or
+    `BREAKING CHANGE:`, or the proposed descriptor says `(breaking)` naming
+    the package;
+  - from 1.0, a break fails unless the major moves.

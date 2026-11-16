@@ -27,6 +27,8 @@ decisions:
     statement: "Every package versions together from one tag and ships as a set"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-22T00:00:00Z
+  - key: ThePublishedPackageIsTheEvidenceBeforeOnePointZero
+    statement: "Points 2 and 4 amended 2026-11-16 under ADR 0227: until 1.0 the evidence of a break is each package compared with its own published nupkg at the newest release tag, the PublicAPI files declaring the surface and moving to Shipped at 1.0, and the freeze is gated by ci.yml's api freeze job"
 ---
 
 The rulings of [ADR 0035](../adr/0035-semantic-versioning.md) still in force, one line each. The ADR is the
