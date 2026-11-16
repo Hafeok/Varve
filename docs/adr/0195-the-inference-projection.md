@@ -138,6 +138,10 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   derived again from all its instances, which a fact many graphs derive,
   `p rdf:type rdf:Property`, would otherwise cost every use of `p`: 2,008
   s over the same commits before. The reach is the larger part now.
+  Under `owl2rl` (`… M owl2rl 50`): 23.0 million facts, built in 1,107 s,
+  a peak of 7.6 GB; a commit's median 19 ms and its worst 1.3 s (a move);
+  over all 50, the merge's closure 144 ms, the reach 22 s, the sets 115
+  ms, 922 facts' sets changing.
 
 ### 4. Commits and generations
 
