@@ -28,7 +28,6 @@ public sealed partial class Closure
 {
     private readonly HashSet<Fact> _explicit = [];
     private readonly HashSet<Fact> _axioms = [];
-    private readonly Closure? _base;
 
     /// <summary>The empty graph's closure under <paramref name="profile"/>: its axioms and what they entail.</summary>
     public Closure(InferenceProfile profile, IInferenceTerms terms)
@@ -63,7 +62,7 @@ public sealed partial class Closure
     {
         Program = program;
         Strategy = retraction;
-        _base = tbox;
+        Beneath = tbox;
         Facts = new FactSet { Base = tbox?.Facts };
         Facts.Budget = budget;
         foreach (Fact axiom in program.Axioms)
@@ -76,11 +75,14 @@ public sealed partial class Closure
 
     internal Retraction Strategy { get; }
 
+    /// <summary>The TBox closure beneath a data graph's, if it has one.</summary>
+    internal Closure? Beneath { get; }
+
     /// <summary>Whether the closure holds a fact.</summary>
     public bool Contains(Fact fact) => Facts.Contains(fact);
 
     /// <summary>Whether a fact is explicit: asserted, and not since retracted; here, or in the TBox closure beneath.</summary>
-    public bool IsExplicit(Fact fact) => _explicit.Contains(fact) || (_base is { } tbox && tbox.IsExplicit(fact));
+    public bool IsExplicit(Fact fact) => _explicit.Contains(fact) || (Beneath is { } tbox && tbox.IsExplicit(fact));
 
     /// <summary>The facts the closure holds that are not explicit, generalised ones included.</summary>
     public IEnumerable<Fact> Implicit
@@ -110,9 +112,9 @@ public sealed partial class Closure
                 yield return fact;
             }
 
-            if (_base is not null)
+            if (Beneath is not null)
             {
-                foreach (Fact fact in _base.All)
+                foreach (Fact fact in Beneath.All)
                 {
                     yield return fact;
                 }
@@ -208,7 +210,7 @@ public sealed partial class Closure
         }
 
         // A fact of the TBox closure beneath is proved there.
-        if (_base is { } tbox && !Facts.Holds(fact) && !_explicit.Contains(fact))
+        if (Beneath is { } tbox && !Facts.Holds(fact) && !_explicit.Contains(fact))
         {
             return tbox.Explain(fact);
         }
@@ -231,7 +233,7 @@ public sealed partial class Closure
             return done;
         }
 
-        if (_base is { } tbox && !Facts.Holds(fact) && !_explicit.Contains(fact))
+        if (Beneath is { } tbox && !Facts.Holds(fact) && !_explicit.Contains(fact))
         {
             Proof under = tbox.Explain(fact)!;
             built[fact] = under;
@@ -452,7 +454,7 @@ public sealed partial class Closure
     }
 
     /// <summary>Whether a fact is explicit, an axiom, or the TBox closure's beneath: a leaf of every proof here.</summary>
-    internal bool IsGiven(in Fact fact) => _explicit.Contains(fact) || _axioms.Contains(fact) || (_base is { } tbox && tbox.Contains(fact));
+    internal bool IsGiven(in Fact fact) => _explicit.Contains(fact) || _axioms.Contains(fact) || (Beneath is { } tbox && tbox.Contains(fact));
 
     private bool Derivable(in Fact fact)
     {

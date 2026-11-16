@@ -106,3 +106,25 @@ Varve.Inference.Closure.Own.get -> System.Collections.Generic.IEnumerable<Varve.
 Varve.Inference.IInferenceTerms.HasValueType(Varve.Rdf.TermHandle literal, Varve.Rdf.TermHandle datatype) -> bool
 Varve.Inference.IInferenceTerms.RecognisedDatatypes(Varve.Inference.Model.InferenceProfile profile) -> System.Collections.Generic.IReadOnlyCollection<Varve.Rdf.RdfTerm!>!
 Varve.Inference.IInferenceTerms.ValueSpaceWithin(Varve.Rdf.TermHandle datatype, Varve.Rdf.TermHandle super) -> bool
+Varve.Inference.Model.DataGraphIndex
+Varve.Inference.Model.DataGraphIndex.DataGraphIndex() -> void
+Varve.Inference.Model.DataGraphIndex.DataGraphIndex(int Value) -> void
+Varve.Inference.Model.DataGraphIndex.Deconstruct(out int Value) -> void
+Varve.Inference.Model.DataGraphIndex.Equals(Varve.Inference.Model.DataGraphIndex other) -> bool
+Varve.Inference.Model.DataGraphIndex.Value.get -> int
+Varve.Inference.Model.DataGraphIndex.Value.init -> void
+Varve.Inference.Model.PremiseSet
+Varve.Inference.Model.PremiseSet.Graphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.DataGraphIndex>!
+Varve.Inference.Model.PremiseSet.IsCrossGraph.get -> bool
+Varve.Inference.Model.PremiseSet.IsEmpty.get -> bool
+Varve.Inference.PremiseSets
+Varve.Inference.PremiseSets.Count.get -> Varve.Rdf.QuadCount
+Varve.Inference.PremiseSets.CrossGraph() -> System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.PremiseSet!>!
+Varve.Inference.PremiseSets.Of(Varve.Inference.Model.Fact fact) -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PremiseSet!>!
+Varve.Inference.PremiseSets.PremiseSets(Varve.Inference.Closure! closure, System.Collections.Generic.IEnumerable<(Varve.Inference.Model.Fact Fact, Varve.Inference.Model.DataGraphIndex Graph)>! explicitIn) -> void
+override Varve.Inference.Model.DataGraphIndex.GetHashCode() -> int
+override Varve.Inference.Model.PremiseSet.ToString() -> string!
+static Varve.Inference.Model.DataGraphIndex.operator !=(Varve.Inference.Model.DataGraphIndex left, Varve.Inference.Model.DataGraphIndex right) -> bool
+static Varve.Inference.Model.DataGraphIndex.operator ==(Varve.Inference.Model.DataGraphIndex left, Varve.Inference.Model.DataGraphIndex right) -> bool
+~override Varve.Inference.Model.DataGraphIndex.Equals(object obj) -> bool
+~override Varve.Inference.Model.DataGraphIndex.ToString() -> string

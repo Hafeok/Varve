@@ -166,6 +166,58 @@ internal static class InferenceBench
         return lists;
     }
 
+    /// <summary>
+    /// Cross-graph growth (ADR 0190 point 6, ADR 0195 point 3): the closure
+    /// of the first k data graphs' merge over the TBox closure, for k an
+    /// eighth, a quarter, a half and all of them, and each fact's minimal
+    /// premise sets over it; the distinct sets of two graphs or more, which
+    /// are the reserved graphs a cross-graph binding places rows in.
+    /// </summary>
+    internal static void RunPremiseSets(string sizeName, string profileName)
+    {
+        RecSize size = Enum.Parse<RecSize>(sizeName);
+        InferenceProfile profile = profileName == "owl2rl" ? InferenceProfile.Owl2Rl : InferenceProfile.Rdfs;
+        Console.WriteLine($"// REC {size} (generator version {RecPortfolio.Version}, seed {Seed}), profile {profile}, cross-graph, .NET {Environment.Version}, {Environment.ProcessorCount} cores");
+        Terms terms = new();
+        Fact[] tbox = TBox(terms);
+        Dictionary<string, HashSet<Fact>> graphs = State(terms, RecPortfolio.Generate(size, Seed));
+        string[] names = [.. graphs.Keys.Order(StringComparer.Ordinal)];
+        Closure tboxClosure = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive);
+        tboxClosure.Apply(tbox, []);
+        foreach (int k in new[] { names.Length / 8, names.Length / 4, names.Length / 2, names.Length }.Where(k => k > 0).Distinct())
+        {
+            long before = Heap();
+            Stopwatch clock = Stopwatch.StartNew();
+            Closure merge = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive, tbox: tboxClosure);
+            merge.Apply([.. names.Take(k).SelectMany(n => graphs[n]).Distinct()], []);
+            TimeSpan closed = clock.Elapsed;
+            List<(Fact, DataGraphIndex)> held = [];
+            for (int g = 0; g < k; g++)
+            {
+                held.AddRange(graphs[names[g]].Select(f => (f, new DataGraphIndex(g))));
+            }
+
+            PremiseSets sets = new(merge, held);
+            TimeSpan labelled = clock.Elapsed - closed;
+            long after = Heap();
+            long crossFacts = 0, onlyCross = 0, several = 0;
+            foreach (Fact fact in merge.Own)
+            {
+                IReadOnlyList<PremiseSet> of = sets.Of(fact);
+                several += of.Count > 1 ? 1 : 0;
+                int cross = of.Count(s => s.IsCrossGraph);
+                crossFacts += cross > 0 ? 1 : 0;
+                onlyCross += cross > 0 && cross == of.Count ? 1 : 0;
+            }
+
+            IReadOnlyCollection<PremiseSet> distinct = sets.CrossGraph();
+            int widest = distinct.Count == 0 ? 0 : distinct.Max(s => s.Graphs.Count);
+            Console.WriteLine($"{k} graphs: closed in {closed.TotalSeconds:F1} s, {merge.Count.Value} facts; premise sets in {labelled.TotalSeconds:F1} s; {distinct.Count} distinct cross-graph sets (widest {widest} graphs); {crossFacts} facts with one, {onlyCross} with no other, {several} with more than one set; heap {(after - before) / 1048576.0:F0} MiB");
+            GC.KeepAlive(merge);
+            GC.KeepAlive(sets);
+        }
+    }
+
     private static double Percentile(List<double> sorted, double p) => sorted.Count == 0 ? 0 : sorted[Math.Min(sorted.Count - 1, (int)(p * sorted.Count))];
 
     private static long Heap()
