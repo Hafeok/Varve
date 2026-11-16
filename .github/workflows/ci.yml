@@ -811,17 +811,42 @@ jobs:
       # A server's datasets in the container: a second server takes one over,
       # the first answers writes with writer-superseded, and varve lease
       # shows the record and takes an epoch over (ADR 0136).
+      # And `varve storage verify`, the contract suite as an operator runs it
+      # (ADR 0183, #117): it must pass against Azurite, and against RustFS by
+      # web identity. Each run's result record is written to the job's
+      # summary and kept as an artifact; the records under
+      # testdata/object-stores/results/ are these, added by pull request.
       - name: Test the server against them
         env:
           VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
-          VARVE_STORAGE_LEGS_REQUIRED: azurite
+          VARVE_RUSTFS: http://127.0.0.1:9000,varvetest,varvetestsecret
+          VARVE_RUSTFS_WEB_IDENTITY: http://127.0.0.1:9000/,http://127.0.0.1:8090/varve/token,issuer:8080
+          VARVE_STORAGE_LEGS_REQUIRED: azurite,rustfs,rustfs-web-identity
+          VARVE_VERIFY_RECORDS: ${{ github.workspace }}/artifacts/object-store-results
         run: >
           dotnet test
           --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
           --configuration Release
           --filter-class Varve.Server.Tests.ObjectStorageServerTests
+          --filter-class Varve.Server.Tests.StorageVerifyServiceTests
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+
+      - name: The result records
+        if: always()
+        run: |
+          for record in "$GITHUB_WORKSPACE"/artifacts/object-store-results/*.yaml; do
+            [ -f "$record" ] || continue
+            { echo "### $(basename "$record")"; echo '```yaml'; cat "$record"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+
+      - name: Upload the result records
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: object-store-results
+          path: ${{ github.workspace }}/artifacts/object-store-results
+          if-no-files-found: warn
 
       - name: Upload the test results
         # #126: every run keeps its TRX, pass or fail, so a slow or red run

@@ -1,0 +1,113 @@
+# The object-store contract suite against Amazon S3, run by hand (ADR 0183,
+# #117): `varve storage verify` against a bucket, and its result record for
+# the compatibility page.
+#
+# Dispatched by the maintainer, in the `aws-objects` environment, which only
+# `main` may use. No credential is stored anywhere (ADR 0137): the command
+# reaches the bucket as GitHub's OIDC token for this environment, which
+# Varve.Store.S3 exchanges at Amazon's STS (AssumeRoleWithWebIdentity) for the
+# role's temporary credentials. The role trusts that token, and may read,
+# write, list and delete in the one bucket.
+#
+# The environment holds only identifiers, as variables:
+#   AWS_ROLE_ARN       the role to assume
+#   VARVE_AWS_BUCKET   the bucket's name
+#   VARVE_AWS_REGION   its region
+#
+# The leg follows ADR 0223's rule. With none of the three set it skips, and
+# says which are missing: the maintainer has not created the role yet. With
+# some set and not all, it fails.
+#
+# The record is this run's artifact. Adding it under
+# testdata/object-stores/results/ is a pull request's, with the page
+# regenerated (`dotnet run eng/object-stores.cs`).
+name: aws-objects
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  aws-objects:
+    name: object storage against Amazon S3
+    runs-on: ubuntu-latest
+    environment: aws-objects
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      VARVE_AWS_BUCKET: ${{ vars.VARVE_AWS_BUCKET }}
+      VARVE_AWS_REGION: ${{ vars.VARVE_AWS_REGION }}
+
+    steps:
+      - name: Which identifiers are set
+        id: identifiers
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -n "$AWS_ROLE_ARN" ] || missing+=(AWS_ROLE_ARN)
+          [ -n "$VARVE_AWS_BUCKET" ] || missing+=(VARVE_AWS_BUCKET)
+          [ -n "$VARVE_AWS_REGION" ] || missing+=(VARVE_AWS_REGION)
+          if [ "${#missing[@]}" -eq 3 ]; then
+            echo "::notice::The Amazon S3 leg is not set up: ${missing[*]} are not set in the aws-objects environment. Nothing ran, and Amazon S3 stays untested on the compatibility page."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          elif [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::The Amazon S3 leg is half set up: ${missing[*]} are not set in the aws-objects environment, and the others are."
+            exit 1
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.identifiers.outputs.run == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        if: steps.identifiers.outputs.run == 'true'
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      # Built before the token is taken, so it is fresh when the command runs.
+      - name: Build the command line
+        if: steps.identifiers.outputs.run == 'true'
+        run: dotnet build src/Varve.Server/Varve.Server.csproj --configuration Release
+
+      - name: GitHub's token for Amazon's STS
+        if: steps.identifiers.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          token=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          echo "::add-mask::$token"
+          printf '%s' "$token" > "$RUNNER_TEMP/web-identity"
+          echo "AWS_WEB_IDENTITY_TOKEN_FILE=$RUNNER_TEMP/web-identity" >> "$GITHUB_ENV"
+
+      - name: varve storage verify against the bucket
+        if: steps.identifiers.outputs.run == 'true'
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/object-store-results"
+          dotnet run --project src/Varve.Server/Varve.Server.csproj --configuration Release --no-build -- \
+            storage verify "s3://$VARVE_AWS_BUCKET" \
+            --endpoint "https://s3.$VARVE_AWS_REGION.amazonaws.com" --region "$VARVE_AWS_REGION" --rounds 20 \
+            --record "$GITHUB_WORKSPACE/artifacts/object-store-results/amazon-s3-2006-03-01.yaml" \
+            --provider amazon-s3 --server-version 2006-03-01 \
+            --deployment "Amazon S3, $VARVE_AWS_REGION, a general purpose bucket" \
+            --run-by maintainer --signed-off-by "Emil Okkels Klein <emil@okkels-klein.dk>"
+          cat "$GITHUB_WORKSPACE/artifacts/object-store-results/amazon-s3-2006-03-01.yaml" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the token
+        if: always()
+        run: rm -f "$RUNNER_TEMP/web-identity"
+
+      - name: Upload the result record
+        if: always() && steps.identifiers.outputs.run == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: object-store-results-amazon-s3
+          path: ${{ github.workspace }}/artifacts/object-store-results
+          if-no-files-found: warn
