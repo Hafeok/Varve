@@ -394,7 +394,7 @@ symmetric cipher exists in that host, which changed a decision (ADR 0028).
 
 `varve` is the server and the command line in one executable. Take it as a
 .NET tool, which needs the .NET 10 runtime, or as the container image, which
-is the Native AOT binary and nothing else:
+is the Native AOT binary and the Web UI's bundle:
 
 ```bash
 dotnet tool install --global Varve.Server --prerelease
@@ -404,10 +404,14 @@ docker pull ghcr.io/hafeok/varve:v0.1.0-preview.21
 Serve one dataset on your machine. `--anonymous` is for development only: a
 real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authentication.md)).
 
+The quickest first run is the image. It serves the operator console at
+`/ui/` by default, so open <http://localhost:8080/ui/> once it is up
+([the Web UI](docs/operator/web-ui.md), ADR 0245):
+
 ```bash
-varve serve --anonymous --datasets-root "$PWD/data"
-# or, listening on 8080 instead of 5000, with the datasets in the image's volume:
 docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.21 serve --anonymous
+# or the .NET tool, listening on 5000, with no console unless Varve:WebUi:Path is set:
+varve serve --anonymous --datasets-root "$PWD/data"
 
 # then declare the dataset in the management plane (ADR 0163):
 curl -X PUT http://localhost:5000/manage/datasets/people -H 'Content-Type: application/trig' \

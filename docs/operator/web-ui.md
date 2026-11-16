@@ -14,11 +14,57 @@ can do nothing the API and `varve` cannot.
 **What it does:** takes a checkpoint, and closes and opens a dataset. It
 asks before each, and closing needs the dataset's name typed.
 
-A release publishes the Web UI as `varve-webui-<version>.zip`, a release
-asset attested with its build provenance and its SBOM. It is not in the
-server's container image. The zip is the published `wwwroot`: `index.html`,
-`appsettings.json`, `_framework/` and the styles. Check it before you unpack
-it:
+There are three ways to host it. The container image is the first and the
+simplest: it carries the Web UI and serves it by default (ADR 0245).
+
+## The container image
+
+`ghcr.io/hafeok/varve` holds the Web UI at `/app/webui` and serves it at
+`/ui/`. Nothing else needs to be set:
+
+```sh
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.N serve --anonymous
+```
+
+Then open `http://localhost:8080/ui/`.
+
+- **The bundle** is the release's zip, unpacked unchanged, from the same build
+  as the server. The image's SBOM lists its components.
+- **The settings come from the server.** The image sets
+  `Varve:WebUi:Settings` to `Generated`, so the server answers
+  `/ui/appsettings.json` from its own configuration. Nobody edits a file in
+  the image.
+  - On an anonymous server, the console is anonymous.
+  - On an OIDC server, give the Web UI's public client to the server, and
+    the console signs in with the server's own issuer (`Varve:Auth:Authority`):
+
+    ```sh
+    docker run --rm -p 8080:8080 \
+      -e VARVE__AUTH__MODE=Oidc \
+      -e VARVE__AUTH__AUTHORITY=https://login.microsoftonline.com/<tenant>/v2.0 \
+      -e VARVE__AUTH__AUDIENCES__0=api://varve \
+      -e VARVE__WEBUI__AUTH__CLIENTID=<the Web UI's client id> \
+      -e VARVE__WEBUI__AUTH__DATASCOPE=api://varve/access_as_user \
+      -e VARVE__WEBUI__AUTH__MANAGESCOPE=api://varve-manage/access_as_user \
+      ghcr.io/hafeok/varve:v0.1.0-preview.N serve
+    ```
+
+  - **On an OIDC server with no client for the Web UI,** the console says
+    *Sign-in is not configured*, and names the settings to add. It never
+    calls itself anonymous on a server that checks tokens.
+- **To turn it off,** set `VARVE__WEBUI__ENABLED=false`. The server then adds
+  no `/ui/` at all.
+
+[Configure](configure.md#the-web-ui--webui-adrs-0202-0245) lists every
+`Varve:WebUi` setting, and *Signing in* below says what each client setting
+means.
+
+## The zip
+
+A release also publishes the Web UI as `varve-webui-<version>.zip`, a release
+asset attested with its build provenance and its SBOM, for the two other ways.
+The zip is the published `wwwroot`: `index.html`, `appsettings.json`,
+`_framework/` and the styles. Check it before you unpack it:
 
 ```sh
 gh attestation verify varve-webui-0.1.0-preview.N.zip --owner hafeok
@@ -28,9 +74,7 @@ The release carries its SBOM beside it, `varve-webui-<version>.zip.spdx.json`;
 [the supply chain page](../supply-chain.md) says what it lists and how to
 verify each attestation.
 
-There are two ways to host it.
-
-## A — the server serves it
+## A — the server serves an unpacked bundle
 
 Unpack the zip, and point `Varve:WebUi:Path` at the directory:
 
@@ -42,10 +86,17 @@ The server then serves the Web UI at `/ui/` on the data-plane listener.
 - **At start,** the server refuses to start if the directory is not an
   absolute path holding `index.html`.
 - **Same origin:** the Web UI calls the API at its own origin, so there is
-  no CORS to configure. With a management listener (`Varve:Manage:Urls`),
-  `/manage` is on another origin. List `https://<host>:<data port>` in
-  `Varve:Cors:AllowedOrigins` (ADR 0132), and set `Varve:Server` in the
-  bundle's `appsettings.json` to the data-plane origin.
+  no CORS to configure.
+- **One listener.** The Web UI has one address for both planes. With a
+  separate management listener (`Varve:Manage:Urls`), `/manage` is answered
+  on that port alone, and the Web UI's management screens cannot reach it, in
+  any of the three ways of hosting. Run the server with one listener while
+  you use the Web UI. [#297](https://github.com/Hafeok/Varve/issues/297)
+  gives it an address per plane.
+- **The bundle's `appsettings.json`** is served as you edit it, while
+  `Varve:WebUi:Settings` is `File`, the default. Set it to `Generated` to
+  have the server answer the settings from its own configuration instead, as
+  the image does.
 - **Public files:** no token is ever asked for a file under `/ui/`, and every
   call the Web UI makes to the API carries one.
 - **What the server sends** (ADR 0202):
@@ -107,11 +158,16 @@ The Web UI's browser tests fail on any policy violation, on every screen
 
 ## Signing in
 
-The bundle's `appsettings.json`, under `Varve:Auth` (ADR 0201):
+The Web UI reads these under `Varve:Auth` (ADR 0201): from the bundle's
+`appsettings.json`, or, with `Varve:WebUi:Settings` `Generated`, from the
+server's answer. There, `Mode`, `Authority` and `RoleClaimType` are the
+server's own, and the client's settings are the server's
+`Varve:WebUi:Auth:ClientId`, `DataScope`, `ManageScope`, `ManageGrant`,
+`DataAudience` and `ManageAudience`.
 
 | Setting | Meaning |
 |---|---|
-| `Mode` | `Oidc`, or `Anonymous` for a server in anonymous mode |
+| `Mode` | `Oidc`, or `Anonymous` for a server in anonymous mode. Anything else, `NotConfigured` among it, shows *Sign-in is not configured* and reads nothing |
 | `Authority` | the issuer: the server's `Auth:Authority` |
 | `ClientId` | the Web UI's own public client at the issuer |
 | `DataScope` | the scope whose token the data plane accepts (its audience is one of the server's `Auth:Audiences`) |
