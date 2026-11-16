@@ -89,7 +89,8 @@ applications, so `SubjectClaim` is `oid`, and a commit's agent is
 `https://login.microsoftonline.com/{tenant}/v2.0#{oid}`.
 
 CI runs this leg against a real tenant on `main` (ADR 0100, the
-`auth (providers)` job), with the secrets the maintainer holds.
+`auth (providers)` job). The job holds no secret: its own GitHub OIDC token is
+the client's federated credential (ADR 0223, `docs/auth-providers.md`).
 
 ```json
 "Auth": {

@@ -23,12 +23,20 @@ whose writer could not be reached, or whose answer was lost, is
 sent once and never again, and whether the writer received any of it is
 unknown here, so the client decides.
 
+A move of event declarations forwards its own writes to the system writer
+(ADR 0167). When that forward never reached the system writer, because no
+connection to it was made, nothing was committed, and the move is answered
+with `reason` `writer-unreachable`. When it was sent and the answer lost,
+the move is `commit-outcome-unknown` too. Either way, run the move again: it
+resumes.
+
 ## What to do
 
 - `failure` `damaged`: restore the dataset from a backup ([Restoring](../operator/backup-and-restore.md#restoring)); a restart does not help.
 - `failure` `configuration`: correct the setting the `detail` names (`Varve:DatasetsRoot`, `Varve:ObjectStorage`), or upgrade to a build that reads the dataset's format.
 - `failure` `transient`, or no `failure`: retry after a short wait; the server keeps trying to open it. If it persists, the `detail` and the server's log say why.
 - `reason` `no-writer`: wait for a writer to claim the epoch, or start one ([The fleet](../operator/fleet.md#who-writes-a-dataset-placement)).
+- `reason` `writer-unreachable`, on a move of event declarations: nothing was committed; run the move again, and it resumes.
 
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
