@@ -13,8 +13,9 @@ namespace Varve.Inference.Store;
 
 /// <summary>
 /// A binding's closures at one position (ADR 0195 points 2 and 3): one of the
-/// TBox graphs' quads, and one per data graph of its own quads and the TBox
-/// graphs', every one taking its facts from one budget.
+/// TBox graphs' quads, and one per data graph of its own quads over it, the
+/// TBox closure's facts shared beneath every one, all taking their facts
+/// from one budget. A TBox change rebuilds them all: a generation.
 /// </summary>
 /// <remarks>
 /// A fact is a row of the TBox conclusions' graph when the TBox closure
@@ -30,7 +31,6 @@ internal sealed class Materialisation
     private readonly InferenceProjection _projection;
     private readonly Closure _tbox;
     private readonly Dictionary<TermHandle, Closure> _graphs = [];
-    private readonly HashSet<Fact> _tboxExplicit = [];
     private readonly Dictionary<TermHandle, bool> _data = [];
     private readonly Dictionary<TermHandle, bool> _tboxGraphs = [];
     private readonly List<TermHandle> _dropped = [];
@@ -86,13 +86,12 @@ internal sealed class Materialisation
 
             cancellationToken.ThrowIfCancellationRequested();
             built._tbox.Apply([.. tbox], []);
-            built._tboxExplicit.UnionWith(tbox);
             foreach ((TermHandle graph, List<Fact> facts) in graphs)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Closure closure = new(projection.Binding.Profile, built.Terms, built.Budget);
+                Closure closure = new(projection.Binding.Profile, built.Terms, built.Budget, built._tbox);
                 built._graphs[graph] = closure;
-                closure.Apply([.. tbox, .. facts], []);
+                closure.Apply([.. facts], []);
             }
 
             return built;
@@ -105,73 +104,35 @@ internal sealed class Materialisation
     }
 
     /// <summary>
-    /// Applies a commit's exact delta: the TBox graphs' part to every closure,
-    /// each data graph's to its own. Answers, per graph, the facts whose row
-    /// may have changed.
+    /// Applies a commit's exact delta, each data graph's part to its own
+    /// closure. Answers, per graph, the facts whose row may have changed; or
+    /// null when the commit changes a TBox graph, which is a generation.
     /// </summary>
     /// <exception cref="ClosureLimitExceededException">A closure would pass the binding's limit.</exception>
-    internal Dictionary<TermHandle, HashSet<Fact>> Apply(IQuadSource view, QuadDelta delta)
+    internal Dictionary<TermHandle, HashSet<Fact>>? Apply(IQuadSource view, QuadDelta delta)
     {
         List<Fact> tboxAsserted = [], tboxRetracted = [];
         Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs = [];
         Split(view, delta.Asserted, tboxAsserted, graphs, asserted: true);
         Split(view, delta.Retracted, tboxRetracted, graphs, asserted: false);
-
-        Dictionary<TermHandle, HashSet<Fact>> changed = [];
         if (tboxAsserted.Count > 0 || tboxRetracted.Count > 0)
         {
-            IReadOnlyCollection<Fact> tboxChanged = _tbox.Apply([.. tboxAsserted], [.. tboxRetracted]);
-            _tboxExplicit.ExceptWith(tboxRetracted);
-            _tboxExplicit.UnionWith(tboxAsserted);
-            HashSet<Fact> tboxRows = Into(changed, TBoxGraph);
-            tboxRows.UnionWith(tboxChanged);
-
-            // A triple asserted that was implicit, or retracted and still
-            // entailed, changes its row but not the closure's membership.
-            tboxRows.UnionWith(tboxAsserted);
-            tboxRows.UnionWith(tboxRetracted);
-
-            foreach ((TermHandle graph, Closure closure) in _graphs)
-            {
-                // A TBox triple the graph asserts too stays explicit there.
-                List<Fact> gone = [];
-                foreach (Fact fact in tboxRetracted)
-                {
-                    if (!view.Contains(new Quad(fact.Subject, fact.Predicate, fact.Object, graph)))
-                    {
-                        gone.Add(fact);
-                    }
-                }
-
-                HashSet<Fact> into = Into(changed, graph);
-                into.UnionWith(closure.Apply([.. tboxAsserted], [.. gone]));
-                into.UnionWith(tboxChanged);
-                into.UnionWith(tboxAsserted);
-                into.UnionWith(gone);
-            }
+            // The TBox closure is shared beneath every data graph's, and never changes under one.
+            return null;
         }
+
+        Dictionary<TermHandle, HashSet<Fact>> changed = [];
 
         foreach ((TermHandle graph, (List<Fact> asserted, List<Fact> retracted)) in graphs)
         {
             HashSet<Fact> into = Into(changed, graph);
             if (!_graphs.TryGetValue(graph, out Closure? closure))
             {
-                closure = new Closure(_projection.Binding.Profile, Terms, Budget);
+                closure = new Closure(_projection.Binding.Profile, Terms, Budget, _tbox);
                 _graphs[graph] = closure;
-                into.UnionWith(closure.Apply([.. _tboxExplicit], []));
             }
 
-            // A triple the TBox graphs assert too stays explicit in every closure.
-            List<Fact> gone = [];
-            foreach (Fact fact in retracted)
-            {
-                if (!_tboxExplicit.Contains(fact))
-                {
-                    gone.Add(fact);
-                }
-            }
-
-            into.UnionWith(closure.Apply([.. asserted], [.. gone]));
+            into.UnionWith(closure.Apply([.. asserted], [.. retracted]));
             into.UnionWith(asserted);
             into.UnionWith(retracted);
 
@@ -225,9 +186,9 @@ internal sealed class Materialisation
 
         foreach ((TermHandle graph, Closure closure) in _graphs)
         {
-            foreach (Fact fact in closure.Implicit)
+            foreach (Fact fact in closure.Own)
             {
-                if (!_tbox.Contains(fact) && Servable(fact))
+                if (!closure.IsExplicit(fact) && !_tbox.Contains(fact) && Servable(fact))
                 {
                     yield return (graph, fact);
                 }

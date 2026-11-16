@@ -643,7 +643,7 @@ public sealed class InferenceProjection : IProjection
             }
         }
 
-        Dictionary<TermHandle, HashSet<Fact>> changed;
+        Dictionary<TermHandle, HashSet<Fact>>? changed;
         try
         {
             changed = state.Apply(view, delta);
@@ -656,6 +656,13 @@ public sealed class InferenceProjection : IProjection
         catch (Exception error) when (error is not OperationCanceledException)
         {
             // A pass that fails decides nothing: the commit is a generation.
+            Rebuild(view, position);
+            return;
+        }
+
+        if (changed is null)
+        {
+            // A TBox commit: a generation over the new TBox closure.
             Rebuild(view, position);
             return;
         }

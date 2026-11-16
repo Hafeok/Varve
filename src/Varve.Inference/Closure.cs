@@ -28,6 +28,7 @@ public sealed partial class Closure
 {
     private readonly HashSet<Fact> _explicit = [];
     private readonly HashSet<Fact> _axioms = [];
+    private readonly Closure? _base;
 
     /// <summary>The empty graph's closure under <paramref name="profile"/>: its axioms and what they entail.</summary>
     public Closure(InferenceProfile profile, IInferenceTerms terms)
@@ -46,10 +47,24 @@ public sealed partial class Closure
     {
     }
 
-    internal Closure(Program program, Retraction retraction, FactBudget? budget = null)
+    /// <summary>
+    /// A data graph's closure over <paramref name="tbox"/>, the TBox's: its
+    /// facts are this closure's too, given, never held twice nor counted
+    /// against the budget again (ADR 0195 point 3). The TBox closure does
+    /// not change while this one lives; a TBox change rebuilds both.
+    /// </summary>
+    /// <exception cref="ClosureLimitExceededException">The axioms alone would pass the budget.</exception>
+    public Closure(InferenceProfile profile, IInferenceTerms terms, FactBudget budget, Closure tbox)
+        : this(Program.Of(profile, terms), Retraction.DeleteAndRederive, budget, tbox)
+    {
+    }
+
+    internal Closure(Program program, Retraction retraction, FactBudget? budget = null, Closure? tbox = null)
     {
         Program = program;
         Strategy = retraction;
+        _base = tbox;
+        Facts = new FactSet { Base = tbox?.Facts };
         Facts.Budget = budget;
         foreach (Fact axiom in program.Axioms)
         {
@@ -64,17 +79,17 @@ public sealed partial class Closure
     /// <summary>Whether the closure holds a fact.</summary>
     public bool Contains(Fact fact) => Facts.Contains(fact);
 
-    /// <summary>Whether a fact is explicit: asserted, and not since retracted.</summary>
-    public bool IsExplicit(Fact fact) => _explicit.Contains(fact);
+    /// <summary>Whether a fact is explicit: asserted, and not since retracted; here, or in the TBox closure beneath.</summary>
+    public bool IsExplicit(Fact fact) => _explicit.Contains(fact) || (_base is { } tbox && tbox.IsExplicit(fact));
 
     /// <summary>The facts the closure holds that are not explicit, generalised ones included.</summary>
     public IEnumerable<Fact> Implicit
     {
         get
         {
-            foreach (Fact fact in Facts.All)
+            foreach (Fact fact in All)
             {
-                if (!_explicit.Contains(fact))
+                if (!IsExplicit(fact))
                 {
                     yield return fact;
                 }
@@ -82,8 +97,28 @@ public sealed partial class Closure
         }
     }
 
-    /// <summary>Every fact of the closure.</summary>
-    public IEnumerable<Fact> All => Facts.All;
+    /// <summary>The facts a data graph's closure holds itself, beyond the TBox closure beneath it; every fact for a closure with none.</summary>
+    public IEnumerable<Fact> Own => Facts.All;
+
+    /// <summary>Every fact of the closure, the TBox closure's beneath it included.</summary>
+    public IEnumerable<Fact> All
+    {
+        get
+        {
+            foreach (Fact fact in Facts.All)
+            {
+                yield return fact;
+            }
+
+            if (_base is not null)
+            {
+                foreach (Fact fact in _base.All)
+                {
+                    yield return fact;
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// Every clash the profile's checks find over the closure (ADR 0197
@@ -116,7 +151,7 @@ public sealed partial class Closure
         return clashes;
     }
 
-    internal FactSet Facts { get; } = new();
+    internal FactSet Facts { get; }
 
     internal Program Program { get; }
 
@@ -172,6 +207,12 @@ public sealed partial class Closure
             return null;
         }
 
+        // A fact of the TBox closure beneath is proved there.
+        if (_base is { } tbox && !Facts.Holds(fact) && !_explicit.Contains(fact))
+        {
+            return tbox.Explain(fact);
+        }
+
         ProofSearch search = new(this);
         if (!search.Proved(fact))
         {
@@ -188,6 +229,13 @@ public sealed partial class Closure
         if (built.TryGetValue(fact, out Proof? done))
         {
             return done;
+        }
+
+        if (_base is { } tbox && !Facts.Holds(fact) && !_explicit.Contains(fact))
+        {
+            Proof under = tbox.Explain(fact)!;
+            built[fact] = under;
+            return under;
         }
 
         if (_explicit.Contains(fact) || _axioms.Contains(fact))
@@ -338,7 +386,7 @@ public sealed partial class Closure
             edge.Label.Fire(fact, Facts, heads);
             foreach (Fact head in heads)
             {
-                if (Facts.Contains(head) && !_explicit.Contains(head) && !_axioms.Contains(head))
+                if (Facts.Contains(head) && !IsGiven(head))
                 {
                     into.Add(head);
                 }
@@ -354,7 +402,7 @@ public sealed partial class Closure
         List<Fact> rederived = [];
         foreach (Fact fact in deleted)
         {
-            if (_explicit.Contains(fact) || _axioms.Contains(fact) || Derivable(fact))
+            if (IsGiven(fact) || Derivable(fact))
             {
                 rederived.Add(fact);
             }
@@ -376,7 +424,7 @@ public sealed partial class Closure
         ProofSearch search = new(this);
         while (pending.TryDequeue(out Fact fact))
         {
-            if (!Facts.Contains(fact) || _explicit.Contains(fact) || _axioms.Contains(fact))
+            if (!Facts.Contains(fact) || IsGiven(fact))
             {
                 continue;
             }
@@ -395,7 +443,7 @@ public sealed partial class Closure
             Facts.Remove(fact);
             foreach (Fact head in heads)
             {
-                if (Facts.Contains(head) && !_explicit.Contains(head) && !_axioms.Contains(head))
+                if (Facts.Contains(head) && !IsGiven(head))
                 {
                     pending.Enqueue(head);
                 }
@@ -403,8 +451,8 @@ public sealed partial class Closure
         }
     }
 
-    /// <summary>Whether a fact is explicit or an axiom: a leaf of every proof.</summary>
-    internal bool IsGiven(in Fact fact) => _explicit.Contains(fact) || _axioms.Contains(fact);
+    /// <summary>Whether a fact is explicit, an axiom, or the TBox closure's beneath: a leaf of every proof here.</summary>
+    internal bool IsGiven(in Fact fact) => _explicit.Contains(fact) || _axioms.Contains(fact) || (_base is { } tbox && tbox.Contains(fact));
 
     private bool Derivable(in Fact fact)
     {

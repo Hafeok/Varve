@@ -101,3 +101,5 @@ Varve.Inference.Model.Explanation
 Varve.Inference.Model.Explanation.Clashes.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.ExplainedClash!>!
 Varve.Inference.Model.Explanation.Explanation(Varve.Inference.Model.ExplainedQuad? proof, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.ExplainedClash!>! clashes) -> void
 Varve.Inference.Model.Explanation.Proof.get -> Varve.Inference.Model.ExplainedQuad?
+Varve.Inference.Closure.Closure(Varve.Inference.Model.InferenceProfile profile, Varve.Inference.IInferenceTerms! terms, Varve.Inference.FactBudget! budget, Varve.Inference.Closure! tbox) -> void
+Varve.Inference.Closure.Own.get -> System.Collections.Generic.IEnumerable<Varve.Inference.Model.Fact>!

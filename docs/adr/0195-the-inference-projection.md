@@ -111,14 +111,20 @@ graphs, this ADR's amendment says so before any other layout is chosen.
 - **A data commit** is applied by the retraction strategy ADR 0196 chooses,
   insertion first by semi-naive propagation, and the rows change only where
   the closure does.
+- **The TBox closure is shared.** A data graph's closure is its own quads'
+  over the TBox closure, whose facts it holds as given, never twice. Each
+  data graph holding its own copy cost, on REC S, as many facts again as the
+  TBox closure for every graph (revised 2026-11-16, on the measurement
+  below).
 - **A generation** starts on a commit that changes a bound TBox graph or the
-  rules graph, on the first commit after a rules graph that did not load, and
-  on any commit whose incremental pass fails. A generation recompiles the
-  binding's program (the TBox-specialised join tables), then brings the
-  closure to the commit.
-  - A TBox change is maintained by the same insertion and deletion passes as a
-    data change, since RDFS and OWL 2 RL/RDF treat schema triples as facts.
-    Only the program is redone.
+  rules graph, on the first commit after a rules graph that did not load, on
+  a commit that allocates a term a rule names, and on any commit whose
+  incremental pass fails. A generation rebuilds the TBox closure and every
+  data graph's over it from the commit's state, and opens or closes only
+  the rows that differ.
+  - A TBox change is a generation because the TBox closure is shared beneath
+    every data graph's and never changes under one. TBox commits are rare
+    beside data commits; their cost is a from-scratch closure (point 5a).
   - A rules change that only adds rules without negation is semi-naive from the
     current closure. Any other rules change is from scratch.
   - Either way the guarantee is point 9's: every position equals the

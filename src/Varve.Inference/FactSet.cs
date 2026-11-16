@@ -22,7 +22,15 @@ internal sealed class FactSet
     private readonly Dictionary<(ulong, ulong), HashSet<Fact>> _bySubjectPredicate = [];
     private readonly Dictionary<(ulong, ulong), HashSet<Fact>> _byPredicateObject = [];
 
+    /// <summary>The facts this set holds itself, its base's not counted.</summary>
     internal int Count => _all.Count;
+
+    /// <summary>
+    /// A read-only set beneath this one, whose facts this one holds as its
+    /// own but never adds, removes or counts: the TBox closure under a data
+    /// graph's (ADR 0195 point 3). It does not change while this set lives.
+    /// </summary>
+    internal FactSet? Base { get; init; }
 
     /// <summary>The budget each fact added takes from, if the closure has one.</summary>
     internal FactBudget? Budget { get; set; }
@@ -30,13 +38,17 @@ internal sealed class FactSet
     /// <summary>While a pass records its changes: each fact added or removed, and whether it was held before its first change.</summary>
     internal Dictionary<Fact, bool>? Touched { get; set; }
 
+    /// <summary>The facts this set holds itself, its base's not among them.</summary>
     internal IEnumerable<Fact> All => _all;
 
-    internal bool Contains(in Fact fact) => _all.Contains(fact);
+    internal bool Contains(in Fact fact) => _all.Contains(fact) || (Base is { } under && under.Contains(fact));
+
+    /// <summary>Whether this set holds a fact itself, not through its base.</summary>
+    internal bool Holds(in Fact fact) => _all.Contains(fact);
 
     internal bool Add(in Fact fact)
     {
-        if (_all.Contains(fact))
+        if (_all.Contains(fact) || (Base is { } under && under.Contains(fact)))
         {
             return false;
         }
@@ -76,7 +88,23 @@ internal sealed class FactSet
     /// from the narrowest index that answers it. The caller does not change
     /// the set while it reads the answer.
     /// </summary>
-    internal IEnumerable<Fact> Match(TermHandle subject, TermHandle predicate, TermHandle @object)
+    internal IEnumerable<Fact> Match(TermHandle subject, TermHandle predicate, TermHandle @object) =>
+        Base is { } under ? Both(Own(subject, predicate, @object), under.Match(subject, predicate, @object)) : Own(subject, predicate, @object);
+
+    private static IEnumerable<Fact> Both(IEnumerable<Fact> own, IEnumerable<Fact> under)
+    {
+        foreach (Fact fact in own)
+        {
+            yield return fact;
+        }
+
+        foreach (Fact fact in under)
+        {
+            yield return fact;
+        }
+    }
+
+    private IEnumerable<Fact> Own(TermHandle subject, TermHandle predicate, TermHandle @object)
     {
         bool s = !subject.IsNone, p = !predicate.IsNone, o = !@object.IsNone;
         if (s && p && o)

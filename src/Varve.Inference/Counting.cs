@@ -40,7 +40,7 @@ public sealed partial class Closure
     private readonly Dictionary<Fact, int> _count = [];
 
     /// <summary>The round of a fact the closure holds under recursive counting, and the instances counted towards it there: for the tests' invariant.</summary>
-    internal (int Round, int Count) Standing(in Fact fact) => (_round[fact], _count.GetValueOrDefault(fact));
+    internal (int Round, int Count) Standing(in Fact fact) => (RoundOf(fact), _count.GetValueOrDefault(fact));
 
     /// <summary>The earliest round any instance over the facts held gives <paramref name="head"/>, and how many instances give it that round.</summary>
     internal (int Round, int Count) Earliest(in Fact head)
@@ -75,6 +75,9 @@ public sealed partial class Closure
         return (best, count);
     }
 
+    /// <summary>A fact's round: 0 for one of the TBox closure beneath, which is given here.</summary>
+    private int RoundOf(in Fact fact) => _round.TryGetValue(fact, out int round) ? round : 0;
+
     private void CountingInsert(IEnumerable<Fact> givens)
     {
         PriorityQueue<Fact, int> queue = new();
@@ -98,28 +101,28 @@ public sealed partial class Closure
         {
             if (Facts.Contains(fact) && !IsGiven(fact))
             {
-                queue.Enqueue(fact, _round[fact]);
+                queue.Enqueue(fact, RoundOf(fact));
             }
         }
 
         List<Fact> deleted = [];
         while (queue.TryDequeue(out Fact fact, out _))
         {
-            if (!Facts.Contains(fact) || IsGiven(fact) || (_round[fact] > 0 && _count[fact] > 0))
+            if (!Facts.Contains(fact) || IsGiven(fact) || (RoundOf(fact) > 0 && _count[fact] > 0))
             {
                 continue;
             }
 
             foreach ((Fact head, Fact[] premises) in Derivations(fact))
             {
-                if (head == fact || !Facts.Contains(head) || IsGiven(head) || RoundAfter(premises) != _round[head])
+                if (head == fact || !Facts.Contains(head) || IsGiven(head) || RoundAfter(premises) != RoundOf(head))
                 {
                     continue;
                 }
 
                 if (--_count[head] == 0)
                 {
-                    queue.Enqueue(head, _round[head]);
+                    queue.Enqueue(head, RoundOf(head));
                 }
             }
 
@@ -148,39 +151,72 @@ public sealed partial class Closure
 
     /// <summary>
     /// Settles facts in increasing round: a fact dequeued at a round earlier
-    /// than its own, or absent, takes it, is counted from its instances, and
-    /// offers each instance it is a premise of to that instance's head.
+    /// than its own, or absent, takes it and its count, and offers each
+    /// instance it is a premise of to that instance's head.
     /// </summary>
+    /// <remarks>
+    /// A fact not yet held is counted forwards: an instance is found once,
+    /// when the last of its premises settles, and an absent head keeps the
+    /// earliest round found for it and how many instances gave it that round.
+    /// A fact held already whose round drops is counted again from its
+    /// instances, backwards; an instance found again whose round did not
+    /// change is not counted twice. A fact seeded into the queue is counted
+    /// backwards as well: instances of it may predate the pass.
+    /// </remarks>
     private void Settle(PriorityQueue<Fact, int> queue)
     {
+        // A fact seeded from outside, a retraction's put back, may have instances
+        // found before this pass: it is counted backwards, never forwards.
+        HashSet<Fact> seeded = [];
+        foreach ((Fact fact, int _) in queue.UnorderedItems)
+        {
+            seeded.Add(fact);
+        }
+
+        Dictionary<Fact, (int Round, int Count)> found = [];
         while (queue.TryDequeue(out Fact fact, out int round))
         {
             bool present = Facts.Contains(fact);
-            if (present && _round[fact] <= round)
+            if (present && RoundOf(fact) <= round)
             {
                 continue;
             }
 
-            int? before = present ? _round[fact] : null;
+            int? before = present ? RoundOf(fact) : null;
             if (!present)
             {
                 Facts.Add(fact);
             }
 
             _round[fact] = round;
-            _count[fact] = IsGiven(fact) ? 0 : Earliest(fact).Count;
+            _count[fact] = IsGiven(fact) ? 0
+                : !present && !seeded.Contains(fact) && found.Remove(fact, out (int Round, int Count) earliest) && earliest.Round == round ? earliest.Count
+                : Earliest(fact).Count;
             foreach ((Fact head, Fact[] premises) in Derivations(fact))
             {
                 int now = RoundAfter(premises);
-                if (!Facts.Contains(head) || now < _round[head])
+                bool again = before is not null && RoundAfter(premises, fact, before.Value) == now;
+                if (!Facts.Contains(head))
+                {
+                    if (!again)
+                    {
+                        found[head] = found.TryGetValue(head, out (int Round, int Count) known) && known.Round <= now
+                            ? (known.Round, known.Count + (known.Round == now ? 1 : 0))
+                            : (now, 1);
+                    }
+
+                    queue.Enqueue(head, now);
+                    continue;
+                }
+
+                if (now < RoundOf(head))
                 {
                     queue.Enqueue(head, now);
                     continue;
                 }
 
                 // The instance reaches its head's round only now: count it.
-                if (now == _round[head] && !IsGiven(head) && head != fact
-                    && (before is null || RoundAfter(premises, fact, before.Value) != now))
+                if (now == RoundOf(head) && !IsGiven(head) && head != fact && !again)
                 {
                     _count[head]++;
                 }
@@ -216,7 +252,7 @@ public sealed partial class Closure
         int latest = -1;
         foreach (Fact premise in premises)
         {
-            latest = Math.Max(latest, _round[premise]);
+            latest = Math.Max(latest, RoundOf(premise));
         }
 
         return latest + 1;
@@ -228,7 +264,7 @@ public sealed partial class Closure
         int latest = -1;
         foreach (Fact premise in premises)
         {
-            latest = Math.Max(latest, premise == changed ? was : _round[premise]);
+            latest = Math.Max(latest, premise == changed ? was : RoundOf(premise));
         }
 
         return latest + 1;

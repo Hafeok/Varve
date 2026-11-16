@@ -111,6 +111,60 @@ public class IncrementalEqualsFromScratchTests
     [Fact]
     public void under_owl_2_rl_recursive_counting_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Owl2Rl, Retraction.RecursiveCounting);
 
+    /// <summary>
+    /// ADR 0195 point 3: a data graph's closure over the TBox closure beneath
+    /// it, maintained through a history of data commits, equals the closure
+    /// of the TBox's and the data's triples from scratch after every commit,
+    /// for each retraction strategy; the TBox closure is never changed.
+    /// </summary>
+    [Theory]
+    [InlineData(InferenceProfile.Rdfs, "DeleteAndRederive")]
+    [InlineData(InferenceProfile.Rdfs, "BackwardForward")]
+    [InlineData(InferenceProfile.Rdfs, "RecursiveCounting")]
+    [InlineData(InferenceProfile.Owl2Rl, "DeleteAndRederive")]
+    [InlineData(InferenceProfile.Owl2Rl, "RecursiveCounting")]
+    public void a_closure_over_a_tbox_beneath_equals_from_scratch_at_every_commit(InferenceProfile profile, string strategyName)
+    {
+        Retraction strategy = Enum.Parse<Retraction>(strategyName);
+        Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> triple = profile == InferenceProfile.Rdfs ? Triple : OwlTriple;
+        Gen.Select(triple.Array[0, 8], History(triple)).Sample(sample =>
+        {
+            Terms terms = new();
+            Program program = Program.Of(profile, terms);
+            Fact[] tbox = [.. sample.Item1.Select(t => terms.Fact(t.S, t.P, t.O)).Distinct()];
+            Closure beneath = new(program, Retraction.DeleteAndRederive);
+            beneath.Apply(tbox, []);
+            HashSet<Fact> frozen = [.. beneath.All];
+            Closure closure = new(program, strategy, budget: null, tbox: beneath);
+            HashSet<Fact> data = [];
+            Random random = new(sample.Item2.Seed);
+            foreach ((RdfTerm S, RdfTerm P, RdfTerm O)[] commit in sample.Item2.Commits)
+            {
+                List<Fact> asserted = [], retracted = [];
+                foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in commit)
+                {
+                    Fact fact = terms.Fact(s, p, o);
+                    if (data.Contains(fact) && random.Next(2) == 0 && !retracted.Contains(fact))
+                    {
+                        retracted.Add(fact);
+                    }
+                    else if (!data.Contains(fact) && !asserted.Contains(fact))
+                    {
+                        asserted.Add(fact);
+                    }
+                }
+
+                closure.Apply([.. asserted], [.. retracted]);
+                data.ExceptWith(retracted);
+                data.UnionWith(asserted);
+                HashSet<Fact> expected = FromScratch(program, [.. tbox, .. data]);
+                HashSet<Fact> actual = [.. closure.All];
+                Assert.True(expected.SetEquals(actual), $"{profile}, {strategy}: missing {expected.Except(actual).Count()}, extra {actual.Except(expected).Count()}");
+                Assert.True(frozen.SetEquals(beneath.All), "the TBox closure beneath changed");
+            }
+        }, iter: Long ? 100 : 15, threads: 1);
+    }
+
     /// <summary>The naive oracle recomputes a whole closure per round, so its OWL 2 RL case runs fewer histories.</summary>
     private static readonly int NaiveHistories = Long ? 40 : 8;
 
