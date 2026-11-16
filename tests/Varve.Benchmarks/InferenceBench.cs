@@ -218,6 +218,111 @@ internal static class InferenceBench
         }
     }
 
+    /// <summary>
+    /// A cross-graph binding's commits (ADR 0195 point 3): the merge of every
+    /// data graph and its premise sets built at the history less its last
+    /// <paramref name="held"/> commits, then those commits applied one by one,
+    /// the merge by recursive counting and the sets from the delta; the time
+    /// per commit and the facts whose sets changed.
+    /// </summary>
+    internal static void RunPremiseSetCommits(string sizeName, string profileName, int held)
+    {
+        RecSize size = Enum.Parse<RecSize>(sizeName);
+        InferenceProfile profile = profileName == "owl2rl" ? InferenceProfile.Owl2Rl : InferenceProfile.Rdfs;
+        Console.WriteLine($"// REC {size} (generator version {RecPortfolio.Version}, seed {Seed}), profile {profile}, cross-graph commits, .NET {Environment.Version}, {Environment.ProcessorCount} cores");
+        Terms terms = new();
+        Fact[] tbox = TBox(terms);
+        List<RecCommit> history = [.. RecPortfolio.Generate(size, Seed)];
+        int cut = Math.Max(0, history.Count - held);
+        Dictionary<string, HashSet<Fact>> graphs = State(terms, history.Take(cut));
+        Dictionary<string, int> indices = new(StringComparer.Ordinal);
+        foreach (string name in graphs.Keys.Order(StringComparer.Ordinal))
+        {
+            indices[name] = indices.Count;
+        }
+
+        Closure tboxClosure = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive);
+        tboxClosure.Apply(tbox, []);
+        Stopwatch clock = Stopwatch.StartNew();
+        Closure merge = new(InferenceProgram.Of(profile, terms), Retraction.RecursiveCounting, tbox: tboxClosure);
+        merge.Apply([.. graphs.Values.SelectMany(g => g).Distinct()], []);
+        PremiseSets sets = new(merge, graphs.SelectMany(g => g.Value.Select(f => (f, new DataGraphIndex(indices[g.Key])))));
+        Console.WriteLine($"//   built in {clock.Elapsed.TotalSeconds:F1} s: {merge.Count.Value} facts, {sets.CrossGraph().Count} cross-graph sets");
+
+        List<double> times = [];
+        long touched = 0;
+        (double Worst, int At, string Kind) worst = (0, 0, string.Empty);
+        int number = cut;
+        foreach (RecCommit commit in history.Skip(cut))
+        {
+            number++;
+            Stopwatch one = Stopwatch.StartNew();
+            HashSet<Fact> before = [.. Merged()];
+            List<(Fact, DataGraphIndex)> unpaired = [];
+            List<(Fact, DataGraphIndex)> paired = [];
+            foreach (RecQuad quad in commit.Retracted)
+            {
+                if (graphs.TryGetValue(quad.Graph, out HashSet<Fact>? facts) && facts.Remove(Fact(terms, quad)))
+                {
+                    unpaired.Add((Fact(terms, quad), new DataGraphIndex(indices[quad.Graph])));
+                }
+            }
+
+            foreach (RecQuad quad in commit.Asserted)
+            {
+                if (!graphs.TryGetValue(quad.Graph, out HashSet<Fact>? facts))
+                {
+                    graphs[quad.Graph] = facts = [];
+                    indices.TryAdd(quad.Graph, indices.Count);
+                }
+
+                if (facts.Add(Fact(terms, quad)))
+                {
+                    paired.Add((Fact(terms, quad), new DataGraphIndex(indices[quad.Graph])));
+                }
+            }
+
+            HashSet<Fact> after = [.. Merged()];
+            string[] names = [.. indices.OrderBy(i => i.Value).Select(i => i.Key)];
+            IReadOnlySet<Fact> affected = sets.Reach(unpaired, (fact, graph) => graphs.TryGetValue(names[graph.Value], out HashSet<Fact>? held) && held.Contains(fact));
+            merge.Apply([.. after.Except(before)], [.. before.Except(after)]);
+            foreach ((string graph, HashSet<Fact> facts) in graphs)
+            {
+                foreach (Fact fact in affected)
+                {
+                    if (facts.Contains(fact))
+                    {
+                        paired.Add((fact, new DataGraphIndex(indices[graph])));
+                    }
+                }
+            }
+
+            touched += sets.Update(affected, paired).Count;
+            double ms = one.Elapsed.TotalMilliseconds;
+            times.Add(ms);
+            if (ms > worst.Worst)
+            {
+                worst = (ms, number, commit.Kind);
+            }
+        }
+
+        times.Sort();
+        Console.WriteLine($"cross-graph: {times.Count} commits; per commit p50 {Percentile(times, 0.5):F2} ms, p99 {Percentile(times, 0.99):F2} ms, worst {worst.Worst:F1} ms (commit {worst.At}, {worst.Kind}); {touched} facts' sets changed in all; {sets.CrossGraph().Count} cross-graph sets after");
+        GC.KeepAlive(merge);
+
+        // The merge as a set, rebuilt each commit: the harness's own cost, inside the time measured, an upper bound.
+        IEnumerable<Fact> Merged()
+        {
+            foreach (HashSet<Fact> facts in graphs.Values)
+            {
+                foreach (Fact fact in facts)
+                {
+                    yield return fact;
+                }
+            }
+        }
+    }
+
     private static double Percentile(List<double> sorted, double p) => sorted.Count == 0 ? 0 : sorted[Math.Min(sorted.Count - 1, (int)(p * sorted.Count))];
 
     private static long Heap()

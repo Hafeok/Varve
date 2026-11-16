@@ -28,9 +28,9 @@ namespace Varve.Inference.Store;
 /// is written as <c>varve:defaultGraph</c>.
 /// </para>
 /// <para>
-/// A data commit updates the merge incrementally and recomputes the premise
-/// sets, diffing them with the sets before to find the facts whose rows may
-/// have moved. Explaining a row closes only the graphs of its set, so that
+/// A data commit updates the merge incrementally, and the premise sets from
+/// its delta (<see cref="PremiseSets.Update"/>), which answers the facts
+/// whose sets changed: only their rows may have moved. Explaining a row closes only the graphs of its set, so that
 /// no proof draws on a graph outside it.
 /// </para>
 /// </remarks>
@@ -109,9 +109,12 @@ internal sealed class CrossGraphMaterialisation : Materialisation
     protected override void ApplyData(IQuadSource view, Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, Dictionary<TermHandle, HashSet<Fact>> changed)
     {
         List<Fact> asserted = [], retracted = [];
+        List<(Fact, DataGraphIndex)> unpaired = [];
+        List<(Fact, DataGraphIndex)> paired = [];
         foreach ((TermHandle graph, (List<Fact> graphAsserted, List<Fact> graphRetracted)) in graphs)
         {
             Index(graph);
+            DataGraphIndex index = new(_indices[graph]);
             if (!_explicit.TryGetValue(graph, out HashSet<Fact>? held))
             {
                 _explicit[graph] = held = [];
@@ -119,9 +122,13 @@ internal sealed class CrossGraphMaterialisation : Materialisation
 
             foreach (Fact fact in graphRetracted)
             {
-                if (held.Remove(fact) && !HeldElsewhere(fact))
+                if (held.Remove(fact))
                 {
-                    retracted.Add(fact);
+                    unpaired.Add((fact, index));
+                    if (!HeldElsewhere(fact))
+                    {
+                        retracted.Add(fact);
+                    }
                 }
 
                 Into(changed, graph).Add(fact);
@@ -134,7 +141,11 @@ internal sealed class CrossGraphMaterialisation : Materialisation
                     asserted.Add(fact);
                 }
 
-                held.Add(fact);
+                if (held.Add(fact))
+                {
+                    paired.Add((fact, index));
+                }
+
                 Into(changed, graph).Add(fact);
             }
 
@@ -145,28 +156,40 @@ internal sealed class CrossGraphMaterialisation : Materialisation
             }
         }
 
-        PremiseSets before = _sets;
+        // The sets a retraction may change, over the merge as it was; then the
+        // merge, then the sets from the delta (ADR 0195 point 3).
+        IReadOnlySet<Fact> affected = _sets.Reach(unpaired, (fact, graph) => _explicit.TryGetValue(_graphs[graph.Value], out HashSet<Fact>? held) && held.Contains(fact));
         HashSet<Fact> moved = [.. _merge.Apply([.. asserted], [.. retracted])];
-        _sets = Label();
-        Mint();
+        foreach (Fact fact in affected)
+        {
+            foreach ((TermHandle graph, HashSet<Fact> facts) in _explicit)
+            {
+                if (facts.Contains(fact))
+                {
+                    paired.Add((fact, new DataGraphIndex(_indices[graph])));
+                }
+            }
+        }
+
+        IReadOnlyDictionary<Fact, IReadOnlyList<PremiseSet>> before = _sets.Update(affected, paired);
 
         // A fact whose sets changed may have moved between graphs: offer it to every graph it was or is placed in.
-        foreach (Fact fact in _merge.Own)
+        foreach ((Fact fact, IReadOnlyList<PremiseSet> was) in before)
         {
-            if (!Same(before.Of(fact), _sets.Of(fact)))
+            foreach (TermHandle graph in Placements(was, fact))
             {
-                moved.Add(fact);
+                Into(changed, graph).Add(fact);
+            }
+
+            foreach (TermHandle graph in Placements(_sets.Of(fact), fact))
+            {
+                Into(changed, graph).Add(fact);
             }
         }
 
         foreach (Fact fact in moved)
         {
-            foreach (TermHandle graph in Placements(before, fact))
-            {
-                Into(changed, graph).Add(fact);
-            }
-
-            foreach (TermHandle graph in Placements(_sets, fact))
+            foreach (TermHandle graph in Placements(_sets.Of(fact), fact))
             {
                 Into(changed, graph).Add(fact);
             }
@@ -238,10 +261,13 @@ internal sealed class CrossGraphMaterialisation : Materialisation
     }
 
     /// <summary>The graphs a fact is a row of under <paramref name="sets"/>: a set's one graph unless the fact is explicit there, a set's reserved graph when it has two or more.</summary>
-    private List<TermHandle> Placements(PremiseSets sets, in Fact fact)
+    private List<TermHandle> Placements(PremiseSets sets, in Fact fact) => Placements(sets.Of(fact), fact);
+
+    /// <summary>The graphs a fact is a row of under its sets <paramref name="sets"/>.</summary>
+    private List<TermHandle> Placements(IReadOnlyList<PremiseSet> sets, in Fact fact)
     {
         List<TermHandle> graphs = [];
-        foreach (PremiseSet set in sets.Of(fact))
+        foreach (PremiseSet set in sets)
         {
             IReadOnlyList<DataGraphIndex> members = set.Graphs;
             if (members.Count == 1)
@@ -359,48 +385,6 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         graph.IsNone ? DefaultGraph
         : Terms.TryExternalise(graph, out RdfTerm? term) ? Encoding.UTF8.GetString(term.Lexical)
         : throw new InvalidOperationException("A data graph the projection cannot name.");
-
-    private static bool Same(IReadOnlyList<PremiseSet> a, IReadOnlyList<PremiseSet> b)
-    {
-        if (a.Count != b.Count)
-        {
-            return false;
-        }
-
-        foreach (PremiseSet x in a)
-        {
-            bool found = false;
-            foreach (PremiseSet y in b)
-            {
-                found |= Equal(x.Graphs, y.Graphs);
-            }
-
-            if (!found)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool Equal(IReadOnlyList<DataGraphIndex> a, IReadOnlyList<DataGraphIndex> b)
-    {
-        if (a.Count != b.Count)
-        {
-            return false;
-        }
-
-        for (int i = 0; i < a.Count; i++)
-        {
-            if (a[i] != b[i])
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
 
     private static int[] Union(int[] sofar, PremiseSet set)
     {

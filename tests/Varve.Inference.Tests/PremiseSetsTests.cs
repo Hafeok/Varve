@@ -65,4 +65,102 @@ public class PremiseSetsTests
             }
         }, iter: 60, threads: 1);
     }
+
+    /// <summary>
+    /// Maintained from each commit's delta, the sets equal those computed
+    /// from scratch after it, for every fact, and every fact whose sets
+    /// changed is answered with its sets before.
+    /// </summary>
+    [Theory]
+    [InlineData(InferenceProfile.Rdfs)]
+    [InlineData(InferenceProfile.Owl2Rl)]
+    public void sets_maintained_commit_by_commit_equal_those_from_scratch(InferenceProfile profile)
+    {
+        Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> triple = profile == InferenceProfile.Rdfs ? IncrementalEqualsFromScratchTests.Triple : IncrementalEqualsFromScratchTests.OwlTriple;
+        Gen.Select(triple.Array[0, 6], Gen.Select(triple, Gen.Int[0, Graphs - 1]).Array[1, 4].Array[4, 16], Gen.Int).Sample(sample =>
+        {
+            Terms terms = new();
+            Program program = Program.Of(profile, terms);
+            Closure beneath = new(program, Retraction.DeleteAndRederive);
+            beneath.Apply([.. sample.Item1.Select(t => terms.Fact(t.S, t.P, t.O)).Distinct()], []);
+            Closure merge = new(program, Retraction.RecursiveCounting, budget: null, tbox: beneath);
+            HashSet<Fact>[] graphs = [.. Enumerable.Range(0, Graphs).Select(_ => new HashSet<Fact>())];
+            PremiseSets sets = new(merge, []);
+            Random random = new(sample.Item3);
+            foreach (((RdfTerm S, RdfTerm P, RdfTerm O) Triple, int Graph)[] commit in sample.Item2)
+            {
+                List<(Fact, int)> added = [], removed = [];
+                foreach (((RdfTerm s, RdfTerm p, RdfTerm o), int g) in commit)
+                {
+                    Fact fact = terms.Fact(s, p, o);
+                    if (added.Contains((fact, g)) || removed.Contains((fact, g)))
+                    {
+                        continue;
+                    }
+
+                    if (graphs[g].Contains(fact))
+                    {
+                        removed.Add((fact, g));
+                    }
+                    else
+                    {
+                        added.Add((fact, g));
+                    }
+
+                    // Now and then a retraction of a fact held elsewhere too.
+                    if (random.Next(4) == 0 && graphs[random.Next(Graphs)] is { Count: > 0 } other)
+                    {
+                        Fact pick = other.ElementAt(random.Next(other.Count));
+                        int from = Array.IndexOf(graphs, other);
+                        if (!removed.Contains((pick, from)) && !added.Contains((pick, from)))
+                        {
+                            removed.Add((pick, from));
+                        }
+                    }
+                }
+
+                Dictionary<Fact, HashSet<int>> beforeSets = [];
+                foreach (Fact fact in merge.Own)
+                {
+                    beforeSets[fact] = Masks(sets.Of(fact));
+                }
+
+                HashSet<Fact> mergedBefore = [.. graphs.SelectMany(g => g)];
+                foreach ((Fact fact, int g) in removed)
+                {
+                    graphs[g].Remove(fact);
+                }
+
+                foreach ((Fact fact, int g) in added)
+                {
+                    graphs[g].Add(fact);
+                }
+
+                HashSet<Fact> mergedAfter = [.. graphs.SelectMany(g => g)];
+                IReadOnlySet<Fact> affected = sets.Reach(removed.Select(r => (r.Item1, new DataGraphIndex(r.Item2))), (f, g) => graphs[g.Value].Contains(f));
+                merge.Apply([.. mergedAfter.Except(mergedBefore)], [.. mergedBefore.Except(mergedAfter)]);
+                List<(Fact, DataGraphIndex)> held = [];
+                for (int g = 0; g < Graphs; g++)
+                {
+                    held.AddRange(graphs[g].Where(f => affected.Contains(f) || added.Contains((f, g))).Select(f => (f, new DataGraphIndex(g))));
+                }
+
+                IReadOnlyDictionary<Fact, IReadOnlyList<PremiseSet>> changed = sets.Update(affected, held);
+
+                PremiseSets fresh = new(merge, Enumerable.Range(0, Graphs).SelectMany(g => graphs[g].Select(f => (f, new DataGraphIndex(g)))));
+                foreach (Fact fact in merge.All.Concat(beforeSets.Keys).Distinct())
+                {
+                    HashSet<int> now = Masks(sets.Of(fact)), expected = Masks(fresh.Of(fact));
+                    Assert.True(expected.SetEquals(now), $"{profile}: {fact} has [{string.Join(", ", now)}], from scratch [{string.Join(", ", expected)}]");
+                    HashSet<int> was = beforeSets.TryGetValue(fact, out HashSet<int>? b) ? b : beneath.Contains(fact) ? [0] : [];
+                    if (!was.SetEquals(now))
+                    {
+                        Assert.True(changed.TryGetValue(fact, out IReadOnlyList<PremiseSet>? old) && Masks(old).SetEquals(was), $"{profile}: {fact} changed from [{string.Join(", ", was)}] and was not answered so");
+                    }
+                }
+            }
+        }, iter: 60, threads: 1);
+    }
+
+    private static HashSet<int> Masks(IReadOnlyList<PremiseSet> sets) => [.. sets.Select(s => s.Graphs.Aggregate(0, (mask, g) => mask | (1 << g.Value)))];
 }

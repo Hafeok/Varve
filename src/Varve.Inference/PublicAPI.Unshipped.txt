@@ -128,3 +128,5 @@ static Varve.Inference.Model.DataGraphIndex.operator !=(Varve.Inference.Model.Da
 static Varve.Inference.Model.DataGraphIndex.operator ==(Varve.Inference.Model.DataGraphIndex left, Varve.Inference.Model.DataGraphIndex right) -> bool
 ~override Varve.Inference.Model.DataGraphIndex.Equals(object obj) -> bool
 ~override Varve.Inference.Model.DataGraphIndex.ToString() -> string
+Varve.Inference.PremiseSets.Reach(System.Collections.Generic.IEnumerable<(Varve.Inference.Model.Fact Fact, Varve.Inference.Model.DataGraphIndex Graph)>! removed, System.Func<Varve.Inference.Model.Fact, Varve.Inference.Model.DataGraphIndex, bool>! heldAfter) -> System.Collections.Generic.IReadOnlySet<Varve.Inference.Model.Fact>!
+Varve.Inference.PremiseSets.Update(System.Collections.Generic.IReadOnlySet<Varve.Inference.Model.Fact>! affected, System.Collections.Generic.IEnumerable<(Varve.Inference.Model.Fact Fact, Varve.Inference.Model.DataGraphIndex Graph)>! held) -> System.Collections.Generic.IReadOnlyDictionary<Varve.Inference.Model.Fact, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PremiseSet!>!>!

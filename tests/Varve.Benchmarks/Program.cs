@@ -88,6 +88,12 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 4 && args[0] == "--inference-premise-sets")
+        {
+            InferenceBench.RunPremiseSetCommits(args[1], args[2], int.Parse(args[3], CultureInfo.InvariantCulture));
+            return;
+        }
+
         if (args.Length == 3 && args[0] == "--inference-premise-sets")
         {
             InferenceBench.RunPremiseSets(args[1], args[2]);

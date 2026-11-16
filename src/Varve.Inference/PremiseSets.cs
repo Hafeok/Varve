@@ -49,6 +49,9 @@ public sealed class PremiseSets
     private readonly List<List<int>?> _antichains = [];
     private readonly Stack<int> _freeAntichains = [];
 
+    // While an update runs: each fact's sets before its first change in it.
+    private Dictionary<Fact, IReadOnlyList<PremiseSet>>? _before;
+
     /// <summary>
     /// The minimal premise sets of every fact of <paramref name="closure"/>,
     /// the closure of the data graphs' merge, each explicit fact held by the
@@ -94,11 +97,11 @@ public sealed class PremiseSets
             return [View(Empty)];
         }
 
-        if (!_labels.TryGetValue(fact, out int label))
-        {
-            return [];
-        }
+        return _labels.TryGetValue(fact, out int label) ? Of(label) : [];
+    }
 
+    private List<PremiseSet> Of(int label)
+    {
         if (label >= 0)
         {
             return [View(label)];
@@ -145,6 +148,221 @@ public sealed class PremiseSets
         }
 
         return sets;
+    }
+
+    /// <summary>
+    /// The facts whose sets a retraction may change: the facts of the
+    /// explicit pairs <paramref name="removed"/>, and every fact an instance
+    /// over the closure derives from one of them, transitively, that has a
+    /// set holding a graph of a removed pair and is not held explicitly in
+    /// that set's one graph after the commit, as <paramref name="heldAfter"/>
+    /// answers. Called before the closure applies the retraction, over the
+    /// closure as it was.
+    /// </summary>
+    /// <remarks>
+    /// A set drawn through a removed pair of graph g holds g, since a set
+    /// only grows by union along a derivation: a fact with no set holding a
+    /// removed pair's graph keeps every set it has, and the reach stops
+    /// there. So does it at a fact held explicitly in g after the commit:
+    /// {g} is its set, and absorbs every other holding g.
+    /// </remarks>
+    public IReadOnlySet<Fact> Reach(IEnumerable<(Fact Fact, DataGraphIndex Graph)> removed, Func<Fact, DataGraphIndex, bool> heldAfter)
+    {
+        ArgumentNullException.ThrowIfNull(removed);
+        ArgumentNullException.ThrowIfNull(heldAfter);
+        HashSet<Fact> reached = [];
+        HashSet<int> graphs = [];
+        Queue<Fact> work = new();
+        foreach ((Fact fact, DataGraphIndex graph) in removed)
+        {
+            graphs.Add(graph.Value);
+            if (!IsBeneath(fact) && reached.Add(fact))
+            {
+                work.Enqueue(fact);
+            }
+        }
+
+        List<Instance> instances = [];
+        while (work.TryDequeue(out Fact fact))
+        {
+            foreach (Rule rule in _closure.Program.Rules)
+            {
+                instances.Clear();
+                rule.Derivations(fact, _closure.Facts, instances);
+                foreach (Instance instance in instances)
+                {
+                    if (!IsBeneath(instance.Head) && !reached.Contains(instance.Head) && AtRisk(instance.Head, graphs, heldAfter))
+                    {
+                        reached.Add(instance.Head);
+                        work.Enqueue(instance.Head);
+                    }
+                }
+            }
+        }
+
+        return reached;
+    }
+
+    /// <summary>Whether a set of a fact's may go: one holding a removed pair's graph, unless it is that one graph's and the fact stays explicit there.</summary>
+    private bool AtRisk(in Fact fact, HashSet<int> graphs, Func<Fact, DataGraphIndex, bool> heldAfter)
+    {
+        if (!_labels.TryGetValue(fact, out int label))
+        {
+            return false;
+        }
+
+        if (label >= 0)
+        {
+            return AtRisk(fact, _sets[label], graphs, heldAfter);
+        }
+
+        foreach (int set in _antichains[~label]!)
+        {
+            if (AtRisk(fact, _sets[set], graphs, heldAfter))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool AtRisk(in Fact fact, int[] set, HashSet<int> graphs, Func<Fact, DataGraphIndex, bool> heldAfter) =>
+        Holds(set, graphs) && !(set.Length == 1 && heldAfter(fact, new DataGraphIndex(set[0])));
+
+    private static bool Same(IReadOnlyList<PremiseSet> a, IReadOnlyList<PremiseSet> b)
+    {
+        if (a.Count != b.Count)
+        {
+            return false;
+        }
+
+        foreach (PremiseSet x in a)
+        {
+            bool found = false;
+            foreach (PremiseSet y in b)
+            {
+                // Sets are interned: equal members, the same view.
+                found |= ReferenceEquals(x, y);
+            }
+
+            if (!found)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool Holds(int[] set, HashSet<int> graphs)
+    {
+        foreach (int graph in set)
+        {
+            if (graphs.Contains(graph))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Brings the sets in line with the closure after a commit, the closure
+    /// having applied it: <paramref name="affected"/>, what
+    /// <see cref="Reach"/> found before, are computed again from their
+    /// instances over the closure, the axioms and <paramref name="held"/>;
+    /// <paramref name="held"/> holds every explicit pair of an affected fact
+    /// and every pair asserted. A fact the closure no longer holds has no
+    /// sets. Answers each fact whose sets changed, with its sets before.
+    /// </summary>
+    /// <remarks>
+    /// Delete-and-rederive over the sets: a fact out of the reach keeps sets
+    /// none of whose derivations used a fact retracted, so they stand; one in
+    /// it is derived again from what stands. Insertion is monotone and
+    /// propagates as a computation from scratch does.
+    /// </remarks>
+    public IReadOnlyDictionary<Fact, IReadOnlyList<PremiseSet>> Update(IReadOnlySet<Fact> affected, IEnumerable<(Fact Fact, DataGraphIndex Graph)> held)
+    {
+        ArgumentNullException.ThrowIfNull(affected);
+        ArgumentNullException.ThrowIfNull(held);
+        _before = [];
+        try
+        {
+            foreach (Fact fact in affected)
+            {
+                if (_labels.Remove(fact, out int label))
+                {
+                    _before[fact] = Of(label);
+                    if (label < 0)
+                    {
+                        _antichains[~label] = null;
+                        _freeAntichains.Push(~label);
+                    }
+                }
+            }
+
+            Queue<(Fact Fact, int Set)> work = new();
+            HashSet<Fact> axioms = [.. _closure.Program.Axioms];
+            List<Fact[]> instances = [];
+            List<int> products = [];
+            foreach (Fact fact in affected)
+            {
+                if (!_closure.Facts.Contains(fact))
+                {
+                    continue;
+                }
+
+                if (axioms.Contains(fact))
+                {
+                    Offer(fact, Empty, work);
+                }
+
+                foreach (Rule rule in _closure.Program.Rules)
+                {
+                    instances.Clear();
+                    rule.Instances(fact, _closure.Facts, instances);
+                    foreach (Fact[] premises in instances)
+                    {
+                        products.Clear();
+                        Product(premises, 0, default, [], products);
+                        foreach (int set in products)
+                        {
+                            Offer(fact, set, work);
+                        }
+                    }
+                }
+            }
+
+            foreach ((Fact fact, DataGraphIndex graph) in held)
+            {
+                if (graph.Value < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(held), graph.Value, "A data graph's index is not negative.");
+                }
+
+                Offer(fact, Intern([graph.Value]), work);
+            }
+
+            Propagate(work);
+
+            // Only what changed: a fact derived again with the sets it had is no change.
+            Dictionary<Fact, IReadOnlyList<PremiseSet>> changed = [];
+            foreach ((Fact fact, IReadOnlyList<PremiseSet> was) in _before)
+            {
+                if (!Same(was, Of(fact)))
+                {
+                    changed[fact] = was;
+                }
+            }
+
+            return changed;
+        }
+        finally
+        {
+            _before = null;
+        }
     }
 
     private void Propagate(Queue<(Fact Fact, int Set)> work)
@@ -240,9 +458,15 @@ public sealed class PremiseSets
     /// <summary>Keeps (fact, set) unless a set the fact has is a subset of it, dropping the sets it absorbs; queues it when kept.</summary>
     private void Offer(in Fact fact, int set, Queue<(Fact Fact, int Set)> work)
     {
-        if (IsBeneath(fact))
+        if (IsBeneath(fact) || Has(fact, set))
         {
             return;
+        }
+
+        if (_before is not null && !_before.ContainsKey(fact))
+        {
+            // Recorded before any change; an offer absorbed changes nothing, which recording here allows.
+            _before[fact] = Of(fact);
         }
 
         if (!_labels.TryGetValue(fact, out int label))
