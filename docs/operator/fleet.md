@@ -186,8 +186,8 @@ the key from the log.
 
 `Varve.Protocol.Client` sends a key on every write by default (128 random
 bits per write, reused on each retry) and retries with it. Its first keyed
-write after a writer opens a dataset reads the window's commit headers, about
-a quarter of a second at REC M; a host can call
+write after a writer opens a dataset reads the window's commit headers, 0.3 to
+0.5 s at REC M over the full window; a host can call
 `IdempotencyKeys.PrepareAsync` when it becomes the writer to do that ahead.
 
 ## Reading your writes

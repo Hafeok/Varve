@@ -73,18 +73,64 @@ the issue.
   this clone is shallow. The fleet suite on Azurite and RustFS. The W3C
   suites.
 
+## The review, and what it changed
+
+The maintainer reviewed the first head on #132 and asked for four changes
+before acceptance:
+
+1. **A hash, not the key, in the commit.** The commit records SHA-256 over
+   the agent and the key. The index holds a 16-byte prefix with the
+   position, and a hit is checked against the whole hash in the commit's
+   header.
+2. **A retry past the window is refused.** A retry carries
+   `Varve-Key-Position`. A key not found more than the window past it is
+   `422 idempotency-key-expired` and commits nothing. The gate now has
+   commits that fill a window of 4 while a write is lost.
+   - With the refusal disabled, the gate fails: the counter is 3 against 2
+     writes.
+3. **Keys by default.** The client's default source draws 128 random bits
+   once per logical write, behind the one `RS0030` suppression, which cites
+   ADR 0246. ADR 0246 point 10 says why ADR 0011 holds.
+4. **The rebuild measured.** `Varve.Benchmarks -- --idempotency-index M`
+   loads REC M (25,000 commits, about 5M quads) into an in-memory object
+   store and fills the 100,000-commit window with keyed commits. It then
+   measures `PrepareAsync` after a restart (a cold open by another
+   instance) and after a takeover (a follower claiming in place).
+   - Reading whole commits, at REC S, cost 0.7 to 0.9 s and 526 to
+     615 MiB allocated, so #310 came into this change.
+   - `Dataset.ReadMetadataAsync` reads only the header at the closing
+     record's tail and checks it against the commit index's hash.
+   - The index reads four headers at a time.
+
+| REC M, window 100,000 | Restart | Takeover | Index held |
+|---|---:|---:|---:|
+| Window spans all 25,000 REC commits, 75,000 keyed | 468 ms | 311 ms | 2.6 MiB |
+| Window all keyed, 100,000 | 412 ms | 342 ms | 5.4 MiB |
+
+Transient allocation is 204 to 246 MiB of short-lived reads. The time is on a
+4-core container, against an object store in memory.
+
+**Also asked: whether the term appears in the change feed or in
+CloudEvents.** It would have appeared in the change feed, which writes every
+host attachment as an `attachment` line (ADR 0165). It is now left out for
+every caller, in `DeltaLines`, with a test. CloudEvents rendering never
+renders an attachment.
+
+**Tests run here, all passing:**
+- Protocol 183;
+- Protocol client 117;
+- web UI 234;
+- Server 237, with 58 skipped for services absent here;
+- Store 470, with 93 skipped.
+
 ## Questions for the maintainer
 
-- **The window.** Is 100 000 commits the right default, or should keys be
-  kept for ever now, with #309 as part of 1.0?
-- **The default key source.** #132 says the client sends a key by default.
-  ADR 0011's ban on ambient randomness keeps the library from drawing one,
-  so the host supplies it: the CLI does, and the web UI and `AddVarveClient`
-  are #311. Is that the reading you want, or should the ban admit the client's
-  keys by a decision?
+- The index's first rebuild is 0.3 to 0.5 s at REC M. The server does not yet
+  call `IdempotencyKeys.PrepareAsync` when it becomes a dataset's writer.
+  Should it?
 
 ## Deferred
 
-- #309: keys kept for ever, in `derived/`.
-- #310: a header-only commit read, for the index's catch-up.
-- #311: key sources for the web UI and `AddVarveClient`.
+- #309: keys kept for ever, in `derived/`. After 1.0.
+- #311: the web UI's own check of keyed writes in the browser.
+  `AddVarveClient` is settled by the default source.
