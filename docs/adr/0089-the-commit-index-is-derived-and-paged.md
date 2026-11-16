@@ -14,6 +14,9 @@ readers capture without locks (ADR 0011), which is why it is an ADR.
 **Revisit condition:** archive (T3), which would let the index's prefix go
 with the log's; or a reader whose positions are not in time order.
 
+**Amended 2026-11-10 by [ADR 0240](0240-resident-memory-is-bounded-by-data-and-configuration.md)**
+(filed unaccepted): a blob's fences are not held in memory. See the end.
+
 ## Context
 
 The store kept an object per closed commit — its timestamp, header hash,
@@ -134,3 +137,25 @@ appeared after it listed, is not its to judge.
 - **Layer ownership.** `Varve.Store`, layer 4. Public: `DatasetOptions.CommitCache`.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-10 — a blob's fences are not held
+
+Filed by #222 with ADR 0240, unaccepted until the maintainer accepts it
+(ADR 0066).
+
+"A timestamp is found by the fences in memory, 8 bytes per 128 commits, and
+at most seven entries read" kept one thing in memory per commit: 0.06 bytes,
+62 KiB at a million commits, and the only structure left in the store that
+grew with the log once ADR 0240 stopped holding the extent sets' seek
+directories.
+
+A fence is its block's first entry's timestamp, and the entry is in the
+blob at a known offset. So `PositionAt` finds the block by binary search of
+the blocks' first entries, read through the blob, about log₂(n ÷ 128) small
+reads, and then reads the seven it always did. A blob's first timestamp is
+kept, 8 bytes a blob.
+
+The blob's layout, its directory with the fences in it, and the directory's
+verification when the blob is opened are unchanged (storage format §7.4):
+no format change, and `CommitEntriesInDerived` stands as written. The new
+ruling is `TimestampsAreSoughtInTheEntries`, in ADR 0240's set.

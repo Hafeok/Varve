@@ -105,6 +105,11 @@ internal static class AdminEndpoints
                 {
                     json.WriteString("reason", entry.Reason);
                 }
+
+                if (entry.Failure is { } failure)
+                {
+                    json.WriteString("failure", FailureName(failure));
+                }
             }).ConfigureAwait(false);
             return;
         }
@@ -306,6 +311,11 @@ internal static class AdminEndpoints
             json.WriteString("reason", entry.Reason);
         }
 
+        if (entry.Failure is { } failure)
+        {
+            json.WriteString("failure", FailureName(failure));
+        }
+
         if (entry.Id is DatasetId id)
         {
             json.WriteString("id", id.Value);
@@ -341,8 +351,25 @@ internal static class AdminEndpoints
         return (administration, name);
     }
 
-    private static Task Failed(HttpContext context, IDatasetAdministration administration, DatasetName name) =>
-        HttpProblems.WriteAsync(context, ProblemType.Unavailable, "The dataset could not be opened: " + (EntryOf(administration, name)?.Reason ?? "no reason was recorded."));
+    private static Task Failed(HttpContext context, IDatasetAdministration administration, DatasetName name)
+    {
+        DatasetEntry? entry = EntryOf(administration, name);
+        DatasetFailure failure = entry?.Failure ?? DatasetFailure.Transient;
+        string next = failure switch
+        {
+            DatasetFailure.Damaged => " Its log does not verify, and trying again will not fix it: restore it from a backup.",
+            DatasetFailure.Configuration => " The server's configuration or build cannot open it: correct the setting, or upgrade.",
+            _ => " The server tries to open it again.",
+        };
+        return HttpProblems.WriteAsync(context, ProblemType.Unavailable, "The dataset could not be opened: " + (entry?.Reason ?? "no reason was recorded.") + next, members =>
+        {
+            members.String("reason", "failed");
+            members.String("failure", FailureName(failure));
+        });
+    }
+
+    /// <summary>A failure's name on the wire (ADR 0242).</summary>
+    internal static string FailureName(DatasetFailure failure) => failure switch { DatasetFailure.Damaged => "damaged", DatasetFailure.Configuration => "configuration", _ => "transient" };
 
     private static DatasetEntry? EntryOf(IDatasetAdministration administration, DatasetName name)
     {

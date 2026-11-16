@@ -64,6 +64,18 @@ public sealed class DatasetOptions
     public int CommitCache { get; init; } = 4096;
 
     /// <summary>
+    /// The most bytes of extents' seek directories the dataset holds in
+    /// memory (ADR 0240). A format-5 extent's seek directory is what an as-of
+    /// read inside its set's window finds a key's intervals through: 48
+    /// bytes per 128 rows within, and 8 per 128 rows of each column. It grows
+    /// with the set's history, so it is read when such a read needs it, kept
+    /// here, the least recently used out first, and never held with the set.
+    /// 32 MiB by default; zero keeps none, and every such read reads its
+    /// directories again. A read is never wrong for it.
+    /// </summary>
+    public ByteCount SeekDirectoryCache { get; init; } = new(32L << 20);
+
+    /// <summary>
     /// Whether the dataset runs its own maintenance — memtable flushes and
     /// disk merges — on a task it owns, off the sequencer (ADR 0070, ADR 0042's
     /// amendment). <see cref="MaintenanceMode.Background"/> by default, except
@@ -158,6 +170,7 @@ public sealed partial class Dataset : IAsyncDisposable
     private readonly SemaphoreSlim _sequencer = new(1, 1);
     private readonly Lock _signalGate = new();
     private readonly Dictionary<Quad, bool> _pending = [];
+    private readonly SeekDirectoryCache _seekDirectories;
     private TaskCompletionSource _headAdvanced = NewSignal();
     private volatile State _state;
     private string? _broken;
@@ -182,7 +195,14 @@ public sealed partial class Dataset : IAsyncDisposable
         _writer = writer;
         _state = state;
         _metrics = new StoreMetrics(options.Name ?? id.ToString());
+        _seekDirectories = new SeekDirectoryCache(options.SeekDirectoryCache);
     }
+
+    /// <summary>The bytes of extents' seek directories held in memory, for the gauge (ADR 0240): at most <see cref="DatasetOptions.SeekDirectoryCache"/>.</summary>
+    internal long SeekDirectoryBytes => _seekDirectories.Bytes.Value;
+
+    /// <summary>Test seam: how many seek directories have been read from their extents.</summary>
+    internal long SeekDirectoryLoadsForTests() => _seekDirectories.Loads;
 
     /// <summary>The bytes of every commit's records in the log, for the gauge (ADR 0112).</summary>
     internal long LogBytes => _state.LogBytesAt(_state.Head);

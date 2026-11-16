@@ -30,6 +30,7 @@ internal sealed class StoreMetrics
     private static readonly Gauge<long> LogBytes = Meter.CreateGauge<long>("varve.store.log.bytes", unit: "By", description: "The bytes of every commit's records in the log, as of the last commit.");
     private static readonly Counter<long> DerivedDamaged = Meter.CreateCounter<long>("varve.store.derived.damaged", unit: "{blob}", description: "Derived blobs a read found damaged and answered from the log instead (ADR 0213).");
     private static readonly Gauge<long> DerivedBytes = Meter.CreateGauge<long>("varve.store.derived.bytes", unit: "By", description: "The bytes of the runs and checkpoints the dataset holds open, as of the last commit, checkpoint or maintenance step.");
+    private static readonly Gauge<long> SeekDirectoryBytes = Meter.CreateGauge<long>("varve.store.seek_directories.bytes", unit: "By", description: "The bytes of extents' seek directories held in memory for as-of reads, as of the last commit, checkpoint or maintenance step; at most the cache's ceiling (ADR 0240).");
 
     private readonly KeyValuePair<string, object?> _tag;
 
@@ -99,6 +100,11 @@ internal sealed class StoreMetrics
         if (DerivedBytes.Enabled)
         {
             DerivedBytes.Record(dataset.DerivedBytes, _tag);
+        }
+
+        if (SeekDirectoryBytes.Enabled)
+        {
+            SeekDirectoryBytes.Record(dataset.SeekDirectoryBytes, _tag);
         }
     }
 

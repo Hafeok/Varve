@@ -13,6 +13,12 @@ The read sent `Varve-Min-Position: p`, and this instance follows the dataset
 There is no wait: retry, or read from the dataset's writer. A write's response
 carries the position to ask for, as `Varve-Position`.
 
+## What to do
+
+A client: retry, or send the read to the dataset's writer. Each retry
+advances this instance once, so it succeeds once the instance has applied
+`position` ([Reading your writes](../operator/fleet.md#reading-your-writes)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

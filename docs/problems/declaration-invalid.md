@@ -15,6 +15,14 @@ graphs hold only from part 2 on (ADR 0167). `findings` lists each, with its
 `graph`, its `focus` node and `path` when it has them, and a `message`.
 Nothing was committed.
 
+## What to do
+
+An operator: fix each finding in the TriG at the `graph`, `focus` and `path`
+it names, and apply it again with `varve apply`. The terms are in
+[`docs/vocabulary.md`](../vocabulary.md). An event-schema term is accepted
+only once the dataset's event declarations have moved
+([Moving event schemas](../operator/moving-event-schemas.md)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).
