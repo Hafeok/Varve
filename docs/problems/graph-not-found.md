@@ -9,6 +9,13 @@
 
 A Graph Store `GET`, `PUT` or `DELETE` of a named graph that holds no quad, or one outside the caller's readable scope, which is answered the same (ADRs 0092, 0107).
 
+## What to do
+
+- A client: check the graph IRI, and that the graph holds a quad.
+- An admin of the dataset: if the caller should read it, grant `read` on the
+  graph in the dataset's declaration
+  ([Authenticate](../operator/authenticate.md#the-model)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

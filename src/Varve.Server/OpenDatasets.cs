@@ -127,7 +127,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                     entry.Reason,
                     dataset?.Id,
                     dataset?.Head,
-                    entry.Role));
+                    entry.Role) { Failure = entry.State == DatasetState.Failed ? entry.Failure : null });
             }
         }
 
@@ -582,7 +582,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             {
                 if (_objects is null)
                 {
-                    entry.Fail("Varve:ObjectStorage is not configured, so an ObjectStorage dataset has nowhere to be.");
+                    entry.Fail("Varve:ObjectStorage is not configured, so an ObjectStorage dataset has nowhere to be.", DatasetFailure.Configuration);
                     return;
                 }
 
@@ -626,7 +626,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             {
                 if (_root is null)
                 {
-                    entry.Fail("Varve:DatasetsRoot is not configured, so a File dataset has nowhere to be.");
+                    entry.Fail("Varve:DatasetsRoot is not configured, so a File dataset has nowhere to be.", DatasetFailure.Configuration);
                     return;
                 }
 
@@ -660,8 +660,29 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                 entry.FailedEpoch ??= await HeldEpochAsync(name).ConfigureAwait(false);
             }
 
-            entry.Fail(Causes(error));
+            entry.Fail(Causes(error), Classify(error));
         }
+    }
+
+    /// <summary>
+    /// Whether a retry can help a dataset that failed to open (ADR 0242): a
+    /// log that does not verify is damage, and a format this build does not
+    /// read needs an upgrade; anything else is tried again.
+    /// </summary>
+    internal static DatasetFailure Classify(Exception error)
+    {
+        for (Exception? cause = error; cause is not null; cause = cause.InnerException)
+        {
+            switch (cause)
+            {
+                case LogVerificationException:
+                    return DatasetFailure.Damaged;
+                case UnsupportedFormatException:
+                    return DatasetFailure.Configuration;
+            }
+        }
+
+        return DatasetFailure.Transient;
     }
 
     // The highest management position the dataset records is its head
@@ -780,6 +801,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         internal string? Reason { get; private set; }
 
+        /// <summary>When failed, whether a retry can help (ADR 0242).</summary>
+        internal DatasetFailure Failure { get; private set; }
+
         internal Dataset? Dataset { get; private set; }
 
         /// <summary>Placed here and following until the previous writer's release is seen.</summary>
@@ -870,10 +894,11 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             LastAdvanceFailed = false;
         }
 
-        internal void Fail(string reason)
+        internal void Fail(string reason, DatasetFailure failure = DatasetFailure.Transient)
         {
             State = DatasetState.Failed;
             Reason = reason;
+            Failure = failure;
         }
 
         /// <summary>
@@ -887,6 +912,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             Files = staged.Files;
             State = staged.State;
             Reason = staged.Reason;
+            Failure = staged.Failure;
             FailedEpoch = staged.FailedEpoch;
             Role = staged.Role;
             OpenedToFollow = staged.OpenedToFollow;

@@ -15,8 +15,15 @@ So is a write to a materialised closure's graphs: the views `https://w3id.org/va
 
 ## What to do
 
-- Write the graph a quad belongs in. A grant that writes it is the operator's: `varve apply` with a `varve:write` grant naming the graph.
-- To change what a closure holds, change the quads it is computed from: a data graph of its binding, or its TBox graphs.
+- An admin of the dataset: if the caller should write `graph`, grant `write`
+  on it in the dataset's declaration and apply it with `varve apply`
+  ([Authenticate](../operator/authenticate.md#the-model)).
+- A client: a validation report graph is never written; change the data or
+  the shapes instead ([Shapes](../operator/shapes.md#the-report-graph)).
+  Nor is a closure's view or reserved graph; change the quads it is computed
+  from, a data graph of its binding or its TBox graphs
+  ([Inference](../operator/inference.md)).
+  Sending the same write again is refused again.
 
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,

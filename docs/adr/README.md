@@ -483,6 +483,14 @@ Filed by the session for [#230](https://github.com/Hafeok/Varve/issues/230), rec
 |---:|---|---|
 | [0243](0243-chain-builds-ahead-of-main.md) | Chain builds ahead of main, and landing trains | Filed unaccepted (#230) |
 
+## Problems that say what to do (#194)
+
+Filed by the session for [#194](https://github.com/Hafeok/Varve/issues/194), unaccepted until the maintainer accepts it (ADR 0066). Numbered 0242: open branches hold 0240 and 0241.
+
+| # | Title | Status |
+|---:|---|---|
+| [0242](0242-problems-that-say-what-to-do.md) | Problems that say what to do: `forbidden`, a failed dataset, `writer-superseded` and `shutting-down` name the next step; every problem page says what to do | Filed unaccepted (#194) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |
