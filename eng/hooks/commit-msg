@@ -3,9 +3,17 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #
-# The DCO sign-off as eng/dco.cs reads it, made when the commit is made
-# (ADR 0034 point 3, ADR 0087). An agent's commit is signed off by its
-# responsible human in eng/identities.json, never by the agent: `git commit -s`
+# Two things, made when the commit is made, for every author and every tool.
+#
+# First, a model's name (ADR 0241, #169). eng/model-names.cs holds the pattern
+# the gate uses too: a Co-Authored-By: trailer that names a model is rewritten
+# to `Co-Authored-By: Claude <noreply@anthropic.com>`, and a name anywhere else
+# refuses the commit, with the line named. When the script cannot run (no SDK),
+# the hook says so and leaves the message to the gate in CI.
+#
+# Second, the DCO sign-off as eng/dco.cs reads it (ADR 0034 point 3, ADR
+# 0087). An agent's commit is signed off by its responsible human in
+# eng/identities.json, never by the agent: `git commit -s`
 # in a session signs off as the session's own identity, which the gate refuses.
 # So the hook drops an agent's own sign-off and adds the one the gate accepts.
 # A human's commit is left as written.
@@ -18,6 +26,14 @@ set -euo pipefail
 message="$1"
 root="$(git rev-parse --show-toplevel)"
 author="$(git var GIT_AUTHOR_IDENT | sed -E 's/^.*<([^>]*)>.*$/\1/')"
+
+status=0
+dotnet run "$root/eng/model-names.cs" -- --message "$message" || status=$?
+case "$status" in
+    0) ;;
+    1) exit 1 ;;
+    *) echo "commit-msg: eng/model-names.cs could not run (exit $status); the model-names gate checks this commit in CI" >&2 ;;
+esac
 
 # eng/dco.cs names the sign-off the gate accepts from this author. For a human
 # it is their own, and their message is left as they wrote it; an author in no

@@ -478,6 +478,14 @@ Filed by the session for [#230](https://github.com/Hafeok/Varve/issues/230), rec
 |---:|---|---|
 | [0243](0243-chain-builds-ahead-of-main.md) | Chain builds ahead of main, and landing trains | Filed unaccepted (#230) |
 
+## Problems that say what to do (#194)
+
+Filed by the session for [#194](https://github.com/Hafeok/Varve/issues/194), unaccepted until the maintainer accepts it (ADR 0066). Numbered 0242: open branches hold 0240 and 0241.
+
+| # | Title | Status |
+|---:|---|---|
+| [0242](0242-problems-that-say-what-to-do.md) | Problems that say what to do: `forbidden`, a failed dataset, `writer-superseded` and `shutting-down` name the next step; every problem page says what to do | Filed unaccepted (#194) |
+
 ## The docs site (#317)
 
 Filed by the session for [#317](https://github.com/Hafeok/Varve/issues/317), under [#129](https://github.com/Hafeok/Varve/issues/129)'s docs-site deliverable, recording the maintainer's answers of 2026-11-16, unaccepted until he accepts it (ADR 0066). Numbered 0247: 0244–0246 are taken on other branches. It amends 0224 by a dated amendment.
@@ -596,3 +604,10 @@ From ADR 0003:
   counts, and the rule now checks `IsPackable` and refuses the analyzer as a
   library reference.
 
+## Resident memory (#222)
+
+Filed by the session for [#222](https://github.com/Hafeok/Varve/issues/222), unaccepted until the maintainer accepts it (ADR 0066). It amends 0082, 0089 and 0177 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0240](0240-resident-memory-is-bounded-by-data-and-configuration.md) | Resident memory is bounded by data and by configuration, never by commits | Filed unaccepted (#222) |

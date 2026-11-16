@@ -19,6 +19,13 @@ back, the write proceeds. Until then each write is answered with this type.
 Free space and send the write again. Readiness reports the dataset's writes
 as refused for lack of space, and stays ready.
 
+## What to do
+
+- An operator: free space, or raise the quota, under the dataset's
+  directory. Nothing needs reopening.
+- A client: send the write again once space is back; nothing of it was
+  committed. Until then each write is refused the same way.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

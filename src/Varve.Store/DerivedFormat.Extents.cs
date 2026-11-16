@@ -559,7 +559,7 @@ internal sealed class ExtentRows : RowPipe
 
     internal ExtentRows(LoadedRun extent)
     {
-        ExtentInfo info = extent.Extent!;
+        ExtentInfo info = extent.Extent!.Sought();
         _openKeys = new SectionReader(extent.Run.Asserted(info.Order));
         _closeKeys = new SectionReader(extent.Run.Retracted(info.Order));
         _openPositions = info.OpenPositions();
@@ -715,10 +715,13 @@ internal sealed class ExtentInfo
     internal const int WithinColumn = 2;
 
     private readonly Chunked<ulong>?[] _columnChecks;
+    private readonly SeekDirectorySource? _seek;
+    private SeekDirectoryCache? _cache;
 
-    private ExtentInfo(IReadableBlob blob, ushort version, long windowFrom, IndexOrder order, QuadKey min, QuadKey max, long openAt, long openLength, long closeAt, long closeLength, long withinAt, long withinLength, long withinCount, int width, KeySection? withinKeys, Chunked<ulong>?[] columnChecks)
+    private ExtentInfo(IReadableBlob blob, ushort version, long windowFrom, IndexOrder order, QuadKey min, QuadKey max, long openAt, long openLength, long closeAt, long closeLength, long withinAt, long withinLength, long withinCount, int width, KeySection? withinKeys, Chunked<ulong>?[] columnChecks, SeekDirectorySource? seek)
     {
         _columnChecks = columnChecks;
+        _seek = seek;
         Blob = blob;
         Version = version;
         WindowFrom = windowFrom;
@@ -744,7 +747,40 @@ internal sealed class ExtentInfo
 
     /// <summary>Whether a read inside the window can reach a key's intervals from the key (ADR 0177).</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
-    internal bool Seekable => WithinKeys is not null;
+    internal bool Seekable => Width != 0;
+
+    /// <summary>
+    /// The bytes of the extent's seek directory when it is in memory: its
+    /// rows within's fences, block starts and block checks, and its three
+    /// columns' checks (ADR 0240). Zero for a format-4 extent, which has none.
+    /// </summary>
+    internal long SeekDirectoryBytes => _seek?.Bytes ?? 0;
+
+    /// <summary>Whether this is the extent with its seek directory: what a read of its columns or its rows within reads through.</summary>
+    internal bool HoldsSeekDirectory => Width == 0 || WithinKeys is not null;
+
+    /// <summary>
+    /// The cache the dataset that opened the extent keeps its seek directory
+    /// in (ADR 0240); without one, <see cref="Sought"/> reads the directory
+    /// for each caller.
+    /// </summary>
+    internal void CacheSeekDirectoryIn(SeekDirectoryCache cache) => _cache = cache;
+
+    /// <summary>
+    /// This extent with its seek directory, for a read inside its window, a
+    /// merge or a rewrite: from the dataset's cache, or read from the extent
+    /// and checked (ADR 0240). The caller holds it for the length of its read.
+    /// </summary>
+    /// <exception cref="DerivedDamageException">The directory does not match the check the extent's open took.</exception>
+    internal ExtentInfo Sought() => HoldsSeekDirectory ? this : _cache is { } cache ? cache.Get(this) : WithSeekDirectory();
+
+    /// <summary>This extent with its seek directory read from the blob and checked; nothing is cached.</summary>
+    /// <exception cref="DerivedDamageException">The directory does not match the check the extent's open took.</exception>
+    internal ExtentInfo WithSeekDirectory()
+    {
+        (KeySection within, Chunked<ulong>[] columns) = DerivedFormat.LoadSeekDirectory(_seek!);
+        return new ExtentInfo(Blob, Version, WindowFrom, Order, Min, Max, OpenAt, OpenLength, CloseAt, CloseLength, WithinAt, WithinLength, WithinCount, Width, within, [columns[OpenColumn], columns[CloseColumn], columns[WithinColumn]], _seek);
+    }
 
     /// <summary>The position the window starts after.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
@@ -781,7 +817,16 @@ internal sealed class ExtentInfo
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal int Width { get; }
 
-    /// <summary>The keys of the rows within, one a row, in a format-5 extent; null in format 4.</summary>
+    /// <summary>Test seam: this extent as if its directory's slices had changed since the open took their checks.</summary>
+    internal ExtentInfo WithSeekDirectoryChecksOffByOneForTests() =>
+        new(Blob, Version, WindowFrom, Order, Min, Max, OpenAt, OpenLength, CloseAt, CloseLength, WithinAt, WithinLength, WithinCount, Width, null, [null, null, null],
+            _seek! with { Columns = [.. Array.ConvertAll(_seek.Columns, c => c with { Check = c.Check + 1 })] });
+
+    /// <summary>
+    /// The keys of the rows within, one a row, in a format-5 extent that
+    /// holds its seek directory (<see cref="Sought"/>); null in format 4, and
+    /// in the extent as its set holds it (ADR 0240).
+    /// </summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal KeySection? WithinKeys { get; }
 
@@ -830,7 +875,7 @@ internal sealed class ExtentInfo
     /// counts; null when they do not describe sections that fill the space
     /// between.
     /// </summary>
-    internal static ExtentInfo? TryRead(IReadableBlob blob, ReadOnlySpan<byte> words, DerivedHeader header, long sectionsAt, KeySection? withinKeys, long openCount, long closeCount, (Chunked<ulong> Open, Chunked<ulong> Close, Chunked<ulong> Within)? columnChecks)
+    internal static ExtentInfo? TryRead(IReadableBlob blob, ReadOnlySpan<byte> words, DerivedHeader header, long sectionsAt, SeekDirectorySource? seek, long openCount, long closeCount)
     {
         ulong order = BinaryPrimitives.ReadUInt64LittleEndian(words);
         long openAt = (long)BinaryPrimitives.ReadUInt64LittleEndian(words[72..]);
@@ -858,7 +903,7 @@ internal sealed class ExtentInfo
             // Every column holds exactly its keys' distances (ADR 0177).
             ulong stored = BinaryPrimitives.ReadUInt64LittleEndian(words[128..]);
 
-            if (withinKeys is null || columnChecks is null || stored is < 1 or > 8)
+            if (seek is null || stored is < 1 or > 8)
             {
                 return null;
             }
@@ -867,7 +912,7 @@ internal sealed class ExtentInfo
 
             if (openLength != openCount * width
                 || closeLength != closeCount * width
-                || withinCount != withinKeys.Count
+                || withinCount != seek.KeysCount
                 || withinLength != withinCount * 2 * width)
             {
                 return null;
@@ -878,8 +923,8 @@ internal sealed class ExtentInfo
             return null;
         }
 
-        Chunked<ulong>?[] checks = width == 0 || columnChecks is not { } c ? [null, null, null] : [c.Open, c.Close, c.Within];
-        return new ExtentInfo(blob, header.Version, header.From, (IndexOrder)order, ReadKey(words[8..]), ReadKey(words[40..]), openAt, openLength, closeAt, closeLength, withinAt, withinLength, withinCount, width, width == 0 ? null : withinKeys, checks);
+        // The seek directory is not held with the extent: a read that needs it asks for it (ADR 0240).
+        return new ExtentInfo(blob, header.Version, header.From, (IndexOrder)order, ReadKey(words[8..]), ReadKey(words[40..]), openAt, openLength, closeAt, closeLength, withinAt, withinLength, withinCount, width, null, [null, null, null], width == 0 ? null : seek);
     }
 
     /// <summary>The open rows' asserting positions, in key order.</summary>

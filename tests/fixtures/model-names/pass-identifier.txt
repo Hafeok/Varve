@@ -1,0 +1,5 @@
+fix(store): a change
+
+The session ran on claude-opus-9-9, as its record says.
+
+Refs #1

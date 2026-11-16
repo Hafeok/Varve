@@ -1,0 +1,21 @@
+# Commits the model-names gate skips (ADR 0241, #169; the maintainer's ruling
+# of 2026-11-16). eng/model-names.cs reads this file.
+#
+# One commit per line: its full hash, its pull request, and the reason. Every
+# commit here was pushed before the gate reached main, names a model only in
+# a co-author trailer, and cannot be reworded without a force push, which a
+# pushed branch never gets.
+#
+# Nothing pushed after the gate is on main may be added without the
+# maintainer's approval (docs/rules/model-names.md, "Exception path").
+09976abc1aa8d7a6e0b1f7dd6e67e94f468e6ed1 #268 pushed 2026-11-10, before the gate reached main; rewording needs a force push
+f60f02f7e2d766c24d822c5d94be9bdf17140088 #268 pushed 2026-11-10, before the gate reached main; rewording needs a force push
+9272e7cc702c624abbbe621046eee00da83a6f61 #268 pushed 2026-11-10, before the gate reached main; rewording needs a force push
+df7e9dc2597c73e154abca95e9720b2347e8ea3c #268 pushed 2026-11-10, before the gate reached main; rewording needs a force push
+d5813db49236899a14d03b2d80e8c6c25236625d #268 pushed 2026-11-10, before the gate reached main; rewording needs a force push
+7d56adf9638d8514c86fa13480f975f957dfcff0 #268 pushed 2026-11-10, before the gate reached main; rewording needs a force push
+e8e90a40d51b40fa6bf908c012ffe073aee38bd3 #268 pushed 2026-11-10, before the gate reached main; rewording needs a force push
+89895ddffdee1cc891f7fb932d9507ea6a08eb90 #264 pushed 2026-11-10, before the gate reached main; rewording needs a force push
+c2bc0bf2f997cc7b5b234b85cd80d30208db03fa #264 pushed 2026-11-10, before the gate reached main; rewording needs a force push
+09be118a8f4f6214e0dae9bfbeb21b0f15132358 #264 pushed 2026-11-10, before the gate reached main; rewording needs a force push
+1e2fba6a02a895e88c78592b9247f724f5c660aa #264 pushed 2026-11-10, before the gate reached main; rewording needs a force push

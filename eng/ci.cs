@@ -105,6 +105,14 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("dco", "every commit is signed off by its author, or by the human responsible for its agent",
         () => Run("dotnet", Args("run", "eng/dco.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
 
+    // ADR 0241, #169: the commits a head adds over main, after e684009a, name
+    // no model; the commit-msg hook rewrites or refuses when the commit is
+    // made, and this is the backstop. Its failure path runs on every build.
+    ("model-names", "no commit names a model; a model's identifier is allowed",
+        () => Run("dotnet", Args("run", "eng/model-names.cs", baseRef is null ? null : "--", baseRef is null ? null : "--base", baseRef))),
+    ("model-names-fixtures", "the model-names check refuses a name in the subject, the body or a trailer, rewrites a co-author trailer, and allows an identifier",
+        () => Run("dotnet", ["run", "eng/model-names.cs", "--", "--fixtures", "tests/fixtures/model-names"])),
+
     // The gate's failure path, proven on every run: the failing fixture must
     // exit 1 and the passing one 0 (tests/fixtures/dco/README.md).
     ("dco-fixture", "the DCO gate fails its failing fixture and passes its passing one",
