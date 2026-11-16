@@ -68,7 +68,7 @@ the issue.
     window, and a key in flight (`409`).
 - **Run here:** `dotnet build Varve.slnx` with `CS0618` as a warning (the
   unaccepted citations), and the Protocol, Protocol client, web UI and Server
-  test projects, all passing (counts in the head's comment on #132).
+  test projects: Protocol 180, Protocol client 117, web UI 234 and Server 237 (58 skipped for services absent here), all passing.
 - **Not run here:** `eng/decision-sets.cs`, which needs the full history, and
   this clone is shallow. The fleet suite on Azurite and RustFS. The W3C
   suites.
