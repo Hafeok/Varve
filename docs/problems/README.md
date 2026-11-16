@@ -66,4 +66,4 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`storage-full`](storage-full.md) | 507 |  | The dataset's storage has no space for the write; nothing was committed. |
 
 What each limit's failure looks like to a client is in
-[`docs/operator/limits.md`](../operator/limits.md).
+[`docs/operator/configure.md`](../operator/configure.md#limits--limits).
