@@ -2093,6 +2093,47 @@ jobs:
   # baseline is allowed to fail while it is being worked on (ADR 0007). The
   # ratchet gates instead — on a regression, on a case that vanished, on an
   # exemption with no justification, and on the harness itself failing.
+  # The docs site (ADR 0247): built twice, on the runner's Chrome for its
+  # diagrams, and the two builds compared byte for byte; each build checks its
+  # own links and pages, and every diagram's SVG. Nothing is deployed here:
+  # docs-site.yml deploys from main.
+  docs-site:
+    name: docs site
+    runs-on: ubuntu-latest
+    env:
+      VARVE_CHROME: ${{ vars.VARVE_CHROME || '/usr/bin/google-chrome' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Restore the generator, locked
+        run: dotnet restore eng/site -p:RestoreLockedMode=true
+
+      - name: Build the site, twice, and compare
+        run: |
+          commit="$(git rev-parse HEAD)"
+          for out in site site-again; do
+            dotnet run --project eng/site --configuration Release --no-restore -- \
+              build --out "${{ github.workspace }}/artifacts/$out" --commit "$commit" --chrome "$VARVE_CHROME" \
+              --cache "${{ runner.temp }}/site-cache"
+          done
+          diff --recursive --brief "${{ github.workspace }}/artifacts/site" "${{ github.workspace }}/artifacts/site-again"
+          echo "Two builds of $commit are byte-identical: $(find "${{ github.workspace }}/artifacts/site" -type f | wc -l) files." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the site
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docs-site
+          path: ${{ github.workspace }}/artifacts/site
+          retention-days: 7
+
   conformance:
     name: conformance (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

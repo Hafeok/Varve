@@ -274,6 +274,20 @@ environments:
   branch_policies:
   - name: main
   secrets: []
+# The docs site (ADR 0247): docs-site.yml's deploy job writes to GitHub Pages
+# by its own OIDC token, with pages: write and id-token: write on that job
+# alone. Only main deploys to it, so no pull request and no other branch can
+# publish. No secret.
+- name: github-pages
+  wait_timer: 0
+  prevent_self_review: false
+  reviewers: []
+  deployment_branch_policy:
+    protected_branches: false
+    custom_branch_policies: true
+  branch_policies:
+  - name: main
+  secrets: []
 # The real-provider auth legs (ADR 0100, point 4 superseded by ADR 0223):
 # Entra ID and Google test tenants, reached by federated credentials from the
 # job's own OIDC token for this environment, which only main deploys to. No
