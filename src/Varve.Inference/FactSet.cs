@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System;
 using System.Collections.Generic;
 using Varve.Inference.Model;
 using Varve.Rdf;
@@ -13,17 +14,42 @@ namespace Varve.Inference;
 /// by object, by predicate, by subject and predicate, and by predicate and
 /// object (ADR 0195 point 2). In memory, over handles.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Each fact is one record in a dense array: the fact, recursive counting's
+/// round and count for it, and its links in the five indices. An index is a
+/// map from its key to the first record under it, the rest chained through
+/// the records both ways, so adding or removing a fact is constant time in
+/// every index and no index holds a collection per key. A table of record
+/// numbers, open addressed, finds a fact's record. A removed record is
+/// reused.
+/// </para>
+/// <para>
+/// Reading an answer while the set changes throws, as a .NET collection's
+/// enumerator does.
+/// </para>
+/// </remarks>
 internal sealed class FactSet
 {
-    private readonly HashSet<Fact> _all = [];
-    private readonly Dictionary<ulong, HashSet<Fact>> _bySubject = [];
-    private readonly Dictionary<ulong, HashSet<Fact>> _byPredicate = [];
-    private readonly Dictionary<ulong, HashSet<Fact>> _byObject = [];
-    private readonly Dictionary<(ulong, ulong), HashSet<Fact>> _bySubjectPredicate = [];
-    private readonly Dictionary<(ulong, ulong), HashSet<Fact>> _byPredicateObject = [];
+    private const int None = -1;
+    private const int Subjects = 0, Predicates = 1, Objects = 2, SubjectPredicates = 3, PredicateObjects = 4;
+
+    private Record[] _records = new Record[16];
+    private int _used;
+    private int _free = None;
+
+    // Record numbers plus one, 0 for an empty slot; linear probing, removal by backward shift.
+    private int[] _table = new int[32];
+    private int _version;
+
+    private readonly Dictionary<ulong, int> _bySubject = [];
+    private readonly Dictionary<ulong, int> _byPredicate = [];
+    private readonly Dictionary<ulong, int> _byObject = [];
+    private readonly Dictionary<(ulong, ulong), int> _bySubjectPredicate = [];
+    private readonly Dictionary<(ulong, ulong), int> _byPredicateObject = [];
 
     /// <summary>The facts this set holds itself, its base's not counted.</summary>
-    internal int Count => _all.Count;
+    internal int Count { get; private set; }
 
     /// <summary>
     /// A read-only set beneath this one, whose facts this one holds as its
@@ -39,35 +65,99 @@ internal sealed class FactSet
     internal Dictionary<Fact, bool>? Touched { get; set; }
 
     /// <summary>The facts this set holds itself, its base's not among them.</summary>
-    internal IEnumerable<Fact> All => _all;
+    internal IEnumerable<Fact> All
+    {
+        get
+        {
+            int version = _version;
+            for (int i = 0; i < _used; i++)
+            {
+                Check(version);
+                if (_records[i].Held)
+                {
+                    yield return _records[i].Fact;
+                }
+            }
+        }
+    }
 
-    internal bool Contains(in Fact fact) => _all.Contains(fact) || (Base is { } under && under.Contains(fact));
+    internal bool Contains(in Fact fact) => Find(fact) != None || (Base is { } under && under.Contains(fact));
 
     /// <summary>Whether this set holds a fact itself, not through its base.</summary>
-    internal bool Holds(in Fact fact) => _all.Contains(fact);
+    internal bool Holds(in Fact fact) => Find(fact) != None;
+
+    /// <summary>A fact's round and count under recursive counting, if this set holds it itself; (0, 0) when it was never given them.</summary>
+    internal bool TryStanding(in Fact fact, out int round, out int count)
+    {
+        int at = Find(fact);
+        if (at == None)
+        {
+            round = count = 0;
+            return false;
+        }
+
+        round = _records[at].Round;
+        count = _records[at].Count;
+        return true;
+    }
+
+    /// <summary>Sets the round and count of a fact this set holds itself.</summary>
+    internal void SetStanding(in Fact fact, int round, int count)
+    {
+        ref Record record = ref _records[Held(fact)];
+        record.Round = round;
+        record.Count = count;
+    }
+
+    /// <summary>Adds <paramref name="delta"/> to the count of a fact this set holds itself, and returns the new count.</summary>
+    internal int AddToCount(in Fact fact, int delta) => _records[Held(fact)].Count += delta;
 
     internal bool Add(in Fact fact)
     {
-        if (_all.Contains(fact) || (Base is { } under && under.Contains(fact)))
+        if (Find(fact) != None || (Base is { } under && under.Contains(fact)))
         {
             return false;
         }
 
         Budget?.Take();
-        _all.Add(fact);
+        if ((Count + 1) * 4 > _table.Length * 3)
+        {
+            Grow();
+        }
+
+        int at = _free;
+        if (at != None)
+        {
+            _free = _records[at].Next(Subjects);
+        }
+        else
+        {
+            if (_used == _records.Length)
+            {
+                Array.Resize(ref _records, _records.Length * 2);
+            }
+
+            at = _used++;
+        }
+
+        _records[at] = new Record(fact);
+        Count++;
+        _version++;
+        Place(at);
         Touched?.TryAdd(fact, false);
 
-        Index(_bySubject, fact.Subject.Value, fact);
-        Index(_byPredicate, fact.Predicate.Value, fact);
-        Index(_byObject, fact.Object.Value, fact);
-        Index(_bySubjectPredicate, (fact.Subject.Value, fact.Predicate.Value), fact);
-        Index(_byPredicateObject, (fact.Predicate.Value, fact.Object.Value), fact);
+        Link(_bySubject, fact.Subject.Value, at, Subjects);
+        Link(_byPredicate, fact.Predicate.Value, at, Predicates);
+        Link(_byObject, fact.Object.Value, at, Objects);
+        Link(_bySubjectPredicate, (fact.Subject.Value, fact.Predicate.Value), at, SubjectPredicates);
+        Link(_byPredicateObject, (fact.Predicate.Value, fact.Object.Value), at, PredicateObjects);
         return true;
     }
 
     internal bool Remove(in Fact fact)
     {
-        if (!_all.Remove(fact))
+        int at = Find(fact);
+        if (at == None)
         {
             return false;
         }
@@ -75,11 +165,18 @@ internal sealed class FactSet
         Budget?.Give();
         Touched?.TryAdd(fact, true);
 
-        Unindex(_bySubject, fact.Subject.Value, fact);
-        Unindex(_byPredicate, fact.Predicate.Value, fact);
-        Unindex(_byObject, fact.Object.Value, fact);
-        Unindex(_bySubjectPredicate, (fact.Subject.Value, fact.Predicate.Value), fact);
-        Unindex(_byPredicateObject, (fact.Predicate.Value, fact.Object.Value), fact);
+        Unlink(_bySubject, fact.Subject.Value, at, Subjects);
+        Unlink(_byPredicate, fact.Predicate.Value, at, Predicates);
+        Unlink(_byObject, fact.Object.Value, at, Objects);
+        Unlink(_bySubjectPredicate, (fact.Subject.Value, fact.Predicate.Value), at, SubjectPredicates);
+        Unlink(_byPredicateObject, (fact.Predicate.Value, fact.Object.Value), at, PredicateObjects);
+
+        Displace(fact);
+        _records[at] = default;
+        _records[at].SetNext(Subjects, _free);
+        _free = at;
+        Count--;
+        _version++;
         return true;
     }
 
@@ -110,64 +207,246 @@ internal sealed class FactSet
         if (s && p && o)
         {
             Fact fact = new(subject, predicate, @object);
-            return _all.Contains(fact) ? [fact] : [];
+            return Find(fact) != None ? [fact] : [];
         }
 
         if (s && p)
         {
-            return Of(_bySubjectPredicate, (subject.Value, predicate.Value));
+            return Chain(_bySubjectPredicate, (subject.Value, predicate.Value), SubjectPredicates, 0);
         }
 
         if (p && o)
         {
-            return Of(_byPredicateObject, (predicate.Value, @object.Value));
+            return Chain(_byPredicateObject, (predicate.Value, @object.Value), PredicateObjects, 0);
         }
 
         if (s)
         {
-            return o ? Filter(Of(_bySubject, subject.Value), f => f.Object.Value == @object.Value) : Of(_bySubject, subject.Value);
+            return Chain(_bySubject, subject.Value, Subjects, o ? @object.Value : 0);
         }
 
         if (p)
         {
-            return Of(_byPredicate, predicate.Value);
+            return Chain(_byPredicate, predicate.Value, Predicates, 0);
         }
 
-        return o ? Of(_byObject, @object.Value) : _all;
+        return o ? Chain(_byObject, @object.Value, Objects, 0) : All;
     }
 
-    private static IEnumerable<Fact> Filter(IEnumerable<Fact> facts, System.Func<Fact, bool> keep)
+    /// <summary>The records chained under a key in one index; with <paramref name="object"/> not 0, only those with that object.</summary>
+    private IEnumerable<Fact> Chain<TKey>(Dictionary<TKey, int> index, TKey key, int which, ulong @object)
+        where TKey : notnull
     {
-        foreach (Fact fact in facts)
+        if (!index.TryGetValue(key, out int at))
         {
-            if (keep(fact))
+            yield break;
+        }
+
+        int version = _version;
+        while (at != None)
+        {
+            Fact fact = _records[at].Fact;
+            int next = _records[at].Next(which);
+            if (@object == 0 || fact.Object.Value == @object)
             {
                 yield return fact;
+                Check(version);
+            }
+
+            at = next;
+        }
+    }
+
+    private void Check(int version)
+    {
+        if (version != _version)
+        {
+            throw new InvalidOperationException("The fact set changed while an answer of it was read.");
+        }
+    }
+
+    private void Link<TKey>(Dictionary<TKey, int> index, TKey key, int at, int which)
+        where TKey : notnull
+    {
+        ref Record record = ref _records[at];
+        record.SetPrevious(which, None);
+        if (index.TryGetValue(key, out int head))
+        {
+            record.SetNext(which, head);
+            _records[head].SetPrevious(which, at);
+        }
+        else
+        {
+            record.SetNext(which, None);
+        }
+
+        index[key] = at;
+    }
+
+    private void Unlink<TKey>(Dictionary<TKey, int> index, TKey key, int at, int which)
+        where TKey : notnull
+    {
+        int previous = _records[at].Previous(which), next = _records[at].Next(which);
+        if (next != None)
+        {
+            _records[next].SetPrevious(which, previous);
+        }
+
+        if (previous != None)
+        {
+            _records[previous].SetNext(which, next);
+        }
+        else if (next != None)
+        {
+            index[key] = next;
+        }
+        else
+        {
+            index.Remove(key);
+        }
+    }
+
+    private int Held(in Fact fact)
+    {
+        int at = Find(fact);
+        return at != None ? at : throw new InvalidOperationException("The fact set does not hold " + fact + " itself.");
+    }
+
+    private int Find(in Fact fact)
+    {
+        int mask = _table.Length - 1;
+        for (int slot = Slot(fact, mask); ; slot = (slot + 1) & mask)
+        {
+            int entry = _table[slot];
+            if (entry == 0)
+            {
+                return None;
+            }
+
+            if (_records[entry - 1].Fact == fact)
+            {
+                return entry - 1;
             }
         }
     }
 
-    private static IEnumerable<Fact> Of<TKey>(Dictionary<TKey, HashSet<Fact>> index, TKey key)
-        where TKey : notnull =>
-        index.TryGetValue(key, out HashSet<Fact>? facts) ? facts : System.Array.Empty<Fact>();
-
-    private static void Index<TKey>(Dictionary<TKey, HashSet<Fact>> index, TKey key, in Fact fact)
-        where TKey : notnull
+    private void Place(int at)
     {
-        if (!index.TryGetValue(key, out HashSet<Fact>? facts))
+        int mask = _table.Length - 1;
+        int slot = Slot(_records[at].Fact, mask);
+        while (_table[slot] != 0)
         {
-            index[key] = facts = [];
+            slot = (slot + 1) & mask;
         }
 
-        facts.Add(fact);
+        _table[slot] = at + 1;
     }
 
-    private static void Unindex<TKey>(Dictionary<TKey, HashSet<Fact>> index, TKey key, in Fact fact)
-        where TKey : notnull
+    /// <summary>Takes a fact out of the table, shifting back the entries its slot displaced.</summary>
+    private void Displace(in Fact fact)
     {
-        if (index.TryGetValue(key, out HashSet<Fact>? facts) && facts.Remove(fact) && facts.Count == 0)
+        int mask = _table.Length - 1;
+        int hole = Slot(fact, mask);
+        while (_records[_table[hole] - 1].Fact != fact)
         {
-            index.Remove(key);
+            hole = (hole + 1) & mask;
+        }
+
+        for (int slot = (hole + 1) & mask; _table[slot] != 0; slot = (slot + 1) & mask)
+        {
+            int home = Slot(_records[_table[slot] - 1].Fact, mask);
+
+            // The entry may move into the hole if its home is not in (hole, slot], cyclically.
+            if (hole <= slot ? home <= hole || home > slot : home <= hole && home > slot)
+            {
+                _table[hole] = _table[slot];
+                hole = slot;
+            }
+        }
+
+        _table[hole] = 0;
+    }
+
+    private void Grow()
+    {
+        _table = new int[_table.Length * 2];
+        for (int i = 0; i < _used; i++)
+        {
+            if (_records[i].Held)
+            {
+                Place(i);
+            }
+        }
+    }
+
+    private static int Slot(in Fact fact, int mask)
+    {
+        ulong hash = (fact.Subject.Value * 0x9E3779B97F4A7C15UL) ^ (fact.Predicate.Value * 0xC2B2AE3D27D4EB4FUL) ^ (fact.Object.Value * 0x165667B19E3779F9UL);
+        return (int)((hash ^ (hash >> 32)) & (uint)mask);
+    }
+
+    /// <summary>A fact, its round and count, and its links in the five indices.</summary>
+    private struct Record
+    {
+        private int _nextSubject, _previousSubject, _nextPredicate, _previousPredicate, _nextObject, _previousObject;
+        private int _nextSubjectPredicate, _previousSubjectPredicate, _nextPredicateObject, _previousPredicateObject;
+
+        internal Record(in Fact fact)
+        {
+            Fact = fact;
+            Round = 0;
+            Count = 0;
+        }
+
+        internal Fact Fact { get; }
+
+        internal int Round { get; set; }
+
+        internal int Count { get; set; }
+
+        /// <summary>Whether the record holds a fact: a fact's subject is never <see cref="TermHandle.None"/>.</summary>
+        internal readonly bool Held => !Fact.Subject.IsNone;
+
+        internal readonly int Next(int which) => which switch
+        {
+            Subjects => _nextSubject,
+            Predicates => _nextPredicate,
+            Objects => _nextObject,
+            SubjectPredicates => _nextSubjectPredicate,
+            _ => _nextPredicateObject,
+        };
+
+        internal readonly int Previous(int which) => which switch
+        {
+            Subjects => _previousSubject,
+            Predicates => _previousPredicate,
+            Objects => _previousObject,
+            SubjectPredicates => _previousSubjectPredicate,
+            _ => _previousPredicateObject,
+        };
+
+        internal void SetNext(int which, int value)
+        {
+            switch (which)
+            {
+                case Subjects: _nextSubject = value; break;
+                case Predicates: _nextPredicate = value; break;
+                case Objects: _nextObject = value; break;
+                case SubjectPredicates: _nextSubjectPredicate = value; break;
+                default: _nextPredicateObject = value; break;
+            }
+        }
+
+        internal void SetPrevious(int which, int value)
+        {
+            switch (which)
+            {
+                case Subjects: _previousSubject = value; break;
+                case Predicates: _previousPredicate = value; break;
+                case Objects: _previousObject = value; break;
+                case SubjectPredicates: _previousSubjectPredicate = value; break;
+                default: _previousPredicateObject = value; break;
+            }
         }
     }
 }

@@ -36,11 +36,9 @@ namespace Varve.Inference;
 /// </remarks>
 public sealed partial class Closure
 {
-    private readonly Dictionary<Fact, int> _round = [];
-    private readonly Dictionary<Fact, int> _count = [];
-
     /// <summary>The round of a fact the closure holds under recursive counting, and the instances counted towards it there: for the tests' invariant.</summary>
-    internal (int Round, int Count) Standing(in Fact fact) => (RoundOf(fact), _count.GetValueOrDefault(fact));
+    internal (int Round, int Count) Standing(in Fact fact) =>
+        Facts.TryStanding(fact, out int round, out int count) ? (round, count) : (0, 0);
 
     /// <summary>The earliest round any instance over the facts held gives <paramref name="head"/>, and how many instances give it that round.</summary>
     internal (int Round, int Count) Earliest(in Fact head)
@@ -76,14 +74,14 @@ public sealed partial class Closure
     }
 
     /// <summary>A fact's round: 0 for one of the TBox closure beneath, which is given here.</summary>
-    private int RoundOf(in Fact fact) => _round.TryGetValue(fact, out int round) ? round : 0;
+    private int RoundOf(in Fact fact) => Facts.TryStanding(fact, out int round, out _) ? round : 0;
 
     private void CountingInsert(IEnumerable<Fact> givens)
     {
         PriorityQueue<Fact, int> queue = new();
         foreach (Fact fact in givens)
         {
-            if (!_round.TryGetValue(fact, out int round) || round > 0)
+            if (!Facts.TryStanding(fact, out int round, out _) || round > 0)
             {
                 queue.Enqueue(fact, 0);
             }
@@ -108,7 +106,7 @@ public sealed partial class Closure
         List<Fact> deleted = [];
         while (queue.TryDequeue(out Fact fact, out _))
         {
-            if (!Facts.Contains(fact) || IsGiven(fact) || (RoundOf(fact) > 0 && _count[fact] > 0))
+            if (!Facts.Contains(fact) || IsGiven(fact) || (Facts.TryStanding(fact, out int round, out int count) && round > 0 && count > 0))
             {
                 continue;
             }
@@ -120,7 +118,7 @@ public sealed partial class Closure
                     continue;
                 }
 
-                if (--_count[head] == 0)
+                if (Facts.AddToCount(head, -1) == 0)
                 {
                     queue.Enqueue(head, RoundOf(head));
                 }
@@ -128,12 +126,6 @@ public sealed partial class Closure
 
             Facts.Remove(fact);
             deleted.Add(fact);
-        }
-
-        foreach (Fact fact in deleted)
-        {
-            _round.Remove(fact);
-            _count.Remove(fact);
         }
 
         // Phase 2: put back what is still derived, in the round it now has.
@@ -188,10 +180,11 @@ public sealed partial class Closure
                 Facts.Add(fact);
             }
 
-            _round[fact] = round;
-            _count[fact] = IsGiven(fact) ? 0
+            // The round first: an instance with the fact among its own premises reads it.
+            Facts.SetStanding(fact, round, 0);
+            Facts.SetStanding(fact, round, IsGiven(fact) ? 0
                 : !present && !seeded.Contains(fact) && found.Remove(fact, out (int Round, int Count) earliest) && earliest.Round == round ? earliest.Count
-                : Earliest(fact).Count;
+                : Earliest(fact).Count);
             foreach ((Fact head, Fact[] premises) in Derivations(fact))
             {
                 int now = RoundAfter(premises);
@@ -218,7 +211,7 @@ public sealed partial class Closure
                 // The instance reaches its head's round only now: count it.
                 if (now == RoundOf(head) && !IsGiven(head) && head != fact && !again)
                 {
-                    _count[head]++;
+                    Facts.AddToCount(head, 1);
                 }
             }
         }
