@@ -178,8 +178,21 @@ graphs, this ADR's amendment says so before any other layout is chosen.
 - **What a from-scratch closure costs** is measured on REC M and stated here
   before this ADR is accepted (the benchmark of point 9's list): the time to
   close the dataset at the head under `rdfs` and under `owl2rl`, and its peak
-  memory. It is what an old as-of read and a cold start pay. *Not yet
-  measured; reported on #171 when it is.*
+  memory. It is what an old as-of read and a cold start pay. Measured
+  2026-11-16 on REC M at its head (63 graphs, 5,053,193 quads; 4 cores,
+  .NET 10.0.15; `Varve.Benchmarks --inference-closure M <profile>`):
+
+  | Profile | Time | Facts held | Heap held | A fact | A data quad | Working set |
+  |---|---|---|---|---|---|---|
+  | `rdfs` | 63.0 s | 17,474,726 | 3,458 MiB | 208 B | 718 B | 5,802 MiB |
+  | `owl2rl` | 274.3 s | 23,132,785 | 3,638 MiB | 165 B | 755 B | 6,470 MiB |
+
+  The heap is what the closures hold after a compacting collection; the
+  working set, the process's at the end, is the nearer to its peak. A
+  closure first held each fact six times and counting's state beside it,
+  about 500 bytes a fact: REC M under `rdfs` did not close in 15 GB. Each
+  fact is now one record carrying counting's round and count and its links
+  in the five indices (revised 2026-11-16).
 
 ### 6. Lag, `inference-behind`, and the memory limit
 

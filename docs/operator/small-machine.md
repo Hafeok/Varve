@@ -79,6 +79,26 @@ writes, not one that enforces them only one request at a time
 | `Varve:Limits:MaxQueryMemory` | the default, 256 MiB | one query's bound (ADR 0114) |
 | `Varve:Limits:MaxConcurrentReads` | 4 | one per core |
 
+## Inference
+
+A binding's closure is held in memory (ADR 0195). Measured on REC M
+(5 million data quads), it holds 718 bytes a data quad under `rdfs` and
+755 under `owl2rl`, the store's own data not included: 3.4 and 3.6 GiB.
+
+`Varve:Inference:ClosureBytes` counts 256 bytes a fact, a margin over
+the measured 165–208, and a data quad closes to about 3.5 facts under
+`rdfs` and 4.6 under `owl2rl`: the setting spends about 900 bytes a data
+quad under `rdfs` and 1,200 under `owl2rl`. Its default, a quarter of the
+5 GiB heap limit above, closes about 1.4 million data quads under `rdfs`
+or 1 million under `owl2rl`. A closure past it stops, and the binding
+answers `inference-unavailable` until it is given more; raise it only as
+far as the heap limit leaves the store its working set, or close fewer
+graphs.
+
+A from-scratch closure of REC M takes about one minute under `rdfs` and
+four and a half under `owl2rl`, on four cores: what a cold start or an
+as-of read older than the history pays.
+
 ## Measured
 
 Commit latency, query throughput and cold start on a Pi 5 with an NVMe SSD:
