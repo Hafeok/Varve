@@ -11,6 +11,7 @@ A precondition that does not name the current version, checked before anything i
 
 - An `If-Match` on an update or the settings resource names the head; `expectedPosition` is what it named (ADR 0094).
 - An `If-Match` on a Graph Store write names the graph's version, and a graph with no quads matches no tag; `If-None-Match: *` on a `PUT` fails when the graph holds a quad. `graphs` gives the graph and the version it has (ADR 0126).
+- An `If-Match` on a management write, a dataset's declaration or its `…/state`, names the declaration graph's version, the `ETag` either sends; `graphs` gives the graph and the version it has (ADR 0163).
 - `Varve-If-Graphs-Match` on an update names graphs and the versions read; `graphs` lists each graph that is at another version, `{"graph": "<iri>" | "default", "version": n}` (ADR 0126).
 
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
