@@ -26,6 +26,21 @@ internal static class EntailmentHeader
     /// <summary>The tokens this server serves, in the table's order.</summary>
     internal static readonly ImmutableArray<string> Supported = ["simple", "rdf", "rdfs", "d"];
 
+    /// <summary>The token of the OWL 2 RL regime, which a closure answers (ADR 0197 point 6).</summary>
+    internal const string Owl2RlToken = "owl2-rl";
+
+    /// <summary>Whether a header names the OWL 2 RL regime: <c>owl2-rl</c>, or <c>ent:OWL-RDF-Based</c> in angle brackets.</summary>
+    internal static bool IsOwl2Rl(StringValues header)
+    {
+        if (header.Count != 1 || header[0] is not { } value)
+        {
+            return false;
+        }
+
+        value = value.Trim();
+        return value == Owl2RlToken || value == "<http://www.w3.org/ns/entailment/OWL-RDF-Based>";
+    }
+
     /// <summary>The regime a header names; false for anything else, more than one value among it.</summary>
     internal static bool TryRead(StringValues header, out EntailmentRegime regime)
     {

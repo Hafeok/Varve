@@ -191,6 +191,14 @@
           "Varve.Rdf": "[1.0.0, )"
         }
       },
+      "varve.inference.store": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Inference": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Store": "[1.0.0, )"
+        }
+      },
       "varve.iri": {
         "type": "Project"
       },

@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -138,19 +139,45 @@ internal sealed class Exchange
     /// scope, or the view itself when the caller reads every graph, so that
     /// an unscoped request costs what it did (ADR 0107).
     /// </summary>
-    internal IQuadSource Readable(IQuadSource view)
+    internal IQuadSource Readable(IQuadSource view) => Readable(view, ClosureMode.Plain);
+
+    /// <summary>
+    /// <paramref name="view"/> as the caller sees it, with the materialised
+    /// closures read as <paramref name="mode"/> asks (ADR 0198): the views,
+    /// the reserved graphs, <c>owl2-rl</c>. Every closure is reached through
+    /// the tier-2 seam, and the row-level refusal sits here (ADR 0195 point
+    /// 7, ADR 0238 point 2).
+    /// </summary>
+    /// <exception cref="EntailmentNotAvailableException">The mode reads a closure, and the caller's grant restricts rows over a binding's graphs.</exception>
+    internal IQuadSource Readable(IQuadSource view, ClosureMode mode)
     {
+        IReadOnlyList<IInferenceClosure> closures = view is DatasetView && Options.InferenceClosures is { } seam ? seam.Of(Name) : [];
+
         // A row-restricted caller reads no report graph (ADR 0237 point 6),
         // and beneath its graphs only the rows it may (ADR 0235).
         if (!Scope.ReadableRows.IsAll && view is DatasetView rowView && Options.RowClassifications?.At(Name, rowView) is { } rows)
         {
+            // Tier 2 is refused to it, never filtered (ADR 0238 point 2).
+            if (!mode.ExplicitOnly && closures.Count > 0)
+            {
+                throw new EntailmentNotAvailableException();
+            }
+
             return RowScopedQuadSource.Wrap(GraphScopedQuadSource.Wrap(view, Scope.Readable), rows, Scope.ReadableRows);
         }
 
-        // The report graphs the caller reads every bound graph of (ADR 0174).
-        return Options.ValidationReports is { } reports && view is DatasetView pinned && reports.Of(Name) is { Count: > 0 } graphs
-            ? ReportGraphs.Compose(pinned, Scope.Readable, graphs)
-            : GraphScopedQuadSource.Wrap(view, Scope.Readable);
+        IReadOnlyList<IValidationReportGraph> reports = Options.ValidationReports is { } validation && view is DatasetView ? validation.Of(Name) : [];
+        if (view is not DatasetView pinned || (reports.Count == 0 && closures.Count == 0 && mode.ExplicitOnly))
+        {
+            return GraphScopedQuadSource.Wrap(view, Scope.Readable);
+        }
+
+        // One staging view for every reserved graph of the read, so that their staged terms are one.
+        StagingView staging = pinned.Stage();
+        IQuadSource source = ReportGraphs.ComposeOver(GraphScopedQuadSource.Wrap(staging, Scope.Readable), staging, Scope.Readable, reports);
+
+        // A caller who reads nothing in the dataset reads no TBox conclusions (ADR 0190 point 3).
+        return ClosureGraphs.Compose(source, staging, Scope.Readable.IsEmpty ? [] : closures, mode);
     }
 
     /// <summary>

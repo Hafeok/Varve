@@ -1,0 +1,314 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Varve.Inference.Model;
+using Varve.Inference.Store;
+using Varve.Inference.Store.Model;
+using Varve.Protocol.Http;
+using Varve.Protocol.Model;
+using Varve.Rdf;
+using Varve.Store;
+using Varve.Store.Log;
+using Xunit;
+
+namespace Varve.Protocol.Tests;
+
+/// <summary>
+/// The tier-2 surfaces over HTTP (ADRs 0195, 0197, 0198): the views in
+/// <c>FROM</c> and <c>FROM NAMED</c>, a binding's reserved graph of TBox
+/// conclusions, <c>Varve-Entailment: owl2-rl</c>, and the seam's refusals
+/// as problems. A read that names none of them never reads a closure.
+/// </summary>
+public class InferenceSurfaceTests
+{
+    private const string Sparql = "datasets/d/sparql";
+    private const string Rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+    private const string Rdfs = "http://www.w3.org/2000/01/rdf-schema#";
+    private const string Explicit = "https://w3id.org/varve/ns#explicit";
+    private const string Implicit = "https://w3id.org/varve/ns#implicit";
+    private const string Conclusions = "https://w3id.org/varve/ns#inferred/urn%3Ab/tbox";
+
+    [Fact]
+    public async Task FROM_varve_implicit_reads_a_graphs_entailments_and_varve_explicit_its_assertions()
+    {
+        await using Fixture fixture = await Fixture.StartAsync(InferenceProfile.Rdfs);
+
+        string[] implicitClasses = await fixture.ColumnAsync("SELECT ?c FROM <http://ex/g/1> FROM <" + Implicit + "> WHERE { <http://ex/ann> a ?c }", "c");
+        Assert.Contains("http://ex/Agent", implicitClasses);
+        Assert.DoesNotContain("http://ex/Person", implicitClasses);
+
+        string[] explicitClasses = await fixture.ColumnAsync("SELECT ?c FROM <http://ex/g/1> FROM <" + Explicit + "> WHERE { <http://ex/ann> a ?c }", "c");
+        Assert.Equal(["http://ex/Person"], explicitClasses);
+
+        string[] both = await fixture.ColumnAsync("SELECT ?c FROM <http://ex/g/1> FROM <" + Explicit + "> FROM <" + Implicit + "> WHERE { <http://ex/ann> a ?c }", "c");
+        Assert.Contains("http://ex/Person", both);
+        Assert.Contains("http://ex/Agent", both);
+    }
+
+    [Fact]
+    public async Task Under_FROM_NAMED_varve_implicit_GRAPH_binds_the_real_graph()
+    {
+        await using Fixture fixture = await Fixture.StartAsync(InferenceProfile.Rdfs);
+
+        string[] graphs = await fixture.ColumnAsync("SELECT ?g FROM NAMED <" + Implicit + "> WHERE { GRAPH ?g { <http://ex/ann> a <http://ex/Agent> } }", "g");
+        Assert.Equal(["http://ex/g/1"], graphs);
+
+        // A view counts as a FROM: with no FROM NAMED, there are no named graphs.
+        Assert.Empty(await fixture.ColumnAsync("SELECT ?g FROM <" + Implicit + "> WHERE { GRAPH ?g { ?s ?p ?o } }", "g"));
+    }
+
+    [Fact]
+    public async Task The_reserved_graph_holds_the_TBox_conclusions_by_query_and_by_graph_store()
+    {
+        await using Fixture fixture = await Fixture.StartAsync(InferenceProfile.Rdfs);
+
+        string[] supers = await fixture.ColumnAsync("SELECT ?x WHERE { GRAPH <" + Conclusions + "> { <http://ex/Person> <" + Rdfs + "subClassOf> ?x } }", "x");
+        Assert.Contains(Rdfs + "Resource", supers);
+        Assert.Contains("http://ex/Person", supers);
+
+        using HttpRequestMessage get = new(HttpMethod.Get, new Uri("datasets/d/graphs?graph=" + Uri.EscapeDataString(Conclusions), UriKind.Relative));
+        get.Headers.Accept.ParseAdd("application/n-triples");
+        HttpResponseMessage read = await fixture.Host.Client.SendAsync(get, P.Ct);
+        string body = await read.Content.ReadAsStringAsync(P.Ct);
+        Assert.True(read.StatusCode == HttpStatusCode.OK, body);
+        Assert.Contains("<http://ex/Person> <" + Rdfs + "subClassOf> <" + Rdfs + "Resource> .", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Owl2_rl_reads_every_graph_as_its_assertions_and_entailments()
+    {
+        await using Fixture fixture = await Fixture.StartAsync(InferenceProfile.Owl2Rl);
+
+        HttpResponseMessage answered = await fixture.QueryAsync("SELECT ?c WHERE { GRAPH <http://ex/g/1> { <http://ex/ann> a ?c } }", "owl2-rl");
+        string body = await answered.Content.ReadAsStringAsync(P.Ct);
+        Assert.True(answered.StatusCode == HttpStatusCode.OK, body);
+        Assert.Equal("owl2-rl", P.Header(answered, "Varve-Entailment"));
+        string[] classes = Column(body, "c");
+        Assert.Contains("http://ex/Person", classes);
+        Assert.Contains("http://ex/Agent", classes);
+    }
+
+    [Fact]
+    public async Task Owl2_rl_over_no_owl2rl_binding_and_a_view_under_a_rewritten_regime_are_unsupported()
+    {
+        await using Fixture fixture = await Fixture.StartAsync(InferenceProfile.Rdfs);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await fixture.QueryAsync("ASK { ?s ?p ?o }", "owl2-rl")).StatusCode);
+        HttpResponseMessage refused = await fixture.QueryAsync("SELECT ?c FROM <" + Implicit + "> WHERE { ?s a ?c }", "rdfs");
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Contains("entailment-unsupported", await refused.Content.ReadAsStringAsync(P.Ct), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_read_naming_no_view_nor_reserved_graph_never_reads_a_closure()
+    {
+        await using Fixture fixture = await Fixture.StartAsync(InferenceProfile.Rdfs, refuse: Refusal.Behind);
+
+        HttpResponseMessage answered = await fixture.QueryAsync("SELECT ?g ?s WHERE { GRAPH ?g { ?s ?p ?o } }", null);
+        string body = await answered.Content.ReadAsStringAsync(P.Ct);
+        Assert.True(answered.StatusCode == HttpStatusCode.OK, body);
+        Assert.DoesNotContain("inferred", body, StringComparison.Ordinal);
+        Assert.Equal(0, fixture.Closures.Reads);
+    }
+
+    [Fact]
+    public async Task A_closure_behind_is_inference_behind_and_one_stopped_is_inference_unavailable()
+    {
+        await using (Fixture behind = await Fixture.StartAsync(InferenceProfile.Rdfs, refuse: Refusal.Behind))
+        {
+            HttpResponseMessage response = await behind.QueryAsync("SELECT ?c FROM <http://ex/g/1> FROM <" + Implicit + "> WHERE { ?s a ?c }", null);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+            Assert.Equal("1", P.Header(response, "Retry-After"));
+            using JsonDocument problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync(P.Ct));
+            Assert.Equal("https://w3id.org/varve/problems/inference-behind", problem.RootElement.GetProperty("type").GetString());
+            Assert.Equal("urn:b", problem.RootElement.GetProperty("binding").GetString());
+        }
+
+        await using Fixture stopped = await Fixture.StartAsync(InferenceProfile.Rdfs, refuse: Refusal.Stopped);
+        HttpResponseMessage refused = await stopped.QueryAsync("SELECT ?x WHERE { GRAPH <" + Conclusions + "> { ?s ?p ?x } }", null);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, refused.StatusCode);
+        Assert.False(refused.Headers.Contains("Retry-After"));
+        using JsonDocument unavailable = JsonDocument.Parse(await refused.Content.ReadAsStringAsync(P.Ct));
+        JsonElement root = unavailable.RootElement;
+        Assert.Equal("https://w3id.org/varve/problems/inference-unavailable", root.GetProperty("type").GetString());
+        Assert.Equal("memory-limit", root.GetProperty("reason").GetString());
+        Assert.Equal("configuration", root.GetProperty("failure").GetString());
+        Assert.Equal(1024, root.GetProperty("limit").GetInt64());
+        Assert.Equal(2048, root.GetProperty("reached").GetInt64());
+        foreach (JsonProperty member in root.EnumerateObject())
+        {
+            Assert.True(member.Name is "type" or "title" or "status" or "detail" or "instance" || ProblemCatalogue.Of(ProblemType.InferenceUnavailable).Members.Contains(member.Name), member.Name);
+        }
+    }
+
+    /// <summary>
+    /// ADR 0198 point 3, ADR 0022 as amended: a read of the closure never
+    /// denies a term its rows hold, a vocabulary constant the dataset lacks
+    /// included, whichever term it is asked for first, even while the
+    /// projection is behind and its rows unread. Each fresh source is a fresh
+    /// projection, held back, whose one wait catches it up.
+    /// </summary>
+    [Fact]
+    public async Task A_closure_read_behind_its_projection_never_denies_a_term_its_rows_hold()
+    {
+        await using Dataset dataset = await FilledAsync();
+        using DatasetView view = dataset.Pin();
+        RdfTerm conclusions = RdfTerm.Iri(Encoding.UTF8.GetBytes(Conclusions));
+
+        IQuadSource Fresh()
+        {
+            InferenceProjection projection = new(dataset, Binding(InferenceProfile.Owl2Rl));
+            Closures closures = new(projection, Refusal.None, () => dataset.CatchUpAsync(projection, P.Ct).AsTask().GetAwaiter().GetResult());
+            StagingView staging = view.Stage();
+            return ClosureGraphs.Compose(GraphScopedQuadSource.Wrap(staging, GraphScope.All), staging, [closures], ClosureMode.Union);
+        }
+
+        IReadOnlyCollection<RdfTerm> yielded = QuadSourceContract.Holds(
+            Fresh,
+            probes: [RdfTerm.Iri(Encoding.UTF8.GetBytes(Rdfs + "Resource")), RdfTerm.Iri("http://www.w3.org/2002/07/owl#Thing"u8), conclusions],
+            complete: source =>
+            {
+                // The reserved graph is read only when named: name it, and match it.
+                Assert.True(source.TryInternalise(conclusions, out TermHandle graph));
+                using IQuadCursor cursor = source.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Named(graph));
+                while (cursor.MoveNext())
+                {
+                }
+            });
+        Assert.Contains(RdfTerm.Iri(Encoding.UTF8.GetBytes(Rdfs + "Resource")), yielded);
+        Assert.Contains(RdfTerm.Iri("http://ex/Agent"u8), yielded);
+    }
+
+    private static string[] Column(string json, string variable)
+    {
+        using JsonDocument document = JsonDocument.Parse(json);
+        return [.. document.RootElement.GetProperty("results").GetProperty("bindings").EnumerateArray()
+            .Select(binding => binding.GetProperty(variable).GetProperty("value").GetString()!).Order(StringComparer.Ordinal)];
+    }
+
+    private enum Refusal
+    {
+        None,
+        Behind,
+        Stopped,
+    }
+
+    /// <summary>A dataset with a TBox and one data graph, a binding's projection over it, and the host reading it through the seam.</summary>
+    private sealed class Fixture : IAsyncDisposable
+    {
+        private Fixture(Dataset dataset, ProtocolTestHost host, Closures closures)
+        {
+            Dataset = dataset;
+            Host = host;
+            Closures = closures;
+        }
+
+        internal Dataset Dataset { get; }
+
+        internal ProtocolTestHost Host { get; }
+
+        internal Closures Closures { get; }
+
+        internal static async Task<Fixture> StartAsync(InferenceProfile profile, Refusal refuse = Refusal.None)
+        {
+            Dataset dataset = await FilledAsync();
+            InferenceProjection projection = new(dataset, Binding(profile));
+            await dataset.CatchUpAsync(projection, P.Ct);
+            Closures closures = new(projection, refuse);
+            ProtocolTestHost host = await ProtocolTestHost.StartAsync(new ProtocolTestHost.OneDataset(dataset), inference: closures, stopping: P.Ct);
+            return new Fixture(dataset, host, closures);
+        }
+
+        internal async Task<HttpResponseMessage> QueryAsync(string query, string? regime)
+        {
+            HttpRequestMessage request = P.Query(Sparql, query, "application/sparql-results+json");
+            if (regime is not null)
+            {
+                request.Headers.TryAddWithoutValidation("Varve-Entailment", regime);
+            }
+
+            return await Host.Client.SendAsync(request, P.Ct);
+        }
+
+        internal async Task<string[]> ColumnAsync(string query, string variable)
+        {
+            HttpResponseMessage answered = await QueryAsync(query, null);
+            string body = await answered.Content.ReadAsStringAsync(P.Ct);
+            Assert.True(answered.StatusCode == HttpStatusCode.OK, body);
+            return Column(body, variable);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await Host.DisposeAsync();
+            await Dataset.DisposeAsync();
+        }
+    }
+
+    private static InferenceBinding Binding(InferenceProfile profile) =>
+        new(RdfTerm.Iri("urn:b"u8), [RdfTerm.Iri("http://ex/tbox"u8)], GraphScope.Of([], ["http://ex/g/"], DefaultGraphAccess.Included), profile);
+
+    /// <summary>A TBox triple and a data triple, at position 1.</summary>
+    private static async Task<Dataset> FilledAsync()
+    {
+        Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+        CommitRequestBuilder request = new();
+        request.Assert(Term("http://ex/Person"), Term(Rdfs + "subClassOf"), Term("http://ex/Agent"), Term("http://ex/tbox"));
+        request.Assert(Term("http://ex/ann"), Term(Rdf + "type"), Term("http://ex/Person"), Term("http://ex/g/1"));
+        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(request, P.Ct)).Outcome);
+        return dataset;
+    }
+
+    private static RequestTerm Term(string iri) => RequestTerm.FromTerm(RdfTerm.Iri(Encoding.UTF8.GetBytes(iri)));
+
+    /// <summary>The seam over one projection, as the server's is, or refusing as asked; it counts the reads that reached it.</summary>
+    private sealed class Closures(InferenceProjection projection, Refusal refuse, Action? catchUp = null) : IInferenceClosures, IInferenceClosure
+    {
+        private int _reads;
+
+        internal int Reads => Volatile.Read(ref _reads);
+
+        public RdfTerm Binding => projection.Binding.Binding;
+
+        public RdfTerm TBoxConclusions => projection.TBoxGraph;
+
+        public IReadOnlyList<RdfTerm> TBoxGraphs => projection.Binding.TBoxGraphs;
+
+        public GraphScope DataGraphs => projection.Binding.DataGraphs;
+
+        public InferenceProfile Profile => projection.Binding.Profile;
+
+        public IReadOnlyList<IInferenceClosure> Of(DatasetName dataset) => [this];
+
+        public InferredRows RowsAt(Position position)
+        {
+            Interlocked.Increment(ref _reads);
+            if (projection.Position < position)
+            {
+                // The read's one bounded wait, which here catches the projection up.
+                catchUp?.Invoke();
+            }
+
+            return refuse switch
+            {
+                Refusal.Behind => throw new InferenceBehindException(Binding, position, new Position(0)),
+                Refusal.Stopped => throw new InferenceUnavailableException(Binding, new ByteCount(1024), new ByteCount(2048)),
+                _ => projection.TryRead(position, out InferredRows? rows) == InferenceReadOutcome.Held
+                    ? rows!
+                    : projection.ReadFromScratchAsync(position, CancellationToken.None).AsTask().GetAwaiter().GetResult(),
+            };
+        }
+
+        public IReadOnlyList<PlacedClash> Clashes() => projection.Clashes();
+    }
+}

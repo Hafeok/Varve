@@ -566,3 +566,8 @@ static Varve.Protocol.Model.WriterHolder.operator !=(Varve.Protocol.Model.Writer
 static Varve.Protocol.Model.WriterHolder.operator ==(Varve.Protocol.Model.WriterHolder left, Varve.Protocol.Model.WriterHolder right) -> bool
 ~override Varve.Protocol.Model.WriterHolder.Equals(object obj) -> bool
 ~override Varve.Protocol.Model.WriterHolder.ToString() -> string
+Varve.Protocol.EntailmentNotAvailableException
+Varve.Protocol.EntailmentNotAvailableException.EntailmentNotAvailableException() -> void
+Varve.Protocol.EntailmentNotAvailableException.EntailmentNotAvailableException(string! message) -> void
+Varve.Protocol.EntailmentNotAvailableException.EntailmentNotAvailableException(string! message, System.Exception! innerException) -> void
+static Varve.Protocol.Model.ProblemType.EntailmentNotAvailable.get -> Varve.Protocol.Model.ProblemType

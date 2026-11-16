@@ -71,7 +71,7 @@ public class ProblemCatalogueTests
     [
         ProblemType.TooManyLiveTails, ProblemType.ServerBusy, ProblemType.WriterSuperseded, ProblemType.EventNotRendered,
         ProblemType.ManagementBehind, ProblemType.DatasetBehind, ProblemType.ValidationBehind, ProblemType.TakeoverRefused,
-        ProblemType.RowNotWritable, ProblemType.ClassificationBehind, ProblemType.InferenceBehind, ProblemType.InferenceUnavailable,
+        ProblemType.RowNotWritable, ProblemType.ClassificationBehind, ProblemType.InferenceBehind, ProblemType.InferenceUnavailable, ProblemType.EntailmentNotAvailable,
     ];
 
     /// <summary>The types the management plane's endpoints emit, triggered by <see cref="every_problem_the_management_endpoints_emit_has_its_catalogued_shape"/>.</summary>

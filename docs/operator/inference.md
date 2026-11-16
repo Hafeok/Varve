@@ -9,9 +9,10 @@ or gets the dataset's default, and is answered as if every entailment of its
 graph and the TBox were asserted.
 
 This guide covers tier 1, the rewriting (#170): RDF, RDFS and D entailment,
-answered without materialising anything. The closure (OWL 2 RL, custom rules)
-and the commit-time validator are later parts of #95, and their terms are
-refused until then.
+answered without materialising anything; and tier 2, the materialised
+closure of a binding whose profile is `varve:RDFS` or `varve:OWL2RL` (#171,
+[below](#the-materialised-closure)). Custom rules and the commit-time
+validator are #95's last part, and their terms are refused until then.
 
 The decisions are ADRs 0190 (entailments under graph-level grants), 0191 (the
 packages), 0192 (the regimes over HTTP), 0193 (RDFS, RDF and D by rewriting)
@@ -147,6 +148,54 @@ only, since the bindings are a server's declarations.
 The description names the dataset's default as `sd:defaultEntailmentRegime`
 and says `sd:feature varve:EntailmentHeader`. Each `sd:NamedGraph` a binding
 covers carries one `sd:entailmentRegime` per regime served for it.
+
+## The materialised closure
+
+A binding whose profile is `varve:RDFS` or `varve:OWL2RL` is **materialised**
+(ADRs 0195–0198): each instance holding the dataset keeps the binding's
+closure, every quad its rules entail, commit by commit, in memory. Tier 1
+still answers `rdf`, `rdfs` and `d` over the same graphs.
+
+**Where a conclusion is.** A conclusion drawn from the TBox graphs alone is in
+the binding's reserved graph,
+`https://w3id.org/varve/ns#inferred/{enc(binding IRI)}/tbox`, which every
+reader of the dataset reads. Any other is in the data graph it was drawn in,
+read by that graph's readers. `varve:crossGraph` bindings are read but their
+projection is not built yet (#171): readiness says `not built`.
+
+**Reading it.**
+- `FROM <https://w3id.org/varve/ns#implicit>` reads the implicit part of the
+  query's other `FROM` graphs, or of the default graph when there are none;
+  `varve:explicit` the explicit part; both, the union. In `FROM NAMED`, each
+  named graph is read in that part, and `GRAPH ?g` binds the real graph. A
+  view counts as a `FROM`, and combines with `simple` and `owl2-rl` only.
+- `GRAPH <…/inferred/…/tbox>`, `FROM NAMED` of it, or a Graph Store `GET`
+  reads a binding's TBox conclusions.
+- `Varve-Entailment: owl2-rl` reads every graph as explicit ∪ implicit, on a
+  dataset with an `OWL2RL` binding; the answer says `Varve-Inconsistent:
+  true` when a graph it reads holds a clash.
+- A read that names none of these reads nothing of the closure and never
+  waits for it. None of them is ever written (`graph-not-writable`).
+
+**When it cannot answer.**
+- A projection not at the read's position after a two-second wait:
+  [`503 inference-behind`](../problems/inference-behind.md).
+- A binding stopped by `Varve:Inference:ClosureBytes`:
+  [`503 inference-unavailable`](../problems/inference-unavailable.md), with
+  no `Retry-After`.
+- A caller whose grant restricts rows over the binding's graphs:
+  [`403 entailment-not-available`](../problems/entailment-not-available.md).
+
+**History.** A read as of an older position is answered from the rows the
+projection holds, up to `Varve:Inference:HistoryBytes`, and below them, or
+below the position the instance started at, by computing the closure as of
+that position, on every instance and after every restart. That costs a
+closure from scratch; the [configuration](configure.md#inference) page has
+the settings.
+
+**On readiness**, each binding's `inference` line beside its dataset's gives
+its `state` (`following`, `stopped (memory-limit)`), its `lag`, `heldFrom`,
+`inconsistent` and `clashes`. None of them makes the dataset unready.
 
 ## Cost
 

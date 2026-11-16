@@ -56,6 +56,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`dataset-behind`](dataset-behind.md) | 503 | `position`, `appliedPosition` | This instance has not applied the dataset position asked for. |
 | [`validation-behind`](validation-behind.md) | 503 | `binding`, `position`, `projectedPosition` | The validation report has not reached the position asked for. |
 | [`classification-behind`](classification-behind.md) | 503 | `binding`, `position`, `projectedPosition` | The classification has not reached the position asked for. |
+| [`entailment-not-available`](entailment-not-available.md) | 403 |  | The materialised closure is not available to this caller. |
 | [`inference-behind`](inference-behind.md) | 503 | `binding`, `position`, `projectedPosition` | The closure has not reached the position asked for. |
 | [`inference-unavailable`](inference-unavailable.md) | 503 | `binding`, `reason`, `failure`, `limit`, `reached` | The binding's materialised closure is not available. |
 | [`row-not-writable`](row-not-writable.md) | 403 |  | The request writes a row outside the writable subject set. |

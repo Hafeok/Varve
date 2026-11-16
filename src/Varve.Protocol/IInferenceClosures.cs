@@ -106,6 +106,34 @@ public sealed class InferenceBehindException : Exception
 }
 
 /// <summary>
+/// A tier-2 read by a caller whose grant restricts rows over a binding's
+/// data graphs: refused, never filtered, as <c>403
+/// entailment-not-available</c> with no member (ADR 0238 point 2, amended
+/// 2026-11-16). Tier-1 regimes are still served.
+/// </summary>
+[Contract(typeof(InferenceUnderRowScopedGrants.ClosureRefusedToRowRestricted), Role = "a tier-2 read refused to a row-restricted caller")]
+public sealed class EntailmentNotAvailableException : Exception
+{
+    /// <summary>The read was refused.</summary>
+    public EntailmentNotAvailableException()
+        : base("The materialised closure is not available under a row-restricted grant; the regimes rewriting serves (rdf, rdfs, d) are.")
+    {
+    }
+
+    /// <summary>The read was refused, and why.</summary>
+    public EntailmentNotAvailableException(string message)
+        : base(message)
+    {
+    }
+
+    /// <summary>The read was refused, why, and the cause.</summary>
+    public EntailmentNotAvailableException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}
+
+/// <summary>
 /// A read of a binding whose closure was stopped by its memory limit:
 /// answered <c>503 inference-unavailable</c> at once, with no
 /// <c>Retry-After</c>, its failure <c>configuration</c> (ADR 0195 point 6,

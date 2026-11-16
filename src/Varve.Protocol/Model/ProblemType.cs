@@ -148,6 +148,9 @@ public readonly record struct ProblemType
     /// <summary><c>503</c>, with no <c>Retry-After</c>: a binding's closure stopped by its memory limit; a retry does not help (ADR 0195, ADR 0242 ruling 2).</summary>
     public static ProblemType InferenceUnavailable { get; } = new("inference-unavailable");
 
+    /// <summary><c>403</c>: a tier-2 read by a caller whose grant restricts rows over a binding's graphs; it carries no member (ADR 0238, amended 2026-11-16).</summary>
+    public static ProblemType EntailmentNotAvailable { get; } = new("entailment-not-available");
+
     /// <summary><c>503</c>: a forwarded write reached an instance that does not write the dataset; it is never forwarded again (ADR 0168).</summary>
     public static ProblemType WriterMoved { get; } = new("writer-moved");
 

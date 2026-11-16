@@ -119,6 +119,11 @@ internal static class BoundedReads
             detail = error.Message;
             members = InferenceBehind(error);
         }
+        catch (EntailmentNotAvailableException error)
+        {
+            cut = ProblemType.EntailmentNotAvailable;
+            detail = error.Message;
+        }
         catch (InferenceUnavailableException error)
         {
             // No Retry-After: waiting does not help (ADR 0195 point 6).

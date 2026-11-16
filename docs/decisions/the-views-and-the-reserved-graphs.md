@@ -13,6 +13,8 @@ decisions:
     statement: "The implicit view, the reserved graphs and the staged vocabulary constants never deny a term they will yield, answering with a staged handle while the closure is behind"
   - key: InferenceGraphsNotWritable
     statement: "InferenceGraphGuard refuses a quad in varve:explicit, varve:implicit or under varve:inferred/ as graph-not-writable on every write path"
+  - key: ClosureReadOnFirstNeed
+    statement: "A read of a view, a reserved graph or owl2-rl reads each binding's rows through the seam when a match first needs them, once, and a match over a graph's implicit part filters them in memory; a membership test is a match"
   - key: BothViewsBehindTheSeam
     statement: "A read of varve:explicit, varve:implicit or a reserved graph resolves the closure through ADR 0195's seam and answers its refusals in its order, with no check of its own"
 ---
