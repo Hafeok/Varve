@@ -131,7 +131,7 @@ The same graphs, one resource at a time, under the management plane's token:
 | `/manage/graphs` | `GET` every management graph as TriG, with `Varve-Graph-Versions` |
 | `/manage/apply` | `POST`, as above |
 | `/manage/sparql` | SPARQL over the system dataset, for an operator; an update runs the code validator |
-| `/manage/system` | `GET` this instance's role in the system dataset, epoch, positions, bootstrap state and writer |
+| `/manage/system` | `GET` this instance's name (`instance`, as placement and request ids name it), its role in the system dataset, epoch, positions, bootstrap state and writer; never forwarded, so each instance answers for itself |
 
 `PUT`, `PATCH` and `DELETE` take `If-Match` with the graph's version. A
 management write to an instance that does not write the system dataset is

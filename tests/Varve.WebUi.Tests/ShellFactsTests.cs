@@ -12,6 +12,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Varve.Protocol.Client;
+using Varve.Protocol.Client.Model;
 using Varve.WebUi.App;
 using Xunit;
 
@@ -30,7 +31,7 @@ public class ShellFactsTests
     [InlineData("""{"role":"writer","epoch":7,"position":412,"tail":412,"lag":0,"bootstrap":"recorded"}""", "system writer")]
     [InlineData("""{"role":"follower","epoch":7,"position":410,"tail":412,"lag":2,"bootstrap":"recorded","writer":"https://varve-1.example/"}""", "system follower")]
     [InlineData("""{"instance":"varve-1","role":"writer","epoch":7,"position":412,"tail":412,"lag":0,"bootstrap":"recorded"}""", "varve-1 · system writer")]
-    public async Task The_instance_is_its_role_and_its_name_once_the_server_serves_it(string system, string shown)
+    public async Task The_instance_is_its_name_and_its_role_or_the_role_alone_from_an_older_server(string system, string shown)
     {
         ShellFacts facts = new(Client(system, """{"datasets":[{"name":"notes"},{"name":"catalog"}]}"""));
 
@@ -38,6 +39,19 @@ public class ShellFactsTests
 
         Assert.Equal(shown, facts.Instance);
         Assert.Equal(["catalog", "notes"], facts.Datasets);
+    }
+
+    [Fact]
+    public async Task The_client_reads_the_instance_as_typed_and_not_as_a_member()
+    {
+        VarveResult<SystemPlane> read = await Client("""{"instance":"varve-1","role":"follower","writer":"https://varve-0.example/"}""", """{"datasets":[]}""").SystemAsync(CancellationToken.None);
+
+        Assert.Equal(new InstanceName("varve-1"), read.Value!.Instance);
+        Assert.Equal(InstanceRole.Follower, read.Value.Role);
+        Assert.False(read.Value.Members.ContainsKey("instance"));
+
+        VarveResult<SystemPlane> older = await Client("""{"role":"writer"}""", """{"datasets":[]}""").SystemAsync(CancellationToken.None);
+        Assert.Null(older.Value!.Instance);
     }
 
     [Fact]

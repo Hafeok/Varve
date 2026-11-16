@@ -335,6 +335,8 @@ Varve.Protocol.Model.ManagementStatus.Bootstrap.get -> Varve.Protocol.Model.Boot
 Varve.Protocol.Model.ManagementStatus.Bootstrap.init -> void
 Varve.Protocol.Model.ManagementStatus.Deconstruct(out Varve.Protocol.Model.ManagementRole Role, out long Epoch, out Varve.Management.Model.ManagementPosition Applied, out Varve.Management.Model.ManagementPosition Tail, out Varve.Protocol.Model.BootstrapState Bootstrap, out string? WriterAddress) -> void
 Varve.Protocol.Model.ManagementStatus.Epoch.get -> long
+Varve.Protocol.Model.ManagementStatus.Instance.get -> string?
+Varve.Protocol.Model.ManagementStatus.Instance.init -> void
 Varve.Protocol.Model.ManagementStatus.Epoch.init -> void
 Varve.Protocol.Model.ManagementStatus.Equals(Varve.Protocol.Model.ManagementStatus other) -> bool
 Varve.Protocol.Model.ManagementStatus.Lag.get -> long
