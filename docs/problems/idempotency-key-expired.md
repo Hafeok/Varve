@@ -14,10 +14,18 @@ The write is a retry: it carried an `Idempotency-Key` and a
 original may have committed at a position the window no longer covers.
 Whether it did cannot be determined, so nothing was committed.
 
-Read the dataset to find out whether the original's effect is there, then
-send a new write with a new key if it is still wanted.
+## What to do
+
+A client: read the dataset to find out whether the original's effect is
+there, then, if the write is still wanted, send it as a new write with a new
+key. Do not send it again with this key: it will be refused the same way.
 `Varve.Protocol.Client` sends `Varve-Key-Position` only on a retry, so a
 first attempt is never answered this way.
+
+An operator whose clients meet this often: their retries come later than the
+window allows. Raise `Varve:Limits:IdempotencyWindow`
+([Configure](../operator/configure.md)), at about 56 bytes of the writer's
+memory per keyed commit ([Run on a small machine](../operator/small-machine.md)).
 
 The window is the server's `Varve:Limits:IdempotencyWindow`, 100,000 commits
 by default, counted in commits and never time.

@@ -12,10 +12,15 @@ a request that committed, and this request is not that one: its method,
 path and query, `Content-Type` or body differ (ADR 0246). Nothing was
 committed. `position` is the commit that holds the key.
 
-A key names one write. Send a new write with a new key. A retry of the write
-the key was first sent with is answered from its commit, with
-`Varve-Replayed: true`, so this answer means the client sent two different
-writes under one key. That is a defect in the client, not a race.
+A retry of the write the key was first sent with is answered from its
+commit, with `Varve-Replayed: true`, so this answer means the client sent two
+different writes under one key. That is a defect in the client, not a race.
+
+## What to do
+
+A client: send this write with a new key, and fix the client so that a key
+names one write. `Varve.Protocol.Client` makes a fresh key for every write by
+default.
 
 Keys are scoped to the agent: another caller's key never matches yours. A
 key is held while its commit is among the dataset's last
