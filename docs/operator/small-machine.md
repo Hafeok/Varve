@@ -89,8 +89,8 @@ A binding's closure is held in memory (ADR 0195). Measured on REC M
 the measured 165–208, and a data quad closes to about 3.5 facts under
 `rdfs` and 4.6 under `owl2rl`: the setting spends about 900 bytes a data
 quad under `rdfs` and 1,200 under `owl2rl`. Its default, a quarter of the
-5 GiB heap limit above, closes about 1.4 million data quads under `rdfs`
-or 1 million under `owl2rl`. A closure past it stops, and the binding
+5 GiB heap limit above, closes about 1.5 million data quads under `rdfs`
+or 1.1 million under `owl2rl`. A closure past it stops, and the binding
 answers `inference-unavailable` until it is given more; raise it only as
 far as the heap limit leaves the store its working set, or close fewer
 graphs.
