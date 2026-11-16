@@ -88,6 +88,7 @@ public static class ProblemCatalogue
         new(ProblemType.UnsupportedMediaType, 415, "The request body is in a media type or charset this endpoint does not read."),
         new(ProblemType.Rejected, 422, "A validator rejected the commit.", "report"),
         new(ProblemType.IdempotencyKeyReused, 422, "The idempotency key was sent with another request.", "position"),
+        new(ProblemType.IdempotencyKeyExpired, 422, "Whether a write with this idempotency key committed cannot be determined.", "keyPosition", "headPosition", "window"),
         new(ProblemType.EventDeclarationInvalid, 422, "The event declaration is not well formed.", "declaration", "reason"),
         new(ProblemType.EventSchemaIncompatible, 422, "The declaration change is incompatible with its version.", "declaration", "fields"),
         new(ProblemType.EventNotRendered, 422, EventRenderer.ProblemTitle, "event", "eventType", "reason"),

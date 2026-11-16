@@ -530,3 +530,5 @@ override Varve.Protocol.Model.CommitWindow.GetHashCode() -> int
 static Varve.Protocol.Model.CommitWindow.operator !=(Varve.Protocol.Model.CommitWindow left, Varve.Protocol.Model.CommitWindow right) -> bool
 static Varve.Protocol.Model.CommitWindow.operator ==(Varve.Protocol.Model.CommitWindow left, Varve.Protocol.Model.CommitWindow right) -> bool
 ~override Varve.Protocol.Model.CommitWindow.Equals(object obj) -> bool
+static Varve.Protocol.Model.ProblemType.IdempotencyKeyExpired.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.IdempotencyKeys.PrepareAsync(Varve.Store.Dataset! dataset, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask

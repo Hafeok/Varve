@@ -40,7 +40,7 @@ decisions:
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-19T00:00:00Z
   - key: ForwardedWriteKeepsItsKey
-    statement: "Idempotency-Key is among the headers forwarded unchanged and is checked by the writer, never by the forwarder, which adds none (ADR 0246); amended 2026-11-16"
+    statement: "Idempotency-Key and Varve-Key-Position are among the headers forwarded unchanged and are checked by the writer, never by the forwarder, which adds neither (ADR 0246); amended 2026-11-16"
 ---
 
 The rulings of [ADR 0168](../adr/0168-write-routing-by-forwarding.md), one line each. Filed

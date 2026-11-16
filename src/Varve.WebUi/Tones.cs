@@ -120,6 +120,7 @@ public static class Tones
         // another request is the client's mistake.
         ["idempotency-key-in-flight"] = Tone.Warn,
         ["idempotency-key-reused"] = Tone.Critical,
+        ["idempotency-key-expired"] = Tone.Critical,
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>The tone of an API state word, neutral when the word is not one the mapping knows.</summary>

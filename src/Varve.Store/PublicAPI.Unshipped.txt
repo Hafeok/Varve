@@ -792,3 +792,12 @@ Varve.Store.BulkLoadSpillDamagedException.BulkLoadSpillDamagedException(string! 
 Varve.Store.BulkLoadSpillDamagedException.BulkLoadSpillDamagedException(string! message, System.Exception! inner) -> void
 Varve.Store.ExtentRetention.UncheckedSets.get -> int
 Varve.Store.ExtentRetention.UncheckedSets.init -> void
+Varve.Store.Dataset.ReadMetadataAsync(Varve.Store.Log.Position position, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.Log.CommitHeaderTerms!>
+Varve.Store.Log.CommitHeaderTerms
+Varve.Store.Log.CommitHeaderTerms.Agent.get -> Varve.Rdf.RdfTerm?
+Varve.Store.Log.CommitHeaderTerms.Attachments.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Store.Log.CommitHeaderTerms.Cause.get -> Varve.Rdf.RdfTerm?
+Varve.Store.Log.CommitHeaderTerms.GraphScope.get -> Varve.Rdf.RdfTerm?
+Varve.Store.Log.CommitHeaderTerms.Kind.get -> Varve.Store.Log.CommitKind
+Varve.Store.Log.CommitHeaderTerms.Position.get -> Varve.Store.Log.Position
+Varve.Store.Log.CommitHeaderTerms.Timestamp.get -> Varve.Store.Log.CommitTimestamp

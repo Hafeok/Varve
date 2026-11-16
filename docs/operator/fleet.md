@@ -159,14 +159,16 @@ Request ids are `<instance>:<id>`, unique across the fleet.
 
 A write may carry `Idempotency-Key: "<key>"` (ADR 0246). The key is the
 caller's own: keys are scoped to the agent, so two callers never share one.
-The writer records the key with the commit. A retry with the same key and the
-same request is answered from that commit, with its status, `Varve-Position`,
-`ETag`, the original `Varve-Request-Id` and `Varve-Replayed: true`. It is
-never committed again: not after a lost response, a forward, a restart or a
-handover, because the new writer reads the key from the log.
+The writer records a hash of the agent and the key with the commit, never the
+key itself, and the change feed doesn't serve it. A retry with the same key
+and the same request is answered from that commit, with its status,
+`Varve-Position`, `ETag`, the original `Varve-Request-Id` and
+`Varve-Replayed: true`. It is never committed again: not after a lost
+response, a forward, a restart or a handover, because the new writer reads
+the key from the log.
 
-- **Forwarded unchanged.** The forwarder passes the key on and the writer
-  checks it.
+- **Forwarded unchanged.** The forwarder passes on `Idempotency-Key` and
+  `Varve-Key-Position`, and the writer checks them.
 - **Checked before `If-Match`.** A retry whose original moved the head gets
   the original's answer, not `412`.
 - **Another request under the same key** is
@@ -174,12 +176,19 @@ handover, because the new writer reads the key from the log.
 - **A key whose request is still being answered** is
   [`409 idempotency-key-in-flight`](../problems/idempotency-key-in-flight.md).
 - **Only a commit holds a key**, for the dataset's last
-  `Varve:Limits:IdempotencyWindow` commits, 100,000 by default. Counted in
-  commits, never time.
+  `Varve:Limits:IdempotencyWindow` commits, 100,000 by default, counted in
+  commits and never time.
+- **A retry from too long ago is refused.** A retry names the head it knew
+  when it made the key in `Varve-Key-Position`. If the key isn't found and
+  the head is more than the window past that, the retry is
+  [`422 idempotency-key-expired`](../problems/idempotency-key-expired.md),
+  and nothing is committed.
 
-`Varve.Protocol.Client` sends a key on every write and retries with it when
-its host gives `ClientLimits.IdempotencyKeys` a source of keys. The `varve`
-command line does.
+`Varve.Protocol.Client` sends a key on every write by default (128 random
+bits per write, reused on each retry) and retries with it. Its first keyed
+write after a writer opens a dataset reads the window's commit headers, about
+a quarter of a second at REC M; a host can call
+`IdempotencyKeys.PrepareAsync` when it becomes the writer to do that ahead.
 
 ## Reading your writes
 

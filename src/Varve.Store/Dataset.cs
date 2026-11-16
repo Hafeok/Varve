@@ -1198,6 +1198,34 @@ public sealed partial class Dataset : IAsyncDisposable
         return Run.FromDelta(delta.Asserted, retractions ? delta.Retracted : [], terms, from, to);
     }
 
+    /// <summary>
+    /// The header of the closed commit at <paramref name="position"/>, its
+    /// terms resolved, read without its delta (#310): only the record that
+    /// closes it is read, and its header is checked against the commit
+    /// index's hash. For a reader of metadata alone, which a whole commit
+    /// would cost the delta's decoding.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The position is not a closed commit's.</exception>
+    public async ValueTask<CommitHeaderTerms> ReadMetadataAsync(Position position, CancellationToken cancellationToken = default)
+    {
+        State state = _state;
+        long p = position.Value;
+        ArgumentOutOfRangeException.ThrowIfLessThan(p, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(p, state.Head);
+        CommitEntry entry = state.Commits.Entry(p);
+        byte[] previous = p == 1 ? LogFormat.Genesis() : state.Commits.Entry(p - 1).HeaderHash();
+        CommitHeader header = await LogReader.ReadHeaderAsync(_storage.Log, Id, entry.Location, p, previous, entry.HeaderHash(), cancellationToken).ConfigureAwait(false);
+        return new CommitHeaderTerms(
+            this,
+            position,
+            header.Kind,
+            new CommitTimestamp(new DateTimeOffset(header.TimestampTicks, TimeSpan.Zero)),
+            header.Agent,
+            header.Cause,
+            header.GraphScope,
+            header.Attachments);
+    }
+
     private ValueTask<LoggedCommit> ReadLoggedAsync(State state, long position, CancellationToken cancellationToken)
     {
         CommitLocation location = state.Commits.Entry(position).Location;

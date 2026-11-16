@@ -666,6 +666,76 @@ internal static class LogReader
         }
     }
 
+    /// <summary>
+    /// The header of the commit at <paramref name="position"/> alone (#310):
+    /// the record headers are walked and only the closing record's body is
+    /// read, the header being the tail of it. The header is verified against
+    /// <paramref name="headerHash"/>, the commit index's, which was verified
+    /// against the chain when the log was opened; the delta is never decoded.
+    /// </summary>
+    internal static async ValueTask<CommitHeader> ReadHeaderAsync(
+        ISegmentStore store, DatasetId dataset, CommitLocation location, long position, byte[] previous, byte[] headerHash, CancellationToken cancellationToken)
+    {
+        int segmentId = location.Segment;
+        long offset = location.Offset;
+        uint expected = 0;
+        IReadOnlyList<SegmentInfo>? segments = null;
+
+        while (true)
+        {
+            ReadOnlyMemory<byte> headerBytes = await store.ReadRangeAsync(new SegmentId(segmentId), new ByteOffset(offset), new ByteCount(LogFormat.RecordHeaderLength), cancellationToken).ConfigureAwait(false);
+            RecordHeader? record = headerBytes.Length == LogFormat.RecordHeaderLength ? LogFormat.TryReadRecordHeader(headerBytes.Span, position) : null;
+
+            if (record is null || record.Position != position || (expected == 0 && record.Index != 0))
+            {
+                segments ??= await store.ListSegmentsAsync(cancellationToken).ConfigureAwait(false);
+                segmentId = await NextContinuingAsync(store, dataset, segments, segmentId, position, previous, cancellationToken).ConfigureAwait(false);
+                offset = LogFormat.SegmentHeaderLength;
+                continue;
+            }
+
+            if (record.Index != expected || !record.Previous.AsSpan().SequenceEqual(previous))
+            {
+                throw new LogVerificationException(position, "Position " + position + " no longer reads as it did when the log was opened.");
+            }
+
+            if (!record.Closing)
+            {
+                expected++;
+                offset += LogFormat.RecordHeaderLength + record.BodyLength;
+                continue;
+            }
+
+            // The header is the tail of the closing record, its length the
+            // last four bytes: two small reads, and the delta before them is
+            // never read. Its hash, not the record's, is what verifies it.
+            long end = offset + LogFormat.RecordHeaderLength + record.BodyLength;
+
+            if (record.BodyLength < 4)
+            {
+                throw new LogVerificationException(position, "The closing record of position " + position + " is too short.");
+            }
+
+            ReadOnlyMemory<byte> lengthBytes = await store.ReadRangeAsync(new SegmentId(segmentId), new ByteOffset(end - 4), new ByteCount(4), cancellationToken).ConfigureAwait(false);
+            uint headerLength = lengthBytes.Length == 4 ? BinaryPrimitives.ReadUInt32LittleEndian(lengthBytes.Span) : uint.MaxValue;
+
+            if (headerLength > record.BodyLength - 4)
+            {
+                throw new LogVerificationException(position, "The header of position " + position + " runs past its record.");
+            }
+
+            ReadOnlyMemory<byte> headerRead = await store.ReadRangeAsync(new SegmentId(segmentId), new ByteOffset(end - 4 - headerLength), new ByteCount(headerLength), cancellationToken).ConfigureAwait(false);
+            ReadOnlySpan<byte> header = headerRead.Span;
+
+            if (header.Length != headerLength || !SHA256.HashData(header).AsSpan().SequenceEqual(headerHash))
+            {
+                throw new LogVerificationException(position, "The header of position " + position + " does not match the hash the log was opened with.");
+            }
+
+            return LogFormat.DecodeHeader(header, position);
+        }
+    }
+
     private static async ValueTask<int> NextContinuingAsync(
         ISegmentStore store, DatasetId dataset, IReadOnlyList<SegmentInfo> segments, int after, long position, byte[] previous, CancellationToken cancellationToken)
     {

@@ -4,13 +4,19 @@
 
 **Proposed — filed unaccepted by the session for #132, 2026-11-16** (ADR 0066).
 Acceptance is the maintainer's act, or his delegate's for a decision he has
-read (ADR 0239). The plan is posted on
-[#132](https://github.com/Hafeok/Varve/issues/132). Numbered 0246, because 0244
-and 0245 are taken on open branches.
+read (ADR 0239). The plan was posted on
+[#132](https://github.com/Hafeok/Varve/issues/132). The maintainer's review of
+2026-11-16 made four changes, which are folded in below:
+- the commit records a hash, not the key;
+- a retry past the window is refused;
+- the client sends a key by default;
+- the index's rebuild is measured, which brought #310 into this change.
+
+It is numbered 0246, because 0244 and 0245 are taken on open branches.
 
 **Amends** [0094](0094-a-write-over-http-is-one-commit.md) (a lost response's
 commit is found by the client's key, never by a client-chosen cause) and
-[0168](0168-write-routing-by-forwarding.md) (`Idempotency-Key` is forwarded),
+[0168](0168-write-routing-by-forwarding.md) (the key's headers are forwarded),
 each by a dated amendment in its own file. It supersedes nothing. It records
 the decision set
 [`client-idempotency-keys`](../decisions/client-idempotency-keys.md).
@@ -21,8 +27,8 @@ When a write's response is lost, the client can't tell whether the write
 committed. ADR 0094 makes the cause a request id that the server mints, and
 its amendment of 2026-10-09 refuses a client-chosen one, because such an id
 can be forged and can collide. A client whose response never arrived
-therefore holds no id to look up in the commits resource. ADR 0168 adds a
-hop where a response can be lost, and leaves client idempotency keys to this
+therefore holds no id to look up in the commits resource. ADR 0168 adds a hop
+where a response can be lost, and leaves client idempotency keys to this
 issue. The maintainer decided on #105 that keys are scoped to the
 authenticated agent.
 
@@ -53,52 +59,80 @@ answers:
    caller's write. The cause stays the request id the server mints. In
    anonymous mode the agent is none, and all anonymous callers share that one
    scope. Anonymous mode is refused in production.
-3. **The key rides in the commit.**
+3. **A hash rides in the commit, never the key.**
    - A keyed commit carries a host attachment (ADR 0165), so no byte of
      format v1 changes. The attachment is the literal
      `"…"^^<https://w3id.org/varve/ns#idempotencyKey>`.
    - Its lexical form is the canonical JSON (RFC 8785) of four members:
-     - `key`;
-     - `fingerprint`: SHA-256, in lowercase hex, over the method, the path
-       and query, the `Content-Type` and the body bytes;
+     - `keyHash`: SHA-256, in lowercase hex, over the agent's IRI, a NUL, and
+       the key. The agent is empty in anonymous mode. NUL occurs in neither
+       an IRI nor a key, so two pairs collide only if SHA-256 does.
+     - `fingerprint`: SHA-256 over the method, the path and query, the
+       `Content-Type` and the body bytes;
      - `status`: what the write answers when it commits, `201` or `204`;
      - `location`: its `Location`, when it has one.
-   - The commit's own agent is the key's agent, so the attachment doesn't
-     repeat it.
+   - The key itself never enters the log.
    - The fingerprint covers what a forward leaves unchanged (ADR 0168 point 3).
+   - **The attachment is never served.** It belongs to the writer. The
+     change feed and the commits resource leave it out of a commit's
+     `attachment` lines, for every caller, as they already leave the shapes
+     reports out for a row-restricted one (ADR 0237). The CloudEvents
+     rendering (ADR 0143) renders no attachment at all.
 4. **The writer's index is read from the log.**
-   - For each open `Dataset`, the system dataset included, the writer keeps
-     (agent, key) → (position, fingerprint, status, location, request id).
-   - Before each keyed check it reads the commits it hasn't read yet, up to
-     the head and within the window. So a predecessor's keyed commits are
+   - **What it holds.** For each open `Dataset`, the system dataset included,
+     the writer keeps the first sixteen bytes of each key hash in the window,
+     with its commit's position. A hit reads that commit's header again, and
+     checks it against the whole hash and the fingerprint. The status,
+     `Location` and request id come from that header too.
+   - **When it reads the log.** Before each keyed check, it reads the commits
+     it hasn't read yet, up to the head and within the window, four at a
+     time. It reads their headers alone, through
+     `Dataset.ReadMetadataAsync` (#310). That read takes only the header at
+     the tail of the commit's closing record, checks it against the commit
+     index's hash, and never decodes the delta.
+   - **So keys survive a writer change.** A predecessor's keyed commits are
      known after a restart, a handover (abdication, takeover, claim in place)
      or a reopen, because they are in the same log.
-   - A request holds its key, as a claim, from the lookup until it is
-     answered. On one writer, two requests with one key therefore never
+   - **Warming.** `IdempotencyKeys.PrepareAsync` lets a host read the window
+     when it becomes the writer, so its first keyed write doesn't wait.
+   - **Claims.** A request holds its key, as a claim, from the lookup until it
+     is answered. On one writer, two requests with one key therefore never
      reach the sequencer together.
 5. **A window of commits, never time.**
    - A key is honoured while its commit is among the dataset's last
-     `Varve:Limits:IdempotencyWindow` commits, 100 000 by default. Once its
-     commit is older, the key is forgotten, and a retry with it commits
-     again.
+     `Varve:Limits:IdempotencyWindow` commits, 100 000 by default.
    - The window is a function of the log alone, so every writer of the
      dataset agrees on it.
-   - Keeping keys for ever needs an index in `derived/`, which is a format
-     question. It is a follow-up and is not built here.
-6. **Checked before every precondition.** The key is looked up after
+   - Keeping keys for ever needs an index in `derived/`. That is #309, and it
+     stays out of 1.0.
+6. **A retry past the window is refused.**
+   - A write may carry **`Varve-Key-Position: <p>`**, the head position the
+     client knew when it made the key.
+   - If the key isn't found, and the head the index was read to is more than
+     the window past `p`, the original may have committed at a position the
+     window no longer covers. Whether it did can't be determined.
+   - The write is then answered **`422 idempotency-key-expired`**, with
+     members `keyPosition`, `headPosition` and `window`, and nothing is
+     committed.
+   - When the head is within the window of `p`, any commit the original made
+     is at a position above `p`, so inside the window. A key not found there
+     is a write that never committed, and it commits.
+   - A key that is found is answered from its commit, whatever `p` says.
+7. **Checked before every precondition.** The key is looked up after
    authorisation and before `If-Match`, `Varve-If-Graphs-Match` or a graph's
    version. So a retry whose original moved the head is answered from its
    commit, not with `412`.
-7. **The answers.**
+8. **The answers.**
 
    | Case | Answer |
    |---|---|
-   | No commit holds the key | Proceeds; if it commits, the key is recorded with the commit |
+   | No commit holds the key, within the window of `Varve-Key-Position` or with none | Proceeds; if it commits, the key's hash is recorded with the commit |
    | Same agent, key and fingerprint as a commit in the window | That commit's status, `Location`, `Varve-Position`, `ETag` and `Varve-Request-Id`, and `Varve-Replayed: true`; nothing is committed again |
    | Same agent and key, another fingerprint | `422 idempotency-key-reused`, with `position`, the original's; nothing committed |
+   | Not found, more than the window past `Varve-Key-Position` | `422 idempotency-key-expired`, with `keyPosition`, `headPosition` and `window`; nothing committed |
    | A request of the same agent holds the key | `409 idempotency-key-in-flight`, `Retry-After: 1`; nothing committed |
 
-8. **Only a commit records a key.** `NoChange`, `Conflict`, `Rejected`, a
+9. **Only a commit records a key.** `NoChange`, `Conflict`, `Rejected`, a
    failed precondition and every refusal record nothing, so a retry of any of
    them is evaluated afresh.
    - A write whose outcome is unknown (ADR 0214) releases its claim. Its
@@ -108,78 +142,103 @@ answers:
      closed) run before the key is looked up. None of them commits, so they
      can answer a retry differently from its original, but they never commit
      it twice.
-9. **The client sends and retries.**
-   - `ClientLimits.IdempotencyKeys` is the source of each write's key, and
-     the host supplies it. The key is recorded in the log, so the client
-     draws no ambient randomness for it (ADR 0011; the ban in
-     `eng/BannedSymbols.Deterministic.txt`). This follows the follow's
-     jitter.
-   - The `varve` command line supplies the operating system's randomness at
-     its composition root. A client with no source sends no key and retries
-     no write.
-   - With a key, the client sends the write again with the same key, up to
-     `ClientLimits.WriteRetries` times (3 by default). It does so after:
-     - a lost response;
-     - any `503`;
-     - `409 idempotency-key-in-flight`.
-   - Between attempts it waits for the server's `Retry-After` (at most five
-     seconds), or else 100 ms, doubled each time.
+10. **The client sends and retries by default.**
+    - `ClientLimits.IdempotencyKeys` is the source of each logical write's
+      key. By default it is 128 random bits from the operating system, in
+      lowercase hex. It is asked once per logical write, and that key is
+      reused on every retry of the write. A host may inject its own source;
+      null sends no key, and then no write is retried.
+    - Every response's `Varve-Position` tells the client the newest head it
+      has seen. When it makes a key, it keeps that head, or 0 if it has seen
+      none, and every retry sends it as `Varve-Key-Position`.
+    - A first attempt sends no `Varve-Key-Position`, since it is not a retry.
+      So an idle client's first write is never refused for being stale. A
+      head of 0 only ever refuses more.
+    - With a key, the client sends the write again with the same key and
+      position, up to `ClientLimits.WriteRetries` times (3 by default). It
+      does so after:
+      - a lost response;
+      - any `503`;
+      - `409 idempotency-key-in-flight`.
+    - Between attempts it waits for the server's `Retry-After` (at most five
+      seconds), or else 100 ms, doubled each time.
+    - **Why ADR 0011 is satisfied.** ADR 0011 bans ambient randomness so that
+      §10's determinism property holds: two stores fed the same requests
+      write `log/` byte for byte alike, and the store draws no randomness of
+      its own. The key is the client's input to a write, chosen outside any
+      store, as its body is. The store records a hash of it, derived from the
+      request, and replaying the same requests (keys included) replays the
+      same bytes. No store, and no answer a comparison checks, depends on the
+      client's draw. The client package is under the ban list
+      (`VarveDeterministic`), so its one draw, `ClientLimits`' default
+      source, is the one suppression of `RS0030`, citing this ADR.
 
 ## Alternatives considered
 
 - **A client-chosen cause.** Refused by ADR 0094's amendment: a cause is
   something the server vouches for.
+- **The key itself in the commit.** Anyone who reads the log or the feed
+  would then hold it. The hash is all a writer needs to find it again.
 - **A key global to the dataset.** One agent could then collide with
   another's key and be answered with that write's outcome, which is the
-  forgery ADR 0094 refused. Scoping by agent costs nothing, because the
-  commit already records the agent.
+  forgery ADR 0094 refused. Scoping by agent costs nothing, because the hash
+  includes the agent.
 - **Keys kept for a duration.** #132 rules out elapsed time. Time also isn't
   a function of the log, so two writers could disagree about a key.
-- **Keys kept for ever, in `derived/`.** Correct, and the eventual answer,
-  but it is a derived format, with its own rebuild and verification
-  (ADR 0213). The window gives the guarantee a client retrying within
-  minutes needs.
+- **Keys kept for ever, in `derived/`.** Correct, and #309, but it is a
+  derived format with its own rebuild and verification (ADR 0213), and it
+  stays out of 1.0. The refusal past the window makes the window safe in the
+  meantime: a client is told, never committed twice.
 - **Checking the key in a validator under the sequencer.** It would see
   every commit in order. But a validator can't learn whether the batch it
   accepted became durable, so a failed batch would leave a key held with no
   commit behind it. The claim lives outside the sequencer and is settled
   with the write's outcome.
-- **A default key drawn by the client library.** Banned by ADR 0011: the key
-  is in the log.
+- **The host supplies every key source.** That was the first draft. It left
+  `AddVarveClient` and the web UI unkeyed by default, and #132 asks for keys
+  by default.
 
 ## Consequences
 
-- **Problem types:** `idempotency-key-reused` (`422`) and
-  `idempotency-key-in-flight` (`409`) are new.
-- **`Varve.Protocol`** gains `IdempotencyKeys`, `CommitWindow` and
-  `ProtocolOptions.Idempotency`.
-- **`Varve.Protocol.Client`** gains `ClientLimits.IdempotencyKeys` and
-  `WriteRetries`.
+- **Problem types:** `idempotency-key-reused` (`422`),
+  `idempotency-key-expired` (`422`) and `idempotency-key-in-flight` (`409`)
+  are new.
+- **Headers:** `Idempotency-Key`, `Varve-Key-Position` and the response's
+  `Varve-Replayed`.
+- **`Varve.Store`** gains `Dataset.ReadMetadataAsync` and
+  `CommitHeaderTerms` (#310). The management order's seed and the event
+  catalogue's recorded position use them too.
+- **`Varve.Protocol`** gains `IdempotencyKeys` (with `PrepareAsync`),
+  `CommitWindow` and `ProtocolOptions.Idempotency`.
+- **`Varve.Protocol.Client`** gains `ClientLimits.IdempotencyKeys`, keying by
+  default, and `WriteRetries`.
 - **The server** gains `Varve:Limits:IdempotencyWindow`.
-- **Commits carry a new attachment datatype.** A reader of an older version
-  reads it as an opaque term, as it reads any (ADR 0165).
-- **The first keyed write after a writer opens a dataset** reads up to the
-  window's commits from the log. Reading headers alone, without deltas, is a
-  follow-up.
+- **The change feed's `attachment` lines** leave the idempotency attachment
+  out. Change feed specification §2 says so.
+- **Measured** at REC M over the full window (#132): the rebuild after a
+  restart and after a takeover, its time and the heap it holds. The figures
+  are posted on #132 and in the traceability record.
 - **Replication part 2 (#166)** must carry each commit's agent and
-  attachments unchanged, and must pass the header through any new hop, as
+  attachments unchanged, and must pass both headers through any new hop, as
   the comment on #132 sets out.
 
 ## Checks
 
 - **Checked against the accepted ADRs** (0001–0243). It touches:
-  - **0011** (no ambient randomness: the key's source is the host's);
+  - **0011** (the client's key draw, satisfied as set out in point 10);
   - **0037** and **0094** (the agent; the cause untouched; a dated amendment);
-  - **0165** (a host attachment, no format change);
-  - **0168** (the header forwarded; a dated amendment);
+  - **0165** (a host attachment, no format change; this one not served);
+  - **0168** (the headers forwarded; a dated amendment);
   - **0214** (an unknown outcome settled by the key);
+  - **0237** (attachments left out of the feed);
   - **0115** (one known setting).
 
   No conflict.
 - **Layer ownership.**
-  - `Varve.Protocol` (5): the header, the index and the answers.
+  - `Varve.Store` (4): the header-only read.
+  - `Varve.Protocol` (5): the headers, the index and the answers.
   - `Varve.Protocol.Client` (5): sending and retrying.
-  - `Varve.Server` (6): the setting and the CLI's key source.
+  - `Varve.Server` (6): the setting.
 - **Analyzer rule.** None.
-- **Open questions owned.** Keys kept for ever in `derived/`, and the
-  header-only commit read, are filed as follow-ups of #132.
+- **Open questions owned.** Keys kept for ever in `derived/` are #309,
+  after 1.0.

@@ -32,6 +32,7 @@ public sealed class VarveManagementClient
     private readonly ClientLimits _limits;
     private readonly BearerTokenProvider? _tokens;
     private readonly TimeProvider? _clock;
+    private readonly KnownPosition _known = new();
     private readonly FeedPosition? _atLeast;
 
     /// <summary>
@@ -245,7 +246,7 @@ public sealed class VarveManagementClient
         }
 
         // A management write carries a key and is retried with it (ADR 0246).
-        using HttpResponseMessage response = await Requests.SendWriteAsync(_http, request, _limits, AuthorizeAsync, cancellationToken).ConfigureAwait(false);
+        using HttpResponseMessage response = await Requests.SendWriteAsync(_http, request, _limits, AuthorizeAsync, _known, cancellationToken).ConfigureAwait(false);
         (ResponseFacts facts, byte[] body) = await ReadAsync(response, cancellationToken).ConfigureAwait(false);
 
         if (response.IsSuccessStatusCode)

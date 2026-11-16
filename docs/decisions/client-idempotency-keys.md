@@ -6,9 +6,11 @@ decisions:
   - key: KeyIsScopedToTheAgent
     statement: "A write may carry Idempotency-Key, one Structured Field string of 1 to 255 printable ASCII characters, and the key is the pair of the commit's agent and the key, so one agent's key never matches another's and the cause stays server-minted"
   - key: KeyRidesInTheCommit
-    statement: "A keyed commit carries the host attachment varve:idempotencyKey, the canonical JSON of the key, the request's fingerprint, the status it answers and its Location, with no byte of format v1 changed"
+    statement: "A keyed commit carries the host attachment varve:idempotencyKey, the canonical JSON of the SHA-256 of the agent and the key, the request's fingerprint, the status it answers and its Location; the key itself never enters the log, and no byte of format v1 changes"
   - key: KeysKeptForAWindowOfCommits
-    statement: "The writer honours a key while its commit is among the dataset's last Window commits, 100000 by default, read from the log before its first keyed check and kept under the request's claim; never bounded by time"
+    statement: "The writer honours a key while its commit is among the dataset's last Window commits, 100000 by default, holding the key's hash read from the log before its first keyed check and kept under the request's claim; never bounded by time"
+  - key: RetryPastTheWindowIsRefused
+    statement: "A write may carry Varve-Key-Position, the head the client knew when it made the key; a key not found whose position is more than the window below the head is 422 idempotency-key-expired, because whether its original committed cannot be determined, and commits nothing"
   - key: KeyCheckedBeforePreconditions
     statement: "The key is looked up after authorisation and before any precondition, so a retry whose original moved the head is answered from its commit and not 412"
   - key: ReplayAnswersTheOriginalOutcome
@@ -20,7 +22,7 @@ decisions:
   - key: OnlyACommitRecordsAKey
     statement: "NoChange, Conflict, Rejected, a precondition's failure and every refusal record no key, so a retry of one is evaluated afresh"
   - key: ClientSendsAndRetriesWithAKey
-    statement: "Varve.Protocol.Client sends a fresh key on every write by default and retries it with the same key, bounded, on a lost response, 503 writer-moved, writer-stepped-down, writer-superseded, unavailable and 409 idempotency-key-in-flight"
+    statement: "Varve.Protocol.Client sends a key of 128 random bits on every write by default, made once per logical write from an injectable source, with the head it knew then as Varve-Key-Position, and retries with both, bounded, on a lost response, any 503 and 409 idempotency-key-in-flight"
 ---
 
 The rulings of [ADR 0246](../adr/0246-client-idempotency-keys.md), filed unaccepted for #132

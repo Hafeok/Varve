@@ -671,23 +671,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             return;
         }
 
-        await using IAsyncEnumerator<Commit> commits = dataset.Subscribe(new Position(dataset.Head.Value - 1), SubscriptionFilter.All, cancellationToken).GetAsyncEnumerator(cancellationToken);
-
-        if (!await commits.MoveNextAsync().ConfigureAwait(false))
-        {
-            return;
-        }
-
-        Commit head = commits.Current;
-        List<Varve.Rdf.RdfTerm> attachments = [];
-
-        foreach (Varve.Rdf.TermHandle handle in head.Attachments.Span)
-        {
-            if (head.TryExternalise(handle, out Varve.Rdf.RdfTerm? term))
-            {
-                attachments.Add(term);
-            }
-        }
+        // The head commit's header alone (#310): the delta is never read.
+        CommitHeaderTerms head = await dataset.ReadMetadataAsync(dataset.Head, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<Varve.Rdf.RdfTerm> attachments = head.Attachments;
 
         if (ManagementOrder.PositionOf(attachments) is { } recorded)
         {

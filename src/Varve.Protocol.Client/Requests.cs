@@ -23,6 +23,9 @@ internal static class Requests
     /// <summary>The request header a write's key travels in (ADR 0246).</summary>
     internal const string IdempotencyKeyHeader = "Idempotency-Key";
 
+    /// <summary>The request header a retry names the head it knew when it made its key in (ADR 0246).</summary>
+    internal const string KeyPositionHeader = "Varve-Key-Position";
+
     internal static async Task<HttpResponseMessage> SendAsync(HttpClient http, HttpRequestMessage request, ClientLimits limits, CancellationToken cancellationToken)
     {
         using CancellationTokenSource bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -51,16 +54,21 @@ internal static class Requests
     /// commits once. <paramref name="authorize"/> sets each attempt's token.
     /// </summary>
     internal static async Task<HttpResponseMessage> SendWriteAsync(
-        HttpClient http, HttpRequestMessage request, ClientLimits limits, Func<HttpRequestMessage, CancellationToken, ValueTask> authorize, CancellationToken cancellationToken)
+        HttpClient http, HttpRequestMessage request, ClientLimits limits, Func<HttpRequestMessage, CancellationToken, ValueTask> authorize, KnownPosition known, CancellationToken cancellationToken, bool keyed = true)
     {
-        if (limits.IdempotencyKeys is not { } keys || request.Method == HttpMethod.Get || request.Method == HttpMethod.Head)
+        if (!keyed || limits.IdempotencyKeys is not { } keys || request.Method == HttpMethod.Get || request.Method == HttpMethod.Head)
         {
             await PrepareAsync(request, authorize, cancellationToken).ConfigureAwait(false);
-            return await SendAsync(http, request, limits, cancellationToken).ConfigureAwait(false);
+            HttpResponseMessage once = await SendAsync(http, request, limits, cancellationToken).ConfigureAwait(false);
+            known.Observe(once);
+            return once;
         }
 
-        // One key for every attempt, as a Structured Field string.
+        // One key for every attempt, as a Structured Field string, and the
+        // head this client knew when it made it: 0 when it knew none, which
+        // only ever refuses more.
         string key = "\"" + keys().Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+        string made = known.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
         Attempt template;
 
         using (request)
@@ -70,7 +78,10 @@ internal static class Requests
 
         for (int attempt = 0; ; attempt++)
         {
-            HttpRequestMessage sent = template.Build(key);
+            // A retry says when its key was made, so a retry past the window
+            // is refused rather than committed twice; a first attempt is not
+            // a retry, and an idle client's is never refused for it.
+            HttpRequestMessage sent = template.Build(key, attempt == 0 ? null : made);
             bool last = attempt >= limits.WriteRetries;
             HttpResponseMessage response;
 
@@ -78,6 +89,7 @@ internal static class Requests
             {
                 await PrepareAsync(sent, authorize, cancellationToken).ConfigureAwait(false);
                 response = await SendAsync(http, sent, limits, cancellationToken).ConfigureAwait(false);
+                known.Observe(response);
             }
             catch (HttpRequestException) when (!last && !cancellationToken.IsCancellationRequested)
             {
@@ -173,7 +185,7 @@ internal static class Requests
             return new Attempt(request.Method, request.RequestUri, [.. request.Headers], body, request.Content is null ? [] : [.. request.Content.Headers]);
         }
 
-        internal HttpRequestMessage Build(string key)
+        internal HttpRequestMessage Build(string key, string? made)
         {
             HttpRequestMessage request = new(_method, _uri);
 
@@ -184,6 +196,12 @@ internal static class Requests
 
             request.Headers.Remove(IdempotencyKeyHeader);
             request.Headers.TryAddWithoutValidation(IdempotencyKeyHeader, key);
+            request.Headers.Remove(KeyPositionHeader);
+
+            if (made is not null)
+            {
+                request.Headers.TryAddWithoutValidation(KeyPositionHeader, made);
+            }
 
             if (_body is not null)
             {
@@ -198,6 +216,39 @@ internal static class Requests
             }
 
             return request;
+        }
+    }
+}
+
+/// <summary>
+/// The newest position a client's responses named in <c>Varve-Position</c>:
+/// what a write's key says it was made after (ADR 0246). It only rises.
+/// </summary>
+internal sealed class KnownPosition
+{
+    private long _value;
+
+    /// <summary>The newest position seen, or 0.</summary>
+    internal long Value => Volatile.Read(ref _value);
+
+    internal void Observe(HttpResponseMessage response)
+    {
+        if (!response.Headers.TryGetValues("Varve-Position", out IEnumerable<string>? values))
+        {
+            return;
+        }
+
+        foreach (string value in values)
+        {
+            if (long.TryParse(value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long position))
+            {
+                long seen = Volatile.Read(ref _value);
+
+                while (position > seen && Interlocked.CompareExchange(ref _value, position, seen) is long found && found != seen)
+                {
+                    seen = found;
+                }
+            }
         }
     }
 }

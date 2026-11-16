@@ -36,6 +36,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`unsupported-media-type`](unsupported-media-type.md) | 415 |  | The request body is in a media type or charset this endpoint does not read. |
 | [`rejected`](rejected.md) | 422 | `report` | A validator rejected the commit. |
 | [`idempotency-key-reused`](idempotency-key-reused.md) | 422 | `position` | The idempotency key was sent with another request. |
+| [`idempotency-key-expired`](idempotency-key-expired.md) | 422 | `keyPosition`, `headPosition`, `window` | Whether a write with this idempotency key committed cannot be determined. |
 | [`event-declaration-invalid`](event-declaration-invalid.md) | 422 | `declaration`, `reason` | The event declaration is not well formed. |
 | [`event-schema-incompatible`](event-schema-incompatible.md) | 422 | `declaration`, `fields` | The declaration change is incompatible with its version. |
 | [`event-not-rendered`](event-not-rendered.md) | 422 | `event`, `eventType`, `reason` | An event could not be rendered. |

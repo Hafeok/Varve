@@ -202,8 +202,9 @@ accepts it (ADR 0066).
 Point 3's request id is still how a client finds the commit of a write
 whose response it received. A write whose response was lost is found by
 the client's `Idempotency-Key` instead. The key is scoped to the caller's
-agent (point 2) and recorded with the commit as a host attachment
-(ADR 0165). A retry with the same key and request is answered from that
+agent (point 2), and a hash of the agent and the key is recorded with the
+commit as a host attachment (ADR 0165). The key itself never enters the
+log. A retry with the same key and request is answered from that
 commit, with its status, position and request id, and is never committed
 again. The cause stays the request id the server mints, as the amendment of
 2026-10-09 requires. The key is the client's, and it is never the cause.

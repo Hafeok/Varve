@@ -19,8 +19,9 @@ writes under one key. That is a defect in the client, not a race.
 
 Keys are scoped to the agent: another caller's key never matches yours. A
 key is held while its commit is among the dataset's last
-`Varve:Limits:IdempotencyWindow` commits, and once its commit is older, the
-key is free again.
+`Varve:Limits:IdempotencyWindow` commits. Once its commit is older, a retry
+with `Varve-Key-Position` is
+[`idempotency-key-expired`](idempotency-key-expired.md).
 
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,

@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Net.Http;
@@ -217,6 +218,90 @@ public sealed class IdempotencyKeyTests
     }
 
     [Fact]
+    public async Task A_retry_whose_key_was_made_more_than_the_window_ago_is_refused_and_commits_nothing()
+    {
+        await using Dataset dataset = await P.NewDatasetAsync();
+        await using ProtocolTestHost host = await StartAsync(dataset, window: new CommitWindow(2));
+
+        // The client made its key at position 0, and its first attempt never
+        // arrived; meanwhile three commits pass.
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await host.Client.SendAsync(Update("INSERT DATA { <http://ex/f" + i.ToString(CultureInfo.InvariantCulture) + "> <http://ex/p> 1 }"), P.Ct)).StatusCode);
+        }
+
+        using HttpRequestMessage late = Keyed(Update(Insert), "alice", "lost");
+        late.Headers.TryAddWithoutValidation("Varve-Key-Position", "0");
+        using HttpResponseMessage refused = await host.Client.SendAsync(late, P.Ct);
+        string body = await refused.Content.ReadAsStringAsync(P.Ct);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, refused.StatusCode);
+        Assert.Contains("\"type\":\"https://w3id.org/varve/problems/idempotency-key-expired\"", body, StringComparison.Ordinal);
+        Assert.Contains("\"keyPosition\":0", body, StringComparison.Ordinal);
+        Assert.Contains("\"headPosition\":3", body, StringComparison.Ordinal);
+        Assert.Contains("\"window\":2", body, StringComparison.Ordinal);
+        Assert.Equal(3L, dataset.Head.Value);
+
+        // Within the window, a key not found is a write never committed: it commits.
+        using HttpRequestMessage recent = Keyed(Update(Insert), "alice", "recent");
+        recent.Headers.TryAddWithoutValidation("Varve-Key-Position", "2");
+        Assert.Equal(HttpStatusCode.NoContent, (await host.Client.SendAsync(recent, P.Ct)).StatusCode);
+
+        // A key found is answered from its commit wherever the client says it made it.
+        using HttpRequestMessage found = Keyed(Update(Insert), "alice", "recent");
+        found.Headers.TryAddWithoutValidation("Varve-Key-Position", "0");
+        Assert.Equal("true", P.Header(await host.Client.SendAsync(found, P.Ct), "Varve-Replayed"));
+        Assert.Equal(4L, dataset.Head.Value);
+    }
+
+    [Fact]
+    public async Task The_commit_records_a_hash_of_the_agent_and_the_key_and_never_the_key()
+    {
+        await using Dataset dataset = await P.NewDatasetAsync();
+        await using ProtocolTestHost host = await StartAsync(dataset);
+        const string Key = "a-key-that-must-not-be-in-the-log";
+
+        Assert.Equal(HttpStatusCode.NoContent, (await host.Client.SendAsync(Keyed(Update(Insert), "alice", Key), P.Ct)).StatusCode);
+
+        string expected = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes("https://issuer.test/#alice\0" + Key)));
+        List<string> attachments = [];
+
+        await foreach (Commit commit in dataset.Subscribe(new Position(0), SubscriptionFilter.All, P.Ct))
+        {
+            foreach (TermHandle handle in commit.Attachments.Span)
+            {
+                Assert.True(commit.TryExternalise(handle, out RdfTerm? term));
+                attachments.Add(Encoding.UTF8.GetString(term!.Lexical));
+            }
+
+            break;
+        }
+
+        string recorded = Assert.Single(attachments);
+        Assert.Contains("\"keyHash\":\"" + expected + "\"", recorded, StringComparison.Ordinal);
+        Assert.DoesNotContain(Key, recorded, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_commits_resource_never_serves_the_keys_attachment()
+    {
+        await using Dataset dataset = await P.NewDatasetAsync();
+        await using ProtocolTestHost host = await StartAsync(dataset);
+        Assert.Equal(HttpStatusCode.NoContent, (await host.Client.SendAsync(Keyed(Update(Insert), "alice", "k1"), P.Ct)).StatusCode);
+
+        foreach (string accept in new[] { "application/vnd.varve.delta", "text/event-stream" })
+        {
+            using HttpResponseMessage feed = await host.Client.SendAsync(P.Get("datasets/d/commits?from=0&to=1", accept), P.Ct);
+            string body = await feed.Content.ReadAsStringAsync(P.Ct);
+
+            Assert.Equal(HttpStatusCode.OK, feed.StatusCode);
+            Assert.Contains("agent <https://issuer.test/#alice>", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("idempotencyKey", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("keyHash", body, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public async Task A_key_a_request_holds_is_409_until_that_request_is_answered()
     {
         await using Dataset dataset = await P.NewDatasetAsync();
@@ -242,59 +327,113 @@ public sealed class IdempotencyKeyTests
     /// <summary>
     /// The gate (#132): for generated schedules of writes, each sent through
     /// the client to either instance, with responses lost after the writer
-    /// answered or before the request left, and the writer moved to the other
-    /// instance — which reopens the same log — at a lost response, every
-    /// logical write commits exactly once. Each write increments a counter
-    /// and leaves a marker in one commit, so a write committed twice would
-    /// leave the counter above the markers.
+    /// answered or before the request left, commits by others filling the
+    /// window meanwhile, and the writer moved to the other instance — which
+    /// reopens the same log — at a lost response, every logical write commits
+    /// exactly once, or, when its retry comes after the window, is refused
+    /// and commits no second time. Each write increments a counter and leaves
+    /// a marker in one commit, so a write committed twice would leave the
+    /// counter above the markers.
     /// </summary>
     [Fact]
     public async Task Over_generated_schedules_of_lost_responses_retries_forwards_and_writer_changes_each_write_commits_once()
     {
         // Each step: which instance the client sends to, how its first
-        // attempt is lost (0 none, 1 the response, 2 the request), and
-        // whether the writer moves at that loss.
-        Gen<(int Via, int Lose, bool Move)[]> schedules = Gen.Select(Gen.Int[0, 1], Gen.Int[0, 2], Gen.Bool).Array[1, 10];
+        // attempt is lost (0 none, 1 the response, 2 the request), how many
+        // commits others make while it is lost, and whether the writer moves.
+        Gen<(int Via, int Lose, int Fill, bool Move)[]> schedules = Gen.Select(Gen.Int[0, 1], Gen.Int[0, 2], Gen.Int[0, 2 * GateWindow], Gen.Bool).Array[1, 10];
 
         await schedules.SampleAsync(async schedule =>
         {
-            await using Fleet fleet = await Fleet.StartAsync();
-            int serial = 0;
+            await using Fleet fleet = await Fleet.StartAsync(new CommitWindow(GateWindow));
+            Lossy[] lossy = [new(fleet), new(fleet)];
+            int keys = 0;
+            SparqlHttpClient[] clients = new SparqlHttpClient[2];
+            List<HttpClient> https = [];
 
-            for (int step = 0; step < schedule.Length; step++)
+            for (int i = 0; i < 2; i++)
             {
-                (int via, int lose, bool move) = schedule[step];
-                int write = ++serial;
-                Lossy lossy = new(fleet, lose, move);
-                using HttpClient http = new(lossy) { BaseAddress = fleet.Hosts[via].Address };
-                int keys = 0;
-                SparqlHttpClient client = new(http, new Uri(fleet.Hosts[via].Address, "datasets/d/"), ClientLimits.Default with
+                HttpClient http = new(lossy[i]) { BaseAddress = fleet.Hosts[i].Address };
+                https.Add(http);
+
+                // The default source of keys, counted: one key per logical write.
+                Func<string> random = ClientLimits.Default.IdempotencyKeys!;
+                clients[i] = new SparqlHttpClient(http, new Uri(fleet.Hosts[i].Address, "datasets/d/"), ClientLimits.Default with
                 {
-                    IdempotencyKeys = () => "w" + write.ToString(CultureInfo.InvariantCulture) + "-" + Interlocked.Increment(ref keys).ToString(CultureInfo.InvariantCulture),
-                    WriteRetries = 3,
+                    IdempotencyKeys = () =>
+                    {
+                        Interlocked.Increment(ref keys);
+                        return random();
+                    },
                 });
 
-                using HttpResponseMessage response = await client.UpdateAsync(
-                    "DELETE { <http://ex/c> <http://ex/n> ?o } INSERT { <http://ex/c> <http://ex/n> ?m . <http://ex/w" + write.ToString(CultureInfo.InvariantCulture) + "> <http://ex/p> 1 } WHERE { <http://ex/c> <http://ex/n> ?o BIND(?o + 1 AS ?m) }",
-                    (long?)null,
-                    P.Ct);
-
-                Assert.True(response.StatusCode == HttpStatusCode.NoContent, "write " + write + " answered " + (int)response.StatusCode + " " + await response.Content.ReadAsStringAsync(P.Ct));
-                Assert.Equal(1, keys);
+                // A read at the writer, so that its client knows a head to make
+                // keys after; reads are not forwarded, so the other client
+                // starts knowing 0, which only ever refuses more.
+                if (i == fleet.Writer)
+                {
+                    using HttpResponseMessage read = await clients[i].QueryAsync("ASK {}", "application/sparql-results+json", null, P.Ct);
+                    Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+                }
             }
 
-            Dataset writer = fleet.Current;
-            Assert.Equal(serial, Counter(writer));
-
-            for (int write = 1; write <= serial; write++)
+            try
             {
-                Assert.True(Holds(writer, "http://ex/w" + write.ToString(CultureInfo.InvariantCulture)), "write " + write + " is not in the log");
-            }
+                int expired = 0;
 
-            // One seed commit, then one commit per logical write.
-            Assert.Equal(serial + 1L, writer.Head.Value);
-        }, iter: Schedules, threads: 1, print: s => string.Join(" ", Array.ConvertAll(s, x => x.Via + "/" + x.Lose + (x.Move ? "m" : string.Empty))));
+                for (int write = 1; write <= schedule.Length; write++)
+                {
+                    (int via, int lose, int fill, bool move) = schedule[write - 1];
+                    lossy[via].Arm(lose, fill, move);
+
+                    using HttpResponseMessage response = await clients[via].UpdateAsync(
+                        "DELETE { <http://ex/c> <http://ex/n> ?o } INSERT { <http://ex/c> <http://ex/n> ?m . <http://ex/w" + write.ToString(CultureInfo.InvariantCulture) + "> <http://ex/p> 1 } WHERE { <http://ex/c> <http://ex/n> ?o BIND(?o + 1 AS ?m) }",
+                        (long?)null,
+                        P.Ct);
+                    string body = await response.Content.ReadAsStringAsync(P.Ct);
+
+                    if (response.StatusCode == HttpStatusCode.UnprocessableEntity && body.Contains("idempotency-key-expired", StringComparison.Ordinal))
+                    {
+                        // Only a retry: a lost first attempt, with more than the window
+                        // between the head and the one the client knew, which a client
+                        // that knew an old head reaches sooner.
+                        Assert.True(lose != 0, "write " + write + " expired with nothing lost: " + string.Join(" | ", lossy[via].Seen));
+                        expired++;
+                        continue;
+                    }
+
+                    Assert.True(response.StatusCode == HttpStatusCode.NoContent, "write " + write + " answered " + (int)response.StatusCode + " " + body);
+                    Assert.True(Holds(fleet.Current, "http://ex/w" + write.ToString(CultureInfo.InvariantCulture)), "write " + write + " answered 204 and is not in the log");
+                }
+
+                Dataset writer = fleet.Current;
+                int markers = 0;
+
+                for (int write = 1; write <= schedule.Length; write++)
+                {
+                    markers += Holds(writer, "http://ex/w" + write.ToString(CultureInfo.InvariantCulture)) ? 1 : 0;
+                }
+
+                // No write committed twice: one counter step per marker.
+                Assert.Equal(markers, Counter(writer));
+                Assert.True(markers >= schedule.Length - expired);
+
+                // One seed commit, the fillers, then one commit per write that committed.
+                Assert.Equal(1L + fleet.Fillers + markers, writer.Head.Value);
+                Assert.Equal(schedule.Length, Volatile.Read(ref keys));
+            }
+            finally
+            {
+                foreach (HttpClient http in https)
+                {
+                    http.Dispose();
+                }
+            }
+        }, iter: Schedules, threads: 1, print: s => string.Join(" ", Array.ConvertAll(s, x => x.Via + "/" + x.Lose + "+" + x.Fill + (x.Move ? "m" : string.Empty))));
     }
+
+    // Small, so that the schedules' fillers carry a lost write past it.
+    private const int GateWindow = 4;
 
     private static long Counter(Dataset dataset)
     {
@@ -420,7 +559,9 @@ public sealed class IdempotencyKeyTests
 
         internal Dataset Current { get; private set; } = null!;
 
-        internal static async Task<Fleet> StartAsync()
+        internal int Fillers;
+
+        internal static async Task<Fleet> StartAsync(CommitWindow window)
         {
             Fleet fleet = new();
             fleet.Current = await Dataset.CreateAsync(fleet._storage, new DatasetId(new Guid("6f8c0000-0000-4000-8000-000000000132")), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
@@ -428,13 +569,24 @@ public sealed class IdempotencyKeyTests
 
             for (int i = 0; i < 2; i++)
             {
-                fleet.Hosts[i] = await IdempotencyKeyTests.StartAsync(fleet.Current, writers: new Directory(fleet, i), resolver: fleet._resolvers[i]);
+                fleet.Hosts[i] = await IdempotencyKeyTests.StartAsync(fleet.Current, window: window, writers: new Directory(fleet, i), resolver: fleet._resolvers[i]);
             }
 
             // The counter's seed, unkeyed.
             using HttpResponseMessage seed = await fleet.Hosts[0].Client.SendAsync(Update("INSERT DATA { <http://ex/c> <http://ex/n> 0 }"), P.Ct);
             Assert.Equal(HttpStatusCode.NoContent, seed.StatusCode);
             return fleet;
+        }
+
+        /// <summary>Commits by another caller, unkeyed, at the writer.</summary>
+        internal async Task FillAsync(int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                int n = Interlocked.Increment(ref Fillers);
+                using HttpResponseMessage filled = await Hosts[Writer].Client.SendAsync(Update("INSERT DATA { <http://ex/f" + n.ToString(CultureInfo.InvariantCulture) + "> <http://ex/p> 1 }"), P.Ct);
+                Assert.Equal(HttpStatusCode.NoContent, filled.StatusCode);
+            }
         }
 
         internal async Task MoveAsync()
@@ -471,38 +623,65 @@ public sealed class IdempotencyKeyTests
     }
 
     /// <summary>
-    /// The network between the client and its instance: the first attempt's
-    /// response is lost after the server answered it, or its request before
-    /// it left; at the loss the writer may move. Every later attempt passes.
+    /// The network between a client and its instance: when armed, the next
+    /// write's first attempt has its response lost after the server answered
+    /// it, or its request lost before it left; while it is lost, others fill
+    /// the window, and the writer may move. Every other attempt passes.
     /// </summary>
-    private sealed class Lossy(Fleet fleet, int lose, bool move) : DelegatingHandler(new SocketsHttpHandler { UseProxy = false })
+    private sealed class Lossy(Fleet fleet) : DelegatingHandler(new SocketsHttpHandler { UseProxy = false })
     {
-        private int _attempts;
+        private int _lose;
+        private int _fill;
+        private bool _move;
+
+        internal List<string> Seen { get; } = [];
+
+        internal void Arm(int lose, int fill, bool move)
+        {
+            _lose = lose;
+            _fill = fill;
+            _move = move;
+        }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            bool first = Interlocked.Increment(ref _attempts) == 1;
+            int lose = request.Method == HttpMethod.Post && request.Headers.Contains("Idempotency-Key") ? Interlocked.Exchange(ref _lose, 0) : 0;
 
-            if (first && lose == 2)
+            if (lose != 0)
             {
-                await MoveAsync();
+                Seen.Add("lose " + lose);
+            }
+
+            if (lose == 2)
+            {
+                await LostAsync();
                 throw new HttpRequestException("the request was lost before it left");
             }
 
             HttpResponseMessage response = await base.SendAsync(request, cancellationToken);
+            await response.Content.LoadIntoBufferAsync(cancellationToken);
+            Seen.Add((request.Headers.TryGetValues("Varve-Key-Position", out IEnumerable<string>? made) ? "made " + string.Join(",", made) + " " : "") + (int)response.StatusCode);
 
-            if (first && lose == 1)
+            if (lose == 1)
             {
                 // The server answered, and the answer never arrived.
                 await response.Content.LoadIntoBufferAsync(cancellationToken);
                 response.Dispose();
-                await MoveAsync();
+                await LostAsync();
                 throw new HttpRequestException("the response was lost");
             }
 
             return response;
         }
 
-        private Task MoveAsync() => move ? fleet.MoveAsync() : Task.CompletedTask;
+        private async Task LostAsync()
+        {
+            await fleet.FillAsync(_fill);
+
+            if (_move)
+            {
+                await fleet.MoveAsync();
+            }
+        }
     }
 }

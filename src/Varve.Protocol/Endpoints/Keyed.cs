@@ -29,6 +29,13 @@ internal static class Keyed
     /// <summary>The response header that marks an answer replayed from the commit that holds the key.</summary>
     internal const string ReplayedHeader = "Varve-Replayed";
 
+    /// <summary>
+    /// The request header naming the head position the client knew when it
+    /// made the key (ADR 0246): a retry whose key is not found, more than the
+    /// window past it, cannot be told from one whose original committed.
+    /// </summary>
+    internal const string KeyPositionHeader = "Varve-Key-Position";
+
     /// <summary>The longest key accepted, in characters.</summary>
     internal const int MaxLength = 255;
 
@@ -59,8 +66,14 @@ internal static class Keyed
             return true;
         }
 
+        if (!TryReadPosition(context.Request.Headers[KeyPositionHeader], out long? made))
+        {
+            await HttpProblems.BadRequest(context, "Varve-Key-Position is one position: the head the client knew when it made the key.").ConfigureAwait(false);
+            return false;
+        }
+
         KeyIndex index = keys.IndexOf(exchange.Dataset);
-        await index.CatchUpAsync(exchange.Dataset, context.RequestAborted).ConfigureAwait(false);
+        long readTo = await index.CatchUpAsync(exchange.Dataset, context.RequestAborted).ConfigureAwait(false);
 
         // The body is read whole once and kept for the endpoint (ADR 0095's
         // limit still applies: one over it is refused by the endpoint, and
@@ -73,9 +86,9 @@ internal static class Keyed
         }
 
         RequestTerm agent = exchange.Options.Identity.AgentOf(context.User);
-        AgentKey agentKey = new(agent.Term is { } who ? Encoding.UTF8.GetString(who.Lexical) : string.Empty, key);
+        KeyHash hash = KeyHash.Of(agent.Term is { } who ? Encoding.UTF8.GetString(who.Lexical) : string.Empty, key);
         string fingerprint = Fingerprint(context.Request, body.Bytes ?? []);
-        KeyLookup lookup = index.Lookup(agentKey, fingerprint);
+        KeyLookup lookup = index.Lookup(hash, fingerprint, readTo);
 
         if (lookup.InFlight)
         {
@@ -84,12 +97,16 @@ internal static class Keyed
             return false;
         }
 
-        if (lookup.Committed is { } committed)
+        if (lookup.Position is long position)
         {
-            if (!string.Equals(committed.Fingerprint, fingerprint, StringComparison.Ordinal))
+            // The index holds a prefix of the hash; the commit holds the
+            // whole of it, the fingerprint and the answer.
+            KeyedCommit? committed = await KeyAttachment.ReadAtAsync(exchange.Dataset, position, context.RequestAborted).ConfigureAwait(false);
+
+            if (committed is null || committed.Key != hash || !string.Equals(committed.Fingerprint, fingerprint, StringComparison.Ordinal))
             {
-                await HttpProblems.WriteAsync(context, ProblemType.IdempotencyKeyReused, "The key was sent with another request, committed at position " + committed.Position.ToString(CultureInfo.InvariantCulture) + "; nothing was committed.",
-                    members => members.Number("position", committed.Position)).ConfigureAwait(false);
+                await HttpProblems.WriteAsync(context, ProblemType.IdempotencyKeyReused, "The key was sent with another request, committed at position " + position.ToString(CultureInfo.InvariantCulture) + "; nothing was committed.",
+                    members => members.Number("position", position)).ConfigureAwait(false);
                 return false;
             }
 
@@ -98,6 +115,23 @@ internal static class Keyed
         }
 
         KeyClaim claim = lookup.Claim!;
+
+        // Not found, and the client made the key more than the window ago:
+        // its original may have committed out of the window's sight, so
+        // whether it did cannot be told, and nothing is committed (ADR 0246).
+        if (made is long at && lookup.ReadTo - at > index.Window)
+        {
+            claim.Dispose();
+            await HttpProblems.WriteAsync(context, ProblemType.IdempotencyKeyExpired, "The key was made at position " + at.ToString(CultureInfo.InvariantCulture) + ", more than " + index.Window.ToString(CultureInfo.InvariantCulture)
+                + " commits before the head; whether a write with it committed cannot be determined. Nothing was committed.", members =>
+            {
+                members.Number("keyPosition", at);
+                members.Number("headPosition", lookup.ReadTo);
+                members.Number("window", index.Window);
+            }).ConfigureAwait(false);
+            return false;
+        }
+
         context.Response.RegisterForDispose(claim);
         exchange.Claim = claim;
         return true;
@@ -132,7 +166,7 @@ internal static class Keyed
 
         if (result.Outcome == CommitOutcome.Committed)
         {
-            claim.Committed(new KeyedCommit(result.Position.Value, claim.Fingerprint, claim.Answer, exchange.Context.TraceIdentifier));
+            claim.Committed(result.Position);
         }
         else
         {
@@ -158,6 +192,24 @@ internal static class Keyed
         {
             response.Headers.Location = location;
         }
+    }
+
+    private static bool TryReadPosition(StringValues values, out long? position)
+    {
+        position = null;
+
+        if (StringValues.IsNullOrEmpty(values))
+        {
+            return true;
+        }
+
+        if (values.Count != 1 || !long.TryParse(values[0], NumberStyles.None, CultureInfo.InvariantCulture, out long value))
+        {
+            return false;
+        }
+
+        position = value;
+        return true;
     }
 
     /// <summary>
