@@ -58,6 +58,24 @@ The Content Security Policy is unchanged. The Web UI still needs a single
 listener: with `Varve:Manage:Urls` its management screens cannot reach
 `/manage`, and the guide no longer says otherwise (#297).
 
+### Also in this release
+
+What landed on `main` since v0.1.0-preview.21:
+- **Nothing is resident per commit** (#222, ADR 0240): an extent's seek
+  directory is read on demand under a ceiling, so resident memory is
+  bounded by data and configuration, never by the number of commits.
+- **Problems that say what to do** (#194, ADR 0242): `forbidden`, a failed
+  dataset, `writer-superseded` and `shutting-down` name the next step, and
+  every problem page says what to do.
+- **`/manage/system` names the instance that answered** (#193).
+- **The state route takes `If-Match`** with the declaration's version
+  (#189).
+- **The conformance runner** states what a failing protocol request sent
+  (#262).
+- **Build:** the SDK moves to 10.0.404, and the container image's base to
+  its newer digest; a commit message's model name is refused in three
+  layers (#169).
+
 The storage and delta formats are unchanged.
 
 ## [0.1.0-preview.21] - 2026-11-16
