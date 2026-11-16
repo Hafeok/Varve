@@ -16,6 +16,13 @@ client integration this ADR deferred is built; see the end.
 `MessagePack`, which `Aspire.Hosting` brings into this ADR's closures, is pinned
 past an advisory; see the end.
 
+**Amended 2026-11-12** (ADR 0068), by the session for #285: `Aspire.Hosting`
+moves to 13.6.5, past an advisory against it, and the `MessagePack` pin leaves
+as its own amendment said it would; see the end.
+
+**Noted 2026-11-12** (ADR 0062): `MessagePackPinnedPastTheAdvisory` is revoked
+with no successor, its pin having left; see the end.
+
 ## Context
 
 ADR 0037 expected the server to run under Aspire in development and said
@@ -166,3 +173,49 @@ configured dataset at start. `AddVarveFleet` models the two-app layout of ADR
 [0168](0168-write-routing-by-forwarding.md).
 
 **The ledger.** `WithDatasetDeclaresTheDataset` moves to ADR 0163's set, superseded.
+
+## Amendment, 2026-11-12 — `Aspire.Hosting` 13.6.5, and the `MessagePack` pin leaves
+
+Filed by the session for [#285](https://github.com/Hafeok/Varve/issues/285).
+It carries no new ruling: it moves a version under the admission this ADR
+already made, and applies the leaving condition of the amendment of
+2026-10-16.
+
+- **The advisory.** NuGet's audit flags `Aspire.Hosting` and
+  `Aspire.Hosting.AppHost` below 13.6.5 (GHSA-f7vh-h5g3-7jrh, CVE-2026-120006,
+  high: elevation of privilege), published on 2026-11-10. At 13.6.1,
+  `Varve.Aspire`, the sample AppHost and its test fail restore, where warnings
+  are errors, and so does every build of `Varve.slnx`.
+- **The version.** `Aspire.Hosting`, `Aspire.Hosting.AppHost`,
+  `Aspire.Hosting.Testing` and `Aspire.AppHost.Sdk` move from 13.6.1 to 13.6.5,
+  the advisory's patched release. Where the decision's point 1 says 13.6.1, read
+  13.6.5.
+- **The pin leaves.** `Aspire.Hosting` 13.6.5 depends on `MessagePack` 2.5.307,
+  past GHSA-qhrr-8q5h-9q3h, so the register entry for `MessagePack` 2.5.303 is
+  removed, as the amendment of 2026-10-16 ruled it would be. Keeping it fails
+  restore with a downgrade (`NU1109`).
+
+**The ledger.** No key is added. `MessagePackPinnedPastTheAdvisory` stays in
+the set as accepted; its condition, "until Aspire.Hosting's own dependency
+moves past it", is met from this amendment on. Whether the key is revoked is
+the maintainer's call (ADR 0062).
+
+## Note, 2026-11-12 — `MessagePackPinnedPastTheAdvisory` is revoked
+
+The maintainer answered the question the amendment above left open, on
+2026-11-12: the ruling is revoked. It is written by his delegate at his word
+(ADR 0239).
+
+- **Why revoked, with no successor.** The ruling admitted one register entry,
+  `MessagePack` 2.5.303, until `Aspire.Hosting`'s own dependency moved past
+  GHSA-qhrr-8q5h-9q3h. With `Aspire.Hosting` 13.6.5 it has (2.5.307), the entry
+  is gone from `Directory.Packages.props` (#285), and nothing takes its place:
+  `MessagePack` is again an ordinary transitive dependency of `Aspire.Hosting`.
+- **What cited it.** Nothing in code. It is named in its set, in this ADR, in
+  the decision report's baseline and in the traceability record of the session
+  that filed it.
+- **The ledger.** `MessagePackPinnedPastTheAdvisory` carries
+  `revoked-at: 2026-11-12T00:00:00Z` in `docs/decisions/varve-aspire.md`. Where
+  the amendment above says the key "stays in the set as accepted", this note
+  is the later word. `eng/decision-sets.cs` lists it among the rulings revoked
+  with no successor, as ADR 0062 asks of every such use.

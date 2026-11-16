@@ -1,0 +1,13 @@
+@* StateBadge (docs/ui/components/StateBadge): the API's word, verbatim, with
+   its tone's mark. The badge knows nothing of what the word means. *@
+<span class="@("vw-state vw-state--" + ToneClass.Of(Tone))">@Word</span>
+
+@code {
+    /// <summary>The tone, from <see cref="Varve.WebUi.Tones"/>.</summary>
+    [Parameter, EditorRequired]
+    public Tone Tone { get; set; }
+
+    /// <summary>The API's word, verbatim.</summary>
+    [Parameter, EditorRequired]
+    public string Word { get; set; } = "";
+}

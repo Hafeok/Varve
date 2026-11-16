@@ -22,6 +22,7 @@ public sealed class GrantTable
 {
     private readonly string[] _bootstrap;
     private readonly Dictionary<string, List<GrantDeclaration>> _byDataset = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, RdfTerm[]> _datasetPublic = new(StringComparer.Ordinal);
 
     private GrantTable(ManagementPosition position, Declarations declarations, string[] bootstrap)
     {
@@ -32,6 +33,7 @@ public sealed class GrantTable
         foreach ((string name, DatasetDeclaration dataset) in declarations.Datasets)
         {
             _byDataset[name] = [.. dataset.Grants];
+            _datasetPublic[name] = [.. DatasetPublicGraphs(dataset)];
         }
     }
 
@@ -175,6 +177,7 @@ public sealed class GrantTable
 
         GraphScope readable = GraphScope.None;
         GraphScope writable = GraphScope.None;
+        List<GrantDeclaration> matched = [];
 
         if (_byDataset.TryGetValue(dataset, out List<GrantDeclaration>? grants))
         {
@@ -185,6 +188,7 @@ public sealed class GrantTable
                     continue;
                 }
 
+                matched.Add(grant);
                 GraphScope scope = ScopeOf(grant.Graphs, caller);
                 readable = readable.Union(scope);
 
@@ -195,7 +199,120 @@ public sealed class GrantTable
             }
         }
 
-        return new CallerScope(readable, writable, AdminAccess.None);
+        // A TBox graph is read by every reader of the dataset (ADR 0190 point 3); writing it still needs a write grant.
+        if (_datasetPublic.TryGetValue(dataset, out RdfTerm[]? datasetPublic))
+        {
+            readable = readable.WithDatasetPublic(datasetPublic);
+        }
+
+        return new CallerScope(readable, writable, RowsOf(matched, dataset, caller, writes: false), RowsOf(matched, dataset, caller, writes: true), AdminAccess.None);
+    }
+
+    /// <summary>
+    /// The caller's subject set per classifier binding (ADR 0230 point 4):
+    /// the union of the subject sets of its grants that meet the binding's
+    /// graphs, every subject when one of them carries no subject terms.
+    /// </summary>
+    private RowScope RowsOf(List<GrantDeclaration> grants, string dataset, Caller caller, bool writes)
+    {
+        if (!Declarations.Datasets.TryGetValue(dataset, out DatasetDeclaration? declared))
+        {
+            return RowScope.All;
+        }
+
+        List<KeyValuePair<RdfTerm, SubjectScope>> restricted = [];
+
+        foreach (BindingDeclaration binding in declared.Bindings)
+        {
+            if (binding.Kind != BindingKind.Classifier || binding.Classifies is not { } classifies)
+            {
+                continue;
+            }
+
+            SubjectScope? subjects = null;
+
+            foreach (GrantDeclaration grant in grants)
+            {
+                if ((writes && grant.Access != GrantAccess.Write) || !RowPreconditions.Meets(grant.Graphs, classifies))
+                {
+                    continue;
+                }
+
+                SubjectScope granted = SubjectScopeOf(grant.Subjects, caller);
+                subjects = subjects is null ? granted : subjects.Union(granted);
+            }
+
+            restricted.Add(new(binding.Node, subjects ?? SubjectScope.None));
+        }
+
+        return RowScope.Of(restricted);
+    }
+
+    private static SubjectScope SubjectScopeOf(SubjectSet set, Caller caller)
+    {
+        if (set.All)
+        {
+            return SubjectScope.All;
+        }
+
+        List<RdfTerm> subjects = [.. set.Subjects];
+        List<string> prefixes = [.. set.Prefixes];
+        List<string> createUnder = [.. set.CreateUnder];
+        List<SubjectLink> links = [];
+
+        foreach (GraphTemplate template in set.Templates)
+        {
+            if (GraphTemplates.Expand(template, caller) is { } expanded)
+            {
+                if (template.Match == TemplateMatch.Prefix)
+                {
+                    prefixes.Add(expanded);
+                }
+                else
+                {
+                    subjects.Add(RdfTerm.Iri(Encoding.UTF8.GetBytes(expanded)));
+                }
+            }
+        }
+
+        foreach (GraphTemplate template in set.CreateUnderTemplates)
+        {
+            if (GraphTemplates.Expand(template, caller) is { } expanded)
+            {
+                createUnder.Add(expanded);
+            }
+        }
+
+        foreach (SubjectLinkDeclaration link in set.Links)
+        {
+            // A caller without the variable, or without an agent IRI, gets nothing from the link.
+            string? target = link.Target is null ? caller.Agent : GraphTemplates.Expand(link.Target, caller);
+
+            if (target is not null && IriRef.IsAbsolute(Encoding.UTF8.GetBytes(target)))
+            {
+                links.Add(new SubjectLink(link.Predicate, RdfTerm.Iri(Encoding.UTF8.GetBytes(target))));
+            }
+        }
+
+        return SubjectScope.Of([.. subjects], [.. prefixes], [.. set.Classes], [.. links], [.. createUnder]);
+    }
+
+    /// <summary>
+    /// The graphs <paramref name="dataset"/>'s TBox bindings make
+    /// dataset-public (ADR 0190 point 3): their TBox graphs, in term order,
+    /// each once.
+    /// </summary>
+    public static IReadOnlyList<RdfTerm> DatasetPublicGraphs(DatasetDeclaration dataset)
+    {
+        ArgumentNullException.ThrowIfNull(dataset);
+        SortedSet<RdfTerm> graphs = new(TermOrder.Instance);
+
+        foreach (TBoxBindingDeclaration binding in dataset.TBoxBindings)
+        {
+            graphs.UnionWith(binding.TBoxGraphs);
+        }
+
+        return [.. graphs];
     }
 
     private static GraphScope ScopeOf(GraphSet set, Caller caller)

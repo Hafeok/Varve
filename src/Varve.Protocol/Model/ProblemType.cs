@@ -28,6 +28,12 @@ public readonly record struct ProblemType
     /// <summary>A request the protocol does not accept: a missing or repeated parameter, a bad value.</summary>
     public static ProblemType BadRequest { get; } = new("bad-request");
 
+    /// <summary>A <c>Varve-Entailment</c> the server does not serve, or one other than simple on an update (ADR 0192).</summary>
+    public static ProblemType EntailmentUnsupported { get; } = new("entailment-unsupported");
+
+    /// <summary>A query the regime asked refuses, its <c>QueryRequestRefused</c>. Reserved: no tier-1 regime refuses a query (ADR 0192).</summary>
+    public static ProblemType EntailmentRefused { get; } = new("entailment-refused");
+
     /// <summary>A request body in a media type or charset the endpoint does not read.</summary>
     public static ProblemType UnsupportedMediaType { get; } = new("unsupported-media-type");
 
@@ -129,6 +135,12 @@ public readonly record struct ProblemType
 
     /// <summary><c>503</c>: a read of a report graph at a position its validation projection has not reached, after one bounded wait (ADR 0174).</summary>
     public static ProblemType ValidationBehind { get; } = new("validation-behind");
+
+    /// <summary><c>403</c>: a row-restricted write breaks the row-level write rule; the body names no node, subject or binding (ADR 0236).</summary>
+    public static ProblemType RowNotWritable { get; } = new("row-not-writable");
+
+    /// <summary><c>503</c>: a row-restricted read at a position the classification projection has not reached, after one bounded wait (ADR 0233).</summary>
+    public static ProblemType ClassificationBehind { get; } = new("classification-behind");
 
     /// <summary><c>503</c>: a forwarded write reached an instance that does not write the dataset; it is never forwarded again (ADR 0168).</summary>
     public static ProblemType WriterMoved { get; } = new("writer-moved");

@@ -31,6 +31,14 @@ internal static class UpdateRun
             return;
         }
 
+        // An update's WHERE is evaluated under simple entailment (ADR 0192 point 4).
+        Microsoft.Extensions.Primitives.StringValues entailment = context.Request.Headers[EntailmentHeader.Name];
+        if (entailment.Count > 0 && (!EntailmentHeader.TryRead(entailment, out Varve.Sparql.Entailment.Model.EntailmentRegime regime) || regime != Varve.Sparql.Entailment.Model.EntailmentRegime.Simple))
+        {
+            await QueryRun.UnsupportedAsync(context, entailment).ConfigureAwait(false);
+            return;
+        }
+
         if (await Writes.CheckAsync(exchange, update: true).ConfigureAwait(false) is not { Proceed: true } plan)
         {
             return;
@@ -83,12 +91,23 @@ internal static class UpdateRun
         try
         {
             result = await exchange.Options.Updates
-                .ExecuteAsync(exchange.Dataset, update!, Writes.Metadata(exchange), new UpdatePreconditions { ExpectedPosition = plan.Expected, ExpectedGraphs = plan.Graphs, Validators = Writes.Validators(exchange) }, exchange.Scope, context.RequestAborted)
+                .ExecuteAsync(exchange.Dataset, update!, Writes.Metadata(exchange), new UpdatePreconditions { ExpectedPosition = plan.Expected, ExpectedGraphs = plan.Graphs, Validators = Writes.Validators(exchange), Classifier = exchange.Options.RowClassifications?.Classifier(exchange.Name) }, exchange.Scope, context.RequestAborted)
                 .ConfigureAwait(false);
         }
         catch (GraphNotWritableException refused)
         {
             await Writes.GraphNotWritableAsync(exchange, refused.Graph).ConfigureAwait(false);
+            return;
+        }
+        catch (RowNotWritableException)
+        {
+            await Writes.RowNotWritableAsync(exchange).ConfigureAwait(false);
+            return;
+        }
+        catch (ClassificationBehindException behind)
+        {
+            context.Response.Headers.RetryAfter = "1";
+            await HttpProblems.WriteAsync(context, ProblemType.ClassificationBehind, behind.Message, BoundedReads.ClassificationBehind(behind)).ConfigureAwait(false);
             return;
         }
         catch (Varve.Sparql.Evaluation.MemoryBudgetExceededException over)

@@ -28,8 +28,8 @@ public static class VarveEndpoints
 {
     /// <summary>
     /// Maps every data-plane endpoint of a dataset under fixed names:
-    /// <c>/</c>, <c>/sparql</c>, <c>/graphs</c>, <c>/commits</c>, <c>/diff</c>
-    /// and <c>/events</c>.
+    /// <c>/</c>, <c>/sparql</c>, <c>/graphs</c>, <c>/commits</c>, <c>/diff</c>,
+    /// <c>/events</c> and <c>/access</c>.
     /// </summary>
     public static IEndpointRouteBuilder MapVarveDataset(this IEndpointRouteBuilder routes, ProtocolOptions options)
     {
@@ -41,6 +41,7 @@ public static class VarveEndpoints
         routes.MapCommits("/commits", options);
         routes.MapDiff("/diff", options);
         routes.MapEvents("/events", options);
+        routes.MapAccess("/access", options);
         return routes;
     }
 
@@ -164,6 +165,14 @@ public static class VarveEndpoints
         routes.Map(pattern, Tracing.Traced("commits", options, context => CommitsEndpoint.HandleAsync(context, options)));
         routes.Map(pattern.TrimEnd('/') + "/{" + CommitsEndpoint.PositionRouteValue + "}", Tracing.Traced("commit", options, context => CommitsEndpoint.HandleOneAsync(context, options)));
         return routes;
+    }
+
+    /// <summary>A data subject's quads, for a dataset admin: access without erasure mode (ADR 0231).</summary>
+    public static IEndpointConventionBuilder MapAccess(this IEndpointRouteBuilder routes, string pattern, ProtocolOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(routes);
+        ArgumentNullException.ThrowIfNull(options);
+        return routes.Map(pattern, Tracing.Traced("access", options, context => AccessEndpoint.HandleAsync(context, options)));
     }
 
     /// <summary>The diff between two positions (ADR 0097).</summary>

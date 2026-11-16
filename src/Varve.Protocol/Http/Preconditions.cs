@@ -151,12 +151,17 @@ internal static class Preconditions
         }
     }
 
-    /// <summary>Sets <c>Varve-Position</c> and the strong <c>ETag</c> for a position.</summary>
-    internal static void Describe(HttpResponse response, Position position)
+    /// <summary>
+    /// Sets <c>Varve-Position</c> and the strong <c>ETag</c> for a position;
+    /// a representation that is one variant of several at the position, a
+    /// query's answer under a regime other than simple (ADR 0192 point 3),
+    /// is tagged <c>"&lt;position&gt;.&lt;variant&gt;"</c>.
+    /// </summary>
+    internal static void Describe(HttpResponse response, Position position, string? variant = null)
     {
         string value = position.Value.ToString(CultureInfo.InvariantCulture);
         response.Headers[PositionHeader] = value;
-        response.Headers.ETag = "\"" + value + "\"";
+        response.Headers.ETag = "\"" + value + (variant is null ? string.Empty : "." + variant) + "\"";
         Tracing.Position(position);
     }
 
@@ -176,6 +181,7 @@ internal static class Preconditions
         }
 
         long[] positions = new long[parsed.Count];
+        string?[] variants = new string?[parsed.Count];
 
         for (int i = 0; i < parsed.Count; i++)
         {
@@ -187,6 +193,13 @@ internal static class Preconditions
             }
 
             ReadOnlySpan<char> text = tag.Tag.AsSpan().Trim('"');
+            int dot = text.IndexOf('.');
+
+            if (dot > 0 && dot < text.Length - 1)
+            {
+                variants[i] = text[(dot + 1)..].ToString();
+                text = text[..dot];
+            }
 
             if (tag.IsWeak || !Model.Instants.IsDecimal(text) || !long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out positions[i]))
             {
@@ -194,20 +207,33 @@ internal static class Preconditions
             }
         }
 
-        tags = new TagList(positions);
+        tags = new TagList(positions, variants);
         return TagCondition.Positions;
     }
 
-    /// <summary>The positions a tag header named.</summary>
-    internal readonly record struct TagList(long[] Values)
+    /// <summary>The positions a tag header named, each with the variant it named, if any.</summary>
+    internal readonly record struct TagList(long[] Values, string?[] Variants)
     {
-        internal bool Contains(Position position) => Array.IndexOf(Values, position.Value) >= 0;
+        /// <summary>Whether the header names <paramref name="position"/> as the tag of <paramref name="variant"/>, none for the representation of the position itself.</summary>
+        internal bool Contains(Position position, string? variant = null)
+        {
+            for (int i = 0; i < Values.Length; i++)
+            {
+                if (Values[i] == position.Value && string.Equals(Variants[i], variant, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
 
-        /// <summary>The single position an <c>If-Match</c> expects; several are ambiguous for a write.</summary>
+            return false;
+        }
+
+        /// <summary>The single position an <c>If-Match</c> expects; several are ambiguous for a write, and a variant's tag names none.</summary>
         internal bool TrySingle(out Position position)
         {
-            position = Values.Length == 1 ? new Position(Values[0]) : default;
-            return Values.Length == 1;
+            bool single = Values.Length == 1 && Variants[0] is null;
+            position = single ? new Position(Values[0]) : default;
+            return single;
         }
     }
 }

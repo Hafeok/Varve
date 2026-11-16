@@ -1,0 +1,219 @@
+{
+  "description": "rulesets: a rule's parameters at GitHub's defaults are the same rule as the rule without them, either way round, and a parameter off its default is still a difference (#101: the land ruleset's update rule)",
+  "source": "the shape of GET .../rulesets and GET .../rulesets/{ruleset_id} in github/rest-api-description@02e8fa6; the rule spellings are those of Hafeok/Varve's land ruleset, whose update rule GET returned without parameters while its export wrote update_allows_fetch_and_merge: false (Repository settings run 42189587136)",
+  "command": [
+    "check"
+  ],
+  "declaration": "rulesets:\n  - name: export spelling\n    target: branch\n    enforcement: active\n    conditions:\n      ref_name:\n        include: [refs/heads/land/**]\n        exclude: []\n    rules:\n      - type: creation\n      - type: update\n        parameters:\n          update_allows_fetch_and_merge: false\n    bypass_actors:\n      - actor_id: 2194785\n        actor_type: User\n        bypass_mode: always\n  - name: rest spelling\n    target: branch\n    enforcement: active\n    conditions:\n      ref_name:\n        include: [refs/heads/land/**]\n        exclude: []\n    rules:\n      - type: creation\n      - type: update\n    bypass_actors:\n      - actor_id: 2194785\n        actor_type: User\n        bypass_mode: always\n  - name: fetch and merge\n    target: branch\n    enforcement: active\n    conditions:\n      ref_name:\n        include: [refs/heads/land/**]\n        exclude: []\n    rules:\n      - type: creation\n      - type: update\n        parameters:\n          update_allows_fetch_and_merge: true\n    bypass_actors:\n      - actor_id: 2194785\n        actor_type: User\n        bypass_mode: always\n",
+  "exchanges": [
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/rulesets?includes_parents=false&per_page=100"
+      },
+      "response": {
+        "status": 200,
+        "body": [
+          {
+            "id": 1,
+            "name": "export spelling",
+            "source_type": "Repository",
+            "source": "octo-org/hello-world",
+            "enforcement": "active",
+            "node_id": "RRS_lACkVXNlcgQ1",
+            "_links": {
+              "self": {
+                "href": "https://api.github.com/repos/octo-org/hello-world/rulesets/1"
+              }
+            },
+            "created_at": "2026-10-10T08:43:03Z",
+            "updated_at": "2026-10-10T08:43:03Z"
+          },
+          {
+            "id": 2,
+            "name": "rest spelling",
+            "source_type": "Repository",
+            "source": "octo-org/hello-world",
+            "enforcement": "active",
+            "node_id": "RRS_lACkVXNlcgQ2",
+            "_links": {
+              "self": {
+                "href": "https://api.github.com/repos/octo-org/hello-world/rulesets/2"
+              }
+            },
+            "created_at": "2026-10-10T08:43:03Z",
+            "updated_at": "2026-10-10T08:43:03Z"
+          },
+          {
+            "id": 3,
+            "name": "fetch and merge",
+            "source_type": "Repository",
+            "source": "octo-org/hello-world",
+            "enforcement": "active",
+            "node_id": "RRS_lACkVXNlcgQ3",
+            "_links": {
+              "self": {
+                "href": "https://api.github.com/repos/octo-org/hello-world/rulesets/3"
+              }
+            },
+            "created_at": "2026-10-10T08:43:03Z",
+            "updated_at": "2026-10-10T08:43:03Z"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/rulesets/1"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 1,
+          "name": "export spelling",
+          "source_type": "Repository",
+          "source": "octo-org/hello-world",
+          "enforcement": "active",
+          "node_id": "RRS_lACkVXNlcgQ1",
+          "_links": {
+            "self": {
+              "href": "https://api.github.com/repos/octo-org/hello-world/rulesets/1"
+            }
+          },
+          "created_at": "2026-10-10T08:43:03Z",
+          "updated_at": "2026-10-10T08:43:03Z",
+          "target": "branch",
+          "bypass_actors": [
+            {
+              "actor_id": 2194785,
+              "actor_type": "User",
+              "bypass_mode": "always"
+            }
+          ],
+          "conditions": {
+            "ref_name": {
+              "include": [
+                "refs/heads/land/**"
+              ],
+              "exclude": []
+            }
+          },
+          "rules": [
+            {
+              "type": "creation"
+            },
+            {
+              "type": "update"
+            }
+          ],
+          "current_user_can_bypass": "always"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/rulesets/3"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 3,
+          "name": "fetch and merge",
+          "source_type": "Repository",
+          "source": "octo-org/hello-world",
+          "enforcement": "active",
+          "node_id": "RRS_lACkVXNlcgQ3",
+          "_links": {
+            "self": {
+              "href": "https://api.github.com/repos/octo-org/hello-world/rulesets/3"
+            }
+          },
+          "created_at": "2026-10-10T08:43:03Z",
+          "updated_at": "2026-10-10T08:43:03Z",
+          "target": "branch",
+          "bypass_actors": [
+            {
+              "actor_id": 2194785,
+              "actor_type": "User",
+              "bypass_mode": "always"
+            }
+          ],
+          "conditions": {
+            "ref_name": {
+              "include": [
+                "refs/heads/land/**"
+              ],
+              "exclude": []
+            }
+          },
+          "rules": [
+            {
+              "type": "creation"
+            },
+            {
+              "type": "update"
+            }
+          ],
+          "current_user_can_bypass": "always"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/repos/octo-org/hello-world/rulesets/2"
+      },
+      "response": {
+        "status": 200,
+        "body": {
+          "id": 2,
+          "name": "rest spelling",
+          "source_type": "Repository",
+          "source": "octo-org/hello-world",
+          "enforcement": "active",
+          "node_id": "RRS_lACkVXNlcgQ2",
+          "_links": {
+            "self": {
+              "href": "https://api.github.com/repos/octo-org/hello-world/rulesets/2"
+            }
+          },
+          "created_at": "2026-10-10T08:43:03Z",
+          "updated_at": "2026-10-10T08:43:03Z",
+          "target": "branch",
+          "bypass_actors": [
+            {
+              "actor_id": 2194785,
+              "actor_type": "User",
+              "bypass_mode": "always"
+            }
+          ],
+          "conditions": {
+            "ref_name": {
+              "include": [
+                "refs/heads/land/**"
+              ],
+              "exclude": []
+            }
+          },
+          "rules": [
+            {
+              "type": "creation"
+            },
+            {
+              "type": "update",
+              "parameters": {
+                "update_allows_fetch_and_merge": false
+              }
+            }
+          ],
+          "current_user_can_bypass": "always"
+        }
+      }
+    }
+  ],
+  "expect": {
+    "exit": 1
+  }
+}

@@ -23,6 +23,10 @@ decisions:
     statement: "CI generates every SBOM twice and requires the two to be byte-identical"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-28T00:00:00Z
+  - key: TheWebUiBundleFromItsRestore
+    statement: "The Web UI bundle's SBOM is what its restore for browser-wasm deploys, the SDK's package that carries blazor.webassembly.js, and Mono's browser runtime pack at the version of the runtime the SDK bundles; the descriptor names the zip in an asset line, and a bundle published with another runtime pack is refused"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-06T00:00:00Z
 ---
 
 The rulings of [ADR 0225](../adr/0225-the-sbom-generator.md),

@@ -94,6 +94,56 @@ public class DictionaryTests
         EveryTermResolves(again, terms);
     }
 
+    /// <summary>
+    /// A term section's triple terms are found once, in one pass (ADR 0235,
+    /// amended 2026-10-30): on runs in memory, on disk, merged by
+    /// maintenance and reopened, a term's parts are found exactly when it is
+    /// a triple term, whichever kind of term is asked about first on a fresh
+    /// view, and they are its components.
+    /// </summary>
+    [Theory]
+    [InlineData(1_500, 100, 50, 0)]
+    [InlineData(1_500, 100, 50, 5)]
+    [InlineData(400, 1, 3, 1)]
+    public async Task a_terms_parts_are_found_exactly_when_it_is_a_triple_term(int terms, int batch, long memtable, int first)
+    {
+        await using TemporaryDirectory directory = new();
+
+        await using (FileStorage storage = await FileStorage.OpenAsync(directory.Directory, TemporaryDirectory.Options, T.Ct))
+        await using (Dataset dataset = await Load(storage, terms, batch, memtable))
+        {
+            using DatasetView view = dataset.Pin();
+            PartsAreTripleTerms(view, terms, first);
+        }
+
+        await using FileStorage again = await FileStorage.OpenAsync(directory.Directory, TemporaryDirectory.Options, T.Ct);
+        await using Dataset reopened = await Dataset.OpenAsync(again, Options(memtable), T.Ct);
+        using DatasetView view2 = reopened.Pin();
+        PartsAreTripleTerms(view2, terms, first);
+    }
+
+    // Each term's parts, asked about from the first-th term on, so that the
+    // first lookup on the view is of a triple term or of another kind.
+    private static void PartsAreTripleTerms(DatasetView view, int terms, int first)
+    {
+        for (int k = 0; k < terms; k++)
+        {
+            int i = (first + k) % terms;
+            RdfTerm term = Term(i);
+            Assert.True(view.TryInternalise(term, out TermHandle handle), "term " + i + " is not found");
+            bool parts = view.TryGetTripleTermComponents(handle, out TermHandle s, out TermHandle p, out TermHandle o);
+            Assert.Equal(term.Kind == RdfTermKind.TripleTerm, parts);
+
+            if (parts)
+            {
+                Assert.True(view.TryExternalise(s, out RdfTerm? subject));
+                Assert.True(view.TryExternalise(p, out RdfTerm? predicate));
+                Assert.True(view.TryExternalise(o, out RdfTerm? @object));
+                Assert.Equal(term, RdfTerm.TripleTerm(subject, predicate, @object));
+            }
+        }
+    }
+
     [Fact]
     public async Task a_checkpoint_is_the_dictionary_and_a_dataset_opens_from_it_alone()
     {

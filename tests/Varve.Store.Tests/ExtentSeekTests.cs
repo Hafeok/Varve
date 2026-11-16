@@ -257,6 +257,26 @@ public sealed class ExtentSeekTests
                     Assert.True(estimate.IsExact, when + ", as of " + view.Position + ": a subject's estimate is not exact");
                     Assert.Equal(quads.Count(q => q.Subject == subject), estimate.Count.Value);
                 }
+
+                // The distinct predicates of each graph, and the objects of each predicate, by the index's seek (ADR 0193).
+                foreach (TermHandle graph in every.Select(q => q.Graph).Append(TermHandle.None).Distinct())
+                {
+                    GraphPattern pattern = graph.IsNone ? GraphPattern.DefaultGraph : GraphPattern.Named(graph);
+                    Assert.True(view.TryDistinctPredicates(pattern, out ITermCursor? predicates), when + ": the view cannot seek");
+                    List<TermHandle> seeked = Drain(predicates);
+                    Assert.True(
+                        quads.Where(q => q.Graph == graph).Select(q => q.Predicate).Distinct().OrderBy(t => t.Value).SequenceEqual(seeked.OrderBy(t => t.Value)),
+                        when + ", as of " + view.Position + ": the distinct predicates of graph " + graph.Value + " disagree with the scan");
+                    Assert.Equal(seeked.Count, seeked.Distinct().Count());
+
+                    foreach (TermHandle predicate in every.Select(q => q.Predicate).Distinct())
+                    {
+                        Assert.True(view.TryDistinctObjects(predicate, pattern, out ITermCursor? objects));
+                        Assert.True(
+                            quads.Where(q => q.Graph == graph && q.Predicate == predicate).Select(q => q.Object).Distinct().OrderBy(t => t.Value).SequenceEqual(Drain(objects).OrderBy(t => t.Value)),
+                            when + ", as of " + view.Position + ": the distinct objects disagree with the scan");
+                    }
+                }
             }
         }
         finally
@@ -265,6 +285,20 @@ public sealed class ExtentSeekTests
             {
                 view.Dispose();
             }
+        }
+    }
+
+    private static List<TermHandle> Drain(ITermCursor cursor)
+    {
+        using (cursor)
+        {
+            List<TermHandle> terms = [];
+            while (cursor.MoveNext())
+            {
+                terms.Add(cursor.Current);
+            }
+
+            return terms;
         }
     }
 

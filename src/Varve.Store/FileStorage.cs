@@ -730,7 +730,7 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
 
                 foreach (char c in part)
                 {
-                    if (!(char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.'))
+                    if (!(char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.' or '%'))
                     {
                         return false;
                     }

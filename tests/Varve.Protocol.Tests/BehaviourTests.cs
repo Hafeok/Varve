@@ -301,7 +301,7 @@ public class BehaviourTests
         foreach (HttpRequestMessage request in (HttpRequestMessage[])[P.Query(Sparql, "ASK {}"), P.Get("datasets/d/graphs?graph=" + Uri.EscapeDataString("http://ex/none"), "application/n-triples"), P.Get("datasets/d/", "text/turtle")])
         {
             HttpResponseMessage response = await host.Client.SendAsync(request, P.Ct);
-            Assert.Equal("Accept,Varve-As-Of,Authorization", string.Join(",", response.Headers.Vary));
+            Assert.Equal("Accept,Varve-As-Of,Authorization,Varve-Entailment", string.Join(",", response.Headers.Vary));
             Assert.NotNull(P.Header(response, "Varve-Request-Id"));
             Assert.Equal("</datasets/d/>; rel=\"service-desc\"", P.Header(response, "Link"));
         }

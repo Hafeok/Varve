@@ -1,0 +1,36 @@
+@page "/signin"
+@using Varve.WebUi.SignIn
+@inject SignInSession Session
+@inject NavigationManager Navigation
+@* The sign-in callback (ADR 0201): the issuer's answer is checked and the
+   planes' tokens taken, then the screen the sign-in started from is shown.
+   A failure says why and offers to start again; nothing of it is kept. *@
+<PageTitle>Signing in · Varve</PageTitle>
+<ViewHead Title="Signing in" />
+
+@if (_failure is not null)
+{
+    <Notice Title="The sign-in did not complete" Warn="true">@_failure</Notice>
+    <Button Kind="ButtonKind.Primary" OnClick="AgainAsync">Sign in again</Button>
+}
+
+@code {
+    private string? _failure;
+
+    /// <inheritdoc />
+    protected override async Task OnInitializedAsync()
+    {
+        SignInOutcome outcome = await Session.CompleteAsync(new Uri(Navigation.Uri), CancellationToken.None);
+
+        if (outcome.SignedIn)
+        {
+            Navigation.NavigateTo(Navigation.BaseUri.TrimEnd('/') + (outcome.ReturnPath ?? "/"), replace: true);
+        }
+        else if (!outcome.Redirected)
+        {
+            _failure = outcome.Failure;
+        }
+    }
+
+    private Task AgainAsync() => Session.StartAsync("/", silent: false, CancellationToken.None);
+}

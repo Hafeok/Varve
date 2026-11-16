@@ -1,0 +1,14 @@
+@* Tabs (docs/ui/components/Tabs): the views of one screen, each a link to
+   its own address, the one shown marked current (review F23). *@
+<nav class="vw-tabs" aria-label="@Label">@foreach (TabLink tab in Items)
+{<a class="vw-tabs__tab" href="@tab.Href" aria-current="@(tab.Current ? "page" : null)">@tab.Text</a>}</nav>
+
+@code {
+    /// <summary>What the views are of: "Grants".</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    /// <summary>The views.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<TabLink> Items { get; set; } = [];
+}

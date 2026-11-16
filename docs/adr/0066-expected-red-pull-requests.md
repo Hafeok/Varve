@@ -132,3 +132,14 @@ There are two ways to make the red go away that are worse than the red:
   `CS0618`, because it is not a `DD` rule. Point 5 is kept by review, and by
   the fact that any downgrade is a one-line diff in a shared file.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-06 — the maintainer's delegate may write an acceptance
+
+Filed by the landing session for #244, unaccepted until the maintainer
+accepts it (ADR 0066). The ruling is ADR
+[0239](0239-the-maintainers-delegate.md).
+
+A session never writes `accepted-by`, with one exception: the maintainer's
+delegate, one session on his own machine with his key, writes it, naming him,
+for a decision he has read. The commit carries a `Delegated-by` trailer. Every
+other session is held to this ADR as before.

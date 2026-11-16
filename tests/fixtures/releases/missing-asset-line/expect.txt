@@ -1,0 +1,2 @@
+# The commit under release ships the Web UI bundle, and the descriptor has no asset line for it (ADR 0225, amended 2026-11-06).
+no sbom line for asset: varve-webui-0.1.0-preview.2.zip

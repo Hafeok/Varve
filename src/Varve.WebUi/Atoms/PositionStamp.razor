@@ -1,0 +1,18 @@
+@* PositionStamp (docs/ui/components/PositionStamp): a log position labelled
+   with what it is, selectable whole. A management position is outlined, so
+   the two logs are never confused side by side. *@
+<span class="@(Management ? "vw-position vw-position--management" : "vw-position")"><span class="vw-position__label">@Label</span> <span class="vw-position__value">@Value.ToString(System.Globalization.CultureInfo.InvariantCulture)</span></span>
+
+@code {
+    /// <summary>What the position is: <c>read at</c>, <c>as of</c>, <c>head</c>, <c>management</c>, <c>expected</c>.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    /// <summary>The position.</summary>
+    [Parameter, EditorRequired]
+    public long Value { get; set; }
+
+    /// <summary>A position of the system dataset rather than a data-plane one.</summary>
+    [Parameter]
+    public bool Management { get; set; }
+}

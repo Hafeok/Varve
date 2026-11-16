@@ -1,0 +1,15 @@
+format: 2
+version: v0.1.0-fixture
+title: A fixture, valid but for the one flaw its case names
+date: 2026-11-06
+basis:
+  - issue: 167
+  - storage-format: 1
+  - delta-format: 1
+sbom:
+  - image: ghcr.io/hafeok/varve sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  - nupkg: Varve.Iri sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+  - tool: Varve.Server sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+accepted-by: mailto:emil@okkels-klein.dk
+summary: |
+  Fixture notes. Not a release.

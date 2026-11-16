@@ -165,6 +165,9 @@ a gate nobody has tested.
 - **Each of the gate's other failure cases** (ADR 0224) is a broken register
   in `tests/fixtures/dependency-register/`, restored for real from nuget.org
   where it needs a restore, and required to fail for its own reason.
+- **The descriptor's SBOM lines** (ADR 0225, amended 2026-11-06) have their
+  cases in `tests/fixtures/sbom-descriptor/`: a matching digest passes, and
+  a differing or missing `asset:` line is refused.
 
 **Every quad source passes `tests/QuadSourceContract.cs`** (ADR 0022, amended
 2026-10-30; #191), linked into each test project with a source of its own. A

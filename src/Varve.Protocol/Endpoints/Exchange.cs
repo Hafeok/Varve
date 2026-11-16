@@ -140,11 +140,40 @@ internal sealed class Exchange
     /// </summary>
     internal IQuadSource Readable(IQuadSource view)
     {
+        // A row-restricted caller reads no report graph (ADR 0237 point 6),
+        // and beneath its graphs only the rows it may (ADR 0235).
+        if (!Scope.ReadableRows.IsAll && view is DatasetView rowView && Options.RowClassifications?.At(Name, rowView) is { } rows)
+        {
+            return RowScopedQuadSource.Wrap(GraphScopedQuadSource.Wrap(view, Scope.Readable), rows, Scope.ReadableRows);
+        }
+
         // The report graphs the caller reads every bound graph of (ADR 0174).
         return Options.ValidationReports is { } reports && view is DatasetView pinned && reports.Of(Name) is { Count: > 0 } graphs
             ? ReportGraphs.Compose(pinned, Scope.Readable, graphs)
             : GraphScopedQuadSource.Wrap(view, Scope.Readable);
     }
+
+    /// <summary>
+    /// The graphs the caller reads in <paramref name="view"/>, whatever rows
+    /// it sees in them: what the service description lists (ADR 0237 point
+    /// 3). A readable graph whose quads are all hidden by rows is still
+    /// listed, as the Graph Store answers it as an empty graph (point 2);
+    /// a row-restricted caller is listed no report graph (point 6).
+    /// </summary>
+    internal IQuadSource ReadableGraphs(DatasetView view) =>
+        !Scope.ReadableRows.IsAll && Options.RowClassifications?.Classifier(Name) is not null
+            ? GraphScopedQuadSource.Wrap(view, Scope.Readable)
+            : Readable(view);
+
+    /// <summary>
+    /// <paramref name="view"/> with only the rows the caller reads, its graphs
+    /// unscoped: what a Graph Store write of a graph it may write retracts
+    /// (ADR 0236, W5). The view itself when the caller reads every row.
+    /// </summary>
+    internal IQuadSource VisibleRows(DatasetView view) =>
+        !Scope.ReadableRows.IsAll && Options.RowClassifications?.At(Name, view) is { } rows
+            ? RowScopedQuadSource.Wrap(view, rows, Scope.ReadableRows)
+            : view;
 
     /// <summary>
     /// An exchange over the fleet's system dataset, for the management
@@ -172,15 +201,15 @@ internal sealed class Exchange
 
     /// <summary>
     /// What every dataset response carries, problems included (ADR 0119):
-    /// <c>Vary</c>, because the content is per caller, per selector and per
-    /// format; <c>Varve-Request-Id</c>, the id a problem's <c>instance</c>
+    /// <c>Vary</c>, because the content is per caller, per selector, per
+    /// format and, for a query, per regime (ADR 0192); <c>Varve-Request-Id</c>, the id a problem's <c>instance</c>
     /// and a commit's cause repeat; and <c>Link rel="service-desc"</c> to
     /// the dataset's description when the request names a dataset.
     /// </summary>
     internal static void Describe(HttpContext context, string? datasetSegment)
     {
         HttpResponse response = context.Response;
-        response.Headers.Vary = new StringValues([HeaderNames.Accept, Preconditions.AsOfHeader, HeaderNames.Authorization]);
+        response.Headers.Vary = new StringValues([HeaderNames.Accept, Preconditions.AsOfHeader, HeaderNames.Authorization, EntailmentHeader.Name]);
         response.Headers[Preconditions.RequestIdHeader] = context.TraceIdentifier;
 
         if (datasetSegment is null)

@@ -42,3 +42,9 @@ Varve.Sparql.Store.UpdateOptions.ExpectedGraphs.get -> System.Collections.Generi
 Varve.Sparql.Store.UpdateOptions.ExpectedGraphs.init -> void
 Varve.Sparql.Store.UpdateOptions.Validators.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.ICommitValidator!>!
 Varve.Sparql.Store.UpdateOptions.Validators.init -> void
+Varve.Sparql.Store.UpdateOptions.Classifier.get -> Varve.Store.IClassifier?
+Varve.Sparql.Store.UpdateOptions.Classifier.init -> void
+Varve.Sparql.Store.UpdateOptions.ReadRows.get -> Varve.Rdf.RowScope!
+Varve.Sparql.Store.UpdateOptions.ReadRows.init -> void
+Varve.Sparql.Store.UpdateOptions.WriteRows.get -> Varve.Rdf.RowScope!
+Varve.Sparql.Store.UpdateOptions.WriteRows.init -> void

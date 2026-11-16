@@ -7,6 +7,7 @@
 //   dotnet run eng/dco.cs -- [--base <ref>] [--head <ref>]
 //   dotnet run eng/dco.cs -- --range <a>..<b>
 //   dotnet run eng/dco.cs -- --commits <file> [--identities <file>]
+//   dotnet run eng/dco.cs -- --sign-off-for <author email>
 //
 // ADR 0034 point 3: every commit carries a DCO sign-off, human and AI session
 // alike. Until this gate it was enforced by nobody (ADR 0034, amendment of
@@ -32,6 +33,16 @@
 // any other branch is checked from origin/main, because what a required check
 // on that branch's head vouches for is everything it would bring to main
 // (ADR 0088); a local run uses origin/main..HEAD.
+//
+// Run on a clone, it warns when core.hooksPath is not eng/hooks: a clone
+// without the hook makes commits whose sign-off nothing has checked, and a
+// cloud session's clone is set up by a bootstrap, not by the devcontainer. A
+// warning, not a failure: CI's checkout makes no commit and has no hook.
+//
+// --sign-off-for prints the sign-off this gate accepts from an author: an
+// agent's responsible human, by name and first email, or a human's own. It is
+// what eng/hooks/commit-msg adds, so a commit is signed off as the gate reads
+// it when it is made, not when CI refuses it.
 //
 // --commits reads commits from a file instead of git, which is how the failure
 // path is proven: tests/fixtures/dco/ holds a failing and a passing set, with
@@ -59,6 +70,7 @@ string? headRef = null;
 string? explicitRange = null;
 string? commitsFile = null;
 string? identitiesFile = null;
+string? signOffFor = null;
 
 string[] arguments = args;
 for (int i = 0; i < arguments.Length; i++)
@@ -79,6 +91,9 @@ for (int i = 0; i < arguments.Length; i++)
             break;
         case "--identities" when i + 1 < arguments.Length:
             identitiesFile = arguments[++i];
+            break;
+        case "--sign-off-for" when i + 1 < arguments.Length:
+            signOffFor = arguments[++i];
             break;
         default:
             break;
@@ -107,6 +122,32 @@ if (map is null || problems.Count > 0)
     return 2;
 }
 
+// --- the sign-off an author needs -----------------------------------------
+
+if (signOffFor is not null)
+{
+    if (map.AgentByEmail(signOffFor) is { } agent)
+    {
+        if (map.HumanById(agent.Responsible) is not { } responsible || responsible.Emails.Count == 0)
+        {
+            Console.Error.WriteLine($"dco: agent '{agent.Id}' has no responsible human with an email in {IdentityMap.RelativePath}.");
+            return 2;
+        }
+
+        Console.WriteLine($"Signed-off-by: {responsible.Name} <{responsible.Emails[0]}>");
+        return 0;
+    }
+
+    if (map.HumanByEmail(signOffFor) is { } human)
+    {
+        Console.WriteLine($"Signed-off-by: {human.Name} <{signOffFor}>");
+        return 0;
+    }
+
+    Console.Error.WriteLine($"dco: '{signOffFor}' is in no entry of {IdentityMap.RelativePath}; sign off as yourself.");
+    return 1;
+}
+
 // --- the commits -------------------------------------------------------------
 
 List<Commit> commits;
@@ -126,6 +167,7 @@ else
 {
     string range = explicitRange ?? ResolveRange(repositoryRoot, baseRef, headRef);
     Console.WriteLine($"note range: {range}");
+    WarnIfUnhooked(repositoryRoot);
 
     // \u0001 opens a record, \u0002 separates the fields, so a message
     // containing anything at all cannot be confused for a delimiter.
@@ -376,4 +418,25 @@ static string FindRepositoryRoot()
     throw new InvalidOperationException("Could not find the repository root (no Varve.slnx above the current directory).");
 }
 
+// A local clone without eng/hooks as its hooks path: a warning on stderr, so
+// an unhooked clone is found at its first local gate run, not by CI's refusal.
+static void WarnIfUnhooked(string repositoryRoot)
+{
+    if (Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true")
+    {
+        return;
+    }
+
+    (int exitCode, string stdout, _) = Git(repositoryRoot, "config", "--get", "core.hooksPath");
+    string hooksPath = exitCode == 0 ? stdout.Trim().TrimEnd('/') : "";
+    if (hooksPath is not ("eng/hooks" or "./eng/hooks") && hooksPath != Path.Combine(repositoryRoot, "eng", "hooks"))
+    {
+        Console.Error.WriteLine(
+            $"warn core.hooksPath is '{(hooksPath.Length == 0 ? "unset" : hooksPath)}', not 'eng/hooks': this clone's commits are not "
+            + "signed off by eng/hooks/commit-msg. Run: git config core.hooksPath eng/hooks (AGENTS.md).");
+    }
+}
+
+
 sealed record Commit(string Sha, int Parents, string AuthorName, string AuthorEmail, string Message);
+

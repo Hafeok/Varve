@@ -142,7 +142,8 @@ static int Fixtures(string root, string directory)
             readmePath: Own("README.md", StatusTree.ReadmePath),
             roadmapPath: Own("roadmap.md", StatusTree.RoadmapPath),
             passingPath: Own("passing.txt", StatusTree.PassingPath),
-            releasesPath: Directory.Exists(Path.Combine(path, "releases")) ? $"{relative}/releases" : ReleaseFormat.Directory);
+            releasesPath: Directory.Exists(Path.Combine(path, "releases")) ? $"{relative}/releases" : ReleaseFormat.Directory,
+            blockedPath: Own("blocked.txt", StatusTree.BlockedPath));
 
         string said = string.Join('\n', problems);
         string[] expected = [.. File.ReadAllLines(Path.Combine(path, "expect.txt")).Where(line => line.Trim().Length > 0 && !line.StartsWith('#'))];

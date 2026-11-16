@@ -58,12 +58,28 @@ internal sealed class RequestExecution
         // for here, and recorded (ADR 0057, amended 2026-10-13).
         _recorder = new ReadRecorder(staging);
         _readable = GraphScopedQuadSource.Wrap(_recorder, options.ReadScope);
+
+        // Beneath the graphs, the rows the caller reads (ADR 0235), by the
+        // classification of the staging view.
+        if (RowRestricted(options))
+        {
+            _before = options.Classifier!.Classify(staging, QuadDelta.Empty);
+            _readable = RowScopedQuadSource.Wrap(_readable, _before, options.ReadRows);
+        }
+
         _update = update;
         _options = options;
         _cancellationToken = cancellationToken;
         _evaluator = new SparqlEvaluator(options.Evaluation);
-        _dataOnly = options.ExpectedPosition is null && options.ExpectedGraphs is null && IsDataOnly(update);
+        _dataOnly = options.ExpectedPosition is null && options.ExpectedGraphs is null && IsDataOnly(update) && !RowRestricted(options);
     }
+
+    // The classification the request's reads are judged by; null when it reads every row.
+    private readonly IRowClassification? _before;
+
+    /// <summary>Whether a request under <paramref name="options"/> reads or writes a restricted row set of a classified dataset.</summary>
+    internal static bool RowRestricted(UpdateOptions options) =>
+        options.Classifier is not null && (!options.ReadRows.IsAll || !options.WriteRows.IsAll);
 
     /// <summary>Whether every operation of <paramref name="update"/> is <c>INSERT DATA</c> or <c>DELETE DATA</c>.</summary>
     internal static bool IsDataOnly(Update update)
@@ -323,14 +339,35 @@ internal sealed class RequestExecution
     {
         GraphScope writable = _options.WriteScope;
 
-        if (writable.IsAll)
+        if (!writable.IsAll)
+        {
+            Dictionary<TermHandle, bool> decided = [];
+            Check(_retracted, writable, decided);
+            Check(_asserted, writable, decided);
+        }
+
+        CheckRows();
+    }
+
+    /// <summary>
+    /// The row-level write rule over the requested quads (ADR 0236): the
+    /// composed delta, before the sequencer drops what the head already
+    /// holds, judged between the staging view and the state it would make.
+    /// Its retractions are only of quads the caller sees (W5), because the
+    /// state the request composes over is the row-scoped one.
+    /// </summary>
+    private void CheckRows()
+    {
+        if (_before is null || _options.WriteRows.IsAll)
         {
             return;
         }
 
-        Dictionary<TermHandle, bool> decided = [];
-        Check(_retracted, writable, decided);
-        Check(_asserted, writable, decided);
+        Quad[] asserted = [.. _asserted];
+        Quad[] retracted = [.. _retracted];
+        QuadDelta delta = QuadDelta.Create(asserted, retracted);
+        IRowClassification after = _options.Classifier!.Classify(_staging, delta);
+        new RowWriteRule(_staging, _before, new QuadOverlay(_staging, delta), after, _options.ReadRows, _options.WriteRows).Check(asserted, retracted);
     }
 
     private void Check(HashSet<Quad> quads, GraphScope writable, Dictionary<TermHandle, bool> decided)

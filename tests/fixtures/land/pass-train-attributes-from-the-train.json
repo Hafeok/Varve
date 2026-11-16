@@ -1,0 +1,11 @@
+{
+  "step": "train",
+  "main": { ".gitattributes": "*.txt merge=union\n", "f.txt": "a\n" },
+  "members": [
+    { "number": 11, "files": { "f.txt": "a\nx\n" }, "approval": "head", "green": true },
+    { "number": 12, "files": { "f.txt": "a\ny\n" }, "approval": "head", "green": true }
+  ],
+  "says": [
+    "built twice the same, land/train-11-12"
+  ]
+}

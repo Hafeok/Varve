@@ -200,3 +200,29 @@ in [ADR 0213](0213-cached-derived-data-is-verified-before-use.md) point 6.
   exception at all. Each is a miss, and the projection rebuilds from the
   log, as on a cold start.
 - **A `VVP1` snapshot is a miss** the first time this build opens it.
+
+## Amendment, 2026-10-30 — the report graph and row-restricted callers
+
+Filed by milestone 9, part 1 (#202, under #14), unaccepted until the maintainer accepts it (ADR 0066). The ruling is ADR [0237](0237-rows-on-every-surface.md)'s `ReportWithheldFromRowRestricted`.
+
+Point 9 gains a condition. A caller whose readable subject set is not `all`
+for any classifier binding of the dataset reads no report graph, whatever
+its graph grants. For it, the
+graph is absent: a query finds nothing in it, and the Graph Store answers
+`404`. Filtering per result is #204.
+
+## Amendment, 2026-10-30 — the snapshot's name on the file and browser backends
+
+Filed by milestone 9, part 1 (#202, under #14), unaccepted until the
+maintainer accepts it (ADR 0066). Found by the classification projection's
+REC benchmark, which shares this naming (ADR 0233).
+
+- **`%` in a name.** The snapshot is written under `validation/{enc(binding)}/`,
+  and `enc` percent-encodes, but the file backend and the browser's OPFS
+  backend took only ASCII letters, digits, `-`, `_` and `.` in a blob name.
+  So every save on a file dataset threw, and no snapshot was ever written
+  there. Both backends now take `%`.
+- **`~` in a name.** `enc` leaves `~`, which neither backend takes, and
+  which OPFS uses as its generation separator. In the directory, a `~` of
+  the binding IRI is written `%7E`. The report graph's IRI (point 8) is
+  unchanged: it keeps `enc` as written.

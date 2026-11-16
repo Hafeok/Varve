@@ -1,0 +1,145 @@
+format: 2
+version: v0.1.0-preview.18
+title: Inference, part 1 — RDFS, RDF and D by query rewriting, regimes over HTTP, the TBox binding
+date: 2026-10-27
+basis:
+  - issue: 170
+  - storage-format: 1
+  - delta-format: 1
+  - adr: "0191"
+  - adr: "0192"
+  - adr: "0193"
+  - adr: "0194"
+sbom:
+  - image: ghcr.io/hafeok/varve sha256:5d4f15e1590ba68590147e28f629b636bafb4e3e71fe43ff277acbd3156ee0f0
+  - nupkg: Varve.Aspire sha256:5487ae004fa5c8238c13cc4e328b18c1c4e4284a07a8e8aafcb9253919a943c6
+  - nupkg: Varve.Delta sha256:5299617e1da10861739e97f9855b692268e40306a1571c84b3c0d2cecdd74363
+  - nupkg: Varve.Derivation sha256:e6b06f0bcdae33a743d14cfe2ebfadf3b6abcad3d9f35a1e32fb2590ec528fe0
+  - nupkg: Varve.Events sha256:7bf3c775e7d08c63f831395f7099661c455a2ce8957e4a71a21fd87472bbc123
+  - nupkg: Varve.Iri sha256:9f408e2effe1153dfdccd32cdeae3068e05fb6a2db6a5f2d35e088e77b040c20
+  - nupkg: Varve.Json.Canonical sha256:3a783e3934ecc7542415b2243da507e6672ccca1fcf0ec80e4a21aff75126e7d
+  - nupkg: Varve.JsonLd sha256:f6b3ead94dcd215ce103482b84c4cfb437a867c0d9c6c6d7a4ad252b808e4938
+  - nupkg: Varve.Management sha256:6a848d5f1085dd33f7a3293bdd89c43cecae6b7a55284282377dc98a17b8cbf3
+  - nupkg: Varve.Protocol sha256:ee2dc11eadaf822148af300a775f98ba18add3c2cc278351f9ce057d199c4dee
+  - nupkg: Varve.Protocol.Client sha256:3b08d5cbf23068337fff9074030cfeaf32f41e08c8df3bd5b85fb1cf836f414a
+  - nupkg: Varve.Rdf sha256:7cad35fb6572c42750fa1301c4b0c942dd625b83d2d77e328cd690b4f0205ea0
+  - nupkg: Varve.RdfXml sha256:772c264b9f3e7da0143c5f1aef4a19f3aceb08e17253e1361c4e8fe2737daa41
+  - nupkg: Varve.Shacl sha256:1ef942640b0b2faf1aea5d87d764098ca2ab9178fb2395c4d35eafb473194f60
+  - nupkg: Varve.Shacl.Sparql sha256:7e5386fc047a570d9135da009053b03387d87cb8d4a917fbf5fe2d2d4d72240f
+  - nupkg: Varve.Shacl.Store sha256:275f32ef72f11cd5bd6178cef8f1ada345f78e4e28310987fb609d77c37f0657
+  - nupkg: Varve.Sparql sha256:a3bfc3fdfb530b88719a2cc4b4402642d8bf27c4f7ab3b3ef178093a65505173
+  - nupkg: Varve.Sparql.Entailment sha256:991582be4398e89d5674b12213d4c536930fbcda2d98d22d28e712f0ffc8ec2b
+  - nupkg: Varve.Sparql.Evaluation sha256:4cb6c53732dcec81aac96f01673f7209627e2cfeaadf2bb35d35511290cf85dd
+  - nupkg: Varve.Sparql.Results sha256:039d62b4333b7629b973eeca08ea4bddefabf1caacc5771dd772488747c25532
+  - nupkg: Varve.Sparql.Store sha256:3ad9bc00f22bfc5b15e09a2d30d7720a3fa275b75e74d7a15d1f760d56c6bf7a
+  - nupkg: Varve.Store sha256:d92f12decebf69b966a961d4c0b018ed1e20b9abd256019339a487b0d8de602b
+  - nupkg: Varve.Store.Azure sha256:f12ef8667864d5b07c51aa8ce3457a2de95309c360cf29fa9525824d008356c3
+  - nupkg: Varve.Store.Browser sha256:f6899e83e8c4b9795c47a14f9180cb072b6845aa194d3ac7306d0a67956ec9d1
+  - nupkg: Varve.Store.ObjectStorage sha256:341bbe779eaf6b96f3e0b63c374fafced3c7a0529eebc03539c5662ef09fffaf
+  - nupkg: Varve.Store.S3 sha256:8476e98985438d4f1f4a90626c7978c667f8c32bd0a74a051b98fb1aa6b903f4
+  - nupkg: Varve.Turtle sha256:540443b1b884d4055232efcca70a9cd71333569de13f07c870273d2c4ec232a0
+  - nupkg: Varve.Xsd sha256:fee90a2f02a9110a11eaa97d208f14ca0b80ef8af9294da691b598575980ff6d
+  - tool: Varve.Server sha256:9ee0caecd8accbcc1a6dd98444575ef60ee9c2dcbc7fa8124a02bae857ea4a28
+accepted-by: mailto:emil@okkels-klein.dk
+summary: |
+  ### Inference, part 1 — tier 1: RDFS, RDF and D by query rewriting
+
+  A query can be answered under an entailment regime. This release completes
+  the first of Inference's three parts (#170, under #95): the rewriting, the
+  regimes over HTTP and the TBox binding. Nothing is materialised, and the log
+  stays asserted-only. The closure (OWL 2 RL, custom rules) is part 2; the
+  commit-time validator, `owl:sameAs`, OWL 2 QL and Brick are part 3. The
+  storage format and the change feed's format are unchanged. The five ADRs
+  are filed unaccepted and accepted on the pull request (ADR 0066).
+
+  #### Added
+
+  - **`Varve.Sparql.Entailment`** (layer 3, ADR 0191): `EntailmentRewriter`
+    rewrites a query's basic graph patterns so that simple evaluation answers
+    the RDF, RDFS or D regime (SPARQL 1.1 Entailment Regimes §2, §4, §5.1),
+    under conditions C1 and C2 and the multiplicity rule (ADR 0193).
+    - Each graph is read merged with the TBox graphs of the binding that
+      covers it, given as `TBoxCover` values. A graph no binding covers is
+      read over its own triples, and a named graph the source holds nothing
+      of is not merged.
+    - The schema is saturated per scoping graph by bound probes to a
+      fixpoint, meta-modelling included, never by a scan of the data, and
+      compiled into tables. `SchemaCache` keeps it across queries, bounded,
+      keyed by the versions of the graphs it merges; the server keeps one
+      per dataset. Under `GRAPH ?g` the named graphs are grouped by the
+      schema they meet.
+    - C2 is answered by existence probes at rewrite time, memoised per
+      request. Classes and container membership properties are sought, one
+      seek per distinct term, where a pattern needs them.
+    - Rewriting does not grow with the data. `?s ?p ?o` and
+      `?x a rdfs:Resource` are answer-sized. A triple that says something of
+      the RDF or RDFS vocabulary itself makes the schema of every graph it is
+      part of read whole, after every commit to it: a TBox binding's
+      description (`GET /manage/datasets/{name}/bindings/{binding}`) names
+      those graphs under `fullReads`, and `/health/ready` counts them.
+    - Each pattern's union drops the branches the rewriting proves add
+      nothing; `?x a ex:Student` under RDFS reads its typings once, not six
+      times. The schema cache is bounded by size as well as count.
+    - D matches literals by value, with Varve.Xsd's datatype map, through
+      two extension functions a host registers (`LiteralValues`).
+    - Property paths and `SERVICE` are evaluated without entailment (§10).
+    - Usable over any `IQuadSource`, without the store; the browser build
+      carries it for 42 KB under brotli against `main`.
+  - **`Varve.Rdf`**: `IDistinctTermSource` and `DistinctTerms`, a source's
+    distinct predicates and objects by seek; `IGraphVersionSource` and
+    `GraphVersion`. The store's `DatasetView` answers both, at the head,
+    inside an extent set's window and as of a position, and
+    `GraphScopedQuadSource` forwards them.
+  - **`Varve-Entailment`** (ADR 0192): a query asks for `simple`, `rdf`,
+    `rdfs` or `d`, or a regime IRI in angle brackets.
+    - Without it, the dataset's default from its TBox bindings applies, and
+      simple entailment when none states one.
+    - The response names the regime, `Vary` lists the header on every
+      dataset response, and the `ETag` of a query's answer is per position
+      and regime: `"<position>.<token>"`.
+    - `400 entailment-unsupported` (members `value` and `supported`) answers
+      anything else, and any value but `simple` on an update.
+      `entailment-refused` is catalogued for the regimes of later parts.
+    - The service description names the default
+      (`sd:defaultEntailmentRegime`), `sd:feature varve:EntailmentHeader`,
+      and the regimes of each covered named graph (`sd:entailmentRegime`).
+    - CORS allows and exposes the header (ADR 0132, amended).
+    - `IEntailmentBindings` is the protocol's seam; the server maps the
+      declarations at the request's management position.
+    - `SparqlHttpClient.QueryAsync` takes an optional regime, and
+      `varve query --entailment <token>` sends it.
+  - **The TBox binding** (ADR 0194): `varve:TBoxBinding` reads into
+    `TBoxBindingDeclaration`: one or more `varve:boundGraph` TBox graphs, a
+    graph set, `varve:profile varve:Rewriting` and at most one
+    `varve:defaultEntailment`.
+    - The shapes in `shapes/management.ttl` validate it at runtime; the
+      residual check refuses two bindings whose graphs overlap, two
+      different defaults in a dataset, and the reserved terms
+      (`varve:RDFS`, `varve:OWL2RL`, `varve:RulesOnly`, `varve:rulesGraph`,
+      `varve:crossGraph`, `varve:sameAs`, `varve:inconsistencyMode`), each
+      naming the part that gives it effect.
+    - **A TBox graph is read by every caller who reads anything in its
+      dataset** (ADR 0190); writing it still needs a write grant.
+      `GraphScope.WithDatasetPublic` carries the rule, and
+      `GrantTable.ScopesOf` applies it.
+    - `ManagementPlan.DatasetPublic` lists the graphs the desired
+      declarations make dataset-public, marking those an apply widens and
+      narrows. `varve apply --plan` prints the list before the graph diffs,
+      and the saved plan carries it.
+  - **Conformance.** The RDF, RDFS and D cases of `sparql11/entailment` and
+    the cases of `rdf-mt` the rewriting decides run under the ratchet. The
+    RIF and OWL 2 DL-only cases are blocked as out of scope (#15), listed by
+    name, and counted by `eng/status.cs`.
+  - **The operator guide** `docs/operator/inference.md`.
+
+  #### Changed
+
+  - **`Vary` on every dataset response names `Varve-Entailment`** beside
+    `Accept`, `Varve-As-Of` and `Authorization`, problems included.
+  - **A query's `ETag` under a regime other than simple** is
+    `"<position>.<token>"`. Under simple entailment, the default when no
+    binding is declared, it is the position alone, as before. An `If-Match`
+    naming such a tag on a write is refused: the tag names no position.
+  - `varve:TBoxBinding` was recorded with exactly one `varve:boundGraph` and
+    no effect (ADR 0166). It now needs a profile and a graph set, and a
+    declaration without them is refused at apply.

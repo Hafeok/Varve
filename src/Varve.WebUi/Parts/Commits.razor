@@ -1,0 +1,86 @@
+@using Varve.Delta.Model
+@* Commits from the change feed (docs/ui/components/CommitList): newest
+   first, each linked to its delta, named by its agent, its full IRI as
+   everywhere, and the request id that made it (review F13). A
+   settings commit is the writer's own, from a management position; an
+   erasure names no change. The wording is here, once. *@
+<CommitList Commits="Entries()" />
+
+@code {
+    private const string ManagementPosition = "https://w3id.org/varve/ns#managementPosition";
+
+    /// <summary>The commits, oldest first, as the feed reads them.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<FeedRecord> Records { get; set; } = [];
+
+    /// <summary>The dataset, for each commit's address.</summary>
+    [Parameter, EditorRequired]
+    public DatasetName Dataset { get; set; }
+
+    /// <summary>The positions that arrived through the live tail just now.</summary>
+    [Parameter]
+    public IReadOnlySet<FeedPosition>? Arrived { get; set; }
+
+    private List<CommitEntry> Entries()
+    {
+        List<CommitEntry> entries = [];
+
+        for (int i = Records.Count - 1; i >= 0; i--)
+        {
+            FeedRecord record = Records[i];
+
+            if (record.Kind != FeedRecordKind.Commit)
+            {
+                continue;
+            }
+
+            string position = record.Position.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            entries.Add(new CommitEntry(
+                position,
+                "datasets/" + Uri.EscapeDataString(Dataset.Value) + "/commits/" + position,
+                What(record),
+                Cause(record),
+                record.Changes.Count(change => change.Kind == FeedChangeKind.Assert),
+                record.Changes.Count(change => change.Kind == FeedChangeKind.Retract),
+                Arrived?.Contains(record.Position) == true));
+        }
+
+        return entries;
+    }
+
+    private static string What(FeedRecord record)
+    {
+        string agent = record.Agent is { } term ? Text(term) : "no agent";
+        return record.CommitKind switch
+        {
+            FeedCommitKind.Settings => agent + " (settings)",
+            FeedCommitKind.Erasure => agent + " (erasure)",
+            _ => agent,
+        };
+    }
+
+    // A data commit's cause is the request that made it; the writer's own
+    // commits (settings, erasure) name the management position they converge
+    // to instead, which every commit also carries as an attachment.
+    private static string Cause(FeedRecord record)
+    {
+        string when = Times.Utc(record.Timestamp.Value);
+
+        if (record.CommitKind == FeedCommitKind.Data)
+        {
+            return record.Cause is { } cause ? when + " · request id " + Text(cause) : when;
+        }
+
+        foreach (Varve.Rdf.RdfTerm attachment in record.Attachments)
+        {
+            if (System.Text.Encoding.UTF8.GetString(attachment.DatatypeIri) == ManagementPosition)
+            {
+                return when + " · management position " + Text(attachment);
+            }
+        }
+
+        return when;
+    }
+
+    private static string Text(Varve.Rdf.RdfTerm term) => System.Text.Encoding.UTF8.GetString(term.Lexical);
+}

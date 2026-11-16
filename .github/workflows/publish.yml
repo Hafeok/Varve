@@ -102,10 +102,10 @@ jobs:
 
       - name: Set up .NET
         # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        # and the WebAssembly workloads from its SDK's workload set (#276).
         uses: ./.github/actions/setup-dotnet
-
-      - name: Install the WebAssembly workloads
-        run: dotnet workload install wasm-tools wasm-experimental
+        with:
+          workloads: wasm-tools wasm-experimental
 
       - name: Dependency register
         # ADR 0224: the register against every lockfile, the Action pins and
@@ -228,6 +228,9 @@ jobs:
 
       - name: Test Varve.Derivation
         run: dotnet test --project tests/Varve.Derivation.Tests/Varve.Derivation.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Derivation.Tests
+
+      - name: Test Varve.Sparql.Entailment
+        run: dotnet test --project tests/Varve.Sparql.Entailment.Tests/Varve.Sparql.Entailment.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Entailment.Tests
 
       - name: Test Varve.Shacl
         run: dotnet test --project tests/Varve.Shacl.Tests/Varve.Shacl.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Shacl.Tests
@@ -426,7 +429,7 @@ jobs:
 
     steps:
       - name: Download the packages
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: packages
           path: ${{ runner.temp }}/packages
@@ -491,7 +494,7 @@ jobs:
 
     steps:
       - name: Download the packages
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: packages
           path: ${{ runner.temp }}/packages
@@ -584,7 +587,7 @@ jobs:
 
       - name: Log in to GHCR
         if: github.event_name == 'push'
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -641,7 +644,7 @@ jobs:
 
     steps:
       - name: Download the digests
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: ${{ runner.temp }}/digests
           pattern: image-digest-*
@@ -653,7 +656,7 @@ jobs:
 
       - name: Log in to GHCR
         if: github.event_name == 'push'
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -704,7 +707,7 @@ jobs:
         # each platform's binary and its closure, from the restore, and the
         # base image's OS packages, from the base pinned by digest. Its digest
         # is the descriptor's.
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sbom
           path: ${{ runner.temp }}/sbom
@@ -809,15 +812,163 @@ jobs:
               | tee -a "$GITHUB_STEP_SUMMARY"
           done
 
+  # The Web UI's bundle (ADR 0202 point 6; ADR 0224 point 1): published from
+  # the tag, held to its download budget (ADR 0205), tested in the browser as
+  # ci.yml's webui-browser job does, zipped as varve-webui-<version>.zip, and
+  # attested keylessly with its build provenance and its SBOM, as a package is
+  # (ADR 0224 point 3). The SBOM is the publish job's, from the restore, its
+  # digest the descriptor's asset line (ADR 0225, amended 2026-11-06). The
+  # release carries the zip and its SBOM. Not in the server's image.
+  webui:
+    name: web ui bundle, attested
+    needs: publish
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        # and the WebAssembly workloads from its SDK's workload set (#276).
+        uses: ./.github/actions/setup-dotnet
+        with:
+          workloads: wasm-tools wasm-experimental
+
+      - name: Publish the Web UI
+        run: dotnet publish src/Varve.WebUi --configuration Release --output "$RUNNER_TEMP/webui"
+
+      - name: The Web UI's download budget
+        run: dotnet run eng/browser-size.cs -- "$RUNNER_TEMP/webui/wwwroot"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start mock-oauth2-server
+        run: |
+          docker compose --file .github/mock-oauth2/compose.yaml up --detach
+          for attempt in $(seq 1 60); do
+            curl --silent --fail http://localhost:8080/varve/.well-known/openid-configuration > /dev/null && exit 0
+            sleep 1
+          done
+          docker compose --file .github/mock-oauth2/compose.yaml logs
+          exit 1
+
+      - name: Test in headless Chromium
+        env:
+          VARVE_CHROME: ${{ vars.VARVE_CHROME || '/usr/bin/google-chrome' }}
+          VARVE_WEBUI: ${{ runner.temp }}/webui/wwwroot
+          VARVE_MOCK_OAUTH2: http://localhost:8080
+          VARVE_BROWSER_TESTS_REQUIRED: 1
+        run: >
+          dotnet test
+          --project tests/Varve.WebUi.Browser.Tests/Varve.WebUi.Browser.Tests.csproj
+          --configuration Release
+
+      - name: Zip the bundle
+        id: zip
+        shell: bash
+        env:
+          # Not VERSION: MSBuild reads that name as a project's Version.
+          RELEASE_VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          set -euo pipefail
+          zip="$RUNNER_TEMP/varve-webui-$RELEASE_VERSION.zip"
+          (cd "$RUNNER_TEMP/webui/wwwroot" && zip -X -r -q "$zip" .)
+          echo "path=$zip" >> "$GITHUB_OUTPUT"
+          echo "sbom=$RUNNER_TEMP/sbom/asset/$(basename "$zip").spdx.json" >> "$GITHUB_OUTPUT"
+          echo "### Web UI" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$(basename "$zip")\` is \`sha256:$(sha256sum "$zip" | cut -d' ' -f1)\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Download the SBOMs
+        # The bundle's SBOM was written in the publish job, from the restore
+        # (ADR 0225, amended 2026-11-06), and its digest is the descriptor's.
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sbom
+          path: ${{ runner.temp }}/sbom
+
+      - name: The runtime and Emscripten in the bundle's build are the ones its SBOM names
+        # The SBOM names the workload's packs that no restore names: Mono's
+        # browser runtime pack and Emscripten's three, at the version of the
+        # runtime the SDK bundles, read from the lockfile. The publish above
+        # took the packs the wasm-tools workload installed. They must be
+        # exactly those: the same names, one version each, and the same.
+        shell: bash
+        env:
+          SBOM: ${{ steps.zip.outputs.sbom }}
+        run: |
+          set -euo pipefail
+          named=$(jq -r '.packages[] | select(.name | test("^Microsoft\\.NETCore\\.App\\.Runtime\\.Mono\\.browser-wasm$|^Microsoft\\.NET\\.Runtime\\.Emscripten\\.")) | "\(.name) \(.versionInfo)"' "$SBOM" | sort)
+          used=$(cd "$(dirname "$(command -v dotnet)")/packs" && for pack in Microsoft.NETCore.App.Runtime.Mono.browser-wasm Microsoft.NET.Runtime.Emscripten.*; do for version in "$pack"/*/; do echo "$pack $(basename "$version")"; done; done | sort)
+          if [ -z "$named" ] || [ "$named" != "$used" ]; then
+            echo "::error::the bundle's SBOM names other workload packs than its publish used"
+            diff <(echo "$named") <(echo "$used") || true
+            exit 1
+          fi
+          { echo "The workload's packs, in the bundle's build and in its SBOM:"; echo '```'; echo "$named"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Attest the build provenance
+        id: provenance
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.zip.outputs.path }}
+
+      - name: Attest the build provenance, again if the first attempt failed
+        # ADR 0224 point 3: Rekor, Sigstore's public log, times out or
+        # answers 404 now and then (#179's dry run had both). One retry,
+        # never more: a second failure fails the job.
+        if: steps.provenance.outcome == 'failure'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.zip.outputs.path }}
+
+      - name: Attest the SBOM
+        id: sbom
+        continue-on-error: true
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ steps.zip.outputs.path }}
+          sbom-path: ${{ steps.zip.outputs.sbom }}
+
+      - name: Attest the SBOM, again if the first attempt failed
+        if: steps.sbom.outcome == 'failure'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ steps.zip.outputs.path }}
+          sbom-path: ${{ steps.zip.outputs.sbom }}
+
+      - name: Upload the bundle
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: webui-zip
+          path: ${{ steps.zip.outputs.path }}
+          if-no-files-found: error
+
   # The release's assets (ADR 0224 points 3 and 6): every SBOM, the VEX
   # document, the packages exactly as they were attested (nuget.org adds its
-  # repository signature, so its copies are not these bytes), and their
-  # checksums, each SBOM named for its artefact and version. A job of its own,
+  # repository signature, so its copies are not these bytes), their
+  # checksums, and the Web UI's bundle exactly as it was attested, each SBOM
+  # named for its artefact and version. A job of its own,
   # with no environment and no credential, so the dry run assembles exactly
   # what the release will carry.
   release-assets:
     name: the release's assets
-    needs: publish
+    needs: [publish, webui]
     runs-on: ubuntu-latest
 
     permissions:
@@ -831,16 +982,22 @@ jobs:
           persist-credentials: false
 
       - name: Download the packages
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: packages
           path: ${{ runner.temp }}/packages
 
       - name: Download the SBOMs
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: sbom
           path: ${{ runner.temp }}/sbom
+
+      - name: Download the Web UI's bundle
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: webui-zip
+          path: ${{ runner.temp }}/webui
 
       - name: The release's assets
         shell: bash
@@ -857,6 +1014,8 @@ jobs:
             cp "$sbom" "$assets/$name.$version.spdx.json"
           done
           cp "$RUNNER_TEMP/sbom/image/varve.spdx.json" "$assets/varve-image-$version.spdx.json"
+          cp "$RUNNER_TEMP/webui/varve-webui-$version.zip" "$assets/"
+          cp "$RUNNER_TEMP/sbom/asset/varve-webui-$version.zip.spdx.json" "$assets/"
           cp security/vex.openvex.json "$assets/varve-$version.openvex.json"
           (cd "$assets" && sha256sum --check SHA256SUMS)
           ls -l "$assets" | tee -a "$GITHUB_STEP_SUMMARY"
@@ -921,7 +1080,7 @@ jobs:
           printf '%s\n' "$evidence" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Download the release's assets
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-assets
           path: ${{ runner.temp }}/assets
@@ -956,6 +1115,8 @@ jobs:
   # - Each package attached to the release, which is the attested package
   #   byte for byte, is verified with gh attestation verify for both
   #   predicates. Each embedded SBOM must be the release's SBOM asset.
+  # - The Web UI's bundle attached to the release is verified the same way,
+  #   for both predicates.
   # - nuget.org's copy cannot be: nuget.org adds its repository signature, an
   #   entry of its own, so its bytes are not the attested ones. It is
   #   downloaded instead, and every entry but .signature.p7s is required to be
@@ -1005,7 +1166,7 @@ jobs:
 
       - name: Download what this run built (dry run)
         if: github.event_name != 'push'
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-assets
           path: ${{ runner.temp }}/release
@@ -1031,6 +1192,14 @@ jobs:
             done
             id="${package%."$version".nupkg}"
             unzip -p "$package" _manifest/spdx_2.3/manifest.spdx.json | cmp - "$id.$version.spdx.json"
+          done
+          # The Web UI's bundle, and the SBOM the release carries beside it.
+          bundle="varve-webui-$version.zip"
+          test -s "$bundle.spdx.json"
+          for predicate in https://slsa.dev/provenance/v1 https://spdx.dev/Document/v2.3; do
+            gh attestation verify "$bundle" --owner hafeok "${source[@]}" --predicate-type "$predicate" --format json \
+              --jq '.[].verificationResult | "verified \(.statement.predicateType) for \(.statement.subject[0].name)@sha256:\(.statement.subject[0].digest.sha256)"' \
+              | tee -a "$GITHUB_STEP_SUMMARY"
           done
 
       - name: nuget.org serves the attested packages

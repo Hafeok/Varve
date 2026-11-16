@@ -1,0 +1,10 @@
+{
+  "parameters": {
+    "Status": 403,
+    "Title": "The caller does not hold the permission the request needs.",
+    "Type": "https://w3id.org/varve/problems/forbidden",
+    "TypeHref": "#",
+    "RequestId": "varve-1:0HN7:1",
+    "SignedInAs": "https://login.example/v2.0#owner"
+  }
+}

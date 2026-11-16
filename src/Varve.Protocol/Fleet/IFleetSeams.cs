@@ -108,6 +108,14 @@ public interface IManagementPlane
     BindingDescription? DescribeBinding(DatasetName dataset, RdfTerm binding) => null;
 
     /// <summary>
+    /// A TBox binding of <paramref name="dataset"/> at the applied position,
+    /// with the graphs whose content forces a full read of a schema it
+    /// meets, where this instance holds the dataset (ADR 0194); null when
+    /// there is no such binding. None by default.
+    /// </summary>
+    TBoxBindingDescription? DescribeTBoxBinding(DatasetName dataset, RdfTerm binding) => null;
+
+    /// <summary>
     /// What <c>GET /manage/datasets/{name}/state</c> reports of a dataset's
     /// handover (ADR 0180 point 7): the writer epoch, whether this instance is
     /// a warm standby, the writer set, and the epoch history, written as

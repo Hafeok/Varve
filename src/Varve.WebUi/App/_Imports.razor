@@ -1,0 +1,9 @@
+@* The app: the root component, the layout every screen renders in, and the
+   services the shell reads. The top level (ADR 0206 point 4, amended
+   2026-10-30): it renders the pages and no level uses it, so it may use the
+   client's services, as pages do. *@
+@using Varve.Protocol.Client
+@using Varve.Protocol.Client.Model
+@using Varve.WebUi.Parts
+@using Varve.WebUi.SignIn
+@using Varve.WebUi.Pages.Services

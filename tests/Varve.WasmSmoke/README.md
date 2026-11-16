@@ -1,11 +1,13 @@
 # Varve.WasmSmoke
 
-A `browser-wasm` app that does seven things on one page: parses N-Quads, reads
+A `browser-wasm` app that does eight things on one page: parses N-Quads, reads
 and writes Turtle and TriG, reads and writes RDF 1.2 Turtle, RDF/XML and
 JSON-LD (milestone 6b), opens an in-memory `Varve.Store` dataset — commit,
 pin, checkpoint, as-of, and a reopen from its own log — parses a SPARQL query
 and an update, prints the algebra through the serialiser and parses it back,
-evaluates queries over a store loaded from Turtle, and probes the
+evaluates queries over a store loaded from Turtle, answers a query
+rewritten under RDFS and one under D against a TBox graph (Inference, part 1,
+#170), and probes the
 cryptographic primitives ADR 0028's composition and SPARQL's hash functions
 need.
 
@@ -37,6 +39,25 @@ report ending in `OK` is a pass; anything else names what failed.
 
 It must be served over HTTP. Opening the file directly does not work: the
 runtime is loaded as an ES module and fetches `_framework/` over the network.
+
+## What it costs
+
+The trimmed bundle's `_framework/`, each file compressed alone, as measured
+for Inference, part 1 (#170) on 2026-10-27:
+
+| Build | raw | gzip | brotli |
+|---|---:|---:|---:|
+| 2026-10-15, before Inference (#95's plan) | 5.37 MB | 2.05 MB | 1.72 MB |
+| `main` at `705b2686`, 2026-10-27, its WasmSmoke built and measured alike | 6.434 MB | 2.425 MB | 2.035 MB |
+| #170's head, after the schema rework and pruning | 6.543 MB | 2.474 MB | 2.077 MB |
+
+**Against `main`**, tier 1 costs 109 KB raw, 48 KB gzip and **42 KB
+brotli**: `Varve.Sparql.Entailment.wasm` is 86 KB, 34 KB under brotli, and
+the rest is evaluator code the rewritten queries keep from trimming.
+**Against 2026-10-15**, the bundle is 357 KB larger under brotli: 315 KB of
+it is `main`'s own growth since, the milestones between, and 42 KB is this
+part. Each size is the sum of `_framework/`'s files compressed alone, gzip at
+level 9 and brotli at quality 11.
 
 ## What it found
 

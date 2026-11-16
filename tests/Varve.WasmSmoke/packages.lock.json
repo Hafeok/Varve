@@ -49,6 +49,15 @@
           "Varve.Rdf": "[1.0.0, )"
         }
       },
+      "varve.sparql.entailment": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Sparql": "[1.0.0, )",
+          "Varve.Xsd": "[1.0.0, )"
+        }
+      },
       "varve.sparql.evaluation": {
         "type": "Project",
         "dependencies": {

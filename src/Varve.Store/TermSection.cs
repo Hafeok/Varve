@@ -6,6 +6,7 @@ using System;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
+using System.Threading;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
@@ -333,6 +334,10 @@ internal sealed class TermSection
     private readonly long _offsetsAt;
     private readonly long _hashesAt;
 
+    // The counters of the section's triple terms, ascending: found once, on
+    // the first lookup of a triple term's parts, and usually none.
+    private long[]? _triples;
+
     private TermSection(long from, long to, long entriesLength, byte[]? entries, long[]? offsets, TermHash[]? hashes, IReadableBlob? blob, long entriesAt, long offsetsAt, long hashesAt, TermFilter? filter)
     {
         From = from;
@@ -495,6 +500,66 @@ internal sealed class TermSection
     /// <summary>Whether the section holds the entry of a canonical counter.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]
     internal bool Holds(long counter) => counter > From && counter <= To;
+
+    /// <summary>
+    /// Whether the entry of <paramref name="counter"/>, a counter the section
+    /// holds, is a triple term's. Without it, a lookup of a term's parts
+    /// reads the entry of every term it is asked about, three reads of the
+    /// blob each, to find that almost none is a triple term. The section is
+    /// immutable, so its triple terms are found once, by one pass over its
+    /// entries, and every later answer is a search of them.
+    /// </summary>
+    [DesignDecision(typeof(TheRowScopedQuadSource.TripleTermsFoundOncePerSection), Scope = ExceptionScope.HotPath)]
+    internal bool HoldsTriple(long counter)
+    {
+        long[] triples = Volatile.Read(ref _triples) ?? FindTriples();
+        return triples.Length > 0 && Array.BinarySearch(triples, counter) >= 0;
+    }
+
+    // One pass over the entries in chunks: a chunk's offsets, then its
+    // entries in one read, each entry's kind byte after its id. Two threads
+    // may both make the pass; they find the same counters.
+    private long[] FindTriples()
+    {
+        const int Chunk = 4096;
+        long[] offsets = new long[Chunk + 1];
+        byte[] entries = [];
+        long[] found = [];
+        int count = 0;
+
+        for (long index = 0; index < Count; index += Chunk)
+        {
+            int n = (int)Math.Min(Chunk, Count - index);
+            ReadOffsets(index, offsets.AsSpan(0, n + 1));
+            int length = checked((int)(offsets[n] - offsets[0]));
+
+            if (entries.Length < length)
+            {
+                entries = new byte[length];
+            }
+
+            ReadEntries(offsets[0], entries.AsSpan(0, length));
+
+            for (int i = 0; i < n; i++)
+            {
+                ReadOnlySpan<byte> entry = entries.AsSpan((int)(offsets[i] - offsets[0]), (int)(offsets[i + 1] - offsets[i]));
+
+                if (LogFormat.IsTripleEntry(entry))
+                {
+                    if (count == found.Length)
+                    {
+                        Array.Resize(ref found, Math.Max(16, found.Length * 2));
+                    }
+
+                    found[count++] = From + 1 + index + i;
+                }
+            }
+        }
+
+        Array.Resize(ref found, count);
+        Interlocked.CompareExchange(ref _triples, found, null);
+        return Volatile.Read(ref _triples)!;
+    }
 
     /// <summary>The offset, within the entries, of entry <paramref name="index"/>; <c>Count</c> gives their end.</summary>
     [HotPath(typeof(BriefHardConstraints.AllocationPerQuadIsADefect))]

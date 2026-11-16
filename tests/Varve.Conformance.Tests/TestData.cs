@@ -85,6 +85,10 @@ internal static class TestData
         return true;
     }
 
+    /// <summary>A path in this repository.</summary>
+    internal static string ResolveFromRepository(string relativePath) =>
+        Path.Combine(RepositoryRoot(), relativePath.Replace('/', Path.DirectorySeparatorChar));
+
     internal static string ResolveFromRoot(string relativePath) =>
         Path.Combine(RdfTestsRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
 

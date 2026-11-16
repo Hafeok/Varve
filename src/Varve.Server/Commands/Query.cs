@@ -28,23 +28,38 @@ internal static class Query
         Option<string?> file = new("--file") { Description = "A file holding the query." };
         Option<string?> asOf = new("--as-of") { Description = "Read the past: position:<n> or time:<RFC 3339>." };
         Option<string?> format = new("--format", "-f") { Description = "json, xml, csv or tsv for solutions and booleans (json by default); nt, ttl, nq or trig for graphs (nt by default)." };
+        Option<string?> entailment = new("--entailment") { Description = "The regime to answer under: simple, rdf, rdfs or d, sent as Varve-Entailment; the dataset's default when absent (ADR 0192)." };
         Command command = new("query", "Evaluate a SPARQL query over a dataset.");
         target.AddTo(command);
         command.Options.Add(text);
         command.Options.Add(file);
         command.Options.Add(format);
         command.Options.Add(asOf);
+        command.Options.Add(entailment);
         command.SetAction((parsed, cancellationToken) => Cli.GuardAsync(async () =>
         {
             byte[] query = await Commands.TextAsync(parsed.GetValue(text), parsed.GetValue(file), "query", cancellationToken).ConfigureAwait(false);
             string? syntax = parsed.GetValue(format);
             string? selector = parsed.GetValue(asOf);
+            string? regime = parsed.GetValue(entailment);
+
+            if (regime is not (null or "simple" or "rdf" or "rdfs" or "d"))
+            {
+                throw new Cli.CommandException("--entailment is simple, rdf, rdfs or d.");
+            }
+
             await using Opened opened = await target.OpenAsync(parsed, io, cancellationToken).ConfigureAwait(false);
 
             if (opened is Remote remote)
             {
-                using HttpResponseMessage response = await remote.Client.QueryAsync(System.Text.Encoding.UTF8.GetString(query), Accept(syntax), selector, cancellationToken).ConfigureAwait(false);
+                using HttpResponseMessage response = await remote.Client.QueryAsync(System.Text.Encoding.UTF8.GetString(query), Accept(syntax), selector, regime, cancellationToken).ConfigureAwait(false);
                 return await Commands.CopyAsync(response, io, cancellationToken).ConfigureAwait(false);
+            }
+
+            // A graph's TBox is its binding's, and the bindings are a server's declarations (ADR 0194).
+            if (regime is not (null or "simple"))
+            {
+                throw new Cli.CommandException("--entailment " + regime + " asks a server: the TBox bindings a query is rewritten against are its declarations. Name the dataset by URL.");
             }
 
             return await LocalAsync((Local)opened, query, syntax, selector, io, cancellationToken).ConfigureAwait(false);
