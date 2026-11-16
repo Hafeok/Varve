@@ -68,3 +68,5 @@ static Varve.Inference.Store.Model.PlacedClash.operator ==(Varve.Inference.Store
 ~override Varve.Inference.Store.Model.InferredRow.ToString() -> string
 ~override Varve.Inference.Store.Model.PlacedClash.Equals(object obj) -> bool
 ~override Varve.Inference.Store.Model.PlacedClash.ToString() -> string
+Varve.Inference.Store.InferenceProjection.LoadAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Inference.Store.InferenceProjection.SaveAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask

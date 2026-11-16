@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
@@ -265,6 +266,254 @@ public sealed class InferenceProjection : IProjection
             return _state?.Clashes() ?? [];
         }
     }
+
+    /// <summary>
+    /// Writes the projection's state to <paramref name="store"/>, the local
+    /// cache's derived store (ADR 0195 point 5), under
+    /// <c>inference/{enc(binding)}/</c>, in the dataset's checked envelope
+    /// (ADR 0213), and deletes the older states there: the positions, the
+    /// projection's own terms, and every row it holds.
+    /// </summary>
+    public async ValueTask SaveAsync(IDerivedStore store, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        ArrayBufferWriter<byte> bytes = new();
+        long position;
+        lock (_applying)
+        {
+            lock (_rowsLock)
+            {
+                position = _position;
+                bytes.Write(StateSnapshot.Magic);
+                ArrayBufferWriter<byte> identity = new();
+                StateSnapshot.Identity(identity, Binding);
+                StateSnapshot.Blob(bytes, identity.WrittenSpan);
+                StateSnapshot.Long(bytes, _position);
+                StateSnapshot.Long(bytes, _floor);
+                StateSnapshot.Long(bytes, _heldFrom);
+                StateSnapshot.Long(bytes, _stoppedAt);
+                StateSnapshot.Long(bytes, _reached.Value);
+                IReadOnlyList<RdfTerm> locals = _terms.LocalTable();
+                StateSnapshot.Count(bytes, locals.Count);
+                foreach (RdfTerm term in locals)
+                {
+                    StateSnapshot.Term(bytes, term);
+                }
+
+                StateSnapshot.Count(bytes, _open.Count);
+                foreach ((TermHandle graph, Dictionary<Fact, long> rows) in _open)
+                {
+                    StateSnapshot.Handle(bytes, graph);
+                    StateSnapshot.Count(bytes, rows.Count);
+                    foreach ((Fact fact, long start) in rows)
+                    {
+                        StateSnapshot.Fact(bytes, fact);
+                        StateSnapshot.Long(bytes, start);
+                    }
+                }
+
+                StateSnapshot.Count(bytes, _closed.Count);
+                foreach (ClosedRow row in _closed)
+                {
+                    StateSnapshot.Handle(bytes, row.Graph);
+                    StateSnapshot.Fact(bytes, row.Fact);
+                    StateSnapshot.Long(bytes, row.Start);
+                    StateSnapshot.Long(bytes, row.End);
+                }
+            }
+        }
+
+        BlobName name = new(StateSnapshot.Name(Binding, position));
+        await _dataset.WriteCheckedAsync(store, name, new Position(position), bytes.WrittenMemory, cancellationToken).ConfigureAwait(false);
+
+        string directory = StateSnapshot.Directory(Binding);
+        foreach (BlobName existing in await store.ListAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (existing.Value.StartsWith(directory, StringComparison.Ordinal) && existing != name)
+            {
+                await store.DeleteAsync(existing, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads the newest state <see cref="SaveAsync"/> wrote for this binding
+    /// to <paramref name="store"/>: whether one was read. A state that does
+    /// not verify (ADR 0213), that is bound to another dataset or position,
+    /// for another binding, that does not decode, or whose open rows are not
+    /// the closure the log gives at its position, is a miss, and the
+    /// projection stays empty at position 0, to be rebuilt from the log. A
+    /// damaged entry is never a wrong entailment.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The projection has been fed already.</exception>
+    public async ValueTask<bool> LoadAsync(IDerivedStore store, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        if (Volatile.Read(ref _position) != 0)
+        {
+            throw new InvalidOperationException("A state is loaded into a projection that has not been fed.");
+        }
+
+        string directory = StateSnapshot.Directory(Binding) + "state-";
+        BlobName? newest = null;
+        foreach (BlobName existing in await store.ListAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (existing.Value.StartsWith(directory, StringComparison.Ordinal) && (newest is null || existing > newest.Value))
+            {
+                newest = existing;
+            }
+        }
+
+        if (newest is not { } name || await _dataset.TryReadCheckedAsync(store, name, cancellationToken).ConfigureAwait(false) is not { } content)
+        {
+            return false;
+        }
+
+        Saved saved;
+        try
+        {
+            saved = Decode(content.Bytes.Span);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            // Bytes that verified and still do not decode are a miss, never an error (ADR 0213).
+            return false;
+        }
+
+        if (saved.Position != content.Position.Value || saved.Floor > saved.Position)
+        {
+            return false;
+        }
+
+        using DatasetView view = await _dataset.AsOfAsync(content.Position, cancellationToken).ConfigureAwait(false);
+        lock (_applying)
+        {
+            _terms.Restore(saved.Locals);
+            Materialisation? built = null;
+            if (saved.StoppedAt == long.MaxValue)
+            {
+                try
+                {
+                    built = Materialisation.Build(view, _terms, this, cancellationToken);
+                }
+                catch (ClosureLimitExceededException)
+                {
+                    _terms.Restore([]);
+                    return false;
+                }
+
+                HashSet<(TermHandle, Fact)> rows = [.. built.Rows()];
+                int open = 0;
+                bool agrees = true;
+                foreach ((TermHandle graph, Dictionary<Fact, long> facts) in saved.Open)
+                {
+                    foreach (Fact fact in facts.Keys)
+                    {
+                        open++;
+                        agrees &= rows.Contains((graph, fact));
+                    }
+                }
+
+                if (!agrees || open != rows.Count)
+                {
+                    built.Release();
+                    _terms.Restore([]);
+                    return false;
+                }
+            }
+
+            lock (_rowsLock)
+            {
+                _open.Clear();
+                foreach ((TermHandle graph, Dictionary<Fact, long> facts) in saved.Open)
+                {
+                    _open[graph] = facts;
+                }
+
+                _closed.Clear();
+                foreach (ClosedRow row in saved.Closed)
+                {
+                    _closed.Enqueue(row);
+                }
+
+                _closedBytes = saved.Closed.Count * InferenceOptions.BytesPerClosedRow.Value;
+                _heldFrom = saved.HeldFrom;
+                Trim();
+            }
+
+            _state?.Release();
+            _state = built;
+            _reached = new ByteCount(saved.Reached);
+            Volatile.Write(ref _floor, saved.Floor);
+            Volatile.Write(ref _stoppedAt, saved.StoppedAt);
+        }
+
+        Advance(saved.Position);
+        return true;
+    }
+
+    private Saved Decode(ReadOnlySpan<byte> bytes)
+    {
+        StateSnapshot.Reader reader = new(bytes);
+        if (!reader.Header(Binding))
+        {
+            throw new System.IO.InvalidDataException("A state of another binding or format.");
+        }
+
+        long position = reader.Long(), floor = reader.Long(), heldFrom = reader.Long(), stoppedAt = reader.Long(), reached = reader.Long();
+        if (reached < 0 || heldFrom < 0 || floor < 0)
+        {
+            throw new System.IO.InvalidDataException("A state with a negative position or size.");
+        }
+
+        List<RdfTerm> locals = [];
+        for (int i = reader.Count(); i > 0; i--)
+        {
+            locals.Add(reader.Term());
+        }
+
+        List<(TermHandle, Dictionary<Fact, long>)> open = [];
+        for (int i = reader.Count(); i > 0; i--)
+        {
+            TermHandle graph = reader.Handle();
+            Dictionary<Fact, long> rows = [];
+            for (int j = reader.Count(); j > 0; j--)
+            {
+                Fact fact = reader.Fact();
+                long start = reader.Long();
+                if (start > position || !rows.TryAdd(fact, start))
+                {
+                    throw new System.IO.InvalidDataException("A row opened above its state, or twice.");
+                }
+            }
+
+            open.Add((graph, rows));
+        }
+
+        List<ClosedRow> closed = [];
+        for (int i = reader.Count(); i > 0; i--)
+        {
+            TermHandle graph = reader.Handle();
+            Fact fact = reader.Fact();
+            long start = reader.Long(), end = reader.Long();
+            if (start >= end || end > position || (closed.Count > 0 && end < closed[^1].End))
+            {
+                throw new System.IO.InvalidDataException("A closed row out of order.");
+            }
+
+            closed.Add(new ClosedRow(graph, fact, start, end));
+        }
+
+        if (!reader.AtEnd)
+        {
+            throw new System.IO.InvalidDataException("A state with bytes after its rows.");
+        }
+
+        return new Saved(position, floor, heldFrom, stoppedAt, reached, locals, open, closed);
+    }
+
+    /// <summary>A state as decoded, before it is checked against the log.</summary>
+    private sealed record Saved(long Position, long Floor, long HeldFrom, long StoppedAt, long Reached, List<RdfTerm> Locals, List<(TermHandle Graph, Dictionary<Fact, long> Rows)> Open, List<ClosedRow> Closed);
 
     /// <summary>
     /// Waits until the projection reaches <paramref name="position"/>: the

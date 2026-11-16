@@ -54,6 +54,31 @@ internal sealed class ProjectionTerms(IQuadSource source) : IInferenceTerms
     /// <summary>The terms the current program names by a handle of the projection's own: a commit that allocates one starts a generation.</summary>
     internal IReadOnlyCollection<RdfTerm> LocalTerms => _active;
 
+    /// <summary>The projection's own terms, in the order their handles were given: what a saved state carries.</summary>
+    internal IReadOnlyList<RdfTerm> LocalTable()
+    {
+        lock (_lock)
+        {
+            return [.. _localTerms];
+        }
+    }
+
+    /// <summary>Replaces the projection's own terms with a saved table, so that each saved handle names its term again.</summary>
+    internal void Restore(IReadOnlyList<RdfTerm> table)
+    {
+        lock (_lock)
+        {
+            _local.Clear();
+            _localTerms.Clear();
+            _active.Clear();
+            foreach (RdfTerm term in table)
+            {
+                _localTerms.Add(term);
+                _local[term] = new TermHandle(LocalTag | (uint)_localTerms.Count);
+            }
+        }
+    }
+
     /// <summary>Starts a program: the terms it names by a local handle are counted afresh.</summary>
     internal void BeginProgram() => _active.Clear();
 
