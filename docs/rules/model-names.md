@@ -56,4 +56,20 @@ fictional.
 
 ## Exception path
 
-None. The rule has no suppression; a line that must quote a name is reworded.
+The rule has no suppression; a line that must quote a name is reworded.
+
+One list is skipped: `eng/model-names-grandfathered.txt`, exact commit hashes,
+each with its pull request and the reason (the maintainer's ruling of
+2026-11-16). It holds commits that were pushed before the gate reached `main`
+and name a model in a co-author trailer. A pushed branch is never
+force-pushed, so they cannot be reworded, and without the list their pull
+requests could not land once the gate is on `main`. The lower bound stays at
+`e684009a`.
+
+- **Nothing pushed after the gate is on `main` may be added without the
+  maintainer's approval.** A commit made after that is reworded before it is
+  pushed; the hook does it as the commit is made.
+- The list was drawn up by running the gate over every open pull request's
+  head on 2026-11-16: seven commits of #268 and four of #264, and no other.
+- An entry is the full hash, `#N` and the reason. A line in any other shape
+  stops the gate with exit code 2.

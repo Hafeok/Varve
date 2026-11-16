@@ -28,6 +28,13 @@
 // co-author trailer (2d94eb94, 195a8cdf). Each finding names the commit and
 // the line.
 //
+// A commit listed in eng/model-names-grandfathered.txt is skipped: one line
+// each, the full hash, its pull request as #N, and the reason. The list holds
+// commits pushed before the gate reached main, which cannot be reworded
+// without a force push (the maintainer's ruling of 2026-11-16); nothing pushed
+// after that is added without his approval. A line that is not in that shape
+// stops the gate, so that a typing mistake never skips or checks by accident.
+//
 // --- --message (eng/hooks/commit-msg) ------------------------------------------
 //
 // The message being committed. A Co-Authored-By: trailer that names a model is
@@ -120,6 +127,17 @@ if (message is not null)
     return 0;
 }
 
+HashSet<string> grandfathered;
+try
+{
+    grandfathered = Grandfathered(Path.Combine(root, "eng", "model-names-grandfathered.txt"));
+}
+catch (IOException exception)
+{
+    Console.Error.WriteLine($"model-names: {exception.Message}");
+    return 2;
+}
+
 string range = explicitRange ?? ResolveRange(root, baseRef);
 List<string> log = ["log", "--format=%x01%H%x02%B", range];
 if (Git(root, "rev-parse", "--verify", "--quiet", LowerBound + "^{commit}").Exit == 0)
@@ -136,6 +154,7 @@ if (exit != 0)
 }
 
 int commits = 0;
+int skipped = 0;
 List<string> findings = [];
 foreach (string record in output.Split('\u0001', StringSplitOptions.RemoveEmptyEntries))
 {
@@ -145,8 +164,14 @@ foreach (string record in output.Split('\u0001', StringSplitOptions.RemoveEmptyE
         continue;
     }
 
-    commits++;
     string sha = record[..split];
+    if (grandfathered.Contains(sha))
+    {
+        skipped++;
+        continue;
+    }
+
+    commits++;
     foreach (string line in names.Named(record[(split + 1)..]))
     {
         findings.Add($"{sha[..8]}: \"{line.Trim()}\"");
@@ -155,7 +180,7 @@ foreach (string record in output.Split('\u0001', StringSplitOptions.RemoveEmptyE
 
 if (findings.Count == 0)
 {
-    Console.WriteLine($"model-names: {commits} commit(s), none names a model.");
+    Console.WriteLine($"model-names: {commits} commit(s), none names a model{(skipped > 0 ? $"; {skipped} skipped, listed in eng/model-names-grandfathered.txt" : "")}.");
     return 0;
 }
 
@@ -167,6 +192,38 @@ foreach (string finding in findings)
 
 Console.Error.WriteLine("model-names: eng/hooks/commit-msg rewrites a co-author trailer and refuses the rest when the commit is made; `git config core.hooksPath eng/hooks` sets it. Reword the commits, then push again.");
 return 1;
+
+// The commits the gate skips, by full hash. A missing file is an empty list.
+static HashSet<string> Grandfathered(string path)
+{
+    HashSet<string> commits = new(StringComparer.Ordinal);
+    if (!File.Exists(path))
+    {
+        return commits;
+    }
+
+    Regex entry = new(@"^(?<sha>[0-9a-f]{40}) #\d+ \S.*$", RegexOptions.CultureInvariant);
+    int number = 0;
+    foreach (string raw in File.ReadAllLines(path))
+    {
+        number++;
+        string line = raw.Trim();
+        if (line.Length == 0 || line.StartsWith('#'))
+        {
+            continue;
+        }
+
+        Match match = entry.Match(line);
+        if (!match.Success)
+        {
+            throw new IOException($"{path}:{number}: an entry is a commit's full hash (40 lowercase hexadecimal characters), its pull request as #N, and the reason");
+        }
+
+        commits.Add(match.Groups["sha"].Value);
+    }
+
+    return commits;
+}
 
 static int Fixtures(ModelNames names, string directory)
 {
