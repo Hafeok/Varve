@@ -10,7 +10,7 @@ decisions:
   - key: FailuresAreClassifiedByWhetherARetryHelps
     statement: "A dataset that failed to open carries failure damaged, configuration or transient, read from exception types, on its entries and on the unavailable problem, whose detail says what to do"
   - key: SupersededNamesTheHolder
-    statement: "writer-superseded names the writer and epoch the store's writer record holds, read when the write is refused, whatever the refused instance believes its role is; a fleet of one names none"
+    statement: "writer-superseded names the instance that holds the epoch by its name in the fleet, and the epoch, as the store's writer record holds them, read when the write is refused, whatever the refused instance believes its role is; the data plane never names an instance's internal address, which stays on the management plane; a fleet of one names none"
   - key: ShuttingDownSaysTheOthersServe
     statement: "shutting-down's detail says the instance is draining and, in a fleet, that the other instances keep serving"
   - key: EveryProblemPageSaysWhatToDo

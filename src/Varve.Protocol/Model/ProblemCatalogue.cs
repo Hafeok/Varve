@@ -103,7 +103,7 @@ public static class ProblemCatalogue
         new(ProblemType.ShuttingDown, 503, "The server is shutting down."),
         new(ProblemType.NotReady, 503, "The server is not ready.", "management", "datasets", "retention", "writesRefused"),
         new(ProblemType.ServerBusy, 503, "The server has as many reads in flight as it allows.", "limit"),
-        new(ProblemType.WriterSuperseded, 503, "A newer writer holds the dataset; this instance serves reads only.", "writer", "epoch"),
+        new(ProblemType.WriterSuperseded, 503, "A newer writer holds the dataset; this instance serves reads only.", "holder", "epoch"),
         new(ProblemType.ManagementBehind, 503, "The server has not applied the management position asked for.", "position", "appliedPosition"),
         new(ProblemType.DatasetBehind, 503, "This instance has not applied the dataset position asked for.", "position", "appliedPosition"),
         new(ProblemType.ValidationBehind, 503, "The validation report has not reached the position asked for.", "binding", "position", "projectedPosition"),

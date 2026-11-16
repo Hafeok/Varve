@@ -154,13 +154,18 @@ public sealed class ObjectStorageServerTests
             string refusal = await refused.Content.ReadAsStringAsync(Ct);
             Assert.Contains("writer-superseded", refusal, StringComparison.Ordinal);
 
-            // It names the writer that holds the epoch now, and the epoch (ADR 0242).
+            // It names the instance that holds the epoch now, by its name, and
+            // the epoch; never the instance's internal address, which is the
+            // management plane's to show (ADR 0242).
             using (System.Text.Json.JsonDocument problem = System.Text.Json.JsonDocument.Parse(refusal))
             {
-                Assert.Equal("http://127.0.0.1:9/second", problem.RootElement.GetProperty("writer").GetString());
+                Assert.Equal("second", problem.RootElement.GetProperty("holder").GetString());
                 Assert.Equal(2, problem.RootElement.GetProperty("epoch").GetInt64());
-                Assert.Contains("send writes there", problem.RootElement.GetProperty("detail").GetString(), StringComparison.Ordinal);
+                Assert.False(problem.RootElement.TryGetProperty("writer", out _));
+                Assert.Contains("Instance second writes it now, at epoch 2", problem.RootElement.GetProperty("detail").GetString(), StringComparison.Ordinal);
             }
+
+            Assert.DoesNotContain("127.0.0.1:9", refusal, StringComparison.Ordinal);
 
             HttpResponseMessage ready = await first.Client.GetAsync(new Uri("health/ready", UriKind.Relative), Ct);
             Assert.Equal(HttpStatusCode.ServiceUnavailable, ready.StatusCode);

@@ -2,7 +2,7 @@
 
 ## Status
 
-**Filed unaccepted by the session for #194, 2026-11-10** (ADR 0066).
+**Accepted — filed unaccepted by the session for #194, 2026-11-10** (ADR 0066).
 Acceptance is the maintainer's act, or his delegate's for a decision he has
 read (ADR 0239). Records decision set
 [`problems-that-say-what-to-do`](../decisions/problems-that-say-what-to-do.md).
@@ -64,14 +64,24 @@ and from the catalogue's pages:
    and its `detail` says what to do: restore from a backup, correct the
    setting or upgrade, or wait.
 
-3. **`writer-superseded` names the writer that holds the epoch.** `writer`
-   is the internal address the store's writer record names, and `epoch` its
-   epoch. The record is read when the write is refused, through
-   `IWriterDirectory.HolderAsync`, whatever the refused instance believes
-   its role is. A fleet of one has no record to read and leaves both out.
+3. **`writer-superseded` names the instance that holds the epoch, by its
+   name.** `holder` is the holding instance's name in the fleet, as the
+   store's writer record names it, and `epoch` its epoch. The record is read
+   when the write is refused, through `IWriterDirectory.HolderAsync`,
+   whatever the refused instance believes its role is. A fleet of one has no
+   record to read and leaves both out.
+
+   **The data plane names the holder by name, never by its internal
+   address.** An instance's internal address is for forwarding and the
+   operator. It stays on the management plane: the history in a dataset's
+   `…/state` gives each claim's holder and address, and `/manage/system`
+   gives the system writer's. A data-plane client sends its writes through
+   any instance of the fleet, which forwards them, so it has no use for the
+   address.
+
    The page says which of two cases applies: a takeover or a restart
-   elsewhere (send writes there), or two instances that both claim the
-   dataset (reconfigure, usually `Varve:Fleet:Writer`).
+   elsewhere (send writes through any instance), or two instances that both
+   claim the dataset (reconfigure, usually `Varve:Fleet:Writer`).
 
 4. **`shutting-down`'s `detail` says the instance is draining.** In a fleet it
    adds that the other instances keep serving. It names none, because which
@@ -88,6 +98,10 @@ and from the catalogue's pages:
   doesn't already have. The caller learns which permission it lacked on a
   dataset it named. Grants, roles and other agents stay hidden. The
   operator, meanwhile, can't act on a bare refusal.
+- **`writer-superseded` naming the holder's internal address.** It was this
+  ADR's first draft. The address is an internal endpoint, not a client's to
+  use, so it is refused on the data plane, and the management plane keeps
+  it.
 - **Name the missing grant or the roles that would satisfy it.** That
   discloses the grant table to anyone with a token, so it's refused.
 - **A `403` naming a hidden graph or row the caller may not write.** That
@@ -103,8 +117,9 @@ and from the catalogue's pages:
 
 ## Consequences
 
-- `Varve.Protocol` gains `DatasetFailure`, `DatasetEntry.Failure` and
-  `IWriterDirectory.HolderAsync`, with a default implementation. All are in
+- `Varve.Protocol` gains `DatasetFailure`, `DatasetEntry.Failure`,
+  `WriterHolder` (an instance's name and epoch) and
+  `IWriterDirectory.HolderAsync`, whose default answers none. All are in
   `PublicAPI.Unshipped.txt`.
 - The console's problem panel can show the new members. That's a #96
   follow-up; until then it shows the `detail`, which states them.

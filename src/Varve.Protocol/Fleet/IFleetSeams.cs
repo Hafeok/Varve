@@ -36,11 +36,12 @@ public interface IWriterDirectory
     void Stale(WriterTarget target);
 
     /// <summary>
-    /// Who holds <paramref name="target"/>'s writer epoch as the store records
-    /// it now, whatever this instance believes its own role is: what a
-    /// superseded writer names in its refusal (ADR 0242). By default, the route.
+    /// The instance that holds <paramref name="target"/>'s writer epoch as the
+    /// store records it now, whatever this instance believes its own role is:
+    /// what a superseded writer names in its refusal (ADR 0242). Null when no
+    /// other instance holds it, or the directory cannot tell; by default, null.
     /// </summary>
-    ValueTask<WriterRoute> HolderAsync(WriterTarget target, CancellationToken cancellationToken) => RouteAsync(target, cancellationToken);
+    ValueTask<WriterHolder?> HolderAsync(WriterTarget target, CancellationToken cancellationToken) => ValueTask.FromResult<WriterHolder?>(null);
 }
 
 /// <summary>

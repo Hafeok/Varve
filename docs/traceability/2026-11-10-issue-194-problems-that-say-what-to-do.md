@@ -107,3 +107,28 @@ decision-set, licence-header, issue-ref and DCO gates pass.
 
 The maintainer said on 2026-11-16 that this pull request completes #194,
 so this commit carries its closing trailer.
+
+## The maintainer's changes before acceptance, 2026-11-16
+
+> ADR 0242, two changes before acceptance. First, the status line must read "Accepted — filed unaccepted by …"; the release check refuses any other form. Second, writer-superseded names the holding instance by its name, not its internal address, on the data plane; the address stays on the management plane. Restate SupersededNamesTheHolder and update the page and the tests. Then post the head.
+
+**What was done.**
+- The status line reads "Accepted — filed unaccepted by the session for
+  #194, 2026-11-10". `eng/release.cs` reads it with `^\**Accepted\b`.
+- `writer-superseded` now carries `holder` (the instance's name, from the
+  store's writer record) and `epoch`. It no longer carries `writer`, the
+  internal address. `IWriterDirectory.HolderAsync` answers a new
+  `WriterHolder` (name, epoch) and by default answers none. The fleet's
+  implementation returns null when the record is absent, released or names
+  this instance. The detail says "Instance second writes it now, at epoch 2:
+  send writes through any instance of the fleet, which forwards them."
+- `SupersededNamesTheHolder` is restated, still unaccepted. Ruling 3 says
+  where the address stays: a dataset's `…/state` history and
+  `/manage/system`. An alternative records the refused first draft. The
+  page and the index name `holder`.
+- `ObjectStorageServerTests` checks `holder` `second`, `epoch` 2, and no
+  `writer` member, and that `127.0.0.1:9` (the instance's internal
+  address) appears nowhere in the body.
+
+On the change: Release build 0 warnings; protocol tests 166 passed; server
+(object storage, fleet, auth, management, host) 109 passed.

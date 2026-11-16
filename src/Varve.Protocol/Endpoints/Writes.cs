@@ -319,22 +319,21 @@ internal static class Writes
     internal static async Task SupersededAsync(Exchange exchange, WriterSupersededException superseded)
     {
         // Who holds the epoch now, as the store records it, rather than what
-        // this instance believes (ADR 0242). A fleet of one has no one to name.
-        WriterRoute route = WriterRoute.Local;
+        // this instance believes (ADR 0242): by the instance's name, never its
+        // internal address. A fleet of one has no one to name.
+        WriterHolder? holder = exchange.Options.Writers is { } directory && exchange.Name != DatasetName.Default
+            ? await directory.HolderAsync(new WriterTarget(exchange.Name), exchange.Context.RequestAborted).ConfigureAwait(false)
+            : null;
 
-        if (exchange.Options.Writers is { } directory && exchange.Name != DatasetName.Default)
-        {
-            route = await directory.HolderAsync(new WriterTarget(exchange.Name), exchange.Context.RequestAborted).ConfigureAwait(false);
-        }
-
-        string? writer = route.Kind == WriterRouteKind.Remote ? route.Address : null;
-        string detail = superseded.Message + (writer is not null ? " The writer now is " + writer + ", at epoch " + route.Epoch.ToString(System.Globalization.CultureInfo.InvariantCulture) + ": send writes there." : "");
+        string detail = superseded.Message + (holder is { } named
+            ? " Instance " + named.Instance + " writes it now, at epoch " + named.Epoch.ToString(System.Globalization.CultureInfo.InvariantCulture) + ": send writes through any instance of the fleet, which forwards them."
+            : "");
         await HttpProblems.WriteAsync(exchange.Context, ProblemType.WriterSuperseded, detail, members =>
         {
-            if (writer is not null)
+            if (holder is { } named)
             {
-                members.String("writer", writer);
-                members.Number("epoch", route.Epoch);
+                members.String("holder", named.Instance);
+                members.Number("epoch", named.Epoch);
             }
         }).ConfigureAwait(false);
     }

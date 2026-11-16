@@ -51,7 +51,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`shutting-down`](shutting-down.md) | 503 |  | The server is shutting down. |
 | [`not-ready`](not-ready.md) | 503 | `management`, `datasets`, `retention`, `writesRefused` | The server is not ready. |
 | [`server-busy`](server-busy.md) | 503 | `limit` | The server has as many reads in flight as it allows. |
-| [`writer-superseded`](writer-superseded.md) | 503 | `writer`, `epoch` | A newer writer holds the dataset; this instance serves reads only. |
+| [`writer-superseded`](writer-superseded.md) | 503 | `holder`, `epoch` | A newer writer holds the dataset; this instance serves reads only. |
 | [`management-behind`](management-behind.md) | 503 | `position`, `appliedPosition` | The server has not applied the management position asked for. |
 | [`dataset-behind`](dataset-behind.md) | 503 | `position`, `appliedPosition` | This instance has not applied the dataset position asked for. |
 | [`validation-behind`](validation-behind.md) | 503 | `binding`, `position`, `projectedPosition` | The validation report has not reached the position asked for. |
