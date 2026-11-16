@@ -162,7 +162,7 @@ by default.*
 - **Point 6 (D2) is superseded in part.**
   - The zip stays a release asset, with its SBOM and attestations.
   - The same bundle is now also in the server's image, at `/app/webui`, unpacked unchanged from the zip the same run attested.
-  - `ZipAssetNoImage` moves to ADR 0245's set.
+  - `ZipAssetNoImage` stays in this ADR's set as accepted, marked superseded; its successor is `WebUiInTheImageAndTheZipStays` in ADR 0245's set.
   - The Alternatives entry refusing the bundle in the image is reversed by that ruling. The reason given, a tie between two releases, does not hold, because one descriptor cuts both.
 - **Point 1's "unset by default" now holds outside the image only.**
   - The image sets `Varve:WebUi:Path` to its bundle.

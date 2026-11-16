@@ -3,8 +3,8 @@ set: the-web-ui-in-the-container-image
 namespace: varve
 adr: 0245
 decisions:
-  - key: ZipAssetNoImage
-    statement: "The Web UI ships as a release zip with its own SBOM and attestations, and the same bundle, unpacked unchanged from the zip the same run attested, is in the server's container image; there is no static image of its own"
+  - key: WebUiInTheImageAndTheZipStays
+    statement: "The Web UI's bundle, unpacked unchanged from the zip the same run attested, is in the server's container image, and the zip stays a release asset with its own SBOM and attestations; there is no static image of its own"
   - key: BundleInTheImageAtAFixedPath
     statement: "The image carries the Web UI bundle at /app/webui, read-only, built once from the same commit and run as the server and taken by both platforms"
   - key: ServedByDefaultInTheImage
@@ -28,5 +28,6 @@ filed unaccepted by the session for #296 (ADR 0066). Every citation is
 `CS0618` until the maintainer accepts them, or his delegate for a decision he
 has read (ADR 0239).
 
-Moved here, superseded with its key: `ZipAssetNoImage` (0202, point 6), whose
-"in no container image" this ADR reverses.
+Supersedes `ZipAssetNoImage` in 0202's set (point 6), which stays there as
+accepted and marked superseded: `WebUiInTheImageAndTheZipStays` is its
+successor, under a key of its own.

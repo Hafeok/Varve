@@ -37,7 +37,7 @@ tagged and accepted nothing.
 
 ## ADR
 
-- **0245**, filed unaccepted: nine keys. `ZipAssetNoImage` moves to it from 0202's set, with the superseding statement.
+- **0245**, filed unaccepted: nine keys. Its `WebUiInTheImageAndTheZipStays` supersedes 0202's `ZipAssetNoImage`, which stays in 0202's set as accepted, marked superseded.
 - **Amended 2026-11-16, add-only and unaccepted:** 0111, 0201, 0202 and 0225.
 - **Numbered 0245** after checking `main` (ends at 0243) and every open pull request:
   - 0240 is #268's;

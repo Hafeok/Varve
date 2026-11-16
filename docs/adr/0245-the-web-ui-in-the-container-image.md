@@ -17,7 +17,8 @@ Decided by the maintainer:
 
 **Supersedes in part [0202](0202-serving-the-web-ui-and-its-content-security-policy.md)**
 point 6 (D2): the bundle is now in the server's image. The zip stays.
-`ZipAssetNoImage` moves to this ADR's set, with the superseding statement.
+`ZipAssetNoImage` stays in 0202's set as accepted, marked superseded, and
+its successor is `WebUiInTheImageAndTheZipStays` in this ADR's set.
 
 **Amends, each by a dated amendment in its own file:**
 - [0202](0202-serving-the-web-ui-and-its-content-security-policy.md): point 1's default, and the management listener;
