@@ -42,6 +42,8 @@ decisions:
     accepted-at: 2026-10-07T00:00:00Z
   - key: ApprovalIsAConversationComment
     statement: "The approval is a pull request conversation comment whose whole body is the approval line with the current head's full sha, never edited, by a holder of Approve for every agent in the pull request; the check is judged again when a comment is edited or deleted, and review submissions are not consulted; amended 2026-11-12"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-17T00:00:00Z
   - key: CommentApprovalIsNotAValidWorkflow
     statement: "Approval by pull request comment is not a valid workflow: it is tolerated only until the ledger's review gate exists, and the pull request that adopts that gate removes it"
     accepted-by: mailto:emil@okkels-klein.dk
