@@ -3,7 +3,7 @@
 The frame around every screen: the bar (core mark, server address and the instance that answered, one sign-in indicator per plane), the navigation rail, and the main column.
 
 - **Consumer provides:** the server's base address, the instance that answered, each plane's sign-in state and who it names, the navigation items with the current one marked `aria-current="page"`, the datasets the selector offers with the one selected and its own screens, and the screen in `vw-shell__main`.
-- **The instance that answered** follows the server's address (`vw-shell__instance`, review F01): its name and its role in the system dataset, "varve-1 · system writer", read from `/manage/system`. Until the server names the instance (#193), the role alone: "system writer". Behind one address each read may reach another instance, so it is read again on every navigation.
+- **The instance that answered** follows the server's address (`vw-shell__instance`, review F01): its name and its role in the system dataset, "varve-1 · system writer", read from `/manage/system` (`SystemPlane.Instance`, #193). A server that predates naming it gets the role alone: "system writer". Behind one address each read may reach another instance, so it is read again on every navigation.
 - **Who is signed in** (review F02): the agent the tokens name, `iss#sub`, as the server and the grants name it.
   - **One agent:** when both planes name the same one, which is usual, "Signed in as" it is said once (`vw-shell__who`), before the planes' state chips, and its roles tooltip lists each plane's roles.
   - **Two agents:** only when the planes name different ones, each plane names its own, with its own roles.

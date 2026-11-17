@@ -22,6 +22,11 @@ because the create that would hold it failed or never ran. `reason` is then
 the type the writer answered, and `epoch` the newest epoch the forwarding
 instance knows; absent otherwise.
 
+## What to do
+
+A client: send the write again; nothing was committed, and it is routed to
+the current writer ([The fleet](../operator/fleet.md#where-a-write-goes-forwarding)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

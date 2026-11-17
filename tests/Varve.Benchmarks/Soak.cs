@@ -5,6 +5,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -28,7 +29,9 @@ internal sealed record SoakOptions(
     bool Maintenance,
     bool Policy,
     int Subjects,
-    long MemtableLimit)
+    long MemtableLimit,
+    int PauseMilliseconds = 25,
+    long SeekCacheMiB = 32)
 {
     internal static SoakOptions Parse(ReadOnlySpan<string> args)
     {
@@ -45,6 +48,8 @@ internal sealed record SoakOptions(
                 "--policy" => options with { Policy = true, Checkpoints = false },
                 "--subjects" => options with { Subjects = int.Parse(args[++i], CultureInfo.InvariantCulture) },
                 "--memtable" => options with { MemtableLimit = long.Parse(args[++i], CultureInfo.InvariantCulture) },
+                "--pause" => options with { PauseMilliseconds = int.Parse(args[++i], CultureInfo.InvariantCulture) },
+                "--seek-cache" => options with { SeekCacheMiB = long.Parse(args[++i], CultureInfo.InvariantCulture) },
                 _ => throw new ArgumentException("Unknown soak option " + args[i] + "."),
             };
         }
@@ -85,6 +90,10 @@ internal static class Soak
         {
             Clock = TimeProvider.System,
             MemtableLimit = new QuadCount(options.MemtableLimit),
+
+            // The store's default, 32 MiB; a smaller one is full before the judged
+            // window, so the window sees the cache's ceiling and not its filling (ADR 0240).
+            SeekDirectoryCache = new ByteCount(options.SeekCacheMiB << 20),
             Maintenance = options.Maintenance ? MaintenanceMode.Background : MaintenanceMode.Off,
             Checkpoints = options.Policy ? new CheckpointPolicy { EveryCommits = 1_000, Keep = SoakBounds.KeepCheckpoints } : CheckpointPolicy.Never,
         };
@@ -112,7 +121,7 @@ internal static class Soak
             + loading.Elapsed.TotalSeconds.ToString("F1", CultureInfo.InvariantCulture) + " s, before the clock");
 
         // The writer: batches of 50 over the vocabulary, a third of them
-        // retractions, pausing 25 ms between commits; the dataset stays at the
+        // retractions, pausing between commits; the dataset stays at the
         // size the load brought it to, two thirds of the vocabulary present.
         Task writer = Task.Run(async () =>
         {
@@ -130,7 +139,14 @@ internal static class Soak
 
                 await dataset.CommitAsync(request);
                 Interlocked.Increment(ref commits);
-                await Task.Delay(25);
+
+                // 25 ms by default, the release gate's pace; --pause 1 reaches
+                // a million commits in an hour, for the slope against commits
+                // (ADR 0240), and 0 lets the writer outrun maintenance.
+                if (options.PauseMilliseconds > 0)
+                {
+                    await Task.Delay(options.PauseMilliseconds);
+                }
             }
         });
 
@@ -222,6 +238,21 @@ internal static class Soak
             }
         });
 
+        // What the dataset keeps of its extents' seek directories (ADR 0240),
+        // from its own gauge: bounded by its cache's ceiling, and the judged
+        // window begins only once it has stopped filling.
+        long seekDirectories = 0;
+        using MeterListener meters = new();
+        meters.InstrumentPublished = (instrument, listener) =>
+        {
+            if (instrument.Meter.Name == "Varve.Store" && instrument.Name == "varve.store.seek_directories.bytes")
+            {
+                listener.EnableMeasurementEvents(instrument);
+            }
+        };
+        meters.SetMeasurementEventCallback<long>((_, measurement, _, _) => Interlocked.Exchange(ref seekDirectories, measurement));
+        meters.Start();
+
         Stopwatch clock = Stopwatch.StartNew();
         Console.WriteLine(Header);
 
@@ -284,7 +315,8 @@ internal static class Soak
                 Mb(checkpointDirectories),
                 Mb(gc.PromotedBytes),
                 Mb(Math.Max(0, self.PrivateMemorySize64 - gc.TotalCommittedBytes)),
-                segments.ToString(CultureInfo.InvariantCulture)));
+                segments.ToString(CultureInfo.InvariantCulture),
+                Mb(Interlocked.Read(ref seekDirectories))));
         }
 
         await writer;
@@ -379,7 +411,7 @@ internal static class Soak
     internal const string Header =
         "minutes,commits,head,quads,managed MB,heap MB,fragmented MB,committed MB,LOH MB,working set MB,private MB,peak working set MB,peak heap MB,"
         + "open handles,derived files,derived MB,pins,as-of reads,checkpoints,checkpoint in window,allocated GB,directories MB,checkpoint directories MB,"
-        + "promoted MB,native MB,log segments";
+        + "promoted MB,native MB,log segments,seek directories MB";
 
     /// <summary>
     /// The OS the soak ran on, on the line <see cref="SoakJudge"/> reads to
