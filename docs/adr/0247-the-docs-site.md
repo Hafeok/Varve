@@ -2,10 +2,10 @@
 
 ## Status
 
-**Proposed — filed unaccepted by #317, 2026-11-16** (ADR 0066), under #129's
-docs-site deliverable. Recording the maintainer's answers of 2026-11-16 on
-#129 to the plan's questions 1 to 5. Acceptance is the maintainer's act on the
-pull request. Numbered 0247: 0244 to 0246 are taken on other branches.
+**Accepted — filed unaccepted by #317, 2026-11-16** (ADR 0066), under #129's
+docs-site deliverable, its nine rulings accepted on #324 on 2026-11-17, at the
+maintainer's word, by his delegate (ADR 0239). Recording the maintainer's
+answers of 2026-11-16 on #129 to the plan's questions 1 to 5. Numbered 0247: 0244 to 0246 are taken on other branches.
 
 **Amends** [ADR 0224](0224-supply-chain-transparency.md), point 1 (what the
 register holds): a package from outside NuGet that a build tool fetches is a
