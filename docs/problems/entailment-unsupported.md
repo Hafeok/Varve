@@ -17,6 +17,12 @@ simple entailment (ADR 0192).
 - `supported` lists the tokens the server serves: `simple`, `rdf`, `rdfs`
   and `d`.
 
+## What to do
+
+A client: send one of the tokens `supported` lists, or no header at all; an
+update takes none but `simple`. From the command line, `varve query
+--entailment rdfs` ([Inference](../operator/inference.md#asking-for-a-regime)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).
