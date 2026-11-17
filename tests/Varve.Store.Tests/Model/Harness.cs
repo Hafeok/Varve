@@ -532,6 +532,12 @@ internal sealed class Harness : IAsyncDisposable
         Check(Dataset.PositionAt(new CommitTimestamp(Clock.Now.AddYears(-1))).Value == 0, "I5: a time before every commit resolves to 0");
 
         // Reopening rebuilds from the newest checkpoint and the tail: I7 and I8.
+        // The second dataset opens on the first's storage, and an open
+        // deletes the runs no state names, so the first's own maintenance,
+        // which a checkpoint now starts (ADR 0244), has finished its round
+        // before it does.
+        await Dataset.MaintainAsync(cancellationToken);
+
         await using (Dataset reopened = await T.OpenOrCreate(Storage, Options))
         {
             Check(reopened.Head.Value == head, "a reopened dataset has a different head");

@@ -16,6 +16,13 @@ it; this closes it.
 up with the commit rate — the memtable grows without bound, or a commit waits
 on a merge — supersedes this ADR.
 
+**Superseded in part 2026-11-10 by [ADR 0244](0244-memory-bounds-for-writing-checkpointing-and-reopening.md)**
+(filed unaccepted): the revisit condition above was met. A writer faster
+than maintenance grew the memtable without bound (#227), so a commit now
+waits for the flush once the memtable holds twice its limit, and an open
+flushes as it replays. `MaintenanceOffTheSequencer` moves to 0244's set
+under its key, restated. See the end.
+
 ## Context
 
 The research note's first point is the one that decides most of this: the
@@ -151,3 +158,34 @@ registry it declined.
 - **Analyzer rule.** None. The disk-run cursor's `MoveNext`, block refill and
   fence search are `[HotPath]` (ADR 0026).
 - **Open questions owned.** None. Closes the brief's storage-engine tension.
+
+## Amendment, 2026-11-10 — a commit waits at twice the memtable's limit, and the open flushes
+
+Filed by #227 with ADR 0244, unaccepted until the maintainer accepts it
+(ADR 0066).
+
+**The revisit condition was met.** "A workload … where tier merges cannot
+keep up with the commit rate — the memtable grows without bound, or a commit
+waits on a merge — supersedes this ADR." Measured for #222 and #227: a
+writer with no pause held about 350,000 entries in a memtable limited to
+20,000, and a served import under a 512 MB limit was refused with the
+memtable at 153 MB, before its first flush. Nothing held the writer to the
+limit, because "a commit never waits for it".
+
+**What changes** (ADR 0244 points 1 and 2):
+- Maintenance still runs off the sequencer, and a writer no faster than the
+  flush never waits. A commit that arrives while the memtable holds twice
+  `MemtableLimit` waits, before it queues, for maintenance's next step. It
+  does not wait with maintenance off, while spills fail, or once the
+  dataset is closing.
+- "Below it, opening replays it from the log" stands, and the replay now
+  goes through the limit: the open flushes the memtable as it fills, where
+  the dataset runs its own maintenance and is not a follower. An open that
+  finds ten memtables' worth above `derived/` holds one.
+
+- A checkpoint, once published, has the dataset's own maintenance flush the
+  memtable whatever it holds (ADR 0244 point 4): what the checkpoint covers
+  is not kept in memory as well.
+
+Everything else stands: the tiers, the six orders, immutable runs, the
+streamed flush and merge, and what a crash leaves.

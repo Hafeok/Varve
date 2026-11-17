@@ -611,3 +611,12 @@ Filed by the session for [#222](https://github.com/Hafeok/Varve/issues/222), una
 | # | Title | Status |
 |---:|---|---|
 | [0240](0240-resident-memory-is-bounded-by-data-and-configuration.md) | Resident memory is bounded by data and by configuration, never by commits | Filed unaccepted (#222) |
+
+
+## Memory bounds (#227)
+
+Filed by the session for [#227](https://github.com/Hafeok/Varve/issues/227), unaccepted until the maintainer accepts it (ADR 0066). It supersedes 0070 in part, its revisit condition being met, and amends 0110, 0139 and 0164 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0244](0244-memory-bounds-for-writing-checkpointing-and-reopening.md) | Memory bounds for writing, checkpointing and reopening | Filed unaccepted (#227) |
