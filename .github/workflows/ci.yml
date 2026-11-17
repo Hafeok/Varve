@@ -494,6 +494,16 @@ jobs:
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Shacl.Store.Tests
 
+      # Built with the solution since milestone 9 part 1 and run by no job
+      # until the operator-guide audit found it (#298).
+      - name: Test Varve.Classification
+        run: >
+          dotnet test
+          --project tests/Varve.Classification.Tests/Varve.Classification.Tests.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Classification.Tests
+
       - name: Test Varve.Protocol
         run: >
           dotnet test
