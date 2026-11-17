@@ -1,0 +1,7 @@
+# The failing fixture: Fixture.Unrun.Tests is named only as a prefix of
+# another path, which is not its own, and no job names it.
+jobs:
+  build:
+    steps:
+      - run: dotnet test --project tests/Fixture.Path.Tests/Fixture.Path.Tests.csproj
+      - run: dotnet build tests/Fixture.Unrun.TestsExtra

@@ -38,7 +38,10 @@ Every artefact Varve ships has one **SPDX 2.3 SBOM** of its runtime closure:
 
 **Build and test packages** (analyzers, test frameworks, the benchmark
 harness) are not listed, because none of them ships. The build provenance
-records them (below).
+records them (below). Neither is the one package from outside NuGet, Mermaid's
+own archive, which the docs site's generator fetches by the SHA-512 the
+register states, to draw diagrams at build time; the site ships the drawings
+and no script ([ADR 0247](adr/0247-the-docs-site.md)).
 
 **SBOMs are generated from the locked restore**, never written by hand
 ([ADR 0225](adr/0225-the-sbom-generator.md)).

@@ -1,0 +1,7 @@
+touches: docs/readme.md
+docs: an unrelated commit
+---
+touches: src/Varve.Fixture.ApiFreeze/Gauge.cs src/Varve.Fixture.ApiFreeze/PublicAPI.Unshipped.txt
+refactor(fixture)!: Reset is gone
+
+The gauge needs no reset.

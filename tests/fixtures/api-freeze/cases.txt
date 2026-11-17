@@ -1,0 +1,21 @@
+# The API freeze gate's cases (eng/api-freeze.cs --fixtures; README.md here).
+#
+# name | surface | baseline version or none | commits file or - | descriptor file or - | expected
+#
+# Before 1.0: a breaking change fails unless something marks it.
+removed-unmarked              | removed | 0.1.0-preview.1 | commits/unmarked.txt        | -                          | fail
+removed-marked-by-bang        | removed | 0.1.0-preview.1 | commits/bang.txt            | -                          | pass
+removed-marked-by-footer      | removed | 0.1.0-preview.1 | commits/footer.txt          | -                          | pass
+removed-bang-on-another-pkg   | removed | 0.1.0-preview.1 | commits/bang-elsewhere.txt  | -                          | fail
+removed-marked-by-descriptor  | removed | 0.1.0-preview.1 | commits/unmarked.txt        | descriptors/breaking.yaml  | pass
+removed-descriptor-names-other| removed | 0.1.0-preview.1 | commits/unmarked.txt        | descriptors/other.yaml     | fail
+unchanged                     | v1      | 0.1.0-preview.1 | -                           | -                          | pass
+added                         | added   | 0.1.0-preview.1 | commits/unmarked.txt        | -                          | pass
+#
+# From 1.0: a breaking change fails unless the major moves, marked or not.
+after-1.0-marked-same-major   | removed | 1.0.0           | commits/bang.txt            | descriptors/minor.yaml     | fail
+after-1.0-major-moves         | removed | 1.0.0           | commits/bang.txt            | descriptors/major.yaml     | pass
+after-1.0-added               | added   | 1.0.0           | -                           | descriptors/minor.yaml     | pass
+#
+# A package with no published baseline.
+new-package                   | removed | none            | -                           | -                          | new
