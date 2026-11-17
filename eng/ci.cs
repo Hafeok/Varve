@@ -217,6 +217,29 @@ List<(string Name, string Description, Func<int> Run)> jobs =
         () => Run("dotnet", ["run", "eng/test-projects.cs", "--", "--root", "tests/fixtures/test-projects/failing"]) == 1
             && Run("dotnet", ["run", "eng/test-projects.cs", "--", "--root", "tests/fixtures/test-projects/passing"]) == 0 ? 0 : 1),
 
+    // ADR 0247: every relative link and anchor of every page the docs site
+    // carries, as GitHub resolves them, with exemptions named in
+    // eng/site/link-exemptions.txt. The site itself, with its diagrams, is
+    // built by ci.yml's docs site job, which has a browser.
+    ("site-links", "every link and anchor of every page the docs site carries resolves, or is exempt by name",
+        () => Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "check"])),
+
+    // Both of its paths (tests/fixtures/site/README.md).
+    ("site-links-fixtures", "the docs site's link gate fails its failing fixture and passes its passing one",
+        () => Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "check", "--root", "tests/fixtures/site/failing"]) == 1
+            && Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "check", "--root", "tests/fixtures/site/passing"]) == 0 ? 0 : 1),
+
+    // ADR 0247: what a diagram's SVG may hold, proven per file, so that no
+    // failing fixture passes behind another (tests/fixtures/site/README.md).
+    ("site-svg-fixtures", "the docs site's SVG check fails each failing fixture on its own and passes the passing ones, Mermaid's own output among them",
+        () => Directory.EnumerateFiles(Path.Combine(repositoryRoot, "tests", "fixtures", "site", "svg", "failing"), "*.svg").Order(StringComparer.Ordinal)
+                .All(file => Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "check-svg", file]) == 1)
+            && Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "check-svg", .. Directory.EnumerateFiles(Path.Combine(repositoryRoot, "tests", "fixtures", "site", "svg", "passing"), "*.svg").Order(StringComparer.Ordinal)]) == 0 ? 0 : 1),
+
+    // ADR 0247 point 6: a page with a script is refused after it is written.
+    ("site-script-fixture", "the docs site build refuses a page that holds a script",
+        () => Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "build", "--root", "tests/fixtures/site/script", "--out", "artifacts/site-script-fixture", "--commit", "0000000000000000000000000000000000000000"]) == 1 ? 0 : 1),
+
     ("lockfiles", "every lockfile was written with global.json's SDK, before a locked restore says so less clearly",
         () => Run("dotnet", ["run", "eng/lockfiles.cs", "--", "--check"])),
 

@@ -1,0 +1,1 @@
+the build archive mermaid has integrity 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU='; it must be sha512- and the base64 of a SHA-512 digest.

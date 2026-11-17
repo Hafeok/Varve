@@ -1,0 +1,2 @@
+# An exemption for a link no page has: it fails as stale.
+docs/operator/README.md gone.md a decision that no longer has a link to allow

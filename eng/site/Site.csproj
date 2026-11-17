@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The docs site's generator (ADR 0247): build tooling, not a Varve
+       project. It imports eng/Directory.Build.props, so it has no layer and
+       Varve.Analyzers does not run on it; it restores locked, like every
+       project, from its own packages.lock.json. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RootNamespace>Varve.Site</RootNamespace>
+    <AssemblyName>varve-site</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Markdig" />
+    <PackageReference Include="Microsoft.Playwright" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="site.css" LogicalName="site.css" />
+  </ItemGroup>
+
+</Project>

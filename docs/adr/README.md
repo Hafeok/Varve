@@ -494,6 +494,14 @@ Filed by the session for [#194](https://github.com/Hafeok/Varve/issues/194), una
 |---:|---|---|
 | [0242](0242-problems-that-say-what-to-do.md) | Problems that say what to do: `forbidden`, a failed dataset, `writer-superseded` and `shutting-down` name the next step; every problem page says what to do | Filed unaccepted (#194) |
 
+## The docs site (#317)
+
+Filed by the session for [#317](https://github.com/Hafeok/Varve/issues/317), under [#129](https://github.com/Hafeok/Varve/issues/129)'s docs-site deliverable, recording the maintainer's answers of 2026-11-16, unaccepted until he accepts it (ADR 0066). Numbered 0247: 0244–0246 are taken on other branches. It amends 0224 by a dated amendment.
+
+| # | Title | Status |
+|---:|---|---|
+| [0247](0247-the-docs-site.md) | The docs site: a generator in eng/ on Markdig, Mermaid drawn at build time, no script | Filed unaccepted (#317) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |
