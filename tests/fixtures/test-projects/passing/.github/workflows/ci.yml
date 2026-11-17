@@ -1,0 +1,8 @@
+# The passing fixture: one project by path in a workflow, one by eng/ci.cs's
+# Test(...), one by path at the end of a line. Fixture.Smoke has no xunit
+# reference, so it is not a test project and needs no job.
+jobs:
+  build:
+    steps:
+      - run: dotnet test --project tests/Fixture.Path.Tests/Fixture.Path.Tests.csproj
+      - run: dotnet build tests/Fixture.Unrun.Tests
