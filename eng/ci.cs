@@ -229,6 +229,13 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("restore", "restore the solution, and every project outside it with a lockfile, locked",
         RestoreEverything),
 
+    // ADR 0227: the API freeze gate's rule, case by case, against a fixture
+    // package packed here in three surfaces, with no network
+    // (tests/fixtures/api-freeze/README.md). The gate itself compares with
+    // nuget.org, so it is ci.yml's `api freeze` job, not a job here.
+    ("api-freeze-fixtures", "the API freeze gate fails an unmarked break, passes a marked one, and from 1.0 wants a new major",
+        () => Run("dotnet", ["run", "eng/api-freeze.cs", "--", "--fixtures", "tests/fixtures/api-freeze"])),
+
     // ADR 0224: every resolved package's licence for its scope, and no native
     // asset in a shipped closure (what eng/native-assets.cs was).
     ("register-packages", "every resolved package's licence is allowed for its scope, and no shipped closure carries a native asset",

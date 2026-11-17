@@ -195,6 +195,7 @@ rulesets:
       - context: pipeline (devcontainer)
       - context: release pending
       - context: dco
+      - context: api freeze
       - context: agent review
         # The gates App (ADR 0087): only its check run counts, so no job a
         # pull request adds under this name can satisfy it.

@@ -75,7 +75,7 @@ superseding ADR rather than an edit.
 | [0032](0032-trunk-based-development.md) | Trunk-based development and non-blocking review | **Superseded by 0088**; amended 2026-09-24 (the gate runs after the push); amended by 0066 |
 | [0033](0033-commit-traceability.md) | Commit traceability and AI-session records | Accepted |
 | [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition; **amended by 0066**; amended 2026-10-06 (DCO enforced from 0087) |
-| [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029 |
+| [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029; amended 2026-11-16 (the published package is the evidence before 1.0, the freeze gated; filed unaccepted, #129) |
 | [0085](0085-a-release-per-milestone.md) | A release per milestone, and the next milestone waits for it | **Superseded by 0102**; complemented 0029 and 0035 |
 | [0086](0086-home-of-the-eng-gates.md) | Home of the eng/ gates | Accepted; complements 0036 and 0039 |
 | [0087](0087-the-identity-map.md) | The identity map: who signs off, accepts and approves for an agent | Accepted; enforces 0034 point 3; amended 2026-10-06 (approval by comment on one's own pull request; the exit to a signed ledger Review); amended again 2026-10-06 (the judging script is always main's; only App-pinned checks count; approval by comment is not a valid workflow); amended 2026-10-08 (an approved head lands through land/); **amended 2026-11-12** (#290: an approval is a whole comment with the full sha, never edited, judged again on an edit or deletion; `ApprovalIsAConversationComment` restated, unaccepted) |
@@ -429,6 +429,14 @@ Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 
 |---:|---|---|
 | [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119); amended 2026-11-11 (the pin covers workload sets, #276) |
 | [0225](0225-the-sbom-generator.md) | The SBOM generator: `eng/sbom.cs`, SPDX 2.3, from the restore | Filed unaccepted (#119) |
+
+## The public API freeze gate (#129, readiness B)
+
+Filed by readiness B for [#129](https://github.com/Hafeok/Varve/issues/129), in 1.0 ([#15](https://github.com/Hafeok/Varve/issues/15)), unaccepted until the maintainer accepts it on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0035 (points 2 and 4: the published package is the evidence before 1.0, and the freeze has a gate).
+
+| # | Title | Status |
+|---:|---|---|
+| [0227](0227-the-public-api-freeze-gate.md) | The public API freeze gate: each package against its published nupkg, a break marked or refused | Filed unaccepted (#129) |
 
 ## Milestone 9, part 1 — row-level access through the classifier (#202)
 
