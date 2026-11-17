@@ -2,10 +2,11 @@
 
 ## Status
 
-**Filed unaccepted by readiness B for #129, 2026-11-16** (ADR 0066). Decided
+**Accepted — filed unaccepted by readiness B for #129, 2026-11-16** (ADR 0066),
+its six rulings and the ruling it adds to ADR 0035's set accepted on #316 on
+2026-11-17, at the maintainer's word, by his delegate (ADR 0239). Decided
 by the maintainer on #119 (F1, 2026-10-27), and planned on #129 on
-2026-10-27 and again on 2026-11-16. Acceptance is the maintainer's act on the
-pull request.
+2026-10-27 and again on 2026-11-16.
 
 **Amends** [ADR 0035](0035-semantic-versioning.md) points 2 and 4: before
 1.0, the published package is the evidence of a break, and the freeze has a
