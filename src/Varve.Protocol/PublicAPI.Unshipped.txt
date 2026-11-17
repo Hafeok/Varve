@@ -532,6 +532,8 @@ static Varve.Protocol.Model.WriterHolder.operator !=(Varve.Protocol.Model.Writer
 static Varve.Protocol.Model.WriterHolder.operator ==(Varve.Protocol.Model.WriterHolder left, Varve.Protocol.Model.WriterHolder right) -> bool
 ~override Varve.Protocol.Model.WriterHolder.Equals(object obj) -> bool
 ~override Varve.Protocol.Model.WriterHolder.ToString() -> string
+Varve.Protocol.ProtocolOptions.AfterCheckpoint.get -> System.Func<Varve.Store.Dataset!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
+Varve.Protocol.ProtocolOptions.AfterCheckpoint.init -> void
 Varve.Protocol.IdempotencyKeys
 Varve.Protocol.IdempotencyKeys.IdempotencyKeys() -> void
 Varve.Protocol.IdempotencyKeys.IdempotencyKeys(Varve.Protocol.Model.CommitWindow window) -> void
