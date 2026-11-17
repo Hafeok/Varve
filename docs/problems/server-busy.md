@@ -9,6 +9,13 @@
 
 As many reads in flight and queued as `Varve:Limits:MaxConcurrentReads` and `ReadQueueLength` allow; `Retry-After` says when to try again and `limit` is the concurrency bound (ADR 0114).
 
+## What to do
+
+- A client: retry after `Retry-After`.
+- An operator: if it persists, raise `Varve:Limits:MaxConcurrentReads` or
+  `Varve:Limits:ReadQueueLength` ([Configure](../operator/configure.md)), or
+  serve reads from more instances ([The fleet](../operator/fleet.md)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

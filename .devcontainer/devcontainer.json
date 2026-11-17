@@ -33,7 +33,7 @@
     // the container and CI must have the same patch, or a locked restore here
     // fails on a version the lockfile does not have.
     "ghcr.io/devcontainers/features/dotnet:2": {
-      "version": "10.0.403"
+      "version": "10.0.404"
     },
 
     // Auth test layers (b) and (c) (ADR 0100): mock-oauth2-server and Zitadel

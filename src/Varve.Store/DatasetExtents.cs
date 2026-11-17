@@ -117,6 +117,46 @@ public sealed partial class Dataset
     /// <summary>Test seam: whether each extent set of the current state, oldest first, is sought inside its window (ADR 0177).</summary>
     internal bool[] SeekableSetsForTests() => [.. SetsOf(_state).ConvertAll(s => s.Seekable)];
 
+    /// <summary>
+    /// Test seam: the bytes the seek directories of the chain's sets would
+    /// take in memory if every one were held, which is what they grow to
+    /// with the history (ADR 0240).
+    /// </summary>
+    internal long SeekDirectoryBytesOfTheChainForTests()
+    {
+        long bytes = 0;
+
+        foreach (ExtentSet set in SetsOf(_state))
+        {
+            foreach (LoadedRun order in set.Orders)
+            {
+                bytes += order.Extent!.SeekDirectoryBytes;
+            }
+        }
+
+        return bytes;
+    }
+
+    /// <summary>Test seam: every order extent of the chain's sets, oldest set first.</summary>
+    internal List<ExtentInfo> ExtentsOfTheChainForTests()
+    {
+        List<ExtentInfo> extents = [];
+
+        foreach (ExtentSet set in SetsOf(_state))
+        {
+            foreach (LoadedRun order in set.Orders)
+            {
+                extents.Add(order.Extent!);
+            }
+        }
+
+        return extents;
+    }
+
+    /// <summary>Test seam: whether any set of the chain holds a seek directory itself, outside the cache; none does (ADR 0240).</summary>
+    internal bool AnySetHoldsItsSeekDirectoryForTests() =>
+        SetsOf(_state).Exists(set => Array.Exists(set.Orders, order => order.Extent is { Seekable: true, HoldsSeekDirectory: true }));
+
     /// <summary>Test seam: the extent sets of the current state, oldest first, for the layout statistics of ADR 0177.</summary>
     internal IReadOnlyList<ExtentSet> ExtentSetsForTests() => SetsOf(_state);
 
@@ -307,6 +347,12 @@ public sealed partial class Dataset
         {
             _openRetired[set.Name] = set.Sequence;
             _removedAt[set.Name] = removedAt;
+        }
+
+        // No new read seeks it; one in flight holds the directories it took.
+        foreach (LoadedRun order in set.Orders)
+        {
+            _seekDirectories.Forget(order.Extent!);
         }
 
         set.Run.Blob!.Retire(_closedRuns.Enqueue);
@@ -667,13 +713,27 @@ public sealed partial class Dataset
     /// window allocated as its dictionary; then its graph-version index and
     /// its window's commit index (ADR 0161).
     /// </summary>
+    /// <summary>What a term read from the log holds beyond its bytes: its allocation, its object and its array, measured (#227).</summary>
+    internal const int TermHeldBytes = 224;
+
     private async ValueTask<ExtentSet> WriteSetFromLogAsync(State state, long from, long to, ushort version, CancellationToken cancellationToken)
     {
         // A quad's event takes at least a few bytes of log: the window's
         // bytes bound its events, and so what the sorts need to hold.
         long expected = (state.LogBytesAt(to) - state.LogBytesAt(from)) / 4;
-        ExtentRowBuilder rows = new(_storage.Derived, "extents-" + Interlocked.Read(ref _extentSequence).ToString(CultureInfo.InvariantCulture), expected);
+        string load = "extents-" + Interlocked.Read(ref _extentSequence).ToString(CultureInfo.InvariantCulture);
+        ExtentRowBuilder rows = new(_storage.Derived, load, expected);
+
+        // The window's terms go the way its rows do (ADR 0244): held up to a
+        // budget, then written to a spill as a term section and read back
+        // from it, so a checkpoint holds its buffers and never its window's
+        // dictionary, which a first checkpoint's window is the whole of.
+        SpillSpace termSpills = new(_storage.Derived, load + "-terms");
+        List<LoadedRun> spilled = [];
         List<Allocation> allocations = [];
+        long held = 0;
+        long spilledTo = from;
+        long canonical = state.CanonicalAt(from);
         string name;
 
         try
@@ -683,12 +743,40 @@ public sealed partial class Dataset
                 LoggedCommit commit = await ReadLoggedAsync(state, p, cancellationToken).ConfigureAwait(false);
                 await rows.AddAsync(commit.Asserted, commit.Retracted, p, cancellationToken).ConfigureAwait(false);
                 allocations.AddRange(commit.Allocations);
+
+                foreach (Allocation allocation in commit.Allocations)
+                {
+                    held += TermHeldBytes + (allocation.Term?.Lexical.Length ?? 0);
+                }
+
+                if (held >= _options.CheckpointTermSpillBytes && p < to)
+                {
+                    TermSection part = TermSection.Of(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(allocations), canonical);
+                    BlobName spill = termSpills.Next("terms");
+                    CommitEntry until = state.Commits.Entry(p);
+                    await DerivedFormat.WriteRunAsync(
+                        _storage.Derived, spill, DerivedFormat.KindExtentTerms, Id, spilledTo, p, until.HeaderHash(),
+                        (_, _) => new ValueTask<IKeySource>(new SectionSource(KeySection.Empty)), [part], until.BlankCount, cancellationToken).ConfigureAwait(false);
+                    spilled.Add(await DerivedFormat.TryLoadAsync(_storage.Derived, spill, Id, DerivedFormat.KindExtentTerms, cancellationToken).ConfigureAwait(false)
+                        ?? throw new InvalidOperationException("A checkpoint's term spill does not read back."));
+                    canonical = part.To;
+                    spilledTo = p;
+                    allocations.Clear();
+                    held = 0;
+                }
             }
 
             await rows.FinishAsync(cancellationToken).ConfigureAwait(false);
-            TermSection terms = TermSection.Of(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(allocations), state.CanonicalAt(from));
+            TermSection[] terms = new TermSection[spilled.Count + 1];
 
-            if (terms.To != state.CanonicalAt(to))
+            for (int i = 0; i < spilled.Count; i++)
+            {
+                terms[i] = spilled[i].Run.Terms;
+            }
+
+            terms[^1] = TermSection.Of(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(allocations), canonical);
+
+            if (terms[^1].To != state.CanonicalAt(to))
             {
                 throw new LogVerificationException(to, "The dictionary's counters after position " + to + " disagree with its header.");
             }
@@ -698,7 +786,7 @@ public sealed partial class Dataset
 
             name = await WriteUnderFreshNameAsync(from, to, async attempt =>
             {
-                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, from, to, at.HeaderHash(), at.BlankCount, rows.RowsAsync, [terms], cancellationToken, version, SharedCheckedVersion).ConfigureAwait(false);
+                await ExtentSet.WriteAsync(_storage.Derived, attempt, Id, from, to, at.HeaderHash(), at.BlankCount, rows.RowsAsync, terms, cancellationToken, version, SharedCheckedVersion).ConfigureAwait(false);
                 await graphs.WriteAsync(_storage.Derived, ExtentSet.GraphsOf(attempt), Id, at.HeaderHash(), cancellationToken).ConfigureAwait(false);
                 await CommitIndexFormat.WriteAsync(_storage.Derived, ExtentSet.CommitsOf(attempt), Id, from, to, state.Commits.Entry, cancellationToken, SharedCheckedVersion).ConfigureAwait(false);
             }).ConfigureAwait(false);
@@ -706,6 +794,13 @@ public sealed partial class Dataset
         finally
         {
             await rows.DropAsync(cancellationToken).ConfigureAwait(false);
+
+            foreach (LoadedRun spill in spilled)
+            {
+                spill.Run.Blob!.Release();
+            }
+
+            await termSpills.DeleteAllAsync(cancellationToken).ConfigureAwait(false);
         }
 
         return await LoadSetAsync(name, from, to, cancellationToken).ConfigureAwait(false);
@@ -826,10 +921,20 @@ public sealed partial class Dataset
         Healing(await ExtentSet.TryLoadAsync(_storage.Derived, name, Id, from, to, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("An extent set just written does not read back."));
 
-    /// <summary>A set, its run from now on healed from the log when a read finds a blob of it damaged (ADR 0213).</summary>
+    /// <summary>
+    /// A set, its run from now on healed from the log when a read finds a
+    /// blob of it damaged (ADR 0213), and its extents' seek directories read
+    /// through this dataset's cache (ADR 0240).
+    /// </summary>
     private ExtentSet Healing(ExtentSet set)
     {
         Healing(set.Run);
+
+        foreach (LoadedRun order in set.Orders)
+        {
+            order.Extent!.CacheSeekDirectoryIn(_seekDirectories);
+        }
+
         return set;
     }
 
@@ -1372,6 +1477,15 @@ public sealed partial class Dataset
         }
 
         await DeleteClosedRunsAsync(cancellationToken).ConfigureAwait(false);
+
+        // A checkpoint releases what it makes unnecessary (ADR 0244): what a
+        // new set covers need not be held in memory, so the memtable is
+        // flushed by the maintenance that starts here, whatever it holds.
+        if (replaced.Count == 0 && written.Count > 0)
+        {
+            Volatile.Write(ref _flushAsked, true);
+        }
+
         StartMaintenance();
     }
 

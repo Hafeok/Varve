@@ -19,6 +19,13 @@ never waits for the projection. A projection's lag is reported per binding on
 `/health/ready`, beside its dataset's line, and never makes the dataset
 unready or behind.
 
+## What to do
+
+- A client: retry after `Retry-After`, read at `projectedPosition` or below,
+  or read the data graphs alone, which never wait.
+- An operator: if it persists, watch the binding's `validation` lag on
+  `/health/ready` ([Shapes](../operator/shapes.md#the-projection-lag-cold-start-and-cost)).
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

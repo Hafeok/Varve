@@ -239,11 +239,12 @@ public sealed class ProjectionStatus
 /// answers it (ADR 0163 point 13): its role for the system dataset, the
 /// writer's epoch, the position applied and the tail, the lag, the bootstrap
 /// operators' state, and the system writer's address when this instance is
-/// not it.
+/// not it; and the instance's own name, so a reader behind one address knows
+/// which instance answered.
 /// </summary>
 public sealed class SystemPlane
 {
-    private SystemPlane(InstanceRole? role, WriterEpoch? epoch, FeedPosition? position, FeedPosition? tail, PositionLag? lag, BootstrapState? bootstrap, Uri? writer, IReadOnlyDictionary<string, JsonElement> members)
+    private SystemPlane(InstanceName? instance, InstanceRole? role, WriterEpoch? epoch, FeedPosition? position, FeedPosition? tail, PositionLag? lag, BootstrapState? bootstrap, Uri? writer, IReadOnlyDictionary<string, JsonElement> members)
     {
         Role = role;
         Epoch = epoch;
@@ -253,7 +254,11 @@ public sealed class SystemPlane
         Bootstrap = bootstrap;
         Writer = writer;
         Members = members;
+        Instance = instance;
     }
+
+    /// <summary>The instance that answered, as the fleet names it; absent from a server that predates it.</summary>
+    public InstanceName? Instance { get; }
 
     /// <summary>Writer, follower or superseded, for the system dataset.</summary>
     public InstanceRole? Role { get; }
@@ -280,6 +285,7 @@ public sealed class SystemPlane
     public IReadOnlyDictionary<string, JsonElement> Members { get; }
 
     internal static SystemPlane Of(JsonElement root) => new(
+        Json.Text(root, "instance") is { Length: > 0 } instance ? new InstanceName(instance) : null,
         Json.Text(root, "role") is { } role ? new InstanceRole(role) : null,
         Json.Count(root, "epoch") is { } epoch ? new WriterEpoch(epoch) : null,
         Json.Count(root, "position") is { } position ? new FeedPosition(position) : null,
@@ -287,7 +293,7 @@ public sealed class SystemPlane
         Json.Count(root, "lag") is { } lag ? new PositionLag(lag) : null,
         Json.Text(root, "bootstrap") is { } bootstrap ? new BootstrapState(bootstrap) : null,
         Uri.TryCreate(Json.Text(root, "writer"), UriKind.Absolute, out Uri? writer) ? writer : null,
-        Json.Rest(root, "role", "epoch", "position", "tail", "lag", "bootstrap", "writer"));
+        Json.Rest(root, "instance", "role", "epoch", "position", "tail", "lag", "bootstrap", "writer"));
 }
 
 /// <summary>

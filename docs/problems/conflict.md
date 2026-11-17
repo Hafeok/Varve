@@ -24,6 +24,12 @@ Since ADRs 0125 and 0126 a write conflicts only with commits that touched its sc
 }
 ```
 
+## What to do
+
+A client: read the graphs `graphs` names at the head, redo the change against
+what you read, and send it with `If-Match` naming the new head. Sending the
+same write with the same `If-Match` is refused again.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

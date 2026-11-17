@@ -64,6 +64,18 @@ public sealed class DatasetOptions
     public int CommitCache { get; init; } = 4096;
 
     /// <summary>
+    /// The most bytes of extents' seek directories the dataset holds in
+    /// memory (ADR 0240). A format-5 extent's seek directory is what an as-of
+    /// read inside its set's window finds a key's intervals through: 48
+    /// bytes per 128 rows within, and 8 per 128 rows of each column. It grows
+    /// with the set's history, so it is read when such a read needs it, kept
+    /// here, the least recently used out first, and never held with the set.
+    /// 32 MiB by default; zero keeps none, and every such read reads its
+    /// directories again. A read is never wrong for it.
+    /// </summary>
+    public ByteCount SeekDirectoryCache { get; init; } = new(32L << 20);
+
+    /// <summary>
     /// Whether the dataset runs its own maintenance — memtable flushes and
     /// disk merges — on a task it owns, off the sequencer (ADR 0070, ADR 0042's
     /// amendment). <see cref="MaintenanceMode.Background"/> by default, except
@@ -109,6 +121,12 @@ public sealed class DatasetOptions
     /// logs written one commit at a time asks for the strict reading, 0.
     /// </summary>
     internal long TornWindow { get; set; } = LogFormat.WriteWindowBytes;
+
+    /// <summary>Test seam: the bytes of log whose bodies an open's scan keeps for its replay (ADR 0244); 8 MiB.</summary>
+    internal long OpenBodiesBudget { get; set; } = 8L << 20;
+
+    /// <summary>Test seam: what a checkpoint holds of its window's terms before it spills them (ADR 0244); 16 MiB.</summary>
+    internal long CheckpointTermSpillBytes { get; set; } = 16L << 20;
 
     /// <summary>Test seam: the derived version extent sets are written in — 5 (ADR 0177), or 4 for a dataset an earlier release wrote.</summary>
     internal ushort ExtentVersion { get; set; } = DerivedFormat.ExtentVersion;
@@ -158,6 +176,7 @@ public sealed partial class Dataset : IAsyncDisposable
     private readonly SemaphoreSlim _sequencer = new(1, 1);
     private readonly Lock _signalGate = new();
     private readonly Dictionary<Quad, bool> _pending = [];
+    private readonly SeekDirectoryCache _seekDirectories;
     private TaskCompletionSource _headAdvanced = NewSignal();
     private volatile State _state;
     private string? _broken;
@@ -182,7 +201,14 @@ public sealed partial class Dataset : IAsyncDisposable
         _writer = writer;
         _state = state;
         _metrics = new StoreMetrics(options.Name ?? id.ToString());
+        _seekDirectories = new SeekDirectoryCache(options.SeekDirectoryCache);
     }
+
+    /// <summary>The bytes of extents' seek directories held in memory, for the gauge (ADR 0240): at most <see cref="DatasetOptions.SeekDirectoryCache"/>.</summary>
+    internal long SeekDirectoryBytes => _seekDirectories.Bytes.Value;
+
+    /// <summary>Test seam: how many seek directories have been read from their extents.</summary>
+    internal long SeekDirectoryLoadsForTests() => _seekDirectories.Loads;
 
     /// <summary>The bytes of every commit's records in the log, for the gauge (ADR 0112).</summary>
     internal long LogBytes => _state.LogBytesAt(_state.Head);
@@ -276,6 +302,12 @@ public sealed partial class Dataset : IAsyncDisposable
 
     internal long MemtableForTests() => _state.Index.MemtableCount;
 
+    // The most the memtable held while the open replayed the log.
+    private long _openMemtablePeak;
+
+    /// <summary>Test seam: the most entries the memtable held while this dataset's open replayed the log (ADR 0244).</summary>
+    internal long OpenMemtablePeakForTests() => _openMemtablePeak;
+
     /// <summary>Test seam: the bytes of the log's records after <paramref name="from"/> up to <paramref name="to"/>.</summary>
     internal long LogBytesBetween(long from, long to) => _state.LogBytesAt(to) - _state.LogBytesAt(from);
 
@@ -345,7 +377,13 @@ public sealed partial class Dataset : IAsyncDisposable
     /// <exception cref="LogVerificationException">The log does not verify.</exception>
     /// <exception cref="UnsupportedFormatException">The log is of a format this build does not read.</exception>
     /// <exception cref="InvalidOperationException">The storage holds no dataset.</exception>
-    public static async ValueTask<Dataset> OpenAsync(IStorage storage, DatasetOptions options, CancellationToken cancellationToken = default)
+    public static ValueTask<Dataset> OpenAsync(IStorage storage, DatasetOptions options, CancellationToken cancellationToken = default) =>
+        OpenAsync(storage, options, follower: false, cancellationToken);
+
+    // The open of a writer and of a follower. A follower writes no run: what
+    // it replays is bounded by its writer's catalog, not by its own flushes
+    // (ADR 0164 point 5).
+    private static async ValueTask<Dataset> OpenAsync(IStorage storage, DatasetOptions options, bool follower, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(storage);
         ValidateOptions(options);
@@ -374,10 +412,13 @@ public sealed partial class Dataset : IAsyncDisposable
 
         // The commit index is read against the log as the scan passes it:
         // nothing the size of the log is held (ADR 0089). Its versions read
-        // through to the dataset's current one once the dataset exists.
-        Dataset? owner = null;
-        Func<CommitIndex> current = () => owner!._state.Commits;
-        CommitIndexOpener opener = await CommitIndexOpener.StartAsync(storage.Derived, id, options.CommitCache, current, cancellationToken).ConfigureAwait(false);
+        // through to the dataset's current one once the dataset exists: by
+        // an object that holds the dataset and nothing else, because the
+        // index keeps what it reads through for as long as the dataset
+        // lives, and a closure over this method's locals kept the opener and
+        // every commit it had read (ADR 0244, #227).
+        Opened owner = new();
+        CommitIndexOpener opener = await CommitIndexOpener.StartAsync(storage.Derived, id, options.CommitCache, owner.Commits, options.OpenBodiesBudget, cancellationToken).ConfigureAwait(false);
 
         // A backend that keeps its log in parts is read from where the catalog
         // says the log continues, and the commit index below it is read when
@@ -401,7 +442,7 @@ public sealed partial class Dataset : IAsyncDisposable
 
                 CommitEntry last = pins[found.Header.To];
                 List<CommitSegment> prefixBlobs = opener.PrefixCandidates;
-                CommitPrefix prefix = new(found.Header.To, pins, prefixBlobs, PrefixLoader(storage, id, last, found.Header.To, prefixBlobs, found.Sets, pins, () => Interlocked.Increment(ref owner!._commitSequence)));
+                CommitPrefix prefix = new(found.Header.To, pins, prefixBlobs, PrefixLoader(storage, id, last, found.Header.To, prefixBlobs, found.Sets, pins, owner.NextCommitSequence));
                 opener.BeginAt(prefix, cursor);
             }
         }
@@ -425,7 +466,7 @@ public sealed partial class Dataset : IAsyncDisposable
         TermDictionary dictionary = new();
         State partial = new(head, commits, IndexVersion.Empty, [], null);
         Dataset dataset = new(storage, id, options, dictionary, writer, partial);
-        owner = dataset;
+        owner.Dataset = dataset;
 
         if (start is not null)
         {
@@ -442,12 +483,46 @@ public sealed partial class Dataset : IAsyncDisposable
         // is read: allocations and quads alike.
         IndexVersion index = await dataset.LoadIndexAsync(partial, checkpoints, cancellationToken).ConfigureAwait(false);
 
+        // The graph-version index is brought to the head from the same
+        // bodies, before the replay lets go of each (ADR 0125).
+        GraphVersions graphs = await dataset.LoadGraphsAsync(new State(head, commits, index, checkpoints, null), opener.Bodies, cancellationToken).ConfigureAwait(false);
+
+        // The replay stays within the memtable's bound, as the writer that
+        // wrote these commits did (ADR 0244): once the memtable holds its
+        // limit it is written to derived/ as a run, by the flush maintenance
+        // runs, and the replay goes on above it. Only where the dataset runs
+        // its own maintenance: with it off the host flushes, and a follower
+        // writes no run.
+        bool flushes = !follower && options.Maintenance == MaintenanceMode.Background;
+
         for (long p = index.Position + 1; p <= head; p++)
         {
-            LoggedCommit commit = opener.Bodies.TryGetValue(p, out LoggedCommit? read)
+            LoggedCommit commit = opener.Bodies.Remove(p, out LoggedCommit? read)
                 ? read
                 : await dataset.ReadLoggedAsync(partial, p, cancellationToken).ConfigureAwait(false);
             index = index.Apply(commit.Asserted, commit.Retracted, partial.TermsOf(commit, p), p);
+            dataset._openMemtablePeak = Math.Max(dataset._openMemtablePeak, index.MemtableCount);
+
+            if (flushes && p < head && index.MemtableCount >= options.MemtableLimit.Value)
+            {
+                dataset._state = new State(head, commits, index, checkpoints, null, graphs);
+
+                try
+                {
+                    if (await dataset.FlushAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        index = dataset._state.Index;
+                    }
+                }
+                catch (Exception error) when (error is not OperationCanceledException)
+                {
+                    // A spill that fails does not fail the open, as it does
+                    // not fail a commit (ADR 0179 point 6): the replay goes
+                    // on in memory, and the host reads SpillFailure.
+                    index = dataset._state.Index.With(dataset._state.Index.Runs, LeadingBlobRuns(dataset._state.Index));
+                    flushes = false;
+                }
+            }
         }
 
         if (index.Position != head)
@@ -455,7 +530,8 @@ public sealed partial class Dataset : IAsyncDisposable
             throw new InvalidOperationException("The default projection was not brought to the head.");
         }
 
-        GraphVersions graphs = await dataset.LoadGraphsAsync(new State(head, commits, index, checkpoints, null), opener.Bodies, cancellationToken).ConfigureAwait(false);
+        // Nothing of the scan outlives the open.
+        opener.Bodies.Clear();
         dataset._state = new State(head, commits, index, checkpoints, null, graphs);
 
         // The writer's open is an event of the deletion rule (ADR 0160): what
@@ -1338,6 +1414,19 @@ public sealed partial class Dataset : IAsyncDisposable
     }
 
     private static TaskCompletionSource NewSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>
+    /// What an open hands the commit index to read through to the dataset it
+    /// is opening: the dataset, once it exists, and nothing else of the open.
+    /// </summary>
+    private sealed class Opened
+    {
+        internal Dataset? Dataset { get; set; }
+
+        internal CommitIndex Commits() => Dataset!._state.Commits;
+
+        internal long NextCommitSequence() => Interlocked.Increment(ref Dataset!._commitSequence);
+    }
 
     /// <summary>Everything a read needs, published as one reference.</summary>
     private sealed class State
