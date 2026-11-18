@@ -88,16 +88,21 @@ internal static class Program
             return;
         }
 
-        // --inference-premise-sets <size> <profile> [held] [links=<per mille>]
-        if (args.Length is >= 3 and <= 5 && args[0] == "--inference-premise-sets")
+        // --inference-premise-sets <size> <profile> [held] [links=<per mille>] [axioms=<name>]
+        if (args.Length is >= 3 and <= 6 && args[0] == "--inference-premise-sets")
         {
             int links = 0;
             int held = 0;
+            string? axioms = null;
             foreach (string extra in args[3..])
             {
                 if (extra.StartsWith("links=", StringComparison.Ordinal))
                 {
                     links = int.Parse(extra["links=".Length..], CultureInfo.InvariantCulture);
+                }
+                else if (extra.StartsWith("axioms=", StringComparison.Ordinal))
+                {
+                    axioms = extra["axioms=".Length..];
                 }
                 else
                 {
@@ -111,7 +116,7 @@ internal static class Program
             }
             else
             {
-                InferenceBench.RunPremiseSets(args[1], args[2], links);
+                InferenceBench.RunPremiseSets(args[1], args[2], links, axioms);
             }
 
             return;

@@ -173,13 +173,14 @@ internal static class InferenceBench
     /// premise sets over it; the distinct sets of two graphs or more, which
     /// are the reserved graphs a cross-graph binding places rows in.
     /// </summary>
-    internal static void RunPremiseSets(string sizeName, string profileName, int links = 0)
+    internal static void RunPremiseSets(string sizeName, string profileName, int links = 0, string? axioms = null)
     {
         RecSize size = Enum.Parse<RecSize>(sizeName);
         InferenceProfile profile = profileName == "owl2rl" ? InferenceProfile.Owl2Rl : InferenceProfile.Rdfs;
-        Console.WriteLine($"// REC {size} (generator version {RecPortfolio.Version}, seed {Seed}), profile {profile}, cross-graph, links {links}‰, .NET {Environment.Version}, {Environment.ProcessorCount} cores");
+        Console.WriteLine($"// REC {size} (generator version {RecPortfolio.Version}, seed {Seed}), profile {profile}, cross-graph, links {links}‰, axioms {axioms ?? "none"}, .NET {Environment.Version}, {Environment.ProcessorCount} cores");
         Terms terms = new();
-        Fact[] tbox = TBox(terms);
+        Fact[] tbox = TBox(terms, axioms);
+        TermHandle feeds = terms.Handle(RdfTerm.Iri("https://w3id.org/rec#feeds"u8));
         Dictionary<string, HashSet<Fact>> graphs = State(terms, RecPortfolio.Generate(size, Seed, links));
         string[] names = [.. graphs.Keys.Order(StringComparer.Ordinal)];
         Closure tboxClosure = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive);
@@ -212,7 +213,16 @@ internal static class InferenceBench
 
             IReadOnlyCollection<PremiseSet> distinct = sets.CrossGraph();
             int widest = distinct.Count == 0 ? 0 : distinct.Max(s => s.Graphs.Count);
-            Console.WriteLine($"{k} graphs: closed in {closed.TotalSeconds:F1} s, {merge.Count.Value} facts; premise sets in {labelled.TotalSeconds:F1} s; {distinct.Count} distinct cross-graph sets (widest {widest} graphs); {crossFacts} facts with one, {onlyCross} with no other, {several} with more than one set; heap {(after - before) / 1048576.0:F0} MiB");
+            long linkCount = 0;
+            foreach (string name in names.Take(k))
+            {
+                foreach (Fact fact in graphs[name])
+                {
+                    linkCount += fact.Predicate == feeds ? 1 : 0;
+                }
+            }
+
+            Console.WriteLine($"{k} graphs, {linkCount} links: closed in {closed.TotalSeconds:F1} s, {merge.Count.Value} facts; premise sets in {labelled.TotalSeconds:F1} s; {distinct.Count} distinct cross-graph sets (widest {widest} graphs); {crossFacts} facts with one, {onlyCross} with no other, {several} with more than one set; heap {(after - before) / 1048576.0:F0} MiB");
             GC.KeepAlive(merge);
             GC.KeepAlive(sets);
         }
@@ -402,14 +412,22 @@ internal static class InferenceBench
         : RdfTerm.Literal(Encoding.UTF8.GetBytes(text[1..^1]));
 
     /// <summary>REC 4.1.0 and Brick with its patches, as one TBox.</summary>
-    private static Fact[] TBox(Terms terms)
+    private static Fact[] TBox(Terms terms, string? axioms = null)
     {
-        string root = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "testdata", "rec", "v4.1.0");
+        string repository = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..");
+        string root = Path.Combine(repository, "testdata", "rec", "v4.1.0");
+        List<string> files = [Path.Combine(root, "rec.ttl"), Path.Combine(root, "Brick+patches.ttl")];
+        if (axioms is not null)
+        {
+            // A benchmark axiom set, not part of REC as published (tests/Varve.Benchmarks/Axioms).
+            files.Add(Path.Combine(repository, "tests", "Varve.Benchmarks", "Axioms", "rec-" + axioms + ".ttl"));
+        }
+
         List<Fact> facts = [];
-        foreach (string file in new[] { "rec.ttl", "Brick+patches.ttl" })
+        foreach (string file in files)
         {
             ParseResult result = TurtleParser.Parse(
-                File.ReadAllBytes(Path.Combine(root, file)),
+                File.ReadAllBytes(file),
                 (in QuadView quad) => facts.Add(new Fact(terms.Handle(quad.Subject.Materialise()), terms.Handle(quad.Predicate.Materialise()), terms.Handle(quad.Object.Materialise()))),
                 new TurtleOptions { Syntax = RdfSyntax.Turtle });
             if (!result.Succeeded)

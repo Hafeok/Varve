@@ -250,20 +250,23 @@ jobs:
           if-no-files-found: warn
 
   # Cross-graph premise sets on REC M with links between buildings (ADR 0190
-  # point 6; ADR 0195 point 3; ADR 0141, amended 2026-11-18): a cross-graph
-  # binding's merge of the first 7, 15, 31 and 63 site graphs, and the
-  # distinct premise sets of two graphs or more, at two link densities and
-  # both profiles. A measurement, never a gate: it fails only when the
-  # benchmark does not run to the end, and its numbers are read by hand.
+  # point 6; ADR 0195 point 3; ADR 0141, amended 2026-11-18), under OWL 2 RL
+  # with the benchmark axiom set (tests/Varve.Benchmarks/Axioms/rec-links.ttl,
+  # not part of REC as published): a cross-graph binding's merge of the first
+  # 7, 15, 31 and 63 site graphs, the live links and the closure's size at
+  # each, and the distinct premise sets of two graphs or more. Under RDFS no
+  # premise set crosses two data graphs, so RDFS is not run. The densities
+  # are bounded so the job ends within its limit. A measurement, never a
+  # gate: it fails only when the benchmark does not run to the end, and its
+  # numbers are read by hand.
   premise-sets:
-    name: premise sets (REC M, ${{ matrix.profile }}, links ${{ matrix.links }})
+    name: premise sets (REC M, owl2rl, links ${{ matrix.links }})
     if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'premise sets')
     runs-on: ubuntu-latest
     timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
-        profile: [rdfs, owl2rl]
         # Links per thousand commits past the build.
         links: [20, 200]
 
@@ -290,19 +293,19 @@ jobs:
       - name: Build the benchmarks
         run: dotnet build tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release
 
-      - name: Premise sets, REC M, ${{ matrix.profile }}, links ${{ matrix.links }}
+      - name: Premise sets, REC M, owl2rl, links ${{ matrix.links }}, the benchmark axioms
         shell: bash
         run: |
           mkdir -p artifacts/premise-sets
-          out=artifacts/premise-sets/rec-m-${{ matrix.profile }}-links-${{ matrix.links }}.txt
-          tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks --inference-premise-sets M ${{ matrix.profile }} links=${{ matrix.links }} | tee "$out"
+          out=artifacts/premise-sets/rec-m-owl2rl-links-${{ matrix.links }}.txt
+          tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks --inference-premise-sets M owl2rl links=${{ matrix.links }} axioms=links | tee "$out"
           { echo '```'; cat "$out"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the measurement
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: premise-sets-${{ matrix.profile }}-links-${{ matrix.links }}
+          name: premise-sets-owl2rl-links-${{ matrix.links }}
           path: artifacts/premise-sets
           if-no-files-found: warn
 

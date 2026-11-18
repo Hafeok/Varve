@@ -106,34 +106,32 @@ cross-graph binding over per-building graphs and reported per binding on
 readiness (`premiseSets`). If it grows faster than linearly in the bound
 graphs, this ADR's amendment says so before any other layout is chosen.
 
-- **How it is computed** (revised 2026-11-16). A cross-graph binding holds
-  one closure, of its data graphs' merge over the TBox closure, and each
-  fact's minimal premise sets over it, as pairs of a fact and a set kept
-  under absorption (ADR 0190 point 6). A data commit updates the merge
-  incrementally and recomputes the sets over the whole closure, diffing
-  them with the sets before to find the rows that moved: the cost of a
-  commit is the closure's, not the delta's. Explaining a row closes only
-  the graphs of its set, so no proof cites a graph outside it.
-- **What REC gives** (measured 2026-11-16, `Varve.Benchmarks
-  --inference-premise-sets S <profile>`): no cross-graph premise set on
-  REC S under `rdfs` or `owl2rl`, its buildings sharing nothing but the
-  TBox; 37 to 41 of 0.9 million facts have more than one set, each of one
-  graph. REC M gives none either, closing 7, 15, 31 and all 63 of its
-  buildings' graphs under `rdfs` (17.4 million facts at 63), so it cannot
-  answer the growth question.
-- **Cross-graph premise sets are unmeasured** (revised 2026-11-18), until
-  REC M with links between buildings has run (ADR 0141, amended
-  2026-11-18): `--inference-premise-sets M <profile> links=<per mille>`, at
-  20 and 200 under both profiles, in the nightly's `premise-sets` job or by
-  hand. It never gates. Run by hand on REC S at 20 and 200, under both
-  profiles, it gives no cross-graph set: REC 4.1 and its Brick state no
-  restriction, key, functional, transitive or chain property, and every
-  two-premise RDFS rule has a schema premise, so no rule joins two data
-  facts of different graphs. Links only raise the facts with more than one
+- **How it is computed** (revised 2026-11-16 and 2026-11-18). A cross-graph
+  binding holds one closure, of its data graphs' merge over the TBox
+  closure, and each fact's minimal premise sets over it, as pairs of a fact
+  and a set kept under absorption (ADR 0190 point 6). A data commit updates
+  the merge incrementally and the sets from its delta (below), which answers
+  the facts whose sets changed: only their rows may move. Explaining a row
+  closes only the graphs of its set, so no proof cites a graph outside it.
+- **Under `rdfs` a premise set crosses graphs only between a data graph and
+  the schema graph**, never between two data graphs: every two-premise RDFS
+  rule has a schema premise, so one data fact meets the TBox, never another
+  graph's data. With the TBox in its own graph that set is a data graph's
+  own; there is no growth to measure, and it is not measured.
+- **Under `owl2rl` it is measured with a benchmark axiom set**, and is
+  unmeasured until that has run (revised 2026-11-18). REC 4.1 and its Brick
+  state no restriction, key, functional, transitive or chain property, so
+  REC with links between buildings (ADR 0141, amended 2026-11-18) gives no
+  cross-graph set: on REC S at 20 and 200 links per thousand commits, none
+  under either profile, the links only raising the facts with more than one
   set, each of one graph (49 at 20; 169 under `rdfs` and 409 under `owl2rl`
-  at 200). Whether premise sets grow faster than linearly in the graphs
-  needs a TBox or data that joins them; that is put to the maintainer on
-  #171.
+  at 200). The axiom set, `tests/Varve.Benchmarks/Axioms/rec-links.ttl`, not
+  part of REC as published, makes `rec:feeds` transitive and adds the chain
+  `feeds ∘ isLocationOf ⊑ feeds`, so a link from one building into another's
+  room reaches what is located there. It is read only by the nightly's
+  `premise-sets` job and by hand: `--inference-premise-sets M owl2rl
+  links=<per mille> axioms=links`. It never gates. Whether premise sets grow
+  faster than linearly in the graphs stays open until REC M has run with it.
 - **What recomputing costs.** The sets over REC M's 63 graphs take 236 s,
   after a 90 s closure, and about 50 bytes a fact beside it (4,378 MiB held
   in all). Recomputed on every data commit, that would be minutes a commit,
