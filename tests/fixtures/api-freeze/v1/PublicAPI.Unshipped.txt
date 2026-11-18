@@ -1,0 +1,4 @@
+#nullable enable
+static Varve.Fixture.ApiFreeze.Gauge.Read() -> int
+static Varve.Fixture.ApiFreeze.Gauge.Reset() -> void
+Varve.Fixture.ApiFreeze.Gauge

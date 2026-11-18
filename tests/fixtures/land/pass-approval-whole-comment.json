@@ -1,0 +1,9 @@
+{
+  "step": "approval",
+  "head": "0123456789abcdef0123456789abcdef01234567",
+  "comment": {
+    "body": "{line}",
+    "created_at": "2026-11-12T08:30:01Z",
+    "updated_at": "2026-11-12T08:30:01Z"
+  }
+}

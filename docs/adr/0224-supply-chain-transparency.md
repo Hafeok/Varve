@@ -32,6 +32,10 @@ carries `global.json`'s SDK version, and `eng/sdk-pin.cs` fails a workflow
 that sets up .NET or installs a workload any other way (#276; see the end,
 "the pin covers workload sets").
 
+**Amended 2026-11-16** (ADR 0068), by [ADR 0247](0247-the-docs-site.md),
+filed unaccepted: point 1's register holds `BuildArchive` entries, a package
+from outside NuGet that a build tool fetches; see the end.
+
 **Builds on:**
 - constraint 1 (no native assets) and constraint 4 (an ADR per third-party
   package);
@@ -541,3 +545,19 @@ and the next servicing release breaks it again.
 
 The ruling is `CiInstallsTheWorkloadSetGlobalJsonPins`, filed with this
 amendment's date and accepted on #279 the same day.
+
+## Amendment, 2026-11-16: the register holds build archives
+
+Filed by #317, unaccepted until the maintainer accepts it (ADR 0066). Point 1
+makes `Directory.Packages.props` the one register, of NuGet packages. The docs
+site (ADR 0247) draws Mermaid at build time from Mermaid's own npm archive,
+which is not a NuGet package. It is admitted here, not around the register:
+a `BuildArchive` entry names the archive, its exact version, an `https` URL
+naming that version, its SHA-512 integrity, a licence on the build and test
+allow-list, the scope of the tools that fetch it, and the ADR that admits it.
+`eng/dependency-register.cs` checks each, with a fixture per failure, and the
+fetcher reads its pin from the entry. A build archive is never shipped and
+never part of a shipped closure.
+
+**The ledger.** The ruling of this block is ADR 0247's
+`BuildArchiveInTheRegister`, unaccepted until the maintainer accepts it.

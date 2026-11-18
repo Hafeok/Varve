@@ -134,7 +134,7 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     // land.cs's closing-trailer checks, before a push and after main moved,
     // and its landing trains, built in a scratch repository, on every run
     // (#209, #277, tests/fixtures/land/README.md).
-    ("land-fixtures", "land.cs refuses a missing or unmet Completes: line and a descriptor dated over three days before landing, reports an issue left open after landing, and builds, refuses and verifies landing trains, as its fixtures say",
+    ("land-fixtures", "land.cs refuses a missing or unmet Completes: line and a descriptor dated over three days before landing, reports an issue left open after landing, builds, refuses and verifies landing trains, and reads an approval only from a comment that is the approval line whole, with the full sha and never edited, as its fixtures say",
         () => Run("dotnet", ["run", "eng/land.cs", "--", "--fixtures", "tests/fixtures/land"])),
 
     // The release gate's refusal of stale or red evidence from main, preview and not, proven on
@@ -156,7 +156,7 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("ci-images-fixture", "the CI image gate fails its fixture",
         () => Run("dotnet", ["run", "eng/ci-images.cs", "--", "--root", "tests/fixtures/ci-images"]) == 1 ? 0 : 1),
 
-    ("agent-review-tamper", "a pull request that edits eng/agent-review.cs to always pass still fails under main's copy",
+    ("agent-review-tamper", "a pull request that edits eng/agent-review.cs to always pass still fails under main's copy, and an approval is a whole, unedited comment with the full sha",
         () => Run("dotnet", ["run", "eng/agent-review-tamper.cs"])),
 
     ("release-pending", "a change that closes a milestone issue carries the release descriptor naming it",
@@ -208,6 +208,38 @@ List<(string Name, string Description, Func<int> Run)> jobs =
         () => Run("dotnet", ["run", "eng/sdk-pin.cs", "--", "--root", "tests/fixtures/sdk-pin/failing"]) == 1
             && Run("dotnet", ["run", "eng/sdk-pin.cs", "--", "--root", "tests/fixtures/sdk-pin/passing"]) == 0 ? 0 : 1),
 
+    // #298: Varve.Classification.Tests was built by every job and run by none.
+    ("test-projects", "every test project under tests/ is run by eng/ci.cs or a workflow",
+        () => Run("dotnet", ["run", "eng/test-projects.cs"])),
+
+    // Both of its paths (tests/fixtures/test-projects/README.md).
+    ("test-projects-fixtures", "the test project gate fails its failing fixture and passes its passing one",
+        () => Run("dotnet", ["run", "eng/test-projects.cs", "--", "--root", "tests/fixtures/test-projects/failing"]) == 1
+            && Run("dotnet", ["run", "eng/test-projects.cs", "--", "--root", "tests/fixtures/test-projects/passing"]) == 0 ? 0 : 1),
+
+    // ADR 0247: every relative link and anchor of every page the docs site
+    // carries, as GitHub resolves them, with exemptions named in
+    // eng/site/link-exemptions.txt. The site itself, with its diagrams, is
+    // built by ci.yml's docs site job, which has a browser.
+    ("site-links", "every link and anchor of every page the docs site carries resolves, or is exempt by name",
+        () => Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "check"])),
+
+    // Both of its paths (tests/fixtures/site/README.md).
+    ("site-links-fixtures", "the docs site's link gate fails its failing fixture and passes its passing one",
+        () => Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "check", "--root", "tests/fixtures/site/failing"]) == 1
+            && Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "check", "--root", "tests/fixtures/site/passing"]) == 0 ? 0 : 1),
+
+    // ADR 0247: what a diagram's SVG may hold, proven per file, so that no
+    // failing fixture passes behind another (tests/fixtures/site/README.md).
+    ("site-svg-fixtures", "the docs site's SVG check fails each failing fixture on its own and passes the passing ones, Mermaid's own output among them",
+        () => Directory.EnumerateFiles(Path.Combine(repositoryRoot, "tests", "fixtures", "site", "svg", "failing"), "*.svg").Order(StringComparer.Ordinal)
+                .All(file => Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "check-svg", file]) == 1)
+            && Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "check-svg", .. Directory.EnumerateFiles(Path.Combine(repositoryRoot, "tests", "fixtures", "site", "svg", "passing"), "*.svg").Order(StringComparer.Ordinal)]) == 0 ? 0 : 1),
+
+    // ADR 0247 point 6: a page with a script is refused after it is written.
+    ("site-script-fixture", "the docs site build refuses a page that holds a script",
+        () => Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "build", "--root", "tests/fixtures/site/script", "--out", "artifacts/site-script-fixture", "--commit", "0000000000000000000000000000000000000000"]) == 1 ? 0 : 1),
+
     ("lockfiles", "every lockfile was written with global.json's SDK, before a locked restore says so less clearly",
         () => Run("dotnet", ["run", "eng/lockfiles.cs", "--", "--check"])),
 
@@ -219,6 +251,13 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     // always restores (ADR 0224), so a lockfile the change forgot fails here.
     ("restore", "restore the solution, and every project outside it with a lockfile, locked",
         RestoreEverything),
+
+    // ADR 0227: the API freeze gate's rule, case by case, against a fixture
+    // package packed here in three surfaces, with no network
+    // (tests/fixtures/api-freeze/README.md). The gate itself compares with
+    // nuget.org, so it is ci.yml's `api freeze` job, not a job here.
+    ("api-freeze-fixtures", "the API freeze gate fails an unmarked break, passes a marked one, and from 1.0 wants a new major",
+        () => Run("dotnet", ["run", "eng/api-freeze.cs", "--", "--fixtures", "tests/fixtures/api-freeze"])),
 
     // ADR 0224: every resolved package's licence for its scope, and no native
     // asset in a shipped closure (what eng/native-assets.cs was).
@@ -312,6 +351,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     ("test-shacl-store", "Varve.Shacl.Store: a reject binding against a full-validation oracle over generated commits, the attachment's digest after the commit, ADR 0169's rules",
         () => Test("Varve.Shacl.Store.Tests")),
+
+    ("test-classification", "Varve.Classification: the classifier against its oracle, fail-closed, the projection equal to one built from scratch, saved state read back (ADRs 0230–0233)",
+        () => Test("Varve.Classification.Tests")),
 
     ("test-protocol", "Varve.Protocol: the endpoints over a real socket, the protocol properties",
         () => Test("Varve.Protocol.Tests")),

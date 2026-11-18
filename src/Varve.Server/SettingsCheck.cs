@@ -45,7 +45,7 @@ internal static class SettingsCheck
         "Telemetry:QueryText",
         "Cors:AllowedOrigins:*", "Cors:MaxAge",
         "Store:GroupCommit:MaxRecords", "Store:GroupCommit:MaxBytes",
-        "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes", "Store:MemtableLimit", "Store:SeekDirectoryCacheBytes",
+        "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes", "Store:MemtableLimit", "Store:ReleaseMemoryAfterCheckpoint", "Store:SeekDirectoryCacheBytes",
         "Events:Source", "Events:EventHubs:Host", "Events:EventHubs:Hub",
         "WebUi:Path",
     ];

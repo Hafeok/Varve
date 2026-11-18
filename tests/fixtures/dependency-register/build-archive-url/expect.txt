@@ -1,0 +1,1 @@
+the build archive mermaid has URL 'https://registry.npmjs.org/mermaid/-/mermaid-12.2.0.tgz'; it must be https and name the archive of version 12.3.0.

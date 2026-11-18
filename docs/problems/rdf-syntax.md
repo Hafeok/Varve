@@ -9,6 +9,11 @@
 
 A Graph Store body, or one part of a `multipart/form-data` body, that does not parse in the syntax its `Content-Type` names (ADR 0092).
 
+## What to do
+
+A client: check that the body is in the syntax its `Content-Type` names, fix
+it and send it again. The same body is refused again.
+
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,
 the request id the response also carries as `Varve-Request-Id` (ADR 0119).

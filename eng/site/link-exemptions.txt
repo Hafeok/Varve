@@ -1,0 +1,5 @@
+# Links the docs site's link gate allows though they are broken (ADR 0247).
+# A line is the page, the link exactly as it is written, and the decision that
+# allows it. An exemption that matches no broken link fails the gate, so none
+# outlives its reason.
+docs/adr/0114-resource-governance.md 0095-a-read-over-http-is-pinned-bounded-and-cut-visibly.md ADR 0114's note of 2026-11-16: an accepted ADR is not edited (ADR 0068), and the note gives the right target

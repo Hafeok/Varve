@@ -20,6 +20,10 @@ configuration holds the gate as point 5 states it.
 any length with a bounded vocabulary. The configuration, and judging the
 soak under it, stand.
 
+**Amended 2026-11-10 by [ADR 0244](0244-memory-bounds-for-writing-checkpointing-and-reopening.md)**
+(filed unaccepted): the server's default memtable limit follows the
+collector's heap limit. See the end.
+
 **Revisit condition:** a soak or a benchmark showing the shipped
 configuration costing throughput that an operator would notice, or the
 runtime changing what `ConserveMemory` does.
@@ -153,3 +157,22 @@ fits, and the one the measurements were taken under.
   measurement.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-10 — the default memtable follows the heap limit
+
+Filed by #227 with ADR 0244, unaccepted until the maintainer accepts it
+(ADR 0066).
+
+Point 3 gives the server no heap hard limit of its own: in a container the
+runtime bounds the heap to the cgroup's limit. The memtable's default did
+not follow that bound. It was 1,000,000 entries on every machine, 100 to 220
+MiB live and as much again while a tier merges, and a 512 MB container's
+heap limit is 384 MB. The import of #227 was refused there before the
+memtable's first flush.
+
+**So:** `Varve:Store:MemtableLimit`, unset, is the smaller of 1,000,000
+entries and a sixteenth of `GCMemoryInfo.TotalAvailableMemoryBytes` at 215
+bytes an entry, and at least 10,000 (ADR 0244 point 5). With 3.5 GB of heap
+or more it is what it was. A value an operator sets is kept as set.
+
+The collector's settings, and no heap hard limit of Varve's own, stand.

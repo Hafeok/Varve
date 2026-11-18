@@ -66,3 +66,13 @@ public readonly record struct WriterRoute(WriterRouteKind Kind, string? Address,
     /// <summary>This instance writes it.</summary>
     public static WriterRoute Local { get; } = new(WriterRouteKind.Local, null, 0);
 }
+
+/// <summary>
+/// The instance that holds a dataset's writer epoch, by its name in the fleet,
+/// as the store's writer record says (ADR 0242). A data-plane refusal names
+/// the holder this way, never by its internal address.
+/// </summary>
+/// <param name="Instance">The holding instance's name, as placement and request ids name it.</param>
+/// <param name="Epoch">The epoch it holds.</param>
+[DesignDecision(typeof(WriteRoutingByForwarding.WriterDirectorySeam), Scope = ExceptionScope.Boundary)]
+public readonly record struct WriterHolder(string Instance, long Epoch);
