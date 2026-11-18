@@ -120,8 +120,20 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   TBox; 37 to 41 of 0.9 million facts have more than one set, each of one
   graph. REC M gives none either, closing 7, 15, 31 and all 63 of its
   buildings' graphs under `rdfs` (17.4 million facts at 63), so it cannot
-  answer the growth question: a workload with links between buildings is
-  put to the maintainer on #171.
+  answer the growth question.
+- **Cross-graph premise sets are unmeasured** (revised 2026-11-18), until
+  REC M with links between buildings has run (ADR 0141, amended
+  2026-11-18): `--inference-premise-sets M <profile> links=<per mille>`, at
+  20 and 200 under both profiles, in the nightly's `premise-sets` job or by
+  hand. It never gates. Run by hand on REC S at 20 and 200, under both
+  profiles, it gives no cross-graph set: REC 4.1 and its Brick state no
+  restriction, key, functional, transitive or chain property, and every
+  two-premise RDFS rule has a schema premise, so no rule joins two data
+  facts of different graphs. Links only raise the facts with more than one
+  set, each of one graph (49 at 20; 169 under `rdfs` and 409 under `owl2rl`
+  at 200). Whether premise sets grow faster than linearly in the graphs
+  needs a TBox or data that joins them; that is put to the maintainer on
+  #171.
 - **What recomputing costs.** The sets over REC M's 63 graphs take 236 s,
   after a 90 s closure, and about 50 bytes a fact beside it (4,378 MiB held
   in all). Recomputed on every data commit, that would be minutes a commit,
@@ -137,7 +149,8 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   one holding one is confirmed by a proof search before any fact is
   derived again from all its instances, which a fact many graphs derive,
   `p rdf:type rdf:Property`, would otherwise cost every use of `p`: 2,008
-  s over the same commits before. The reach is the larger part now.
+  s over the same commits before. The reach is the larger part now
+  (#334).
   Under `owl2rl` (`… M owl2rl 50`): 23.0 million facts, built in 1,107 s,
   a peak of 7.6 GB; a commit's median 19 ms and its worst 1.3 s (a move);
   over all 50, the merge's closure 144 ms, the reach 22 s, the sets 115
