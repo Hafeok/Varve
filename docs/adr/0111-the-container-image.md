@@ -126,8 +126,8 @@ accepts it (ADR 0066).
 
 ## Amendment, 2026-11-16 — the Web UI in the image
 
-Filed by the session for #296 with [ADR 0245](0245-the-web-ui-in-the-container-image.md),
-unaccepted until the maintainer accepts it (ADR 0066).
+Filed unaccepted by the session for #296 with [ADR 0245](0245-the-web-ui-in-the-container-image.md)
+(ADR 0066), and accepted by the maintainer on 2026-11-18.
 
 - **What the image holds.** Beside the binary, the image holds the Web UI's bundle at `/app/webui`:
   - read-only, and owned by root;

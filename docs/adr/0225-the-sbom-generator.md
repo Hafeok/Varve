@@ -196,8 +196,8 @@ Records decision `TheWebUiBundleFromItsRestore`.
 
 ## Amendment, 2026-11-16 — the bundle in the image's SBOM
 
-Filed by the session for #296 with [ADR 0245](0245-the-web-ui-in-the-container-image.md),
-unaccepted until the maintainer accepts it (ADR 0066).
+Filed unaccepted by the session for #296 with [ADR 0245](0245-the-web-ui-in-the-container-image.md)
+(ADR 0066), and accepted by the maintainer on 2026-11-18.
 
 The image now carries the Web UI's bundle. The amendment of 2026-11-06 said it was in neither the tool nor the image, and that no longer holds for the image. **The image's document now contains the asset document:**
 - **Once, not per platform,** because the bundle does not depend on the architecture.
