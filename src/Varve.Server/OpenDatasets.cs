@@ -67,7 +67,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         _leaseWait = settings.Lease.WaitFor;
         _logger = logger;
         _address = settings.Fleet.InternalUrl is { } url ? new WriterAddress(url) : null;
-        _memtableLimit = new Varve.Rdf.QuadCount(settings.Store.MemtableLimit);
+        _memtableLimit = new Varve.Rdf.QuadCount(settings.Store.MemtableLimit ?? MemtableDefault.For(MemtableDefault.HeapLimit()));
         _seekDirectoryCache = new ByteCount(settings.Store.SeekDirectoryCacheBytes);
         _merges = new ExtentMergePolicy
         {
@@ -107,6 +107,21 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         lock (_gate)
         {
             return _entries.TryGetValue(name.Value, out Entry? entry) ? entry.Role : null;
+        }
+    }
+
+    /// <summary>The head of every dataset this instance holds open, in name order (ADR 0244 point 6).</summary>
+    internal void HeadsInto(List<Varve.Store.Log.Position> heads)
+    {
+        lock (_gate)
+        {
+            foreach (Entry entry in _entries.Values)
+            {
+                if (entry is { State: DatasetState.Open, Dataset: { } dataset })
+                {
+                    heads.Add(dataset.Head);
+                }
+            }
         }
     }
 

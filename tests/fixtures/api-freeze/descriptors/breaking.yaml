@@ -1,0 +1,6 @@
+format: 2
+version: v0.1.0-preview.2
+title: The fixture's release
+date: 2026-11-16
+summary: |
+  - `Varve.Fixture.ApiFreeze`: `Gauge.Reset` is removed (breaking).

@@ -1,0 +1,7 @@
+format: 2
+version: v0.1.0-preview.2
+title: The fixture's release
+date: 2026-11-16
+summary: |
+  - `Varve.Fixture.ApiFreezeOther`: `Meter.Zero` is removed (breaking).
+  - `Varve.Fixture.ApiFreeze`: its documentation is reworded.

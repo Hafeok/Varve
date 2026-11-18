@@ -574,3 +574,5 @@ static Varve.Protocol.Model.ProblemType.EntailmentNotAvailable.get -> Varve.Prot
 Varve.Protocol.IInferenceClosure.Explain(Varve.Store.Log.Position position, Varve.Rdf.RdfTerm? graph, Varve.Rdf.RdfTerm! subject, Varve.Rdf.RdfTerm! predicate, Varve.Rdf.RdfTerm! object) -> Varve.Inference.Model.Explanation!
 static Varve.Protocol.VarveEndpoints.MapExplain(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
 Varve.Protocol.IInferenceClosure.PremiseSetOf(Varve.Rdf.RdfTerm! graph) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
+Varve.Protocol.ProtocolOptions.AfterCheckpoint.get -> System.Func<Varve.Store.Dataset!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
+Varve.Protocol.ProtocolOptions.AfterCheckpoint.init -> void

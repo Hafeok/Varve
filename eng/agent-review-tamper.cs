@@ -15,9 +15,13 @@
 //   2. main's copy, given the same pull request, fails it: the pull request
 //      is served by a stand-in for the GitHub API (HttpListener, BCL only),
 //      and the check run main's copy posts is read back. The stand-in also
-//      covers the approval form: 12 characters of the head pass, 11 fail, an
-//      earlier head fails, a stranger fails, a review submission is not
-//      consulted; and a land/ push of a landing train (#277), built for real
+//      covers the approval form (#290): the approval line as a comment's
+//      whole body with the full head passes, and with the delegate's suffix;
+//      inside a sentence, in a code span, after another line, with 12
+//      characters of the head, in an edited comment or in one with no
+//      timestamps it fails; an approval deleted or edited afterwards fails
+//      when judged again; an earlier head fails, a stranger fails, a review
+//      submission is not consulted; and a land/ push of a landing train (#277), built for real
 //      in a scratch repository: approved members pass, a member that is no
 //      approved head fails, a merge edited by hand fails, a merge without the
 //      trailer fails, an extra commit between the merges fails, and a train
@@ -73,6 +77,16 @@ else
 }
 
 string triggers = TopLevelBlock(workflow, "on");
+
+// A withdrawn approval starts a run (#290): the check on a head is the last
+// one posted, so an edit or a deletion must post it again.
+Match commentTypes = Regex.Match(triggers, @"^\s+issue_comment\s*:\s*\n\s+types:\s*\[(?<types>[^\]]*)\]", RegexOptions.Multiline);
+string[] commentEvents = [.. commentTypes.Groups["types"].Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)];
+Require(commentEvents.Contains("created") && commentEvents.Contains("edited") && commentEvents.Contains("deleted"),
+    "issue_comment runs on created, edited and deleted: an approval edited or deleted is judged again");
+Require(judge.Contains("contains(github.event.comment.body, 'approve')", StringComparison.Ordinal)
+        && judge.Contains("contains(github.event.changes.body.from, 'approve')", StringComparison.Ordinal),
+    "the judge job runs for a comment that holds the word now or held it before an edit");
 Require(triggers.Length > 0 && !triggers.Contains("pull_request_review", StringComparison.Ordinal),
     "pull_request_review is not a trigger: its workflow would come from the pull request");
 Require(triggers.Length > 0 && !Regex.IsMatch(triggers, @"^\s+pull_request\s*:", RegexOptions.Multiline),
@@ -107,11 +121,21 @@ try
     (string Name, JsonArray Comments, JsonArray Reviews, string Expected)[] cases =
     [
         ("no approval", [], [], "failure"),
-        ("approve with 12 characters of the head", [Comment("Hafeok", $"approve {Head[..12]}")], [], "success"),
-        ("approve with the full head", [Comment("Hafeok", $"lgtm\napprove {Head}")], [], "success"),
-        ("approve with 11 characters of the head", [Comment("Hafeok", $"approve {Head[..11]}")], [], "failure"),
-        ("approve naming an earlier head", [Comment("Hafeok", $"approve {Earlier}")], [], "failure"),
-        ("approve by a stranger", [Comment("mallory", $"approve {Head}")], [], "failure"),
+
+        // What an approval is (lib/Approvals.cs; ADR 0087, amended 2026-11-12, #290).
+        ("the approval line as the whole comment, with the full head", [Comment("Hafeok", Line(Head))], [], "success"),
+        ("the same with the delegate's suffix", [Comment("Hafeok", Line(Head) + " (delegate)")], [], "success"),
+        ("the same with a trailing newline", [Comment("Hafeok", Line(Head) + "\n")], [], "success"),
+        ("the line inside a sentence", [Comment("Hafeok", $"New head. What agent review will ask for is {Line(Head)}, once the checks are green.")], [], "failure"),
+        ("the line in a code span", [Comment("Hafeok", $"`{Line(Head)}`")], [], "failure"),
+        ("the line after another line", [Comment("Hafeok", $"lgtm\n{Line(Head)}")], [], "failure"),
+        ("the line with 12 characters of the head", [Comment("Hafeok", Line(Head[..12]))], [], "failure"),
+        ("the line with the head in capitals", [Comment("Hafeok", Line(Head.ToUpperInvariant()))], [], "failure"),
+        ("an edited comment whose body is now the line", [Comment("Hafeok", Line(Head), edited: true)], [], "failure"),
+        ("a comment with no timestamps", [Bare("Hafeok", Line(Head))], [], "failure"),
+
+        ("the line naming an earlier head", [Comment("Hafeok", Line(Earlier))], [], "failure"),
+        ("the line by a stranger", [Comment("mallory", Line(Head))], [], "failure"),
         ("an approving review submission only", [], [Review("Hafeok", "APPROVED", Head)], "failure"),
     ];
 
@@ -126,10 +150,29 @@ try
     }
 
     // The other trusted paths: a new comment, and a push to land/**.
-    using (StandIn server = StandIn.Start(identities, Head, "Hafeok", [Comment("Hafeok", $"approve {Head[..12]}")], []))
+    using (StandIn server = StandIn.Start(identities, Head, "Hafeok", [Comment("Hafeok", Line(Head))], []))
     {
         (int exit, _) = RunJudge(root, server, "issue_comment", """{"issue":{"number":7,"pull_request":{}}}""");
         Require(exit == 0 && server.Posted is ["success"], "main's copy, on a new approving comment: posts success");
+    }
+
+    // A withdrawn approval (#290). The check a pull request carries is the
+    // last one posted, so the same pull request is judged twice: approved,
+    // then again as the workflow runs it when the comment is deleted (GitHub
+    // serves it no longer) or edited (it is served with a later updated_at).
+    foreach ((string how, JsonArray after) in new (string, JsonArray)[]
+    {
+        ("deleted", []),
+        ("edited into something else", [Comment("Hafeok", "withdrawn", edited: true)]),
+        ("edited and still the line", [Comment("Hafeok", Line(Head), edited: true)]),
+    })
+    {
+        using StandIn before = StandIn.Start(identities, Head, "Hafeok", [Comment("Hafeok", Line(Head))], []);
+        (int approvedExit, _) = RunJudge(root, before, "issue_comment", """{"issue":{"number":7,"pull_request":{}}}""");
+        using StandIn later = StandIn.Start(identities, Head, "Hafeok", after, []);
+        (int withdrawnExit, _) = RunJudge(root, later, "issue_comment", """{"issue":{"number":7,"pull_request":{}}}""");
+        Require(approvedExit == 0 && before.Posted is ["success"] && withdrawnExit == 0 && later.Posted is ["failure"],
+            $"main's copy, an approving comment then {how}: posts success, then failure");
     }
 
     using (StandIn server = StandIn.Start(identities, Head, "Hafeok", [], []))
@@ -251,7 +294,21 @@ void Require(bool holds, string what)
     }
 }
 
-static JsonObject Comment(string login, string body) => new()
+// The approval line for a sha. Built here and nowhere written out: a session
+// never writes the line for a head (AGENTS.md, #290).
+static string Line(string sha) => "approve " + sha;
+
+// A conversation comment as GitHub serves it. An edit moves updated_at.
+static JsonObject Comment(string login, string body, bool edited = false) => new()
+{
+    ["user"] = new JsonObject { ["login"] = login },
+    ["body"] = body,
+    ["created_at"] = "2026-11-12T08:30:01Z",
+    ["updated_at"] = edited ? "2026-11-12T10:57:38Z" : "2026-11-12T08:30:01Z",
+};
+
+// A comment with no timestamps: unreadable as an approval.
+static JsonObject Bare(string login, string body) => new()
 {
     ["user"] = new JsonObject { ["login"] = login },
     ["body"] = body,

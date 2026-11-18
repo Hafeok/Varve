@@ -118,9 +118,14 @@ App tags it. A session never tags.
 requires every gate by job name, `dco` and `agent review` included, with no
 bypass. A session lands through a pull request from its branch, which needs an
 approval on its head from the session's responsible human or a delegate (ADR
-0087): a conversation comment `approve <head sha>`, at least 12 characters. The
-maintainer's delegate, one session on his machine with his key, writes
-`approve <head sha> (delegate)` (ADR 0239). That
+0087, amended 2026-11-12): a conversation comment that is the approval line
+and nothing else, the word `approve`, a space and the head's full sha, never
+edited. `eng/approve.sh` is how the maintainer posts it. The maintainer's
+delegate, one session on his machine with his key, ends the line
+` (delegate)` (ADR 0239), and writes it only when the maintainer tells it to,
+for the head he names. **A session never writes the approval line**, for any
+sha, in a comment, a description or a commit message: it reports a head as
+"head `<sha>`" (#290). That
 form is **not a valid workflow**, only tolerated until the ledger's review gate
 replaces it. `agent review` is judged by main's script on trusted triggers and
 posted by the gates App; a required check is spoofable by name unless pinned to

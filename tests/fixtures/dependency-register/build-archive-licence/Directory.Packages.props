@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Extensions.Primitives" Version="10.0.12" Adr="0009" />
+    <BuildArchive Include="mermaid" Version="12.3.0" Adr="0247" Scope="eng/site/" Licence="BUSL-1.1"
+                  Url="https://registry.npmjs.org/mermaid/-/mermaid-12.3.0.tgz"
+                  Integrity="sha512-4113TdXeLAsMruJ79OpFL5O8+LTFXhQqZ260rF3tgUmiNAtRm4Uume04I+65PRN6yZ69J4f8rVYWW8zRk65UYw==" />
+  </ItemGroup>
+</Project>

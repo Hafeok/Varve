@@ -82,6 +82,14 @@ costs everyone else's next hour.
 **Conventional commits**, one logical change per commit. A commit that changes a
 rule, its tests and its documentation together is one change, not three.
 
+**A breaking change says so.** A commit that removes or changes public surface
+of a package is marked `type(scope)!: …`, or carries a `BREAKING CHANGE:`
+footer. `ci.yml`'s `api freeze` job compares every package with the one
+published at the last release, and before 1.0 fails a break that neither a
+commit since that release nor the proposed descriptor's `(breaking)` marks; from
+1.0 a break needs a new major
+([ADR 0227](docs/adr/0227-the-public-api-freeze-gate.md)).
+
 **The body is the argument.** What was decided, what was measured, what was
 found, what is left. The diff shows what changed; the message is the only place
 that can say why, and it is the only documentation guaranteed to still be there

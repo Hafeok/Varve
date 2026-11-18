@@ -75,10 +75,10 @@ superseding ADR rather than an edit.
 | [0032](0032-trunk-based-development.md) | Trunk-based development and non-blocking review | **Superseded by 0088**; amended 2026-09-24 (the gate runs after the push); amended by 0066 |
 | [0033](0033-commit-traceability.md) | Commit traceability and AI-session records | Accepted |
 | [0034](0034-commit-signing-and-the-sandbox-exception.md) | Commit signing and the sandbox exception | Accepted; revisit condition; **amended by 0066**; amended 2026-10-06 (DCO enforced from 0087) |
-| [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029 |
+| [0035](0035-semantic-versioning.md) | Semantic versioning | Accepted; complements 0029; amended 2026-11-16 (the published package is the evidence before 1.0, the freeze gated; filed unaccepted, #129) |
 | [0085](0085-a-release-per-milestone.md) | A release per milestone, and the next milestone waits for it | **Superseded by 0102**; complemented 0029 and 0035 |
 | [0086](0086-home-of-the-eng-gates.md) | Home of the eng/ gates | Accepted; complements 0036 and 0039 |
-| [0087](0087-the-identity-map.md) | The identity map: who signs off, accepts and approves for an agent | Accepted; enforces 0034 point 3; amended 2026-10-06 (approval by comment on one's own pull request; the exit to a signed ledger Review); amended again 2026-10-06 (the judging script is always main's; only App-pinned checks count; approval by comment is not a valid workflow); amended 2026-10-08 (an approved head lands through land/) |
+| [0087](0087-the-identity-map.md) | The identity map: who signs off, accepts and approves for an agent | Accepted; enforces 0034 point 3; amended 2026-10-06 (approval by comment on one's own pull request; the exit to a signed ledger Review); amended again 2026-10-06 (the judging script is always main's; only App-pinned checks count; approval by comment is not a valid workflow); amended 2026-10-08 (an approved head lands through land/); **amended 2026-11-12** (#290: an approval is a whole comment with the full sha, never edited, judged again on an edit or deletion; `ApprovalIsAConversationComment` restated, unaccepted) |
 | [0088](0088-only-checked-commits-reach-main.md) | Only checked commits reach main | Accepted; **supersedes 0032**; amended 2026-10-06 (required check names are checked); amended 2026-10-08 (a release's review is its descriptor's approval; `HumanReviewGatesReleases` superseded by 0102); amended 2026-11-11 (landing by fast-forward or merge commit, and trains; filed unaccepted, #230) |
 | [0102](0102-a-release-is-a-descriptor.md) | A release is a descriptor, and landing it cuts it | **Accepted** (filed unaccepted, ADR 0066); **supersedes 0085** and 0088's `HumanReviewGatesReleases`; amends 0087 rule 3; amended 2026-11-11 (chain builds are not releases; filed unaccepted, #230) |
 | [0036](0036-containerised-development.md) | Containerised development and the local pipeline | Accepted |
@@ -435,6 +435,14 @@ Filed by readiness B for [#119](https://github.com/Hafeok/Varve/issues/119), in 
 | [0224](0224-supply-chain-transparency.md) | Supply chain transparency: SBOMs, the dependency gate and vulnerability handling | Filed unaccepted (#119); amended 2026-11-11 (the pin covers workload sets, #276) |
 | [0225](0225-the-sbom-generator.md) | The SBOM generator: `eng/sbom.cs`, SPDX 2.3, from the restore | Filed unaccepted (#119) |
 
+## The public API freeze gate (#129, readiness B)
+
+Filed by readiness B for [#129](https://github.com/Hafeok/Varve/issues/129), in 1.0 ([#15](https://github.com/Hafeok/Varve/issues/15)), unaccepted until the maintainer accepts it on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0035 (points 2 and 4: the published package is the evidence before 1.0, and the freeze has a gate).
+
+| # | Title | Status |
+|---:|---|---|
+| [0227](0227-the-public-api-freeze-gate.md) | The public API freeze gate: each package against its published nupkg, a break marked or refused | Filed unaccepted (#129) |
+
 ## Milestone 9, part 1 — row-level access through the classifier (#202)
 
 Filed by milestone 9, part 1 ([#202](https://github.com/Hafeok/Varve/issues/202), under [#14](https://github.com/Hafeok/Varve/issues/14)), in 1.0 and stable, unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0230: readiness A holds 0213–0222 and readiness B from 0224. Amended by it, likewise unaccepted: 0003 (`Varve.Classification`), 0023 (the classifier's assignment, the selector), 0107 (rows beneath graphs), 0119 (three problem types), 0166 (the classifier binding, subject-scoped grants), 0173 and 0174 (the report withheld from row-restricted callers), 0190 (row-scoped grants, pending #171).
@@ -490,6 +498,14 @@ Filed by the session for [#194](https://github.com/Hafeok/Varve/issues/194), una
 | # | Title | Status |
 |---:|---|---|
 | [0242](0242-problems-that-say-what-to-do.md) | Problems that say what to do: `forbidden`, a failed dataset, `writer-superseded` and `shutting-down` name the next step; every problem page says what to do | Filed unaccepted (#194) |
+
+## The docs site (#317)
+
+Filed by the session for [#317](https://github.com/Hafeok/Varve/issues/317), under [#129](https://github.com/Hafeok/Varve/issues/129)'s docs-site deliverable, recording the maintainer's answers of 2026-11-16, unaccepted until he accepts it (ADR 0066). Numbered 0247: 0244–0246 are taken on other branches. It amends 0224 by a dated amendment.
+
+| # | Title | Status |
+|---:|---|---|
+| [0247](0247-the-docs-site.md) | The docs site: a generator in eng/ on Markdig, Mermaid drawn at build time, no script | Filed unaccepted (#317) |
 
 ## Conformance — differential testing against Oxigraph
 
@@ -608,3 +624,12 @@ Filed by the session for [#222](https://github.com/Hafeok/Varve/issues/222), una
 | # | Title | Status |
 |---:|---|---|
 | [0240](0240-resident-memory-is-bounded-by-data-and-configuration.md) | Resident memory is bounded by data and by configuration, never by commits | Filed unaccepted (#222) |
+
+
+## Memory bounds (#227)
+
+Filed by the session for [#227](https://github.com/Hafeok/Varve/issues/227), unaccepted until the maintainer accepts it (ADR 0066). It supersedes 0070 in part, its revisit condition being met, and amends 0110, 0139 and 0164 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0244](0244-memory-bounds-for-writing-checkpointing-and-reopening.md) | Memory bounds for writing, checkpointing and reopening | Filed unaccepted (#227) |

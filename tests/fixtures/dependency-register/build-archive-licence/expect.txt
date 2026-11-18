@@ -1,0 +1,1 @@
+the build archive mermaid is under 'BUSL-1.1', which is not on the build and test allow-list.
