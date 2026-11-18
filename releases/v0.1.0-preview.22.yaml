@@ -6,6 +6,7 @@ basis:
   - issue: 296
   - storage-format: 1
   - delta-format: 1
+  - adr: "0226"
   - adr: "0227"
   - adr: "0240"
   - adr: "0242"
@@ -14,6 +15,12 @@ basis:
   - adr: "0247"
 sbom:
   - asset: varve-webui-0.1.0-preview.22.zip sha256:453f40162e1c51cff98a16b5336bf7de4557e96090ee1469c7915506d485077f
+  - binary: varve-0.1.0-preview.22-linux-arm64.tar.gz sha256:4431e066d1fdb4e96889c49b68cd5ddcc6bbabbb8a78976fc4c403698e617d3a
+  - binary: varve-0.1.0-preview.22-linux-x64.tar.gz sha256:85d9110ced0d9f83f7299c8c95ebe33fc96630dbeffcc3df13470e0d61fb5761
+  - binary: varve-0.1.0-preview.22-osx-arm64.tar.gz sha256:da4bc14f20fc3355411f105fbbd47fbba0378bb633e4e9cd80a7b69237aa79cc
+  - binary: varve-0.1.0-preview.22-osx-x64.tar.gz sha256:9bbac8c1f32ab70130848ee3651049c20b25438dbd18390a001b31d4a0ab3f96
+  - binary: varve-0.1.0-preview.22-win-arm64.zip sha256:dc0210f5f2031d73dc58db33b9119ff87739860818162956c6b4e29795eeba01
+  - binary: varve-0.1.0-preview.22-win-x64.zip sha256:79960ba73cea0454552a3f98fb0592e45d04bb81d7783662613c5b8f9a78f197
   - image: ghcr.io/hafeok/varve sha256:72ca666839a45d0e3c41c4a20176dcbabd04d38e5c1a15842eed8ceaa887a326
   - nupkg: Varve.Aspire sha256:f9c6a1445fbdd7c0a7ed3581b9524226f091dca0cf77faaec52db986bc5e162e
   - nupkg: Varve.Classification sha256:7fb03d66f8d3f99e2b54fef331368d3f01eeb67da416c0581cb2418d7099822b
@@ -104,6 +111,10 @@ summary: |
     (#189).
   - **The conformance runner** states what a failing protocol request sent
     (#262).
+  - **CLI distribution** (#129, ADR 0226): `varve` ships as six attested
+    Native AOT binaries, one per platform (`linux-x64`, `linux-arm64`,
+    `osx-x64`, `osx-arm64`, `win-x64`, `win-arm64`), each with its SBOM,
+    installed by a Homebrew tap and winget manifests.
   - **The public API freeze gate** (#316, ADR 0227): each package's surface
     is compared against its published package, and an unmarked break is
     refused.

@@ -74,6 +74,10 @@ What landed on `main` since v0.1.0-preview.21:
   (#189).
 - **The conformance runner** states what a failing protocol request sent
   (#262).
+- **CLI distribution** (#129, ADR 0226): `varve` ships as six attested
+  Native AOT binaries, one per platform (`linux-x64`, `linux-arm64`,
+  `osx-x64`, `osx-arm64`, `win-x64`, `win-arm64`), each with its SBOM,
+  installed by a Homebrew tap and winget manifests.
 - **The public API freeze gate** (#316, ADR 0227): each package's surface
   is compared against its published package, and an unmarked break is
   refused.
