@@ -255,3 +255,25 @@ count never makes the server unready.
 
 A query under `GRAPH ?g` enumerates the dataset's named graphs once, to
 group them by the TBox each meets.
+
+### A cross-graph binding with property chains
+
+A binding with `varve:crossGraph true` finds each fact's premise sets, so it
+can place a fact two graphs derive together. That is paid on every build
+from scratch: a cold start, a commit to a TBox graph, a restart after a stop.
+Under `varve:OWL2RL`, a TBox with an `owl:propertyChainAxiom` or a transitive
+property whose facts cross graphs currently costs **about four times as long
+each time the number of graphs doubles** (ADR 0195 point 3, #354). Measured
+on REC M with links between buildings, 200 per thousand commits, 4 cores:
+
+| Graphs | Closure | Premise sets |
+|---|---|---|
+| 7 | 49 s | 163 s |
+| 15 | 198 s | 686 s |
+| 31 | 1,216 s | 3,239 s |
+
+Without such links the same graphs take 38 s, 91 s and 236 s to close and 55
+s, 141 s and 383 s to find the sets. Keep such a binding to **about 15
+graphs**, a build of a quarter of an hour on this machine, or bind the
+graphs the chain crosses in one binding and the rest per graph. A binding
+under `varve:RDFS` is unaffected: no RDFS rule joins two data graphs.

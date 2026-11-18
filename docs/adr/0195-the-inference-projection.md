@@ -146,15 +146,27 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   | M | 20 | 31 | 101 | 11,477,643 | 0 | 0 | 383 s |
   | M | 20 | 63 | 184 | 23,026,910 | 0 | 0 | 1,132 s |
   | M | 200 | 7 | 227 | 2,596,047 | 1 | 12 | 160 s |
-  | M | 200 | 15 | 462 | 5,562,799 | 3 | 36 | 659 s |
+  | M | 200 | 15 | 462 | 5,562,799 | 3 | 36 | 686 s |
+  | M | 200 | 31 | 999 | 11,494,399 | 9 | 108 | 3,239 s |
 
   The closure grows with the graphs and barely with the links: 184 links
   add nothing a set crosses at 20‰, and at 200‰ each link adds about 20
-  facts. The cross-graph sets are few and two graphs wide; what grows
-  faster than the graphs is the time to find the sets, about four times
-  for twice the graphs at 200‰, against two and a half at 20‰, so the
-  nightly runs 200‰ on at most 15 graphs. REC M at 200‰ on 31 and 63 graphs
-  had not finished when this was written; it is run by hand.
+  facts. The cross-graph sets are few and two graphs wide.
+
+  **The answer to #171's question** is that the premise sets do grow faster
+  than the graphs, and the growth is in time, not in sets. Under this axiom
+  set at 200‰, finding them takes **about four times as long when the
+  graphs double**: 163 s for 7 graphs, 686 s for 15 (×4.2), and 3,239 s for
+  31 (×4.7). At 20‰ it is ×2.6 to ×2.7. The merge's own closure grows the
+  same way: 49 s, 198 s and 1,216 s. Counted, the work found grows as the
+  data does, ×2.2 a doubling at both densities (rule instances, unions,
+  (fact, set) pairs; `PremiseSets.Counts`), and almost every fact has one
+  set. So the cost is in the search for rule instances, not in the pairs.
+  The property chain's derivation enumerates every chain in the fact set
+  for each anchor, which is quadratic in the data (#354). Until that is
+  fixed, the operator guide limits cross-graph `owl2rl` bindings whose
+  chains cross graphs, and the nightly runs 200‰ on at most 15 graphs; REC
+  M at 200‰ on 63 graphs is not run.
 - **What recomputing costs.** The sets over REC M's 63 graphs take 236 s,
   after a 90 s closure, and about 50 bytes a fact beside it (4,378 MiB held
   in all). Recomputed on every data commit, that would be minutes a commit,
@@ -542,7 +554,11 @@ It amends point 4 (generations), point 6 (the memory limit) and point 9
    holds REC S and REC M to that margin, under both profiles, per graph and
    cross-graph (`tests/Varve.Benchmarks/closure-budget-margin.sh`), and
    fails when a build needs more; on REC S it also bisects the least heap,
-   to report how far under the count each build stays. REC M's peaks, by the same count:
+   to report how far under the count each build stays. Run by hand on
+   2026-11-18, REC M per graph finished within the margin under both
+   profiles: under `rdfs` in 4.98 GiB (the heap before, 1.08 GiB, and 0.9 of
+   a 4.34 GiB peak), under `owl2rl` in 4.88 GiB (0.9 of 4.22 GiB). REC M
+   cross-graph is left to the nightly. REC M's peaks, by the same count:
    4.66 GB under `rdfs` (17.5 million facts) and 4.54 GB under `owl2rl`
    (23.1 million), the projection's rows (96 bytes a fact) besides.
 4. **A generation is made for stated causes only:** a commit that changes a

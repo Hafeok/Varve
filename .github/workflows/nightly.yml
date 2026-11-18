@@ -270,7 +270,7 @@ jobs:
       matrix:
         # Links per thousand commits past the build, and the most graphs merged. At 20 the
         # whole of REC M takes about 50 minutes on four cores; at 200 the premise sets
-        # grow faster than the graphs (15 graphs in 14 minutes, 31 still running after 35 more), so
+        # grow faster than the graphs (15 graphs in 15 minutes, 31 in 74, #354), so
         # the run stops at 15 to finish inside the job.
         include:
           - links: 20
