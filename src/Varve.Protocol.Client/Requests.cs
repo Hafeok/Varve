@@ -123,16 +123,17 @@ internal static class Requests
         }
     }
 
-    // A 503 left nothing committed or settles by the key; a 409 whose key is
-    // in flight is answered once the first request has been.
+    // The refusals the server states as retryable for a write (ADR 0246
+    // point 10), by problem type: each says nothing was committed and another
+    // attempt may succeed, or, for an outcome unknown, the key settles it.
+    // Every other answer is final, every other 503 included: a dataset that
+    // failed, a sequencer broken by an append or by running out of memory,
+    // and a cut read are not retried, Retry-After or not. A memory limit is
+    // never retried: memory-limit-exceeded is a 422, and a sequencer out of
+    // memory is an unavailable with no routing reason.
     private static async ValueTask<bool> RetriedAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
-        if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
-        {
-            return true;
-        }
-
-        if (response.StatusCode != HttpStatusCode.Conflict)
+        if (response.StatusCode is not (HttpStatusCode.ServiceUnavailable or HttpStatusCode.Conflict))
         {
             return false;
         }
@@ -143,16 +144,56 @@ internal static class Requests
         try
         {
             using JsonDocument problem = JsonDocument.Parse(body);
-            return problem.RootElement.ValueKind == JsonValueKind.Object
-                && problem.RootElement.TryGetProperty("type", out JsonElement type)
-                && type.ValueKind == JsonValueKind.String
-                && type.GetString()!.EndsWith("/idempotency-key-in-flight", StringComparison.Ordinal);
+            JsonElement root = problem.RootElement;
+
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("type", out JsonElement type)
+                || type.ValueKind != JsonValueKind.String
+                || type.GetString() is not { } uri
+                || !uri.StartsWith(ProblemNamespace, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            string name = uri[ProblemNamespace.Length..];
+            string? reason = root.TryGetProperty("reason", out JsonElement member) && member.ValueKind == JsonValueKind.String ? member.GetString() : null;
+            return response.StatusCode == HttpStatusCode.Conflict
+                ? name == "idempotency-key-in-flight"
+                : IsRetryable(name, reason);
         }
         catch (JsonException)
         {
             return false;
         }
     }
+
+    private const string ProblemNamespace = "https://w3id.org/varve/problems/";
+
+    /// <summary>
+    /// Whether a <c>503</c> of problem type <paramref name="name"/>, with the
+    /// member <c>reason</c>, is one the server states as retryable for a write
+    /// (ADR 0246 point 10).
+    /// </summary>
+    internal static bool IsRetryable(string name, string? reason) => name switch
+    {
+        // The writer changed: nothing was committed, and the next attempt is routed anew.
+        "writer-moved" or "writer-stepped-down" or "writer-superseded" => true,
+
+        // The server drains; another instance, or this one restarted, answers.
+        "shutting-down" => true,
+
+        // The write's grants are behind the dataset's; the server advances, and the client retries (ADR 0165).
+        "management-behind" => true,
+
+        // The answer was lost or the flush not confirmed: the key finds the commit if there was one (ADR 0214).
+        "commit-outcome-unknown" => true,
+
+        // No writer yet, or the writer could not be reached: nothing was sent to it.
+        "unavailable" => reason is "no-writer" or "writer-unreachable",
+
+        // Everything else is final.
+        _ => false,
+    };
 
     // The server's Retry-After, at most five seconds; otherwise 100 ms doubled each time.
     private static TimeSpan Backoff(int attempt, TimeSpan? retryAfter) =>

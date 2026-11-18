@@ -185,7 +185,12 @@ the key from the log.
   and nothing is committed.
 
 `Varve.Protocol.Client` sends a key on every write by default (128 random
-bits per write, reused on each retry) and retries with it. Its first keyed
+bits per write, reused on each retry). It retries with that key only after
+a lost response or a refusal the server states as retryable: the writer
+moved, stepped down or was superseded; the server shutting down; management
+behind; an outcome unknown; `unavailable` for want of a writer; or the key in
+flight. Every other `503` is final, whatever its `Retry-After`, and so is a
+memory limit. Its first keyed
 write after a writer opens a dataset reads the window's commit headers, 0.3 to
 0.5 s at REC M over the full window; a host can call
 `IdempotencyKeys.PrepareAsync` when it becomes the writer to do that ahead.

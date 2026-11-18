@@ -26,7 +26,7 @@ decisions:
   - key: OnlyACommitRecordsAKey
     statement: "NoChange, Conflict, Rejected, a precondition's failure and every refusal record no key, so a retry of one is evaluated afresh"
   - key: ClientSendsAndRetriesWithAKey
-    statement: "Varve.Protocol.Client sends a key of 128 random bits on every write by default, made once per logical write from an injectable source, with the head it knew then as Varve-Key-Position, and retries with both, bounded, on a lost response, any 503 and 409 idempotency-key-in-flight"
+    statement: "Varve.Protocol.Client sends a key of 128 random bits on every write by default, made once per logical write from an injectable source, with the head it knew then as Varve-Key-Position, and retries with both, bounded, only on a lost response and the refusals the server states as retryable: 503 writer-moved, writer-stepped-down, writer-superseded, shutting-down, management-behind, commit-outcome-unknown, unavailable with reason no-writer or writer-unreachable, and 409 idempotency-key-in-flight; every other 503 is final, Retry-After or not, and a memory limit is never retried"
 ---
 
 The rulings of [ADR 0246](../adr/0246-client-idempotency-keys.md), filed unaccepted for #132

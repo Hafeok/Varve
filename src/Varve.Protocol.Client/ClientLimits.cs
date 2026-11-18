@@ -44,8 +44,13 @@ public readonly record struct ClientLimits
 
     /// <summary>
     /// How many times a keyed write is sent again with its key after a lost
-    /// response, a <c>503</c>, or <c>409 idempotency-key-in-flight</c>
-    /// (ADR 0246). Three by default; a write without a key is never retried.
+    /// response or a refusal the server states as retryable: a <c>503</c>
+    /// whose writer moved, stepped down or was superseded, the server shutting
+    /// down, management behind, an outcome unknown, <c>unavailable</c> for
+    /// want of a writer, and <c>409 idempotency-key-in-flight</c> (ADR 0246
+    /// point 10). Every other answer is final, every other <c>503</c> and a
+    /// memory limit included. Three by default; a write without a key is
+    /// never retried.
     /// </summary>
     public int WriteRetries { get; init; } = 3;
 

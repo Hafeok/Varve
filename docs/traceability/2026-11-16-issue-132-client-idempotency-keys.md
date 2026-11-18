@@ -49,7 +49,7 @@ the issue.
 - **`Varve.Protocol.Client`**:
   - `ClientLimits.IdempotencyKeys`, the host's source of keys. The library
     draws no randomness, because the key is in the log (ADR 0011);
-  - `WriteRetries`, with a retry on a lost response, any `503`, and `409`
+  - `WriteRetries`, with a retry on a lost response, any `503` (narrowed in the third review to the refusals the server states as retryable), and `409`
     with `idempotency-key-in-flight`.
 - **`Varve.Server`**: `Varve:Limits:IdempotencyWindow`, and the CLI's key
   source.
@@ -146,6 +146,29 @@ The maintainer's answers on #132:
 
 **Tests run here, all passing:** Protocol 184; Protocol client 117; Server
 239, with 60 skipped for services absent here, the new fleet test among them.
+
+## The third review
+
+The maintainer's two changes on #320, 2026-11-18, before acceptance:
+
+- **ADR 0246's status line** reads "Accepted — filed unaccepted by …", the
+  form `eng/release.cs` reads as accepted once the decisions are.
+- **The client retries only the refusals the server states as retryable,**
+  named by problem type:
+  - `writer-moved`, `writer-stepped-down`, `writer-superseded`,
+    `shutting-down`, `management-behind` and `commit-outcome-unknown`;
+  - `unavailable`, but only with the reason `no-writer` or
+    `writer-unreachable`;
+  - `409 idempotency-key-in-flight`.
+
+  Every other `503` is final. `Retry-After` is not the test, because a
+  write's generic `unavailable` carries it. That includes a sequencer broken
+  by an `OutOfMemoryException`, which stays broken until the dataset is
+  reopened. A memory limit is never retried. `WriteRetryTests` holds each
+  case: 9 retried and 12 final.
+
+**Tests run here, all passing:** Protocol client 139, Protocol 184, and
+Server 255 (60 skipped). The docs site's links have 0 broken.
 
 ## Deferred
 

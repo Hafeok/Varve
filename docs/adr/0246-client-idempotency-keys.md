@@ -2,7 +2,7 @@
 
 ## Status
 
-**Proposed — filed unaccepted by the session for #132, 2026-11-16** (ADR 0066).
+**Accepted — filed unaccepted by the session for #132, 2026-11-16** (ADR 0066).
 Acceptance is the maintainer's act, or his delegate's for a decision he has
 read (ADR 0239). The plan was posted on
 [#132](https://github.com/Hafeok/Varve/issues/132). The maintainer's review of
@@ -181,10 +181,31 @@ answers:
       head of 0 only ever refuses more.
     - With a key, the client sends the write again with the same key and
       position, up to `ClientLimits.WriteRetries` times (3 by default). It
-      does so after:
-      - a lost response;
-      - any `503`;
-      - `409 idempotency-key-in-flight`.
+      does so only after:
+      - a lost response, where no answer arrived;
+      - a refusal the server states as retryable, by problem type:
+        - `503 writer-moved`, `writer-stepped-down` and `writer-superseded`:
+          the writer changed, nothing was committed, and the next attempt is
+          routed anew;
+        - `503 shutting-down`: the server drains;
+        - `503 management-behind`: the write's grants were behind its
+          dataset's (ADR 0165);
+        - `503 commit-outcome-unknown`: the key settles it (ADR 0214);
+        - `503 unavailable`, but only with the reason `no-writer` or
+          `writer-unreachable`, where nothing reached a writer;
+        - `409 idempotency-key-in-flight`.
+    - **Every other answer is final, and every other `503` is not retried.**
+      That covers:
+      - `unavailable` with any other reason, or none: a dataset that failed,
+        or a sequencer broken by an append or by running out of memory;
+      - `read-limit-exceeded`, `not-ready`, `load-spill-damaged`, and a `503`
+        with no Varve problem;
+      - a `503` with `Retry-After`. That header times a retry; it never
+        decides one, because a broken sequencer's `unavailable` carries it
+        too.
+    - **A memory limit is never retried:** `memory-limit-exceeded` is a
+      `422`, and a sequencer out of memory answers `unavailable` with no
+      routing reason. Decided by the maintainer on #320, 2026-11-18.
     - Between attempts it waits for the server's `Retry-After` (at most five
       seconds), or else 100 ms, doubled each time.
     - **Its guarantee** is point 6's first: once, or refused.
