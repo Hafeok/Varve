@@ -384,7 +384,11 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
                 Projection.Clashes().Count,
                 limit.Value,
                 Projection.Stopped ? reached.Value : 0,
-                Projection.Binding.CrossGraph ? Projection.PremiseSetGraphs().Count : null);
+                Projection.Binding.CrossGraph ? Projection.PremiseSetGraphs().Count : null)
+            {
+                Held = Projection.ClosureHeld.Value,
+                Peak = Projection.ClosurePeak.Value,
+            };
         }
 
         internal void Start(ILogger logger) => _feed = Task.Run(() => FeedAsync(logger, _stop.Token));
@@ -495,4 +499,11 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 /// <param name="Reached">What a stopped binding's closure held when it stopped, in bytes.</param>
 /// <param name="PremiseSets">A cross-graph binding's premise-set graphs holding rows (ADR 0190 point 6); null for an intra-graph one.</param>
 [DesignDecision(typeof(TheInferenceProjection.InferenceBehind), Scope = ExceptionScope.Boundary)]
-internal sealed record InferenceStatus(long Lag, long HeldFrom, string State, int Clashes, long Limit, long Reached, int? PremiseSets = null);
+internal sealed record InferenceStatus(long Lag, long HeldFrom, string State, int Clashes, long Limit, long Reached, int? PremiseSets = null)
+{
+    /// <summary>What the binding's closures hold now, in bytes by their budget's count.</summary>
+    internal long Held { get; init; }
+
+    /// <summary>The most they have held at once since they were built, the build included: what the binding needs of its limit.</summary>
+    internal long Peak { get; init; }
+}

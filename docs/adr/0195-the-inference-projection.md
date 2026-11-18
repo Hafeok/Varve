@@ -423,3 +423,82 @@ state.
 - **Analyzer rule.** None new. Each rule firing, each changed quad and each
   row's match is `[HotPath]` (`VARVE0003`).
 - **Open questions owned.** Point 8's "meet it or refuse", by milestone 9.
+
+## Amendment, 2026-11-18 — a closure too large is refused before the heap is asked
+
+Filed by Inference, part 2 (#171, under #95), unaccepted until the
+maintainer accepts it (ADR 0066). Decided by the maintainer on #171 and
+#335 on 2026-11-18: #335 blocks this part, and is fixed here.
+
+**What was wrong.** Point 6's budget counted facts at 256 bytes each, while
+a from-scratch build needs more than twice that, so a `ClosureBytes` near
+the heap limit let a build exhaust the heap first. On REC M, a cross-graph
+build under a 6, 8 or 9 GiB heap limit died of an unhandled
+`OutOfMemoryException` (exit 134) instead of being refused. `ApplyAsync` also
+made any failed pass a generation, a rebuild that needed more memory still,
+and the server's feed did not handle the result. Under the old code the gate
+below fails: after 120 s the binding still reads `following` with a lag of
+11, its feed dead, nothing refused.
+
+It amends point 4 (generations), point 6 (the memory limit) and point 9
+(what is tested):
+
+1. **The budget is asked before every allocation.** `FactBudget` counts
+   bytes. Every structure a closure grows asks it first:
+   - each fact, at its profile's cost (`ClosureCosts.For`), with the
+     projection's open row beside it (`InferenceOptions.RowBytes`);
+   - the fact store's record array and table, at their new size before
+     they grow;
+   - each explicit fact;
+   - each entry of a pass's record of changes;
+   - each entry of counting's frontier, queue and seeded set while it
+     lives;
+   - each fact's premise sets in a cross-graph binding, and their
+     propagation's entries.
+   
+   A build is **admitted** only if its given facts alone fit, and each given
+   fact read is charged before it is buffered. A request past the limit
+   throws `ClosureLimitExceededException` on the build's own thread before
+   the allocation; the closure gives back everything it took when its owner
+   drops it. Catching `OutOfMemoryException` is not the mechanism.
+2. **One pool for the process.** Every binding's budget also takes from a
+   pool of three quarters of the collector's heap limit, the rest left to
+   the server; a request is refused when either would pass. `SettingsCheck`
+   refuses a `ClosureBytes` above the pool.
+3. **The figures are measured, per profile.** `ClosureCosts.For(profile)`
+   is set from what a build needs against what its budget counts, measured
+   under `DOTNET_GCHeapHardLimit` (below), and a test fails when a build
+   needs more than the budget assumes.
+4. **A generation is made for stated causes only:** a commit that changes a
+   bound TBox graph, a commit that allocates a term a rule names, and a cold
+   start or a saved state that does not check. "Any failed pass is a
+   generation" is removed.
+5. **A stopped binding stays refused.** A budget refusal, or an
+   `OutOfMemoryException` that reaches a pass all the same, stops the
+   binding at its memory limit (`stopped (memory-limit)`). Any other failure
+   stops it as `stopped (failed)`, answered `inference-unavailable` with
+   `reason` `failed`. Either answers 503 with no `Retry-After`,
+   `failure` `configuration`. Neither is tried again: not by a data commit,
+   a TBox commit, a reset or a timer, only when the instance restarts or the
+   binding's declaration changes. Point 6's "tried again … on a commit that
+   starts a generation" is withdrawn.
+6. **Readiness reports `held` and `peak`** per binding: the bytes its
+   closures hold now, and the most they have held, the build included, by
+   the budget's count.
+7. **The gate** (`Varve.Server.Tests`, `ClosureMemoryGateTests`) runs the
+   server as a child process under a 512 MiB hard heap limit with
+   `ClosureBytes` at the most the settings allow:
+   - a closure past it is refused, as `stopped (memory-limit)`, and a read
+     answers 503 `inference-unavailable` with no `Retry-After`;
+   - the process stays up;
+   - a second dataset's binding keeps answering;
+   - the refused binding stays refused after a TBox commit.
+   
+   A second test, under both profiles, intra- and cross-graph, builds data
+   whose budget peak is a tenth under its limit on the least heap the
+   settings allow for it; the build must finish.
+
+**The ledger.** The rulings are `BudgetAskedBeforeEveryAllocation`,
+`OnePoolPerProcess`, `CostsMeasuredPerProfile`,
+`GenerationsForStatedCausesOnly` and `StoppedStaysRefused`.
+

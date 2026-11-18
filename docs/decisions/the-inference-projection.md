@@ -27,6 +27,16 @@ decisions:
     statement: "Rows are over store handles and joins are by id, exact while erasure mode is off; before erasure mode and a materialising binding coexist, joins are by value, an Erasure commit starts a generation from scratch and stops serving the old one at once, every tier-2 surface unavailable and readiness saying why"
   - key: IncrementalEqualsFromScratch
     statement: "Over generated histories with retractions, TBox and rules changes, the closure at every position equals the from-scratch closure, byte for byte in canonical N-Quads, for each retraction candidate, and as-of reads equal it above and below the floor"
+  - key: BudgetAskedBeforeEveryAllocation
+    statement: "Amended 2026-11-18: a binding's budget counts bytes, and every structure a closure grows asks it before allocating, facts, arrays at their new size, explicit facts, a pass's record, a build's working sets and premise sets; a build is admitted only if its given facts fit, and a refusal is thrown on the build's thread before the allocation, never by catching OutOfMemoryException"
+  - key: OnePoolPerProcess
+    statement: "Amended 2026-11-18: every binding's budget also takes from a pool of three quarters of the heap limit, and a ClosureBytes above the pool is refused at start"
+  - key: CostsMeasuredPerProfile
+    statement: "Amended 2026-11-18: the bytes a budget charges per structure are measured per profile under a hard heap limit, and a test fails when a build needs more than its budget counts"
+  - key: GenerationsForStatedCausesOnly
+    statement: "Amended 2026-11-18: a generation is made only for a commit that changes a bound TBox graph, a commit that allocates a term a rule names, and a cold start or a saved state that does not check; a failed pass is never a generation"
+  - key: StoppedStaysRefused
+    statement: "Amended 2026-11-18: a budget refusal or a memory failure stops the binding at its memory limit, any other failure stops it as failed; either answers 503 inference-unavailable with no Retry-After and is never tried again until a restart or a change to the binding"
 ---
 
 The rulings of [ADR 0195](../adr/0195-the-inference-projection.md), one line each. The ADR is the

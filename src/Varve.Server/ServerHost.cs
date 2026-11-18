@@ -863,6 +863,8 @@ internal static partial class ServerHost
                 json.WriteNumber("heldFrom", status.HeldFrom);
                 json.WriteBoolean("inconsistent", status.Clashes > 0);
                 json.WriteNumber("clashes", status.Clashes);
+                json.WriteNumber("held", status.Held);
+                json.WriteNumber("peak", status.Peak);
                 if (status.PremiseSets is { } premiseSets)
                 {
                     json.WriteNumber("premiseSets", premiseSets);

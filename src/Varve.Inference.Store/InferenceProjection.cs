@@ -626,11 +626,11 @@ public sealed class InferenceProjection : IProjection
         return !graph.Lexical.StartsWith(Encoding.UTF8.GetBytes(Reserved)) && Binding.DataGraphs.Allows(graph);
     }
 
-    /// <summary>What the binding's closures hold now by their budget's count, for the tests.</summary>
-    internal MemoryAmount Held => _state?.Budget.Used ?? new MemoryAmount(0);
+    /// <summary>What the binding's closures hold now, by their budget's count (ADR 0195 point 6): <c>held</c> on readiness.</summary>
+    public MemoryAmount ClosureHeld => _state?.Budget.Used ?? new MemoryAmount(0);
 
-    /// <summary>The most the binding's closures have held at once by their budget's count, their build included, for the tests.</summary>
-    internal MemoryAmount PeakHeld => _state?.Budget.Peak ?? new MemoryAmount(0);
+    /// <summary>The most they have held at once since they were built, the build included, by the budget's count: <c>peak</c> on readiness, what the binding needs of <c>ClosureBytes</c>.</summary>
+    public MemoryAmount ClosurePeak => _state?.Budget.Peak ?? new MemoryAmount(0);
 
     /// <summary>A budget of <see cref="InferenceOptions.ClosureBytes"/> at the binding's profile's costs (ADR 0195 point 6, as amended 2026-11-18).</summary>
     internal FactBudget NewBudget() => new(new MemoryAmount(_options.ClosureBytes.Value), InferenceOptions.CostsFor(Binding.Profile), _options.Pool);

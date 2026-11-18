@@ -190,9 +190,11 @@ graphs as `premiseSets`.
 **When it cannot answer.**
 - A projection not at the read's position after a two-second wait:
   [`503 inference-behind`](../problems/inference-behind.md).
-- A binding stopped by `Varve:Inference:ClosureBytes`:
+- A binding stopped by `Varve:Inference:ClosureBytes`, or because its
+  projection failed:
   [`503 inference-unavailable`](../problems/inference-unavailable.md), with
-  no `Retry-After`.
+  no `Retry-After`. Nothing tries it again until a restart or a change to
+  the binding.
 - A caller whose grant restricts rows over the binding's graphs:
   [`403 entailment-not-available`](../problems/entailment-not-available.md).
 
@@ -204,8 +206,10 @@ closure from scratch; the [configuration](configure.md#inference) page has
 the settings.
 
 **On readiness**, each binding's `inference` line beside its dataset's gives
-its `state` (`following`, `stopped (memory-limit)`), its `lag`, `heldFrom`,
-`inconsistent` and `clashes`, and for a cross-graph binding `premiseSets`. None of them makes the dataset unready.
+its `state` (`following`, `stopped (memory-limit)`, `stopped (failed)`), its
+`lag`, `heldFrom`, `inconsistent` and `clashes`, `held` and `peak` (the bytes
+its closures hold now and the most they have held, by the budget's count),
+and for a cross-graph binding `premiseSets`. None of them makes the dataset unready.
 
 ## Cost
 

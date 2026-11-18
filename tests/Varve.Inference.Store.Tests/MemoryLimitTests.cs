@@ -38,7 +38,7 @@ public class MemoryLimitTests
         await CommitAsync(dataset, [(Ex("C1"), SubClassOf, Ex("C2"), TBox, true), (Ex("a"), Type, Ex("C1"), Ex("g1"), true)], ct);
         InferenceProjection probe = new(dataset, binding);
         await dataset.CatchUpAsync(probe, ct);
-        long needed = probe.PeakHeld.Value;
+        long needed = probe.ClosurePeak.Value;
         InferenceOptions options = new() { ClosureBytes = new ByteCount(needed + (needed / 4)) };
 
         InferenceProjection projection = new(dataset, binding, options);

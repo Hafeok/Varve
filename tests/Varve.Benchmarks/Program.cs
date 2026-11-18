@@ -88,6 +88,12 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 4 && args[0] == "--closure-budget")
+        {
+            InferenceBench.RunClosureBudget(args[1], args[2], args[3] == "cross");
+            return;
+        }
+
         // --inference-premise-sets <size> <profile> [held] [links=<per mille>] [axioms=<name>]
         if (args.Length is >= 3 and <= 6 && args[0] == "--inference-premise-sets")
         {

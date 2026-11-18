@@ -308,7 +308,7 @@ has closed for as-of reads ([Inference](inference.md), ADR 0195).
 | Key | Default | Meaning |
 |---|---|---|
 | `Inference:HistoryBytes` | `33554432` | the most bytes of closed rows one binding's projection keeps for as-of reads, the oldest positions out first (ADR 0195 point 5a). A closure read as of a position below what is held is computed from scratch, as below the projection's floor. `0` keeps none. A read is never wrong for it; a read at the projection's position never uses it |
-| `Inference:ClosureBytes` | unset: a quarter of the heap limit | the most bytes one binding's closures may hold together (ADR 0195 point 6). Past it the binding stops, its closure reads answer `503 inference-unavailable` with no `Retry-After`, and readiness says `stopped (memory-limit)`; tier-1 regimes are still served. A commit to one of its TBox graphs tries it again. At least 1 when set |
+| `Inference:ClosureBytes` | unset: a quarter of the heap limit | the most bytes one binding's closures may hold together, at most three quarters of the heap limit, which every binding of the instance also shares (ADR 0195 point 6, as amended 2026-11-18). Every structure a closure grows is charged before it is allocated; past the limit the binding stops, refused rather than run out of memory: its closure reads answer `503 inference-unavailable` with no `Retry-After`, and readiness says `stopped (memory-limit)`. Nothing tries it again until a restart or a change to the binding. Readiness's `held` and `peak` say what each binding holds and has needed; tier-1 regimes are still served. At least 1 when set |
 
 The writer merges its extent sets in the background (ADRs 0158, 0159), so a
 read of the present merges a bounded number of runs however many

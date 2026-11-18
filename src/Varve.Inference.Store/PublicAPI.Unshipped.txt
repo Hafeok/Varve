@@ -45,3 +45,5 @@ static Varve.Inference.Store.Model.InferenceOptions.CostsFor(Varve.Inference.Mod
 static Varve.Inference.Store.Model.InferenceOptions.RowBytes.get -> Varve.Inference.Model.MemoryAmount
 Varve.Inference.Store.Model.InferenceOptions.Pool.get -> Varve.Inference.FactBudget?
 Varve.Inference.Store.Model.InferenceOptions.Pool.init -> void
+Varve.Inference.Store.InferenceProjection.ClosureHeld.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Store.InferenceProjection.ClosurePeak.get -> Varve.Inference.Model.MemoryAmount

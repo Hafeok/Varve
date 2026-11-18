@@ -366,6 +366,50 @@ internal static class InferenceBench
         Console.WriteLine($"//   {stage}: live heap {Heap() / 1048576.0:F0} MiB, working set {Environment.WorkingSet / 1048576.0:F0} MiB, peak {peak / 1048576.0:F0} MiB; heap limit {(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1048576.0):F0} MiB");
     }
 
+    /// <summary>
+    /// What a build needs against what its budget counts (#335): REC's
+    /// closures built from scratch, per graph over the TBox closure or as one
+    /// cross-graph merge with its premise sets, under a budget that never
+    /// refuses, at the engine's costs for the profile. Prints the live heap
+    /// before the build and the budget's peak; run under
+    /// <c>DOTNET_GCHeapHardLimit</c>, stepped down, to find the least heap
+    /// the build finishes on.
+    /// </summary>
+    internal static void RunClosureBudget(string sizeName, string profileName, bool crossGraph)
+    {
+        RecSize size = Enum.Parse<RecSize>(sizeName);
+        InferenceProfile profile = profileName == "owl2rl" ? InferenceProfile.Owl2Rl : InferenceProfile.Rdfs;
+        Terms terms = new();
+        Fact[] tbox = TBox(terms);
+        Dictionary<string, HashSet<Fact>> graphs = State(terms, RecPortfolio.Generate(size, Seed));
+        long before = Heap();
+        FactBudget budget = new(new MemoryAmount(long.MaxValue), ClosureCosts.For(profile));
+        Closure tboxClosure = new(InferenceProgram.Of(profile, terms), Retraction.RecursiveCounting, budget);
+        tboxClosure.Apply(tbox, []);
+        long facts = tboxClosure.Count.Value;
+        if (crossGraph)
+        {
+            Closure merge = new(InferenceProgram.Of(profile, terms), Retraction.RecursiveCounting, budget, tboxClosure);
+            merge.Apply([.. graphs.Values.SelectMany(g => g).Distinct()], []);
+            string[] names = [.. graphs.Keys.Order(StringComparer.Ordinal)];
+            PremiseSets sets = new(merge, names.SelectMany((n, i) => graphs[n].Select(f => (f, new DataGraphIndex(i)))));
+            facts += merge.Count.Value;
+            GC.KeepAlive(sets);
+        }
+        else
+        {
+            foreach (HashSet<Fact> graph in graphs.Values)
+            {
+                Closure closure = new(InferenceProgram.Of(profile, terms), Retraction.RecursiveCounting, budget, tboxClosure);
+                closure.Apply([.. graph], []);
+                facts += closure.Count.Value;
+            }
+        }
+
+        long after = Heap();
+        Console.WriteLine($"budget {sizeName} {profileName} {(crossGraph ? "cross" : "per-graph")}: {facts} facts; live before {before}; live after {after}; held {budget.Used.Value}; peak {budget.Peak.Value}; heap limit {GC.GetGCMemoryInfo().TotalAvailableMemoryBytes}");
+    }
+
     private static double Percentile(List<double> sorted, double p) => sorted.Count == 0 ? 0 : sorted[Math.Min(sorted.Count - 1, (int)(p * sorted.Count))];
 
     private static long Heap()
