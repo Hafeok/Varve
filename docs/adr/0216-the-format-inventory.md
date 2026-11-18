@@ -12,7 +12,7 @@ amendment: a saved plan of an unknown format is refused with a message that
 tells the operator to plan again.
 
 **Amended 2026-11-16** (ADR 0068), by Replication part 2 (#166) for #117,
-unaccepted until the maintainer accepts it (ADR 0066): the verification
+filed unaccepted (ADR 0066) and accepted by the maintainer on 2026-11-18: the verification
 record and the result record join the inventory
 ([ADR 0183](0183-object-store-verification-and-the-compatibility-page.md)).
 See the end.
@@ -146,8 +146,8 @@ the release that introduced the version, from nuget.org:
 
 ## Amendment, 2026-11-16 — the verification record and the result record
 
-Filed by Replication part 2 (#166) for #117 with ADR 0183, unaccepted until
-the maintainer accepts it (ADR 0066).
+Filed unaccepted by Replication part 2 (#166) for #117 with ADR 0183
+(ADR 0066), and accepted by the maintainer on 2026-11-18.
 
 Two formats join the inventory, both **versioned**: a later release reads
 the format while it can, and an unknown one is answered by running

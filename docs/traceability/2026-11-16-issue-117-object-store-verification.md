@@ -241,3 +241,31 @@ The maintainer's second message, after the delta plan, verbatim:
     maintainer dispatches.
   - The Amazon S3 role, which the maintainer creates.
   - Pull requests 2 and 3 of #166.
+
+## Since the report, 2026-11-18
+
+- **The architect's read added two things to ADR 0183** before it was
+  accepted: a pass means no counterexample in the rounds run and is not a
+  proof, and the operator runs the command again after upgrading the
+  store.
+- **The maintainer's delegate accepted ADR 0183's seven rulings** on the
+  branch (`01ea9647`), at the maintainer's word.
+- **The hosted run on that commit was green** apart from `agent review`,
+  which waits for the approval, and `the release's assets`, a job that
+  came to `main` with #247 and ran a script the branch did not have until
+  `main` was merged in.
+  - `storage (services)`: `varve storage verify` passed against Azurite
+    and, for the first time anywhere, against RustFS by web identity. 215
+    store tests, 180 passed and 35 skipped; 30 server tests, all passed.
+  - `fleet (services)`: 38 of 38. `handover (services)`: 12 of 12.
+- **CI's two result records are in,** byte for byte as that job's log has
+  them, and the page is regenerated: Azurite 3.37.0 and RustFS 1.0.1 are
+  verified.
+- **A defect of this session's, found and fixed.** The test store that
+  loses races wrote 20 ms after its check. Under the load of the whole
+  object-storage namespace, round 0 once had a single winner, and a test
+  named round 0. A later round still refused the store. A write that
+  passed its check now waits until another request for the same name has
+  passed its own, so no timing decides the gate.
+- **`dotnet run eng/ci.cs -- --base origin/main`, as CI runs it and with
+  nothing demoted:** all 78 jobs pass, on `main` at `26d9ed09` merged in.

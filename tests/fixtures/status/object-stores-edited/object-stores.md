@@ -22,9 +22,9 @@ more rounds make that less likely without ruling it out.
 ## The stores
 | Store | State | Adapter | Evidence |
 |---|---|---|---|
+| Azurite, the Azure Blob Storage emulator | **verified** | `Varve.Store.Azure` | Passed: version 3.37.0, suite 1, 16 racers, 8 rounds, 2026-11-18, run by CI ([record](../../testdata/object-stores/results/azurite-3.37.0.yaml)). An emulator's record is the emulator's. It does not verify Azure Blob Storage. |
+| RustFS | **verified** | `Varve.Store.S3` | Passed: version 1.0.1, suite 1, 16 racers, 8 rounds, 2026-11-18, run by CI ([record](../../testdata/object-stores/results/rustfs-1.0.1.yaml)). CI's S3-compatible server, reached by web identity (ADR 0134 decision 6, ADR 0137). |
 | Azure Blob Storage | untested | `Varve.Store.Azure` | The five operations and both races passed on a real account on 2026-10-23 (`docs/reports/azure-blob-live-2026-10-23.md`), before the suite had a version or a record. The optional leg, `azure-objects.yml`, writes the record when the maintainer runs it. |
-| Azurite, the Azure Blob Storage emulator | untested | `Varve.Store.Azure` | An emulator's record is the emulator's. It does not verify Azure Blob Storage. |
-| RustFS | untested | `Varve.Store.S3` | CI's S3-compatible server, reached by web identity (ADR 0134 decision 6, ADR 0137). |
 | Amazon S3 | untested | `Varve.Store.S3` | The optional leg, `aws-objects.yml`, writes the record once the maintainer has created its role. |
 | Cloudflare R2 | untested | `Varve.Store.S3` | No record. |
 | Google Cloud Storage, through its S3-compatible API | untested | `Varve.Store.S3` | No record. |

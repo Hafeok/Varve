@@ -1,0 +1,5 @@
+# From the first commit that carries eng/winget.cs (ADR 0226), a release names
+# one binary per RID the CLI ships. This descriptor names none.
+no sbom line for binary: varve-0.1.0-preview.18-linux-x64.tar.gz
+no sbom line for binary: varve-0.1.0-preview.18-win-arm64.zip
+no sbom line for binary: varve-0.1.0-preview.18-osx-arm64.tar.gz
