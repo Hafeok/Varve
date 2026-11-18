@@ -2,14 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Varve.Inference;
 using Varve.Inference.Model;
-using Varve.Rdf;
-using Varve.Sparql.Entailment;
 using Xunit;
 
 namespace Varve.Conformance.Tests;
