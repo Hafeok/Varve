@@ -193,7 +193,8 @@ out of scope. The README lists each.
 ## Amendment, 2026-11-18 — a declared secret may be absent
 
 **Accepted — filed unaccepted by a cloud session for #327, 2026-11-18** (ADR
-0066, ADR 0068). Acceptance is the maintainer's act on the pull request.
+0066, ADR 0068), and accepted by the maintainer on 2026-11-18, written by
+his delegate (ADR 0239).
 
 The weekly `check` on `main` was red for five names in the `auth-providers`
 environment that do not exist yet: identifiers for the Entra ID and Google
