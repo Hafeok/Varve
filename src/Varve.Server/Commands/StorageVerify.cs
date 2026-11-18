@@ -126,7 +126,7 @@ internal static class StorageVerify
 
         if (outcome.Verified)
         {
-            await io.Out.WriteLineAsync("verified: the store kept the contract. The verification record '" + ObjectStoreVerification.RecordName + "' is at its root.").ConfigureAwait(false);
+            await io.Out.WriteLineAsync("verified: the store kept the contract in every case, with no counterexample in " + options.Rounds + " rounds of each race. That is evidence, not a proof. The verification record '" + ObjectStoreVerification.RecordName + "' is at its root. Run this again after upgrading the store.").ConfigureAwait(false);
             return 0;
         }
 

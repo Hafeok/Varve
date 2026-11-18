@@ -51,6 +51,11 @@ cases of ADR 0134: the five operations and both race properties.
   **counterexample**: the case's name and what was seen. The run stops at
   the first one. A failure to reach the store is still an exception,
   because it says nothing about the contract.
+- **A pass is not a proof.** It means no counterexample was found in the
+  rounds that were run. A race a store loses rarely can survive any number
+  of rounds, so more rounds lower the chance of missing one and never
+  remove it. The command, the record and the page say "passed", with the
+  rounds, and never "proven".
 - **The suite has a version,** an integer that starts at 1 and rises when a
   case is added or made stricter. A build names the lowest version it
   accepts, which is the current one today.
@@ -77,6 +82,10 @@ racers and rounds, and when it ran, as JSON an operator can read.
   whose operator wants to deceive Varve, and nothing treats it as such.
 - **It is at the root, not per prefix** (the maintainer's answer D1 on
   #166). One run covers every dataset in the container or bucket.
+- **It says what one version of the store did.** An upgrade of the store
+  can change how it handles a race, and the record does not know the store
+  was upgraded. The operator runs the command again after upgrading the
+  store, and the guide says so.
 - **Replication reads it** (ADR 0184, to come): a shipping target needs a
   record there whose suite version is at or above the build's lowest.
 
@@ -148,6 +157,9 @@ counterexample against both broken stores.
 - **Count Azurite's record as Azure Blob Storage's.** An emulator shares
   the service's protocol, not its concurrency. The race property on one
   says nothing about the other.
+- **Call a pass "verified correct".** No finite number of rounds shows
+  that a race is never lost. The state on the page is still named
+  *verified*, as #117 has it, and the page says what that means.
 - **Read the server's version from response headers.** `IObjectStore` is
   five operations and shows no header (ADR 0134 decision 1). Widening the
   contract for a label was not worth it.

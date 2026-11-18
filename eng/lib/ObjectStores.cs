@@ -291,6 +291,10 @@ static class ObjectStoresPage
         **The contract suite is the evidence.** `varve storage verify` runs it:
         the five operations, then both races with sixteen clients.
 
+        **A pass is not a proof.** It means the suite found no counterexample
+        in the rounds it ran. A store that loses a race rarely can pass, and
+        more rounds make that less likely without ruling it out.
+
         ## The stores
 
         """;
@@ -300,7 +304,7 @@ static class ObjectStoresPage
 
         | State | Means |
         |---|---|
-        | **verified** | a result record of the suite passing against that version, run by CI or by the maintainer |
+        | **verified** | a result record of the suite passing against that version, with no counterexample in its rounds, run by CI or by the maintainer |
         | untested | Varve has an adapter for it, and nobody has added a record |
         | unsupported | a recorded failure, or a design limit its own documentation states |
         | no adapter | Varve has no adapter for it |
@@ -327,6 +331,11 @@ static class ObjectStoresPage
           a store that fails.
         - **`--rounds`** sets how many times each race runs. The default is 8.
           More rounds find a rarer race.
+        - **Run it again after you upgrade the store.** A new version of the
+          store can handle a race differently, and neither Varve nor the
+          record at the store knows that it was upgraded. Run it again after
+          a change to how the store is deployed, too: more nodes, another
+          consistency setting, a gateway in front of it.
 
         ## The record at the store
 
@@ -340,6 +349,9 @@ static class ObjectStoresPage
           named by a typing error, is caught.
         - **A record a build cannot read is not a verification.** Run the
           command again with that build.
+        - **It describes the store as it was when the command ran.** After an
+          upgrade of the store the record is still there and says nothing
+          about the new version, so run the command again.
 
         ## Add a record to this page
 

@@ -53,7 +53,7 @@ public sealed class StorageVerifyTests
             pass  of clients racing create-if-absent on one name exactly one wins
             pass  of clients racing replace-if-unchanged on one version exactly one wins
 
-            """.ReplaceLineEndings("\n") + "result record: " + file + "\nverified: the store kept the contract. The verification record 'varve-verification' is at its root.\n",
+            """.ReplaceLineEndings("\n") + "result record: " + file + "\nverified: the store kept the contract in every case, with no counterexample in 8 rounds of each race. That is evidence, not a proof. The verification record 'varve-verification' is at its root. Run this again after upgrading the store.\n",
             output);
         // Format 1 of the result record, as testdata/formats/verification-next holds it (ADR 0216).
         Assert.Equal(await FixtureAsync("result-pass.yaml", file), await File.ReadAllTextAsync(file, Ct));
@@ -314,7 +314,7 @@ public sealed class StorageVerifyServiceTests
             Ct);
 
         Assert.True(exit == 0, output.ToString() + error);
-        Assert.Contains("verified: the store kept the contract.", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("verified: the store kept the contract in every case", output.ToString(), StringComparison.Ordinal);
         Assert.Contains("result: pass\n", await File.ReadAllTextAsync(file, Ct), StringComparison.Ordinal);
 
         // The record a shipper will read is there, and a second run replaces it.

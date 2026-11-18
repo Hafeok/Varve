@@ -4,11 +4,11 @@ namespace: varve
 adr: 0183
 decisions:
   - key: TheContractSuiteIsShippedCode
-    statement: "The object-store contract suite, its five operations and both race properties with sixteen racers, is ObjectStoreVerification in Varve.Store.ObjectStorage; the tests and varve storage verify run the same cases, a broken case is the run's counterexample and not an exception, and the suite carries a version that only rises"
+    statement: "The object-store contract suite, its five operations and both race properties with sixteen racers, is ObjectStoreVerification in Varve.Store.ObjectStorage; the tests and varve storage verify run the same cases, a broken case is the run's counterexample and not an exception, a pass means no counterexample in the rounds run and is not a proof, and the suite carries a version that only rises"
   - key: VerifyRunsInAScratchPrefix
     statement: "varve storage verify takes a container or a bucket and creates every object under varve-verify/<random>/ at its root, which it lists and removes afterwards whatever the verdict, reporting by name what it could not remove; its exit code is the verdict"
   - key: AVerificationRecordAtTheStoresRoot
-    statement: "A passing run writes the object varve-verification at the store's root, with the suite's version, the racers, the rounds and the time, and a failing run removes it; the record guards against a mistake, not an adversary, and nothing treats it as evidence about a store whose operator means to deceive"
+    statement: "A passing run writes the object varve-verification at the store's root, with the suite's version, the racers, the rounds and the time, and a failing run removes it; it says what one version of the store did, so the operator runs the command again after upgrading the store; the record guards against a mistake, not an adversary, and nothing treats it as evidence about a store whose operator means to deceive"
   - key: TheVerificationRecordIsReadConservatively
     statement: "A verification record of a format this build does not read, or one that does not parse, is not a verification"
   - key: AResultRecordPerProviderAndVersion
