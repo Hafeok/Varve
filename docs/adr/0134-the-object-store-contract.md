@@ -16,7 +16,7 @@ unaccepted until the maintainer accepts it (ADR 0066):
 - a refusal for the identity is its own error.
 
 **Amended 2026-11-16** (ADR 0068), by Replication part 2 (#166) for #117,
-unaccepted until the maintainer accepts it (ADR 0066): the contract suite is
+filed unaccepted (ADR 0066) and accepted by the maintainer on 2026-11-18: the contract suite is
 shipped code, and a second broken store gates it
 ([ADR 0183](0183-object-store-verification-and-the-compatibility-page.md)).
 See the end.
@@ -318,8 +318,8 @@ which the service echoed.
 
 ## Amendment, 2026-11-16 — the suite is shipped code, and the supported stores are a page
 
-Filed by Replication part 2 (#166) for #117 with ADR 0183, unaccepted until
-the maintainer accepts it (ADR 0066).
+Filed unaccepted by Replication part 2 (#166) for #117 with ADR 0183
+(ADR 0066), and accepted by the maintainer on 2026-11-18.
 
 - **The contract suite of decision 7 is shipped code.** Its seven cases are
   `ObjectStoreVerification` in `Varve.Store.ObjectStorage`, run by
