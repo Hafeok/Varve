@@ -195,9 +195,9 @@ writer's. The cause stays server-minted, as the amendment of 2026-10-09 requires
 
 ## Amendment, 2026-11-16 — a lost response's commit is found by the client's key
 
-Filed by the session for #132 under ADR
-[0246](0246-client-idempotency-keys.md), unaccepted until the maintainer
-accepts it (ADR 0066).
+Filed unaccepted by the session for #132 under ADR
+[0246](0246-client-idempotency-keys.md) (ADR 0066), and accepted by the
+maintainer on 2026-11-18.
 
 Point 3's request id is still how a client finds the commit of a write
 whose response it received. A write whose response was lost is found by
@@ -213,4 +213,4 @@ Point 6's `If-Match` is checked after the key. So a retry whose original
 moved the head is answered from its commit, not with `412`.
 
 **The ledger.** The ruling of this block is `KeyFindsALostResponsesCommit`,
-unaccepted until the maintainer accepts it.
+accepted by the maintainer on 2026-11-18.

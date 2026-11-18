@@ -2,9 +2,9 @@
 
 ## Status
 
-**Accepted — filed unaccepted by the session for #132, 2026-11-16** (ADR 0066).
-Acceptance is the maintainer's act, or his delegate's for a decision he has
-read (ADR 0239). The plan was posted on
+**Accepted — filed unaccepted by the session for #132, 2026-11-16** (ADR 0066),
+and accepted by the maintainer on 2026-11-18, written by his delegate
+(ADR 0239). The plan was posted on
 [#132](https://github.com/Hafeok/Varve/issues/132). The maintainer's review of
 2026-11-16 made four changes, which are folded in below:
 - the commit records a hash, not the key;

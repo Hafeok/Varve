@@ -185,9 +185,9 @@ point 12, which adds to point 5 and point 4 here.
 
 ## Amendment, 2026-11-16 — a forwarded write keeps its key
 
-Filed by the session for #132 under ADR
-[0246](0246-client-idempotency-keys.md), unaccepted until the maintainer
-accepts it (ADR 0066). It adds to points 3 and 7.
+Filed unaccepted by the session for #132 under ADR
+[0246](0246-client-idempotency-keys.md) (ADR 0066), and accepted by the
+maintainer on 2026-11-18. It adds to points 3 and 7.
 
 - **Point 3.** `Idempotency-Key` and `Varve-Key-Position` join the headers
   passed through. The forwarder neither checks them nor adds either. The
@@ -200,4 +200,4 @@ accepts it (ADR 0066). It adds to points 3 and 7.
   first attempt committed, and commits it otherwise.
 
 **The ledger.** The ruling of this block is `ForwardedWriteKeepsItsKey`,
-unaccepted until the maintainer accepts it.
+accepted by the maintainer on 2026-11-18.

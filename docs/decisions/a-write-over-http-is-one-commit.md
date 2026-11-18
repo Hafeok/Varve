@@ -45,6 +45,8 @@ decisions:
     accepted-at: 2026-10-15T00:00:00Z
   - key: KeyFindsALostResponsesCommit
     statement: "A write whose response is lost is found by the client's Idempotency-Key, scoped to its agent (ADR 0246), and never by a client-chosen cause; the cause stays the server-minted request id; amended 2026-11-16"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-18T00:00:00Z
 ---
 
 The rulings of [ADR 0094](../adr/0094-a-write-over-http-is-one-commit.md), filed unaccepted by milestone 7a of #11
