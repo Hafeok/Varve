@@ -69,6 +69,10 @@ What landed on `main` since v0.1.0-preview.21:
   every problem page says what to do.
 - **Memory bounds for writing, checkpointing and reopening** (#227,
   ADR 0244): a dataset written under a memory limit reopens under it.
+- **Client idempotency keys** (#132, ADR 0246): a write may carry
+  `Idempotency-Key`, scoped to the authenticated agent, so a retried write
+  commits once. The client keys every write by default and retries a lost
+  response. A commit's header is read alone, without its delta (#310).
 - **`/manage/system` names the instance that answered** (#193).
 - **The state route takes `If-Match`** with the declaration's version
   (#189).
