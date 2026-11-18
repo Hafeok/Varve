@@ -154,8 +154,8 @@ an ingress serving files) and wants the Web UI there.
 
 ## Amendment, 2026-11-16 — the bundle in the image, and the management listener
 
-Filed by the session for #296 with [ADR 0245](0245-the-web-ui-in-the-container-image.md),
-unaccepted until the maintainer accepts it (ADR 0066). It records the
+Filed unaccepted by the session for #296 with [ADR 0245](0245-the-web-ui-in-the-container-image.md)
+(ADR 0066), and accepted by the maintainer on 2026-11-18. It records the
 maintainer's ruling of 2026-11-16: *the image ships the Web UI, and serves it
 by default.*
 

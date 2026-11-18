@@ -227,8 +227,8 @@ The ruling is `ManagementTokenByExchange`.
 
 ## Amendment, 2026-11-16 — where the settings come from, and `NotConfigured`
 
-Filed by the session for #296 with [ADR 0245](0245-the-web-ui-in-the-container-image.md),
-unaccepted until the maintainer accepts it (ADR 0066).
+Filed unaccepted by the session for #296 with [ADR 0245](0245-the-web-ui-in-the-container-image.md)
+(ADR 0066), and accepted by the maintainer on 2026-11-18.
 
 1. **Point 5's settings have a second source.**
    - With `Varve:WebUi:Settings` `Generated`, which the container image sets, the server answers `/ui/appsettings.json` from its own configuration:

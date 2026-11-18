@@ -3,8 +3,8 @@
 ## Status
 
 **Accepted — filed unaccepted by the session for #296, 2026-11-16**
-(ADR 0066). Acceptance is the maintainer's act on the pull request, or his
-delegate's for a decision he has read (ADR 0239).
+(ADR 0066), and accepted by the maintainer on 2026-11-18, written by his
+delegate (ADR 0239).
 
 Decided by the maintainer:
 - the ruling on #296 of 2026-11-16, *the image ships the Web UI, and serves
