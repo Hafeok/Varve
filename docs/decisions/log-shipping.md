@@ -14,7 +14,7 @@ decisions:
   - key: ASetIsVerifiedThenCopiedAsItIs
     statement: "The shipper checks a set's blobs before it creates them, ships no damaged blob, and never rewrites a set on a target: a rewrite is the source writer's and reaches the target as a new set"
   - key: ResumeIsByTheTargetsTail
-    statement: "The shipper keeps no state: it lists the target's log once, verifies its last segment, compares the tail with the source at the same slot, and checks the commit header chain across a segment boundary; a match continues and anything else is shipping-diverged"
+    statement: "The shipper keeps no state: it lists the target's log once, verifies each segment the target still holds as chunks, and compares the tail with the source at the same slot; a match continues and anything else is shipping-diverged, a broken chunk of the target included; across a segment boundary the commit header chain is the log reader's check, run by every follower of the target and by a promotion"
   - key: TheShipperIsAReaderAndAMaintenanceWriter
     statement: "The shipper announces one reader record per target on the source, holding the catalog version it copies until the target's catalog is replaced, and on the target it consolidates chunks and deletes retired sets by the target's own reader records, without ever opening the target as a dataset"
   - key: ATargetIsAVerifiedStoreOrADirectory

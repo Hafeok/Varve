@@ -510,3 +510,59 @@ static Varve.Store.ObjectStorage.Model.StoreAddress.operator ==(Varve.Store.Obje
 static Varve.Store.ObjectStorage.ObjectStorage.ReadLineageAsync(Varve.Store.IObjectStore! store, Varve.Store.Log.ObjectName? prefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.LineageRecord?>
 ~override Varve.Store.ObjectStorage.Model.CommitHeaderHash.Equals(object obj) -> bool
 ~override Varve.Store.ObjectStorage.Model.StoreAddress.Equals(object obj) -> bool
+Varve.Store.ObjectStorage.LogShipper
+Varve.Store.ObjectStorage.LogShipper.ShipLogAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.ShippedLog!>
+Varve.Store.ObjectStorage.Model.ShippedLog
+Varve.Store.ObjectStorage.Model.ShippedLog.<Clone>$() -> Varve.Store.ObjectStorage.Model.ShippedLog!
+Varve.Store.ObjectStorage.Model.ShippedLog.Equals(Varve.Store.ObjectStorage.Model.ShippedLog? other) -> bool
+Varve.Store.ObjectStorage.Model.ShippedLog.Moved.get -> bool
+Varve.Store.ObjectStorage.Model.ShippedLog.Moved.init -> void
+Varve.Store.ObjectStorage.Model.ShippedLog.NextSlot.get -> Varve.Store.ObjectStorage.Model.LogSlot
+Varve.Store.ObjectStorage.Model.ShippedLog.NextSlot.init -> void
+Varve.Store.ObjectStorage.Model.ShippedLog.ShippedLog() -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions
+Varve.Store.ObjectStorage.Model.ShippingOptions.<Clone>$() -> Varve.Store.ObjectStorage.Model.ShippingOptions!
+Varve.Store.ObjectStorage.Model.ShippingOptions.Clock.get -> System.TimeProvider!
+Varve.Store.ObjectStorage.Model.ShippingOptions.Clock.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.Equals(Varve.Store.ObjectStorage.Model.ShippingOptions? other) -> bool
+Varve.Store.ObjectStorage.Model.ShippingOptions.Lineage.get -> Varve.Store.ObjectStorage.Model.LineageSource!
+Varve.Store.ObjectStorage.Model.ShippingOptions.Lineage.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.ShippingOptions() -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.Source.get -> Varve.Store.IObjectStore!
+Varve.Store.ObjectStorage.Model.ShippingOptions.Source.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.SourcePrefix.get -> Varve.Store.Log.ObjectName?
+Varve.Store.ObjectStorage.Model.ShippingOptions.SourcePrefix.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.Staging.get -> Varve.Store.ObjectStorage.Model.CacheDirectory
+Varve.Store.ObjectStorage.Model.ShippingOptions.Staging.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.Target.get -> Varve.Store.IObjectStore!
+Varve.Store.ObjectStorage.Model.ShippingOptions.Target.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.TargetPrefix.get -> Varve.Store.Log.ObjectName?
+Varve.Store.ObjectStorage.Model.ShippingOptions.TargetPrefix.init -> void
+Varve.Store.ObjectStorage.ReplicaPromotedException
+Varve.Store.ObjectStorage.ReplicaPromotedException.Lineage.get -> Varve.Store.ObjectStorage.Model.LineageRecord?
+Varve.Store.ObjectStorage.ReplicaPromotedException.ReplicaPromotedException() -> void
+Varve.Store.ObjectStorage.ReplicaPromotedException.ReplicaPromotedException(Varve.Store.ObjectStorage.Model.LineageRecord! lineage) -> void
+Varve.Store.ObjectStorage.ReplicaPromotedException.ReplicaPromotedException(string! message) -> void
+Varve.Store.ObjectStorage.ReplicaPromotedException.ReplicaPromotedException(string! message, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.ShippingDivergedException
+Varve.Store.ObjectStorage.ShippingDivergedException.ShippingDivergedException() -> void
+Varve.Store.ObjectStorage.ShippingDivergedException.ShippingDivergedException(Varve.Store.ObjectStorage.Model.LogSlot slot, string! how) -> void
+Varve.Store.ObjectStorage.ShippingDivergedException.ShippingDivergedException(Varve.Store.ObjectStorage.Model.LogSlot slot, string! how, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.ShippingDivergedException.ShippingDivergedException(string! message) -> void
+Varve.Store.ObjectStorage.ShippingDivergedException.ShippingDivergedException(string! message, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.ShippingDivergedException.Slot.get -> Varve.Store.ObjectStorage.Model.LogSlot?
+Varve.Store.ObjectStorage.ShippingTargetNotEmptyException
+Varve.Store.ObjectStorage.ShippingTargetNotEmptyException.ShippingTargetNotEmptyException() -> void
+Varve.Store.ObjectStorage.ShippingTargetNotEmptyException.ShippingTargetNotEmptyException(string! message) -> void
+Varve.Store.ObjectStorage.ShippingTargetNotEmptyException.ShippingTargetNotEmptyException(string! message, System.Exception! innerException) -> void
+override Varve.Store.ObjectStorage.Model.ShippedLog.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.ShippedLog.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.ShippedLog.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.ShippingOptions.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.ShippingOptions.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.ShippingOptions.ToString() -> string!
+static Varve.Store.ObjectStorage.LogShipper.StartAsync(Varve.Store.ObjectStorage.Model.ShippingOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.LogShipper?>
+static Varve.Store.ObjectStorage.Model.ShippedLog.operator !=(Varve.Store.ObjectStorage.Model.ShippedLog? left, Varve.Store.ObjectStorage.Model.ShippedLog? right) -> bool
+static Varve.Store.ObjectStorage.Model.ShippedLog.operator ==(Varve.Store.ObjectStorage.Model.ShippedLog? left, Varve.Store.ObjectStorage.Model.ShippedLog? right) -> bool
+static Varve.Store.ObjectStorage.Model.ShippingOptions.operator !=(Varve.Store.ObjectStorage.Model.ShippingOptions? left, Varve.Store.ObjectStorage.Model.ShippingOptions? right) -> bool
+static Varve.Store.ObjectStorage.Model.ShippingOptions.operator ==(Varve.Store.ObjectStorage.Model.ShippingOptions? left, Varve.Store.ObjectStorage.Model.ShippingOptions? right) -> bool

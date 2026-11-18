@@ -169,3 +169,28 @@ and the projection catalog move into the store (ADR 0139).
   layer 4. The chunk log: `Varve.Store.ObjectStorage`, layer 5.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-18 — a shipping target's consolidation is done by its shipper
+
+Filed by Replication part 2 (#166) with ADR 0184, unaccepted until the
+maintainer accepts it (ADR 0066).
+
+Decision 4 has the writer consolidate a sealed segment and delete its
+chunks. A replica has no writer. On a shipping target:
+
+- **The shipper consolidates.** When the source has a segment's `.seg`, the
+  shipper creates the target's `.seg` from it, byte for byte, and only
+  then deletes the target's chunks of that segment, except its fence
+  chunks.
+- **Before the create it checks that the target's chunks are a prefix of
+  the `.seg`,** each against the content hash in its header. A difference
+  is `shipping-diverged`, and nothing is deleted.
+- **A shipper stopped between the create and the deletes leaves both,**
+  which is a state decision 4 already passes through. The next shipper
+  finishes the deletes.
+- A segment the source consolidated before it was shipped reaches the
+  target as the `.seg` and the fence chunks the source kept.
+
+**The ledger.** No ruling changes. The rulings are
+`NothingOnATargetIsOverwritten` and `ShippedInOrderTheCatalogLast`, in
+ADR 0184's set.

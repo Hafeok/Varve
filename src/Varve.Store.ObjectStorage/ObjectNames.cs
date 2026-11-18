@@ -64,6 +64,9 @@ internal sealed class ObjectNames(ObjectName? prefix)
 
     public ObjectName Chunk(int segment, int chunk) => new(_prefix + LogPart + Slot(segment, chunk));
 
+    /// <summary>Where a segment's chunks are, <c>log/NNNNNNNN.chunks/</c>.</summary>
+    public ObjectName Chunks(int segment) => new(_prefix + LogPart + Number(segment) + ChunksPart);
+
     /// <summary>A slot as the writer record names it: <c>NNNNNNNN.chunks/CCCCCCCC</c>.</summary>
     public static string Slot(int segment, int chunk) => Number(segment) + ChunksPart + Number(chunk);
 

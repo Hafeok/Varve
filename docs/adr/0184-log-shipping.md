@@ -159,18 +159,29 @@ own coordination state.
 
 **6. Resume is by the target's tail.** At its start, and after any
 failure, the shipper lists the target's `log/` once.
-- It verifies the target's last segment as an open does: each chunk's
-  header, and the chain within the segment.
+- It verifies every segment of the target that is still chunks as an open
+  does: each chunk's header and bytes, and the chain within the segment. A
+  chunk of the target that does not verify or does not follow is
+  `shipping-diverged`: it says something about the target, never about
+  the source's log.
 - **It compares the target's tail with the source at the same slot:** the
-  source's chunk if it still has it, otherwise the same range of the
-  source's `.seg`, which must match the content hash in the target's
-  header.
-- **Across a segment boundary it is the commit header chain that is
-  checked,** because the chunk chain stops there.
+  source's chunk if it still has it. If the source has consolidated that
+  segment, the target's chunks are checked against the `.seg`, range by
+  range against the content hash in each header, before the target's
+  `.seg` is created.
+- **Across a segment boundary the chunk chain says nothing, and the
+  shipper does not read commits.** What holds there is two things:
+  - every object on the target was created equal to the source's object
+    of that name, or was refused, so a target written only by shippers of
+    this source holds a prefix of the source's log;
+  - **the commit header chain, which is the log reader's check.** Every
+    follower of the target runs it as it replays, and so does a
+    promotion, which replays what it continues (ADR 0185).
 - A match continues from the next slot. Anything else is
   `shipping-diverged`.
 - The shipper keeps no state of its own between rounds, and nothing per
-  commit (ADR 0240).
+  commit (ADR 0240). What it holds in memory it can read again from the
+  target.
 
 **7. The shipper is a reader of the source.**
 - It announces one record per target, `readers/<reader>-ship-<target>`,
