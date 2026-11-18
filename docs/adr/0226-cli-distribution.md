@@ -2,7 +2,8 @@
 
 ## Status
 
-**Filed unaccepted by readiness B for #129, 2026-11-06** (ADR 0066). Decided
+**Accepted — filed unaccepted by readiness B for #129, 2026-11-06** (ADR 0066),
+and accepted by the maintainer on 2026-11-18. Decided
 by the maintainer on #129: the decisions of 2026-10-27, and the answers W1,
 H1 and H2 to the plan of the same day. Acceptance is the maintainer's act on
 the pull request.
