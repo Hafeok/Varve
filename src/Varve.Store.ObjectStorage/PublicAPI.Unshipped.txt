@@ -424,3 +424,89 @@ static Varve.Store.ObjectStorage.Model.VerificationRacers.operator !=(Varve.Stor
 static Varve.Store.ObjectStorage.Model.VerificationRacers.operator ==(Varve.Store.ObjectStorage.Model.VerificationRacers left, Varve.Store.ObjectStorage.Model.VerificationRacers right) -> bool
 static Varve.Store.ObjectStorage.ObjectStoreVerification.Racers.get -> Varve.Store.ObjectStorage.Model.VerificationRacers
 ~override Varve.Store.ObjectStorage.Model.VerificationRacers.Equals(object obj) -> bool
+Varve.Store.ObjectStorage.DatasetIsReplicaException
+Varve.Store.ObjectStorage.DatasetIsReplicaException.DatasetIsReplicaException() -> void
+Varve.Store.ObjectStorage.DatasetIsReplicaException.DatasetIsReplicaException(Varve.Store.ObjectStorage.Model.LineageRecord! lineage) -> void
+Varve.Store.ObjectStorage.DatasetIsReplicaException.DatasetIsReplicaException(string! message) -> void
+Varve.Store.ObjectStorage.DatasetIsReplicaException.DatasetIsReplicaException(string! message, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.DatasetIsReplicaException.Lineage.get -> Varve.Store.ObjectStorage.Model.LineageRecord?
+Varve.Store.ObjectStorage.Model.CommitHeaderHash
+Varve.Store.ObjectStorage.Model.CommitHeaderHash.CommitHeaderHash() -> void
+Varve.Store.ObjectStorage.Model.CommitHeaderHash.CommitHeaderHash(string! value) -> void
+Varve.Store.ObjectStorage.Model.CommitHeaderHash.Equals(Varve.Store.ObjectStorage.Model.CommitHeaderHash other) -> bool
+Varve.Store.ObjectStorage.Model.CommitHeaderHash.Value.get -> string!
+Varve.Store.ObjectStorage.Model.LineagePromotion
+Varve.Store.ObjectStorage.Model.LineagePromotion.<Clone>$() -> Varve.Store.ObjectStorage.Model.LineagePromotion!
+Varve.Store.ObjectStorage.Model.LineagePromotion.At.get -> Varve.Store.ObjectStorage.Model.ClaimTime
+Varve.Store.ObjectStorage.Model.LineagePromotion.At.init -> void
+Varve.Store.ObjectStorage.Model.LineagePromotion.By.get -> Varve.Store.ObjectStorage.Model.WriterInstance
+Varve.Store.ObjectStorage.Model.LineagePromotion.By.init -> void
+Varve.Store.ObjectStorage.Model.LineagePromotion.Epoch.get -> Varve.Store.ObjectStorage.Model.WriterEpoch
+Varve.Store.ObjectStorage.Model.LineagePromotion.Epoch.init -> void
+Varve.Store.ObjectStorage.Model.LineagePromotion.Equals(Varve.Store.ObjectStorage.Model.LineagePromotion? other) -> bool
+Varve.Store.ObjectStorage.Model.LineagePromotion.Hash.get -> Varve.Store.ObjectStorage.Model.CommitHeaderHash
+Varve.Store.ObjectStorage.Model.LineagePromotion.Hash.init -> void
+Varve.Store.ObjectStorage.Model.LineagePromotion.LineagePromotion() -> void
+Varve.Store.ObjectStorage.Model.LineagePromotion.Position.get -> Varve.Store.Log.Position
+Varve.Store.ObjectStorage.Model.LineagePromotion.Position.init -> void
+Varve.Store.ObjectStorage.Model.LineageRecord
+Varve.Store.ObjectStorage.Model.LineageRecord.<Clone>$() -> Varve.Store.ObjectStorage.Model.LineageRecord!
+Varve.Store.ObjectStorage.Model.LineageRecord.Equals(Varve.Store.ObjectStorage.Model.LineageRecord? other) -> bool
+Varve.Store.ObjectStorage.Model.LineageRecord.IsReplica.get -> bool
+Varve.Store.ObjectStorage.Model.LineageRecord.LineageRecord() -> void
+Varve.Store.ObjectStorage.Model.LineageRecord.Promoted.get -> Varve.Store.ObjectStorage.Model.LineagePromotion?
+Varve.Store.ObjectStorage.Model.LineageRecord.Promoted.init -> void
+Varve.Store.ObjectStorage.Model.LineageRecord.Source.get -> Varve.Store.ObjectStorage.Model.LineageSource?
+Varve.Store.ObjectStorage.Model.LineageRecord.Source.init -> void
+Varve.Store.ObjectStorage.Model.LineageRecord.State.get -> Varve.Store.ObjectStorage.Model.LineageState
+Varve.Store.ObjectStorage.Model.LineageRecord.State.init -> void
+Varve.Store.ObjectStorage.Model.LineageRecord.Understood.get -> bool
+Varve.Store.ObjectStorage.Model.LineageRecord.Understood.init -> void
+Varve.Store.ObjectStorage.Model.LineageSource
+Varve.Store.ObjectStorage.Model.LineageSource.<Clone>$() -> Varve.Store.ObjectStorage.Model.LineageSource!
+Varve.Store.ObjectStorage.Model.LineageSource.Dataset.get -> Varve.Store.Log.DatasetId
+Varve.Store.ObjectStorage.Model.LineageSource.Dataset.init -> void
+Varve.Store.ObjectStorage.Model.LineageSource.Deconstruct(out Varve.Store.ObjectStorage.Model.StoreAddress Store, out Varve.Store.Log.ObjectName? Prefix, out Varve.Store.Log.DatasetId Dataset, out Varve.Store.Log.DatasetId? Fleet) -> void
+Varve.Store.ObjectStorage.Model.LineageSource.Equals(Varve.Store.ObjectStorage.Model.LineageSource? other) -> bool
+Varve.Store.ObjectStorage.Model.LineageSource.Fleet.get -> Varve.Store.Log.DatasetId?
+Varve.Store.ObjectStorage.Model.LineageSource.Fleet.init -> void
+Varve.Store.ObjectStorage.Model.LineageSource.LineageSource(Varve.Store.ObjectStorage.Model.StoreAddress Store, Varve.Store.Log.ObjectName? Prefix, Varve.Store.Log.DatasetId Dataset, Varve.Store.Log.DatasetId? Fleet) -> void
+Varve.Store.ObjectStorage.Model.LineageSource.Prefix.get -> Varve.Store.Log.ObjectName?
+Varve.Store.ObjectStorage.Model.LineageSource.Prefix.init -> void
+Varve.Store.ObjectStorage.Model.LineageSource.Store.get -> Varve.Store.ObjectStorage.Model.StoreAddress
+Varve.Store.ObjectStorage.Model.LineageSource.Store.init -> void
+Varve.Store.ObjectStorage.Model.LineageState
+Varve.Store.ObjectStorage.Model.LineageState.Promoted = 1 -> Varve.Store.ObjectStorage.Model.LineageState
+Varve.Store.ObjectStorage.Model.LineageState.Replica = 0 -> Varve.Store.ObjectStorage.Model.LineageState
+Varve.Store.ObjectStorage.Model.LineageState.Unknown = 2 -> Varve.Store.ObjectStorage.Model.LineageState
+Varve.Store.ObjectStorage.Model.StoreAddress
+Varve.Store.ObjectStorage.Model.StoreAddress.Equals(Varve.Store.ObjectStorage.Model.StoreAddress other) -> bool
+Varve.Store.ObjectStorage.Model.StoreAddress.StoreAddress() -> void
+Varve.Store.ObjectStorage.Model.StoreAddress.StoreAddress(string! value) -> void
+Varve.Store.ObjectStorage.Model.StoreAddress.Value.get -> string!
+override Varve.Store.ObjectStorage.Model.CommitHeaderHash.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.CommitHeaderHash.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.LineagePromotion.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.LineagePromotion.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.LineagePromotion.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.LineageRecord.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.LineageRecord.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.LineageRecord.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.LineageSource.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.LineageSource.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.LineageSource.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.StoreAddress.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.StoreAddress.ToString() -> string!
+static Varve.Store.ObjectStorage.Model.CommitHeaderHash.operator !=(Varve.Store.ObjectStorage.Model.CommitHeaderHash left, Varve.Store.ObjectStorage.Model.CommitHeaderHash right) -> bool
+static Varve.Store.ObjectStorage.Model.CommitHeaderHash.operator ==(Varve.Store.ObjectStorage.Model.CommitHeaderHash left, Varve.Store.ObjectStorage.Model.CommitHeaderHash right) -> bool
+static Varve.Store.ObjectStorage.Model.LineagePromotion.operator !=(Varve.Store.ObjectStorage.Model.LineagePromotion? left, Varve.Store.ObjectStorage.Model.LineagePromotion? right) -> bool
+static Varve.Store.ObjectStorage.Model.LineagePromotion.operator ==(Varve.Store.ObjectStorage.Model.LineagePromotion? left, Varve.Store.ObjectStorage.Model.LineagePromotion? right) -> bool
+static Varve.Store.ObjectStorage.Model.LineageRecord.operator !=(Varve.Store.ObjectStorage.Model.LineageRecord? left, Varve.Store.ObjectStorage.Model.LineageRecord? right) -> bool
+static Varve.Store.ObjectStorage.Model.LineageRecord.operator ==(Varve.Store.ObjectStorage.Model.LineageRecord? left, Varve.Store.ObjectStorage.Model.LineageRecord? right) -> bool
+static Varve.Store.ObjectStorage.Model.LineageSource.operator !=(Varve.Store.ObjectStorage.Model.LineageSource? left, Varve.Store.ObjectStorage.Model.LineageSource? right) -> bool
+static Varve.Store.ObjectStorage.Model.LineageSource.operator ==(Varve.Store.ObjectStorage.Model.LineageSource? left, Varve.Store.ObjectStorage.Model.LineageSource? right) -> bool
+static Varve.Store.ObjectStorage.Model.StoreAddress.operator !=(Varve.Store.ObjectStorage.Model.StoreAddress left, Varve.Store.ObjectStorage.Model.StoreAddress right) -> bool
+static Varve.Store.ObjectStorage.Model.StoreAddress.operator ==(Varve.Store.ObjectStorage.Model.StoreAddress left, Varve.Store.ObjectStorage.Model.StoreAddress right) -> bool
+static Varve.Store.ObjectStorage.ObjectStorage.ReadLineageAsync(Varve.Store.IObjectStore! store, Varve.Store.Log.ObjectName? prefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.LineageRecord?>
+~override Varve.Store.ObjectStorage.Model.CommitHeaderHash.Equals(object obj) -> bool
+~override Varve.Store.ObjectStorage.Model.StoreAddress.Equals(object obj) -> bool

@@ -29,6 +29,9 @@ internal sealed class ObjectNames(ObjectName? prefix)
 
     public ObjectName Writer => new(_prefix + "writer");
 
+    /// <summary>The lineage record, <c>lineage</c>, beside the writer record (ADR 0185).</summary>
+    public ObjectName Lineage => new(_prefix + "lineage");
+
     /// <summary>Where the reader records are, <c>readers/</c> (ADR 0160).</summary>
     public ObjectName Readers => new(_prefix + "readers/");
 

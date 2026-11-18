@@ -194,6 +194,7 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
             throw new InvalidOperationException("This storage holds an epoch already; only a read-only open claims in place.");
         }
 
+        await RefuseAReplicaAsync(_store, _names, cancellationToken).ConfigureAwait(false);
         await ProbeAsync(_store, _names, randomness, _clock, cancellationToken).ConfigureAwait(false);
         (WriterRecord? record, ObjectVersion? version) = await ClaimAsync(_store, _names, instance, address, trigger, from, _clock, cancellationToken).ConfigureAwait(false);
         Writer = record;
@@ -224,6 +225,30 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
         ArgumentNullException.ThrowIfNull(store);
         ObjectRead? read = await ConditionalWrites.ReadWholeAsync(store, new ObjectNames(prefix).Writer, cancellationToken).ConfigureAwait(false);
         return read is null ? null : WriterRecordFormat.Read(read.Bytes.Span);
+    }
+
+    /// <summary>
+    /// The dataset's lineage record, read from the store without opening the
+    /// dataset (ADR 0185), or none: a dataset with no lineage record is not a
+    /// copy. One of a format this build does not read is returned as not
+    /// understood, and is a replica (ADR 0217).
+    /// </summary>
+    public static async ValueTask<LineageRecord?> ReadLineageAsync(IObjectStore store, ObjectName? prefix, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        ObjectRead? read = await ConditionalWrites.ReadWholeAsync(store, new ObjectNames(prefix).Lineage, cancellationToken).ConfigureAwait(false);
+        return read is { } found ? LineageRecordFormat.Read(found.Bytes.Span) : null;
+    }
+
+    // An open for write, and a claim in place, of a dataset whose lineage
+    // record says it is a replica: refused, with nothing written (ADR 0185).
+    private static async ValueTask RefuseAReplicaAsync(IObjectStore store, ObjectNames names, CancellationToken cancellationToken)
+    {
+        if (await ConditionalWrites.ReadWholeAsync(store, names.Lineage, cancellationToken).ConfigureAwait(false) is { } read
+            && LineageRecordFormat.Read(read.Bytes.Span) is { IsReplica: true } lineage)
+        {
+            throw new DatasetIsReplicaException(lineage);
+        }
     }
 
     /// <summary>
@@ -724,6 +749,13 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
 
         try
         {
+            // A replica is never opened for write (ADR 0185): refused before
+            // the probe, so that nothing but its shipper writes under its prefix.
+            if (write)
+            {
+                await RefuseAReplicaAsync(options.Store, names, cancellationToken).ConfigureAwait(false);
+            }
+
             // Before a writer reads or writes anything: a store that does not
             // refuse what the fence and the writer record need refused is
             // never given a log (ADR 0134). A follower writes nothing, so a
