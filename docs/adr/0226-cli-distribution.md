@@ -9,8 +9,8 @@ H1 and H2 to the plan of the same day. Acceptance is the maintainer's act on
 the pull request.
 
 **Amends** [ADR 0105](0105-the-cli.md) point 6: the release carries the
-Native AOT binary. The amendment is dated 2026-11-06 in that file, and is
-filed unaccepted.
+Native AOT binary. The amendment is dated 2026-11-06 in that file, was
+filed unaccepted, and was accepted by the maintainer on 2026-11-18.
 
 **Builds on:**
 - [ADR 0224](0224-supply-chain-transparency.md): every shipped artefact has

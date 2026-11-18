@@ -177,8 +177,8 @@ publish runner, so a tool package and an AOT binary are two artefacts.
 
 ## Amendment, 2026-11-06 — the release carries the binary
 
-Filed by readiness B for #129 under [ADR 0226](0226-cli-distribution.md),
-unaccepted until the maintainer accepts it (ADR 0066). Point 6's two
+Filed unaccepted by readiness B for #129 under [ADR 0226](0226-cli-distribution.md)
+(ADR 0066), and accepted by the maintainer on 2026-11-18. Point 6's two
 artefacts stand. What changes is that the Native AOT binary is no longer
 only the `native aot` job's artefact:
 - every release carries it for each RID in `VarveNativeRuntimeIdentifiers`,
@@ -189,4 +189,4 @@ only the `native aot` job's artefact:
 - `ci.yml`'s `native aot` job runs on a runner of each of those RIDs.
 
 **The ledger.** The rulings of this ADR stand; the ruling of this block is
-`TheReleaseCarriesTheBinary`, unaccepted until the maintainer accepts it.
+`TheReleaseCarriesTheBinary`, accepted by the maintainer on 2026-11-18.
