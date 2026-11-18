@@ -224,6 +224,8 @@ internal static class InferenceBench
             }
 
             Console.WriteLine($"{k} graphs, {linkCount} links: closed in {closed.TotalSeconds:F1} s, {merge.Count.Value} facts; premise sets in {labelled.TotalSeconds:F1} s; {distinct.Count} distinct cross-graph sets (widest {widest} graphs); {crossFacts} facts with one, {onlyCross} with no other, {several} with more than one set; heap {(after - before) / 1048576.0:F0} MiB");
+            PropagationCounts counts = sets.Counts;
+            Console.WriteLine($"  propagation: {counts.Items} (fact, set) pairs taken, {counts.Derivations} rule instances found for them, {counts.Unions} unions formed, {counts.Kept} kept; {sets.Count.Value} facts with sets");
             GC.KeepAlive(merge);
             GC.KeepAlive(sets);
         }

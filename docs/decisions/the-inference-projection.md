@@ -30,7 +30,7 @@ decisions:
   - key: BudgetAskedBeforeEveryAllocation
     statement: "Amended 2026-11-18: a binding's budget counts bytes, and every structure a closure grows asks it before allocating, facts, arrays at their new size, explicit facts, a pass's record, a build's working sets and premise sets; a build is admitted only if its given facts fit, and a refusal is thrown on the build's thread before the allocation, never by catching OutOfMemoryException"
   - key: OnePoolPerProcess
-    statement: "Amended 2026-11-18: every binding's budget also takes from a pool of three quarters of the heap limit, and a ClosureBytes above the pool is refused at start"
+    statement: "Amended 2026-11-18: every binding's budget also takes from one pool for the process, and a ClosureBytes above the pool is refused at start"
   - key: CostsMeasuredPerProfile
     statement: "Amended 2026-11-18: the bytes a budget charges per structure are measured per profile under a hard heap limit, and a test fails when a build needs more than its budget counts"
   - key: GenerationsForStatedCausesOnly
@@ -41,8 +41,10 @@ decisions:
     statement: "Amended 2026-11-18: an operator brings a stopped binding back by restarting the instance, whose build reads the limit afresh and never loads a saved stop, or by changing the binding's declaration, which builds a new projection at once; there is no retry under the same limit"
   - key: StorageFailuresHoldOff
     statement: "Amended 2026-11-18: a pass reads the store before it changes a closure, and a store read or write that fails holds the feed off and resumes it from the projection's position with no generation; only a budget refusal, a memory failure, a defect, or a store failure after a closure began changing stops a binding"
-  - key: PoolAndMemtableWithinTheHeap
-    statement: "Amended 2026-11-18: the bindings' pool and the memtable's worst case together never pass the heap limit, and a configuration where they would is refused at startup; they promise no headroom beyond it"
+  - key: PoolIsWhatTheHeapLeaves
+    statement: "Amended 2026-11-18: the pool is the heap limit less the memtable's worst case and a reserve for queries, caches and requests, 2 GiB by default as measured at the small-machine settings; closures, memtable and reserve together never pass the heap limit"
+  - key: MarginAboveTheMeasuredCosts
+    statement: "Amended 2026-11-18: the budget counts at least a ninth more than a build needs, so a build finishes under the heap before it and 0.9 of its budget's peak; the nightly holds REC S and REC M to that, under both profiles, per graph and cross-graph"
 ---
 
 The rulings of [ADR 0195](../adr/0195-the-inference-projection.md), one line each. The ADR is the

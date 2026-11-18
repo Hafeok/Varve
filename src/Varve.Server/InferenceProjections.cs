@@ -65,23 +65,32 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
     }
 
     /// <summary>
-    /// The bytes every binding of the process may hold together (ADR 0195
-    /// point 6, as amended 2026-11-18): three quarters of the collector's
-    /// heap limit, the rest left to the server.
+    /// The pool every binding of the process takes from (ADR 0195, amended
+    /// 2026-11-18, point 10): the collector's heap limit less the memtable's
+    /// worst case and <c>Varve:Inference:ReserveBytes</c>, kept for queries,
+    /// caches and requests; none when they leave nothing.
     /// </summary>
-    internal static long PoolBytes => GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 4 * 3;
+    internal static long PoolBytes(ServerSettings settings) =>
+        Math.Max(0, MemtableDefault.HeapLimit() - SettingsCheck.MemtableWorstBytes(settings) - settings.Inference.ReserveBytes);
+
+    /// <summary>
+    /// A binding's limit when <c>Varve:Inference:ClosureBytes</c> is unset: a
+    /// quarter of the collector's heap limit, or the pool if that is less.
+    /// </summary>
+    internal static long DefaultClosureBytes(ServerSettings settings) =>
+        Math.Min(Math.Max(1L << 20, MemtableDefault.HeapLimit() / 4), PoolBytes(settings));
 
     /// <summary>
     /// The projection options a server's settings give:
     /// <c>Varve:Inference:HistoryBytes</c>; <c>Varve:Inference:ClosureBytes</c>
-    /// or, unset, a quarter of the collector's heap limit; and the pool every
-    /// binding also takes from, of <see cref="PoolBytes"/> (ADR 0195 point 6).
+    /// or, unset, <see cref="DefaultClosureBytes"/>; and the pool every binding
+    /// also takes from, of <see cref="PoolBytes"/>.
     /// </summary>
-    internal static InferenceOptions Options(InferenceSettings settings) => new()
+    internal static InferenceOptions Options(ServerSettings settings) => new()
     {
-        HistoryBytes = new ByteCount(settings.HistoryBytes),
-        ClosureBytes = new ByteCount(settings.ClosureBytes ?? Math.Max(1L << 20, GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 4)),
-        Pool = new FactBudget(new MemoryAmount(PoolBytes), ClosureCosts.For(InferenceProfile.Rdfs)),
+        HistoryBytes = new ByteCount(settings.Inference.HistoryBytes),
+        ClosureBytes = new ByteCount(settings.Inference.ClosureBytes ?? DefaultClosureBytes(settings)),
+        Pool = new FactBudget(new MemoryAmount(PoolBytes(settings)), ClosureCosts.For(InferenceProfile.Rdfs)),
     };
 
     /// <inheritdoc />

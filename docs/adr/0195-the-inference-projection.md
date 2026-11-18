@@ -506,9 +506,10 @@ It amends point 4 (generations), point 6 (the memory limit) and point 9
    the allocation; the closure gives back everything it took when its owner
    drops it. Catching `OutOfMemoryException` is not the mechanism.
 2. **One pool for the process.** Every binding's budget also takes from a
-   pool of three quarters of the collector's heap limit, the rest left to
-   the server; a request is refused when either would pass. `SettingsCheck`
-   refuses a `ClosureBytes` above the pool.
+   pool shared by the process; a request is refused when either would
+   pass. The pool is what is left of the heap limit after the memtable's
+   worst case and a stated reserve (point 10). `SettingsCheck` refuses a
+   `ClosureBytes` above the pool.
 3. **The figures are measured, per profile.** `ClosureCosts.For(profile)`
    is set from what a build needs against what its budget counts, measured
    under `DOTNET_GCHeapHardLimit` (below), and a test fails when a build
@@ -531,8 +532,17 @@ It amends point 4 (generations), point 6 (the memory limit) and point 9
    The measured figures are 100 bytes a fact under `rdfs` and 70 under
    `owl2rl`, and 280 a fact's premise sets under both; the working entry,
    touched fact and explicit fact keep their estimates, which no build
-   showed off. Each build now needs at most 0.88 of what it is counted, the
-   margin for the collector's own slack. REC M's peaks, by the same count:
+   showed off. Each build now needs at most 0.88 of what it is counted.
+
+   **The margin** the budget keeps above them is **a tenth**: a build must
+   finish under a heap limit of the heap held before it and 0.9 of its
+   budget's peak, so the budget counts at least a ninth more than any build
+   needs, room for the collector's own slack and for data unlike REC S's.
+   The figures come from REC S alone, so the nightly's `closure-budget` job
+   holds REC S and REC M to that margin, under both profiles, per graph and
+   cross-graph (`tests/Varve.Benchmarks/closure-budget-margin.sh`), and
+   fails when a build needs more; on REC S it also bisects the least heap,
+   to report how far under the count each build stays. REC M's peaks, by the same count:
    4.66 GB under `rdfs` (17.5 million facts) and 4.54 GB under `owl2rl`
    (23.1 million), the projection's rows (96 bytes a fact) besides.
 4. **A generation is made for stated causes only:** a commit that changes a
@@ -616,25 +626,58 @@ It amends point 4 (generations), point 6 (the memory limit) and point 9
    with its generations unchanged and its rows the oracle's; a second fails
    a pass with a defect and requires `stopped (failed)` through a data
    commit, a TBox commit and a reset.
-10. **The pool and the memtable together.** The pool is three quarters of
-   the collector's heap limit (point 2). ADR 0244's default memtable limit
-   is a sixteenth of the heap limit over 215 bytes an entry, between 10,000
-   and 1,000,000 entries, and its worst case is four times its limit (ADR
-   0244 point 5): a quarter of the heap limit up to a heap limit of
-   3.44 GB (3.2 GiB), 860 MB above it. Together they promise that the
-   bindings' closures and the memtable at their worst never ask for more
-   than the heap limit: **equal to it** at a heap limit up to 3.2 GiB, and
-   under it above (at a 10 GiB heap limit, 8.3 GiB of it). They do not
-   promise room for anything else: up to 3.2 GiB, a server whose memtable
-   and bindings are both at their worst has no heap left for queries,
-   caches or requests, and a query's own allocation is then what fails. The
-   instance refuses at startup a `Varve:Store:MemtableLimit` whose worst case
-   and the pool pass the heap limit, and a heap limit under 34 MB, where
-   the memtable's least default does.
+10. **The pool is what the heap limit leaves.** The pool is the collector's
+   heap limit, less the memtable's worst case, less a reserve for queries,
+   caches and requests (`Varve:Inference:ReserveBytes`). It is none when
+   those leave nothing, and then every materialising binding is refused at
+   its memory limit.
+
+   ADR 0244's default memtable limit is a sixteenth of the heap limit at
+   215 bytes an entry, between 10,000 and 1,000,000 entries. Its worst case
+   is four times its limit (ADR 0244 point 5): a quarter of the heap limit
+   up to a heap limit of 3.2 GiB, and 820 MiB above that.
+
+   **The reserve is 2 GiB by default**, measured at the small-machine
+   settings (`Varve.Benchmarks --server-reserve`): a 5 GiB heap limit,
+   `MaxConcurrentReads` 4, `MaxQueryMemory` 256 MiB, and no binding. A
+   million quads were loaded and the server restarted. Then, for 120 s,
+   eight clients sorted, grouped, deduplicated and constructed the whole
+   dataset, and a writer committed 200 quads at a time:
+
+   | Heap limit | Peak resident | What the load got |
+   |---|---|---|
+   | 5 GiB | 2,852 MiB | 33 answered, 6 `read-limit-exceeded`, 3,419 commits |
+   | 2 GiB | 2,135 MiB | 31 answered, 7 `read-limit-exceeded`, 3,154 commits |
+   | 1.5 GiB | 1,527 MiB | 37 answered, 4 `read-limit-exceeded`, **3 failed with 500**, 3,096 commits |
+   | 1.25 GiB | 1,356 MiB | the dataset failed: 80,125 commits and 821,813 reads refused `503 unavailable` |
+
+   So the rest of the server needs more than 1.5 GiB and at most 2 GiB of
+   heap there; the memtable was held to 50,000 entries (41 MiB at its worst)
+   so that its share is known. The reserve is expected to grow with
+   `MaxConcurrentReads` × `MaxQueryMemory`, which was not measured. An
+   instance that raises either should raise the reserve: the default of 64
+   concurrent reads could ask the queries alone for 16 GiB.
+
+   **What they promise together.** The closures (at most the pool), the
+   memtable at its worst and the reserve never pass the heap limit. At the
+   small-machine settings (5 GiB):
+   - the memtable's worst case is 820 MiB;
+   - the reserve is 2 GiB;
+   - the pool is 2.2 GiB;
+   - `ClosureBytes` defaults to 1.25 GiB.
+
+   Under a heap limit of 2.67 GiB the defaults leave no pool, so a small
+   container serves no materialising binding until its operator lowers the
+   reserve or the memtable. The instance refuses at startup:
+   - a `ClosureBytes` above the pool;
+   - a negative `ReserveBytes`.
+
+   Unset, `ClosureBytes` is a quarter of the heap limit, or the pool if
+   that is less.
 
 **The ledger.** The rulings are `BudgetAskedBeforeEveryAllocation`,
 `OnePoolPerProcess`, `CostsMeasuredPerProfile`,
 `GenerationsForStatedCausesOnly`, `StoppedStaysRefused`,
-`StopsAreRecoveredByAnAct`, `StorageFailuresHoldOff` and
-`PoolAndMemtableWithinTheHeap`.
+`StopsAreRecoveredByAnAct`, `StorageFailuresHoldOff`,
+`PoolIsWhatTheHeapLeaves` and `MarginAboveTheMeasuredCosts`.
 

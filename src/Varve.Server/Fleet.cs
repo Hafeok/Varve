@@ -86,7 +86,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         Instance = new WriterName(_instance.Value);
         Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
         Classifications = new RowClassifications(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
-        Inference = new InferenceProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, InferenceProjections.Options(settings.Inference), logger);
+        Inference = new InferenceProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, InferenceProjections.Options(settings), logger);
         Entailment = new EntailmentBindingsOfTheFleet(this);
     }
 

@@ -59,6 +59,7 @@ on:
           - linux soak
           - windows soak
           - premise sets
+          - closure budget
 
 permissions:
   contents: read
@@ -314,6 +315,67 @@ jobs:
         with:
           name: premise-sets-owl2rl-links-${{ matrix.links }}
           path: artifacts/premise-sets
+          if-no-files-found: warn
+
+  # The closure budget's margin (ADR 0195, amended 2026-11-18, point 3; #335):
+  # a from-scratch build, under both profiles, per graph and cross-graph, must
+  # finish under a hard heap limit of the heap before it and 0.9 of what its
+  # budget counted at peak. The cost figures were measured on REC S alone, so
+  # REC M is held to the same margin here; REC S is also bisected, to report
+  # how far under the count each build stays. Unlike the premise sets, this
+  # fails: a build that needs more than the budget assumes is #335 again.
+  closure-budget:
+    name: closure budget (REC ${{ matrix.size }}, ${{ matrix.profile }}, ${{ matrix.mode }})
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'closure budget')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [S, M]
+        profile: [rdfs, owl2rl]
+        mode: [per-graph, cross]
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        # REC 4.1.0 and its Brick are vendored under testdata/rec; no submodule.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build the benchmarks
+        run: dotnet build tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release
+
+      - name: The margin, REC ${{ matrix.size }}, ${{ matrix.profile }}, ${{ matrix.mode }}
+        shell: bash
+        run: |
+          mkdir -p artifacts/closure-budget
+          out=artifacts/closure-budget/rec-${{ matrix.size }}-${{ matrix.profile }}-${{ matrix.mode }}.txt
+          tests/Varve.Benchmarks/closure-budget-margin.sh tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks \
+            ${{ matrix.size }} ${{ matrix.profile }} ${{ matrix.mode }} ${{ matrix.size == 'S' && 'bisect' || '' }} | tee "$out"
+          status=${PIPESTATUS[0]}
+          { echo '```'; cat "$out"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload the measurement
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: closure-budget-${{ matrix.size }}-${{ matrix.profile }}-${{ matrix.mode }}
+          path: artifacts/closure-budget
           if-no-files-found: warn
 
   # REC M through the gate and the projection (ADR 0176), in shards (#219).

@@ -189,9 +189,17 @@ internal sealed class InferenceSettings
     /// <summary>
     /// The bytes a binding's closures may hold together; past it the binding
     /// stops and answers <c>inference-unavailable</c>. Unset, a quarter of the
-    /// collector's heap limit.
+    /// collector's heap limit, or the pool if that is less.
     /// </summary>
     public long? ClosureBytes { get; set; }
+
+    /// <summary>
+    /// The heap kept for everything but the closures and the memtable:
+    /// queries, caches and requests (ADR 0195, amended 2026-11-18, point 10).
+    /// The bindings' pool is the heap limit less this and the memtable's worst
+    /// case. 2 GiB by default, measured at the small-machine settings.
+    /// </summary>
+    public long ReserveBytes { get; set; } = 2L << 30;
 }
 
 /// <summary>

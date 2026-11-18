@@ -12,7 +12,8 @@ A read needed a materialising binding's closure, and the binding is stopped
 
 - **`memory-limit`**: its closure would hold more than
   `Varve:Inference:ClosureBytes` allows, or more than the instance's share
-  for all its bindings together, three quarters of the heap limit. The
+  for all its bindings together: the heap limit less the memtable's worst
+  case and `Varve:Inference:ReserveBytes`. The
   refusal is made before the memory is asked for, so the instance stays up.
   `limit` is the setting, in bytes, and `reached` what the closure would
   have held with the request that was refused, a lower bound on what it
@@ -64,8 +65,8 @@ data, a retry would stop the same way. To make the next build fit:
 
 - **Raise `Varve:Inference:ClosureBytes`**, or the instance's memory, and
   restart the instance: the setting is read at start. Unset, it is a quarter
-  of the collector's heap limit; it can be at most three quarters of it,
-  which the instance checks when it starts. Readiness's `peak` for the
+  of the collector's heap limit, or the pool if that is less; it can be at
+  most the pool, which the instance checks when it starts. Readiness's `peak` for the
   binding, when it last ran, says what it needed. `docs/operator/small-machine.md` states a
   closure's bytes per quad under each profile.
 - Or narrow the binding: fewer data graphs, or the `varve:RDFS` profile in

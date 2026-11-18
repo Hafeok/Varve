@@ -166,26 +166,34 @@ for at most
 
 | Profile | Facts | Closures' peak | With the rows | `ClosureBytes` at least | Heap limit at least |
 |---|---|---|---|---|---|
-| `rdfs` | 17.5 million | 4.66 GB | 6.34 GB | 6 GiB | 8 GiB |
-| `owl2rl` | 23.1 million | 4.54 GB | 6.76 GB | 6.5 GiB | 8.5 GiB |
+| `rdfs` | 17.5 million | 4.66 GB | 6.34 GB | 6 GiB | 9 GiB |
+| `owl2rl` | 23.1 million | 4.54 GB | 6.76 GB | 6.5 GiB | 9.5 GiB |
 
-with the terms' 160 bytes each on top. The heap limit is where
-`ClosureBytes` is three quarters of it, the most the instance accepts,
-since every binding together takes from a pool of three quarters of the
-heap limit. A build needs 0.75 to 0.88 of what the budget counts, measured,
-so a `ClosureBytes` the heap can hold is never outrun. The same graphs
-bound `varve:crossGraph true` need their premise sets besides: on REC S,
-the budget's peak is 1.9 times the per-graph build's under `rdfs` and 2.2
-times under `owl2rl`.
+with the terms' 160 bytes each on top. Every binding together takes from
+one pool: the heap limit less the memtable's worst case (820 MiB at the
+default limit above a 3.2 GiB heap limit) and `Varve:Inference:ReserveBytes`,
+2 GiB by default, kept for queries, caches and requests. The heap limit
+above is `ClosureBytes` plus those two. A build needs 0.75 to 0.88 of what
+the budget counts, measured, and the budget keeps a margin of a tenth, so a
+`ClosureBytes` the pool can hold is never outrun. The same graphs bound
+`varve:crossGraph true` need their premise sets besides: on REC S, the
+budget's peak is 1.9 times the per-graph build's under `rdfs` and 2.2 times
+under `owl2rl`.
 
-Unset, `ClosureBytes` is a quarter of the heap limit: on the 5 GiB heap
-limit above, 1.25 GiB, about a million data quads under either profile. A
-closure past its limit is refused before the memory is asked for, the
-binding stops and answers `inference-unavailable`, and the instance stays
-up; restart it with the limit raised, or narrow the binding (the problem
-page says how). Raise it only as far as the heap limit leaves the store its
-memtable and working set: the instance refuses at start a memtable limit
-whose worst case and the bindings' pool pass the heap limit.
+**The reserve** was measured at the runtime limits above, with a 5 GiB heap
+limit, four concurrent reads at 256 MiB each and a writer: the rest of the
+server needed more than 1.5 GiB and at most 2 GiB. Raise it if you raise
+`Varve:Limits:MaxConcurrentReads` or `Varve:Limits:MaxQueryMemory`.
+
+At the 5 GiB heap limit above, the pool is 2.2 GiB, and `ClosureBytes`
+unset is a quarter of the heap limit, 1.25 GiB: about a million data quads
+under either profile. Under a heap limit of 2.67 GiB the defaults leave no
+pool, and every materialising binding is refused until the reserve or the
+memtable limit is lowered. A closure past its limit is refused before the
+memory is asked for, the binding stops and answers `inference-unavailable`,
+and the instance stays up; restart it with the limit raised, or narrow the
+binding (the problem page says how). The instance refuses at start a
+`ClosureBytes` above the pool.
 
 A from-scratch closure of REC M takes about one minute under `rdfs` and
 four and a half under `owl2rl`, on four cores: what a cold start or an

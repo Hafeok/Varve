@@ -46,7 +46,7 @@ internal static class SettingsCheck
         "Cors:AllowedOrigins:*", "Cors:MaxAge",
         "Store:GroupCommit:MaxRecords", "Store:GroupCommit:MaxBytes",
         "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes", "Store:MemtableLimit", "Store:ReleaseMemoryAfterCheckpoint", "Store:SeekDirectoryCacheBytes",
-        "Inference:HistoryBytes", "Inference:ClosureBytes",
+        "Inference:HistoryBytes", "Inference:ClosureBytes", "Inference:ReserveBytes",
         "Events:Source", "Events:EventHubs:Host", "Events:EventHubs:Hub",
         "WebUi:Path",
     ];
@@ -277,21 +277,20 @@ internal static class SettingsCheck
         {
             errors.Add("Varve:Inference:ClosureBytes is at least 1, or unset for a quarter of the heap limit: the bytes a binding's closures may hold together (ADR 0195).");
         }
-        else if (MemtableWorstBytes(settings) + InferenceProjections.PoolBytes is long promised && promised > MemtableDefault.HeapLimit() && MemtableDefault.HeapLimit() > 0)
-        {
-            // The memtable's worst case (ADR 0244 point 5) and the bindings' pool (ADR 0195, amended
-            // 2026-11-18) together cannot promise more than the heap holds.
-            errors.Add("Varve:Store:MemtableLimit's worst case, " + MemtableWorstBytes(settings).ToString(System.Globalization.CultureInfo.InvariantCulture)
-                + " bytes (four times the limit at " + MemtableDefault.EntryBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                + " bytes an entry, ADR 0244 point 5), and the inference bindings' pool, " + InferenceProjections.PoolBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                + " bytes (three quarters of the heap limit, ADR 0195), together pass the heap limit, " + MemtableDefault.HeapLimit().ToString(System.Globalization.CultureInfo.InvariantCulture)
-                + " bytes. Lower Varve:Store:MemtableLimit, or raise the heap limit.");
-        }
-        else if (settings.Inference.ClosureBytes is { } closure && closure > InferenceProjections.PoolBytes)
+        else if (settings.Inference.ClosureBytes is { } closure && closure > InferenceProjections.PoolBytes(settings))
         {
             // A limit the heap cannot hold could be outrun by the heap (#335): refused before anything is built.
-            errors.Add("Varve:Inference:ClosureBytes is at most " + InferenceProjections.PoolBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                + ", three quarters of the heap limit: the bytes a binding's closures may hold together, the rest of the heap left to the server (ADR 0195 point 6). Raise the heap limit, or lower the setting.");
+            errors.Add("Varve:Inference:ClosureBytes is at most the bindings' pool, " + InferenceProjections.PoolBytes(settings).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " bytes: the heap limit, " + MemtableDefault.HeapLimit().ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + ", less the memtable's worst case, " + MemtableWorstBytes(settings).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " (four times Varve:Store:MemtableLimit at " + MemtableDefault.EntryBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " bytes an entry, ADR 0244 point 5), and Varve:Inference:ReserveBytes, " + settings.Inference.ReserveBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + ", kept for queries, caches and requests (ADR 0195, amended 2026-11-18). Raise the heap limit, or lower one of the three.");
+        }
+
+        if (settings.Inference.ReserveBytes < 0)
+        {
+            errors.Add("Varve:Inference:ReserveBytes is zero or more: the heap kept for queries, caches and requests beside the inference bindings' pool and the memtable (ADR 0195).");
         }
 
         // The follower's record is the id with "-follower" (ObjectStores), so

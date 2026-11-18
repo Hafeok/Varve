@@ -181,6 +181,13 @@ internal static class Program
             return;
         }
 
+        // --server-reserve <Varve.Server binary> [quads] [seconds]
+        if (args.Length is >= 2 and <= 4 && args[0] == "--server-reserve")
+        {
+            Environment.ExitCode = ServerReserve.RunAsync(args[1], args.Length >= 3 ? int.Parse(args[2], CultureInfo.InvariantCulture) : 1_000_000, args.Length == 4 ? int.Parse(args[3], CultureInfo.InvariantCulture) : 120).GetAwaiter().GetResult();
+            return;
+        }
+
         if (args.Length >= 2 && args[0] == "--bulk-gate")
         {
             BulkGate.RunAsync(args).GetAwaiter().GetResult();

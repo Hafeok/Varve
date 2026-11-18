@@ -51,9 +51,9 @@ public class ClosureMemoryGateTests
     [Fact]
     public async Task A_closure_too_large_is_refused_and_the_process_and_another_dataset_keep_answering()
     {
-        // A 512 MiB heap; the most ClosureBytes the settings allow there, three quarters of it.
+        // A 512 MiB heap; the most ClosureBytes the settings allow there, the whole pool.
         long heap = 512L << 20;
-        await using ChildServer server = await ChildServer.StartAsync(heap, closureBytes: heap / 4 * 3);
+        await using ChildServer server = await ChildServer.StartAsync(heap, closureBytes: ChildServer.Pool(heap));
 
         await server.DeclareAsync("big", "RDFS", crossGraph: false);
         await server.DeclareAsync("small", "RDFS", crossGraph: false);
@@ -113,7 +113,7 @@ public class ClosureMemoryGateTests
         // Then a limit a tenth over that peak, on the least heap the settings allow for it:
         // the build must finish. Needing more than the budget counts, it would exhaust the heap.
         long closureBytes = peak + (peak / 10);
-        long heap = (closureBytes / 3 * 4) + (1L << 20);
+        long heap = ChildServer.HeapFor(closureBytes);
         await using ChildServer server = await ChildServer.StartAsync(heap, closureBytes);
         await server.DeclareAsync("d", profile, crossGraph);
         await server.LoadAsync("d", individuals, graphs);
@@ -127,6 +127,18 @@ public class ClosureMemoryGateTests
     /// <summary>The server as a child process under a hard heap limit, its datasets in memory.</summary>
     private sealed class ChildServer : IAsyncDisposable
     {
+        // A small memtable, so its worst case is known, and a quarter of the heap kept for the rest of the server.
+        private const int MemtableEntries = 10_000;
+        private const long MemtableWorst = 4L * MemtableEntries * 215;
+
+        /// <summary>The pool the server's settings leave under <paramref name="heap"/>: the heap less the memtable's worst case and the reserve (ADR 0195, amended 2026-11-18, point 10).</summary>
+        internal static long Pool(long heap) => heap - MemtableWorst - Reserve(heap);
+
+        /// <summary>The least heap whose pool holds <paramref name="closureBytes"/>.</summary>
+        internal static long HeapFor(long closureBytes) => ((closureBytes + MemtableWorst) / 3 * 4) + (1L << 20);
+
+        private static long Reserve(long heap) => heap / 4;
+
         private readonly Process _process;
         private readonly StringBuilder _log = new();
         private readonly string _root;
@@ -175,6 +187,8 @@ public class ClosureMemoryGateTests
                 "--Varve:DatasetsRoot=" + root,
                 "--Varve:Health:RateLimit=100000",
                 "--Varve:Inference:ClosureBytes=" + closureBytes.ToString(CultureInfo.InvariantCulture),
+                "--Varve:Inference:ReserveBytes=" + Reserve(heap).ToString(CultureInfo.InvariantCulture),
+                "--Varve:Store:MemtableLimit=" + MemtableEntries.ToString(CultureInfo.InvariantCulture),
             ])
             {
                 start.ArgumentList.Add(argument);

@@ -114,24 +114,31 @@ public sealed class HostTests
     }
 
     /// <summary>
-    /// The memtable's worst case (ADR 0244 point 5) and the inference
-    /// bindings' pool (ADR 0195, amended 2026-11-18) may fill the heap limit
-    /// together, never pass it: a memtable limit whose worst case leaves the
-    /// pool less than its three quarters is refused at startup.
+    /// The bindings' pool is the heap limit less the memtable's worst case
+    /// (ADR 0244 point 5) and the reserve for queries, caches and requests
+    /// (ADR 0195, amended 2026-11-18, point 10); a ClosureBytes above it is
+    /// refused at startup, one within it is not.
     /// </summary>
     [Fact]
-    public void A_memtable_whose_worst_case_and_the_pool_pass_the_heap_is_refused()
+    public void A_closure_limit_above_the_pool_left_by_the_memtable_and_the_reserve_is_refused()
     {
-        long heap = MemtableDefault.HeapLimit();
-        long room = heap - InferenceProjections.PoolBytes;
-        long fits = room / (4L * MemtableDefault.EntryBytes);
-
         ServerSettings settings = Anonymous();
-        Assert.DoesNotContain(SettingsCheck.Errors(settings), e => e.StartsWith("Varve:Store:MemtableLimit's worst case", StringComparison.Ordinal));
-        settings.Store.MemtableLimit = fits;
-        Assert.DoesNotContain(SettingsCheck.Errors(settings), e => e.StartsWith("Varve:Store:MemtableLimit's worst case", StringComparison.Ordinal));
-        settings.Store.MemtableLimit = fits + 1;
-        Assert.Single(SettingsCheck.Errors(settings), e => e.StartsWith("Varve:Store:MemtableLimit's worst case", StringComparison.Ordinal));
+        settings.Store.MemtableLimit = 10_000;
+        settings.Inference.ReserveBytes = 64L << 20;
+        long pool = MemtableDefault.HeapLimit() - (4L * 10_000 * MemtableDefault.EntryBytes) - (64L << 20);
+        Assert.Equal(pool, InferenceProjections.PoolBytes(settings));
+        Assert.True(InferenceProjections.DefaultClosureBytes(settings) <= pool);
+
+        settings.Inference.ClosureBytes = pool;
+        Assert.DoesNotContain(SettingsCheck.Errors(settings), e => e.StartsWith("Varve:Inference:ClosureBytes is at most", StringComparison.Ordinal));
+        settings.Inference.ClosureBytes = pool + 1;
+        Assert.Single(SettingsCheck.Errors(settings), e => e.StartsWith("Varve:Inference:ClosureBytes is at most", StringComparison.Ordinal));
+
+        // A reserve and a memtable that leave nothing: no pool, and the server still starts.
+        settings.Inference.ClosureBytes = null;
+        settings.Inference.ReserveBytes = MemtableDefault.HeapLimit();
+        Assert.Equal(0, InferenceProjections.PoolBytes(settings));
+        Assert.DoesNotContain(SettingsCheck.Errors(settings), e => e.StartsWith("Varve:Inference", StringComparison.Ordinal));
     }
 
     [Fact]

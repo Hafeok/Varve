@@ -60,6 +60,12 @@ public sealed class PremiseSets
     private long _labelCharge;
     private long _workingCharge;
 
+    // What propagation has done since the sets were made, for measuring its cost (#171): see Counts.
+    private long _items;
+    private long _derivations;
+    private long _unions;
+    private long _kept;
+
     /// <summary>
     /// The minimal premise sets of every fact of <paramref name="closure"/>,
     /// the closure of the data graphs' merge, each explicit fact held by the
@@ -502,10 +508,12 @@ public sealed class PremiseSets
                 continue;
             }
 
+            _items++;
             foreach (Rule rule in _closure.Program.Rules)
             {
                 instances.Clear();
                 rule.Derivations(item.Fact, _closure.Facts, instances);
+                _derivations += instances.Count;
                 foreach (Instance instance in instances)
                 {
                     if (IsBeneath(instance.Head))
@@ -515,6 +523,7 @@ public sealed class PremiseSets
 
                     products.Clear();
                     Product(instance.Premises, 0, item.Fact, _sets[item.Set], products);
+                    _unions += products.Count;
                     foreach (int set in products)
                     {
                         Offer(instance.Head, set, work);
@@ -599,6 +608,7 @@ public sealed class PremiseSets
             TakeLabel();
             TakeWorking();
             _labels[fact] = set;
+            _kept++;
             work.Enqueue((fact, set));
             return;
         }
@@ -623,6 +633,7 @@ public sealed class PremiseSets
             }
 
             TakeWorking();
+            _kept++;
             work.Enqueue((fact, set));
             return;
         }
@@ -646,8 +657,17 @@ public sealed class PremiseSets
         }
 
         TakeWorking();
+        _kept++;
         work.Enqueue((fact, set));
     }
+
+    /// <summary>
+    /// What propagation has done since the sets were made: the (fact, set)
+    /// pairs taken from its queue, the rule instances found for them, the
+    /// unions of their premises' sets formed, and the offers kept, the rest
+    /// absorbed by a subset the fact already had (#171).
+    /// </summary>
+    internal PropagationCounts Counts => new(_items, _derivations, _unions, _kept);
 
     /// <summary>Gives back to the closure's budget everything the sets took: their owner is dropping them.</summary>
     public void Release()
@@ -793,3 +813,10 @@ public sealed class PremiseSets
         }
     }
 }
+
+/// <summary>What a premise sets' propagation has done (#171): <see cref="PremiseSets.Counts"/>.</summary>
+/// <param name="Items">The (fact, set) pairs taken from the queue and not absorbed meanwhile.</param>
+/// <param name="Derivations">The rule instances found for them.</param>
+/// <param name="Unions">The unions of the premises' sets those instances formed.</param>
+/// <param name="Kept">The offers kept, each queued; the rest were absorbed.</param>
+internal readonly record struct PropagationCounts(long Items, long Derivations, long Unions, long Kept);
