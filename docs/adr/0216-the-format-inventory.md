@@ -141,7 +141,8 @@ the release that introduced the version, from nuget.org:
 ## Amendment, 2026-11-18 — `proof/` is reserved
 
 **Accepted — filed unaccepted by a cloud session for #340, 2026-11-18** (ADR
-0066, ADR 0068). Acceptance is the maintainer's act on the pull request.
+0066, ADR 0068), and accepted by the maintainer on 2026-11-18, written by
+his delegate (ADR 0239).
 
 #292, accepted as a proposal on 2026-11-18 for a minor after 1.0, adds hash
 tiles and write-once checkpoints in a `proof/` directory beside `log/` and
