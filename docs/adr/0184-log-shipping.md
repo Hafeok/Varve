@@ -110,6 +110,31 @@ stops for that target and changes nothing.
    - Where the source consolidated a segment before the shipper had copied
      its chunks, the target gets the `.seg` and the fence chunks, which the
      source keeps for ever.
+
+   **What a target holds of one segment** is therefore one of three
+   things, each of which the source itself held at some moment, and each of
+   which reads as the same log:
+
+   | When the source consolidated | The target holds | Read by |
+   |---|---|---|
+   | not yet | the chunks shipped so far | the chunks |
+   | **after its chunks were shipped** | first the chunks; then the chunks and the `.seg`; then the `.seg` and the fence chunks | the chunks until the `.seg` exists, then the `.seg` |
+   | before its chunks were shipped | the `.seg` and the fence chunks | the `.seg` |
+
+   - **In the middle case the shipper never deletes a chunk before the
+     `.seg` is on the target,** so there is no moment at which a byte of
+     the segment is in neither. A shipper that stops between the two
+     leaves both, which is a state the source's own consolidation passes
+     through.
+   - **Before it creates the `.seg`, the shipper checks that the target's
+     chunks of that segment are a prefix of it,** payload by payload. A
+     difference is `shipping-diverged`, and nothing is deleted.
+   - **A follower of the target reads on across it.** It holds what it
+     adopted from the chunks, and a read below that finds the chunks gone
+     and takes the `.seg`, as a follower of a source does (ADR 0135
+     decision 4, ADR 0164).
+   - The target's `.seg` is the source's `.seg` byte for byte. The chunks
+     it replaces are gone from both stores, at different times.
 4. **Extent sets** that the source's catalog names and the target lacks:
    every blob of the set that exists, by create-if-absent.
 5. **The catalog, last.** The source's bytes, wrapper included, by create
@@ -300,9 +325,17 @@ adopts it. Until #203 chooses, `varve:erasureMode` stays reserved.
     crashed at every step, target faults, and the source's consolidation
     and maintenance racing it. A follower of the target equals the
     reference model at its reported position.
-  - **Byte identity:** every object on the target equals the source's
-    object of that name, and the log read from the target equals the
-    source's up to the shipped position.
+  - **Byte identity:** every object that both stores hold is identical,
+    and the log read from the target equals the source's, byte for byte, up
+    to the shipped position. Checked at every step of every schedule, not
+    only at its end.
+  - **A segment consolidated after its chunks were shipped:** a follower of
+    the target that adopted the chunks keeps reading the same log while
+    the shipper creates the `.seg` and deletes the chunks, at a position
+    inside that segment and at one after it, and with the shipper stopped
+    between the create and the deletes.
+  - The same for a segment the source consolidated before its chunks were
+    shipped: a follower that starts afterwards reads the same log.
   - Two shippers at once ship one copy.
   - A target that diverged, a target that holds another dataset and an
     unverified target are each refused, with nothing written.
