@@ -236,12 +236,9 @@ internal sealed class EventCatalogues
             return null;
         }
 
-        await foreach (Commit commit in dataset.Subscribe(new Position(position.Value - 1), SubscriptionFilter.All, cancellationToken).ConfigureAwait(false))
-        {
-            return Recorded(commit);
-        }
-
-        return null;
+        // The header alone (#310): the delta is never read.
+        CommitHeaderTerms header = await dataset.ReadMetadataAsync(position, cancellationToken).ConfigureAwait(false);
+        return ManagementOrder.PositionOf(header.Attachments)?.Value;
     }
 
     private async Task ReplayAsync(Managed managed, Dataset dataset, DatasetName name, long upTo, CancellationToken cancellationToken)

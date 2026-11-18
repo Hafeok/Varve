@@ -473,6 +473,9 @@ internal sealed class LimitSettings
 
     /// <summary>The most commits a bounded commits range serves before <c>Link rel="next"</c> (ADR 0114).</summary>
     public int CommitsPageSize { get; set; } = 1_000;
+
+    /// <summary>How many of a dataset's last commits a client idempotency key is honoured for (ADR 0246).</summary>
+    public long IdempotencyWindow { get; set; } = 100_000;
 }
 
 /// <summary>Forwarded headers, honoured only when enabled and only from the listed proxies (ADR 0101).</summary>

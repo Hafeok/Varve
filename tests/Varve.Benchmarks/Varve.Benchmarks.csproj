@@ -40,12 +40,16 @@
     <ProjectReference Include="../../src/Varve.Store.Azure/Varve.Store.Azure.csproj" />
     <ProjectReference Include="../../src/Varve.Store.S3/Varve.Store.S3.csproj" />
     <ProjectReference Include="../../src/Varve.Classification/Varve.Classification.csproj" />
+    <!-- The idempotency index's rebuild (ADR 0246, #132). -->
+    <ProjectReference Include="../../src/Varve.Protocol/Varve.Protocol.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- The REC portfolio generator (ADR 0141), linked: the object-storage
          benchmarks load its stated sizes. It depends on no test framework. -->
     <Compile Include="../Varve.Rec.Tests/RecPortfolio.cs;../Varve.Rec.Tests/SplitMix64.cs" LinkBase="Rec" />
+    <!-- The tests' object store in memory, for a takeover with no service (ADR 0246, #132). -->
+    <Compile Include="../Varve.Store.Tests/ObjectStorage/MemoryObjectStore.cs" LinkBase="Objects" />
   </ItemGroup>
 
   <ItemGroup>

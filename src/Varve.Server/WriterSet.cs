@@ -300,6 +300,7 @@ internal sealed partial class OpenDatasets
         string why = record.Released is { } reason ? Commands.ObjectLease.Shown(reason) : Commands.ObjectLease.Shown(trigger);
         ReconcileLog.Claimed(_logger, name, storage.Epoch?.Value ?? 0, why);
         await SeedOrderAsync(new DatasetName(name), dataset, cancellationToken).ConfigureAwait(false);
+        WarmKeys(name, dataset);
         return true;
     }
 

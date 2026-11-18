@@ -47,12 +47,14 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     private readonly ByteCount _seekDirectoryCache;
     private readonly ObjectStores? _objects;
     private readonly ManagementOrder _order;
+    private readonly IdempotencyKeys _keys;
     private readonly WriterAddress? _address;
     private readonly Func<string, bool> _moved;
     private readonly TimeSpan _round;
 
-    internal OpenDatasets(ServerSettings settings, ObjectStores? objects, ManagementOrder order, TimeProvider clock, ILogger logger, Func<string, bool> moved)
+    internal OpenDatasets(ServerSettings settings, ObjectStores? objects, ManagementOrder order, IdempotencyKeys keys, TimeProvider clock, ILogger logger, Func<string, bool> moved)
     {
+        _keys = keys;
         _moved = moved;
         _round = settings.Fleet.FollowInterval;
         _objects = objects;
@@ -666,6 +668,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             if (role == DatasetRole.Writer && entry.Dataset is { } written)
             {
                 await SeedOrderAsync(new DatasetName(name), written, cancellationToken).ConfigureAwait(false);
+                WarmKeys(name, written);
             }
         }
         catch (Exception error) when (error is not OperationCanceledException)
@@ -702,6 +705,23 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
     // The highest management position the dataset records is its head
     // commit's (ADR 0165): positions never decrease along the log.
+    /// <summary>
+    /// Starts reading <paramref name="dataset"/>'s idempotency keys from its
+    /// log, now that this instance writes it (ADR 0246), and returns without
+    /// waiting: the open and a takeover are not made longer, and a keyed
+    /// write that comes first waits for the reading. A failure is logged,
+    /// and the first keyed write reads the log itself.
+    /// </summary>
+    internal void WarmKeys(string name, Dataset dataset)
+    {
+        Task warming = _keys.PrepareAsync(dataset).AsTask();
+        _ = warming.ContinueWith(
+            done => ReconcileLog.KeysNotWarmed(_logger, name, done.Exception!.GetBaseException().Message),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
+    }
+
     private async Task SeedOrderAsync(DatasetName name, Dataset dataset, CancellationToken cancellationToken)
     {
         if (dataset.Head.Value == 0)
@@ -709,23 +729,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             return;
         }
 
-        await using IAsyncEnumerator<Commit> commits = dataset.Subscribe(new Position(dataset.Head.Value - 1), SubscriptionFilter.All, cancellationToken).GetAsyncEnumerator(cancellationToken);
-
-        if (!await commits.MoveNextAsync().ConfigureAwait(false))
-        {
-            return;
-        }
-
-        Commit head = commits.Current;
-        List<Varve.Rdf.RdfTerm> attachments = [];
-
-        foreach (Varve.Rdf.TermHandle handle in head.Attachments.Span)
-        {
-            if (head.TryExternalise(handle, out Varve.Rdf.RdfTerm? term))
-            {
-                attachments.Add(term);
-            }
-        }
+        // The head commit's header alone (#310): the delta is never read.
+        CommitHeaderTerms head = await dataset.ReadMetadataAsync(dataset.Head, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<Varve.Rdf.RdfTerm> attachments = head.Attachments;
 
         if (ManagementOrder.PositionOf(attachments) is { } recorded)
         {
@@ -799,6 +805,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         [LoggerMessage(EventId = 20, Level = LogLevel.Warning, Message = "The dataset '{Name}' did not open as its writer (epoch: {Epoch}), and is tried again after a hold-off, {HoldOff:0.###} s now and doubling to 30 s while it fails: {Reason}")]
         internal static partial void OpenFailed(ILogger logger, string name, string epoch, double holdOff, string reason);
+
+        [LoggerMessage(EventId = 22, Level = LogLevel.Warning, Message = "The idempotency keys of '{Name}' were not read ahead (ADR 0246); its first keyed write reads them: {Reason}")]
+        internal static partial void KeysNotWarmed(ILogger logger, string name, string reason);
 
         [LoggerMessage(EventId = 21, Level = LogLevel.Debug, Message = "The dataset '{Name}' still does not open as its writer (epoch: {Epoch}): {Reason}")]
         internal static partial void OpenStillFailing(ILogger logger, string name, string epoch, string reason);

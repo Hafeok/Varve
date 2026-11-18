@@ -510,6 +510,14 @@ Filed by the session for [#296](https://github.com/Hafeok/Varve/issues/296), rec
 |---:|---|---|
 | [0245](0245-the-web-ui-in-the-container-image.md) | The Web UI in the container image, served by default, with its settings from the server | Filed unaccepted (#296) |
 
+## Client idempotency keys (#132)
+
+Filed by the session for [#132](https://github.com/Hafeok/Varve/issues/132), 1.0 readiness (#129), unaccepted until the maintainer accepts it (ADR 0066). Numbered 0246, because 0244 and 0245 are taken on open branches. It amends 0094 and 0168 by dated amendments.
+
+| # | Title | Status |
+|---:|---|---|
+| [0246](0246-client-idempotency-keys.md) | Client idempotency keys, scoped to the agent: a retried write commits once | Filed unaccepted (#132) |
+
 ## The docs site (#317)
 
 Filed by the session for [#317](https://github.com/Hafeok/Varve/issues/317), under [#129](https://github.com/Hafeok/Varve/issues/129)'s docs-site deliverable, recording the maintainer's answers of 2026-11-16, unaccepted until he accepts it (ADR 0066). Numbered 0247: 0244–0246 are taken on other branches. It amends 0224 by a dated amendment.

@@ -192,3 +192,25 @@ Point 3's request id becomes the instance's name, a colon and the
 writer's. The cause stays server-minted, as the amendment of 2026-10-09 requires.
 
 **The ledger.** `CauseIsTheRequestId` moves to ADR 0168's set, superseded.
+
+## Amendment, 2026-11-16 — a lost response's commit is found by the client's key
+
+Filed unaccepted by the session for #132 under ADR
+[0246](0246-client-idempotency-keys.md) (ADR 0066), and accepted by the
+maintainer on 2026-11-18.
+
+Point 3's request id is still how a client finds the commit of a write
+whose response it received. A write whose response was lost is found by
+the client's `Idempotency-Key` instead. The key is scoped to the caller's
+agent (point 2), and a hash of the agent and the key is recorded with the
+commit as a host attachment (ADR 0165). The key itself never enters the
+log. A retry with the same key and request is answered from that
+commit, with its status, position and request id, and is never committed
+again. The cause stays the request id the server mints, as the amendment of
+2026-10-09 requires. The key is the client's, and it is never the cause.
+
+Point 6's `If-Match` is checked after the key. So a retry whose original
+moved the head is answered from its commit, not with `412`.
+
+**The ledger.** The ruling of this block is `KeyFindsALostResponsesCommit`,
+accepted by the maintainer on 2026-11-18.

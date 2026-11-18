@@ -144,7 +144,8 @@ writer's address in the writer record, `Varve:Fleet:InternalUrl`:
 - A forward whose writer cannot be reached, or whose answer is lost, is
   [`503 commit-outcome-unknown`](../problems/commit-outcome-unknown.md),
   with `requestId` and no `position` (ADR 0214): the writer may have
-  committed it, so send it again only conditionally. No instance holding the
+  committed it, so send it again only conditionally, or with the same
+  `Idempotency-Key` (below). No instance holding the
   epoch is `503 unavailable`, reason `no-writer`. A forward is never sent
   twice.
 
@@ -153,6 +154,46 @@ writer's address in the writer record, `Varve:Fleet:InternalUrl`:
 app's internal FQDN.
 
 Request ids are `<instance>:<id>`, unique across the fleet.
+
+## Retrying a write: `Idempotency-Key`
+
+A write may carry `Idempotency-Key: "<key>"` (ADR 0246). The key is the
+caller's own: keys are scoped to the agent, so two callers never share one.
+The writer records a hash of the agent and the key with the commit, never the
+key itself, and the change feed doesn't serve it. A retry with the same key
+and the same request is answered from that commit, with its status,
+`Varve-Position`, `ETag`, the original `Varve-Request-Id` and
+`Varve-Replayed: true`. It is never committed again: not after a lost
+response, a forward, a restart or a handover, because the new writer reads
+the key from the log.
+
+- **Forwarded unchanged.** The forwarder passes on `Idempotency-Key` and
+  `Varve-Key-Position`, and the writer checks them.
+- **Checked before `If-Match`.** A retry whose original moved the head gets
+  the original's answer, not `412`.
+- **Another request under the same key** is
+  [`422 idempotency-key-reused`](../problems/idempotency-key-reused.md).
+- **A key whose request is still being answered** is
+  [`409 idempotency-key-in-flight`](../problems/idempotency-key-in-flight.md).
+- **Only a commit holds a key**, for the dataset's last
+  `Varve:Limits:IdempotencyWindow` commits, 100,000 by default, counted in
+  commits and never time.
+- **A retry from too long ago is refused.** A retry names the head it knew
+  when it made the key in `Varve-Key-Position`. If the key isn't found and
+  the head is more than the window past that, the retry is
+  [`422 idempotency-key-expired`](../problems/idempotency-key-expired.md),
+  and nothing is committed.
+
+`Varve.Protocol.Client` sends a key on every write by default (128 random
+bits per write, reused on each retry). It retries with that key only after
+a lost response or a refusal the server states as retryable: the writer
+moved, stepped down or was superseded; the server shutting down; management
+behind; an outcome unknown; `unavailable` for want of a writer; or the key in
+flight. Every other `503` is final, whatever its `Retry-After`, and so is a
+memory limit. Its first keyed
+write after a writer opens a dataset reads the window's commit headers, 0.3 to
+0.5 s at REC M over the full window; a host can call
+`IdempotencyKeys.PrepareAsync` when it becomes the writer to do that ahead.
 
 ## Reading your writes
 

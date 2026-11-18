@@ -73,6 +73,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         _logger = logger;
         _accessor = accessor;
         _order = new ManagementOrder();
+        Keys = new IdempotencyKeys(new CommitWindow(settings.Limits.IdempotencyWindow));
         _instance = objects?.Instance ?? new WriterInstance(string.IsNullOrWhiteSpace(settings.ObjectStorage.Instance) ? Environment.MachineName : settings.ObjectStorage.Instance);
         IsFleetOfOne = objects is null;
         _mayClaim = IsFleetOfOne || !string.Equals(settings.Fleet.Writer, "false", StringComparison.OrdinalIgnoreCase);
@@ -82,7 +83,13 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         _role = role;
         _placeholder = placeholder;
         _snapshot = new Snapshot(GrantTable.Empty(_bootstrap), BootstrapState.Absent);
-        Datasets = new OpenDatasets(settings, objects, _order, clock, logger, Moved);
+        Datasets = new OpenDatasets(settings, objects, _order, Keys, clock, logger, Moved);
+
+        // The system dataset's writer warms its keys from the start (ADR 0246).
+        if (role == ManagementRole.Writer)
+        {
+            Datasets.WarmKeys(SystemName, system);
+        }
         Instance = new WriterName(_instance.Value);
         Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
         Classifications = new RowClassifications(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
@@ -111,6 +118,9 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
     /// <summary>The declared datasets, as this instance holds them.</summary>
     internal OpenDatasets Datasets { get; }
+
+    /// <summary>The client idempotency keys this instance honours as a writer (ADR 0246).</summary>
+    internal IdempotencyKeys Keys { get; }
 
     // ---- start ----
 
@@ -767,6 +777,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             _systemHoldOff.Succeeded();
             _role = ManagementRole.Writer;
             _routes.TryRemove(SystemName, out _);
+            Datasets.WarmKeys(SystemName, System);
             string why = record.Released is { } reason ? Commands.ObjectLease.Shown(reason) : Commands.ObjectLease.Shown(trigger);
             FleetLog.ClaimedSystem(_logger, storage.Epoch?.Value ?? 0, why);
             return true;
