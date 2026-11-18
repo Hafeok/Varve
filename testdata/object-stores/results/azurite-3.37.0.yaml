@@ -1,0 +1,11 @@
+format: 1
+provider: "azurite"
+server-version: "3.37.0"
+deployment: "CI, .github/storage/compose.yaml, one container on loopback"
+suite: 1
+date: "2026-11-18"
+racers: 16
+rounds: 8
+result: pass
+run-by: "ci"
+signed-off-by: "the storage (services) job, .github/workflows/ci.yml"
