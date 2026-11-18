@@ -1,46 +1,49 @@
 format: 2
 version: v0.1.0-preview.22
 title: The container image ships the Web UI and serves it by default
-date: 2026-11-16
+date: 2026-11-18
 basis:
   - issue: 296
   - storage-format: 1
   - delta-format: 1
+  - adr: "0227"
   - adr: "0240"
   - adr: "0242"
+  - adr: "0244"
   - adr: "0245"
+  - adr: "0247"
 sbom:
-  - asset: varve-webui-0.1.0-preview.22.zip sha256:7b5018f634f78b223f1c6be2b379cd78e54bd10ccae8bc71ec7185b6af92bda3
-  - image: ghcr.io/hafeok/varve sha256:08127fa9543dfd081750f6af108b8bfd00a8386d82b3bcdf25c70c9fb5803496
-  - nupkg: Varve.Aspire sha256:716232cf6c992e77e571dbde92e6668228e998a1a7eae829e0352dba3259130e
-  - nupkg: Varve.Classification sha256:9046468c72f4aaf07a0d0598331b467afbd7492453e19b7f517d2b2f542e4a94
-  - nupkg: Varve.Delta sha256:d1b75d0c625651f4c56f339e60e0bd7cb6b52652de761ed07d70947b44a887d5
-  - nupkg: Varve.Derivation sha256:b3fb9ba4785ab9de311da6b4d459e9a7daac8550bc4093813ac4132fa3465244
-  - nupkg: Varve.Events sha256:a9325aaa97890f2a967a22d4341beb0290f0b68457ead4d2ff883d374494a066
-  - nupkg: Varve.Iri sha256:218fa19cd0c9483f9b5ebdd40e17bcb0066831d5525441cfa8d3ce1fbafd0a92
-  - nupkg: Varve.Json.Canonical sha256:ccbf00adf397cfa20082cf0b3dd1dc4189a33546ddb347074172e89176bb4a9d
-  - nupkg: Varve.JsonLd sha256:9cb5aeaf0c11ec6e66c2752298895d27ca63c57c569819d0a384e41c1905be7d
-  - nupkg: Varve.Management sha256:578c1a446bd68a98fe248bc0b3498d579620a31598786806c50f0b7ac0bada2c
-  - nupkg: Varve.Protocol sha256:f292acd5671a342f0517b38ce7194181bc6d3303b5dc352b685a7c8bea7c42b0
-  - nupkg: Varve.Protocol.Client sha256:25e478e49b9216a07f4a083aebe446d58d97a4273dd4955b99109503d49aa225
-  - nupkg: Varve.Rdf sha256:47642047bdd5bf79b23cd127c741598376c490baab03c532efc51073518f4f93
-  - nupkg: Varve.RdfXml sha256:c18997edab94e554b6be02a25850bfb0fae8d24e68c67510a9260be0141c6ef8
-  - nupkg: Varve.Shacl sha256:9b9ed647ce1f7e96502cd2d5acf4ea7de5afd90c1bf1963d3a3a502eab6f5b9f
-  - nupkg: Varve.Shacl.Sparql sha256:f8fca5fe3107fd925e6a3e113825b9741c15fb38bc1fcdbc939f66cf496d5a87
-  - nupkg: Varve.Shacl.Store sha256:c1b06aa04d9e5bdc08297f44691e5b6e747f5e20a147012aa2d32fd64abe3a70
-  - nupkg: Varve.Sparql sha256:9e958599a346160f256d3cc193ddab282ea094417fc894760391bb20d502d679
-  - nupkg: Varve.Sparql.Entailment sha256:22de0cb224da852d8957386924f99c7b2e0352758862ac9f3b92803c124fd272
-  - nupkg: Varve.Sparql.Evaluation sha256:66615157f1b26af5b51cb03e4d76af31b4d5f5d02d1a0445cdd8621bc65598c7
-  - nupkg: Varve.Sparql.Results sha256:b62789b95fd10b6fe51774b800726847176e07317e1ab2bc5b53bf282d5da941
-  - nupkg: Varve.Sparql.Store sha256:399f7d004bed73bcc65b4d2ba9fdb664ec66b392c7e995a85d44b2dec5942326
-  - nupkg: Varve.Store sha256:28b5be1b5d63c51b3ad0082e7b1cacb072c478a138ecc27e1c4281571315b803
-  - nupkg: Varve.Store.Azure sha256:baafb36f8970ca3e1301b8a0ed8a6c475fc7f91c84768f3d7492ef66c0ab3089
-  - nupkg: Varve.Store.Browser sha256:7978fe9fce66704d0302f6d096de38698abecfeae297becc5201a2e5606508e3
-  - nupkg: Varve.Store.ObjectStorage sha256:5068df2944c9256573d4a51802c800e9ca6815c784b22a41aaec7937794099cf
-  - nupkg: Varve.Store.S3 sha256:949f06510534fd201d5eafdd26e195a5262210026b35a34e1e16fd15c8405d1c
-  - nupkg: Varve.Turtle sha256:e971c18347dac98bc9ac51fdfdf9269c9be8e8793224f40d00aa6de49d268bb9
-  - nupkg: Varve.Xsd sha256:81682a7ca929e026d9d4e6bccab1536223487d023e88cd1f8ab7a1c9ae23fc8c
-  - tool: Varve.Server sha256:95e86a52e870a5fd0fa4b3afa72f637ea1587c350d13c706fcadee2ce0a8b88d
+  - asset: varve-webui-0.1.0-preview.22.zip sha256:453f40162e1c51cff98a16b5336bf7de4557e96090ee1469c7915506d485077f
+  - image: ghcr.io/hafeok/varve sha256:72ca666839a45d0e3c41c4a20176dcbabd04d38e5c1a15842eed8ceaa887a326
+  - nupkg: Varve.Aspire sha256:f9c6a1445fbdd7c0a7ed3581b9524226f091dca0cf77faaec52db986bc5e162e
+  - nupkg: Varve.Classification sha256:7fb03d66f8d3f99e2b54fef331368d3f01eeb67da416c0581cb2418d7099822b
+  - nupkg: Varve.Delta sha256:b86363ab1f6683b74f287cfd109728cf741115c4e311970a7cb7c0987c651a6c
+  - nupkg: Varve.Derivation sha256:45419ae4989a43cab48c8f79bd2e2ee2806a9dae24e4730943f4cb2401c79e8b
+  - nupkg: Varve.Events sha256:8dfe1fe9c323142b9a78c8239ed615afbf6c61169122096c0d16ba9a4eecf4ad
+  - nupkg: Varve.Iri sha256:b8222b47b089c8336c95fd78eb1cf582f28b39689b9546b36771ea7ca567a1d7
+  - nupkg: Varve.Json.Canonical sha256:eb17b79fc861896ad2c153d6b15801721d9291ddb44430accdecd37de3469dba
+  - nupkg: Varve.JsonLd sha256:58817a625a5df3cdf2f3374bc06cc647c34ad5340d1834cb1f475ac583a5733f
+  - nupkg: Varve.Management sha256:e2dca7167778e0072d778f8f0fe6c64c55fa944ddb8c9bc234266b599f63dee1
+  - nupkg: Varve.Protocol sha256:ebb9c25f074fb2598c90e8f449e41bd1e8a560618768ebc58f49cf5a7cb18f85
+  - nupkg: Varve.Protocol.Client sha256:e5991e28de23c338b421b8e71efc58136faa9e1ddd5b38e6f1d099c27eb084b3
+  - nupkg: Varve.Rdf sha256:b6e00fce386f117fcf295913943644cbc133fe93dc960e9fe12f4d6d2b41b944
+  - nupkg: Varve.RdfXml sha256:85d884540b2a05a439822a100520283760b2935de0f6cbadd7db47ec0ee4a98c
+  - nupkg: Varve.Shacl sha256:652781029b35026830fd5bd13780e58039084c22679c1c5b636de6715d2ca5c0
+  - nupkg: Varve.Shacl.Sparql sha256:ac86b7e1cae566752d327913bbeefb4d301a4c8060892650e8acc96062c0b0df
+  - nupkg: Varve.Shacl.Store sha256:ba65068e700aa8168cab847e11288110fcf1f0343052c4477b2e14e7ec133f6d
+  - nupkg: Varve.Sparql sha256:d2e011ab6f901b1811e277b27777b11a810abd87feb62bcf74c97e796679527c
+  - nupkg: Varve.Sparql.Entailment sha256:386bc923e206f6a8316ff9015c746d38cb1ca79f1f66103ecf63f6a114db4019
+  - nupkg: Varve.Sparql.Evaluation sha256:316a47793c9df7dc7babfbde44635032ff2143d4c1bcb02ce59e980162843d4e
+  - nupkg: Varve.Sparql.Results sha256:2ed2badfbec1486e0dff023d2f80a552aa6d506d091ea2f29c40e520ca678406
+  - nupkg: Varve.Sparql.Store sha256:3a170a828d729a346e799335c37e883ee36f80300cad891b91b6b3e318323dcb
+  - nupkg: Varve.Store sha256:645a20e01bef0ac16d507d6479b97261698bf18c666475f94b2dca3e584e067d
+  - nupkg: Varve.Store.Azure sha256:07d95c4c2a510129d70395083eb53ceb2d70bb2415f64adc21c551b6ec941a29
+  - nupkg: Varve.Store.Browser sha256:47227fbf599f4e280fa9c79504ed7199ee1806d43c12d5fcffc2801d6a0ec23e
+  - nupkg: Varve.Store.ObjectStorage sha256:ffe7d89b969eed3652f6d8f65e9f199ab22d142b67900b8e14b54e9fe9f0df8e
+  - nupkg: Varve.Store.S3 sha256:d88d080fb916727f58bb602924be1ddb90bc09b9b4449e088daad1711947f573
+  - nupkg: Varve.Turtle sha256:b770dd19728467a527216f72929b674c20f3be89e7f51034e94dc2d7558fb1f6
+  - nupkg: Varve.Xsd sha256:451ca890995a5f438cac7373146f9caf641e64beed2b6ede50e38e50ffacdd30
+  - tool: Varve.Server sha256:aef152287cdf207ca491042a9f94d24140c9a06ef946005508646847eb28bbda
 accepted-by: mailto:emil@okkels-klein.dk
 summary: |
   ### The container image ships the Web UI (#296)
@@ -94,13 +97,22 @@ summary: |
   - **Problems that say what to do** (#194, ADR 0242): `forbidden`, a failed
     dataset, `writer-superseded` and `shutting-down` name the next step, and
     every problem page says what to do.
+  - **Memory bounds for writing, checkpointing and reopening** (#227,
+    ADR 0244): a dataset written under a memory limit reopens under it.
   - **`/manage/system` names the instance that answered** (#193).
   - **The state route takes `If-Match`** with the declaration's version
     (#189).
   - **The conformance runner** states what a failing protocol request sent
     (#262).
-  - **Build:** the SDK moves to 10.0.404, and the container image's base to
-    its newer digest; a commit message's model name is refused in three
-    layers (#169).
+  - **The public API freeze gate** (#316, ADR 0227): each package's surface
+    is compared against its published package, and an unmarked break is
+    refused.
+  - **The docs site** (#317, ADR 0247): a generator in `eng/` on Markdig,
+    with Mermaid drawn at build time and no script on any page, published
+    to GitHub Pages by OIDC.
+  - **Build and process:** the SDK moves to 10.0.404, and the container
+    image's base to its newer digest; a commit message's model name is
+    refused in three layers (#169); an approval is a whole comment with the
+    full sha (#290).
 
   The storage and delta formats are unchanged.

@@ -12,7 +12,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [0.1.0-preview.22] - 2026-11-16
+## [0.1.0-preview.22] - 2026-11-18
 
 **The container image ships the Web UI and serves it by default**
 
@@ -67,14 +67,23 @@ What landed on `main` since v0.1.0-preview.21:
 - **Problems that say what to do** (#194, ADR 0242): `forbidden`, a failed
   dataset, `writer-superseded` and `shutting-down` name the next step, and
   every problem page says what to do.
+- **Memory bounds for writing, checkpointing and reopening** (#227,
+  ADR 0244): a dataset written under a memory limit reopens under it.
 - **`/manage/system` names the instance that answered** (#193).
 - **The state route takes `If-Match`** with the declaration's version
   (#189).
 - **The conformance runner** states what a failing protocol request sent
   (#262).
-- **Build:** the SDK moves to 10.0.404, and the container image's base to
-  its newer digest; a commit message's model name is refused in three
-  layers (#169).
+- **The public API freeze gate** (#316, ADR 0227): each package's surface
+  is compared against its published package, and an unmarked break is
+  refused.
+- **The docs site** (#317, ADR 0247): a generator in `eng/` on Markdig,
+  with Mermaid drawn at build time and no script on any page, published
+  to GitHub Pages by OIDC.
+- **Build and process:** the SDK moves to 10.0.404, and the container
+  image's base to its newer digest; a commit message's model name is
+  refused in three layers (#169); an approval is a whole comment with the
+  full sha (#290).
 
 The storage and delta formats are unchanged.
 
