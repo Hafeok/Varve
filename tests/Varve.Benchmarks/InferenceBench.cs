@@ -171,9 +171,10 @@ internal static class InferenceBench
     /// of the first k data graphs' merge over the TBox closure, for k an
     /// eighth, a quarter, a half and all of them, and each fact's minimal
     /// premise sets over it; the distinct sets of two graphs or more, which
-    /// are the reserved graphs a cross-graph binding places rows in.
+    /// are the reserved graphs a cross-graph binding places rows in; k at
+    /// most <paramref name="most"/>, so a dense run fits a nightly job.
     /// </summary>
-    internal static void RunPremiseSets(string sizeName, string profileName, int links = 0, string? axioms = null)
+    internal static void RunPremiseSets(string sizeName, string profileName, int links = 0, string? axioms = null, int most = int.MaxValue)
     {
         RecSize size = Enum.Parse<RecSize>(sizeName);
         InferenceProfile profile = profileName == "owl2rl" ? InferenceProfile.Owl2Rl : InferenceProfile.Rdfs;
@@ -185,7 +186,7 @@ internal static class InferenceBench
         string[] names = [.. graphs.Keys.Order(StringComparer.Ordinal)];
         Closure tboxClosure = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive);
         tboxClosure.Apply(tbox, []);
-        foreach (int k in new[] { names.Length / 8, names.Length / 4, names.Length / 2, names.Length }.Where(k => k > 0).Distinct())
+        foreach (int k in new[] { names.Length / 8, names.Length / 4, names.Length / 2, names.Length }.Where(k => k > 0 && k <= most).Distinct())
         {
             long before = Heap();
             Stopwatch clock = Stopwatch.StartNew();

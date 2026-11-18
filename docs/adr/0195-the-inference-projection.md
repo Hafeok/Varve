@@ -118,8 +118,8 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   rule has a schema premise, so one data fact meets the TBox, never another
   graph's data. With the TBox in its own graph that set is a data graph's
   own; there is no growth to measure, and it is not measured.
-- **Under `owl2rl` it is measured with a benchmark axiom set**, and is
-  unmeasured until that has run (revised 2026-11-18). REC 4.1 and its Brick
+- **Under `owl2rl` it is measured with a benchmark axiom set**, below
+  (revised 2026-11-18). REC 4.1 and its Brick
   state no restriction, key, functional, transitive or chain property, so
   REC with links between buildings (ADR 0141, amended 2026-11-18) gives no
   cross-graph set: on REC S at 20 and 200 links per thousand commits, none
@@ -130,8 +130,31 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   `feeds ∘ isLocationOf ⊑ feeds`, so a link from one building into another's
   room reaches what is located there. It is read only by the nightly's
   `premise-sets` job and by hand: `--inference-premise-sets M owl2rl
-  links=<per mille> axioms=links`. It never gates. Whether premise sets grow
-  faster than linearly in the graphs stays open until REC M has run with it.
+  links=<per mille> axioms=links`. It never gates.
+  
+  **Measured with it** (2026-11-18, 4 cores, .NET 10.0.15): closure size
+  against live links, cross-graph sets and the facts holding one.
+
+  | REC | Links ‰ | Graphs merged | Live links | Facts | Cross-graph sets | Facts with one | Premise sets took |
+  |---|---|---|---|---|---|---|---|
+  | S | 20 | 3 | 2 | 925,125 | 0 | 0 | — |
+  | S | 200 | 3 | 62 | 926,077 | 1 | 12 | — |
+  | S | 500 | 3 | 208 | 928,593 | 3 | 124 | — |
+  | S | 1000 | 3 | 367 | 931,273 | 3 | 240 | — |
+  | M | 20 | 7 | 26 | 2,591,593 | 0 | 0 | 55 s |
+  | M | 20 | 15 | 54 | 5,553,814 | 0 | 0 | 141 s |
+  | M | 20 | 31 | 101 | 11,477,643 | 0 | 0 | 383 s |
+  | M | 20 | 63 | 184 | 23,026,910 | 0 | 0 | 1,132 s |
+  | M | 200 | 7 | 227 | 2,596,047 | 1 | 12 | 160 s |
+  | M | 200 | 15 | 462 | 5,562,799 | 3 | 36 | 659 s |
+
+  The closure grows with the graphs and barely with the links: 184 links
+  add nothing a set crosses at 20‰, and at 200‰ each link adds about 20
+  facts. The cross-graph sets are few and two graphs wide; what grows
+  faster than the graphs is the time to find the sets, about four times
+  for twice the graphs at 200‰, against two and a half at 20‰, so the
+  nightly runs 200‰ on at most 15 graphs. REC M at 200‰ on 31 and 63 graphs
+  had not finished when this was written; it is run by hand.
 - **What recomputing costs.** The sets over REC M's 63 graphs take 236 s,
   after a 90 s closure, and about 50 bytes a fact beside it (4,378 MiB held
   in all). Recomputed on every data commit, that would be minutes a commit,
@@ -153,6 +176,27 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   a peak of 7.6 GB; a commit's median 19 ms and its worst 1.3 s (a move);
   over all 50, the merge's closure 144 ms, the reach 22 s, the sets 115
   ms, 922 facts' sets changing.
+- **What those runs had, needed and peaked at** (revised 2026-11-18). The
+  7.6 GB is the peak, not the need, and not a ceiling the run met: it ran
+  with no limit set, in a container of 13.35 GiB, where the collector's
+  heap limit is three quarters of it, 10.0 GiB (10,256 MiB). Rerun under
+  `DOTNET_GCHeapHardLimit`, with the benchmark reading its heap at each
+  stage after a compacting collection (the harness's own history and
+  bookkeeping, about 1.15 GiB of it, included):
+
+  | Profile | Heap limit | Result | Live heap, merge closed / sets made | Peak working set |
+  |---|---|---|---|---|
+  | `rdfs` | 10.0 GiB | built | 4,524 / 5,531 MiB | 7,443 MiB |
+  | `rdfs` | 9, 8 and 6 GiB | died: `OutOfMemoryException`, exit 134 (#335) | — | — |
+  | `owl2rl` | 10.0 GiB | built | 4,731 / 5,738 MiB | 7,004 MiB |
+  | `owl2rl` | 9 GiB | built | 4,731 / 5,738 MiB | 6,766 MiB |
+
+  So the need, as a heap limit the build finishes under, is between 9 and
+  10 GiB under `rdfs` and at most 9 GiB under `owl2rl`; the live heap,
+  what is held once built, is 5.4 and 5.6 GiB. The build's transient is
+  near twice the finished closure's heap (#339). The deaths were the
+  defect the amendment of 2026-11-18 below fixes: under the budget, the
+  same build is refused as `stopped (memory-limit)` instead.
 
 ### 4. Commits and generations
 
@@ -469,6 +513,28 @@ It amends point 4 (generations), point 6 (the memory limit) and point 9
    is set from what a build needs against what its budget counts, measured
    under `DOTNET_GCHeapHardLimit` (below), and a test fails when a build
    needs more than the budget assumes.
+   
+   **Measured** on REC S (3 graphs; `Varve.Benchmarks --closure-budget S
+   <profile> <per-graph|cross>`): each from-scratch build's least heap
+   limit, bisected to 1 MiB, less the heap held before it, over the
+   budget's peak. The first estimates charged every profile alike: 128
+   bytes a fact beside its record, 96 a working entry, 256 a fact a pass
+   touches, 160 a fact's premise sets, 80 an explicit fact.
+
+   | Profile | Build | Need ÷ counted, estimates | Off by | Need ÷ counted, measured figures |
+   |---|---|---|---|---|
+   | `rdfs` | per graph | 0.811 | counted 23% more than needed | 0.815 |
+   | `rdfs` | cross-graph | 1.073 | counted 7% less: a build could outrun its limit | 0.872 |
+   | `owl2rl` | per graph | 0.690 | counted 45% more | 0.883 |
+   | `owl2rl` | cross-graph | 0.815 | counted 23% more | 0.747 |
+
+   The measured figures are 100 bytes a fact under `rdfs` and 70 under
+   `owl2rl`, and 280 a fact's premise sets under both; the working entry,
+   touched fact and explicit fact keep their estimates, which no build
+   showed off. Each build now needs at most 0.88 of what it is counted, the
+   margin for the collector's own slack. REC M's peaks, by the same count:
+   4.66 GB under `rdfs` (17.5 million facts) and 4.54 GB under `owl2rl`
+   (23.1 million), the projection's rows (96 bytes a fact) besides.
 4. **A generation is made for stated causes only:** a commit that changes a
    bound TBox graph, a commit that allocates a term a rule names, and a cold
    start or a saved state that does not check. "Any failed pass is a

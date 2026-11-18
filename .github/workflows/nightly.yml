@@ -260,15 +260,22 @@ jobs:
   # gate: it fails only when the benchmark does not run to the end, and its
   # numbers are read by hand.
   premise-sets:
-    name: premise sets (REC M, owl2rl, links ${{ matrix.links }})
+    name: premise sets (REC M, owl2rl, links ${{ matrix.links }}, at most ${{ matrix.graphs }} graphs)
     if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'premise sets')
     runs-on: ubuntu-latest
     timeout-minutes: 150
     strategy:
       fail-fast: false
       matrix:
-        # Links per thousand commits past the build.
-        links: [20, 200]
+        # Links per thousand commits past the build, and the most graphs merged. At 20 the
+        # whole of REC M takes about 50 minutes on four cores; at 200 the premise sets
+        # grow faster than the graphs (15 graphs in 14 minutes, 31 still running after 35 more), so
+        # the run stops at 15 to finish inside the job.
+        include:
+          - links: 20
+            graphs: 63
+          - links: 200
+            graphs: 15
 
     steps:
       - name: Line endings
@@ -298,7 +305,7 @@ jobs:
         run: |
           mkdir -p artifacts/premise-sets
           out=artifacts/premise-sets/rec-m-owl2rl-links-${{ matrix.links }}.txt
-          tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks --inference-premise-sets M owl2rl links=${{ matrix.links }} axioms=links | tee "$out"
+          tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks --inference-premise-sets M owl2rl links=${{ matrix.links }} axioms=links graphs=${{ matrix.graphs }} | tee "$out"
           { echo '```'; cat "$out"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the measurement

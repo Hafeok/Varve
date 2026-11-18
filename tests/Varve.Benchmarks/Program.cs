@@ -94,10 +94,11 @@ internal static class Program
             return;
         }
 
-        // --inference-premise-sets <size> <profile> [held] [links=<per mille>] [axioms=<name>]
-        if (args.Length is >= 3 and <= 6 && args[0] == "--inference-premise-sets")
+        // --inference-premise-sets <size> <profile> [held] [links=<per mille>] [axioms=<name>] [graphs=<most>]
+        if (args.Length is >= 3 and <= 7 && args[0] == "--inference-premise-sets")
         {
             int links = 0;
+            int most = int.MaxValue;
             int held = 0;
             string? axioms = null;
             foreach (string extra in args[3..])
@@ -109,6 +110,10 @@ internal static class Program
                 else if (extra.StartsWith("axioms=", StringComparison.Ordinal))
                 {
                     axioms = extra["axioms=".Length..];
+                }
+                else if (extra.StartsWith("graphs=", StringComparison.Ordinal))
+                {
+                    most = int.Parse(extra["graphs=".Length..], CultureInfo.InvariantCulture);
                 }
                 else
                 {
@@ -122,7 +127,7 @@ internal static class Program
             }
             else
             {
-                InferenceBench.RunPremiseSets(args[1], args[2], links, axioms);
+                InferenceBench.RunPremiseSets(args[1], args[2], links, axioms, most);
             }
 
             return;

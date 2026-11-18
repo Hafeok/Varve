@@ -37,13 +37,13 @@ public sealed record ClosureCosts(MemoryAmount PerFact, MemoryAmount PerWorkingE
     };
 
     // Measured on REC S (#335): a from-scratch build's least GC heap, bisected under
-    // DOTNET_GCHeapHardLimit, over its budget's peak, kept at 0.9 or under for every
-    // build, per graph and cross-graph. The first estimates (128, 96, 256, 160, 80)
-    // counted 19% over under rdfs per graph, and 7% under cross-graph, where the
-    // premise sets' labels cost more than counted.
+    // DOTNET_GCHeapHardLimit, less the heap before it, over its budget's peak. The first
+    // estimates (128, 96, 256, 160, 80) gave 0.811 per graph, 1.073 cross-graph (a build
+    // could outrun its limit: the premise sets cost more than counted); these give 0.815
+    // and 0.872.
     private static ClosureCosts Rdfs { get; } = new(new(100), new(96), new(256), new(280), new(80));
 
-    // The first estimates counted 31% over per graph under owl2rl and 18% over cross-graph.
+    // The first estimates gave 0.690 per graph under owl2rl and 0.815 cross-graph; these give 0.883 and 0.747.
     private static ClosureCosts Owl2Rl { get; } = new(new(70), new(96), new(256), new(280), new(80));
 
     /// <summary>The same costs, each fact charged <paramref name="bytes"/> more: what its owner keeps per fact beside the closure.</summary>

@@ -152,15 +152,40 @@ A binding's closure is held in memory (ADR 0195). Measured on REC M
 (5 million data quads), it holds 718 bytes a data quad under `rdfs` and
 755 under `owl2rl`, the store's own data not included: 3.4 and 3.6 GiB.
 
-`Varve:Inference:ClosureBytes` counts 256 bytes a fact, a margin over
-the measured 165–208, and a data quad closes to about 3.5 facts under
-`rdfs` and 4.6 under `owl2rl`: the setting spends about 900 bytes a data
-quad under `rdfs` and 1,200 under `owl2rl`. Its default, a quarter of the
-5 GiB heap limit above, closes about 1.5 million data quads under `rdfs`
-or 1.1 million under `owl2rl`. A closure past it stops, and the binding
-answers `inference-unavailable` until it is given more; raise it only as
-far as the heap limit leaves the store its working set, or close fewer
-graphs.
+`Varve:Inference:ClosureBytes` is a budget that every structure a closure
+grows asks before it is allocated (ADR 0195, amended 2026-11-18): a fact at
+its profile's measured cost (100 bytes under `rdfs`, 70 under `owl2rl`,
+beside its 72-byte record), 96 bytes beside it for the binding's row, its
+explicit set, a build's working sets while they live, and 160 bytes for
+each of the dataset's terms the binding keeps resolved. Readiness's `peak`
+for a binding is what it has asked for at most.
+
+**Sizing REC M** (5 million data quads, one binding over its 63 graphs,
+measured 2026-11-18 on .NET 10.0.15): a from-scratch build asks the budget
+for at most
+
+| Profile | Facts | Closures' peak | With the rows | `ClosureBytes` at least | Heap limit at least |
+|---|---|---|---|---|---|
+| `rdfs` | 17.5 million | 4.66 GB | 6.34 GB | 6 GiB | 8 GiB |
+| `owl2rl` | 23.1 million | 4.54 GB | 6.76 GB | 6.5 GiB | 8.5 GiB |
+
+with the terms' 160 bytes each on top. The heap limit is where
+`ClosureBytes` is three quarters of it, the most the instance accepts,
+since every binding together takes from a pool of three quarters of the
+heap limit. A build needs 0.75 to 0.88 of what the budget counts, measured,
+so a `ClosureBytes` the heap can hold is never outrun. The same graphs
+bound `varve:crossGraph true` need their premise sets besides: on REC S,
+the budget's peak is 1.9 times the per-graph build's under `rdfs` and 2.2
+times under `owl2rl`.
+
+Unset, `ClosureBytes` is a quarter of the heap limit: on the 5 GiB heap
+limit above, 1.25 GiB, about a million data quads under either profile. A
+closure past its limit is refused before the memory is asked for, the
+binding stops and answers `inference-unavailable`, and the instance stays
+up; restart it with the limit raised, or narrow the binding (the problem
+page says how). Raise it only as far as the heap limit leaves the store its
+memtable and working set: the instance refuses at start a memtable limit
+whose worst case and the bindings' pool pass the heap limit.
 
 A from-scratch closure of REC M takes about one minute under `rdfs` and
 four and a half under `owl2rl`, on four cores: what a cold start or an
