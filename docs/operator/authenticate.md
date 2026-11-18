@@ -58,9 +58,9 @@ survives the provider.
 ## Microsoft Entra ID
 
 **The API's registration.** Register an application for the server, set an
-application ID URI (`api://varve`, the audience), and under *Token
-configuration* set `accessTokenAcceptedVersion` to `2` in the manifest, so
-that tokens are v2 and `iss` is `https://login.microsoftonline.com/{tenant}/v2.0`.
+application ID URI (`api://varve`, the audience), and in its *Manifest* set
+`"requestedAccessTokenVersion": 2` (shown as `accessTokenAcceptedVersion` in
+the older manifest view), so that tokens are v2 and `iss` is `https://login.microsoftonline.com/{tenant}/v2.0`.
 Define **app roles** on it, allowed for users/groups and for applications:
 `Varve.Read`, `Varve.Write`, `Varve.Admin`, or any names you choose; they
 arrive in the `roles` claim. Assign them to users and groups under
@@ -88,21 +88,25 @@ arrive in `roles`. `oid` is the stable subject across tokens and client
 applications, so `SubjectClaim` is `oid`, and a commit's agent is
 `https://login.microsoftonline.com/{tenant}/v2.0#{oid}`.
 
-CI runs this leg against a real tenant on `main` (ADR 0100, the
-`auth (providers)` job). The job holds no secret: its own GitHub OIDC token is
-the client's federated credential (ADR 0223, `docs/auth-providers.md`).
+CI's `auth (providers)` job runs an Entra leg on pushes to `main`: client
+credentials, with the job's own GitHub OIDC token as the client's federated
+credential and no secret (ADR 0223, `docs/auth-providers.md`). The test tenant
+is not provisioned yet, so the leg skips until it is; the device code flow
+above is run by no CI job.
 
 ```json
-"Auth": {
-  "Mode": "Oidc",
-  "Authority": "https://login.microsoftonline.com/{tenant}/v2.0",
-  "Audiences": [ "api://varve" ],
-  "SubjectClaim": "oid",
-  "RoleClaimType": "roles",
-  "Production": true,
-  "Management": { "Audience": "api://varve-manage" }
-},
-"Manage": { "BootstrapOperators": [ "Varve.Operator" ] }
+"Varve": {
+  "Auth": {
+    "Mode": "Oidc",
+    "Authority": "https://login.microsoftonline.com/{tenant}/v2.0",
+    "Audiences": [ "api://varve" ],
+    "SubjectClaim": "oid",
+    "RoleClaimType": "roles",
+    "Production": true,
+    "Management": { "Audience": "api://varve-manage" }
+  },
+  "Manage": { "BootstrapOperators": [ "Varve.Operator" ] }
+}
 ```
 
 For the management plane, register a second application ID URI,
@@ -199,14 +203,19 @@ requests' spans carry the shop's `varve.azp`. Only the history says who.
 
 ## Any other issuer
 
-Keycloak, Zitadel, Google, Auth0, Okta and the rest work with the same code.
+Keycloak, Zitadel, Auth0, Okta and the rest work with the same code.
+Google issues no JWT access token for an API of your own; what CI exercises
+for Google is an ID token with an audience of its choosing, from IAM
+Credentials' `generateIdToken`, granted by its `email` claim
+(`RoleClaimType: email`, ADR 0223), and that is the only Google path tested.
 What the server needs of an issuer:
 
 1. **Discovery** at `{Authority}/.well-known/openid-configuration`, whose
    `issuer` equals `Authority` exactly (trailing slash included) and whose
    `jwks_uri` serves the signing keys; keys are refreshed as the middleware
-   does. `RequireHttpsMetadata` is on unless the issuer is a loopback test
-   issuer.
+   does. `Varve:Auth:RequireHttpsMetadata` is `true` by default, and the
+   `Authority` must then be `https`; set it to `false` only for a test
+   issuer on plain `http`, as CI's Zitadel and mock issuers are.
 2. **JWT access tokens** (not opaque ones), signed with an asymmetric key,
    with `iss`, `aud`, `exp` and `sub`; `aud` is one of `Audiences`. An
    issuer that puts the client id in `aud` by default needs an *audience*
@@ -223,13 +232,15 @@ What the server needs of an issuer:
    another (`oid` for Entra, `email` where that is what is stable).
 
 ```json
-"Auth": {
-  "Mode": "Oidc",
-  "Authority": "https://login.example/realms/varve",
-  "Audiences": [ "varve-api" ],
-  "RoleClaimType": "roles"
-},
-"Manage": { "BootstrapOperators": [ "operator" ] }
+"Varve": {
+  "Auth": {
+    "Mode": "Oidc",
+    "Authority": "https://login.example/realms/varve",
+    "Audiences": [ "varve-api" ],
+    "RoleClaimType": "roles"
+  },
+  "Manage": { "BootstrapOperators": [ "operator" ] }
+}
 ```
 
 Zitadel and mock-oauth2-server are exercised in CI on every pull request,
@@ -283,7 +294,7 @@ Management is a plane of its own, under `/manage/` (ADR 0163 point 1):
 ## Anonymous mode
 
 ```json
-"Auth": { "Mode": "Anonymous" }
+"Varve": { "Auth": { "Mode": "Anonymous" } }
 ```
 
 Every caller holds every permission on every graph, the management plane's
@@ -307,13 +318,14 @@ and the server warns at every start. `Production: true` refuses it.
 
 ### The credential file
 
-The refresh token — with the server, the issuer and the client id it was
-obtained for, and nothing else, never an access token — is kept in one file:
+The refresh token — keyed by the dataset URL, the issuer and the client id it
+was obtained for, and nothing else, never an access token — is kept in one
+file, one refresh token per dataset URL:
 
 | Platform | Path |
 |---|---|
 | Linux, macOS | `$XDG_CONFIG_HOME/varve/credentials.json`, else `~/.config/varve/credentials.json`, created mode `0600`; a file readable by group or others is refused |
-| Windows | `%LOCALAPPDATA%\varve\credentials.json`, each token protected with DPAPI for the current user |
+| Windows | `%LOCALAPPDATA%\varve\credentials.json`, the whole file protected with DPAPI for the current user |
 
 `--credentials <path>` names another file. **`--no-store`** obtains a token
 and writes nothing: use it in CI and on a shared machine.

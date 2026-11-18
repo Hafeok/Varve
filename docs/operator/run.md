@@ -84,7 +84,7 @@ docker run --detach --name varve \
   --env VARVE__AUTH__AUTHORITY=https://login.example/ \
   --env VARVE__AUTH__AUDIENCES__0=api://varve \
   --env VARVE__MANAGE__BOOTSTRAPOPERATORS__0=Varve.Operator \
-  ghcr.io/hafeok/varve:v0.1.0-preview.3 serve
+  ghcr.io/hafeok/varve:v<version> serve
 ```
 
 Then declare its datasets with `varve apply` ([Datasets](datasets.md)).
@@ -111,11 +111,12 @@ Verify what you pulled: the manifest's digest carries a build provenance
 attestation and an SBOM, signed with the publishing workflow's identity.
 
 ```sh
-gh attestation verify oci://ghcr.io/hafeok/varve:v0.1.0-preview.3 --owner hafeok
+gh attestation verify oci://ghcr.io/hafeok/varve:v<version> --owner hafeok
 ```
 
-Tags are the release descriptor's version, and `latest` for a version with
-no prerelease part. A `pr-<sha>-<arch>` tag is a pull request's own build
+Tags are the release's tag, `v` and the descriptor's version, and `latest`
+for a version with no prerelease part. Every release before 1.0 is a
+preview, so there is no `latest` yet: name the version. A `pr-<sha>-<arch>` tag is a pull request's own build
 for its suites, not a release.
 
 ## With .NET Aspire
@@ -156,8 +157,10 @@ the datasets its fleet's management plane declares, and an empty one starts
 with none; `varve apply` or `PUT /manage/datasets/{name}` declares one, and
 every instance converges to it. A `File` dataset lives under
 `Varve:DatasetsRoot`, one directory each, named after the dataset. One that
-fails to open is listed as failed with a reason, tried again on every round,
-and the server still serves the others. A directory under the root that is
+fails to open is listed as failed, with its reason and whether a retry can
+help (`failure`: `damaged`, `configuration` or `transient`, ADR 0242); a
+`transient` failure is tried again, and the server still serves the others
+([`unavailable`](../problems/unavailable.md)). A directory under the root that is
 not declared is not served. The removed `Varve:Datasets` and
 `Varve:Auth:Datasets` refuse to start; `varve apply --from-config` prints the
 TriG that replaces them.
@@ -178,9 +181,14 @@ The routes, per dataset:
 | `GET /health/live` | liveness: `200` once the process serves (ADR 0113) |
 | `GET /health/ready` | readiness: `200` when every dataset that should be open is open, not failed and within `Varve:Health:ReadyLag` of its head, and the management plane is applied within `Varve:Fleet:AllowedLag`, not superseded, with the bootstrap operators recorded as configured; `503 not-ready` otherwise and during the drain. Both answers carry a `management` object — `role`, `epoch`, `position`, `lag`, `bootstrap` — and each dataset's state, role and lag (ADR 0163 point 13) |
 | `/manage/…` | the management plane, with a token for its own audience: datasets declared as TriG, their settings, state, status, checkpoints and grants, the fleet graph, `apply`, `sparql` and `system` ([Datasets](datasets.md#the-management-resources), ADR 0163) |
-| `/datasets/{name}/sparql` | SPARQL 1.1 Protocol query and update; `GET` with an RDF `Accept` is the service description, whose Varve terms [`docs/vocabulary.md`](../vocabulary.md) defines |
+| `/datasets/{name}/` | the service description, whose Varve terms [`docs/vocabulary.md`](../vocabulary.md) defines; so is `GET …/sparql` with an RDF `Accept` |
+| `/datasets/{name}/sparql` | SPARQL 1.1 Protocol query and update |
 | `/datasets/{name}/graphs` | the Graph Store Protocol |
 | `/datasets/{name}/commits`, `/commits/{position}`, `/diff` | the commits resource, a range or a live tail, one commit, and the diff (`docs/spec/change-feed.md`, ADR 0118) |
+| `/datasets/{name}/events`, `…/events/types`, `…/events/asyncapi` | the dataset's domain events as CloudEvents, their types and schemas, and an AsyncAPI document ([Integrate](integrate.md), ADRs 0143–0145) |
+| `/datasets/{name}/access` | the quads a data subject's rows hold, for an admin ([Row-level access](row-level-access.md), ADR 0231) |
+| `GET /events/types` | every dataset's event types, server-wide (ADR 0145) |
+| `/ui/` | the Web UI, when `Varve:WebUi:Path` is set ([Web UI](web-ui.md), ADR 0202) |
 
 A dataset's status, settings, state and checkpoints are management resources
 now, under `/manage/datasets/{name}/` (ADR 0163). Every response carries
@@ -193,10 +201,12 @@ and every refusal anywhere is an RFC 9457 problem whose type is one of
 
 ## Stop it
 
-`SIGTERM` (or `Ctrl-C`) drains: requests in flight finish, live feeds end with
-a `shutdown` event, datasets close, and the process exits 0 (ADR 0101). A
-container runtime's stop signal is enough; give it the ASP.NET Core shutdown
-timeout (30 s by default) before it kills.
+`SIGTERM` (or `Ctrl-C`) drains: readiness answers `503` for
+`Varve:Health:StopDelay` first (none by default), so a load balancer takes the
+instance out, then requests in flight finish, live feeds end with a
+`shutdown` event, datasets close, and the process exits 0 (ADR 0101, ADR
+0113). A container runtime's stop signal is enough; give it the ASP.NET Core
+shutdown timeout (30 s by default), plus any `StopDelay`, before it kills.
 
 ## As a systemd service
 
@@ -217,6 +227,7 @@ Group=varve
 ExecStart=/usr/local/bin/varve serve --config /etc/varve/varve.json --urls http://127.0.0.1:8080
 Environment=VARVE__DATASETSROOT=/var/lib/varve
 Environment=OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+Environment=OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 Restart=on-failure
 TimeoutStopSec=40
 KillSignal=SIGTERM
@@ -230,7 +241,9 @@ WantedBy=multi-user.target
 ```
 
 `TimeoutStopSec` is longer than the host's shutdown timeout (30 s), so a
-drain is never cut short by systemd. `ProtectSystem=strict` with
+drain is never cut short by systemd; with a `StopDelay`, add it to both.
+Port 4318 is OTLP over HTTP, so the protocol is named: the exporter's default
+is gRPC on 4317 ([Observe](observe.md)). `ProtectSystem=strict` with
 `ReadWritePaths` on the datasets root is the same property the container
 proves: the server writes nowhere else. `journalctl -u varve` is the log.
 
@@ -242,8 +255,12 @@ every start.
 
 ## The command line against a running server
 
-Every command but `create`, `load` and `serve` takes the URL of a dataset on a
-server in place of a directory:
+The dataset commands (`info`, `query`, `update`, `export`, `checkpoint` and
+`feed`) take the URL of a dataset on a server in place of a directory. `apply`
+and `manage` take the server's address with `--server`, and `setup apply`
+takes it as an argument. `lease` takes a directory or an object-store address
+and `storage` an object-store address, never a server URL; `create`, `load`
+and `serve` take a directory:
 
 ```sh
 varve query https://varve.example/datasets/people/ -q 'SELECT * WHERE { ?s ?p ?o } LIMIT 10' --token "$TOKEN"
@@ -257,8 +274,9 @@ expires, so a long `feed --follow` outlives one token (ADR 0127).
 
 [Authenticate](authenticate.md) says where the token comes from. A directory
 must not be opened by a command while a server holds it: the lease refuses
-the second opener (ADR 0075), so stop the server, or close the dataset through
-the admin API, before `load`ing into its directory. A load whose own spill,
+the second opener (ADR 0075), so stop the server, or close the dataset (`PUT
+/manage/datasets/{name}/state` with `closed`, or `varve:closed` in its
+declaration, [Datasets](datasets.md)), before `load`ing into its directory. A load whose own spill,
 a temporary file it sorts its input into, is found damaged when read back
 ends before its commit with `varve: load-spill-damaged: …` and exit code 1:
 nothing of it was committed, and running the same `load` again is right

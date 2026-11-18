@@ -124,4 +124,11 @@ kubeconform, strict, against Kubernetes 1.34.
     watch that fails is opened again after two seconds.
 
 Replace each `{…}`: the image digest, the storage account, the tenant, and
-the client ids of the store's and the operator's identities.
+the client ids of the store's and the operator's identities. Leave `{pod}`
+in `handover.yaml`'s `--address` as it is: the controller fills it in with
+each pod's name at run time.
+
+Neither file sets `Varve:ObjectStorage:ReaderId`, and the cache is an
+`emptyDir`, so a pod that restarts uncleanly announces a new reader and the
+old record holds extent sets back until `varve storage readers forget`
+removes it (ADR 0160, #303).

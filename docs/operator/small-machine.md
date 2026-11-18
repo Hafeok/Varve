@@ -19,10 +19,13 @@ curl -X PUT -H 'Content-Type: application/trig' http://localhost:5000/manage/dat
   --data '<urn:people> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> "people" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#File> .' 
 ```
 
-or with the image:
+or with the image, which runs as uid 1654, so the directory is that user's,
+and names a release, since every release before 1.0 is a preview and there
+is no `latest` tag:
 
 ```sh
-docker run --rm --read-only -v /srv/varve:/var/lib/varve -p 8080:8080 ghcr.io/hafeok/varve serve --anonymous
+sudo chown 1654:1654 /srv/varve
+docker run --rm --read-only -v /srv/varve:/var/lib/varve -p 8080:8080 ghcr.io/hafeok/varve:v<version> serve --anonymous
 ```
 
 ## An object store on a NAS — only by identity

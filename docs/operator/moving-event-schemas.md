@@ -57,11 +57,12 @@ A move is idempotent: sending it again resumes it where it stopped.
 - **A stop before the copy** leaves the dataset `moving`. The catalogue stays
   frozen, and nothing is lost: the copy reads the catalogue the freeze made
   final.
-- **Seeing it.** The dataset's status (`GET /manage/datasets/notes/status`), the
-  instance's readiness (`GET /health/ready`) and
-  `GET /manage/datasets/notes/events` all report
+- **Seeing it.** The dataset's status (`GET /manage/datasets/notes/status`)
+  and the instance's readiness (`GET /health/ready`) report
   `"events": {"state": "moving", "since": m₁}`, m₁ being the system
-  position of the freeze. It is information only: readiness stays `200`,
+  position of the freeze; `GET /manage/datasets/notes/events` answers the
+  same at its top level, `{"state": "moving", "since": m₁, …}`, beside the
+  position and the types. It is information only: readiness stays `200`,
   and reads and data writes go on.
 - **The resume.**
   - The writer of a fleet of one, and any instance that writes both the

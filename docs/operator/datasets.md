@@ -121,19 +121,22 @@ The same graphs, one resource at a time, under the management plane's token:
 
 | Resource | Methods |
 |---|---|
-| `/manage/datasets` | `GET`: the datasets the caller administers, each with its state, storage and this instance's role (`writer`, `follower` or `elsewhere`) |
+| `/manage/datasets` | `GET`: the datasets the caller administers, each with its state, storage and this instance's role (`writer`, `standby`, `follower` or `elsewhere`) |
 | `/manage/datasets/{name}` | `GET` the declaration as TriG, its graph's version as `ETag`; `PUT` replaces it, `PATCH` replaces the values of each subject and property the body states; `DELETE` removes it, and only a dataset declared closed |
 | `…/settings` | `GET` the declared settings as JSON; `PUT` and `PATCH` take TriG stating the dataset node's settings |
-| `…/state` | `GET` this instance's state and role, with the declaration's graph version as `ETag`, the same tag the declaration sends; `PUT {"state": "open"}` or `{"state": "closed"}` declares it, and every instance converges |
+| `…/state` | `GET` this instance's state and role, with the declaration's graph version as `ETag`, the same tag the declaration sends; `PUT {"state": "open"}` or `{"state": "closed"}` declares it, and every instance converges; `PUT {"takeover": {"epoch": n}}` asks this instance to take the dataset over from epoch `n` ([The fleet](fleet.md), ADR 0179) |
 | `…/status`, `…/checkpoints` | the dataset's status, and a checkpoint, taken by its writer |
 | `…/grants` | `GET` the grants as JSON, as of `Varve-As-Of`: who could read which graphs, then |
+| `…/events`, `…/events/move` | `GET` where the dataset's event declarations are (`in-dataset`, `moving`, `moved`); `POST …/move` moves them to the management plane ([Moving event schemas](moving-event-schemas.md), ADR 0167) |
+| `…/bindings/{binding}` | `GET` one shapes, classifier or TBox binding as the applied position has it, with what this instance knows of it ([Shapes](shapes.md), [Inference](inference.md)) |
 | `/manage/fleet` | the fleet graph, as the dataset resource; an operator's |
 | `/manage/graphs` | `GET` every management graph as TriG, with `Varve-Graph-Versions` |
 | `/manage/apply` | `POST`, as above |
 | `/manage/sparql` | SPARQL over the system dataset, for an operator; an update runs the code validator |
-| `/manage/system` | `GET` this instance's name (`instance`, as placement and request ids name it), its role in the system dataset, epoch, positions, bootstrap state and writer; never forwarded, so each instance answers for itself |
+| `/manage/system` | `GET` this instance's name (`instance`, as placement and request ids name it), its role in the system dataset (`writer`, `follower` or `superseded`), epoch, `position`, `tail`, `lag`, bootstrap state and writer; never forwarded, so each instance answers for itself |
 
-`PUT`, `PATCH` and `DELETE` take `If-Match` with the graph's version. A
+`PUT`, `PATCH` and `DELETE` take `If-Match` with the graph's version; it is
+optional, and without it, or with `*`, the write is not conditional. A
 management write to an instance that does not write the system dataset is
 forwarded to the one that does ([The fleet](fleet.md)).
 

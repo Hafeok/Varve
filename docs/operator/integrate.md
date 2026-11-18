@@ -111,6 +111,13 @@ INSERT DATA {
 }
 ```
 
+This is where a dataset's declarations live until they are moved to the
+management plane ([Moving event schemas](moving-event-schemas.md), ADR 0167).
+After the move, a write to the catalogue graph is refused with
+[`event-catalogue-moved`](../problems/event-catalogue-moved.md): declare the
+same type in the dataset's graph in the system dataset, with `varve apply`,
+and its new revisions are `m{p}`, named by the management position.
+
 A declaration that is not well formed is refused with
 [`event-declaration-invalid`](../problems/event-declaration-invalid.md). A
 change that would break a consumer is refused with

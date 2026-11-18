@@ -115,7 +115,9 @@ The value may also be the regime's IRI in angle brackets,
 From the command line, `varve query <url> --entailment rdfs`; from
 `Varve.Protocol.Client`, `QueryAsync(query, accept, asOf, "rdfs", …)`. A
 local `varve query` over a dataset directory answers under simple entailment
-only, since the bindings are a server's declarations.
+only, since the bindings are a server's declarations: asked for `rdf`, `rdfs`
+or `d` there, it refuses with exit code 1 and says to name the dataset by
+URL.
 
 ## What a query sees
 
