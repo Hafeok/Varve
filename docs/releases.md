@@ -172,8 +172,9 @@ one.
    issue without a descriptor naming it, and `eng/release.cs --check` (the
    `pipeline (devcontainer)` job) validates the descriptor and prints the
    landing instruction below.
-2. **Approve.** The responsible human approves the head (`approve <sha>`),
-   as for any pull request with an agent's commits.
+2. **Approve.** The responsible human approves the head (`eng/approve.sh`:
+   a comment that is the approval line and nothing else, with the head's full
+   sha), as for any pull request with an agent's commits.
 3. **Land at the approved head.** The maintainer pushes the approved head,
    unchanged, to `land/<name>`; CI and `agent review` run there, and `agent
    review` admits the agent's commits because the head is an approved pull

@@ -10,6 +10,9 @@ limits) and ADR 0052's "the server enforces".
 **Amended 2026-10-13** (ADR 0068), by milestone Commit path of #91 under ADR
 [0124](0124-group-commit.md): point 1's sentence on writes; see the end.
 
+**Noted 2026-11-16** (ADR 0068), by the docs site of #317: the link to 0095
+above names a file that does not exist; see the end.
+
 ## Context
 
 7a bounded a read by time, pin lifetime and result size, and a request body
@@ -130,3 +133,15 @@ is the `varve.store.sequencer.queue_depth` gauge (ADR 0112).
 
 **The ledger.** The ruling of this block is `WritesQueueInTheSequencer`,
 unaccepted until the maintainer accepts it.
+
+## Note, 2026-11-16 — the link to ADR 0095
+
+Added by the docs site of #317, which checks every link of every page it
+carries (ADR 0247). The Status line's link to ADR 0095 names
+`0095-a-read-over-http-is-pinned-bounded-and-cut-visibly.md`, a file that
+has never existed. ADR 0095 is
+[`0095-a-read-over-http-is-pinned-for-its-response.md`](0095-a-read-over-http-is-pinned-for-its-response.md).
+The accepted text is not edited (ADR 0068 point 1), and the link gate
+exempts that one link by name, citing this note
+(`eng/site/link-exemptions.txt`). This note decides nothing and adds no
+ruling.

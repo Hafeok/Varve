@@ -1,0 +1,5 @@
+touches: src/Varve.Fixture.ApiFreeze/Gauge.cs
+refactor(fixture): Reset is gone
+---
+touches: src/Varve.Fixture.ApiFreezeOther/Meter.cs
+refactor(other)!: a different package's break

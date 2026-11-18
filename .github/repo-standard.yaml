@@ -195,6 +195,7 @@ rulesets:
       - context: pipeline (devcontainer)
       - context: release pending
       - context: dco
+      - context: api freeze
       - context: agent review
         # The gates App (ADR 0087): only its check run counts, so no job a
         # pull request adds under this name can satisfy it.
@@ -265,6 +266,20 @@ environments:
 # manage variables); no secret is stored here. Only main deploys to it, as for
 # every environment a credential trusts (#101).
 - name: azure-objects
+  wait_timer: 0
+  prevent_self_review: false
+  reviewers: []
+  deployment_branch_policy:
+    protected_branches: false
+    custom_branch_policies: true
+  branch_policies:
+  - name: main
+  secrets: []
+# The docs site (ADR 0247): docs-site.yml's deploy job writes to GitHub Pages
+# by its own OIDC token, with pages: write and id-token: write on that job
+# alone. Only main deploys to it, so no pull request and no other branch can
+# publish. No secret.
+- name: github-pages
   wait_timer: 0
   prevent_self_review: false
   reviewers: []

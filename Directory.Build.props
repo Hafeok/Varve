@@ -136,4 +136,24 @@
                       ReferenceOutputAssembly="false" />
   </ItemGroup>
 
+
+  <!--
+    The public API freeze gate (ADR 0227): eng/api-freeze.cs packs one
+    package at a time with VarveApiFreezeProject naming it,
+    VarveApiFreezeBaseline the published version to compare with (or
+    VarveApiFreezeBaselinePath a local nupkg, for the fixtures) and
+    VarveApiFreezeFindings the file the findings go to. Only that project
+    validates: a baseline given as a global property would also reach every
+    project it references, whose restore then asks nuget.org for a version
+    that package never shipped (NU1102).
+  -->
+  <PropertyGroup Condition="'$(VarveApiFreezeProject)' != '' and '$(VarveApiFreezeProject)' == '$(MSBuildProjectName)'">
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <PackageValidationBaselineVersion Condition="'$(VarveApiFreezeBaselinePath)' == ''">$(VarveApiFreezeBaseline)</PackageValidationBaselineVersion>
+    <PackageValidationBaselinePath Condition="'$(VarveApiFreezeBaselinePath)' != ''">$(VarveApiFreezeBaselinePath)</PackageValidationBaselinePath>
+    <!-- Findings are written, not thrown: eng/api-freeze.cs reads them and
+         decides which fail (ADR 0227). -->
+    <GenerateCompatibilitySuppressionFile>true</GenerateCompatibilitySuppressionFile>
+    <ApiCompatSuppressionOutputFile>$(VarveApiFreezeFindings)</ApiCompatSuppressionOutputFile>
+  </PropertyGroup>
 </Project>

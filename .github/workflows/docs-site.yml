@@ -1,0 +1,76 @@
+# The docs site, deployed to GitHub Pages from main (ADR 0247).
+#
+# The build job is ci.yml's docs site build, once: every page from docs/ under
+# a Content Security Policy with no script source, each Mermaid diagram drawn
+# on the runner's Chrome and checked, the API reference from the baselines,
+# and the links checked before and after. The deploy job alone may write to
+# Pages, by its own OIDC token: no token is stored. Its environment,
+# github-pages, accepts main only (.github/repo-standard.yaml), so neither a
+# pull request nor a dispatch from another branch can deploy.
+
+name: Docs site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time, and a newer main never cancels one in flight.
+concurrency:
+  group: docs-site
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  build:
+    name: build the docs site
+    runs-on: ubuntu-latest
+    env:
+      VARVE_CHROME: ${{ vars.VARVE_CHROME || '/usr/bin/google-chrome' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Restore the generator, locked
+        run: dotnet restore eng/site -p:RestoreLockedMode=true
+
+      - name: Build the site
+        run: >
+          dotnet run --project eng/site --configuration Release --no-restore --
+          build --out ${{ runner.temp }}/site --commit ${{ github.sha }} --chrome "$VARVE_CHROME"
+          --cache ${{ runner.temp }}/site-cache
+
+      - name: Upload the site for Pages
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/site
+
+  deploy:
+    name: deploy the docs site
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
