@@ -28,6 +28,9 @@ public sealed class InferenceOptions
     /// </summary>
     public static MemoryAmount RowBytes { get; } = new(96);
 
+    /// <summary>A dataset's term the projection keeps resolved, charged to the binding's budget when it is first kept: the term and its entry, with room for the map to double.</summary>
+    public static MemoryAmount TermBytes { get; } = new(160);
+
     /// <summary>What a binding's closures are charged under <paramref name="profile"/>: the engine's costs, a row's bytes beside each fact.</summary>
     public static ClosureCosts CostsFor(InferenceProfile profile) => ClosureCosts.For(profile).WithPerFactBeside(RowBytes);
 

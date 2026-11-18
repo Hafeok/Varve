@@ -6,6 +6,7 @@ using System;
 using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -72,6 +73,7 @@ public sealed class InferenceProjection : IProjection
     private long _stoppedAt = long.MaxValue;
     private ByteCount _reached;
     private Exception? _failure;
+    private int _generations;
     private Materialisation? _state;
     private readonly ProjectionTerms _terms = new(Empty);
     private TaskCompletionSource _advanced = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -118,6 +120,23 @@ public sealed class InferenceProjection : IProjection
     /// </summary>
     public bool Stopped => Volatile.Read(ref _stoppedAt) != long.MaxValue;
 
+    /// <summary>
+    /// Whether a failure is the store's, which a later read can cure: an
+    /// I/O failure, a timeout, a request to an object store that failed. A
+    /// pass that meets one holds off and is applied again from the
+    /// projection's position, never stopped and never rebuilt for it (ADR
+    /// 0195, amended 2026-11-18). A log that does not verify or a format this
+    /// build cannot read is not one: the same bytes fail again.
+    /// </summary>
+    public static bool IsStorageFailure(Exception error) =>
+        error is IOException or TimeoutException or System.Net.Http.HttpRequestException;
+
+    /// <summary>The generations made: builds from scratch that replaced the closures, the first included, for the tests.</summary>
+    internal Generations GenerationsMade => new(Volatile.Read(ref _generations));
+
+    /// <summary>For the tests: a wrapper over the view each pass reads through, to make the store fail.</summary>
+    internal Func<IQuadSource, IQuadSource>? ReadThrough { get; set; }
+
     /// <summary>Why a stopped binding failed, when it was not its memory limit: the exception its pass threw; null otherwise.</summary>
     public Exception? Failure => Volatile.Read(ref _failure);
 
@@ -145,7 +164,7 @@ public sealed class InferenceProjection : IProjection
         {
             lock (_applying)
             {
-                Apply(view, commit.Delta, position);
+                Apply(ReadThrough?.Invoke(view) ?? view, commit.Delta, position);
             }
         }
 
@@ -452,6 +471,13 @@ public sealed class InferenceProjection : IProjection
             return false;
         }
 
+        if (saved.StoppedAt != long.MaxValue)
+        {
+            // A binding saved stopped is built again by the restart that reads it,
+            // under the limit the restart reads (ADR 0195, amended 2026-11-18): a miss.
+            return false;
+        }
+
         using DatasetView view = await _dataset.AsOfAsync(content.Position, cancellationToken).ConfigureAwait(false);
         lock (_applying)
         {
@@ -642,7 +668,7 @@ public sealed class InferenceProjection : IProjection
     /// budget refusal or a memory failure stops the binding at its memory
     /// limit; any other failure stops it as failed. Neither is retried.
     /// </summary>
-    private void Apply(DatasetView view, QuadDelta delta, long position)
+    private void Apply(IQuadSource view, QuadDelta delta, long position)
     {
         if (_state is not { } state)
         {
@@ -651,19 +677,19 @@ public sealed class InferenceProjection : IProjection
         }
 
         state.Terms.Source = view;
-        foreach (RdfTerm local in state.Terms.LocalTerms)
-        {
-            if (view.TryInternalise(local, out _))
-            {
-                // A term a rule names is the dataset's now: recompile over it.
-                Rebuild(view, position);
-                return;
-            }
-        }
-
         Dictionary<TermHandle, HashSet<Fact>>? changed;
         try
         {
+            foreach (RdfTerm local in state.Terms.LocalTerms)
+            {
+                if (view.TryInternalise(local, out _))
+                {
+                    // A term a rule names is the dataset's now: recompile over it.
+                    Rebuild(view, position);
+                    return;
+                }
+            }
+
             changed = state.Apply(view, delta);
         }
         catch (ClosureLimitExceededException refused)
@@ -676,6 +702,12 @@ public sealed class InferenceProjection : IProjection
             // Not the mechanism (the budget is), but if the heap is exhausted on this pass all the same, the binding is refused as at its limit.
             Stop(state, position, new MemoryAmount(_options.ClosureBytes.Value), failure: null);
             return;
+        }
+        catch (Exception error) when (IsStorageFailure(error))
+        {
+            // A store read that failed before anything changed: the pass holds off, and
+            // the commit is applied again from the projection's position when the store answers.
+            throw;
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
@@ -733,6 +765,11 @@ public sealed class InferenceProjection : IProjection
             StopAll(position, new MemoryAmount(_options.ClosureBytes.Value), failure: null);
             return;
         }
+        catch (Exception error) when (IsStorageFailure(error))
+        {
+            // The build read the store and failed; the closures in use are untouched, and the generation is made again when the store answers.
+            throw;
+        }
         catch (Exception error) when (error is not OperationCanceledException)
         {
             StopAll(position, new MemoryAmount(0), failure: error);
@@ -763,6 +800,7 @@ public sealed class InferenceProjection : IProjection
 
         _state?.Release();
         _state = built;
+        Interlocked.Increment(ref _generations);
     }
 
     /// <summary>
@@ -964,3 +1002,7 @@ public sealed class InferenceProjection : IProjection
     /// <summary>A row closed at <c>End</c>: valid over <c>[Start, End)</c>.</summary>
     private readonly record struct ClosedRow(TermHandle Graph, Fact Fact, long Start, long End);
 }
+
+/// <summary>How many generations a projection has made, for the tests.</summary>
+/// <param name="Value">The count.</param>
+internal readonly record struct Generations(int Value);

@@ -475,13 +475,13 @@ It amends point 4 (generations), point 6 (the memory limit) and point 9
    generation" is removed.
 5. **A stopped binding stays refused.** A budget refusal, or an
    `OutOfMemoryException` that reaches a pass all the same, stops the
-   binding at its memory limit (`stopped (memory-limit)`). Any other failure
-   stops it as `stopped (failed)`, answered `inference-unavailable` with
-   `reason` `failed`. Either answers 503 with no `Retry-After`,
-   `failure` `configuration`. Neither is tried again: not by a data commit,
-   a TBox commit, a reset or a timer, only when the instance restarts or the
-   binding's declaration changes. Point 6's "tried again … on a commit that
-   starts a generation" is withdrawn.
+   binding at its memory limit (`stopped (memory-limit)`). A failure that
+   no repeat can cure (point 9) stops it as `stopped (failed)`, answered
+   `inference-unavailable` with `reason` `failed`. Either answers 503 with
+   no `Retry-After`, `failure` `configuration`. Neither is tried again
+   automatically: not by a data commit, a TBox commit, a reset or a timer.
+   Point 6's "tried again … on a commit that starts a generation" is
+   withdrawn. How an operator brings it back is point 8.
 6. **Readiness reports `held` and `peak`** per binding: the bytes its
    closures hold now, and the most they have held, the build included, by
    the budget's count.
@@ -498,7 +498,77 @@ It amends point 4 (generations), point 6 (the memory limit) and point 9
    whose budget peak is a tenth under its limit on the least heap the
    settings allow for it; the build must finish.
 
+8. **How an operator brings a stopped binding back.** There are two
+   acts, and no other:
+   - **Restart the instance.** A projection's saved state that records a
+     stop is not loaded: the restarted instance builds the binding from the
+     head, once, under the limit it reads at start. A restart with nothing
+     changed stops a `memory-limit` binding again, at the same place, since
+     the same data needs the same memory; so the act is a restart with a
+     raised `Varve:Inference:ClosureBytes`, or more memory for the
+     instance, and readiness's `peak` from the stop says how much the build
+     had asked for when it was refused. A `failed` binding restarted
+     unchanged fails again unless the defect is fixed in the version
+     started.
+   - **Change the binding's declaration** in the management plane
+     (`varve apply`, or a `PUT` to `/manage/datasets/{name}`): its profile,
+     its TBox graphs, its data graphs or `varve:crossGraph`. The changed
+     binding is another projection, built at once from the head, with no
+     restart, under the limit in force. Re-applying the same declaration
+     changes nothing and builds nothing.
+   
+   There is no "retry" act on a running instance: a retry under the same
+   limit and the same data cannot cure either stop.
+9. **What holds a pass off, and what stops a binding.** A store read or
+   write that fails is not a stop. Every pass reads what it needs from the
+   store — the delta's terms, whether a changed graph is emptied, a term a
+   rule names — before it changes a closure, so a read that fails leaves the
+   closures as they were and the position where it was. The failure is an
+   `IOException`, a `TimeoutException` or an `HttpRequestException`. The
+   feed logs it, holds off (one second, doubling to thirty), and resumes
+   from the projection's position, as a follower's catch-up does, with no
+   generation. A generation's build that fails to read is made again the
+   same way, the closures in use kept meanwhile. A save of the projection's
+   state that fails is logged; the next save tries again, and a restart
+   before it rebuilds or reads the last good save. The failures that stop a
+   binding, each because repeating it gives the same result:
+   - **A budget refusal** (`memory-limit`): the same data needs the same
+     memory, and the limit is read at start.
+   - **An `OutOfMemoryException`** that reaches a pass all the same
+     (`memory-limit`): the budget's figures undercounted (point 3), and a
+     repeat asks the heap for the same bytes.
+   - **Any other exception from the engine or the projection** (`failed`):
+     a defect. The pass is a function of the commit and the closures, so
+     the same commit fails again; repeating it would also spin.
+   - **A store failure after a pass began changing a closure** (`failed`):
+     the pass reads before it changes anything, so a read inside the change
+     is itself a defect, and the closures are half changed: only a build can
+     repair them, and a build is what the stop's recovery (point 8) makes.
+   
+   A test (`StorageFailureTests`) fails the store's reads during a pass,
+   lets them recover, and requires the binding following again at the head
+   with its generations unchanged and its rows the oracle's; a second fails
+   a pass with a defect and requires `stopped (failed)` through a data
+   commit, a TBox commit and a reset.
+10. **The pool and the memtable together.** The pool is three quarters of
+   the collector's heap limit (point 2). ADR 0244's default memtable limit
+   is a sixteenth of the heap limit over 215 bytes an entry, between 10,000
+   and 1,000,000 entries, and its worst case is four times its limit (ADR
+   0244 point 5): a quarter of the heap limit up to a heap limit of
+   3.44 GB (3.2 GiB), 860 MB above it. Together they promise that the
+   bindings' closures and the memtable at their worst never ask for more
+   than the heap limit: **equal to it** at a heap limit up to 3.2 GiB, and
+   under it above (at a 10 GiB heap limit, 8.3 GiB of it). They do not
+   promise room for anything else: up to 3.2 GiB, a server whose memtable
+   and bindings are both at their worst has no heap left for queries,
+   caches or requests, and a query's own allocation is then what fails. The
+   instance refuses at startup a `Varve:Store:MemtableLimit` whose worst case
+   and the pool pass the heap limit, and a heap limit under 34 MB, where
+   the memtable's least default does.
+
 **The ledger.** The rulings are `BudgetAskedBeforeEveryAllocation`,
 `OnePoolPerProcess`, `CostsMeasuredPerProfile`,
-`GenerationsForStatedCausesOnly` and `StoppedStaysRefused`.
+`GenerationsForStatedCausesOnly`, `StoppedStaysRefused`,
+`StopsAreRecoveredByAnAct`, `StorageFailuresHoldOff` and
+`PoolAndMemtableWithinTheHeap`.
 

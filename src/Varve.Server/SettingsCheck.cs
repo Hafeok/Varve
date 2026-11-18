@@ -51,6 +51,14 @@ internal static class SettingsCheck
         "WebUi:Path",
     ];
 
+    /// <summary>
+    /// The memtable's worst case in bytes (ADR 0244 point 5): one to two times
+    /// its limit held and a tier merge's copy, four times the limit at its
+    /// bytes an entry, the limit set or the heap limit's default.
+    /// </summary>
+    internal static long MemtableWorstBytes(ServerSettings settings) =>
+        4 * (settings.Store.MemtableLimit ?? MemtableDefault.For(MemtableDefault.HeapLimit())) * MemtableDefault.EntryBytes;
+
     /// <summary>The leaf keys under <paramref name="section"/> that match no known pattern, as <c>Varve:…</c> paths.</summary>
     internal static List<string> UnknownKeys(IConfigurationSection section)
     {
@@ -268,6 +276,16 @@ internal static class SettingsCheck
         if (settings.Inference.ClosureBytes is < 1)
         {
             errors.Add("Varve:Inference:ClosureBytes is at least 1, or unset for a quarter of the heap limit: the bytes a binding's closures may hold together (ADR 0195).");
+        }
+        else if (MemtableWorstBytes(settings) + InferenceProjections.PoolBytes is long promised && promised > MemtableDefault.HeapLimit() && MemtableDefault.HeapLimit() > 0)
+        {
+            // The memtable's worst case (ADR 0244 point 5) and the bindings' pool (ADR 0195, amended
+            // 2026-11-18) together cannot promise more than the heap holds.
+            errors.Add("Varve:Store:MemtableLimit's worst case, " + MemtableWorstBytes(settings).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " bytes (four times the limit at " + MemtableDefault.EntryBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " bytes an entry, ADR 0244 point 5), and the inference bindings' pool, " + InferenceProjections.PoolBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " bytes (three quarters of the heap limit, ADR 0195), together pass the heap limit, " + MemtableDefault.HeapLimit().ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " bytes. Lower Varve:Store:MemtableLimit, or raise the heap limit.");
         }
         else if (settings.Inference.ClosureBytes is { } closure && closure > InferenceProjections.PoolBytes)
         {

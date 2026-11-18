@@ -444,38 +444,88 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
             return new InferenceUnavailableException(Binding, limit, reached);
         }
 
+        /// <summary>
+        /// Feeds the projection from its position (ADR 0195, amended
+        /// 2026-11-18). A store read or write that fails holds the feed off:
+        /// it waits, longer each time up to half a minute, and resumes from
+        /// the projection's position, as a follower catches up, with no
+        /// generation; a projection a failure has stopped stays stopped.
+        /// </summary>
         private async Task FeedAsync(ILogger logger, CancellationToken stopping)
+        {
+            bool started = false;
+            TimeSpan wait = TimeSpan.FromSeconds(1);
+            while (true)
+            {
+                try
+                {
+                    if (!started)
+                    {
+                        if (_cache is not null && await Projection.LoadAsync(_cache, stopping).ConfigureAwait(false))
+                        {
+                            ProjectionLog.Loaded(logger, Name, Projection.Position.Value);
+                        }
+                        else if (Dataset.Head.Value > 0)
+                        {
+                            // A cold start: one generation at the head, which is the projection's floor (ADR 0195 point 5).
+                            using DatasetView head = Dataset.Pin();
+                            await Projection.ResetAsync(head, stopping).ConfigureAwait(false);
+                        }
+
+                        started = true;
+                    }
+
+                    int applied = 0;
+                    await foreach (Commit commit in Dataset.Subscribe(Projection.Position, SubscriptionFilter.All, stopping).ConfigureAwait(false))
+                    {
+                        await Projection.ApplyAsync(commit, stopping).ConfigureAwait(false);
+                        wait = TimeSpan.FromSeconds(1);
+                        if (_cache is not null && ++applied % SaveEvery == 0)
+                        {
+                            await SaveAsync(logger, stopping).ConfigureAwait(false);
+                        }
+                    }
+
+                    return;
+                }
+                catch (OperationCanceledException) when (stopping.IsCancellationRequested)
+                {
+                    return;
+                }
+                catch (Exception failure) when (InferenceProjection.IsStorageFailure(failure))
+                {
+                    // The store did not answer: hold off, and resume from where the projection is.
+                    ProjectionLog.HeldOff(logger, Name, Projection.Position.Value, failure.Message, wait);
+                    try
+                    {
+                        await Task.Delay(wait, stopping).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return;
+                    }
+
+                    wait = TimeSpan.FromTicks(Math.Min(wait.Ticks * 2, TimeSpan.FromSeconds(30).Ticks));
+                }
+                catch (Exception failure) when (failure is DatasetUnavailableException or ObjectDisposedException or InvalidOperationException)
+                {
+                    // The dataset closed or failed under the feed: its next reconcile starts another.
+                    ProjectionLog.Stopped(logger, Name, failure.Message);
+                    return;
+                }
+            }
+        }
+
+        /// <summary>Saves the projection's state; a store that does not take it is told in the log, and the next save tries again.</summary>
+        private async Task SaveAsync(ILogger logger, CancellationToken stopping)
         {
             try
             {
-                if (_cache is not null && await Projection.LoadAsync(_cache, stopping).ConfigureAwait(false))
-                {
-                    ProjectionLog.Loaded(logger, Name, Projection.Position.Value);
-                }
-                else if (Dataset.Head.Value > 0)
-                {
-                    // A cold start: one generation at the head, which is the projection's floor (ADR 0195 point 5).
-                    using DatasetView head = Dataset.Pin();
-                    await Projection.ResetAsync(head, stopping).ConfigureAwait(false);
-                }
-
-                int applied = 0;
-                await foreach (Commit commit in Dataset.Subscribe(Projection.Position, SubscriptionFilter.All, stopping).ConfigureAwait(false))
-                {
-                    await Projection.ApplyAsync(commit, stopping).ConfigureAwait(false);
-                    if (_cache is not null && ++applied % SaveEvery == 0)
-                    {
-                        await Projection.SaveAsync(_cache, stopping).ConfigureAwait(false);
-                    }
-                }
+                await Projection.SaveAsync(_cache!, stopping).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (stopping.IsCancellationRequested)
+            catch (Exception failure) when (InferenceProjection.IsStorageFailure(failure))
             {
-            }
-            catch (Exception failure) when (failure is DatasetUnavailableException or ObjectDisposedException or System.IO.IOException or InvalidOperationException)
-            {
-                // The dataset closed or failed under the feed: its next reconcile starts another.
-                ProjectionLog.Stopped(logger, Name, failure.Message);
+                ProjectionLog.NotSaved(logger, Name, failure.Message);
             }
         }
     }
@@ -487,6 +537,12 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 
         [LoggerMessage(Level = LogLevel.Warning, Message = "The inference projection of {Binding} stopped: {Reason}. It starts again when its dataset is next reconciled.")]
         internal static partial void Stopped(ILogger logger, string binding, string reason);
+
+        [LoggerMessage(Level = LogLevel.Warning, Message = "The inference projection of {Binding} held off at position {Position}: the store failed ({Reason}). It resumes from there in {Wait}.")]
+        internal static partial void HeldOff(ILogger logger, string binding, long position, string reason, TimeSpan wait);
+
+        [LoggerMessage(Level = LogLevel.Warning, Message = "The inference projection of {Binding} could not save its state: {Reason}. The next save tries again.")]
+        internal static partial void NotSaved(ILogger logger, string binding, string reason);
     }
 }
 

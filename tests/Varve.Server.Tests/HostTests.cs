@@ -113,6 +113,27 @@ public sealed class HostTests
         Assert.Equal(["a", "b", "c"], settings.Fleet.WriterSet);
     }
 
+    /// <summary>
+    /// The memtable's worst case (ADR 0244 point 5) and the inference
+    /// bindings' pool (ADR 0195, amended 2026-11-18) may fill the heap limit
+    /// together, never pass it: a memtable limit whose worst case leaves the
+    /// pool less than its three quarters is refused at startup.
+    /// </summary>
+    [Fact]
+    public void A_memtable_whose_worst_case_and_the_pool_pass_the_heap_is_refused()
+    {
+        long heap = MemtableDefault.HeapLimit();
+        long room = heap - InferenceProjections.PoolBytes;
+        long fits = room / (4L * MemtableDefault.EntryBytes);
+
+        ServerSettings settings = Anonymous();
+        Assert.DoesNotContain(SettingsCheck.Errors(settings), e => e.StartsWith("Varve:Store:MemtableLimit's worst case", StringComparison.Ordinal));
+        settings.Store.MemtableLimit = fits;
+        Assert.DoesNotContain(SettingsCheck.Errors(settings), e => e.StartsWith("Varve:Store:MemtableLimit's worst case", StringComparison.Ordinal));
+        settings.Store.MemtableLimit = fits + 1;
+        Assert.Single(SettingsCheck.Errors(settings), e => e.StartsWith("Varve:Store:MemtableLimit's worst case", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void Forwarded_headers_without_a_known_proxy_are_refused()
     {

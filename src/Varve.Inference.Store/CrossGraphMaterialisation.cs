@@ -107,7 +107,7 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         Mint();
     }
 
-    protected override void ApplyData(IQuadSource view, Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, Dictionary<TermHandle, HashSet<Fact>> changed)
+    protected override void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed)
     {
         List<Fact> asserted = [], retracted = [];
         List<(Fact, DataGraphIndex)> unpaired = [];
@@ -150,7 +150,7 @@ internal sealed class CrossGraphMaterialisation : Materialisation
                 Into(changed, graph).Add(fact);
             }
 
-            if (graphRetracted.Count > 0 && !HasQuads(view, graph))
+            if (emptied.Contains(graph))
             {
                 _explicit.Remove(graph);
                 Dropped(graph);

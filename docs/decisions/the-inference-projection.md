@@ -36,7 +36,13 @@ decisions:
   - key: GenerationsForStatedCausesOnly
     statement: "Amended 2026-11-18: a generation is made only for a commit that changes a bound TBox graph, a commit that allocates a term a rule names, and a cold start or a saved state that does not check; a failed pass is never a generation"
   - key: StoppedStaysRefused
-    statement: "Amended 2026-11-18: a budget refusal or a memory failure stops the binding at its memory limit, any other failure stops it as failed; either answers 503 inference-unavailable with no Retry-After and is never tried again until a restart or a change to the binding"
+    statement: "Amended 2026-11-18: a budget refusal or a memory failure stops the binding at its memory limit, a failure no repeat can cure stops it as failed; either answers 503 inference-unavailable with no Retry-After and is never tried again automatically"
+  - key: StopsAreRecoveredByAnAct
+    statement: "Amended 2026-11-18: an operator brings a stopped binding back by restarting the instance, whose build reads the limit afresh and never loads a saved stop, or by changing the binding's declaration, which builds a new projection at once; there is no retry under the same limit"
+  - key: StorageFailuresHoldOff
+    statement: "Amended 2026-11-18: a pass reads the store before it changes a closure, and a store read or write that fails holds the feed off and resumes it from the projection's position with no generation; only a budget refusal, a memory failure, a defect, or a store failure after a closure began changing stops a binding"
+  - key: PoolAndMemtableWithinTheHeap
+    statement: "Amended 2026-11-18: the bindings' pool and the memtable's worst case together never pass the heap limit, and a configuration where they would is refused at startup; they promise no headroom beyond it"
 ---
 
 The rulings of [ADR 0195](../adr/0195-the-inference-projection.md), one line each. The ADR is the

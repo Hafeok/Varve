@@ -2,11 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Inference.Model;
+using Varve.Inference.Store.Model;
 using Varve.Rdf;
 
 namespace Varve.Inference.Store;
@@ -46,12 +48,18 @@ internal abstract class Materialisation
     private readonly Dictionary<TermHandle, bool> _tboxGraphs = [];
     private readonly List<TermHandle> _dropped = [];
 
+    // What the terms this materialisation keeps resolved have taken from its budget.
+    private long _termCharge;
+
     protected Materialisation(ProjectionTerms terms, InferenceProjection projection)
     {
         Projection = projection;
         Terms = terms;
         terms.BeginProgram();
         Budget = projection.NewBudget();
+        MemoryAmount known = terms.KnownBytes(InferenceOptions.TermBytes);
+        Budget.TakeBeside(known);
+        _termCharge = known.Value;
         TBox = new Closure(projection.Binding.Profile, Terms, Budget);
         TBoxGraph = Terms.Handle(projection.TBoxGraph);
     }
@@ -91,6 +99,7 @@ internal abstract class Materialisation
                     {
                         Quad quad = cursor.Current;
                         Fact fact = new(quad.Subject, quad.Predicate, quad.Object);
+                        built.Warm(quad);
                         if (built.IsTBox(source, quad.Graph))
                         {
                             built.Budget.TakeBeside(entry);
@@ -149,9 +158,67 @@ internal abstract class Materialisation
             return null;
         }
 
+        // Every store read before anything changes (ADR 0195, amended
+        // 2026-11-18): the commit's terms resolved, and which graphs it
+        // empties. A read that fails here leaves the closures as they were,
+        // and the commit is applied again when the store answers.
+        foreach (Quad quad in delta.Asserted)
+        {
+            Warm(quad);
+        }
+
+        foreach (Quad quad in delta.Retracted)
+        {
+            Warm(quad);
+        }
+
+        HashSet<TermHandle> emptied = [];
+        foreach ((TermHandle graph, (List<Fact> _, List<Fact> retracted)) in graphs)
+        {
+            if (retracted.Count > 0 && !HasQuads(view, graph))
+            {
+                emptied.Add(graph);
+            }
+        }
+
         Dictionary<TermHandle, HashSet<Fact>> changed = [];
-        ApplyData(view, graphs, changed);
+        try
+        {
+            ApplyData(graphs, emptied, changed);
+        }
+        catch (Exception error) when (InferenceProjection.IsStorageFailure(error))
+        {
+            // After the closures began to change: a pass that read the store too late, a defect.
+            throw new InvalidOperationException("The store failed after the pass had begun to change the closures; every read belongs before it.", error);
+        }
+
         return changed;
+    }
+
+    /// <summary>Resolves a quad's terms into those the projection keeps, each new one charged first.</summary>
+    private void Warm(in Quad quad)
+    {
+        WarmOne(quad.Subject);
+        WarmOne(quad.Predicate);
+        WarmOne(quad.Object);
+        WarmOne(quad.Graph);
+    }
+
+    private void WarmOne(TermHandle handle)
+    {
+        if (handle.IsNone || ProjectionTerms.IsLocal(handle))
+        {
+            return;
+        }
+
+        Budget.TakeBeside(InferenceOptions.TermBytes);
+        _termCharge += InferenceOptions.TermBytes.Value;
+        if (!Terms.Warm(handle))
+        {
+            // Kept already: nothing new to hold.
+            Budget.GiveBeside(InferenceOptions.TermBytes);
+            _termCharge -= InferenceOptions.TermBytes.Value;
+        }
     }
 
     /// <summary>The data graphs whose quads were all retracted since the last call.</summary>
@@ -203,7 +270,12 @@ internal abstract class Materialisation
     }
 
     /// <summary>Gives every closure's facts back to the budget.</summary>
-    internal virtual void Release() => TBox.Release();
+    internal virtual void Release()
+    {
+        Budget.GiveBeside(new MemoryAmount(_termCharge));
+        _termCharge = 0;
+        TBox.Release();
+    }
 
     /// <summary>Every premise-set graph minted, and the data graphs of each (ADR 0190 point 6): none for an intra-graph binding. A graph's name is its set's, so an entry never changes.</summary>
     internal virtual IReadOnlyDictionary<TermHandle, TermHandle[]> PremiseSetGraphs => new Dictionary<TermHandle, TermHandle[]>();
@@ -212,7 +284,8 @@ internal abstract class Materialisation
     protected abstract void Load(Dictionary<TermHandle, List<Fact>> graphs, CancellationToken cancellationToken);
 
     /// <summary>Applies a data commit, graph by graph, recording per graph the facts whose row may have changed.</summary>
-    protected abstract void ApplyData(IQuadSource view, Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, Dictionary<TermHandle, HashSet<Fact>> changed);
+    /// <summary>Applies a data commit's delta, graph by graph, recording per graph the facts whose row may have changed; <paramref name="emptied"/> the graphs it left with no quad, read before.</summary>
+    protected abstract void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed);
 
     protected abstract bool IsDataRow(TermHandle graph, in Fact fact);
 
@@ -333,7 +406,7 @@ internal sealed class PerGraphMaterialisation(ProjectionTerms terms, InferencePr
         }
     }
 
-    protected override void ApplyData(IQuadSource view, Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, Dictionary<TermHandle, HashSet<Fact>> changed)
+    protected override void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed)
     {
         foreach ((TermHandle graph, (List<Fact> asserted, List<Fact> retracted)) in graphs)
         {
@@ -348,7 +421,7 @@ internal sealed class PerGraphMaterialisation(ProjectionTerms terms, InferencePr
             into.UnionWith(asserted);
             into.UnionWith(retracted);
 
-            if (retracted.Count > 0 && !HasQuads(view, graph))
+            if (emptied.Contains(graph))
             {
                 closure.Release();
                 _graphs.Remove(graph);

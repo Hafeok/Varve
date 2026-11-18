@@ -47,3 +47,5 @@ Varve.Inference.Store.Model.InferenceOptions.Pool.get -> Varve.Inference.FactBud
 Varve.Inference.Store.Model.InferenceOptions.Pool.init -> void
 Varve.Inference.Store.InferenceProjection.ClosureHeld.get -> Varve.Inference.Model.MemoryAmount
 Varve.Inference.Store.InferenceProjection.ClosurePeak.get -> Varve.Inference.Model.MemoryAmount
+static Varve.Inference.Store.Model.InferenceOptions.TermBytes.get -> Varve.Inference.Model.MemoryAmount
+static Varve.Inference.Store.InferenceProjection.IsStorageFailure(System.Exception! error) -> bool

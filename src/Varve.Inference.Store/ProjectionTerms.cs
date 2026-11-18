@@ -88,6 +88,25 @@ internal sealed class ProjectionTerms(IQuadSource source) : IInferenceTerms
     /// <summary>Starts a program: the terms it names by a local handle are counted afresh.</summary>
     internal void BeginProgram() => _active.Clear();
 
+    /// <summary>What the dataset's terms this projection keeps resolved hold, at <paramref name="perTerm"/> each.</summary>
+    internal MemoryAmount KnownBytes(MemoryAmount perTerm) => new(_known.Count * perTerm.Value);
+
+    /// <summary>
+    /// Resolves <paramref name="handle"/> into the terms kept, if it is not
+    /// kept already: what a pass does before it changes anything, so that a
+    /// store read that fails leaves the closure as it was (ADR 0195,
+    /// amended 2026-11-18). Answers whether the term was new.
+    /// </summary>
+    internal bool Warm(TermHandle handle)
+    {
+        if (handle.IsNone || IsLocal(handle) || _known.ContainsKey(handle.Value))
+        {
+            return false;
+        }
+
+        return TryExternalise(handle, out _);
+    }
+
     public TermHandle Handle(RdfTerm term)
     {
         ArgumentNullException.ThrowIfNull(term);
