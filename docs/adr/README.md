@@ -518,6 +518,14 @@ Filed by the session for [#317](https://github.com/Hafeok/Varve/issues/317), und
 |---:|---|---|
 | [0247](0247-the-docs-site.md) | The docs site: a generator in eng/ on Markdig, Mermaid drawn at build time, no script | Filed unaccepted (#317) |
 
+## Web UI part 2, the data explorer (#96)
+
+Filed by the session for Web UI part 2 ([#96](https://github.com/Hafeok/Varve/issues/96); PR (a) is [#355](https://github.com/Hafeok/Varve/issues/355)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0248: 0245 is taken on an open branch, and 0247 is the last on `main`. The plan, approved with the rulings of 2026-11-18, holds 0248–0252.
+
+| # | Title | Status |
+|---:|---|---|
+| [0248](0248-a-public-sparql-tokenizer.md) | A public SPARQL tokenizer: the parser's lexer, reachable, with comments and classified words, in the input's units | Filed unaccepted (#355) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |

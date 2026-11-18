@@ -633,3 +633,44 @@ sharper one in §8: it allocates the tree and nothing else.
    not affect the grammar. Issue 226 — recursive application of the path
    translation — is handled by the algebra specification not applying that
    rewrite at all (`sparql-algebra.md` §4.4).
+
+## 10. The tokenizer (ADR 0248)
+
+The lexer of §3 is reachable as public API, so a query editor colours a query
+with the same terminals the parser reads, and the two cannot disagree about
+where a token begins or ends. It is the parser's lexer, not a second one.
+
+- **Input.** UTF-8 natively, or UTF-16 transcoded as §3.1 does. A token's
+  `Start` and `End` are in the units of the input it was given: bytes for
+  UTF-8, UTF-16 code units for UTF-16, as `long`, as every position of the
+  syntax model is. Errors keep §6's units, bytes, for
+  both, because they are the parser's errors.
+- **Kinds.** The terminals of §3, with three differences, none of which the
+  parser sees:
+  - **Comments are tokens** (`Comment`, from `#` to the end of its line, the
+    break not included). Whitespace is not a token; it is the gap between two.
+  - **A word is classified.** A `Word` whose text matches, ignoring ASCII
+    case, a keyword quoted in the grammar of §2 is `Keyword`; `a` is a keyword
+    only in lower case, as the grammar writes it. `true` and `false` are
+    `Boolean`. Every other word stays `Word`. A word is a keyword wherever it
+    stands: the tokenizer has no context, and the parser's contextual reading
+    of a word (§3.4) is the parser's.
+  - **Brackets keep their kinds**, so an editor can match them: the six of
+    `{ } ( ) [ ]`, `()` and `[]` as `Nil` and `Anon`, and the six RDF 1.2
+    brackets. The rest of §3's punctuation is two kinds: `Punctuation`
+    (`, ; . ^^`) and `Operator` (every other single- or double-character
+    terminal).
+- **The end.** The tokenizer stops at the end of the input, or at the first
+  ill-formed terminal, with that terminal's error exactly as the parser
+  reports it: the same kind, offset, line and column. It never resynchronises
+  (§7). Over UTF-16, a lone surrogate is the error wherever it stands, because
+  the parser transcodes before it reads (§3.1) and reports it so; the tokens
+  are those before the first terminal the lexer could not finish.
+- **What it guarantees** (the tests of §8 gain these):
+  - tokens are in order and never overlap, and every gap between two, and
+    after the last, is whitespace: the tokens are the input, up to its end or
+    to the terminal that stopped them, for every case of the syntax suites;
+  - where the tokenizer stops on an error, the parser fails on the same input
+    with that error, or with one at an earlier offset;
+  - the UTF-8 and the UTF-16 forms of every case give the same tokens, their
+    positions mapped between the two encodings.
