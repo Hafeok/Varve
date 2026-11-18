@@ -107,6 +107,7 @@ The session's prompt covers three pull requests; this record is step 3's.
 - **Duration,** by the TRX, on this session's Linux container: 0.37 s alone,
   0.3 s within the whole server suite run in parallel (257 tests, 197 passed,
   60 skipped for services, 12 s). `ci.yml`'s `build` job gains a "Server test
-  durations" step, as the store suite has, so that each OS's log names it;
-  the hosted figures for Ubuntu and Windows are on the pull request. The
-  `build` matrix has no macOS leg.
+  durations" step, as the store suite has, so that each OS's log names it.
+  Hosted, at head 8337e23e, inside the whole server suite: **0.6 s on
+  `ubuntu-latest`** (11th slowest) and **0.6 s on `windows-latest`** (18th).
+  The `build` matrix has no macOS leg.
