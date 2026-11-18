@@ -11,7 +11,7 @@ dated amendment: what an open makes of a writer record it does not fully
 read.
 
 **Amended 2026-11-16** (ADR 0068), by Replication part 2 (#166) for #117,
-unaccepted until the maintainer accepts it (ADR 0066): the verification
+filed unaccepted (ADR 0066) and accepted by the maintainer on 2026-11-18: the verification
 record is read by this rule
 ([ADR 0183](0183-object-store-verification-and-the-compatibility-page.md)).
 See the end.
@@ -94,8 +94,8 @@ unknown value is held and never acted on.
 
 ## Amendment, 2026-11-16 — the verification record
 
-Filed by Replication part 2 (#166) for #117 with ADR 0183, unaccepted until
-the maintainer accepts it (ADR 0066).
+Filed unaccepted by Replication part 2 (#166) for #117 with ADR 0183
+(ADR 0066), and accepted by the maintainer on 2026-11-18.
 
 The verification record at a store's root (ADR 0183) is read by this ADR's
 rule, in the direction that is conservative for it: **a record of a format

@@ -3,8 +3,7 @@
 ## Status
 
 **Accepted — filed unaccepted by Replication part 2 (#166) for #117,
-2026-11-16** (ADR 0066). Acceptance is the maintainer's act on the pull
-request. The plan it follows was approved on #97 on 2026-10-27, and its
+2026-11-16** (ADR 0066), and accepted by the maintainer on 2026-11-18. The plan it follows was approved on #97 on 2026-10-27, and its
 delta plan answered on #166 on 2026-11-16.
 
 **Amends** by dated amendment:
