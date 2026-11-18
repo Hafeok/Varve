@@ -137,3 +137,50 @@ the release that introduced the version, from nuget.org:
   and one message in `Varve.Management`.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-18 — `proof/` is reserved
+
+**Accepted — filed unaccepted by a cloud session for #340, 2026-11-18** (ADR
+0066, ADR 0068). Acceptance is the maintainer's act on the pull request.
+
+#292, accepted as a proposal on 2026-11-18 for a minor after 1.0, adds hash
+tiles and write-once checkpoints in a `proof/` directory beside `log/` and
+`derived/`. Storage format 1 is frozen at 1.0 and read forever, so if a 1.0
+reader rejected, copied, rewrote or deleted a directory it does not know,
+adding `proof/` would break every older reader of a newer dataset. The name
+is reserved now; nothing of #292 is built here.
+
+**What every reader did on `main` at bb1d142** (the survey is on #340): each
+names what it reads. On the file backend, an open lists only `log/` and
+`derived/`; there is no file follower. In an object store, every listing is
+of `log/`, `derived/`, `derived/extents/` or `readers/`, and the other names
+read are `writer` and `probe/<id>`. `Dataset.ShipAsync` copies the manifest,
+the segments and one checkpoint. `varve storage` reads the catalog, the
+extents and the reader records. The format gate reads no dataset. Only
+deleting a dataset removes everything under it. So no code changes; the rule
+is written down, and a fixture holds it.
+
+1. **A fourth rule, *reserved*,** beside read forever, rebuilt and
+   versioned: a name in a dataset that no release has written yet. Format 1
+   writes nothing there, and every reader ignores it and never deletes,
+   moves or rewrites it.
+2. **`proof/` is reserved,** in `docs/spec/storage-format.md` §2.1 and as a
+   row of the inventory with the rule *reserved*.
+3. **Its fixture, `proof-reserved`, is not a release's.** No release writes
+   `proof/`, so point 2 of the decision, a fixture written by the release
+   that introduced the format, cannot apply. The fixture is `proof/` alone:
+   a tile-shaped object, a checkpoint and its signature as #292 proposes
+   them, a version marker of a format nobody has defined, an empty object
+   and a deep path, written by a generator that references no Varve package.
+4. **The gate's part:** `ReservedProofTests` copies that `proof/` beside the
+   release-written `store-preview.1` log and `objects-preview.15` objects,
+   then opens for read and for write, commits, checkpoints and maintains,
+   follows, ships with `ShipAsync`, and restores a copy of the directory. The
+   dataset reads as the release wrote it, and every `proof/` object is byte
+   for byte what the fixture holds, with nothing added, after each.
+5. **What it leaves to #292:** what `proof/` holds, its format, and whether a
+   copy carries it. `ShipAsync` does not today. The shipper being built for
+   log shipping (#166, #338) names what it lists, and was told on #166 to keep
+   doing so.
+
+Records decision `ProofIsReserved`.
