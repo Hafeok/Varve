@@ -269,6 +269,12 @@ internal static class SettingsCheck
         {
             errors.Add("Varve:Inference:ClosureBytes is at least 1, or unset for a quarter of the heap limit: the bytes a binding's closures may hold together (ADR 0195).");
         }
+        else if (settings.Inference.ClosureBytes is { } closure && closure > InferenceProjections.PoolBytes)
+        {
+            // A limit the heap cannot hold could be outrun by the heap (#335): refused before anything is built.
+            errors.Add("Varve:Inference:ClosureBytes is at most " + InferenceProjections.PoolBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + ", three quarters of the heap limit: the bytes a binding's closures may hold together, the rest of the heap left to the server (ADR 0195 point 6). Raise the heap limit, or lower the setting.");
+        }
 
         // The follower's record is the id with "-follower" (ObjectStores), so
         // that one must be valid too.

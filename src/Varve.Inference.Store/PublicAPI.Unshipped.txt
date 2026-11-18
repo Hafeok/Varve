@@ -32,7 +32,6 @@ Varve.Inference.Store.Model.InferenceReadOutcome.FromScratch = 2 -> Varve.Infere
 Varve.Inference.Store.Model.InferenceReadOutcome.Held = 0 -> Varve.Inference.Store.Model.InferenceReadOutcome
 Varve.Inference.Store.Model.InferenceReadOutcome.Unavailable = 3 -> Varve.Inference.Store.Model.InferenceReadOutcome
 static Varve.Inference.Store.Model.InferenceOptions.BytesPerClosedRow.get -> Varve.Store.Log.ByteCount
-static Varve.Inference.Store.Model.InferenceOptions.BytesPerFact.get -> Varve.Store.Log.ByteCount
 Varve.Inference.Store.InferenceProjection.LoadAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
 Varve.Inference.Store.InferenceProjection.SaveAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
 Varve.Inference.Store.InferenceProjection.Clashes() -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>!
@@ -41,3 +40,8 @@ Varve.Inference.Store.InferenceProjection.TryRead(Varve.Store.Log.Position at, o
 Varve.Inference.Store.InferenceProjection.ExplainAsync(Varve.Store.Log.Position at, Varve.Rdf.RdfTerm? graph, Varve.Rdf.RdfTerm! subject, Varve.Rdf.RdfTerm! predicate, Varve.Rdf.RdfTerm! object, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<(Varve.Inference.Store.Model.InferenceReadOutcome Outcome, Varve.Inference.Model.Explanation? Explanation)>
 Varve.Inference.Store.InferenceProjection.PremiseSetOf(Varve.Rdf.RdfTerm! graph) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
 Varve.Inference.Store.InferenceProjection.PremiseSetGraphs() -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Inference.Store.InferenceProjection.Failure.get -> System.Exception?
+static Varve.Inference.Store.Model.InferenceOptions.CostsFor(Varve.Inference.Model.InferenceProfile profile) -> Varve.Inference.Model.ClosureCosts!
+static Varve.Inference.Store.Model.InferenceOptions.RowBytes.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Store.Model.InferenceOptions.Pool.get -> Varve.Inference.FactBudget?
+Varve.Inference.Store.Model.InferenceOptions.Pool.init -> void

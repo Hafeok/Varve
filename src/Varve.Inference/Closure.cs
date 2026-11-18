@@ -64,7 +64,11 @@ public sealed partial class Closure
         Strategy = retraction;
         Beneath = tbox;
         Facts = new FactSet { Base = tbox?.Facts };
-        Facts.Budget = budget;
+        if (budget is not null)
+        {
+            Facts.Charge(budget);
+        }
+
         foreach (Fact axiom in program.Axioms)
         {
             _axioms.Add(axiom);
@@ -283,11 +287,34 @@ public sealed partial class Closure
     /// <summary>The facts the closure holds, explicit, axioms and derived alike: its owner's accounting.</summary>
     public QuadCount Count => new(Facts.Count);
 
-    /// <summary>Gives back to the budget every fact this closure holds: its owner is dropping it.</summary>
+    /// <summary>Gives back to the budget everything this closure took: its owner is dropping it.</summary>
     public void Release()
     {
-        Facts.Budget?.GiveAll(new QuadCount(Facts.Count));
-        Facts.Budget = null;
+        Facts.Budget?.Give(new MemoryAmount(_explicitCharge));
+        _explicitCharge = 0;
+        Facts.Uncharge();
+    }
+
+    // What the set of explicit facts has taken from the budget.
+    private long _explicitCharge;
+
+    /// <summary>Charges an explicit fact before it is recorded.</summary>
+    private void TakeExplicit()
+    {
+        if (Facts.Budget is { } budget)
+        {
+            budget.Take(budget.Costs.PerExplicit);
+            _explicitCharge += budget.Costs.PerExplicit.Value;
+        }
+    }
+
+    private void GiveExplicit()
+    {
+        if (Facts.Budget is { } budget)
+        {
+            budget.Give(budget.Costs.PerExplicit);
+            _explicitCharge -= budget.Costs.PerExplicit.Value;
+        }
     }
 
     private void ApplyDelta(ReadOnlySpan<Fact> asserted, ReadOnlySpan<Fact> retracted)
@@ -297,6 +324,7 @@ public sealed partial class Closure
         {
             if (_explicit.Remove(fact))
             {
+                GiveExplicit();
                 gone.Add(fact);
             }
         }
@@ -309,8 +337,10 @@ public sealed partial class Closure
         List<Fact> added = [];
         foreach (Fact fact in asserted)
         {
-            if (_explicit.Add(fact))
+            if (!_explicit.Contains(fact))
             {
+                TakeExplicit();
+                _explicit.Add(fact);
                 added.Add(fact);
             }
         }

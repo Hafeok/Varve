@@ -71,6 +71,7 @@ public sealed class InferenceProjection : IProjection
     private long _heldFrom;
     private long _stoppedAt = long.MaxValue;
     private ByteCount _reached;
+    private Exception? _failure;
     private Materialisation? _state;
     private readonly ProjectionTerms _terms = new(Empty);
     private TaskCompletionSource _advanced = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -109,8 +110,16 @@ public sealed class InferenceProjection : IProjection
     /// <summary>The bytes of closed rows held, for the gauge <c>varve.inference.history.bytes</c>.</summary>
     public ByteCount HistoryHeld => new(Volatile.Read(ref _closedBytes));
 
-    /// <summary>Whether the binding is stopped by its memory limit (ADR 0195 point 6).</summary>
+    /// <summary>
+    /// Whether the binding is stopped (ADR 0195 point 6, as amended
+    /// 2026-11-18): by its memory limit, or by a pass that failed
+    /// (<see cref="Failure"/>). A stopped binding is never tried again by
+    /// the projection: it stays refused until its owner makes another.
+    /// </summary>
     public bool Stopped => Volatile.Read(ref _stoppedAt) != long.MaxValue;
+
+    /// <summary>Why a stopped binding failed, when it was not its memory limit: the exception its pass threw; null otherwise.</summary>
+    public Exception? Failure => Volatile.Read(ref _failure);
 
     /// <summary>The limit a stopped binding passed, and what its closures held when it stopped: a lower bound on what they need.</summary>
     public (ByteCount Limit, ByteCount Reached) MemoryLimit => (_options.ClosureBytes, _reached);
@@ -159,9 +168,17 @@ public sealed class InferenceProjection : IProjection
 
             _state?.Release();
             _state = null;
-            Volatile.Write(ref _stoppedAt, long.MaxValue);
             long position = checkpoint?.Position.Value ?? 0;
-            Rebuild(checkpoint is null ? Empty : checkpoint, position);
+            if (Volatile.Read(ref _stoppedAt) != long.MaxValue)
+            {
+                // A stopped binding is not tried again by a reset: it stays refused from the reset on.
+                Volatile.Write(ref _stoppedAt, position);
+            }
+            else
+            {
+                Rebuild(checkpoint is null ? Empty : checkpoint, position);
+            }
+
             Volatile.Write(ref _floor, position);
             Volatile.Write(ref _position, position);
         }
@@ -609,21 +626,27 @@ public sealed class InferenceProjection : IProjection
         return !graph.Lexical.StartsWith(Encoding.UTF8.GetBytes(Reserved)) && Binding.DataGraphs.Allows(graph);
     }
 
-    /// <summary>The facts the binding's closures hold now, for the tests.</summary>
-    internal QuadCount FactsHeld => _state?.Budget.Used ?? new QuadCount(0);
+    /// <summary>What the binding's closures hold now by their budget's count, for the tests.</summary>
+    internal MemoryAmount Held => _state?.Budget.Used ?? new MemoryAmount(0);
 
-    internal QuadCount FactLimit => new(Math.Max(1, _options.ClosureBytes.Value / InferenceOptions.BytesPerFact.Value));
+    /// <summary>The most the binding's closures have held at once by their budget's count, their build included, for the tests.</summary>
+    internal MemoryAmount PeakHeld => _state?.Budget.Peak ?? new MemoryAmount(0);
 
+    /// <summary>A budget of <see cref="InferenceOptions.ClosureBytes"/> at the binding's profile's costs (ADR 0195 point 6, as amended 2026-11-18).</summary>
+    internal FactBudget NewBudget() => new(new MemoryAmount(_options.ClosureBytes.Value), InferenceOptions.CostsFor(Binding.Profile), _options.Pool);
+
+    /// <summary>
+    /// Applies a commit (ADR 0195 point 4, as amended 2026-11-18). A
+    /// generation is made for these causes only: a commit that changes a
+    /// bound TBox graph, and a commit that allocates a term a rule names. A
+    /// budget refusal or a memory failure stops the binding at its memory
+    /// limit; any other failure stops it as failed. Neither is retried.
+    /// </summary>
     private void Apply(DatasetView view, QuadDelta delta, long position)
     {
         if (_state is not { } state)
         {
-            // Stopped: tried again by a commit that changes a TBox graph.
-            if (Touches(view, delta))
-            {
-                Rebuild(view, position);
-            }
-
+            // Stopped: refused until the binding's owner makes another projection, never tried again here.
             return;
         }
 
@@ -643,15 +666,20 @@ public sealed class InferenceProjection : IProjection
         {
             changed = state.Apply(view, delta);
         }
-        catch (ClosureLimitExceededException)
+        catch (ClosureLimitExceededException refused)
         {
-            Stop(state, position);
+            Stop(state, position, refused.Wanted, failure: null);
+            return;
+        }
+        catch (OutOfMemoryException)
+        {
+            // Not the mechanism (the budget is), but if the heap is exhausted on this pass all the same, the binding is refused as at its limit.
+            Stop(state, position, new MemoryAmount(_options.ClosureBytes.Value), failure: null);
             return;
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
-            // A pass that fails decides nothing: the commit is a generation.
-            Rebuild(view, position);
+            Stop(state, position, new MemoryAmount(0), failure: error);
             return;
         }
 
@@ -695,22 +723,19 @@ public sealed class InferenceProjection : IProjection
         {
             built = Materialisation.Build(source, _terms, this, CancellationToken.None);
         }
-        catch (ClosureLimitExceededException)
+        catch (ClosureLimitExceededException refused)
         {
-            _state?.Release();
-            _state = null;
-            lock (_rowsLock)
-            {
-                foreach (TermHandle graph in new List<TermHandle>(_open.Keys))
-                {
-                    CloseAll(graph, position);
-                }
-
-                Trim();
-            }
-
-            _reached = _options.ClosureBytes;
-            Volatile.Write(ref _stoppedAt, position);
+            StopAll(position, refused.Wanted, failure: null);
+            return;
+        }
+        catch (OutOfMemoryException)
+        {
+            StopAll(position, new MemoryAmount(_options.ClosureBytes.Value), failure: null);
+            return;
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            StopAll(position, new MemoryAmount(0), failure: error);
             return;
         }
 
@@ -738,24 +763,6 @@ public sealed class InferenceProjection : IProjection
 
         _state?.Release();
         _state = built;
-        if (Volatile.Read(ref _stoppedAt) != long.MaxValue)
-        {
-            // Tried again and fits: nothing was held while it was stopped, so
-            // the history starts here, and a read below it is from scratch.
-            lock (_rowsLock)
-            {
-                _heldFrom = Math.Max(_heldFrom, position);
-                while (_closed.Count > 0 && _closed.Peek().End <= _heldFrom)
-                {
-                    _closed.Dequeue();
-                    _closedBytes -= InferenceOptions.BytesPerClosedRow.Value;
-                }
-
-                Volatile.Write(ref _closedBytes, _closedBytes);
-            }
-
-            Volatile.Write(ref _stoppedAt, long.MaxValue);
-        }
     }
 
     /// <summary>
@@ -813,10 +820,17 @@ public sealed class InferenceProjection : IProjection
 
     private static readonly RdfTerm DefaultGraphTerm = RdfTerm.Iri(Encoding.UTF8.GetBytes(Reserved + "defaultGraph"));
 
-    private void Stop(Materialisation state, long position)
+    /// <summary>Stops the binding at <paramref name="position"/>: its closures dropped, every open row closed, and reads refused from there on.</summary>
+    private void Stop(Materialisation state, long position, MemoryAmount wanted, Exception? failure)
     {
-        _reached = new ByteCount(state.Budget.Used.Value * InferenceOptions.BytesPerFact.Value);
         state.Release();
+        _state = null;
+        StopAll(position, wanted, failure);
+    }
+
+    private void StopAll(long position, MemoryAmount wanted, Exception? failure)
+    {
+        _state?.Release();
         _state = null;
         lock (_rowsLock)
         {
@@ -828,28 +842,9 @@ public sealed class InferenceProjection : IProjection
             Trim();
         }
 
+        _reached = new ByteCount(wanted.Value);
+        Volatile.Write(ref _failure, failure);
         Volatile.Write(ref _stoppedAt, position);
-    }
-
-    private bool Touches(DatasetView view, QuadDelta delta)
-    {
-        foreach (Quad quad in delta.Asserted)
-        {
-            if (IsTBox(view, quad.Graph))
-            {
-                return true;
-            }
-        }
-
-        foreach (Quad quad in delta.Retracted)
-        {
-            if (IsTBox(view, quad.Graph))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private bool IsTBox(DatasetView view, TermHandle graph)

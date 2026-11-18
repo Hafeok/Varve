@@ -576,3 +576,5 @@ static Varve.Protocol.VarveEndpoints.MapExplain(this Microsoft.AspNetCore.Routin
 Varve.Protocol.IInferenceClosure.PremiseSetOf(Varve.Rdf.RdfTerm! graph) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
 Varve.Protocol.ProtocolOptions.AfterCheckpoint.get -> System.Func<Varve.Store.Dataset!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
 Varve.Protocol.ProtocolOptions.AfterCheckpoint.init -> void
+Varve.Protocol.InferenceUnavailableException.Failure.get -> System.Exception?
+Varve.Protocol.InferenceUnavailableException.InferenceUnavailableException(Varve.Rdf.RdfTerm! binding, System.Exception! failure) -> void

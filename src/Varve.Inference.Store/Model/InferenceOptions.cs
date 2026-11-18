@@ -4,6 +4,7 @@
 
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
+using Varve.Inference.Model;
 using Varve.Store.Log;
 
 namespace Varve.Inference.Store.Model;
@@ -19,14 +20,23 @@ public sealed class InferenceOptions
     public static ByteCount BytesPerClosedRow { get; } = new(64);
 
     /// <summary>
-    /// What one fact of a closure costs, as the projection counts it against
-    /// <see cref="ClosureBytes"/>: the fact, counting's round and count, and
-    /// its links in the five indices. The benchmark measures 166 bytes a
-    /// fact on REC S under OWL 2 RL, after a compacting collection; this
-    /// leaves a margin over it. The figure the operator guide states is the
-    /// benchmark's.
+    /// What the projection keeps per fact beside the closure, charged to the
+    /// binding's budget with each fact (ADR 0195 point 6, as amended
+    /// 2026-11-18): an open row's entry in its graph's map, with room for
+    /// the map to double. The closures' own costs are the engine's, per
+    /// profile (<see cref="ClosureCosts.For"/>).
     /// </summary>
-    public static ByteCount BytesPerFact { get; } = new(256);
+    public static MemoryAmount RowBytes { get; } = new(96);
+
+    /// <summary>What a binding's closures are charged under <paramref name="profile"/>: the engine's costs, a row's bytes beside each fact.</summary>
+    public static ClosureCosts CostsFor(InferenceProfile profile) => ClosureCosts.For(profile).WithPerFactBeside(RowBytes);
+
+    /// <summary>
+    /// The budget every binding of the process also takes from (ADR 0195
+    /// point 6, as amended 2026-11-18): the heap limit less what the rest
+    /// of the server is left; none for a host that sets none.
+    /// </summary>
+    public FactBudget? Pool { get; init; }
 
     /// <summary>
     /// The closed rows kept in memory, oldest positions out first

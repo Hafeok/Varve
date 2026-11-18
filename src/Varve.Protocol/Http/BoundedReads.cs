@@ -172,10 +172,13 @@ internal static class BoundedReads
     internal static Action<ProblemMembers> InferenceUnavailable(InferenceUnavailableException error) => m =>
     {
         m.String("binding", System.Text.Encoding.UTF8.GetString(error.Binding.Lexical));
-        m.String("reason", "memory-limit");
+        m.String("reason", error.Failure is null ? "memory-limit" : "failed");
         m.String("failure", "configuration");
-        m.Number("limit", error.Limit.Value);
-        m.Number("reached", error.Reached.Value);
+        if (error.Failure is null)
+        {
+            m.Number("limit", error.Limit.Value);
+            m.Number("reached", error.Reached.Value);
+        }
     };
 
     /// <summary>The members of <c>validation-behind</c>: the binding, the position read, and the position its projection reached.</summary>

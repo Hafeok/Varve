@@ -173,6 +173,20 @@ public sealed class InferenceUnavailableException : Exception
         Reached = reached;
     }
 
+    /// <summary>
+    /// The binding's projection stopped because a pass failed with
+    /// <paramref name="failure"/> (ADR 0195 point 6, as amended 2026-11-18):
+    /// not retried, so not retryable; a fix or an upgrade, then a restart.
+    /// </summary>
+    public InferenceUnavailableException(RdfTerm binding, Exception failure)
+        : base("The closure of this binding stopped: its projection failed (" + failure?.GetType().Name + "). It is not tried again; restart the instance once the cause is fixed.", failure)
+    {
+        ArgumentNullException.ThrowIfNull(binding);
+        ArgumentNullException.ThrowIfNull(failure);
+        Binding = binding;
+        Failure = failure;
+    }
+
     /// <summary>The read was refused; nothing more is known.</summary>
     public InferenceUnavailableException() => Binding = RdfTerm.Iri("urn:x-varve:binding"u8);
 
@@ -186,6 +200,9 @@ public sealed class InferenceUnavailableException : Exception
 
     /// <summary>The binding.</summary>
     public RdfTerm Binding { get; }
+
+    /// <summary>What a projection that failed threw; null when it stopped at its memory limit.</summary>
+    public Exception? Failure { get; }
 
     /// <summary>The configured limit.</summary>
     public ByteCount Limit { get; }

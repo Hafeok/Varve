@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Linq;
 using Varve.Inference.Model;
 using Varve.Rdf;
 using Xunit;
@@ -72,22 +73,32 @@ public class ExampleTests
     public void a_closure_past_its_budget_throws_and_a_released_one_gives_its_facts_back()
     {
         Terms terms = new();
-        Closure probe = new(InferenceProfile.Rdfs, terms);
-        long axioms = probe.Count.Value;
+        ClosureCosts costs = ClosureCosts.For(InferenceProfile.Rdfs);
+        FactBudget probe = new(new MemoryAmount(long.MaxValue), costs);
+        Closure empty = new(InferenceProfile.Rdfs, terms, probe);
+        long one = probe.Used.Value;
+        empty.Release();
+        Assert.Equal(0, probe.Used.Value);
 
-        FactBudget budget = new(new QuadCount((2 * axioms) + 5));
+        // Room for two empty closures and half of one more: two hundred facts will not fit.
+        FactBudget budget = new(new MemoryAmount((2 * one) + (one / 2)), costs);
         Closure first = new(InferenceProfile.Rdfs, terms, budget);
         Closure second = new(InferenceProfile.Rdfs, terms, budget);
-        Assert.Equal(2 * axioms, budget.Used.Value);
+        Assert.Equal(2 * one, budget.Used.Value);
 
         RdfTerm subClassOf = IriOf(RdfsNs + "subClassOf"), type = IriOf(RdfNs + "type");
-        Assert.Throws<ClosureLimitExceededException>(() => second.Apply(
-            [terms.Fact(Named("A"), subClassOf, Named("B")), terms.Fact(Named("B"), subClassOf, Named("C")), terms.Fact(Named("x"), type, Named("A"))], []));
-        Assert.Equal(budget.Limit, budget.Used);
+        Fact[] many = [terms.Fact(Named("A"), subClassOf, Named("B")), .. Enumerable.Range(0, 200).Select(i => terms.Fact(Named("x" + i), type, Named("A")))];
+        ClosureLimitExceededException refused = Assert.Throws<ClosureLimitExceededException>(() => second.Apply(many, []));
+        Assert.True(budget.Used.Value <= budget.Limit.Value, "a refused request takes nothing");
+        Assert.True(refused.Wanted.Value > budget.Limit.Value);
+        Assert.True(budget.Peak.Value <= budget.Limit.Value);
 
+        // Released, a closure gives back exactly what it took, working sets included.
         second.Release();
-        Assert.Equal(axioms, budget.Used.Value);
+        Assert.Equal(one, budget.Used.Value);
         first.Apply([terms.Fact(Named("x"), type, Named("A"))], []);
         Assert.True(budget.Used.Value <= budget.Limit.Value);
+        first.Release();
+        Assert.Equal(0, budget.Used.Value);
     }
 }

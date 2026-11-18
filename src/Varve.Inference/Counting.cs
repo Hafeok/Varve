@@ -78,27 +78,31 @@ public sealed partial class Closure
 
     private void CountingInsert(IEnumerable<Fact> givens)
     {
+        using Working working = new(Facts.Budget);
         PriorityQueue<Fact, int> queue = new();
         foreach (Fact fact in givens)
         {
             if (!Facts.TryStanding(fact, out int round, out _) || round > 0)
             {
+                working.Take();
                 queue.Enqueue(fact, 0);
             }
         }
 
-        Settle(queue);
+        Settle(queue, working);
     }
 
     private void CountingRetract(List<Fact> gone)
     {
         // Phase 1, in increasing round: delete what has no instance left in
         // its round, uncounting what it was a premise of.
+        using Working working = new(Facts.Budget);
         PriorityQueue<Fact, int> queue = new();
         foreach (Fact fact in gone)
         {
             if (Facts.Contains(fact) && !IsGiven(fact))
             {
+                working.Take();
                 queue.Enqueue(fact, RoundOf(fact));
             }
         }
@@ -106,6 +110,7 @@ public sealed partial class Closure
         List<Fact> deleted = [];
         while (queue.TryDequeue(out Fact fact, out _))
         {
+            working.Give();
             if (!Facts.Contains(fact) || IsGiven(fact) || (Facts.TryStanding(fact, out int round, out int count) && round > 0 && count > 0))
             {
                 continue;
@@ -120,10 +125,12 @@ public sealed partial class Closure
 
                 if (Facts.AddToCount(head, -1) == 0)
                 {
+                    working.Take();
                     queue.Enqueue(head, RoundOf(head));
                 }
             }
 
+            working.Take();
             Facts.Remove(fact);
             deleted.Add(fact);
         }
@@ -134,11 +141,12 @@ public sealed partial class Closure
             (int round, int count) = Earliest(fact);
             if (count > 0)
             {
+                working.Take();
                 queue.Enqueue(fact, round);
             }
         }
 
-        Settle(queue);
+        Settle(queue, working);
     }
 
     /// <summary>
@@ -155,19 +163,21 @@ public sealed partial class Closure
     /// change is not counted twice. A fact seeded into the queue is counted
     /// backwards as well: instances of it may predate the pass.
     /// </remarks>
-    private void Settle(PriorityQueue<Fact, int> queue)
+    private void Settle(PriorityQueue<Fact, int> queue, Working working)
     {
         // A fact seeded from outside, a retraction's put back, may have instances
         // found before this pass: it is counted backwards, never forwards.
         HashSet<Fact> seeded = [];
         foreach ((Fact fact, int _) in queue.UnorderedItems)
         {
+            working.Take();
             seeded.Add(fact);
         }
 
         Dictionary<Fact, (int Round, int Count)> found = [];
         while (queue.TryDequeue(out Fact fact, out int round))
         {
+            working.Give();
             bool present = Facts.Contains(fact);
             if (present && RoundOf(fact) <= round)
             {
@@ -183,7 +193,7 @@ public sealed partial class Closure
             // The round first: an instance with the fact among its own premises reads it.
             Facts.SetStanding(fact, round, 0);
             Facts.SetStanding(fact, round, IsGiven(fact) ? 0
-                : !present && !seeded.Contains(fact) && found.Remove(fact, out (int Round, int Count) earliest) && earliest.Round == round ? earliest.Count
+                : !present && !seeded.Contains(fact) && Settled(found, fact, working, out (int Round, int Count) earliest) && earliest.Round == round ? earliest.Count
                 : Earliest(fact).Count);
             foreach ((Fact head, Fact[] premises) in Derivations(fact))
             {
@@ -196,6 +206,11 @@ public sealed partial class Closure
                     bool known = found.TryGetValue(head, out (int Round, int Count) prior);
                     if (!again)
                     {
+                        if (!known)
+                        {
+                            working.Take();
+                        }
+
                         found[head] = known && prior.Round <= now
                             ? (prior.Round, prior.Count + (prior.Round == now ? 1 : 0))
                             : (now, 1);
@@ -203,6 +218,7 @@ public sealed partial class Closure
 
                     if (!known || now < prior.Round || again)
                     {
+                        working.Take();
                         queue.Enqueue(head, now);
                     }
 
@@ -211,6 +227,7 @@ public sealed partial class Closure
 
                 if (now < RoundOf(head))
                 {
+                    working.Take();
                     queue.Enqueue(head, now);
                     continue;
                 }
@@ -221,6 +238,54 @@ public sealed partial class Closure
                     Facts.AddToCount(head, 1);
                 }
             }
+        }
+    }
+
+    /// <summary>Takes a settled fact's frontier entry out, giving its charge back.</summary>
+    private static bool Settled(Dictionary<Fact, (int Round, int Count)> found, in Fact fact, Working working, out (int Round, int Count) earliest)
+    {
+        if (!found.Remove(fact, out earliest))
+        {
+            return false;
+        }
+
+        working.Give();
+        return true;
+    }
+
+    /// <summary>
+    /// A pass's working sets' charge (ADR 0195 point 6, as amended
+    /// 2026-11-18): each entry of the frontier, the queue and the seeded set
+    /// taken from the budget before it is stored, given back when it goes,
+    /// and what is left given back when the pass ends, however it ends.
+    /// </summary>
+    private sealed class Working(FactBudget? budget) : IDisposable
+    {
+        private long _held;
+
+        /// <exception cref="ClosureLimitExceededException">The entry would pass the budget.</exception>
+        internal void Take()
+        {
+            if (budget is not null)
+            {
+                budget.Take(budget.Costs.PerWorkingEntry);
+                _held += budget.Costs.PerWorkingEntry.Value;
+            }
+        }
+
+        internal void Give()
+        {
+            if (budget is not null && _held > 0)
+            {
+                budget.Give(budget.Costs.PerWorkingEntry);
+                _held -= budget.Costs.PerWorkingEntry.Value;
+            }
+        }
+
+        public void Dispose()
+        {
+            budget?.Give(new MemoryAmount(_held));
+            _held = 0;
         }
     }
 

@@ -64,11 +64,24 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
         _logger = logger;
     }
 
-    /// <summary>The projection options a server's settings give: <c>Varve:Inference:HistoryBytes</c>, and <c>Varve:Inference:ClosureBytes</c> or, unset, a quarter of the collector's heap limit (ADR 0195 point 6).</summary>
+    /// <summary>
+    /// The bytes every binding of the process may hold together (ADR 0195
+    /// point 6, as amended 2026-11-18): three quarters of the collector's
+    /// heap limit, the rest left to the server.
+    /// </summary>
+    internal static long PoolBytes => GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 4 * 3;
+
+    /// <summary>
+    /// The projection options a server's settings give:
+    /// <c>Varve:Inference:HistoryBytes</c>; <c>Varve:Inference:ClosureBytes</c>
+    /// or, unset, a quarter of the collector's heap limit; and the pool every
+    /// binding also takes from, of <see cref="PoolBytes"/> (ADR 0195 point 6).
+    /// </summary>
     internal static InferenceOptions Options(InferenceSettings settings) => new()
     {
         HistoryBytes = new ByteCount(settings.HistoryBytes),
         ClosureBytes = new ByteCount(settings.ClosureBytes ?? Math.Max(1L << 20, GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 4)),
+        Pool = new FactBudget(new MemoryAmount(PoolBytes), ClosureCosts.For(InferenceProfile.Rdfs)),
     };
 
     /// <inheritdoc />
@@ -367,7 +380,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
             return new InferenceStatus(
                 Math.Max(0, Dataset.Head.Value - Projection.Position.Value),
                 Projection.HeldFrom.Value,
-                Projection.Stopped ? "stopped (memory-limit)" : "following",
+                !Projection.Stopped ? "following" : Projection.Failure is null ? "stopped (memory-limit)" : "stopped (failed)",
                 Projection.Clashes().Count,
                 limit.Value,
                 Projection.Stopped ? reached.Value : 0,
@@ -418,6 +431,11 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 
         private InferenceUnavailableException Unavailable()
         {
+            if (Projection.Failure is { } failure)
+            {
+                return new InferenceUnavailableException(Binding, failure);
+            }
+
             (ByteCount limit, ByteCount reached) = Projection.MemoryLimit;
             return new InferenceUnavailableException(Binding, limit, reached);
         }
@@ -471,7 +489,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 /// <summary>One binding's state on readiness (ADR 0195 point 6): reported, and never a reason to be unready.</summary>
 /// <param name="Lag">Head minus the projection's position.</param>
 /// <param name="HeldFrom">The lowest position its held history serves.</param>
-/// <param name="State"><c>following</c> or <c>stopped (memory-limit)</c>.</param>
+/// <param name="State"><c>following</c>, <c>stopped (memory-limit)</c>, or <c>stopped (failed)</c>: a stopped binding is not tried again.</param>
 /// <param name="Clashes">The clashes at its position (ADR 0197 point 5).</param>
 /// <param name="Limit">Its memory limit, in bytes.</param>
 /// <param name="Reached">What a stopped binding's closure held when it stopped, in bytes.</param>

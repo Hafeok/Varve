@@ -55,6 +55,11 @@ public sealed class PremiseSets
     // The graphs of the pairs the last reach was for: the sets Update derives again are those holding one.
     private HashSet<int> _retracted = [];
 
+    // What the sets hold of the closure's budget (ADR 0195 point 6, as amended 2026-11-18): a charge per fact
+    // with sets, and one per entry of a propagation's queue or a reach while it lives.
+    private long _labelCharge;
+    private long _workingCharge;
+
     /// <summary>
     /// The minimal premise sets of every fact of <paramref name="closure"/>,
     /// the closure of the data graphs' merge, each explicit fact held by the
@@ -84,6 +89,7 @@ public sealed class PremiseSets
         }
 
         Propagate(work);
+        GiveAllWorking();
     }
 
     /// <summary>The facts with sets: every fact of the closure the data graphs' merge draws on, the TBox closure beneath excluded.</summary>
@@ -180,8 +186,10 @@ public sealed class PremiseSets
         foreach ((Fact fact, DataGraphIndex graph) in removed)
         {
             graphs.Add(graph.Value);
-            if (!IsBeneath(fact) && reached.Add(fact))
+            if (!IsBeneath(fact) && !reached.Contains(fact))
             {
+                TakeWorking();
+                reached.Add(fact);
                 work.Enqueue(fact);
             }
         }
@@ -197,6 +205,7 @@ public sealed class PremiseSets
                 {
                     if (!IsBeneath(instance.Head) && !reached.Contains(instance.Head) && AtRisk(instance.Head, graphs, heldAfter))
                     {
+                        TakeWorking();
                         reached.Add(instance.Head);
                         work.Enqueue(instance.Head);
                     }
@@ -287,6 +296,7 @@ public sealed class PremiseSets
         if (kept.Count == 0)
         {
             _labels.Remove(fact);
+            GiveLabel();
         }
         else if (kept.Count == 1)
         {
@@ -473,6 +483,8 @@ public sealed class PremiseSets
         }
         finally
         {
+            // The reach's entries and the propagation's are done with, however the update ended.
+            GiveAllWorking();
             _before = null;
         }
     }
@@ -483,6 +495,7 @@ public sealed class PremiseSets
         List<int> products = [];
         while (work.TryDequeue(out (Fact Fact, int Set) item))
         {
+            GiveWorking(1);
             if (!Has(item.Fact, item.Set))
             {
                 // Absorbed since it was offered: what it would give, the set that absorbed it gives with less.
@@ -583,6 +596,8 @@ public sealed class PremiseSets
 
         if (!_labels.TryGetValue(fact, out int label))
         {
+            TakeLabel();
+            TakeWorking();
             _labels[fact] = set;
             work.Enqueue((fact, set));
             return;
@@ -607,6 +622,7 @@ public sealed class PremiseSets
                 _labels[fact] = ~slot;
             }
 
+            TakeWorking();
             work.Enqueue((fact, set));
             return;
         }
@@ -629,8 +645,57 @@ public sealed class PremiseSets
             _labels[fact] = set;
         }
 
+        TakeWorking();
         work.Enqueue((fact, set));
     }
+
+    /// <summary>Gives back to the closure's budget everything the sets took: their owner is dropping them.</summary>
+    public void Release()
+    {
+        _closure.Facts.Budget?.Give(new MemoryAmount(_labelCharge + _workingCharge));
+        _labelCharge = 0;
+        _workingCharge = 0;
+    }
+
+    private void TakeLabel()
+    {
+        if (_closure.Facts.Budget is { } budget)
+        {
+            budget.Take(budget.Costs.PerLabel);
+            _labelCharge += budget.Costs.PerLabel.Value;
+        }
+    }
+
+    private void GiveLabel()
+    {
+        if (_closure.Facts.Budget is { } budget)
+        {
+            budget.Give(budget.Costs.PerLabel);
+            _labelCharge -= budget.Costs.PerLabel.Value;
+        }
+    }
+
+    private void TakeWorking()
+    {
+        if (_closure.Facts.Budget is { } budget)
+        {
+            budget.Take(budget.Costs.PerWorkingEntry);
+            _workingCharge += budget.Costs.PerWorkingEntry.Value;
+        }
+    }
+
+    /// <summary>Gives back <paramref name="entries"/> working entries' charge, or all of it when the pass is done.</summary>
+    private void GiveWorking(int entries)
+    {
+        if (_closure.Facts.Budget is { } budget && _workingCharge > 0)
+        {
+            long bytes = Math.Min(_workingCharge, entries * budget.Costs.PerWorkingEntry.Value);
+            budget.Give(new MemoryAmount(bytes));
+            _workingCharge -= bytes;
+        }
+    }
+
+    private void GiveAllWorking() => GiveWorking(int.MaxValue);
 
     private int Grow()
     {

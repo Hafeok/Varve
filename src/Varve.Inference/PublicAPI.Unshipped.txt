@@ -35,12 +35,7 @@ Varve.Inference.Closure.Closure(Varve.Inference.Model.InferenceProfile profile, 
 Varve.Inference.Closure.Count.get -> Varve.Rdf.QuadCount
 Varve.Inference.Closure.Release() -> void
 Varve.Inference.ClosureLimitExceededException
-Varve.Inference.ClosureLimitExceededException.ClosureLimitExceededException(Varve.Rdf.QuadCount limit) -> void
-Varve.Inference.ClosureLimitExceededException.Limit.get -> Varve.Rdf.QuadCount
 Varve.Inference.FactBudget
-Varve.Inference.FactBudget.FactBudget(Varve.Rdf.QuadCount limit) -> void
-Varve.Inference.FactBudget.Limit.get -> Varve.Rdf.QuadCount
-Varve.Inference.FactBudget.Used.get -> Varve.Rdf.QuadCount
 Varve.Inference.Model.InferredRow
 Varve.Inference.Model.InferredRow.Deconstruct(out Varve.Rdf.TermHandle Graph, out Varve.Inference.Model.Fact Fact) -> void
 Varve.Inference.Model.InferredRow.Equals(Varve.Inference.Model.InferredRow other) -> bool
@@ -130,3 +125,51 @@ static Varve.Inference.Model.DataGraphIndex.operator ==(Varve.Inference.Model.Da
 ~override Varve.Inference.Model.DataGraphIndex.ToString() -> string
 Varve.Inference.PremiseSets.Reach(System.Collections.Generic.IEnumerable<(Varve.Inference.Model.Fact Fact, Varve.Inference.Model.DataGraphIndex Graph)>! removed, System.Func<Varve.Inference.Model.Fact, Varve.Inference.Model.DataGraphIndex, bool>! heldAfter) -> System.Collections.Generic.IReadOnlySet<Varve.Inference.Model.Fact>!
 Varve.Inference.PremiseSets.Update(System.Collections.Generic.IReadOnlySet<Varve.Inference.Model.Fact>! affected, System.Collections.Generic.IEnumerable<(Varve.Inference.Model.Fact Fact, Varve.Inference.Model.DataGraphIndex Graph)>! held) -> System.Collections.Generic.IReadOnlyDictionary<Varve.Inference.Model.Fact, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PremiseSet!>!>!
+Varve.Inference.ClosureLimitExceededException.ClosureLimitExceededException(Varve.Inference.Model.MemoryAmount limit, Varve.Inference.Model.MemoryAmount wanted) -> void
+Varve.Inference.ClosureLimitExceededException.Limit.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.ClosureLimitExceededException.Wanted.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.FactBudget.Costs.get -> Varve.Inference.Model.ClosureCosts!
+Varve.Inference.FactBudget.FactBudget(Varve.Inference.Model.MemoryAmount limit, Varve.Inference.Model.ClosureCosts! costs) -> void
+Varve.Inference.FactBudget.Limit.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.FactBudget.Peak.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.FactBudget.Used.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Model.ClosureCosts
+Varve.Inference.Model.ClosureCosts.<Clone>$() -> Varve.Inference.Model.ClosureCosts!
+Varve.Inference.Model.ClosureCosts.ClosureCosts(Varve.Inference.Model.MemoryAmount PerFact, Varve.Inference.Model.MemoryAmount PerWorkingEntry, Varve.Inference.Model.MemoryAmount PerTouched, Varve.Inference.Model.MemoryAmount PerLabel, Varve.Inference.Model.MemoryAmount PerExplicit) -> void
+Varve.Inference.Model.ClosureCosts.Deconstruct(out Varve.Inference.Model.MemoryAmount PerFact, out Varve.Inference.Model.MemoryAmount PerWorkingEntry, out Varve.Inference.Model.MemoryAmount PerTouched, out Varve.Inference.Model.MemoryAmount PerLabel, out Varve.Inference.Model.MemoryAmount PerExplicit) -> void
+Varve.Inference.Model.ClosureCosts.Equals(Varve.Inference.Model.ClosureCosts? other) -> bool
+Varve.Inference.Model.ClosureCosts.PerExplicit.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Model.ClosureCosts.PerExplicit.init -> void
+Varve.Inference.Model.ClosureCosts.PerFact.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Model.ClosureCosts.PerFact.init -> void
+Varve.Inference.Model.ClosureCosts.PerLabel.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Model.ClosureCosts.PerLabel.init -> void
+Varve.Inference.Model.ClosureCosts.PerTouched.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Model.ClosureCosts.PerTouched.init -> void
+Varve.Inference.Model.ClosureCosts.PerWorkingEntry.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Model.ClosureCosts.PerWorkingEntry.init -> void
+Varve.Inference.Model.ClosureCosts.WithPerFactBeside(Varve.Inference.Model.MemoryAmount bytes) -> Varve.Inference.Model.ClosureCosts!
+Varve.Inference.Model.MemoryAmount
+Varve.Inference.Model.MemoryAmount.Deconstruct(out long Value) -> void
+Varve.Inference.Model.MemoryAmount.Equals(Varve.Inference.Model.MemoryAmount other) -> bool
+Varve.Inference.Model.MemoryAmount.MemoryAmount() -> void
+Varve.Inference.Model.MemoryAmount.MemoryAmount(long Value) -> void
+Varve.Inference.Model.MemoryAmount.Value.get -> long
+Varve.Inference.Model.MemoryAmount.Value.init -> void
+override Varve.Inference.Model.ClosureCosts.Equals(object? obj) -> bool
+override Varve.Inference.Model.ClosureCosts.GetHashCode() -> int
+override Varve.Inference.Model.ClosureCosts.ToString() -> string!
+override Varve.Inference.Model.MemoryAmount.GetHashCode() -> int
+static Varve.Inference.Model.ClosureCosts.For(Varve.Inference.Model.InferenceProfile profile) -> Varve.Inference.Model.ClosureCosts!
+static Varve.Inference.Model.ClosureCosts.operator !=(Varve.Inference.Model.ClosureCosts? left, Varve.Inference.Model.ClosureCosts? right) -> bool
+static Varve.Inference.Model.ClosureCosts.operator ==(Varve.Inference.Model.ClosureCosts? left, Varve.Inference.Model.ClosureCosts? right) -> bool
+static Varve.Inference.Model.MemoryAmount.operator !=(Varve.Inference.Model.MemoryAmount left, Varve.Inference.Model.MemoryAmount right) -> bool
+static Varve.Inference.Model.MemoryAmount.operator ==(Varve.Inference.Model.MemoryAmount left, Varve.Inference.Model.MemoryAmount right) -> bool
+~override Varve.Inference.Model.MemoryAmount.Equals(object obj) -> bool
+~override Varve.Inference.Model.MemoryAmount.ToString() -> string
+Varve.Inference.PremiseSets.Release() -> void
+Varve.Inference.FactBudget.Admit(Varve.Rdf.QuadCount given) -> void
+Varve.Inference.FactBudget.GiveBeside(Varve.Inference.Model.MemoryAmount amount) -> void
+Varve.Inference.FactBudget.TakeBeside(Varve.Inference.Model.MemoryAmount amount) -> void
+Varve.Inference.FactBudget.FactBudget(Varve.Inference.Model.MemoryAmount limit, Varve.Inference.Model.ClosureCosts! costs, Varve.Inference.FactBudget? pool) -> void
+Varve.Inference.FactBudget.Pool.get -> Varve.Inference.FactBudget?

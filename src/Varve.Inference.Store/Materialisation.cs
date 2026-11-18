@@ -51,7 +51,7 @@ internal abstract class Materialisation
         Projection = projection;
         Terms = terms;
         terms.BeginProgram();
-        Budget = new FactBudget(projection.FactLimit);
+        Budget = projection.NewBudget();
         TBox = new Closure(projection.Binding.Profile, Terms, Budget);
         TBoxGraph = Terms.Handle(projection.TBoxGraph);
     }
@@ -75,33 +75,52 @@ internal abstract class Materialisation
         Materialisation built = projection.Binding.CrossGraph ? new CrossGraphMaterialisation(terms, projection) : new PerGraphMaterialisation(terms, projection);
         try
         {
+            // Admission (ADR 0195 point 6, as amended 2026-11-18): each given fact
+            // read is charged as a working entry before it is buffered, and the
+            // build is refused before it derives anything if the given facts alone
+            // could not be held.
+            MemoryAmount entry = built.Budget.Costs.PerWorkingEntry;
+            long given = 0;
             List<Fact> tbox = [];
             Dictionary<TermHandle, List<Fact>> graphs = [];
-            using (IQuadCursor cursor = source.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
+            try
             {
-                while (cursor.MoveNext())
+                using (IQuadCursor cursor = source.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
                 {
-                    Quad quad = cursor.Current;
-                    Fact fact = new(quad.Subject, quad.Predicate, quad.Object);
-                    if (built.IsTBox(source, quad.Graph))
+                    while (cursor.MoveNext())
                     {
-                        tbox.Add(fact);
-                    }
-                    else if (built.IsData(source, quad.Graph))
-                    {
-                        if (!graphs.TryGetValue(quad.Graph, out List<Fact>? facts))
+                        Quad quad = cursor.Current;
+                        Fact fact = new(quad.Subject, quad.Predicate, quad.Object);
+                        if (built.IsTBox(source, quad.Graph))
                         {
-                            graphs[quad.Graph] = facts = [];
+                            built.Budget.TakeBeside(entry);
+                            given++;
+                            tbox.Add(fact);
                         }
+                        else if (built.IsData(source, quad.Graph))
+                        {
+                            built.Budget.TakeBeside(entry);
+                            given++;
+                            if (!graphs.TryGetValue(quad.Graph, out List<Fact>? facts))
+                            {
+                                graphs[quad.Graph] = facts = [];
+                            }
 
-                        facts.Add(fact);
+                            facts.Add(fact);
+                        }
                     }
                 }
+
+                built.Budget.Admit(new QuadCount(given));
+                cancellationToken.ThrowIfCancellationRequested();
+                built.TBox.Apply([.. tbox], []);
+                built.Load(graphs, cancellationToken);
+            }
+            finally
+            {
+                built.Budget.GiveBeside(new MemoryAmount(given * entry.Value));
             }
 
-            cancellationToken.ThrowIfCancellationRequested();
-            built.TBox.Apply([.. tbox], []);
-            built.Load(graphs, cancellationToken);
             projection.Learn(built);
             return built;
         }

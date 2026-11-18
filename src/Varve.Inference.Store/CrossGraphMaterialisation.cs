@@ -69,7 +69,7 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         }
 
         // Only the graphs of the row's set: a proof never draws on another.
-        Closure closure = new(Projection.Binding.Profile, Terms, new FactBudget(Projection.FactLimit), TBox);
+        Closure closure = new(Projection.Binding.Profile, Terms, Projection.NewBudget(), TBox);
         List<Fact> facts = [];
         foreach (TermHandle member in members)
         {
@@ -85,8 +85,9 @@ internal sealed class CrossGraphMaterialisation : Materialisation
 
     internal override void Release()
     {
-        base.Release();
+        _sets.Release();
         _merge.Release();
+        base.Release();
     }
 
     protected override void Load(Dictionary<TermHandle, List<Fact>> graphs, CancellationToken cancellationToken)

@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Varve.Inference.Model;
 using Varve.Rdf;
 
@@ -58,11 +59,47 @@ internal sealed class FactSet
     /// </summary>
     internal FactSet? Base { get; init; }
 
-    /// <summary>The budget each fact added takes from, if the closure has one.</summary>
-    internal FactBudget? Budget { get; set; }
+    // What this set has taken from its budget, and what its pass's record of changes has: each given back whole.
+    private long _charged;
+    private long _touchedCharge;
 
-    /// <summary>While a pass records its changes: each fact added or removed, and whether it was held before its first change.</summary>
-    internal Dictionary<Fact, bool>? Touched { get; set; }
+    /// <summary>The budget this set takes from before it allocates, if the closure has one.</summary>
+    internal FactBudget? Budget { get; private set; }
+
+    /// <summary>Takes from <paramref name="budget"/> what the set holds already, and asks it before every allocation after.</summary>
+    /// <exception cref="ClosureLimitExceededException">What the set holds already would pass the budget.</exception>
+    internal void Charge(FactBudget budget)
+    {
+        long held = (_records.Length * (long)Unsafe.SizeOf<Record>()) + (_table.Length * (long)sizeof(int)) + (Count * budget.Costs.PerFact.Value);
+        budget.Take(new MemoryAmount(held));
+        Budget = budget;
+        _charged = held;
+    }
+
+    /// <summary>Gives back to the budget everything the set took: its owner is dropping it.</summary>
+    internal void Uncharge()
+    {
+        Budget?.Give(new MemoryAmount(_charged + _touchedCharge));
+        _charged = 0;
+        _touchedCharge = 0;
+        Budget = null;
+    }
+
+    /// <summary>While a pass records its changes: each fact added or removed, and whether it was held before its first change; each entry charged until the record is put down.</summary>
+    internal Dictionary<Fact, bool>? Touched
+    {
+        get;
+        set
+        {
+            if (value is null)
+            {
+                Budget?.Give(new MemoryAmount(_touchedCharge));
+                _touchedCharge = 0;
+            }
+
+            field = value;
+        }
+    }
 
     /// <summary>The facts this set holds itself, its base's not among them.</summary>
     internal IEnumerable<Fact> All
@@ -119,7 +156,9 @@ internal sealed class FactSet
             return false;
         }
 
-        Budget?.Take();
+        // Every allocation below is asked of the budget first: the fact, a pass's record of it, and either array's growth.
+        Take(Budget?.Costs.PerFact.Value ?? 0);
+        Note(fact, false);
         if ((Count + 1) * 4 > _table.Length * 3)
         {
             Grow();
@@ -134,7 +173,10 @@ internal sealed class FactSet
         {
             if (_used == _records.Length)
             {
+                long size = Unsafe.SizeOf<Record>();
+                Take(_records.Length * 2 * size);
                 Array.Resize(ref _records, _records.Length * 2);
+                Give(_records.Length / 2 * size);
             }
 
             at = _used++;
@@ -144,7 +186,6 @@ internal sealed class FactSet
         Count++;
         _version++;
         Place(at);
-        Touched?.TryAdd(fact, false);
 
         Link(_bySubject, fact.Subject.Value, at, Subjects);
         Link(_byPredicate, fact.Predicate.Value, at, Predicates);
@@ -162,8 +203,8 @@ internal sealed class FactSet
             return false;
         }
 
-        Budget?.Give();
-        Touched?.TryAdd(fact, true);
+        Note(fact, true);
+        Give(Budget?.Costs.PerFact.Value ?? 0);
 
         Unlink(_bySubject, fact.Subject.Value, at, Subjects);
         Unlink(_byPredicate, fact.Predicate.Value, at, Predicates);
@@ -367,9 +408,47 @@ internal sealed class FactSet
         _table[hole] = 0;
     }
 
+    private void Take(long bytes)
+    {
+        if (Budget is { } budget && bytes > 0)
+        {
+            budget.Take(new MemoryAmount(bytes));
+            _charged += bytes;
+        }
+    }
+
+    private void Give(long bytes)
+    {
+        if (Budget is { } budget && bytes > 0)
+        {
+            budget.Give(new MemoryAmount(bytes));
+            _charged -= bytes;
+        }
+    }
+
+    /// <summary>Records a change in the pass's record, the entry charged first.</summary>
+    private void Note(in Fact fact, bool held)
+    {
+        if (Touched is not { } touched || touched.ContainsKey(fact))
+        {
+            return;
+        }
+
+        if (Budget is { } budget)
+        {
+            budget.Take(budget.Costs.PerTouched);
+            _touchedCharge += budget.Costs.PerTouched.Value;
+        }
+
+        touched[fact] = held;
+    }
+
     private void Grow()
     {
+        Take(_table.Length * 2L * sizeof(int));
+        int[] old = _table;
         _table = new int[_table.Length * 2];
+        Give(old.Length * (long)sizeof(int));
         for (int i = 0; i < _used; i++)
         {
             if (_records[i].Held)
