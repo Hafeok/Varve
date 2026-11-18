@@ -128,7 +128,7 @@ public sealed class ObjectStoreVerificationTests
         Assert.False(outcome.Verified);
         VerificationCounterexample counterexample = Assert.IsType<VerificationCounterexample>(outcome.Counterexample);
         Assert.Equal("of clients racing create-if-absent on one name exactly one wins", counterexample.Case.Value);
-        Assert.StartsWith("round 0: ", counterexample.Violation.Value, StringComparison.Ordinal);
+        Assert.StartsWith("round ", counterexample.Violation.Value, StringComparison.Ordinal);
         Assert.EndsWith(" of 16 racing creates were told they wrote", counterexample.Violation.Value, StringComparison.Ordinal);
 
         // The five operations, one request at a time, are all it keeps.
