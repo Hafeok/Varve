@@ -5,6 +5,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Server;
 
@@ -30,6 +32,7 @@ namespace Varve.Server;
 ///   more field beside <c>Server</c>.</item>
 /// </list>
 /// </remarks>
+[Contract(typeof(TheWebUiInTheContainerImage.GeneratedSettingsAreAnAllowList), Role = "the Web UI's settings, written field by field from a closed record and never from a configuration section")]
 internal static class GeneratedWebUiSettings
 {
     internal const string Anonymous = "Anonymous";
@@ -151,6 +154,7 @@ internal static class GeneratedWebUiSettings
 internal sealed record WebUiDocument(string Server, WebUiDocumentAuth Auth);
 
 /// <summary>The sign-in settings of ADR 0201 point 5, and the settings to add when sign-in is not configured.</summary>
+[Contract(typeof(TheWebUiInTheContainerImage.NotConfiguredIsNeverAnonymous), Role = "the sign-in mode the server answers: NotConfigured, with the settings to add, for an OIDC server with no client for the Web UI; never Anonymous")]
 internal sealed record WebUiDocumentAuth(
     string Mode,
     string? Authority = null,

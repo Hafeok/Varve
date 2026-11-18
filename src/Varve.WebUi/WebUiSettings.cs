@@ -4,12 +4,15 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.WebUi;
 
 /// <summary>What the composition root decided at boot: the server, and how the Web UI signs in.</summary>
 /// <param name="Server">The server's base address (ADR 0202).</param>
 /// <param name="Anonymous">No sign-in: the server runs with <c>Auth:Mode</c> <c>Anonymous</c>.</param>
+[Contract(typeof(TheWebUiInTheContainerImage.NotConfiguredIsNeverAnonymous), Role = "only Anonymous is anonymous; any mode but Oidc and Anonymous is not configured")]
 public sealed record WebUiSettings(Uri Server, bool Anonymous)
 {
     /// <summary>

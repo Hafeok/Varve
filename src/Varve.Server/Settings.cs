@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Server;
 
@@ -72,6 +74,7 @@ internal sealed class ServerSettings
 /// container image sets the path to its own bundle and <see cref="Settings"/>
 /// to <c>Generated</c>.
 /// </summary>
+[Contract(typeof(TheWebUiInTheContainerImage.WebUiEnabledIsTheOffSwitch), Role = "Enabled, the setting that turns the Web UI off")]
 internal sealed class WebUiSettings
 {
     public string? Path { get; set; }
@@ -95,6 +98,7 @@ internal sealed class WebUiSettings
 }
 
 /// <summary>The values of <see cref="WebUiSettings.Settings"/>.</summary>
+[Contract(typeof(TheWebUiInTheContainerImage.SettingsFileOrGenerated), Role = "the two values of Varve:WebUi:Settings, File by default")]
 internal static class WebUiSettingsSource
 {
     internal const string File = "File";

@@ -8,6 +8,8 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Net;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.Extensions.Configuration;
 
 namespace Varve.Server;
@@ -17,6 +19,7 @@ namespace Varve.Server;
 /// listed, and a server with any refuses to start rather than fall back to a
 /// default for a value that was given and is wrong.
 /// </summary>
+[Contract(typeof(TheWebUiInTheContainerImage.WebUiSettingsReadOnlyWhenGenerated), Role = "the Web UI's settings refused at start where they would do nothing or are half set")]
 internal static class SettingsCheck
 {
     /// <summary>
