@@ -189,3 +189,41 @@ out of scope. The README lists each.
 - `ci.yml`, job `repo-standard (…)`: Native AOT publish with ILC warnings as
   errors, then run; job `repo-standard action`: the Action end to end against a
   replayed GitHub, and refusing a binary whose checksum does not match.
+
+## Amendment, 2026-11-18 — a declared secret may be absent
+
+**Accepted — filed unaccepted by a cloud session for #327, 2026-11-18** (ADR
+0066, ADR 0068). Acceptance is the maintainer's act on the pull request.
+
+The weekly `check` on `main` was red for five names in the `auth-providers`
+environment that do not exist yet: identifiers for the Entra ID and Google
+test tenants, which are not provisioned. ADR 0223 already has the provider
+leg skip when none of its identifiers is present, so the absence is expected,
+and the only thing red about it was the check. The maintainer ruled on
+2026-11-17 (on #327) that the five may be declared as absent.
+
+A secret list was a list of names, so a name could not carry that, and the
+`absent: true` of a keyed list removes the whole item from the declaration,
+which for an environment would remove the environment. So:
+
+- **An item of a `secrets` list**, the repository's or an environment's, is a
+  name, or `{name, may_be_absent}`. A name appears once in a list, in either
+  spelling.
+- **A name declared `may_be_absent` and missing is reported as "declared,
+  absent"**, marked `=`, and **is not a difference**: not in the count of
+  differences, never written, and neither `check` nor `apply` exits 1 for it.
+  The summary counts such names after the differences.
+- **Present, it is as declared**, and is not reported. "May be absent" allows
+  both states, so neither is drift. Asserting a name must *not* exist is a
+  different statement, and nothing needs it.
+- **A plain name missing is `!` and fails `check`, as before.** So does a
+  present name that is not declared.
+- **Values are still never read or written.** The same list endpoints are
+  read, names only.
+
+`tools/repo-standard/docs/declaration.md` §3 and §4.4 state it. The mark is
+for a value a person has still to provision, where its reader copes with its
+absence; it is removed from a name once the value exists, so that its loss
+would be red again.
+
+Records decision `ADeclaredSecretMayBeAbsent`.

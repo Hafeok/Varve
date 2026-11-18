@@ -31,6 +31,8 @@ decisions:
     statement: "Settings no API can write are read and reported or left out, never half supported"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-09-23T00:00:00Z
+  - key: ADeclaredSecretMayBeAbsent
+    statement: "A secret may be declared with may_be_absent; missing, it is reported as declared and absent and is not a difference, present it is as declared, a plain name missing still fails check, and no secret value is read or written"
 ---
 
 The rulings of [ADR 0039](../adr/0039-repo-standard.md) still in force, one line each. The ADR is the
