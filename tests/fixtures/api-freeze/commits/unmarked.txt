@@ -1,0 +1,4 @@
+touches: src/Varve.Fixture.ApiFreeze/Gauge.cs
+refactor(fixture): Reset is gone
+
+The gauge needs no reset.

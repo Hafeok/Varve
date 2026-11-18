@@ -148,6 +148,48 @@ jobs:
           if [ "$code" -ne 1 ]; then echo "::error::the failing DCO fixture exited $code, not 1"; exit 1; fi
           dotnet run eng/dco.cs -- --commits tests/fixtures/dco/passing.txt --identities tests/fixtures/dco/identities.json
 
+  # ADR 0227: every library package against its own published nupkg at the
+  # newest release tag that is an ancestor of this commit, by the SDK's
+  # package validation. Before 1.0 a breaking change fails only when no commit
+  # since the tag that touches the package is marked `!` or `BREAKING
+  # CHANGE:`, and no proposed descriptor says (breaking) naming it. It runs on
+  # a release's call too, where the proposed descriptor is the release's own.
+  # Its fixtures are a job in eng/ci.cs. A job of its own so that ruleset 1
+  # can require it by name.
+  api-freeze:
+    name: api freeze
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+          # The tags, and every commit since the newest one.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: The public API against the last release
+        run: dotnet run eng/api-freeze.cs
+
+      - name: Build everything that consumes a package
+        # The solution, the benchmarks and the samples that are not tests:
+        # the members only a test references are judged against all of them.
+        run: |
+          dotnet build Varve.slnx --configuration Release
+          dotnet build tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release
+          for sample in Varve.Aspire.Sample Varve.EventHubs.Sample Varve.OnBehalfOf.Sample; do
+            dotnet build "samples/$sample/$sample.csproj" --configuration Release
+          done
+
+      - name: Public members whose only consumer is a test
+        # A report for the maintainer's decision before the freeze, in the
+        # step summary; it never fails the job (ADR 0227 point 6).
+        run: dotnet run eng/api-freeze.cs -- --test-only --report "$RUNNER_TEMP/test-only.md"
+
   # Gates merges. Everything here must be green.
   build:
     name: build (${{ matrix.os }})
@@ -451,6 +493,16 @@ jobs:
           --configuration Release
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Shacl.Store.Tests
+
+      # Built with the solution since milestone 9 part 1 and run by no job
+      # until the operator-guide audit found it (#298).
+      - name: Test Varve.Classification
+        run: >
+          dotnet test
+          --project tests/Varve.Classification.Tests/Varve.Classification.Tests.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Classification.Tests
 
       - name: Test Varve.Protocol
         run: >
@@ -2224,6 +2276,47 @@ jobs:
   # baseline is allowed to fail while it is being worked on (ADR 0007). The
   # ratchet gates instead — on a regression, on a case that vanished, on an
   # exemption with no justification, and on the harness itself failing.
+  # The docs site (ADR 0247): built twice, on the runner's Chrome for its
+  # diagrams, and the two builds compared byte for byte; each build checks its
+  # own links and pages, and every diagram's SVG. Nothing is deployed here:
+  # docs-site.yml deploys from main.
+  docs-site:
+    name: docs site
+    runs-on: ubuntu-latest
+    env:
+      VARVE_CHROME: ${{ vars.VARVE_CHROME || '/usr/bin/google-chrome' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Restore the generator, locked
+        run: dotnet restore eng/site -p:RestoreLockedMode=true
+
+      - name: Build the site, twice, and compare
+        run: |
+          commit="$(git rev-parse HEAD)"
+          for out in site site-again; do
+            dotnet run --project eng/site --configuration Release --no-restore -- \
+              build --out "${{ github.workspace }}/artifacts/$out" --commit "$commit" --chrome "$VARVE_CHROME" \
+              --cache "${{ runner.temp }}/site-cache"
+          done
+          diff --recursive --brief "${{ github.workspace }}/artifacts/site" "${{ github.workspace }}/artifacts/site-again"
+          echo "Two builds of $commit are byte-identical: $(find "${{ github.workspace }}/artifacts/site" -type f | wc -l) files." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the site
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docs-site
+          path: ${{ github.workspace }}/artifacts/site
+          retention-days: 7
+
   conformance:
     name: conformance (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

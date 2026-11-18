@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- One surface of the API freeze gate's fixture package (ADR 0227;
+         tests/fixtures/api-freeze/README.md). Packable, so it packs and its
+         PublicAPI files apply; never in Varve.slnx and never published. -->
+    <IsPackable>true</IsPackable>
+    <ArchLayer>0</ArchLayer>
+    <PackageId>Varve.Fixture.ApiFreeze</PackageId>
+    <AssemblyName>Varve.Fixture.ApiFreeze</AssemblyName>
+    <RootNamespace>Varve.Fixture.ApiFreeze</RootNamespace>
+  </PropertyGroup>
+</Project>
