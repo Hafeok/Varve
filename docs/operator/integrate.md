@@ -22,6 +22,7 @@ reads and writes it, with no store in it.
 
 ## Following: `FollowAsync`
 
+<!-- ci: ci.yml build — FollowTests (Varve.Protocol.Client) -->
 ```csharp
 SparqlHttpClient client = /* the dataset, with its token provider */;
 IFollowCheckpoint checkpoint = new FileFollowCheckpoint("orders.position");
@@ -86,6 +87,7 @@ catalogue graph of `https://shop.example/orders` is that IRI percent-encoded
 under `https://w3id.org/varve/ns#events-catalogue/`. A caller reads and
 writes it exactly when it reads and writes the events graph.
 
+<!-- ci: ci.yml build — EventsEndpointTests, with equivalent declarations -->
 ```sparql
 PREFIX varve: <https://w3id.org/varve/ns#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
@@ -128,6 +130,7 @@ version.
 
 **The commit**: the order and its event, together.
 
+<!-- ci: ci.yml build — EventsEndpointTests, with equivalent commits -->
 ```sparql
 PREFIX shop: <https://shop.example/ns#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
@@ -147,6 +150,7 @@ INSERT DATA {
 **The CloudEvent** a consumer receives from
 `GET /datasets/shop/events?from=0`, one line, members sorted:
 
+<!-- ci: example — one rendered event; Varve.Events.Tests holds the rendering to its golden files -->
 ```json
 {"data":{"placedAt":"2026-10-15T10:05:12Z","total":1250},"datacontenttype":"application/json","dataschema":"https://varve.shop.example/datasets/shop/events/types/OrderPlaced/versions/1/revisions/2","id":"3 https://shop.example/events/1002-placed","sequence":"00000000000000000003.000000","source":"https://varve.shop.example/datasets/shop","specversion":"1.0","subject":"https://shop.example/orders/1002","time":"2026-10-15T20:53:43.1613986Z","type":"OrderPlaced"}
 ```
@@ -159,6 +163,7 @@ INSERT DATA {
 **The schema** at `dataschema`, which is generated from the declaration, never
 changes, and is served with `Cache-Control: immutable`:
 
+<!-- ci: example — one generated schema; Varve.Events.Tests holds the schemas to their golden files -->
 ```json
 {"$id":"https://varve.shop.example/datasets/shop/events/types/OrderPlaced/versions/1/revisions/2","$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":true,"properties":{"placedAt":{"format":"date-time","type":"string"},"total":{"type":"number"}},"required":["placedAt","total"],"title":"OrderPlaced","type":"object","x-varve-version":1}
 ```
@@ -214,6 +219,7 @@ It hands over each commit's events, `CommitEvents`. Each event's `Json` holds
 the canonical bytes exactly as the server rendered them. Forward those bytes,
 never a re-serialisation.
 
+<!-- ci: ci.yml build — FollowEventsTests; ci.yml samples-eventhubs — the Event Hubs bridge -->
 ```csharp
 await client.FollowEventsAsync(new FeedPosition(0), async (commit, cancellationToken) =>
 {

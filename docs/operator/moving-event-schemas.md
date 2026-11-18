@@ -25,6 +25,7 @@ change by a byte.
 
 ## Moving
 
+<!-- ci: none — no test invokes varve manage move-events (#344); its route runs in ci.yml build (EventMoveTests) and fleet-services (FleetTests) -->
 ```bash
 varve manage move-events notes --server https://varve.example.org \
   --authority https://login.example.org/v2.0 --client-id … --client-assertion github
@@ -124,3 +125,9 @@ header. A follower of the dataset reads the moved declarations from its own
 follower of the system dataset. It renders a commit only once it has applied
 the position that commit records. Until then the events request answers
 `503 management-behind`, and asking again shortly is enough.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Moving.** No test invokes varve manage move-events (#344); its route runs in ci.yml build (EventMoveTests) and fleet-services (FleetTests).

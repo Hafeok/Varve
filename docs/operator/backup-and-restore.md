@@ -40,6 +40,7 @@ cleanest hot copy.
 **Cold**: declare the dataset closed first, so that the copy is exactly a
 position. `$OPERATOR` is a token for the management audience (ADR 0163):
 
+<!-- ci: none — no job closes, copies and reopens a dataset yet; pull request C of #129 adds one -->
 ```sh
 curl -X PUT -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json' \
   -d '{"state":"closed"}' https://varve.example/manage/datasets/people/state
@@ -55,6 +56,7 @@ from the copy itself, or `GET /manage/datasets/people/status` before the close.
 
 A checkpoint bounds the replay an open and an as-of read do (ADR 0078):
 
+<!-- ci: ci.yml build — CliTests' checkpoint, and ManagementTests' POST …/checkpoints -->
 ```sh
 curl -X POST -H "Authorization: Bearer $OPERATOR" https://varve.example/manage/datasets/people/checkpoints
 varve checkpoint /var/lib/varve/people        # the dataset must not be held by a server
@@ -125,6 +127,7 @@ so every instance announces the catalog versions it reads in a reader record,
 and the writer deletes a set only when no record holds it (ADR 0160). Until
 then the store keeps it, and its bytes are *retained*.
 
+<!-- ci: ci.yml storage-services — ObjectStorageServerTests, against Azurite -->
 ```sh
 varve storage https://account.blob.core.windows.net/varve/people
 varve storage readers list https://account.blob.core.windows.net/varve/people
@@ -143,6 +146,7 @@ removed without a clean stop, a killed `varve query` — keeps its record. When
 `readers list` shows one that retains bytes and you know it is gone, forget it
 with the interval list showed:
 
+<!-- ci: ci.yml storage-services — ObjectStorageServerTests, against Azurite -->
 ```sh
 varve storage readers forget https://account.blob.core.windows.net/varve/people \
   --reader 3f2a… --oldest 41 --newest 42
@@ -162,6 +166,7 @@ replication; see [Azure Container Apps](azure-container-apps.md).
 Put the directory under the root, under the name the dataset should have,
 with the dataset declared closed, then declare it open:
 
+<!-- ci: none — no job restores a copy under a running server yet; pull request C of #129 adds one -->
 ```sh
 cp -a /backup/people-20261008T120000Z /var/lib/varve/people
 curl -X PUT -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json' \
@@ -203,6 +208,7 @@ happens then:
 `varve lease <dir>` says what the lease is now: it prints the owner file and
 tries to take the lock, releasing it at once; exit 0 free, 1 held.
 
+<!-- ci: ci.yml build — CliTests' lease case -->
 ```sh
 $ varve lease /var/lib/varve/people
 owner: process 4242 on db-1, since 2026-10-09T15:02:11Z
@@ -249,6 +255,7 @@ Damage is told apart by where it is, and only one kind needs a backup.
 A consumer that persists the last position it applied misses nothing by
 resuming from it (`docs/spec/change-feed.md` §4):
 
+<!-- ci: ci.yml build — CliTests: feed, and a server reached with --token -->
 ```sh
 varve feed https://varve.example/datasets/people/ --from "$LAST" --token "$TOKEN" >> people.delta
 ```
@@ -265,3 +272,10 @@ feed is a new dataset with a new id.
 TriG), or one graph as N-Triples or Turtle, and `--as-of position:<n>` on a
 directory writes the past. It is what to hand to another system; it carries
 no history.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Taking a copy.** No job closes, copies and reopens a dataset yet; pull request C of #129 adds one.
+- **Restoring.** No job restores a copy under a running server yet; pull request C of #129 adds one.

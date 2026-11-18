@@ -22,6 +22,7 @@ and 0194 (the binding's vocabulary). The rewriting is `Varve.Sparql.Entailment`.
 A binding is a node in the dataset's management graph,
 `varve:manage/dataset/{name}`, beside the dataset's own declaration:
 
+<!-- ci: ci.yml build — TBoxBindingTests and EntailmentTests -->
 ```trig
 @prefix varve: <https://w3id.org/varve/ns#> .
 
@@ -77,6 +78,7 @@ it, not before) and **narrows**. The saved plan's JSON carries the list as
 `datasetPublic`, written only when the apply names one: a plan without is
 format 1 as earlier releases wrote it.
 
+<!-- ci: ci.yml build — TBoxBindingTests asserts this text -->
 ```text
 System position 41
 Dataset-public graphs, read by every reader of their dataset:

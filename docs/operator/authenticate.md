@@ -29,6 +29,7 @@ whose property names are the roles, as Zitadel's project roles are.
 template over the caller, such as `https://example.org/users/{sub}/`, for
 on-behalf-of users who own their graphs:
 
+<!-- ci: ci.yml build — Varve.Server.Tests: grants by graph, declared as these are (not this file) -->
 ```trig
 <urn:people:writers> a varve:Grant ; varve:grantee <urn:people:people> ;
   varve:permission varve:write ;
@@ -74,6 +75,7 @@ permissions are its `roles`. **A managed identity** (a VM, a container app,
 a function) does the same through the instance metadata endpoint with
 `resource=api://varve`, and is assigned app roles by its object id:
 
+<!-- ci: none — it needs an Entra tenant, and the test tenant is not provisioned (ADR 0223) -->
 ```sh
 az ad app show --id api://varve --query appRoles        # the role ids
 az rest --method POST --uri "https://graph.microsoft.com/v1.0/servicePrincipals/{identity-object-id}/appRoleAssignments" \
@@ -94,6 +96,7 @@ credential and no secret (ADR 0223, `docs/auth-providers.md`). The test tenant
 is not provisioned yet, so the leg skips until it is; the device code flow
 above is run by no CI job.
 
+<!-- ci: none — it needs an Entra tenant; auth (providers) uses these settings and skips until the tenant exists (ADR 0223) -->
 ```json
 "Varve": {
   "Auth": {
@@ -140,6 +143,7 @@ token.
 3. **The exchange.** For each user, the application posts the user's token
    to the tenant's token endpoint:
 
+   <!-- ci: none — on-behalf-of against Entra runs only in entra-obo.yml, by hand with the maintainer's MFA sign-in (ADR 0127), and the tenant is not provisioned -->
    ```http
    POST https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
    Content-Type: application/x-www-form-urlencoded
@@ -185,6 +189,7 @@ write**, and Varve records what the token says.
 
 In the commits list, one application making both kinds of write:
 
+<!-- ci: example — what the commits list shows for the two writes -->
 ```
 commit 41 Data 2026-10-13T09:12:04.1234567Z
 agent <https://login.microsoftonline.com/{tenant}/v2.0#4e2d…alice-oid>
@@ -231,6 +236,7 @@ What the server needs of an issuer:
 4. **A subject** that is stable: `sub` by default; `SubjectClaim` picks
    another (`oid` for Entra, `email` where that is what is stable).
 
+<!-- ci: ci.yml auth-zitadel; ci.yml auth-mock-oauth2 — these settings with each issuer's values (ProviderTests) -->
 ```json
 "Varve": {
   "Auth": {
@@ -279,6 +285,7 @@ Management is a plane of its own, under `/manage/` (ADR 0163 point 1):
   The job's own OIDC token is the client's assertion, exchanged at the issuer
   for a token for the management audience:
 
+  <!-- ci: ci.yml container — the step that declares the dataset with varve apply by workload identity federation, against mock-oauth2 -->
   ```sh
   varve apply declarations/*.trig --server https://varve.example \
     --authority https://login.microsoftonline.com/{tenant}/v2.0 \
@@ -293,6 +300,7 @@ Management is a plane of its own, under `/manage/` (ADR 0163 point 1):
 
 ## Anonymous mode
 
+<!-- ci: ci.yml aot — eng/server-smoke.cs starts the binary in anonymous mode -->
 ```json
 "Varve": { "Auth": { "Mode": "Anonymous" } }
 ```
@@ -342,3 +350,11 @@ the file, and the flow starts over.
 `SERVICE` and `LOAD` reach other servers anonymously, within the endpoint and
 source allow-lists ([Configure](configure.md)). Varve attaches no credential
 to an outbound request.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Microsoft Entra ID.** It needs an Entra tenant, and the test tenant is not provisioned (ADR 0223).
+- **Microsoft Entra ID.** It needs an Entra tenant; auth (providers) uses these settings and skips until the tenant exists (ADR 0223).
+- **An application acting for its users: on-behalf-of.** On-behalf-of against Entra runs only in entra-obo.yml, by hand with the maintainer's MFA sign-in (ADR 0127), and the tenant is not provisioned.

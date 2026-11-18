@@ -1,0 +1,1 @@
+docs/operator/web-ui.md #308, the Web UI in the image, rewrites this page; its procedures are marked with it (ADR 0248)

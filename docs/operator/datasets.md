@@ -51,6 +51,7 @@ closes what is declared closed, and the writer deletes what is no longer
 declared. A file kept in the application's repository is the source of
 truth; `varve apply` makes the server so.
 
+<!-- ci: ci.yml build — ApplyTests, with equivalent declarations; ci.yml container — the dataset declared by varve apply -->
 ```trig
 @prefix varve: <https://w3id.org/varve/ns#> .
 @prefix n: <https://notes.example/manage/> .
@@ -93,6 +94,7 @@ declaration-invalid`, naming the graph, the node and the property.
 
 ### `varve apply`
 
+<!-- ci: ci.yml build — ApplyTests: --plan, --exit-code, --out, --from-plan and a plain apply -->
 ```sh
 varve apply notes.trig --server https://varve.example --plan --exit-code   # drift check: exit 2 on a diff
 varve apply notes.trig --server https://varve.example --plan --out plan.json
@@ -197,6 +199,7 @@ an application cannot grant itself any, and grants are declarations
 
 ### In an application: `AddVarve`
 
+<!-- ci: ci.yml build — SetupTests; ci.yml samples — the on-behalf-of sample's AddVarve -->
 ```csharp
 builder.Services.AddVarve(options =>
 {
@@ -213,6 +216,7 @@ the start**, with the step, the status and the problem body (ADR 0131).
 
 ### From a pipeline: `varve setup apply`
 
+<!-- ci: none — SetupApplyTests runs varve setup apply with --token; this sign-in by client secret is run by no job -->
 ```sh
 varve setup apply varve/orders.yaml https://varve.example/ --authority https://login.example/ --client-id deployer --client-secret "$SECRET"
 ```
@@ -224,6 +228,7 @@ outside the subset below, with its line and column.
 
 ### In an Aspire AppHost: `WithDataset(…, setup:)`
 
+<!-- ci: ci.yml aspire — the sample AppHost's WithDataset -->
 ```csharp
 builder.AddVarve("varve")
     .WithOidc(authority, "api://varve")
@@ -245,6 +250,7 @@ A setup file is YAML, **of a strict subset**, read without a YAML package.
 **Anything outside the subset is refused with its line and column**, never
 accepted silently.
 
+<!-- ci: ci.yml build — SetupFileTests -->
 ```yaml
 # The shop's orders dataset.
 dataset: orders                  # required: the dataset's name, declared in the management plane
@@ -290,3 +296,9 @@ migrations:                      # optional, in order, each once
 
 A file's encoding is UTF-8. A baseline file may start with a byte order mark,
 which is dropped before it is read or sent.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **From a pipeline: `varve setup apply`.** SetupApplyTests runs varve setup apply with --token; this sign-in by client secret is run by no job.

@@ -27,6 +27,7 @@ the model.
 
 ## A sketch
 
+<!-- ci: none — a sketch, not the shipped files: kubernetes-sample validates deploy/kubernetes/ with kubeconform, and deploying it is pull request D of #129 -->
 ```yaml
 apiVersion: v1
 kind: Service
@@ -132,3 +133,9 @@ Neither file sets `Varve:ObjectStorage:ReaderId`, and the cache is an
 `emptyDir`, so a pod that restarts uncleanly announces a new reader and the
 old record holds extent sets back until `varve storage readers forget`
 removes it (ADR 0160, #303).
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **A sketch.** A sketch, not the shipped files: kubernetes-sample validates deploy/kubernetes/ with kubeconform, and deploying it is pull request D of #129.

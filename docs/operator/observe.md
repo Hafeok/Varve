@@ -29,6 +29,7 @@ governed like the dataset.
 
 A collector without a backend, to see what arrives:
 
+<!-- ci: none — the collector image is Docker Hub's, which CI does not pull (#118); TelemetryTests (ci.yml build) runs the exporter against an in-process OTLP receiver -->
 ```yaml
 # otel-collector.yaml — the debug exporter prints every signal to stdout.
 receivers:
@@ -46,6 +47,7 @@ service:
     logs:    { receivers: [otlp], exporters: [debug] }
 ```
 
+<!-- ci: none — the collector image is Docker Hub's, which CI does not pull (#118); TelemetryTests (ci.yml build) sets these variables against an in-process receiver -->
 ```sh
 docker run --rm -p 4318:4318 -v "$PWD/otel-collector.yaml:/etc/otelcol/config.yaml" otel/opentelemetry-collector:latest
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
@@ -172,3 +174,10 @@ as it would; a `Meter` instrument with no listener is a flag test per
 commit. With a listener a request allocates its span and its attributes,
 once, and nothing per solution: the allocation test's traced reading is the
 same 56 bytes a solution as the untraced one.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Turning the exporter on.** The collector image is Docker Hub's, which CI does not pull (#118); TelemetryTests (ci.yml build) runs the exporter against an in-process OTLP receiver.
+- **Turning the exporter on.** The collector image is Docker Hub's, which CI does not pull (#118); TelemetryTests (ci.yml build) sets these variables against an in-process receiver.

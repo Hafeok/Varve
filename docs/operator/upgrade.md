@@ -103,3 +103,17 @@ error named. Read the changelog's section for the release before upgrading:
 a renamed setting is listed there, and `varve serve --print-config` with the
 new build and the old configuration shows every effective value and its
 source, and lists what the build refuses, before anything serves.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Upgrading one instance.** The stop, `dotnet tool update` and start
+  sequence: no job installs a release's published tool and upgrades it in
+  place yet; pull request C of #129 adds a job that opens a previous
+  release's dataset with this build.
+- **A rolling upgrade of a fleet.** Old and new builds side by side on one
+  store are simulated through reader records only (`ObjectFormatUpgradeTests`
+  and `UncheckedSetTests`, ci.yml `build`); no job runs a real older
+  instance, so a rolling upgrade is untested until #318.
+- **A downgrade.** No job runs one, and none can from this build.

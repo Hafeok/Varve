@@ -97,6 +97,7 @@ A writer that crashes or hangs releases nothing, and Varve never judges
 liveness itself. The orchestrator's probe does, and automation turns its
 failure into a takeover request (ADRs 0179, 0181):
 
+<!-- ci: ci.yml fleet-services — FleetTests runs varve manage takeover --from --server, twice, without a token; the --client-assertion sign-in is ApplyTests' (ci.yml build) -->
 ```sh
 varve manage takeover --from a --server https://b.internal --server https://c.internal \
   --authority https://login.microsoftonline.com/{tenant}/v2.0 --client-id {operatorClientId} \
@@ -396,6 +397,7 @@ never two writers on one dataset** (#97 point 9, ADR 0180). Give each
 dataset the writer set of the region, or the group of instances, it lives
 in:
 
+<!-- ci: ci.yml fleet-services — the two-region active-active property declares writer sets so (FleetTests) -->
 ```trig
 @prefix varve: <https://w3id.org/varve/ns#> .
 
@@ -447,3 +449,16 @@ applied that position yet answers the events request `503
 management-behind`. A writer that also writes the system dataset finishes a
 stopped move by itself on its next interval; otherwise, send the move again
 ([Moving event schemas](moving-event-schemas.md#when-a-move-stops)).
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Taking over from a failed writer.** `varve manage takeover
+  --managed-identity` needs Container Apps' `IDENTITY_ENDPOINT`, so it runs
+  only on Azure; the command itself runs in ci.yml `fleet-services`, without
+  a token.
+- **Deployment.** Neither layout is deployed by a job: ci.yml
+  `kubernetes-sample` validates `deploy/kubernetes/` with kubeconform, and
+  ci.yml `bicep` builds and lints `deploy/azure/`; a Kubernetes deployment in
+  `kind` is pull request D of #129.

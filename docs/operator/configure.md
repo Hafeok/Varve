@@ -31,12 +31,14 @@ validates; and exits without serving. Run it before a change goes live, and
 keep its output with the change. A key left at its default is not printed:
 the defaults are the tables below (#299).
 
+<!-- ci: ci.yml build — HostTests: --print-config with --config and --set -->
 ```sh
 varve serve --print-config --config /etc/varve/varve.json --set Limits:QueryTimeout=00:00:10
 ```
 
 With `/etc/varve/varve.json` setting `DatasetsRoot` and `Auth`, it prints:
 
+<!-- ci: ci.yml build — HostTests asserts this shape, value and source -->
 ```json
 {
   "Varve": {
@@ -243,6 +245,7 @@ into an empty result as the evaluator decides (ADR 0055).
 | `AllowedOrigins` | `[]` | the origins a browser application may call from, each `scheme://host[:port]` with no path, or `*` for any; **empty adds no CORS at all**: no response carries an `Access-Control-*` header |
 | `MaxAge` | `00:10:00` | how long a browser may cache a preflight (`Access-Control-Max-Age`) |
 
+<!-- ci: ci.yml build — CorsTests -->
 ```json
 { "Varve": { "Cors": { "AllowedOrigins": [ "https://console.example.org" ] } } }
 ```

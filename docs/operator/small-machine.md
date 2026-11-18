@@ -11,6 +11,7 @@ card. A log flushes every commit to the device (`Synchronised`, ADR 0073), and
 an SD card's `fsync` latency and write endurance do not suit that: commits
 are slow, and the card wears out.
 
+<!-- ci: ci.yml build — AuthTests puts a dataset declaration as TriG, and HostTests takes --set -->
 ```sh
 sudo mkdir -p /srv/varve && sudo chown "$USER" /srv/varve     # on the SSD
 varve serve --set DatasetsRoot=/srv/varve --anonymous
@@ -23,6 +24,7 @@ or with the image, which runs as uid 1654, so the directory is that user's,
 and names a release, since every release before 1.0 is a preview and there
 is no `latest` tag:
 
+<!-- ci: none — the bind mount's owner is the host's; ci.yml container runs the image on a named volume -->
 ```sh
 sudo chown 1654:1654 /srv/varve
 docker run --rm --read-only -v /srv/varve:/var/lib/varve -p 8080:8080 ghcr.io/hafeok/varve:v<version> serve --anonymous
@@ -133,6 +135,7 @@ minute idle and a restart.
 
 To measure your own, with the server binary and no container:
 
+<!-- ci: none — a measurement taken by hand; eng/ci.cs build-benchmarks only builds the benchmarks -->
 ```sh
 dotnet run -c Release --project tests/Varve.Benchmarks -- --import-memory /path/to/Varve.Server 3000
 ```
@@ -175,3 +178,10 @@ Commit latency, query throughput and cold start on a Pi 5 with an NVMe SSD:
 **to be measured by the maintainer**, with the same commands as the
 milestone's record (`Varve.Benchmarks --objects file S`, `--extent-reads S`),
 and filled in here.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **The file backend on an NVMe SSD — supported.** The bind mount's owner is the host's; ci.yml container runs the image on a named volume.
+- **What a dataset needs, to be written and to be reopened.** A measurement taken by hand; eng/ci.cs build-benchmarks only builds the benchmarks.

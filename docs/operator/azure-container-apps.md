@@ -17,6 +17,7 @@ each with a system-assigned identity on that container alone:
 public app, granted the same role under an ABAC condition that lets it write
 only `readers/` records (below).
 
+<!-- ci: none — it needs an Azure subscription; azure-objects.yml deploys the template only on dispatch, and checks nothing after -->
 ```sh
 az group create --name varve --location westeurope
 az deployment group create --resource-group varve \
@@ -95,6 +96,7 @@ applied, and answers writes
 [`503 commit-outcome-unknown`](../problems/commit-outcome-unknown.md), since
 it cannot tell whether a write it forwarded arrived (ADR 0214). Every claim is in the writer record:
 
+<!-- ci: ci.yml storage-services — ObjectStorageServerTests, against Azurite -->
 ```sh
 varve lease https://{account}.blob.core.windows.net/datasets/people
 ```
@@ -172,6 +174,7 @@ the epoch, and `varve info` or `query` over the store's address.
   template's condition matches `StringLike '*readers/*'`, any dataset's
   readers; scoping it to one dataset's prefix is tighter:
 
+  <!-- ci: none — a role assignment needs a real storage account; bicep builds and lints the template's own condition only -->
   ```text
   (
    (
@@ -237,3 +240,9 @@ points and leases to Varve.
    only by an explicit act: a scheduled task outside Varve may issue it, and
    nothing in Varve moves because time passed (ADR 0140, N3).
 
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Deploy.** It needs an Azure subscription; azure-objects.yml deploys the template only on dispatch, and checks nothing after.
+- **Readers, and what the store keeps for them.** A role assignment needs a real storage account; bicep builds and lints the template's own condition only.

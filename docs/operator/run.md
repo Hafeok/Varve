@@ -7,6 +7,7 @@ The same executable comes five ways (ADRs 0105, 0111, 0226):
 - **Homebrew**, on macOS (arm64, Intel) and Linux (x64, arm64), from the tap
   `Hafeok/homebrew-varve`. Until 1.0 it follows the newest preview:
 
+  <!-- ci: none — Homebrew installs from the tap, whose own workflow in Hafeok/homebrew-varve runs it on macOS and Linux, outside this repository (#247) -->
   ```sh
   brew install hafeok/varve/varve
   varve --version
@@ -16,6 +17,7 @@ The same executable comes five ways (ADRs 0105, 0111, 0226):
   manifest has been accepted into `microsoft/winget-pkgs`. Until then, the
   release's manifest installs directly:
 
+  <!-- ci: publish.yml winget — validates the manifests, and installs from them on a tag -->
   ```powershell
   winget install Hafeok.Varve
   # or, from the three Hafeok.Varve*.yaml files the release carries:
@@ -26,6 +28,7 @@ The same executable comes five ways (ADRs 0105, 0111, 0226):
 - **The release's archive**, for any of the six RIDs, with nothing else
   installed. It holds `varve` (`varve.exe` on Windows) and nothing else:
 
+  <!-- ci: publish.yml binaries — the archived binary runs and says the release's version -->
   ```sh
   gh release download v<version> --repo Hafeok/Varve --pattern 'varve-*-linux-x64.tar.gz'
   tar -xzf varve-<version>-linux-x64.tar.gz
@@ -40,6 +43,7 @@ The same executable comes five ways (ADRs 0105, 0111, 0226):
   .NET 10 SDK or runtime. While every release is a preview, the install
   names `--prerelease` or a `--version`:
 
+  <!-- ci: none — no job installs the published tool from nuget.org yet; pull request C of #129 adds one -->
   ```sh
   dotnet tool install --global Varve.Server --prerelease
   varve --version
@@ -61,6 +65,7 @@ manifests, their `SHA256SUMS` (itself attested), every SBOM and the VEX
 document. The Homebrew tap verifies each archive's attestation before it
 writes the formula. To verify by hand:
 
+<!-- ci: publish.yml verify -->
 ```sh
 gh release download v<version> --repo Hafeok/Varve --pattern 'varve-*-osx-arm64.tar.gz' --pattern SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS
@@ -75,6 +80,7 @@ signature), and the vulnerability process.
 
 ## The container
 
+<!-- ci: ci.yml container — the image started with these variables against mock-oauth2 -->
 ```sh
 docker run --detach --name varve \
   --read-only \
@@ -110,6 +116,7 @@ What the image fixes, and what it leaves to you:
 Verify what you pulled: the manifest's digest carries a build provenance
 attestation and an SBOM, signed with the publishing workflow's identity.
 
+<!-- ci: publish.yml manifest — the image's attestation verified as an operator would -->
 ```sh
 gh attestation verify oci://ghcr.io/hafeok/varve:v<version> --owner hafeok
 ```
@@ -134,6 +141,7 @@ refuses to publish.
 `varve serve`, a bare `varve`, or any command line of nothing but
 configuration runs the server:
 
+<!-- ci: ci.yml aot — eng/server-smoke.cs starts the binary with --Varve: settings; ci.yml build — HostTests -->
 ```sh
 varve serve --Varve:DatasetsRoot=/var/lib/varve \
             --Varve:Manage:BootstrapOperators:0=Varve.Operator \
@@ -214,6 +222,7 @@ The Native AOT binary, a dedicated user, the datasets root on a path that
 user owns, and the configuration in the unit's environment or a file
 `--config` names:
 
+<!-- ci: none — it needs a systemd host, and no job starts a unit -->
 ```ini
 # /etc/systemd/system/varve.service
 [Unit]
@@ -262,6 +271,7 @@ takes it as an argument. `lease` takes a directory or an object-store address
 and `storage` an object-store address, never a server URL; `create`, `load`
 and `serve` take a directory:
 
+<!-- ci: ci.yml aot — eng/server-smoke.cs queries a server by URL; ci.yml build — CliTests, against a server with each token source -->
 ```sh
 varve query https://varve.example/datasets/people/ -q 'SELECT * WHERE { ?s ?p ?o } LIMIT 10' --token "$TOKEN"
 varve feed  https://varve.example/datasets/people/ --from 0 --follow --authority https://login.example/ --client-id varve-cli
@@ -281,3 +291,11 @@ a temporary file it sorts its input into, is found damaged when read back
 ends before its commit with `varve: load-spill-damaged: …` and exit code 1:
 nothing of it was committed, and running the same `load` again is right
 ([`load-spill-damaged`](../problems/load-spill-damaged.md), ADR 0213).
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Install.** Homebrew installs from the tap, whose own workflow in Hafeok/homebrew-varve runs it on macOS and Linux, outside this repository (#247).
+- **Install.** No job installs the published tool from nuget.org yet; pull request C of #129 adds one.
+- **As a systemd service.** It needs a systemd host, and no job starts a unit.
