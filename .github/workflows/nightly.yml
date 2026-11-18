@@ -261,7 +261,7 @@ jobs:
   # gate: it fails only when the benchmark does not run to the end, and its
   # numbers are read by hand.
   premise-sets:
-    name: premise sets (REC M, owl2rl, links ${{ matrix.links }}, at most ${{ matrix.graphs }} graphs)
+    name: premise sets (REC M, owl2rl, ${{ matrix.run }})
     if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'premise sets')
     runs-on: ubuntu-latest
     timeout-minutes: 150
@@ -272,11 +272,8 @@ jobs:
         # whole of REC M takes about 50 minutes on four cores; at 200 the premise sets
         # grow faster than the graphs (15 graphs in 15 minutes, 31 in 74, #354), so
         # the run stops at 15 to finish inside the job.
-        include:
-          - links: 20
-            graphs: 63
-          - links: 200
-            graphs: 15
+        # One dimension, so required-checks can expand the name: the benchmark's arguments.
+        run: [links=20 graphs=63, links=200 graphs=15]
 
     steps:
       - name: Line endings
@@ -301,19 +298,19 @@ jobs:
       - name: Build the benchmarks
         run: dotnet build tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release
 
-      - name: Premise sets, REC M, owl2rl, links ${{ matrix.links }}, the benchmark axioms
+      - name: Premise sets, REC M, owl2rl, ${{ matrix.run }}, the benchmark axioms
         shell: bash
         run: |
           mkdir -p artifacts/premise-sets
-          out=artifacts/premise-sets/rec-m-owl2rl-links-${{ matrix.links }}.txt
-          tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks --inference-premise-sets M owl2rl links=${{ matrix.links }} axioms=links graphs=${{ matrix.graphs }} | tee "$out"
+          out="artifacts/premise-sets/rec-m-owl2rl-${{ strategy.job-index }}.txt"
+          tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks --inference-premise-sets M owl2rl ${{ matrix.run }} axioms=links | tee "$out"
           { echo '```'; cat "$out"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the measurement
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: premise-sets-owl2rl-links-${{ matrix.links }}
+          name: premise-sets-owl2rl-${{ strategy.job-index }}
           path: artifacts/premise-sets
           if-no-files-found: warn
 
@@ -325,16 +322,15 @@ jobs:
   # how far under the count each build stays. Unlike the premise sets, this
   # fails: a build that needs more than the budget assumes is #335 again.
   closure-budget:
-    name: closure budget (REC ${{ matrix.size }}, ${{ matrix.profile }}, ${{ matrix.mode }})
+    name: closure budget (REC ${{ matrix.run }})
     if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'closure budget')
     runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
-        size: [S, M]
-        profile: [rdfs, owl2rl]
-        mode: [per-graph, cross]
+        # One dimension, so required-checks can expand the name: size, profile, build.
+        run: [S rdfs per-graph, S rdfs cross, S owl2rl per-graph, S owl2rl cross, M rdfs per-graph, M rdfs cross, M owl2rl per-graph, M owl2rl cross]
 
     steps:
       - name: Line endings
@@ -359,13 +355,15 @@ jobs:
       - name: Build the benchmarks
         run: dotnet build tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release
 
-      - name: The margin, REC ${{ matrix.size }}, ${{ matrix.profile }}, ${{ matrix.mode }}
+      - name: The margin, REC ${{ matrix.run }}
         shell: bash
         run: |
+          read -r size profile mode <<< "${{ matrix.run }}"
+          bisect=; [ "$size" = S ] && bisect=bisect
           mkdir -p artifacts/closure-budget
-          out=artifacts/closure-budget/rec-${{ matrix.size }}-${{ matrix.profile }}-${{ matrix.mode }}.txt
+          out="artifacts/closure-budget/rec-$size-$profile-$mode.txt"
           tests/Varve.Benchmarks/closure-budget-margin.sh tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks \
-            ${{ matrix.size }} ${{ matrix.profile }} ${{ matrix.mode }} ${{ matrix.size == 'S' && 'bisect' || '' }} | tee "$out"
+            "$size" "$profile" "$mode" $bisect | tee "$out"
           status=${PIPESTATUS[0]}
           { echo '```'; cat "$out"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
@@ -374,7 +372,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: closure-budget-${{ matrix.size }}-${{ matrix.profile }}-${{ matrix.mode }}
+          name: closure-budget-${{ strategy.job-index }}
           path: artifacts/closure-budget
           if-no-files-found: warn
 
