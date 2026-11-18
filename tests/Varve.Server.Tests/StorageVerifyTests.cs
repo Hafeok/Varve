@@ -94,7 +94,7 @@ public sealed class StorageVerifyTests
 
         Assert.Equal(1, exit);
         Assert.Equal(5, output.Split('\n').Count(line => line.StartsWith("pass  ", StringComparison.Ordinal)));
-        Assert.Contains("FAIL  of clients racing create-if-absent on one name exactly one wins\n      round 0: ", output, StringComparison.Ordinal);
+        Assert.Contains("FAIL  of clients racing create-if-absent on one name exactly one wins\n      round ", output, StringComparison.Ordinal);
         Assert.Contains(" of 16 racing creates were told they wrote\n", output, StringComparison.Ordinal);
         Assert.Contains("not verified", error, StringComparison.Ordinal);
         Assert.Empty(store.Names());
@@ -175,6 +175,7 @@ public sealed class StorageVerifyTests
     {
         private readonly Lock _gate = new();
         private readonly SortedDictionary<string, (byte[] Bytes, long Version)> _objects = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, TaskCompletionSource> _racing = new(StringComparer.Ordinal);
         private long _versions;
 
         public IReadOnlyList<string> Names()
@@ -187,11 +188,24 @@ public sealed class StorageVerifyTests
 
         public override string ToString() => "memory://scratch";
 
-        public async ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
+        public ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ReadOnlyMemory<byte> content, CancellationToken cancellationToken) =>
+            WriteAsync(name, content, () => !_objects.ContainsKey(name.Value) || breaks == Breaks.IgnoresConditions, cancellationToken);
+
+        public ValueTask<ObjectVersion?> ReplaceIfUnchangedAsync(ObjectName name, ObjectVersion expected, ReadOnlyMemory<byte> content, CancellationToken cancellationToken) =>
+            WriteAsync(name, content, () => _objects.TryGetValue(name.Value, out var found) && (Version(found.Version) == expected || breaks == Breaks.IgnoresConditions), cancellationToken);
+
+        // The condition, then the write. A store that loses races holds a
+        // write that passed its check until another request for the same name
+        // has passed its own, so two that race both write whatever the
+        // machine's load; alone, it writes after a moment.
+        private async ValueTask<ObjectVersion?> WriteAsync(ObjectName name, ReadOnlyMemory<byte> content, Func<bool> condition, CancellationToken cancellationToken)
         {
+            TaskCompletionSource? mine = null;
+            TaskCompletionSource? theirs = null;
+
             lock (_gate)
             {
-                if (_objects.ContainsKey(name.Value) && breaks != Breaks.IgnoresConditions)
+                if (!condition())
                 {
                     return null;
                 }
@@ -200,36 +214,28 @@ public sealed class StorageVerifyTests
                 {
                     return Write(name, content);
                 }
-            }
 
-            // Checked, and written a moment later without checking again.
-            await Task.Delay(TimeSpan.FromMilliseconds(20), cancellationToken);
-
-            lock (_gate)
-            {
-                return Write(name, content);
-            }
-        }
-
-        public async ValueTask<ObjectVersion?> ReplaceIfUnchangedAsync(ObjectName name, ObjectVersion expected, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
-        {
-            lock (_gate)
-            {
-                if (!_objects.TryGetValue(name.Value, out var found) || (Version(found.Version) != expected && breaks != Breaks.IgnoresConditions))
+                if (!_racing.Remove(name.Value, out theirs))
                 {
-                    return null;
-                }
-
-                if (breaks != Breaks.LosesRaces)
-                {
-                    return Write(name, content);
+                    mine = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    _racing[name.Value] = mine;
                 }
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(20), cancellationToken);
+            theirs?.TrySetResult();
+
+            if (mine is not null)
+            {
+                await Task.WhenAny(mine.Task, Task.Delay(TimeSpan.FromMilliseconds(250), cancellationToken));
+            }
 
             lock (_gate)
             {
+                if (mine is not null && _racing.TryGetValue(name.Value, out TaskCompletionSource? waiting) && ReferenceEquals(waiting, mine))
+                {
+                    _racing.Remove(name.Value);
+                }
+
                 return Write(name, content);
             }
         }

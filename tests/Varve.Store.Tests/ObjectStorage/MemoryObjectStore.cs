@@ -32,6 +32,7 @@ internal sealed class MemoryObjectStore : IObjectStore
     private readonly Lock _gate = new();
     private readonly SortedDictionary<string, (byte[] Bytes, long Version)> _objects = new(StringComparer.Ordinal);
     private readonly Dictionary<ObjectOperation, int> _counts = [];
+    private readonly Dictionary<string, TaskCompletionSource> _racing = new(StringComparer.Ordinal);
     private long _versions;
 
     /// <summary>
@@ -182,19 +183,51 @@ internal sealed class MemoryObjectStore : IObjectStore
 
     private static ObjectVersion Version(long version) => new("v" + version.ToString(CultureInfo.InvariantCulture));
 
-    // The condition is checked, and the write made a moment later without
-    // checking again: every request that checked in that moment writes.
+    // The condition is checked, and the write made afterwards without
+    // checking again. A request that passed its check holds its write until
+    // another request for the same name has passed its own, so two that race
+    // both write, whatever the machine's load; alone, it writes after a
+    // moment, which is what a request at a time looks like.
     private async ValueTask<ObjectVersion?> Racing(ObjectOperation operation, ObjectName name, Func<bool> condition, ReadOnlyMemory<byte> content)
     {
-        if (!await Run(operation, name, condition))
+        TaskCompletionSource? mine = null;
+        TaskCompletionSource? theirs = null;
+
+        bool passed = await Run(operation, name, () =>
+        {
+            if (!condition())
+            {
+                return false;
+            }
+
+            if (!_racing.Remove(name.Value, out theirs))
+            {
+                mine = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _racing[name.Value] = mine;
+            }
+
+            return true;
+        });
+
+        if (!passed)
         {
             return null;
         }
 
-        await Task.Delay(TimeSpan.FromMilliseconds(20));
+        theirs?.TrySetResult();
+
+        if (mine is not null)
+        {
+            await Task.WhenAny(mine.Task, Task.Delay(TimeSpan.FromMilliseconds(250)));
+        }
 
         lock (_gate)
         {
+            if (mine is not null && _racing.TryGetValue(name.Value, out TaskCompletionSource? waiting) && ReferenceEquals(waiting, mine))
+            {
+                _racing.Remove(name.Value);
+            }
+
             _objects[name.Value] = (content.ToArray(), ++_versions);
             return Version(_versions);
         }

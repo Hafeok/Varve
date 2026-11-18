@@ -326,8 +326,10 @@ The object-store contract suite (ADR 0183, #117) runs each of its two races
 for `VARVE_VERIFY_ROUNDS` rounds of sixteen clients: 8 on a pull request, in
 every test that runs the suite (the in-memory store on every OS, Azurite and
 RustFS in `storage (services)`), and 64 on the nightly run's in-memory
-tests. The broken store that loses races is refused in round 0 at either
-depth, so the depth searches real stores for a rarer race, not the gate.
+tests. The broken store that loses races is refused at either depth: it holds a
+write that passed its check until a second racer has passed its own, so it
+loses a race whatever the machine's load, and no timing decides the gate.
+The depth searches real stores for a rarer race.
 
 The nightly run's second job sets `VARVE_LONG_PROPERTIES=1` for the SHACL
 projects: `Varve.Derivation.Tests`, `Varve.Shacl.Tests`,
