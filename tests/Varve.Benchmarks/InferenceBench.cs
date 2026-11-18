@@ -173,14 +173,14 @@ internal static class InferenceBench
     /// premise sets over it; the distinct sets of two graphs or more, which
     /// are the reserved graphs a cross-graph binding places rows in.
     /// </summary>
-    internal static void RunPremiseSets(string sizeName, string profileName)
+    internal static void RunPremiseSets(string sizeName, string profileName, int links = 0)
     {
         RecSize size = Enum.Parse<RecSize>(sizeName);
         InferenceProfile profile = profileName == "owl2rl" ? InferenceProfile.Owl2Rl : InferenceProfile.Rdfs;
-        Console.WriteLine($"// REC {size} (generator version {RecPortfolio.Version}, seed {Seed}), profile {profile}, cross-graph, .NET {Environment.Version}, {Environment.ProcessorCount} cores");
+        Console.WriteLine($"// REC {size} (generator version {RecPortfolio.Version}, seed {Seed}), profile {profile}, cross-graph, links {links}‰, .NET {Environment.Version}, {Environment.ProcessorCount} cores");
         Terms terms = new();
         Fact[] tbox = TBox(terms);
-        Dictionary<string, HashSet<Fact>> graphs = State(terms, RecPortfolio.Generate(size, Seed));
+        Dictionary<string, HashSet<Fact>> graphs = State(terms, RecPortfolio.Generate(size, Seed, links));
         string[] names = [.. graphs.Keys.Order(StringComparer.Ordinal)];
         Closure tboxClosure = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive);
         tboxClosure.Apply(tbox, []);
@@ -225,14 +225,14 @@ internal static class InferenceBench
     /// the merge by recursive counting and the sets from the delta; the time
     /// per commit and the facts whose sets changed.
     /// </summary>
-    internal static void RunPremiseSetCommits(string sizeName, string profileName, int held)
+    internal static void RunPremiseSetCommits(string sizeName, string profileName, int held, int links = 0)
     {
         RecSize size = Enum.Parse<RecSize>(sizeName);
         InferenceProfile profile = profileName == "owl2rl" ? InferenceProfile.Owl2Rl : InferenceProfile.Rdfs;
-        Console.WriteLine($"// REC {size} (generator version {RecPortfolio.Version}, seed {Seed}), profile {profile}, cross-graph commits, .NET {Environment.Version}, {Environment.ProcessorCount} cores");
+        Console.WriteLine($"// REC {size} (generator version {RecPortfolio.Version}, seed {Seed}), profile {profile}, cross-graph commits, links {links}‰, .NET {Environment.Version}, {Environment.ProcessorCount} cores");
         Terms terms = new();
         Fact[] tbox = TBox(terms);
-        List<RecCommit> history = [.. RecPortfolio.Generate(size, Seed)];
+        List<RecCommit> history = [.. RecPortfolio.Generate(size, Seed, links)];
         int cut = Math.Max(0, history.Count - held);
         Dictionary<string, HashSet<Fact>> graphs = State(terms, history.Take(cut));
         List<RecCommit> tail = [.. history.Skip(cut)];
@@ -349,8 +349,12 @@ internal static class InferenceBench
         GC.KeepAlive(merge);
     }
 
-    private static void Stage(string stage) =>
-        Console.WriteLine($"//   {stage}: heap {GC.GetTotalMemory(forceFullCollection: false) / 1048576.0:F0} MiB, working set {Environment.WorkingSet / 1048576.0:F0} MiB, peak {System.Diagnostics.Process.GetCurrentProcess().PeakWorkingSet64 / 1048576.0:F0} MiB");
+    /// <summary>A stage's memory: the live heap after a compacting collection, the working set, and the process's peak working set so far.</summary>
+    private static void Stage(string stage)
+    {
+        long peak = System.Diagnostics.Process.GetCurrentProcess().PeakWorkingSet64;
+        Console.WriteLine($"//   {stage}: live heap {Heap() / 1048576.0:F0} MiB, working set {Environment.WorkingSet / 1048576.0:F0} MiB, peak {peak / 1048576.0:F0} MiB; heap limit {(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1048576.0):F0} MiB");
+    }
 
     private static double Percentile(List<double> sorted, double p) => sorted.Count == 0 ? 0 : sorted[Math.Min(sorted.Count - 1, (int)(p * sorted.Count))];
 

@@ -23,6 +23,8 @@ decisions:
     statement: "Varve stays ontology-agnostic: no REC-specific code ships, a Varve defect a REC test finds is fixed in Varve, and a REC defect is reported upstream with a written exemption"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-17T00:00:00Z
+  - key: LinksBetweenBuildingsAreAParameter
+    statement: "Amended 2026-11-18: the generator takes a link density, links per thousand commits past the build, each an asset of one site feeding a room of another stated in both sites' graphs, drawn from a random sequence of its own so that density 0 gives the history without links byte for byte; S, M and L and their hashes do not change, and a measurement with links states its density"
 ---
 
 The rulings of [ADR 0141](../adr/0141-realestatecore-as-the-reference-domain.md), filed unaccepted by

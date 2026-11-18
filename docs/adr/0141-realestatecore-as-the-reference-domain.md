@@ -105,3 +105,31 @@ The REC repository is under the BSD-3-Clause licence.
   generator, `tests/Varve.Rec.Tests`.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-18 — links between buildings, a parameter of the generator
+
+Filed by Inference, part 2 (#171, under #95), unaccepted until the
+maintainer accepts it (ADR 0066). Decided by the maintainer on #171 on
+2026-11-18: a REC variant with links between buildings, REC M unchanged,
+the density a parameter deterministic by seed, run at two densities at
+least, never a gate.
+
+Point 2's generator gains one parameter, the **link density**: in a
+thousand commits of the history past the build, how many are followed by a
+link commit (`RecPortfolio.Generate(size, seed, linksPerMille)`).
+- **A link** is an asset of one site that `rec:feeds` a room of another,
+  stated in the asset's site's graph, with `rec:isFedBy` stated in the
+  room's. A quarter of link commits remove a live link instead, retracting
+  both quads. The kinds are `link-added` and `link-removed`.
+- **The history between links is the history without them.** Links are
+  drawn from a SplitMix64 sequence of their own, seeded from the seed, so
+  density 0 gives the same bytes as before for every seed and size, and S,
+  M and L, their pinned hashes and the generator's `Version` (2) do not
+  change. A measurement taken with links states its density beside the
+  version.
+- **It gates nothing.** It is run by hand, or in the nightly, by
+  `Varve.Benchmarks --inference-premise-sets <size> <profile> [held]
+  links=<per mille>`.
+
+**The ledger.** The ruling is `LinksBetweenBuildingsAreAParameter`.
+

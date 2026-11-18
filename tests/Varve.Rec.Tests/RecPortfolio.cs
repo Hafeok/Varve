@@ -29,7 +29,7 @@ internal readonly record struct RecQuad(string Subject, string Predicate, string
 /// <summary>One commit of a generated history: what it is, what it asserts and what it retracts.</summary>
 internal sealed class RecCommit(string kind, List<RecQuad> asserted, List<RecQuad> retracted)
 {
-    /// <summary>What happened: <c>build</c>, <c>retype</c>, <c>split</c>, <c>merge</c>, <c>move</c>, <c>point-added</c>, <c>point-retired</c>, <c>tenant-in</c>, <c>tenant-out</c>.</summary>
+    /// <summary>What happened: <c>build</c>, <c>retype</c>, <c>split</c>, <c>merge</c>, <c>move</c>, <c>point-added</c>, <c>point-retired</c>, <c>tenant-in</c>, <c>tenant-out</c>; in a history with links, <c>link-added</c> and <c>link-removed</c>.</summary>
     public string Kind { get; } = kind;
 
     public IReadOnlyList<RecQuad> Asserted { get; } = asserted;
@@ -96,10 +96,26 @@ internal static class RecPortfolio
     };
 
     /// <summary>The history, commit by commit, generated as it is read.</summary>
-    public static IEnumerable<RecCommit> Generate(RecSize size, ulong seed)
+    public static IEnumerable<RecCommit> Generate(RecSize size, ulong seed) => Generate(size, seed, linksPerMille: 0);
+
+    /// <summary>
+    /// The history with links between buildings of different sites, and so
+    /// between their graphs (ADR 0141, amended 2026-11-18): after each commit
+    /// of the history past the build, a link commit follows with a chance of
+    /// <paramref name="linksPerMille"/> in a thousand. A link is an asset of
+    /// one site that <c>rec:feeds</c> a room of another, stated in the
+    /// asset's site's graph, and <c>rec:isFedBy</c> stated in the room's; a
+    /// quarter of link commits remove a live link instead. Links are drawn
+    /// from a random sequence of their own, so the history between them is
+    /// the history without links, byte for byte: 0 gives exactly
+    /// <see cref="Generate(RecSize, ulong)"/>.
+    /// </summary>
+    public static IEnumerable<RecCommit> Generate(RecSize size, ulong seed, int linksPerMille)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(linksPerMille);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(linksPerMille, 1000);
         (int buildings, int commits) = Shape(size);
-        return new Generator(seed).Run(buildings, commits);
+        return new Generator(seed, linksPerMille).Run(buildings, commits);
     }
 
     /// <summary>
@@ -184,8 +200,16 @@ internal static class RecPortfolio
         public int Pick(SplitMix64 random) => _items[random.Below(_items.Count)];
     }
 
-    private sealed class Generator(ulong seed)
+    private sealed class Generator(ulong seed, int linksPerMille)
     {
+        // The links' own sequence: drawing from it leaves the history's untouched.
+        private const ulong LinkStream = 0x6C696E6B73000000;
+        private readonly SplitMix64 _linkRandom = new(seed ^ LinkStream);
+        private readonly List<RecQuad[]> _links = [];
+        private readonly Alive _liveLinks = new();
+        private readonly HashSet<(int Asset, int Room)> _linked = [];
+        private readonly List<(int Asset, int Room)> _linkEnds = [];
+
         // REC 4's classes for rooms, assets and buildings, and Brick's for points.
         private readonly string[] RoomTypes = ["Office", "ConferenceRoom", "Kitchenette", "Bathroom", "Hallway", "OfficeLandscape", "PhoneBooth", "Pantry"];
         private readonly string[] AssetTypes = ["Desk", "OfficeChair", "Cabinet", "OccupancySensorEquipment", "IAQSensorEquipment", "Lamp"];
@@ -242,6 +266,10 @@ internal static class RecPortfolio
             {
                 made++;
                 yield return Event();
+                if (linksPerMille > 0 && _linkRandom.Below(1000) < linksPerMille && Link() is { } link)
+                {
+                    yield return link;
+                }
             }
         }
 
@@ -598,6 +626,44 @@ internal static class RecPortfolio
             }
 
             return quads;
+        }
+
+        // A link between two sites' buildings: an asset of one feeds a room of
+        // another, each side stated in its own site's graph; or a link removed.
+        private RecCommit? Link()
+        {
+            if (_liveLinks.Count > 0 && _linkRandom.Below(4) == 0)
+            {
+                int gone = _liveLinks.Pick(_linkRandom);
+                _liveLinks.Remove(gone);
+                _linked.Remove(_linkEnds[gone]);
+                return new RecCommit("link-removed", [], [.. _links[gone]]);
+            }
+
+            int asset = _assets.Pick(_linkRandom);
+            int from = SiteOfRoom(_assetRoom[asset]);
+            for (int attempt = 0; attempt < 64; attempt++)
+            {
+                int room = _rooms.Pick(_linkRandom);
+                int to = SiteOfRoom(room);
+                if (to == from || !_linked.Add((asset, room)))
+                {
+                    continue;
+                }
+
+                RecQuad[] quads =
+                [
+                    new(Iri("asset", asset), RecProperty("feeds"), Iri("room", room), Graph(from)),
+                    new(Iri("room", room), RecProperty("isFedBy"), Iri("asset", asset), Graph(to)),
+                ];
+                _liveLinks.Add(_links.Count);
+                _links.Add(quads);
+                _linkEnds.Add((asset, room));
+                return new RecCommit("link-added", [.. quads], []);
+            }
+
+            // One site only: no building of another to link to.
+            return null;
         }
 
         private RecCommit TenantOut()

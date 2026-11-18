@@ -88,15 +88,32 @@ internal static class Program
             return;
         }
 
-        if (args.Length == 4 && args[0] == "--inference-premise-sets")
+        // --inference-premise-sets <size> <profile> [held] [links=<per mille>]
+        if (args.Length is >= 3 and <= 5 && args[0] == "--inference-premise-sets")
         {
-            InferenceBench.RunPremiseSetCommits(args[1], args[2], int.Parse(args[3], CultureInfo.InvariantCulture));
-            return;
-        }
+            int links = 0;
+            int held = 0;
+            foreach (string extra in args[3..])
+            {
+                if (extra.StartsWith("links=", StringComparison.Ordinal))
+                {
+                    links = int.Parse(extra["links=".Length..], CultureInfo.InvariantCulture);
+                }
+                else
+                {
+                    held = int.Parse(extra, CultureInfo.InvariantCulture);
+                }
+            }
 
-        if (args.Length == 3 && args[0] == "--inference-premise-sets")
-        {
-            InferenceBench.RunPremiseSets(args[1], args[2]);
+            if (held > 0)
+            {
+                InferenceBench.RunPremiseSetCommits(args[1], args[2], held, links);
+            }
+            else
+            {
+                InferenceBench.RunPremiseSets(args[1], args[2], links);
+            }
+
             return;
         }
 
