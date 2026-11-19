@@ -60,6 +60,9 @@ internal sealed class ObjectStores : IDisposable
         return store is null ? null : new ObjectStores(store, settings, clock);
     }
 
+    /// <summary>The server's view of a store it is given, for a fleet run in one process by a test (#332).</summary>
+    internal static ObjectStores Over(IObjectStore store, ObjectStorageSettings settings, TimeProvider clock) => new(store, settings, clock);
+
     /// <summary>Who this server is in a writer record (ADR 0136): the configured instance, or the machine name.</summary>
     internal WriterInstance Instance => new(string.IsNullOrWhiteSpace(_settings.Instance) ? Environment.MachineName : _settings.Instance);
 

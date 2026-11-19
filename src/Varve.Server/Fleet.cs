@@ -129,9 +129,16 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     /// operators when it is the first writer or <paramref name="recordBootstrap"/>
     /// asks, applies the declarations, and opens the datasets they place here.
     /// </summary>
-    internal static async Task<Fleet> StartAsync(ServerSettings settings, bool recordBootstrap, TimeProvider clock, ILogger logger, IHttpContextAccessor accessor, CancellationToken cancellationToken)
+    internal static Task<Fleet> StartAsync(ServerSettings settings, bool recordBootstrap, TimeProvider clock, ILogger logger, IHttpContextAccessor accessor, CancellationToken cancellationToken) =>
+        StartAsync(settings, ObjectStores.From(settings.ObjectStorage, clock), recordBootstrap, clock, logger, accessor, cancellationToken);
+
+    /// <summary>
+    /// As above, over <paramref name="objects"/> rather than the store the
+    /// settings name: the seam a test uses to run a fleet in one process, on
+    /// an in-memory store under a clock it steps (#332). Null is a fleet of one.
+    /// </summary>
+    internal static async Task<Fleet> StartAsync(ServerSettings settings, ObjectStores? objects, bool recordBootstrap, TimeProvider clock, ILogger logger, IHttpContextAccessor accessor, CancellationToken cancellationToken)
     {
-        ObjectStores? objects = ObjectStores.From(settings.ObjectStorage, clock);
         Fleet fleet;
 
         try
@@ -349,6 +356,17 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
     /// <summary>The system dataset, as this instance holds it.</summary>
     public Dataset System => Volatile.Read(ref _system);
+
+    /// <summary>
+    /// The head of every dataset this server holds open, the system dataset's
+    /// first: what the idle test after a checkpoint compares (ADR 0244 point 6).
+    /// </summary>
+    internal IReadOnlyList<Position> Heads()
+    {
+        List<Position> heads = [System.Head];
+        Datasets.HeadsInto(heads);
+        return heads;
+    }
 
     /// <summary>The grants pinned for this request, or the applied ones outside a request.</summary>
     public GrantTable Table => Pinned().Table;

@@ -29,6 +29,16 @@ internal static partial class DeclarationSchema
     private static readonly Shape Colour = new Leaf("a six-digit hex colour, quoted", static n => Kind(n) is JsonValueKind.String && HexColour().IsMatch(n!.GetValue<string>()));
     private static readonly Shape Strings = new ListOf(Str);
 
+    /// <summary>
+    /// A list of secret names. An item is a name, which must exist, or
+    /// <c>{name, may_be_absent: true}</c>, which is reported and is not a
+    /// difference when it does not (ADR 0039, amended 2026-11-18).
+    /// </summary>
+    private static readonly Shape SecretNames = new ListOf(new Either(Str, new Obj(new()
+    {
+        ["name"] = Str, ["may_be_absent"] = Bool,
+    }, Required: ["name"])));
+
     private static Leaf OneOf(params string[] values) =>
         new($"one of {string.Join(", ", values)}", n => Kind(n) is JsonValueKind.String && values.Contains(n!.GetValue<string>(), StringComparer.Ordinal));
 
@@ -94,7 +104,7 @@ internal static partial class DeclarationSchema
         {
             ["name"] = Str, ["type"] = OneOf("branch", "tag"),
         }, Required: ["name"])),
-        ["secrets"] = Strings,
+        ["secrets"] = SecretNames,
         ["absent"] = Bool,
     }, Required: ["name"]);
 
@@ -146,7 +156,7 @@ internal static partial class DeclarationSchema
         ["repository"] = Repository,
         ["rulesets"] = new ListOf(Ruleset, UniqueBy: "name"),
         ["environments"] = new ListOf(Environment, UniqueBy: "name"),
-        ["secrets"] = Strings,
+        ["secrets"] = SecretNames,
         ["labels"] = new ListOf(Label, UniqueBy: "name"),
         ["discussions"] = new Obj(new() { ["categories"] = new ListOf(Category, UniqueBy: "name") }),
         ["projects"] = new ListOf(Project, UniqueBy: "title"),
@@ -173,10 +183,13 @@ internal static partial class DeclarationSchema
     /// <summary>The rules GitHub enforces across fields, checked before anything is written.</summary>
     private static void CrossCheck(JsonObject declaration, List<string> problems)
     {
+        UniqueSecretNames(declaration["secrets"], "secrets", problems);
+
         int index = 0;
         foreach (JsonNode? environment in declaration["environments"] as JsonArray ?? [])
         {
             string path = $"environments[{index++}]";
+            UniqueSecretNames(environment?["secrets"], path + ".secrets", problems);
             JsonNode? policy = environment?["deployment_branch_policy"];
             bool custom = policy?["custom_branch_policies"]?.GetValueKind() is JsonValueKind.True;
             bool protectedOnly = policy?["protected_branches"]?.GetValueKind() is JsonValueKind.True;
@@ -209,6 +222,23 @@ internal static partial class DeclarationSchema
         }
     }
 
+    /// <summary>A name declared twice in one list, in either spelling, is ambiguous.</summary>
+    private static void UniqueSecretNames(JsonNode? secrets, string path, List<string> problems)
+    {
+        HashSet<string> seen = new(StringComparer.Ordinal);
+        int index = 0;
+        foreach (JsonNode? item in secrets as JsonArray ?? [])
+        {
+            string? name = Kind(item) is JsonValueKind.String ? item!.GetValue<string>() : item?["name"]?.GetValue<string>();
+            if (name is not null && !seen.Add(name))
+            {
+                problems.Add($"{path}[{index}]: secret '{name}' appears more than once");
+            }
+
+            index++;
+        }
+    }
+
     private static JsonValueKind Kind(JsonNode? node) => node?.GetValueKind() ?? JsonValueKind.Null;
 
     [GeneratedRegex("^[0-9a-fA-F]{6}$", RegexOptions.CultureInvariant)]
@@ -238,6 +268,22 @@ internal static partial class DeclarationSchema
             if (node is not null)
             {
                 Inner.Check(node, path, problems);
+            }
+        }
+    }
+
+    /// <summary>A scalar spelling or a mapping spelling of one item.</summary>
+    private sealed record Either(Shape Scalar, Shape Mapping) : Shape
+    {
+        public override void Check(JsonNode? node, string path, List<string> problems)
+        {
+            if (node is JsonObject)
+            {
+                Mapping.Check(node, path, problems);
+            }
+            else
+            {
+                Scalar.Check(node, path, problems);
             }
         }
     }

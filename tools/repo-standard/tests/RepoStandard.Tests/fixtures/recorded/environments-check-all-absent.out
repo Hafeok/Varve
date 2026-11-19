@@ -1,0 +1,10 @@
+exit: 0
+--- stdout
+= environments providers: secret VARVE_ENTRA_CLIENT_ID
+    note: declared, absent: declared may_be_absent, so not a difference
+= environments providers: secret VARVE_ENTRA_TENANT
+    note: declared, absent: declared may_be_absent, so not a difference
+= environments providers: secret VARVE_GOOGLE_SERVICE_ACCOUNT_EMAIL
+    note: declared, absent: declared may_be_absent, so not a difference
+No differences: the repository matches the declaration. 3 declared, absent (not a difference).
+--- stderr

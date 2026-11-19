@@ -532,6 +532,17 @@ jobs:
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
 
+      - name: Server test durations
+        # As for the store (#126): the slowest tests, in the log and the job
+        # summary, from the step's own TRX; #332 reports the idle fleet's
+        # test from here, per OS.
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+          --top 40
+          --label "Varve.Server.Tests on ${{ matrix.os }}"
+
       # tools/repo-standard: its own solution, built and tested on both
       # platforms (ADR 0039). Not packed: it is not published from here.
       - name: Build repo-standard
