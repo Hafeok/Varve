@@ -15,8 +15,8 @@ using Bunit;
 using Bunit.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
-using Varve.WebUi.Molecules;
-using Varve.WebUi.Organisms;
+using Varve.WebUi.Components.Molecules;
+using Varve.WebUi.Components.Organisms;
 using Xunit;
 
 namespace Varve.WebUi.Tests;
@@ -290,9 +290,16 @@ public class ComponentContractTests
             throw new NotSupportedException("Cases are read, never written.");
     }
 
+    // The host, the shared components and the explorer (ADR 0252).
+    private static readonly Assembly[] WebUiAssemblies =
+        [typeof(Program).Assembly, typeof(Varve.WebUi.Components.Atoms.Button).Assembly, typeof(Varve.WebUi.Explorer.Parts.QueryColouring).Assembly];
+
+    // A level's namespace in each assembly (ADR 0252).
+    private static readonly string[] Prefixes = ["Varve.WebUi.", "Varve.WebUi.Components.", "Varve.WebUi.Explorer."];
+
     private static Type? ComponentType(string name) =>
         Levels
-            .Select(level => typeof(Program).Assembly.GetType($"Varve.WebUi.{level}.{name}"))
+            .SelectMany(level => WebUiAssemblies.SelectMany(assembly => Prefixes.Select(prefix => assembly.GetType($"{prefix}{level}.{name}"))))
             .FirstOrDefault(type => type is not null && typeof(IComponent).IsAssignableFrom(type));
 
     private static string ComponentsRoot() => Path.Combine(RepositoryRoot(), "docs", "ui", "components");

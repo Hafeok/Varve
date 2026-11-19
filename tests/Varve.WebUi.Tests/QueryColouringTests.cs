@@ -8,8 +8,8 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using Varve.Sparql.Algebra;
-using Varve.WebUi.Organisms;
-using Varve.WebUi.Parts;
+using Varve.WebUi.Components.Organisms;
+using Varve.WebUi.Explorer.Parts;
 using Xunit;
 
 namespace Varve.WebUi.Tests;

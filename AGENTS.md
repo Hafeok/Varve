@@ -34,13 +34,15 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 | 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128), `Varve.Sparql.Entailment` (entailment regimes by query rewriting — ADR 0191) |
 | 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143); `Varve.Shacl.Sparql` (SHACL-SPARQL over the evaluator, through `Varve.Shacl`'s extension contract — ADR 0148); `Varve.Management` (the management plane's declarations and grants, by dependency — ADR 0166) |
 | 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Shacl.Store` (commit-time gating under a shapes binding — ADR 0169), `Varve.Classification` (the shape-derived classifier and the classification projection — ADR 0232) |
-| 6 | hosts — every executable, and only executables: the server, the CLI, the smoke apps, the benchmarks (ADR 0060) |
+| 6 | hosts — every executable: the server, the CLI, the smoke apps, the benchmarks (ADR 0060); and `Varve.WebUi.Components`, the Web UI's shared components, a private assembly of its host (ADR 0252) |
+| 7 | `Varve.WebUi.Explorer`, the Web UI's lazy-loaded explorer, a private assembly of its host (ADR 0252) |
+| 8 | `Varve.WebUi`, the Web UI's host, above its two private assemblies (ADR 0252) |
 
 **Same-layer references are violations.** Contracts live in the lowest layer that
 can define them without knowing their implementers; `Varve.Store` is SPARQL-free
 (ADR 0005). ADR 0003's open questions are closed: question 1 by ADR 0148
 (`Varve.Shacl` beside the evaluator at layer 3 references no SPARQL, and
-SHACL-SPARQL is `Varve.Shacl.Sparql` at layer 4), question 2 by ADR 0048. Each project declares `<ArchLayer>` (0–6; a test assembly declares none), and a layer-6 host also sets `<ArchCompositionRoot>` (ADR 0064).
+SHACL-SPARQL is `Varve.Shacl.Sparql` at layer 4), question 2 by ADR 0048. Each project declares `<ArchLayer>` (0–8; a test assembly declares none), and a host, at 6 or above, also sets `<ArchCompositionRoot>` (ADR 0064); a library at 6 or above is a host's private assembly and names it in `<VarveHostPartOf>` (ADR 0252).
 
 ## How we work
 

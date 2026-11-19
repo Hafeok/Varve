@@ -109,19 +109,26 @@ own stated budget, with both numbers measured.
    that the file does not name, or named and loaded with the first screen.
    Moving an assembly between the rows is an amendment here. The ruling is
    `TheLazySetIsNamed`.
-3. **The numbers**, measured on 2026-11-19 from a clean tree at this branch's
-   head, interpreted and trimmed:
+3. **The numbers**, measured on 2026-11-19 from a clean tree, interpreted
+   and trimmed, after ADR 0252's split (revised in place before acceptance:
+   the first measurement, before the split, is kept for the record):
 
-   | Row | Measured | Budget |
-   |---|---|---|
-   | `webui`, the first screen | 1,901.6 kB | 1,920.0 kB (unchanged) |
-   | `webui-explorer`: `Varve.Sparql` (the parser, its lexer and the tokenizer) | 45.4 kB | 50.0 kB |
+   | Row | Before the split | After the split | Budget |
+   |---|---|---|---|
+   | `webui`, the first screen | 1,901.6 kB | **1,884.6 kB** | 1,920.0 kB (unchanged) |
+   | `webui-explorer` | 45.4 kB (`Varve.Sparql`) | **48.4 kB** (`Varve.Sparql` 45.6, `Varve.WebUi.Explorer` 2.8) | **60.0 kB** |
 
-   The first screen grew from 1,861.7 kB on the part 2 plan: the explorer's
-   components, which are in `Varve.WebUi.wasm` (152.6 → 176.7 kB) until
-   ADR 0252's split, and what the lazy parser keeps in eager assemblies.
+   The first screen drops by 17.0 kB because the explorer's components and
+   parts leave it. The explorer's budget is its measurement plus 5%, rounded
+   up to 10 kB. The trimmer keeps the explorer's pages and parts by a
+   descriptor (`ExplorerRoots.xml`): the host names no type of it, so it
+   would otherwise drop it whole, and rooting it whole would keep the
+   decision ledger every assembly carries as generated types (76.4 kB).
    `Varve.Sparql.Results` joins the lazy set when a page streams a query; it
    is trimmed out until then. The ruling is `ExplorerBudgetMeasured`.
 
-Both failure paths were run: the set naming `Varve.Sparql.Results`, which is
-not lazy, fails with the difference; a 40,000-byte budget fails 5.4 kB over.
+Both failure paths were run, before the split: the set naming
+`Varve.Sparql.Results`, which is not lazy, fails with the difference; a
+40,000-byte budget fails 5.4 kB over. After the split, the first measurement's
+50,000-byte budget failed 72.0 kB over with the explorer rooted whole, which
+is how the ledger was found.

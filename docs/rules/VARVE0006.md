@@ -81,6 +81,25 @@ A type outside the Web UI's namespaces, such as the composition root
 `Program`, is not checked. A compilation without Blazor's `IComponent` makes
 only the third check.
 
+## The three assemblies (ADR 0252)
+
+The levels span the host `Varve.WebUi` (layer 8), the lazy
+`Varve.WebUi.Explorer` (7) and the eager `Varve.WebUi.Components` (6). A
+level's namespace is `Varve.WebUi.<Level>`, `Varve.WebUi.Explorer.<Level>` or
+`Varve.WebUi.Components.<Level>`; the rule reads the level after the
+assembly's part. Beside the level order, it reports:
+
+- a type of `Varve.WebUi.Components` naming anything of the host's or the
+  explorer's;
+- `Varve.WebUi.Components` declaring a routed page, a type of a page outside
+  `Pages.Services`, or a type of the app;
+- a type of the explorer naming anything of the host's;
+- a type of the host naming anything of the explorer's, which would load the
+  lazy assembly with the first screen.
+
+DD0001 holds the references' direction by the layers; this rule holds what
+each assembly may name.
+
 ## Generated code, and only for this rule
 
 Razor compiles each component to C# through a source generator. That is

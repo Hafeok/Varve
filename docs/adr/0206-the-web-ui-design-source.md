@@ -241,3 +241,18 @@ The rulings are `TheAppIsTheTopLevel` and `NoTypeOutsideTheLevelsHoldsAService`.
     `ProblemCatalogue` and the documented state words.
   - The level rule's analyzer tests, a violating and a conforming sample per
     level and per check.
+
+## Amendment, 2026-11-19 — the levels across three assemblies
+
+Filed by the session for Web UI part 2 (#355, under #96), unaccepted until
+the maintainer accepts it (ADR 0066), with [ADR 0252](0252-the-web-uis-private-assemblies.md).
+
+Point 4's levels are namespaces, and now in three assemblies:
+`Varve.WebUi.<Level>` in the host, `Varve.WebUi.Components.<Level>` and
+`Varve.WebUi.Explorer.<Level>`. The level is the namespace's segment after
+`Varve.WebUi.` and the assembly's part, and the dependency rule is the same
+across all three. VARVE0006 also holds the assemblies apart: the components
+name nothing of the host's or the explorer's and declare no routed page and
+nothing of the app; the explorer names nothing of the host's; the host names
+nothing of the explorer's. The contract test finds a case's component in any
+of the three. The ruling is `LevelsAcrossThreeAssemblies`.

@@ -60,7 +60,7 @@
     // Who is signed in, for the parts that say it.
     private SignedIn? Signed() => _session is null ? null : new SignedIn(_session.DataCaller, _session.ManagementCaller);
 
-    private static PlaneState Plane(string name, bool signedIn, Varve.WebUi.SignIn.Caller? caller) =>
+    private static PlaneState Plane(string name, bool signedIn, Varve.WebUi.Components.Caller? caller) =>
         new(name, signedIn ? "signed in" : "signed out", Anonymous: false, Absent: !signedIn, caller?.Agent, caller?.Roles);
 
     /// <inheritdoc />

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- ADR 0252: a host's private assembly at layer 7, referencing the
+       components at 6. Downward, and therefore legal. -->
+  <PropertyGroup>
+    <ArchLayer>7</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
+    <VarveHostPartOf>Varve.Fixture.Host</VarveHostPartOf>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Fixture.Components/Varve.Fixture.Components.csproj" />
+  </ItemGroup>
+</Project>

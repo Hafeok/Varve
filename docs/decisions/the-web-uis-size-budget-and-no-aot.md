@@ -20,7 +20,7 @@ decisions:
   - key: TheLazySetIsNamed
     statement: "eng/browser-size.json names the lazy assemblies, and the gate fails when the boot manifest's lazy set differs from them"
   - key: ExplorerBudgetMeasured
-    statement: "The explorer's budget is its lazy set measured from a clean tree plus 5 percent, rounded up to 10 kB, 50,000 bytes for Varve.Sparql on 2026-11-19"
+    statement: "The explorer's budget is its lazy set measured from a clean tree plus 5 percent, rounded up to 10 kB, 60,000 bytes for Varve.WebUi.Explorer and Varve.Sparql on 2026-11-19"
 ---
 
 The rulings of [ADR 0205](../adr/0205-the-web-uis-size-budget-and-no-aot.md), one line each.

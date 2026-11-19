@@ -43,6 +43,8 @@ decisions:
     statement: "Each component's cases under docs/ui/components/<Comp>/cases/ are rendered by the Razor component and compared to their expected fragments semantically; a component with a preview and no cases fails, and each preview shows its cases' fragments verbatim"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-28T00:00:00Z
+  - key: LevelsAcrossThreeAssemblies
+    statement: "The levels are the namespaces Varve.WebUi.<Level>, Varve.WebUi.Components.<Level> and Varve.WebUi.Explorer.<Level>, one dependency rule across the three assemblies, which VARVE0006 also holds apart"
 ---
 
 The rulings of [ADR 0206](../adr/0206-the-web-ui-design-source.md),
