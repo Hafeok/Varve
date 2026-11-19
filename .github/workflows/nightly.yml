@@ -314,7 +314,7 @@ jobs:
           path: artifacts/premise-sets
           if-no-files-found: warn
 
-  # The closure budget's margin (ADR 0195, amended 2026-11-18, point 3; #335):
+  # The closure budget's margin (ADR 0195 point 6; #335):
   # a from-scratch build, under both profiles, per graph and cross-graph, must
   # finish under a hard heap limit of the heap before it and 0.9 of what its
   # budget counted at peak. The cost figures were measured on REC S alone, so
