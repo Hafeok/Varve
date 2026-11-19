@@ -28,8 +28,9 @@ public class LayerDeclarationAnalyzerTests
         string? layer,
         bool packable = false,
         bool executable = false,
-        bool compositionRoot = false) =>
-        new(assemblyName, layer, packable, executable, compositionRoot);
+        bool compositionRoot = false,
+        string? hostPartOf = null) =>
+        new(assemblyName, layer, packable, executable, compositionRoot, hostPartOf);
 
     private static DiagnosticResult Violation(string assemblyName, string finding, string decide) =>
         new DiagnosticResult(VarveDiagnostics.LayerDeclaration)
@@ -137,6 +138,24 @@ public class LayerDeclarationAnalyzerTests
         await test.RunAsync(TestContext.Current.CancellationToken);
     }
 
+    // ADR 0252: a host's private assembly, a library at layer 6 that names its host.
+    [Fact]
+    public async Task A_library_at_layer_6_naming_its_host_is_clean() =>
+        await Declaring("Varve.WebUi.Components", "6", compositionRoot: true, hostPartOf: "Varve.WebUi")
+            .RunAsync(TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task A_library_at_layer_6_naming_no_varve_host_is_reported()
+    {
+        Test test = Declaring("Varve.WebUi.Components", "6", compositionRoot: true, hostPartOf: "Elsewhere");
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.WebUi.Components",
+            LayerDeclarationAnalyzer.HostNotExecutable,
+            LayerDeclarationAnalyzer.HostNotExecutableDecide));
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
     [Fact]
     public async Task A_composition_root_below_layer_6_is_reported()
     {
@@ -176,7 +195,7 @@ public class LayerDeclarationAnalyzerTests
     /// <summary>One compilation with a name and the build properties VARVE0005 reads.</summary>
     private sealed class Test : CSharpAnalyzerTest<LayerDeclarationAnalyzer, DefaultVerifier>
     {
-        internal Test(string assemblyName, string? layer, bool packable, bool executable, bool compositionRoot)
+        internal Test(string assemblyName, string? layer, bool packable, bool executable, bool compositionRoot, string? hostPartOf)
         {
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80;
             TestCode = "namespace Declaring { internal sealed class Marker { } }";
@@ -189,6 +208,11 @@ public class LayerDeclarationAnalyzerTests
             if (layer is not null)
             {
                 config += "build_property.ArchLayer = " + layer + Environment.NewLine;
+            }
+
+            if (hostPartOf is not null)
+            {
+                config += "build_property.VarveHostPartOf = " + hostPartOf + Environment.NewLine;
             }
 
             TestState.AnalyzerConfigFiles.Add(("/.globalconfig", config));

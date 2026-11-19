@@ -24,6 +24,9 @@ internal static class LayerDeclaration
     internal const string CompositionRootKey = "build_property.ArchCompositionRoot";
     internal const string OutputTypeKey = "build_property.OutputType";
 
+    // A layer-6 library that is a host's private assembly names its host (ADR 0252).
+    internal const string HostPartOfKey = "build_property.VarveHostPartOf";
+
     /// <summary>
     /// Whether an assembly is published is the question layering turns on, and
     /// the one an assembly name can only approximate.

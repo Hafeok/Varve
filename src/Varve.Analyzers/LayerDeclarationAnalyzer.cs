@@ -28,9 +28,11 @@ namespace Varve.Analyzers;
 ///   <item>It declares <c>ArchLayer</c>, an integer from 0 to 6, unless it is a
 ///   test assembly or <c>Varve.Analyzers</c>, which declare none. A packable
 ///   assembly declares one whatever it is called.</item>
-///   <item>An executable declares 6, and only an executable declares 6. A test
-///   assembly is an executable under Microsoft.Testing.Platform and declares
-///   none, as before.</item>
+///   <item>An executable declares 6, and only an executable declares 6, or a
+///   library that is a host's private assembly and names its host in
+///   <c>VarveHostPartOf</c>: the Web UI's shared components and its lazy
+///   explorer (ADR 0252). A test assembly is an executable under
+///   Microsoft.Testing.Platform and declares none, as before.</item>
 ///   <item><c>ArchCompositionRoot</c> is true exactly when <c>ArchLayer</c> is
 ///   6. ADR 0060 rejected a second declaration because it can disagree with the
 ///   first; the package needs the property, so this makes disagreement an
@@ -74,7 +76,8 @@ public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
 
     internal const string HostNotExecutableDecide =
         "build it as an executable, since nothing may reference layer 6 and a library there is unreachable | give it "
-        + "the layer of what it is: an integration is layer 5";
+        + "the layer of what it is: an integration is layer 5 | if it is a host's private assembly, name its host in "
+        + "VarveHostPartOf (ADR 0252)";
 
     internal const string RootWithoutHostFormat = "sets ArchCompositionRoot but declares layer {0}";
 
@@ -155,7 +158,8 @@ public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
         {
             Report(context, name, Format(ExecutableBelowHostFormat, layer), ExecutableBelowHostDecide);
         }
-        else if (!executable && layer == LayerDeclaration.HostLayer)
+        else if (!executable && layer == LayerDeclaration.HostLayer
+            && !LayerDeclaration.IsVarveAssembly(LayerDeclaration.Read(options, LayerDeclaration.HostPartOfKey)))
         {
             Report(context, name, HostNotExecutable, HostNotExecutableDecide);
         }

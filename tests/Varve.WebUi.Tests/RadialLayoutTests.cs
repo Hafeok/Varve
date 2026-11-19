@@ -8,7 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using CsCheck;
-using Varve.WebUi.Organisms;
+using Varve.WebUi.Components.Organisms;
 using Xunit;
 
 namespace Varve.WebUi.Tests;

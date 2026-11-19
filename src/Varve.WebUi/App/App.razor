@@ -1,12 +1,17 @@
 @implements IDisposable
 @inject NavigationManager Navigation
+@inject Microsoft.AspNetCore.Components.WebAssembly.Services.LazyAssemblyLoader Loader
 @* The router (ADR 0200). After a navigation inside the Web UI, focus moves to
    the new page's h1, so a keyboard or screen reader user lands on what
    changed (WCAG 2.4.3). A page loaded fresh keeps the browser's start, so
    the first Tab reaches the skip link (2.4.1). The layout is a component of
    this level, which a component never names (ADR 0206 point 4), so the
-   composition root hands its type in. *@
-<Router AppAssembly="typeof(App).Assembly">
+   composition root hands its type in.
+   The explorer is lazy (ADR 0252): its assemblies are fetched when one of its
+   routes is first visited, deep links included, and its pages join the
+   router from what the loader returns. Nothing here names a type of it, so
+   nothing loads it with the first screen (VARVE0006). *@
+<Router AppAssembly="typeof(App).Assembly" AdditionalAssemblies="_explorer" OnNavigateAsync="NavigateAsync">
     <Found Context="routeData">
         <RouteView RouteData="routeData" DefaultLayout="Layout" />
         @if (_navigated)
@@ -24,7 +29,25 @@
 </Router>
 
 @code {
+    // What the explorer needs that the first screen does not (ADR 0252); the
+    // host's project file marks the same three lazy.
+    private static readonly string[] ExplorerAssemblies = ["Varve.WebUi.Explorer.wasm", "Varve.Sparql.wasm", "Varve.Sparql.Results.wasm"];
+
+    // The explorer's routes: /datasets/{d}/ then one of its screens.
+    private static readonly System.Text.RegularExpressions.Regex ExplorerRoute = new(
+        "^datasets/[^/]+/(query|diff|graphs|resource|validation|statement)(/|\\?|$)",
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    private readonly List<System.Reflection.Assembly> _explorer = [];
     private bool _navigated;
+
+    private async Task NavigateAsync(Microsoft.AspNetCore.Components.Routing.NavigationContext context)
+    {
+        if (_explorer.Count == 0 && ExplorerRoute.IsMatch(context.Path))
+        {
+            _explorer.AddRange(await Loader.LoadAssembliesAsync(ExplorerAssemblies));
+        }
+    }
 
     /// <summary>The layout every screen renders in, from the composition root.</summary>
     [Parameter, EditorRequired]
