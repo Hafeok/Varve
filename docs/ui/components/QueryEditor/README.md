@@ -10,4 +10,8 @@ The SPARQL editor (ADR 0250): a real `textarea` over an `aria-hidden` coloured l
 - **Forced colours:** the coloured layer is hidden and the `textarea`'s own text shows.
 - **Read-only** shows the query a view runs, on `surface-sunk`, with no help line.
 - Colours are the `tok-*` tokens, used nowhere else, distinct from the state and change tokens.
-- **Cases are real.** A case's runs are what the tokenizer gives for its text, and **a case that draws an error parses to the error it draws**: the parser, run over the text, gives that offset, line, column and message. Those are the server's `sparql-syntax` words, so the editor and the server say the same thing. `QueryColouringTests` holds every case to both. `error-at-end` must stay an end-of-input error, so it shows the marker at the end.
+- **Cases are real.** A case's runs are what the tokenizer gives for its text, and every case is held to the parser in both directions:
+  - **a case that draws an error parses to the error it draws**: the parser, run over the text, gives that offset, line, column and message. Those are the server's `sparql-syntax` words, so the editor and the server say the same thing;
+  - **a case that draws no error parses**, unless its text is blank, where the editor shows no error.
+
+  `QueryColouringTests` holds every case to all of this. `error-at-end` must stay an end-of-input error, so it shows the marker at the end.

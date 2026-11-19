@@ -2,7 +2,7 @@
   "parameters": {
     "Id": "q",
     "Label": "Query",
-    "Text": "PREFIX dct: <http://purl.org/dc/terms/>\nPREFIX notes: <https://notes.example/notes/>\n# Titles of the notes created this week\nSELECT DISTINCT ?note ?title WHERE {\n  GRAPH ?g { ?note a notes:Note ; dct:title ?title ; dct:created ?d . }\n  FILTER (?d >= \"2026-10-20\"^^xsd:date && LANG(?title) = \"en\")\n  OPTIONAL { ?note dct:creator _:who }\n}\nORDER BY DESC(?d) LIMIT 500",
+    "Text": "PREFIX dct: <http://purl.org/dc/terms/>\nPREFIX notes: <https://notes.example/notes/>\nPREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n# Titles of the notes created this week\nSELECT DISTINCT ?note ?title WHERE {\n  GRAPH ?g { ?note a notes:Note ; dct:title ?title ; dct:created ?d . }\n  FILTER (?d >= \"2026-10-20\"^^xsd:date && LANG(?title) = \"en\")\n  OPTIONAL { ?note dct:creator _:who }\n}\nORDER BY DESC(?d) LIMIT 500",
     "Runs": [
       {
         "Start": 0,
@@ -36,153 +36,118 @@
       },
       {
         "Start": 85,
-        "End": 124,
+        "End": 91,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 92,
+        "End": 96,
+        "Kind": "iri"
+      },
+      {
+        "Start": 97,
+        "End": 132,
+        "Kind": "iri"
+      },
+      {
+        "Start": 133,
+        "End": 172,
         "Kind": "comment"
       },
       {
-        "Start": 125,
-        "End": 131,
-        "Kind": "keyword"
-      },
-      {
-        "Start": 132,
-        "End": 140,
-        "Kind": "keyword"
-      },
-      {
-        "Start": 141,
-        "End": 146,
-        "Kind": "variable"
-      },
-      {
-        "Start": 147,
-        "End": 153,
-        "Kind": "variable"
-      },
-      {
-        "Start": 154,
-        "End": 159,
-        "Kind": "keyword"
-      },
-      {
-        "Start": 160,
-        "End": 161,
-        "Kind": "punct"
-      },
-      {
-        "Start": 164,
-        "End": 169,
-        "Kind": "keyword"
-      },
-      {
-        "Start": 170,
-        "End": 172,
-        "Kind": "variable"
-      },
-      {
         "Start": 173,
-        "End": 174,
-        "Kind": "punct"
-      },
-      {
-        "Start": 175,
-        "End": 180,
-        "Kind": "variable"
-      },
-      {
-        "Start": 181,
-        "End": 182,
+        "End": 179,
         "Kind": "keyword"
       },
       {
-        "Start": 183,
-        "End": 193,
-        "Kind": "iri"
-      },
-      {
-        "Start": 194,
-        "End": 195,
-        "Kind": "punct"
-      },
-      {
-        "Start": 196,
-        "End": 205,
-        "Kind": "iri"
-      },
-      {
-        "Start": 206,
-        "End": 212,
-        "Kind": "variable"
-      },
-      {
-        "Start": 213,
-        "End": 214,
-        "Kind": "punct"
-      },
-      {
-        "Start": 215,
-        "End": 226,
-        "Kind": "iri"
-      },
-      {
-        "Start": 227,
-        "End": 229,
-        "Kind": "variable"
-      },
-      {
-        "Start": 230,
-        "End": 231,
-        "Kind": "punct"
-      },
-      {
-        "Start": 232,
-        "End": 233,
-        "Kind": "punct"
-      },
-      {
-        "Start": 236,
-        "End": 242,
+        "Start": 180,
+        "End": 188,
         "Kind": "keyword"
       },
       {
-        "Start": 243,
-        "End": 244,
+        "Start": 189,
+        "End": 194,
+        "Kind": "variable"
+      },
+      {
+        "Start": 195,
+        "End": 201,
+        "Kind": "variable"
+      },
+      {
+        "Start": 202,
+        "End": 207,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 208,
+        "End": 209,
+        "Kind": "punct"
+      },
+      {
+        "Start": 212,
+        "End": 217,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 218,
+        "End": 220,
+        "Kind": "variable"
+      },
+      {
+        "Start": 221,
+        "End": 222,
+        "Kind": "punct"
+      },
+      {
+        "Start": 223,
+        "End": 228,
+        "Kind": "variable"
+      },
+      {
+        "Start": 229,
+        "End": 230,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 231,
+        "End": 241,
+        "Kind": "iri"
+      },
+      {
+        "Start": 242,
+        "End": 243,
         "Kind": "punct"
       },
       {
         "Start": 244,
-        "End": 246,
-        "Kind": "variable"
-      },
-      {
-        "Start": 247,
-        "End": 249,
-        "Kind": "punct"
-      },
-      {
-        "Start": 250,
-        "End": 262,
-        "Kind": "literal"
-      },
-      {
-        "Start": 262,
-        "End": 264,
-        "Kind": "punct"
-      },
-      {
-        "Start": 264,
-        "End": 272,
+        "End": 253,
         "Kind": "iri"
       },
       {
-        "Start": 273,
-        "End": 275,
+        "Start": 254,
+        "End": 260,
+        "Kind": "variable"
+      },
+      {
+        "Start": 261,
+        "End": 262,
         "Kind": "punct"
       },
       {
-        "Start": 276,
-        "End": 280,
-        "Kind": "keyword"
+        "Start": 263,
+        "End": 274,
+        "Kind": "iri"
+      },
+      {
+        "Start": 275,
+        "End": 277,
+        "Kind": "variable"
+      },
+      {
+        "Start": 278,
+        "End": 279,
+        "Kind": "punct"
       },
       {
         "Start": 280,
@@ -190,103 +155,153 @@
         "Kind": "punct"
       },
       {
-        "Start": 281,
-        "End": 287,
-        "Kind": "variable"
-      },
-      {
-        "Start": 287,
-        "End": 288,
-        "Kind": "punct"
-      },
-      {
-        "Start": 289,
+        "Start": 284,
         "End": 290,
-        "Kind": "punct"
+        "Kind": "keyword"
       },
       {
         "Start": 291,
-        "End": 295,
-        "Kind": "literal"
+        "End": 292,
+        "Kind": "punct"
+      },
+      {
+        "Start": 292,
+        "End": 294,
+        "Kind": "variable"
       },
       {
         "Start": 295,
-        "End": 296,
+        "End": 297,
         "Kind": "punct"
       },
       {
-        "Start": 299,
-        "End": 307,
-        "Kind": "keyword"
-      },
-      {
-        "Start": 308,
-        "End": 309,
-        "Kind": "punct"
+        "Start": 298,
+        "End": 310,
+        "Kind": "literal"
       },
       {
         "Start": 310,
-        "End": 315,
-        "Kind": "variable"
+        "End": 312,
+        "Kind": "punct"
       },
       {
-        "Start": 316,
-        "End": 327,
+        "Start": 312,
+        "End": 320,
         "Kind": "iri"
       },
       {
+        "Start": 321,
+        "End": 323,
+        "Kind": "punct"
+      },
+      {
+        "Start": 324,
+        "End": 328,
+        "Kind": "keyword"
+      },
+      {
         "Start": 328,
-        "End": 333,
-        "Kind": "bnode"
+        "End": 329,
+        "Kind": "punct"
       },
       {
-        "Start": 334,
+        "Start": 329,
         "End": 335,
-        "Kind": "punct"
-      },
-      {
-        "Start": 336,
-        "End": 337,
-        "Kind": "punct"
-      },
-      {
-        "Start": 338,
-        "End": 343,
-        "Kind": "keyword"
-      },
-      {
-        "Start": 344,
-        "End": 346,
-        "Kind": "keyword"
-      },
-      {
-        "Start": 347,
-        "End": 351,
-        "Kind": "keyword"
-      },
-      {
-        "Start": 351,
-        "End": 352,
-        "Kind": "punct"
-      },
-      {
-        "Start": 352,
-        "End": 354,
         "Kind": "variable"
       },
       {
-        "Start": 354,
-        "End": 355,
+        "Start": 335,
+        "End": 336,
         "Kind": "punct"
       },
       {
-        "Start": 356,
-        "End": 361,
+        "Start": 337,
+        "End": 338,
+        "Kind": "punct"
+      },
+      {
+        "Start": 339,
+        "End": 343,
+        "Kind": "literal"
+      },
+      {
+        "Start": 343,
+        "End": 344,
+        "Kind": "punct"
+      },
+      {
+        "Start": 347,
+        "End": 355,
         "Kind": "keyword"
       },
       {
-        "Start": 362,
-        "End": 365,
+        "Start": 356,
+        "End": 357,
+        "Kind": "punct"
+      },
+      {
+        "Start": 358,
+        "End": 363,
+        "Kind": "variable"
+      },
+      {
+        "Start": 364,
+        "End": 375,
+        "Kind": "iri"
+      },
+      {
+        "Start": 376,
+        "End": 381,
+        "Kind": "bnode"
+      },
+      {
+        "Start": 382,
+        "End": 383,
+        "Kind": "punct"
+      },
+      {
+        "Start": 384,
+        "End": 385,
+        "Kind": "punct"
+      },
+      {
+        "Start": 386,
+        "End": 391,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 392,
+        "End": 394,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 395,
+        "End": 399,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 399,
+        "End": 400,
+        "Kind": "punct"
+      },
+      {
+        "Start": 400,
+        "End": 402,
+        "Kind": "variable"
+      },
+      {
+        "Start": 402,
+        "End": 403,
+        "Kind": "punct"
+      },
+      {
+        "Start": 404,
+        "End": 409,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 410,
+        "End": 413,
         "Kind": "literal"
       }
     ],
