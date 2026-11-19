@@ -39,8 +39,13 @@ decisions:
     statement: "A package from outside NuGet that a build tool fetches is a BuildArchive entry in Directory.Packages.props naming its exact version, an https URL naming that version, its SHA-512 integrity, a licence on the build and test allow-list, its scope and its ADR, and the fetcher reads the pin from that entry"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-11-17T00:00:00Z
+  - key: SiteStyledFromDesignSource
+    statement: "The docs site embeds no stylesheet: at build it writes site-tokens.css from docs/ui/tokens.json, light on root and dark under prefers-color-scheme dark, copies docs/ui/bundle.css and docs/ui/site/site.css verbatim, and writes the frame and heads of docs/ui/site, with an ADR's badge read from the ledger and never from its status line; amended 2026-11-19"
 ---
 
 The rulings of [ADR 0247](../adr/0247-the-docs-site.md), filed unaccepted by
 #317 (ADR 0066) and accepted on #324 on 2026-11-17, at the maintainer's word,
 by his delegate (ADR 0239).
+
+`SiteStyledFromDesignSource` is added by the ADR's amendment of 2026-11-19
+(#368), filed unaccepted until the maintainer accepts it (ADR 0066).
