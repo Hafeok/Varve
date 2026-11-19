@@ -519,6 +519,136 @@ public sealed class EventMoveTests
     }
 
     /// <summary>
+    /// #254: a move request that froze the catalogue, and finds the move
+    /// cancelled by another request before its next step, answers
+    /// <c>409 event-move-cancelled</c> naming the position it found the cancel
+    /// at, and commits nothing more. It never freezes again, so the cancel
+    /// stands. The request is held between its steps by a signal.
+    /// </summary>
+    [Fact]
+    public async Task A_move_cancelled_under_its_request_answers_event_move_cancelled_and_commits_nothing_more()
+    {
+        string root = Directory.CreateTempSubdirectory("varve-move-").FullName;
+
+        try
+        {
+            await using RunningServer server = await StartAsync(root);
+            await SeedAsync(server);
+            Fleet fleet = server.Started!.Fleet;
+            fleet.Resume = null;
+            long before = fleet.System.Head.Value;
+
+            // Held at the move's first advance after its freeze committed.
+            HeldStep held = HeldStep.Over(fleet, () => IsMoveRequest() && fleet.System.Head.Value > before);
+            Task<HttpResponseMessage> moving = MoveAsync(server);
+            await held.Reached.WaitAsync(Ct);
+
+            string current = await (await server.Client.GetAsync(new Uri("manage/datasets/d", UriKind.Relative), Ct)).Content.ReadAsStringAsync(Ct);
+            Assert.Contains("Moving", current, StringComparison.Ordinal);
+            HttpResponseMessage cancel = await TrigAsync(server, "manage/datasets/d", current.Replace("<" + Varve + "Moving>", "<" + Varve + "InDataset>", StringComparison.Ordinal).Replace("varve:Moving", "varve:InDataset", StringComparison.Ordinal));
+            Assert.True(cancel.StatusCode == HttpStatusCode.NoContent, await cancel.Content.ReadAsStringAsync(Ct));
+            long cancelled = long.Parse(cancel.Headers.GetValues("Varve-Position").Single(), System.Globalization.CultureInfo.InvariantCulture);
+
+            held.Release();
+            HttpResponseMessage answer = await moving;
+            string body = await answer.Content.ReadAsStringAsync(Ct);
+            Assert.True(answer.StatusCode == HttpStatusCode.Conflict, body);
+            JsonElement problem = JsonDocument.Parse(body).RootElement;
+            Assert.Equal("https://w3id.org/varve/problems/event-move-cancelled", problem.GetProperty("type").GetString());
+            Assert.Equal(cancelled, problem.GetProperty("position").GetInt64());
+
+            Assert.Equal(cancelled, fleet.System.Head.Value);
+            Assert.Equal("in-dataset", (await JsonAsync(await server.Client.GetAsync(new Uri("manage/datasets/d/events", UriKind.Relative), Ct))).RootElement.GetProperty("state").GetString());
+            HttpResponseMessage reopened = await UpdateAsync(server, "INSERT DATA { GRAPH <" + Catalogue + "> { <https://example.org/types/Paid> <http://www.w3.org/2000/01/rdf-schema#comment> \"open after the cancel\" } }");
+            Assert.True(reopened.StatusCode == HttpStatusCode.NoContent, await reopened.Content.ReadAsStringAsync(Ct));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// #254 (b): a cancel the move could not commit is not answered
+    /// "cancelled". The system dataset refuses the move's cancel, so the
+    /// answer is that refusal, and the dataset stays <c>moving</c> with its
+    /// catalogue frozen, as the state then is.
+    /// </summary>
+    [Fact]
+    public async Task A_cancel_the_move_could_not_commit_is_not_answered_cancelled()
+    {
+        string root = Directory.CreateTempSubdirectory("varve-move-").FullName;
+
+        try
+        {
+            await using RunningServer server = await StartAsync(root);
+            await SeedAsync(server);
+            Fleet fleet = server.Started!.Fleet;
+            fleet.Resume = null;
+            const string Other = Varve + "events-catalogue/https%3A%2F%2Fexample.org%2Fother";
+            Assert.Equal(HttpStatusCode.NoContent, (await UpdateAsync(server, "INSERT DATA { GRAPH <" + Other + "> { "
+                + "<https://example.org/types/Refund> a <" + Varve + "EventType> ; <" + Varve + "eventName> \"Refund\" ; "
+                + "<" + Varve + "eventClass> <https://example.org/ns#Refund> ; <" + Varve + "eventVersion> 1 ; "
+                + "<" + Varve + "eventField> <https://example.org/types/Paid/total> ; "
+                + "<" + Varve + "eventSelect> \"SELECT ?total WHERE { ?event <https://example.org/ns#total> ?total }\" . "
+                + "<https://example.org/types/Paid/total> a <" + Varve + "EventField> ; <" + Varve + "fieldName> \"total\" ; "
+                + "<" + Varve + "fieldDatatype> <http://www.w3.org/2001/XMLSchema#decimal> ; <" + Varve + "fieldRequired> true } }")).StatusCode);
+
+            // The freeze goes in; every system write after it is refused, the cancel included.
+            long before = fleet.System.Head.Value;
+            fleet.RefusingManagementWrites = () => fleet.System.Head.Value > before;
+            HttpResponseMessage move = await MoveAsync(server);
+            string body = await move.Content.ReadAsStringAsync(Ct);
+            fleet.RefusingManagementWrites = null;
+
+            Assert.Equal(before + 1, fleet.System.Head.Value);
+            Assert.DoesNotContain("cancelled", body, StringComparison.Ordinal);
+            Assert.True(move.StatusCode == HttpStatusCode.UnprocessableEntity, body);
+            Assert.Equal("https://w3id.org/varve/problems/rejected", JsonDocument.Parse(body).RootElement.GetProperty("type").GetString());
+            Assert.Equal("moving", (await JsonAsync(await server.Client.GetAsync(new Uri("manage/datasets/d/events", UriKind.Relative), Ct))).RootElement.GetProperty("state").GetString());
+            Assert.Equal(HttpStatusCode.Conflict, (await UpdateAsync(server, "INSERT DATA { GRAPH <" + Catalogue + "> { <https://example.org/types/Paid> <http://www.w3.org/2000/01/rdf-schema#comment> \"still frozen\" } }")).StatusCode);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    // Whether the advance being taken is a move request's.
+    private static bool IsMoveRequest() =>
+        new Microsoft.AspNetCore.Http.HttpContextAccessor().HttpContext?.Request.Path.Value?.EndsWith("/events/move", StringComparison.Ordinal) == true;
+
+    /// <summary>
+    /// The fleet's advance, gated: the first advance for which the condition
+    /// holds signals <see cref="Reached"/> and waits for <see cref="Release"/>
+    /// before it is taken. Every other advance is taken at once.
+    /// </summary>
+    private sealed class HeldStep
+    {
+        private readonly TaskCompletionSource _reached = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _held;
+
+        internal Task Reached => _reached.Task;
+
+        internal static HeldStep Over(Fleet fleet, Func<bool> when)
+        {
+            HeldStep held = new();
+            fleet.Advancing = async cancellationToken =>
+            {
+                if (when() && Interlocked.Exchange(ref held._held, 1) == 0)
+                {
+                    held._reached.TrySetResult();
+                    await held._release.Task.WaitAsync(cancellationToken);
+                }
+            };
+            return held;
+        }
+
+        internal void Release() => _release.TrySetResult();
+    }
+
+    /// <summary>
     /// The fleet's resume, wrapped: the first time the interval loop calls it,
     /// it signals <see cref="Picked"/> and waits for <see cref="ReleaseAsync"/>
     /// before it runs the host's resume. Every later call runs it at once.

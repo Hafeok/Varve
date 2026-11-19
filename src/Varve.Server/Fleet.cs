@@ -94,6 +94,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
         Classifications = new RowClassifications(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
         Entailment = new EntailmentBindingsOfTheFleet(this);
+        Validator = new SystemValidator(this);
     }
 
     /// <summary>The datasets' TBox bindings as a query reads them, and their schema caches (ADRs 0193, 0194).</summary>
@@ -372,7 +373,32 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     public GrantTable Table => Pinned().Table;
 
     /// <summary>The validator of commits to the system dataset (ADR 0166).</summary>
-    public ICommitValidator Validator { get; } = new ManagementValidator();
+    public ICommitValidator Validator { get; }
+
+    /// <summary>
+    /// A test's seam, null in production: awaited at the start of every
+    /// advance, before the advance takes its turn. An event move's run
+    /// advances at each of its steps, so a test holds a run between two steps
+    /// here and orders other requests between them (#254).
+    /// </summary>
+    internal Func<CancellationToken, ValueTask>? Advancing { get; set; }
+
+    /// <summary>
+    /// A test's seam, null in production: when it answers true, the system
+    /// dataset's validator refuses the write, as it refuses a declaration it
+    /// does not accept, and nothing is committed (#254).
+    /// </summary>
+    internal Func<bool>? RefusingManagementWrites { get; set; }
+
+    // The system dataset's validator, refusing as a test asks.
+    private sealed class SystemValidator(Fleet fleet) : ICommitValidator
+    {
+        private readonly RdfTerm[] _refusal = [RdfTerm.Iri("urn:x-varve:management-write-refused"u8)];
+        private readonly ManagementValidator _declarations = new();
+
+        public ValidationVerdict Validate(IQuadSource proposed, QuadDelta delta) =>
+            fleet.RefusingManagementWrites?.Invoke() == true ? ValidationVerdict.Reject(_refusal) : _declarations.Validate(proposed, delta);
+    }
 
     public ManagementStatus Status
     {
@@ -607,6 +633,11 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     /// </summary>
     public async ValueTask<ManagementPosition> AdvanceAsync(CancellationToken cancellationToken)
     {
+        if (Advancing is { } advancing)
+        {
+            await advancing(cancellationToken).ConfigureAwait(false);
+        }
+
         await _advance.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try

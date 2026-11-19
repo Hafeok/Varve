@@ -418,6 +418,7 @@ Varve.Protocol.ValidationBehindException.ValidationBehindException(string! messa
 Varve.Protocol.ValidationBehindException.ValidationBehindException(string! message, System.Exception! innerException) -> void
 static Varve.Protocol.Model.ProblemType.ValidationBehind.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.EventCatalogueMoved.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.EventMoveCancelled.get -> Varve.Protocol.Model.ProblemType
 Varve.Protocol.ManagedEventDeclarations
 static Varve.Protocol.ManagedEventDeclarations.Changes(System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedChange>! before, System.Collections.Generic.IReadOnlyList<Varve.Delta.Model.FeedChange>! after) -> System.Collections.Generic.List<Varve.Delta.Model.FeedChange>!
 static Varve.Protocol.ManagedEventDeclarations.ToCatalogue(System.Collections.Generic.IEnumerable<(Varve.Rdf.RdfTerm! Subject, Varve.Rdf.RdfTerm! Predicate, Varve.Rdf.RdfTerm! Object)>! datasetGraph, System.Collections.Generic.ICollection<Varve.Events.Model.DeclarationProblem>! problems) -> System.Collections.Generic.List<Varve.Delta.Model.FeedChange>!

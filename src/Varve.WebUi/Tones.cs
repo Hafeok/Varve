@@ -79,6 +79,7 @@ public static class Tones
         ["conflict"] = Tone.Critical,
         ["dataset-open"] = Tone.Critical,
         ["event-catalogue-moved"] = Tone.Critical,
+        ["event-move-cancelled"] = Tone.Critical,
         ["precondition-failed"] = Tone.Critical,
         ["request-too-large"] = Tone.Critical,
         ["unsupported-media-type"] = Tone.Critical,
