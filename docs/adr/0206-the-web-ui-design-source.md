@@ -256,3 +256,21 @@ name nothing of the host's or the explorer's and declare no routed page and
 nothing of the app; the explorer names nothing of the host's; the host names
 nothing of the explorer's. The contract test finds a case's component in any
 of the three. The ruling is `LevelsAcrossThreeAssemblies`.
+
+### Domain choices are parts over generic components (ruling D8, 2026-11-18)
+
+Point 5 keeps domain knowledge out of the lower levels. The explorer's three
+domain controls are therefore parts, each composed of generic components that
+carry the cases:
+
+- `RegimeSelect` is a part over the `Select` atom. The part offers only the
+  regimes the dataset's service description lists.
+- `AsOfControl` is a part composed of `Field`, `Select` and `Button`. Its
+  states are the part's: the time's conversion line, the resolved position,
+  and a position over the as-of distance refused before sending.
+- `DownloadMenu` is a part over the `Menu` molecule. The format lists are the
+  part's.
+
+The atoms and molecules carry the cases that pin the markup. A part's
+behaviour is a bUnit test on the part. The ruling is
+`DomainChoicesArePartsOverGenericComponents`.

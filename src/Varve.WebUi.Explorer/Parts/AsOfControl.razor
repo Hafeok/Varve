@@ -1,0 +1,180 @@
+@using System.Globalization
+@using DecisionDriven
+@using DecisionDriven.Ledger.Varve
+@attribute [Contract(typeof(TheWebUiDesignSource.DomainChoicesArePartsOverGenericComponents), Role = "the position a view is read at")]
+@* Where a view reads (ADR 0249; ADR 0206 ruling D8): the head, a position,
+   or a time, composed of the Select atom, the Field molecule and a Button.
+   A time is converted to UTC and the line under it says so. A position more
+   than the server's as-of distance below the head is refused here, before
+   anything is sent, with the limit stated. Once a read has answered, the line
+   says what the selector resolved to. *@
+<div class="vw-asof-control"><Select Id="@(Id + "-mode")" Label="Read at" Options="Modes" Selected="@_mode" SelectedChanged="ChooseModeAsync" />@if (_mode != HeadMode)
+{
+<Field Id="@(Id + "-value")" Value="@_text" ValueChanged="TypeAsync" Help="@Help()" Error="@_error" InputMode="@(_mode == PositionMode ? "numeric" : null)" Exact="true"><Label>@(_mode == PositionMode ? "Position" : "Time")</Label></Field><Button Small="true" OnClick="ReadAtHeadAsync">Read at the head</Button>
+}</div>
+
+@code {
+    private const string HeadMode = "head";
+    private const string PositionMode = "position";
+    private const string TimeMode = "time";
+
+    private static readonly IReadOnlyList<SelectOption> Modes =
+    [
+        new(HeadMode, "the head"),
+        new(PositionMode, "a position"),
+        new(TimeMode, "a time"),
+    ];
+
+    private string _mode = HeadMode;
+    private string _text = "";
+    private string? _error;
+    private AsOfSelector? _handedIn;
+
+    /// <summary>A stable id, unique on the page: the prefix of the controls' ids.</summary>
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    /// <summary>
+    /// The selector handed in, from the address or the history: shown when it
+    /// changes. What the reader types is raised, not written back here.
+    /// </summary>
+    [Parameter]
+    public AsOfSelector Selector { get; set; }
+
+    /// <summary>Raised with the selector typed, or null while what is typed is not one.</summary>
+    [Parameter]
+    public EventCallback<AsOfSelector?> SelectorChanged { get; set; }
+
+    /// <summary>The head's position, when known: a position is checked against it.</summary>
+    [Parameter]
+    public FeedPosition? Head { get; set; }
+
+    /// <summary>How far below the head the server reads, when its description states it.</summary>
+    [Parameter]
+    public AsOfDistance? MaxDistance { get; set; }
+
+    /// <summary>The position the last read resolved the selector to.</summary>
+    [Parameter]
+    public FeedPosition? Resolved { get; set; }
+
+    /// <summary>When the resolved position was committed.</summary>
+    [Parameter]
+    public CommitTime? ResolvedCommitted { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        // A selector handed in (from the address or the history) replaces what
+        // is typed, once, when it changes; a render with the same one keeps it.
+        if (_handedIn == Selector)
+        {
+            return;
+        }
+
+        _handedIn = Selector;
+        (_mode, _text) = Selector switch
+        {
+            { Position: FeedPosition position } => (PositionMode, position.Value.ToString(CultureInfo.InvariantCulture)),
+            { Time: AsOfTime time } => (TimeMode, time.ToString()),
+            _ => (HeadMode, ""),
+        };
+        _error = Check(out _);
+    }
+
+    /// <summary>
+    /// What is typed as a selector, or why it is not one: a position that is
+    /// not a whole number, one too far below the head, or a time that is not
+    /// an ISO 8601 date and time.
+    /// </summary>
+    internal string? Check(out AsOfSelector selector)
+    {
+        selector = AsOfSelector.Head;
+
+        if (_mode == PositionMode)
+        {
+            if (!long.TryParse(_text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out long position))
+            {
+                return "A position is a whole number, such as 16012.";
+            }
+
+            if (Head is FeedPosition head && MaxDistance is AsOfDistance limit && head.Value - position > limit.Value)
+            {
+                return "Position " + Count(position) + " is " + Count(head.Value - position) + " below the head at " + Count(head.Value)
+                    + ". This server reads at most " + Count(limit.Value) + " below the head.";
+            }
+
+            selector = AsOfSelector.At(new FeedPosition(position));
+            return null;
+        }
+
+        if (_mode == TimeMode)
+        {
+            if (!DateTimeOffset.TryParse(_text.Trim(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTimeOffset time)
+                || !_text.Contains('T', StringComparison.Ordinal))
+            {
+                return "A time is an ISO 8601 date and time, such as 2026-11-19T10:00:00Z.";
+            }
+
+            selector = AsOfSelector.AtTime(new AsOfTime(time));
+        }
+
+        return null;
+    }
+
+    private string? Help()
+    {
+        if (_error is not null)
+        {
+            return null;
+        }
+
+        string? resolved = Resolved is FeedPosition at
+            ? "→ position " + Count(at.Value) + (ResolvedCommitted is CommitTime committed ? ", committed " + committed : "") + "."
+            : null;
+
+        if (_mode == TimeMode && Check(out AsOfSelector selector) is null && selector.Time is AsOfTime time)
+        {
+            string utc = "Read as " + time.Value.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture)
+                + ", UTC: the last commit at or before it.";
+            return resolved is null ? utc : utc + " " + resolved;
+        }
+
+        return resolved;
+    }
+
+    private Task ChooseModeAsync(string mode)
+    {
+        _mode = mode is PositionMode or TimeMode ? mode : HeadMode;
+        _text = "";
+        _error = null;
+        return RaiseAsync();
+    }
+
+    private Task TypeAsync(string text)
+    {
+        _text = text;
+        return RaiseAsync();
+    }
+
+    private Task ReadAtHeadAsync() => ChooseModeAsync(HeadMode);
+
+    private Task RaiseAsync()
+    {
+        if (_mode != HeadMode && _text.Length == 0)
+        {
+            _error = null;
+            return SelectorChanged.InvokeAsync(null);
+        }
+
+        _error = Check(out AsOfSelector selector);
+
+        if (_error is not null)
+        {
+            return SelectorChanged.InvokeAsync(null);
+        }
+
+        return SelectorChanged.InvokeAsync(selector);
+    }
+
+    private static string Count(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
+}
