@@ -174,6 +174,20 @@ public sealed class InferenceUnavailableException : Exception
     }
 
     /// <summary>
+    /// The binding was stopped at its memory limit before it built anything:
+    /// the instance has no memory for closures, <paramref name="memory"/>
+    /// saying why (ADR 0195, amended 2026-11-18, point 10).
+    /// </summary>
+    public InferenceUnavailableException(RdfTerm binding, NoClosureMemory memory)
+        : base(Explain(memory))
+    {
+        ArgumentNullException.ThrowIfNull(binding);
+        ArgumentNullException.ThrowIfNull(memory);
+        Binding = binding;
+        NoMemory = memory;
+    }
+
+    /// <summary>
     /// The binding's projection stopped because a pass failed with
     /// <paramref name="failure"/> (ADR 0195 point 6, as amended 2026-11-18):
     /// not retried, so not retryable; a fix or an upgrade, then a restart.
@@ -201,6 +215,18 @@ public sealed class InferenceUnavailableException : Exception
     /// <summary>The binding.</summary>
     public RdfTerm Binding { get; }
 
+    /// <summary>Why the instance had no memory for the binding's closure, when that is why it stopped; null otherwise.</summary>
+    public NoClosureMemory? NoMemory { get; }
+
+    private static string Explain(NoClosureMemory memory) =>
+        memory is null
+            ? "The closure of this binding is not built: the instance has no memory for closures."
+            : "The closure of this binding is not built: the instance has no memory for closures. Its heap limit, "
+                + memory.HeapLimit.Value.ToString(CultureInfo.InvariantCulture) + " bytes, less the memtable's worst case, "
+                + memory.MemtableWorst.Value.ToString(CultureInfo.InvariantCulture) + " bytes, and Varve:Inference:ReserveBytes, "
+                + memory.Reserve.Value.ToString(CultureInfo.InvariantCulture)
+                + " bytes, leaves the bindings' pool nothing (ADR 0195). Lower Varve:Inference:ReserveBytes or Varve:Store:MemtableLimit, or raise the heap limit, then restart the instance.";
+
     /// <summary>What a projection that failed threw; null when it stopped at its memory limit.</summary>
     public Exception? Failure { get; }
 
@@ -210,3 +236,14 @@ public sealed class InferenceUnavailableException : Exception
     /// <summary>What the closure held when it stopped: a lower bound on what it needs.</summary>
     public ByteCount Reached { get; }
 }
+
+/// <summary>
+/// Why an instance has no memory for closures (ADR 0195, amended 2026-11-18,
+/// point 10): its heap limit, less the memtable's worst case and the reserve
+/// kept for queries, caches and requests, leaves the bindings' pool nothing.
+/// </summary>
+/// <param name="HeapLimit">The collector's heap limit.</param>
+/// <param name="MemtableWorst">The memtable's worst case: four times its limit at its bytes an entry.</param>
+/// <param name="Reserve"><c>Varve:Inference:ReserveBytes</c>.</param>
+[Contract(typeof(TheInferenceProjection.ClosureMemoryLimit), Role = "why an instance has no memory for a binding's closure")]
+public sealed record NoClosureMemory(ByteCount HeapLimit, ByteCount MemtableWorst, ByteCount Reserve);

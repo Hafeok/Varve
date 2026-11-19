@@ -48,6 +48,9 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
     private readonly OpenDatasets _datasets;
     private readonly TimeSpan _wait;
     private readonly InferenceOptions _options;
+
+    /// <summary>Why the settings leave the bindings' pool nothing, or null: see <see cref="NoMemory(ServerSettings)"/>.</summary>
+    internal NoClosureMemory? WithoutMemory { get; init; }
     private readonly ILogger _logger;
     private readonly Lock _lock = new();
     private readonly Dictionary<(string Dataset, string Binding), Entry> _entries = [];
@@ -72,6 +75,18 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
     /// </summary>
     internal static long PoolBytes(ServerSettings settings) =>
         Math.Max(0, MemtableDefault.HeapLimit() - SettingsCheck.MemtableWorstBytes(settings) - settings.Inference.ReserveBytes);
+
+    /// <summary>
+    /// Why the settings leave the bindings' pool nothing, or null when they
+    /// leave it something (ADR 0195, amended 2026-11-18, point 10). With
+    /// none, every materialising binding is stopped at its memory limit as it
+    /// is declared, before it builds; the instance starts all the same, so a
+    /// server that declares no such binding runs at any heap limit.
+    /// </summary>
+    internal static NoClosureMemory? NoMemory(ServerSettings settings) =>
+        PoolBytes(settings) > 0
+            ? null
+            : new NoClosureMemory(new ByteCount(MemtableDefault.HeapLimit()), new ByteCount(SettingsCheck.MemtableWorstBytes(settings)), new ByteCount(settings.Inference.ReserveBytes));
 
     /// <summary>
     /// A binding's limit when <c>Varve:Inference:ClosureBytes</c> is unset: a
@@ -211,7 +226,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
                 {
                     Entry entry = new(key, held!, new InferenceProjection(held!, binding, _options), _datasets.LocalDerivedOf(dataset), _wait);
                     _entries[(dataset.Value, key)] = entry;
-                    entry.Start(_logger);
+                    entry.Start(_logger, WithoutMemory);
                 }
             }
         }
@@ -277,6 +292,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
         private readonly TimeSpan _wait;
         private readonly CancellationTokenSource _stop = new();
         private Task _feed = Task.CompletedTask;
+        private NoClosureMemory? _withoutMemory;
 
         internal Entry(string key, Dataset dataset, InferenceProjection projection, IDerivedStore? cache, TimeSpan wait)
         {
@@ -400,7 +416,19 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
             };
         }
 
-        internal void Start(ILogger logger) => _feed = Task.Run(() => FeedAsync(logger, _stop.Token));
+        internal void Start(ILogger logger, NoClosureMemory? withoutMemory)
+        {
+            if (withoutMemory is not null)
+            {
+                // No pool to build in: stopped at its memory limit before anything is built, and never tried again (ADR 0195 point 10).
+                _withoutMemory = withoutMemory;
+                Projection.Refuse();
+                ProjectionLog.NoMemory(logger, Name, withoutMemory.HeapLimit.Value, withoutMemory.MemtableWorst.Value, withoutMemory.Reserve.Value);
+                return;
+            }
+
+            _feed = Task.Run(() => FeedAsync(logger, _stop.Token));
+        }
 
         public ValueTask DisposeAsync() => new(StopAsync());
 
@@ -444,6 +472,11 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 
         private InferenceUnavailableException Unavailable()
         {
+            if (_withoutMemory is { } memory)
+            {
+                return new InferenceUnavailableException(Binding, memory);
+            }
+
             if (Projection.Failure is { } failure)
             {
                 return new InferenceUnavailableException(Binding, failure);
@@ -552,6 +585,9 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 
         [LoggerMessage(Level = LogLevel.Warning, Message = "The inference projection of {Binding} could not save its state: {Reason}. The next save tries again.")]
         internal static partial void NotSaved(ILogger logger, string binding, string reason);
+
+        [LoggerMessage(Level = LogLevel.Error, Message = "The inference projection of {Binding} is stopped at its memory limit and not built: the heap limit, {HeapLimit} bytes, less the memtable's worst case, {MemtableWorst} bytes, and Varve:Inference:ReserveBytes, {Reserve} bytes, leaves the bindings' pool nothing (ADR 0195). Lower Varve:Inference:ReserveBytes or Varve:Store:MemtableLimit, or raise the heap limit, then restart.")]
+        internal static partial void NoMemory(ILogger logger, string binding, long heapLimit, long memtableWorst, long reserve);
     }
 }
 

@@ -599,3 +599,21 @@ static Varve.Protocol.Model.CommitWindow.operator ==(Varve.Protocol.Model.Commit
 ~override Varve.Protocol.Model.CommitWindow.Equals(object obj) -> bool
 static Varve.Protocol.Model.ProblemType.IdempotencyKeyExpired.get -> Varve.Protocol.Model.ProblemType
 Varve.Protocol.IdempotencyKeys.PrepareAsync(Varve.Store.Dataset! dataset) -> System.Threading.Tasks.ValueTask
+Varve.Protocol.InferenceUnavailableException.InferenceUnavailableException(Varve.Rdf.RdfTerm! binding, Varve.Protocol.NoClosureMemory! memory) -> void
+Varve.Protocol.InferenceUnavailableException.NoMemory.get -> Varve.Protocol.NoClosureMemory?
+Varve.Protocol.NoClosureMemory
+Varve.Protocol.NoClosureMemory.HeapLimit.get -> Varve.Store.Log.ByteCount
+Varve.Protocol.NoClosureMemory.HeapLimit.init -> void
+Varve.Protocol.NoClosureMemory.MemtableWorst.get -> Varve.Store.Log.ByteCount
+Varve.Protocol.NoClosureMemory.MemtableWorst.init -> void
+Varve.Protocol.NoClosureMemory.NoClosureMemory(Varve.Store.Log.ByteCount HeapLimit, Varve.Store.Log.ByteCount MemtableWorst, Varve.Store.Log.ByteCount Reserve) -> void
+Varve.Protocol.NoClosureMemory.Reserve.get -> Varve.Store.Log.ByteCount
+Varve.Protocol.NoClosureMemory.Reserve.init -> void
+Varve.Protocol.NoClosureMemory.<Clone>$() -> Varve.Protocol.NoClosureMemory!
+Varve.Protocol.NoClosureMemory.Deconstruct(out Varve.Store.Log.ByteCount HeapLimit, out Varve.Store.Log.ByteCount MemtableWorst, out Varve.Store.Log.ByteCount Reserve) -> void
+Varve.Protocol.NoClosureMemory.Equals(Varve.Protocol.NoClosureMemory? other) -> bool
+override Varve.Protocol.NoClosureMemory.Equals(object? obj) -> bool
+override Varve.Protocol.NoClosureMemory.GetHashCode() -> int
+override Varve.Protocol.NoClosureMemory.ToString() -> string!
+static Varve.Protocol.NoClosureMemory.operator !=(Varve.Protocol.NoClosureMemory? left, Varve.Protocol.NoClosureMemory? right) -> bool
+static Varve.Protocol.NoClosureMemory.operator ==(Varve.Protocol.NoClosureMemory? left, Varve.Protocol.NoClosureMemory? right) -> bool

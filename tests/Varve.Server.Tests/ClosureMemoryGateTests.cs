@@ -124,6 +124,68 @@ public class ClosureMemoryGateTests
         Assert.True(answered.StatusCode == HttpStatusCode.OK, await answered.Content.ReadAsStringAsync(Ct));
     }
 
+    /// <summary>
+    /// A server that declares no closure binding starts at any heap limit,
+    /// whatever its pool (ADR 0195, amended 2026-11-18, point 10): with the
+    /// default 2 GiB reserve, the pool is empty under 2.67 GiB and something
+    /// above it, and the server starts and answers either way.
+    /// </summary>
+    [Theory]
+    [InlineData(128L << 20)]
+    [InlineData(512L << 20)]
+    [InlineData(2L << 30)]
+    [InlineData(4L << 30)]
+    public async Task A_server_with_no_closure_binding_starts_at_any_heap_limit(long heap)
+    {
+        await using ChildServer server = await ChildServer.StartWithAsync(heap, []);
+        await server.DeclarePlainAsync("plain");
+        await server.UpdateAsync("plain", "INSERT DATA { GRAPH <http://ex/g/0> { <http://ex/a> <http://ex/p> <http://ex/b> } }");
+        HttpResponseMessage answered = await server.QueryAsync("plain", "SELECT (COUNT(*) AS ?n) FROM <http://ex/g/0> WHERE { ?s ?p ?o }");
+        Assert.True(answered.StatusCode == HttpStatusCode.OK, await answered.Content.ReadAsStringAsync(Ct) + server.Log);
+        HttpResponseMessage ready = await server.Http.GetAsync(new Uri(server.Address, "health/ready"), Ct);
+        Assert.True(ready.StatusCode == HttpStatusCode.OK, await ready.Content.ReadAsStringAsync(Ct));
+        Assert.False(server.Exited, server.Log);
+    }
+
+    /// <summary>
+    /// A server whose pool is empty and that declares a closure binding
+    /// (ADR 0195, amended 2026-11-18, point 10): it starts, and the binding
+    /// is stopped at its memory limit as it is declared, before it builds,
+    /// with a limit of 0. A closure read answers <c>503
+    /// inference-unavailable</c>, no <c>Retry-After</c>, its detail naming
+    /// <c>Varve:Inference:ReserveBytes</c> and the heap limit; the log says
+    /// the same; another dataset keeps answering, and a commit does not try
+    /// the binding again.
+    /// </summary>
+    [Fact]
+    public async Task A_closure_binding_with_no_pool_is_stopped_at_its_memory_limit_naming_the_reserve_and_the_heap_limit()
+    {
+        long heap = 1L << 30;
+        await using ChildServer server = await ChildServer.StartWithAsync(heap, []);
+        await server.DeclareAsync("d", "RDFS", crossGraph: false);
+        await server.DeclarePlainAsync("plain");
+
+        JsonElement refused = await server.SettledAsync("d");
+        Assert.Equal("stopped (memory-limit)", refused.GetProperty("state").GetString());
+        Assert.Equal(0, refused.GetProperty("limit").GetInt64());
+
+        await server.LoadAsync("d", individuals: 10, graphs: 1);
+        HttpResponseMessage read = await server.QueryAsync("d", "SELECT ?c FROM <http://ex/g/0> FROM <" + Varve + "implicit> WHERE { <http://ex/x0> a ?c }");
+        string body = await read.Content.ReadAsStringAsync(Ct);
+        Assert.True(read.StatusCode == HttpStatusCode.ServiceUnavailable, body);
+        Assert.True(body.Contains("problems/inference-unavailable", StringComparison.Ordinal), body);
+        Assert.Contains("Varve:Inference:ReserveBytes", body, StringComparison.Ordinal);
+        Assert.Contains("heap limit, " + heap.ToString(CultureInfo.InvariantCulture) + " bytes", body, StringComparison.Ordinal);
+        Assert.Null(read.Headers.RetryAfter);
+        Assert.Contains("Varve:Inference:ReserveBytes", server.Log, StringComparison.Ordinal);
+
+        Assert.Equal("stopped (memory-limit)", (await server.SettledAsync("d")).GetProperty("state").GetString());
+        await server.UpdateAsync("plain", "INSERT DATA { GRAPH <http://ex/g/0> { <http://ex/a> <http://ex/p> <http://ex/b> } }");
+        HttpResponseMessage other = await server.QueryAsync("plain", "SELECT (COUNT(*) AS ?n) FROM <http://ex/g/0> WHERE { ?s ?p ?o }");
+        Assert.True(other.StatusCode == HttpStatusCode.OK, await other.Content.ReadAsStringAsync(Ct));
+        Assert.False(server.Exited, server.Log);
+    }
+
     /// <summary>The server as a child process under a hard heap limit, its datasets in memory.</summary>
     private sealed class ChildServer : IAsyncDisposable
     {
@@ -150,9 +212,9 @@ public class ClosureMemoryGateTests
             _root = root;
         }
 
-        private Uri Address { get; }
+        internal Uri Address { get; }
 
-        private HttpClient Http { get; } = new(new SocketsHttpHandler { UseProxy = false }) { Timeout = TimeSpan.FromMinutes(2) };
+        internal HttpClient Http { get; } = new(new SocketsHttpHandler { UseProxy = false }) { Timeout = TimeSpan.FromMinutes(2) };
 
         internal bool Exited => _process.HasExited;
 
@@ -167,7 +229,15 @@ public class ClosureMemoryGateTests
             }
         }
 
-        internal static async Task<ChildServer> StartAsync(long heap, long closureBytes)
+        internal static Task<ChildServer> StartAsync(long heap, long closureBytes) =>
+            StartWithAsync(heap, [
+                "--Varve:Inference:ClosureBytes=" + closureBytes.ToString(CultureInfo.InvariantCulture),
+                "--Varve:Inference:ReserveBytes=" + Reserve(heap).ToString(CultureInfo.InvariantCulture),
+                "--Varve:Store:MemtableLimit=" + MemtableEntries.ToString(CultureInfo.InvariantCulture),
+            ]);
+
+        /// <summary>The server under <paramref name="heap"/>, with <paramref name="settings"/> and the defaults for the rest.</summary>
+        internal static async Task<ChildServer> StartWithAsync(long heap, string[] settings)
         {
             int port;
             using (TcpListener listener = new(IPAddress.Loopback, 0))
@@ -186,9 +256,7 @@ public class ClosureMemoryGateTests
                 "--Varve:Auth:Mode=Anonymous",
                 "--Varve:DatasetsRoot=" + root,
                 "--Varve:Health:RateLimit=100000",
-                "--Varve:Inference:ClosureBytes=" + closureBytes.ToString(CultureInfo.InvariantCulture),
-                "--Varve:Inference:ReserveBytes=" + Reserve(heap).ToString(CultureInfo.InvariantCulture),
-                "--Varve:Store:MemtableLimit=" + MemtableEntries.ToString(CultureInfo.InvariantCulture),
+                .. settings,
             ])
             {
                 start.ArgumentList.Add(argument);
@@ -228,6 +296,15 @@ public class ClosureMemoryGateTests
                 "<urn:varve:from-config:" + dataset + "> a <" + Varve + "Dataset> ; <" + Varve + "datasetName> \"" + dataset + "\" ; <" + Varve + "storage> <" + Varve + "Memory> .\n"
                 + "<urn:binding:" + dataset + "> a <" + Varve + "TBoxBinding> ; <" + Varve + "boundGraph> <http://ex/tbox> ; <" + Varve + "profile> <" + Varve + profile + "> ; <"
                 + Varve + "graphPrefix> \"http://ex/g/\"" + (crossGraph ? " ; <" + Varve + "crossGraph> true" : string.Empty) + " .";
+            using HttpRequestMessage request = new(HttpMethod.Put, new Uri(Address, "manage/datasets/" + dataset)) { Content = new StringContent(trig, Encoding.UTF8, "application/trig") };
+            HttpResponseMessage declared = await Http.SendAsync(request, Ct);
+            Assert.True(declared.StatusCode == HttpStatusCode.Created, await declared.Content.ReadAsStringAsync(Ct));
+        }
+
+        /// <summary>A dataset in memory with no binding.</summary>
+        internal async Task DeclarePlainAsync(string dataset)
+        {
+            string trig = "<urn:varve:from-config:" + dataset + "> a <" + Varve + "Dataset> ; <" + Varve + "datasetName> \"" + dataset + "\" ; <" + Varve + "storage> <" + Varve + "Memory> .";
             using HttpRequestMessage request = new(HttpMethod.Put, new Uri(Address, "manage/datasets/" + dataset)) { Content = new StringContent(trig, Encoding.UTF8, "application/trig") };
             HttpResponseMessage declared = await Http.SendAsync(request, Ct);
             Assert.True(declared.StatusCode == HttpStatusCode.Created, await declared.Content.ReadAsStringAsync(Ct));

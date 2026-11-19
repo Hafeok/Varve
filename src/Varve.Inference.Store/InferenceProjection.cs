@@ -140,6 +140,15 @@ public sealed class InferenceProjection : IProjection
     /// <summary>Why a stopped binding failed, when it was not its memory limit: the exception its pass threw; null otherwise.</summary>
     public Exception? Failure => Volatile.Read(ref _failure);
 
+    /// <summary>
+    /// Stops the binding at its memory limit before it builds anything, at
+    /// every position (ADR 0195, amended 2026-11-18, point 10): its owner has
+    /// no memory to give it, the bindings' pool being empty. Every closure
+    /// read is then refused as the memory limit refuses one, and nothing
+    /// tries it again; a restart with memory for a pool makes another.
+    /// </summary>
+    public void Refuse() => StopAll(0, new MemoryAmount(0), failure: null);
+
     /// <summary>The limit a stopped binding passed, and what its closures held when it stopped: a lower bound on what they need.</summary>
     public (ByteCount Limit, ByteCount Reached) MemoryLimit => (_options.ClosureBytes, _reached);
 
@@ -216,14 +225,15 @@ public sealed class InferenceProjection : IProjection
         List<InferredRow> found = [];
         lock (_rowsLock)
         {
-            if (position > _position)
-            {
-                return InferenceReadOutcome.Behind;
-            }
-
+            // A binding stopped at or below the position read is refused before it is waited for: no wait helps (ADR 0195 point 6).
             if (position >= _stoppedAt)
             {
                 return InferenceReadOutcome.Unavailable;
+            }
+
+            if (position > _position)
+            {
+                return InferenceReadOutcome.Behind;
             }
 
             if (position < Math.Max(_heldFrom, _floor))
@@ -299,14 +309,14 @@ public sealed class InferenceProjection : IProjection
         ArgumentNullException.ThrowIfNull(@object);
         lock (_rowsLock)
         {
-            if (at.Value > _position)
-            {
-                return (InferenceReadOutcome.Behind, null);
-            }
-
             if (at.Value >= _stoppedAt)
             {
                 return (InferenceReadOutcome.Unavailable, null);
+            }
+
+            if (at.Value > _position)
+            {
+                return (InferenceReadOutcome.Behind, null);
             }
         }
 

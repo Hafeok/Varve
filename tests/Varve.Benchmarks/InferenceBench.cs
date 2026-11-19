@@ -173,8 +173,10 @@ internal static class InferenceBench
     /// premise sets over it; the distinct sets of two graphs or more, which
     /// are the reserved graphs a cross-graph binding places rows in; k at
     /// most <paramref name="most"/>, so a dense run fits a nightly job.
+    /// Without <paramref name="findSets"/>, only the merge is closed: a
+    /// single-graph closure of the same data (#354).
     /// </summary>
-    internal static void RunPremiseSets(string sizeName, string profileName, int links = 0, string? axioms = null, int most = int.MaxValue)
+    internal static void RunPremiseSets(string sizeName, string profileName, int links = 0, string? axioms = null, int most = int.MaxValue, bool findSets = true)
     {
         RecSize size = Enum.Parse<RecSize>(sizeName);
         InferenceProfile profile = profileName == "owl2rl" ? InferenceProfile.Owl2Rl : InferenceProfile.Rdfs;
@@ -193,6 +195,13 @@ internal static class InferenceBench
             Closure merge = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive, tbox: tboxClosure);
             merge.Apply([.. names.Take(k).SelectMany(n => graphs[n]).Distinct()], []);
             TimeSpan closed = clock.Elapsed;
+            if (!findSets)
+            {
+                Console.WriteLine($"{k} graphs merged into one: closed in {closed.TotalSeconds:F1} s, {merge.Count.Value} facts");
+                GC.KeepAlive(merge);
+                continue;
+            }
+
             List<(Fact, DataGraphIndex)> held = [];
             for (int g = 0; g < k; g++)
             {

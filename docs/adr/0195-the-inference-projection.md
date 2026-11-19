@@ -684,7 +684,21 @@ It amends point 4 (generations), point 6 (the memory limit) and point 9
 
    Under a heap limit of 2.67 GiB the defaults leave no pool, so a small
    container serves no materialising binding until its operator lowers the
-   reserve or the memtable. The instance refuses at startup:
+   reserve or the memtable. **An empty pool never stops the instance
+   starting**: bindings are declared in the management plane after it has
+   started, and a server that declares none runs at any heap limit
+   (tested from 128 MiB to 4 GiB). A materialising binding declared on an
+   instance with no pool is stopped at its memory limit as it is declared,
+   before it builds anything, with a `limit` of 0 on readiness. Every
+   closure read of it answers `503 inference-unavailable`, no
+   `Retry-After`, its detail naming the heap limit, the memtable's worst
+   case and `Varve:Inference:ReserveBytes`, and what to lower or raise; the
+   log says the same at error level. Nothing tries it again; a restart with
+   memory for a pool builds it. Other datasets, and its own tier-1 reads,
+   are served (`ClosureMemoryGateTests`). A read of a stopped binding is
+   refused before it is waited for, so it never answers `inference-behind`.
+
+   The instance refuses at startup:
    - a `ClosureBytes` above the pool;
    - a negative `ReserveBytes`.
 

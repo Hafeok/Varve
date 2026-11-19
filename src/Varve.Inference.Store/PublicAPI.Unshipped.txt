@@ -49,3 +49,4 @@ Varve.Inference.Store.InferenceProjection.ClosureHeld.get -> Varve.Inference.Mod
 Varve.Inference.Store.InferenceProjection.ClosurePeak.get -> Varve.Inference.Model.MemoryAmount
 static Varve.Inference.Store.Model.InferenceOptions.TermBytes.get -> Varve.Inference.Model.MemoryAmount
 static Varve.Inference.Store.InferenceProjection.IsStorageFailure(System.Exception! error) -> bool
+Varve.Inference.Store.InferenceProjection.Refuse() -> void

@@ -207,13 +207,43 @@ server needed more than 1.5 GiB and at most 2 GiB. Raise it if you raise
 
 At the 5 GiB heap limit above, the pool is 2.2 GiB, and `ClosureBytes`
 unset is a quarter of the heap limit, 1.25 GiB: about a million data quads
-under either profile. Under a heap limit of 2.67 GiB the defaults leave no
-pool, and every materialising binding is refused until the reserve or the
-memtable limit is lowered. A closure past its limit is refused before the
+under either profile. A closure past its limit is refused before the
 memory is asked for, the binding stops and answers `inference-unavailable`,
 and the instance stays up; restart it with the limit raised, or narrow the
 binding (the problem page says how). The instance refuses at start a
 `ClosureBytes` above the pool.
+
+### A small container
+
+With the default reserve of 2 GiB, **a heap limit under 2.67 GiB leaves no
+pool for closures**: the memtable's worst case (a quarter of the heap limit
+there) and the reserve take all of it. The 256 MB container measured above
+is one; the Pi's 5 GiB heap limit is not.
+
+- **A server that declares no `varve:RDFS` or `varve:OWL2RL` binding is
+  unaffected.** It starts and serves at any heap limit; tier-1 regimes
+  (`rdf`, `rdfs`, `d`) need no closure and are served as ever.
+- **A materialising binding declared there is stopped as it is declared**,
+  before it builds anything. Readiness says `stopped (memory-limit)` with a
+  `limit` of 0, and every read of its closure answers `503
+  inference-unavailable`, with no `Retry-After`, saying:
+
+  > The closure of this binding is not built: the instance has no memory
+  > for closures. Its heap limit, … bytes, less the memtable's worst case,
+  > … bytes, and Varve:Inference:ReserveBytes, … bytes, leaves the
+  > bindings' pool nothing (ADR 0195). Lower Varve:Inference:ReserveBytes or
+  > Varve:Store:MemtableLimit, or raise the heap limit, then restart the
+  > instance.
+
+  The log says the same once, at error level. The instance and its other
+  datasets keep running.
+- **To run a closure in a small container**, lower
+  `Varve:Inference:ReserveBytes` (the reserve was measured with four reads
+  of 256 MiB; fewer concurrent reads, or a smaller `MaxQueryMemory`, need
+  less) or `Varve:Store:MemtableLimit`, and restart. In a 1 GiB heap limit,
+  for example, `ReserveBytes=402653184` (384 MiB) with the default memtable
+  (256 MiB at its worst) leaves a pool of 384 MiB, and `ClosureBytes`
+  defaults to a quarter of the heap limit, 256 MiB.
 
 A from-scratch closure of REC M takes about one minute under `rdfs` and
 four and a half under `owl2rl`, on four cores: what a cold start or an
