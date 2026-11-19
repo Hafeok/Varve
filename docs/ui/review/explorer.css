@@ -16,7 +16,7 @@
 /* ---------- Menu (molecule): a button that opens a list of actions ---------- */
 .vw-menu { position: relative; display: inline-block; }
 .vw-menu__list {
-  position: absolute; z-index: 5; top: calc(100% + var(--space-1)); right: 0;
+  position: absolute; z-index: 5; top: calc(100% + var(--space-1)); inset-inline-start: 0;
   min-width: 100%; margin: 0; padding: var(--space-1) 0; list-style: none;
   background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-md);
   box-shadow: var(--shadow-overlay);
@@ -56,9 +56,18 @@
 .vw-group__title {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3);
   margin: 0; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--rule);
-  font-size: 16px; line-height: 24px; font-weight: 600;
+  font-family: var(--font-mono); font-size: 13px; line-height: 20px; font-weight: 600;
 }
-.vw-group__count { font-size: 12px; line-height: 16px; font-weight: 400; color: var(--ink-muted); }
+/* One heading style for every group: the default graph's words and a graph's IRI chip alike. */
+.vw-group__title .vw-term { font-size: inherit; line-height: inherit; font-weight: inherit; padding: 0; }
+/* Groups line up: every group's table shares one set of column widths. */
+.vw-group .vw-triples, .vw-group .vw-table { table-layout: fixed; width: 100%; }
+.vw-group .vw-triples th:nth-child(1) { width: 36px; }
+.vw-group .vw-triples th:nth-child(2), .vw-group .vw-triples th:nth-child(3) { width: 24%; }
+.vw-group .vw-triples th:nth-child(5) { width: 120px; }
+.vw-report .vw-table th:nth-child(1) { width: 120px; }
+.vw-report .vw-table th:nth-child(2), .vw-report .vw-table th:nth-child(3), .vw-report .vw-table th:nth-child(4) { width: 20%; }
+.vw-group__count { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; color: var(--ink-muted); }
 
 /* ---------- NodeBudget (molecule) ---------- */
 .vw-budget { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); margin: 0; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--rule); color: var(--ink-muted); }
@@ -66,14 +75,16 @@
 .vw-budget--over a { font-weight: 400; }
 
 /* ---------- GraphView (organism): SVG; coordinates are attributes, never style ---------- */
-.vw-graph { display: block; width: 100%; height: auto; max-height: 70vh; background: var(--surface); }
+/* Never scaled: the layout's bounds set width and height one to one, and the view scrolls. */
+.vw-graphview { overflow: auto; max-height: 70vh; background: var(--surface); }
+.vw-graph { display: block; max-width: none; }
 .vw-edge { fill: none; stroke: var(--edge); stroke-width: 1.5; }
 .vw-edge--inferred { stroke: var(--edge-inferred); stroke-dasharray: 6 4; }
 .vw-edge--added { stroke: var(--added); stroke-width: 2.5; }
 .vw-edge--removed { stroke: var(--removed); stroke-width: 2.5; stroke-dasharray: 2 4; }
 .vw-edge__label { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-muted); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
 .vw-edge__label--added { fill: var(--added); }
-.vw-edge__label--removed { fill: var(--removed); text-decoration: line-through; }
+.vw-edge__label--removed { fill: var(--removed); }
 .vw-node rect { fill: var(--surface); stroke: var(--rule); stroke-width: 1; }
 .vw-node text { font-family: var(--font-mono); font-size: 12px; fill: var(--ink); }
 .vw-node--iri text { fill: var(--term-iri); }
@@ -86,9 +97,11 @@
 .vw-node .vw-node__type { font-family: var(--font-sans); font-size: 10px; fill: var(--ink-muted); }
 .vw-node:focus { outline: none; }
 .vw-node:focus-visible rect { stroke: var(--focus-ring); stroke-width: 3; }
+.vw-node__expand { cursor: pointer; }
+.vw-node__hit { fill: transparent; }
 .vw-node__expand circle { fill: var(--surface); stroke: var(--control-border); }
 .vw-node__expand text { font-family: var(--font-mono); font-size: 12px; fill: var(--ink); }
-.vw-graph__empty { font-family: var(--font-sans); font-size: 13px; fill: var(--ink-muted); }
+.vw-graph__empty { margin: 0; padding: 0 var(--space-4) var(--space-4); color: var(--ink-muted); }
 @media (forced-colors: active) {
   .vw-edge, .vw-node rect { stroke: CanvasText; }
   .vw-node text, .vw-edge__label { fill: CanvasText; }

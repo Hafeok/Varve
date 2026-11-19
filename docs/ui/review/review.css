@@ -3,10 +3,11 @@
 .review h1 { margin: 0; font-size: 24px; line-height: 32px; }
 .review .toc { margin: 0; columns: 2; }
 .comp { display: grid; gap: 12px; }
-.comp h2 { margin: 0; font-size: 20px; line-height: 28px; border-bottom: 1px solid var(--rule); padding-bottom: 4px; }
+.comp > h2 { margin: 0; font-size: 20px; line-height: 28px; border-bottom: 1px solid var(--rule); padding-bottom: 4px; }
 .comp .blurb { margin: 0; max-width: 80ch; }
 .cases { display: grid; gap: 20px; }
 .case { margin: 0; padding: 12px; background: var(--ground); border-radius: 4px; }
 .case figcaption { margin-bottom: 6px; font-size: 11px; line-height: 16px; color: var(--ink-muted); }
 .case > div { background: var(--surface); }
 @media (max-width: 640px) { .review .toc { columns: 1; } }
+.case:has(.vw-menu__list) > div { padding-bottom: 200px; }
