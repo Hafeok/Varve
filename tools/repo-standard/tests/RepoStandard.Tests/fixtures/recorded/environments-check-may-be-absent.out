@@ -1,0 +1,10 @@
+exit: 1
+--- stdout
+! environments providers: secret NUGET_API_KEY
+    note: declared and not present; repo-standard never writes a secret, so add it by hand
+= environments providers: secret VARVE_TENANT
+    note: declared, absent: declared may_be_absent, so not a difference
+! environments providers: secret GIST_ID
+    note: present and not declared; repo-standard never deletes a secret, so declare it or remove it by hand
+2 differences: 0 to create, 0 to update, 0 to delete, 2 repo-standard cannot change. 1 declared, absent (not a difference).
+--- stderr

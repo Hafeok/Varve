@@ -951,6 +951,15 @@ Open on #96:
 - the declaration pages the reference screens add (agents and roles, graph
   templates, shapes).
 
+Since then:
+- **In the container image** (#296, ADR 0245), released as
+  `v0.1.0-preview.22`: the image carries the bundle and serves it at `/ui/`
+  by default, with its settings answered from the server's configuration,
+  and says when sign-in is not configured. `Varve:WebUi:Enabled` turns it
+  off.
+- **Open:** an address per plane, for a separate management listener (#297);
+  whether the .NET tool carries the bundle too (#296).
+
 ### Part 2 — the data explorer
 
 After SHACL and Inference.

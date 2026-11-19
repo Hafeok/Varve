@@ -342,7 +342,8 @@ doubling each time, and is retried up to five times.
 
 - **Secret values.** By design: names only, and `apply` never creates, changes
   or deletes a secret. A missing or unexpected secret is reported (`!`) for a
-  person to fix.
+  person to fix. A secret declared `{name: X, may_be_absent: true}` and missing
+  is reported as declared and absent (`=`), and is not drift.
 - **Organisation-level anything**: rulesets inherited from the organisation,
   organisation secrets, organisation Actions policy. Only the repository's own.
 - **Settings outside the kinds above**: branch protection rules (the pre-ruleset

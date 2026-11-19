@@ -148,6 +148,12 @@ that fails, printing it and every change it did not make. `apply` exits 1 if a
 write failed or any `!` change exists, because the repository then does not
 match the declaration.
 
+A plan may also list `=` entries: a secret declared `may_be_absent` and not
+present (§4.4). **An `=` entry is not a difference.** It is printed, and
+counted after the summary as "declared, absent", but it is not in the count of
+differences, it is never written, and neither `check` nor `apply` exits 1 for
+it.
+
 ## 4. The kinds
 
 ### 4.1 `repository`
@@ -216,7 +222,7 @@ they belong to the organisation.
 | `prevent_self_review` | bool | the `required_reviewers` rule; exists only with reviewers (§1.3) |
 | `deployment_branch_policy` | `{protected_branches, custom_branch_policies}` or `null` | `deployment_branch_policy`; `null` means any branch |
 | `branch_policies` | list of `{name, type: branch \| tag}`, type defaulting to `branch` | `/deployment-branch-policies`, read only while `custom_branch_policies` is true |
-| `secrets` | list of string | `GET /environments/{name}/secrets`; asserted only |
+| `secrets` | list of secret names, as in §4.4 | `GET /environments/{name}/secrets`; asserted only |
 
 A difference is written with one `PUT /environments/{name}`, which replaces the
 protection rules; undeclared fields keep their live values. Branch policies are
@@ -224,7 +230,8 @@ then added with `POST` and removed with `DELETE`. An environment not declared
 is deleted, **and its secrets and deployment history with it**; the plan says
 so.
 
-Secret names are compared like `secrets` (§4.4), as `!` changes.
+Secret names are compared like `secrets` (§4.4): as `!` changes, or `=` for a
+name declared `may_be_absent` and missing.
 
 ### 4.4 `secrets`
 
@@ -233,6 +240,21 @@ A list of the names of the repository's Actions secrets, read with `GET
 never written, and a secret is never created or deleted.** A declared name that
 is missing, and a present name that is not declared, are each a `!` change for
 a person to resolve.
+
+An item is a name, or a mapping:
+
+| Key | Type |
+|---|---|
+| `name` | string, required |
+| `may_be_absent` | bool, default `false` |
+
+A name with `may_be_absent: true` is declared, and allowed not to exist yet:
+missing, it is an `=` entry, "declared, absent", which is reported and is not
+a difference (§3); present, it is as declared and is not reported. It is
+for a value a person has still to provision, where what reads it already
+copes with its absence. A plain name, or one with `may_be_absent: false`, is
+asserted to exist, as above. A name may appear once in a list, in either
+spelling. The same holds for an environment's `secrets` (§4.3).
 
 ### 4.5 `labels`
 
@@ -317,6 +339,6 @@ is `selected`.
 
 | Code | Meaning |
 |---|---|
-| 0 | `plan` or `export` ran; `check` found no difference; `apply` left none |
+| 0 | `plan` or `export` ran; `check` found no difference; `apply` left none. An `=` entry is not a difference |
 | 1 | `check` found a difference; `apply` failed a write or left a `!` difference |
 | 2 | could not run: usage, an invalid declaration, a read that failed |

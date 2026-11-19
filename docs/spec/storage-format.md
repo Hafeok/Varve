@@ -70,6 +70,32 @@ Segment file names are the segment id in eight decimal digits. Positions in
 derived names are twenty decimal digits. Files ending `.tmp` under `derived/`
 are unpublished writes and are deleted on open.
 
+### 2.1 Reserved: `proof/`
+
+The name **`proof/`**, beside `log/` and `derived/` (a directory on the file
+backend, a prefix under the dataset's prefix in an object store), is
+reserved for log checkpoints: hash tiles and write-once checkpoints over the
+commits, which #292 proposes for a minor after 1.0 (ADR 0216, amended
+2026-11-18). In format 1:
+
+- **Nothing writes there.** No build of format 1 creates `proof/` or
+  anything under it.
+- **Every reader ignores it.** A dataset with a `proof/` is a format 1
+  dataset, and its `log/` and `derived/` read as they would without it: open
+  for read and for write, a follower, maintenance and retention, `varve
+  storage`, `Dataset.ShipAsync` and an open of a restored copy. Each names
+  what it reads, so none lists `proof/`.
+- **Nothing deletes, moves or rewrites it**, nor anything under it, whatever
+  it holds and whatever format it is in. Deleting the dataset removes it with
+  the rest, as the dataset's own.
+- **A copy of the directory carries it**, as it carries everything; a
+  restore is that copy, opened. `Dataset.ShipAsync` names what it copies, the
+  log and one checkpoint of `derived/`, and does not carry `proof/`; whether
+  a copy does is for the release that defines `proof/` to say.
+
+A version of Varve that writes `proof/` will specify it here. Until then its
+content is unspecified, and a format 1 reader never looks.
+
 ## 3. `log/MANIFEST` — 96 bytes, written once
 
 | Offset | Size | Field |
@@ -667,7 +693,8 @@ length it was written at, ends the load before its commit:
 Objects beside `log/` and `derived/` under a dataset's prefix that instances
 use to coordinate, not derived data: **read forever** from the release that
 writes them, each with its own format version (ADR 0160). The writer record,
-`writer`, is ADR 0136's.
+`writer`, is ADR 0136's. `proof/` under the same prefix is reserved and
+ignored (§2.1).
 
 ### 8.1 Reader record — `readers/<id>`, format 1
 
