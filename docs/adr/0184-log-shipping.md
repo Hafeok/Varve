@@ -148,6 +148,13 @@ stops for that target and changes nothing.
 **Not shipped:** `writer`, `readers/` and `probe/`. They are the target's
 own coordination state.
 
+**`proof/` is neither shipped nor touched.** The name is reserved beside
+`log/` and `derived/` (ADR 0216, amended 2026-11-18, #340): no release
+writes it yet, and every reader ignores it and never deletes it. The
+shipper names what it lists, on both stores: `log/`, one segment's chunks,
+and the extents the catalog names. Whether a copy carries `proof/` is
+#292's to decide.
+
 **5. A set is verified before it is copied, and never rewritten.**
 - The shipper checks each blob as ADR 0213 does before its create. A
   damaged blob is not shipped.
