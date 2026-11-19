@@ -300,12 +300,16 @@ ahead of their effect:
 **The rulings.**
 1. **The resume finishes a move; it never starts one.** A run of the move
    with no request never freezes the catalogue. Finding `varve:InDataset`,
-   it commits nothing.
+   it commits nothing. **One run of a dataset's move at a time** on the
+   instance that runs it: a move request waits for a run in progress, so its
+   answer is about its own run; the interval loop's resume does not wait,
+   and leaves the move to the run that holds it.
 2. **A cancel found under a run stands.** A run that has seen the move in
    progress, by its own committed freeze or by reading `Moving`, and then
    finds `varve:InDataset`, commits nothing more. A request's run answers
    `409 event-move-cancelled` (member `position`, the management position it
-   found the cancel at), a problem type with a page and a "What to do"
+   found the cancel at), which is then always a cancel by apply, a problem
+   type with a page and a "What to do"
    (ADR 0242). The client does not retry it: a retry would undo another
    caller's deliberate cancel, and ADR 0246 point 10's list is unchanged. A
    run that judged the catalogue untranslatable, and whose own cancel lost to
@@ -335,8 +339,9 @@ ahead of their effect:
 4 are the same; this amendment says who may make them, and when an answer
 may say one was made. No ruling of ADR 0246 changes.
 
-**Code and tests.** `EventMoves.RunAsync`, `ManagementEndpoints`, the host's
-management-position step, `Fleet.CatalogueOf` and `EventCatalogueValidator`
+**Code and tests.** `EventMoves.RunAsync`, `IManagementPlane.EnterMoveAsync`
+and `TryEnterMove` (one run at a time), `ManagementAnswers`,
+`MovingDatasetWrites`, `Fleet.CatalogueOf` and `EventCatalogueValidator`
 (`EventCatalogueState`). `EventMoveTests` holds each interleaving with the
 interval loop or a move request held between the move's steps by a signal;
 `CancelledMoveAcrossInstancesTests` holds rulings 4 and 5 with two fleets over

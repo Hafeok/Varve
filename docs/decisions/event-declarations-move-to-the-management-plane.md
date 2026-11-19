@@ -44,7 +44,7 @@ decisions:
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-26T00:00:00Z
   - key: ResumeOnlyFinishesAMove
-    statement: "A run of the move with no request never freezes the catalogue, and a run that has seen Moving, by its own freeze or by reading it, commits nothing more when it then finds varve:InDataset; a request's run then answers 409 event-move-cancelled, which a client does not retry; amended 2026-11-19"
+    statement: "One run of a dataset's move at a time on the instance that runs it, a request waiting for a run in progress and the resume never; a run with no request never freezes the catalogue, and a run that has seen Moving, by its own freeze or by reading it, commits nothing more when it then finds varve:InDataset; a request's run then answers 409 event-move-cancelled, which a client does not retry; amended 2026-11-19"
   - key: CancelIsAnsweredOnlyWhenInForce
     statement: "A cancel is answered cancelled only when it was committed and this instance has applied it, and a management write answered with no change is applied before it is answered; amended 2026-11-19"
   - key: MovingWriteAdvancesFirst
