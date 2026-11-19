@@ -32,6 +32,48 @@ public static class QueryColouring
         return runs;
     }
 
+    /// <summary>
+    /// The parser's first error on <paramref name="text"/>, as the editor shows
+    /// it: at the error's UTF-16 index, with the parser's line, column and
+    /// message, the very words the server's <c>sparql-syntax</c> problem
+    /// carries. None for a text that parses, or for one that is only
+    /// whitespace, which nobody has started to write.
+    /// </summary>
+    public static EditorError? Error(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || SparqlParser.TryParseQuery(text.AsSpan(), default, out _, out SparqlParseError error))
+        {
+            return null;
+        }
+
+        return new EditorError(Utf16Index(text, error.Offset), $"{error.Line}:{error.Column}: {error.Message}");
+    }
+
+    // The parser's offsets are bytes of the text's UTF-8 form (sparql-grammar.md §6).
+    private static int Utf16Index(string text, long utf8Offset)
+    {
+        long bytes = 0;
+        int i = 0;
+
+        while (i < text.Length && bytes < utf8Offset)
+        {
+            char c = text[i];
+
+            if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+            {
+                bytes += 4;
+                i += 2;
+            }
+            else
+            {
+                bytes += c < 0x80 ? 1 : c < 0x800 ? 2 : 3;
+                i++;
+            }
+        }
+
+        return i;
+    }
+
     /// <summary>The class suffix of a token kind.</summary>
     public static string Kind(SparqlTokenKind kind) => kind switch
     {

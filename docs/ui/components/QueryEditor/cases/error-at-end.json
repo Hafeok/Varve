@@ -2,7 +2,7 @@
   "parameters": {
     "Id": "q",
     "Label": "Query",
-    "Text": "SELECT ?note WHERE { ?note dct:title ",
+    "Text": "PREFIX dct: <http://purl.org/dc/terms/>\nSELECT ?note WHERE { ?note dct:title ",
     "Runs": [
       {
         "Start": 0,
@@ -11,33 +11,48 @@
       },
       {
         "Start": 7,
-        "End": 12,
-        "Kind": "variable"
+        "End": 11,
+        "Kind": "iri"
       },
       {
-        "Start": 13,
-        "End": 18,
+        "Start": 12,
+        "End": 39,
+        "Kind": "iri"
+      },
+      {
+        "Start": 40,
+        "End": 46,
         "Kind": "keyword"
       },
       {
-        "Start": 19,
-        "End": 20,
-        "Kind": "punct"
-      },
-      {
-        "Start": 21,
-        "End": 26,
+        "Start": 47,
+        "End": 52,
         "Kind": "variable"
       },
       {
-        "Start": 27,
-        "End": 36,
+        "Start": 53,
+        "End": 58,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 59,
+        "End": 60,
+        "Kind": "punct"
+      },
+      {
+        "Start": 61,
+        "End": 66,
+        "Kind": "variable"
+      },
+      {
+        "Start": 67,
+        "End": 76,
         "Kind": "iri"
       }
     ],
     "Error": {
-      "Offset": 37,
-      "Message": "1:38: the query ends where a term was expected."
+      "Offset": 77,
+      "Message": "2:38: Expected a term but the input ended."
     },
     "Help": "Tab inserts two spaces. Press Escape, then Tab, to leave the editor."
   }

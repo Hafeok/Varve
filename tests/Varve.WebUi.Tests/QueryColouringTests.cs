@@ -45,6 +45,41 @@ public class QueryColouringTests
         Assert.Equal(QueryColouring.Runs(text), drawn);
     }
 
+    /// <summary>
+    /// The rule for every case that draws an error: the parser, run over the
+    /// case's text, gives exactly that error, at that place and in those words,
+    /// the words the server's <c>sparql-syntax</c> problem carries.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Cases))]
+    public void a_case_that_draws_an_error_parses_to_it(string name)
+    {
+        using JsonDocument document = JsonDocument.Parse(File.ReadAllText(Path.Combine(CasesFolder(), name + ".json")));
+        JsonElement parameters = document.RootElement.GetProperty("parameters");
+
+        if (!parameters.TryGetProperty("Error", out JsonElement drawn))
+        {
+            return;
+        }
+
+        string text = parameters.GetProperty("Text").GetString()!;
+        Assert.Equal(QueryColouring.Error(text), drawn.Deserialize<EditorError>());
+    }
+
+    /// <summary><c>error-at-end</c> exists to show the marker at the end, so its error must be the end of the input.</summary>
+    [Fact]
+    public void the_error_at_end_case_is_an_end_of_input_error()
+    {
+        using JsonDocument document = JsonDocument.Parse(File.ReadAllText(Path.Combine(CasesFolder(), "error-at-end.json")));
+        string text = document.RootElement.GetProperty("parameters").GetProperty("Text").GetString()!;
+
+        Assert.Equal(text.Length, QueryColouring.Error(text)!.Offset);
+    }
+
+    [Fact]
+    public void a_blank_text_has_no_error_and_a_query_that_parses_has_none() =>
+        Assert.All(["", "  \n", "SELECT * WHERE { ?s ?p ?o }"], text => Assert.Null(QueryColouring.Error(text)));
+
     [Fact]
     public void every_token_kind_has_a_class()
     {
