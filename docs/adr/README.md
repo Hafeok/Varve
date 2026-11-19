@@ -526,6 +526,14 @@ Filed by the session for [#317](https://github.com/Hafeok/Varve/issues/317), und
 |---:|---|---|
 | [0247](0247-the-docs-site.md) | The docs site: a generator in eng/ on Markdig, Mermaid drawn at build time, no script | Filed unaccepted (#317) |
 
+## The learning track (#94)
+
+Filed by the session for [#364](https://github.com/Hafeok/Varve/issues/364), part (a) of [#94](https://github.com/Hafeok/Varve/issues/94), recording the plan the maintainer accepted on #94 on 2026-11-19, unaccepted until he accepts it (ADR 0066). Numbered 0249: 0248 is taken by #345, whose marker grammar it extends.
+
+| # | Title | Status |
+|---:|---|---|
+| [0249](0249-the-learning-tracks-pages-quote-what-ci-ran.md) | The learning track's pages quote what CI ran | Filed unaccepted (#364) |
+
 ## Conformance — differential testing against Oxigraph
 
 | # | Title | Status |
