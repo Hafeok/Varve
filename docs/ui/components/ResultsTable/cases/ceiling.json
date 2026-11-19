@@ -1,0 +1,46 @@
+{
+  "parameters": {
+    "Caption": "5,000 rows · answered under simple",
+    "Variables": [
+      "note",
+      "title",
+      "created"
+    ],
+    "Rows": [
+      [
+        {
+          "Kind": "Iri",
+          "Text": "notes:42"
+        },
+        {
+          "Kind": "Literal",
+          "Text": "Weekly sync",
+          "Type": "@en"
+        },
+        {
+          "Kind": "Literal",
+          "Text": "2026-10-27",
+          "Type": "xsd:date"
+        }
+      ],
+      [
+        {
+          "Kind": "Iri",
+          "Text": "notes:43"
+        },
+        {
+          "Kind": "Literal",
+          "Text": "Planning",
+          "Type": "@en"
+        },
+        {
+          "Kind": "Literal",
+          "Text": "2026-10-28",
+          "Type": "xsd:date"
+        }
+      ]
+    ],
+    "Status": "Showing 500 of 5,000 rows. Stopped at 5,000 rows: download the result to read the rest.",
+    "Actions": "<div class=\"vw-actions\"><button class=\"vw-button vw-button--small\" type=\"button\">Show 500 more</button><div class=\"vw-menu\"><button class=\"vw-button vw-button--small\" type=\"button\" aria-expanded=\"false\" aria-controls=\"m-download\">Download</button></div></div>"
+  }
+}

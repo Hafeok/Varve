@@ -1,0 +1,17 @@
+{
+  "parameters": {
+    "Id": "m-download",
+    "Label": "Download",
+    "Items": [
+      {
+        "Text": "TSV",
+        "Note": "Downloading, 2.4 MB so far"
+      },
+      {
+        "Text": "CSV"
+      }
+    ],
+    "Open": true,
+    "Busy": true
+  }
+}

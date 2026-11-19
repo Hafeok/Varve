@@ -1,0 +1,22 @@
+{
+  "parameters": {
+    "Id": "f-asof-kind",
+    "Label": "As of",
+    "Options": [
+      {
+        "Value": "head",
+        "Text": "The head"
+      },
+      {
+        "Value": "position",
+        "Text": "A position"
+      },
+      {
+        "Value": "time",
+        "Text": "A time"
+      }
+    ],
+    "Selected": "head",
+    "Help": "A time reads the last commit at or before it."
+  }
+}

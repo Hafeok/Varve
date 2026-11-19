@@ -1,0 +1,58 @@
+@* ValidationReport (docs/ui/components/ValidationReport): one binding's
+   report at one position, grouped by shape or by focus node. Severity is a
+   StateBadge with its word. A report withheld from the caller says only that
+   none was returned to them. *@
+<div class="vw-report">@if (NotReturned is not null)
+{
+<p class="vw-report__summary">@NotReturned</p>
+}
+else
+{
+<p class="vw-report__summary"><StateBadge Tone="@(Conforms ? Tone.Ok : Tone.Critical)" Word="@(Conforms ? "conforms" : "does not conform")" /><span>@Count</span><PositionStamp Label="@PositionLabel" Value="Position" /></p>@if (Grouping.Count > 0)
+{<Tabs Label="Group results" Items="Grouping" />}@for (int i = 0; i < Groups.Count; i++)
+{
+    ReportGroup group = Groups[i];
+    string id = Id + "-" + (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+<section class="vw-group" aria-labelledby="@id"><h2 class="vw-group__title" id="@id"><TermChip Kind="group.Title.Kind" Text="@group.Title.Text" Full="@group.Title.Full" Href="@group.Title.Href" /><span class="vw-group__count">@group.Count</span></h2><div class="vw-table-wrap"><table class="vw-table"><caption class="vw-visually-hidden">@group.Caption</caption><thead><tr><th scope="col">Severity</th><th scope="col">Focus node</th><th scope="col">Path</th><th scope="col">Value</th><th scope="col">Message</th></tr></thead><tbody>@foreach (ReportRow row in group.Rows)
+{
+<tr><td><StateBadge Tone="row.Tone" Word="@row.Severity" /></td><td><TermChip Kind="row.Focus.Kind" Text="@row.Focus.Text" Full="@row.Focus.Full" Href="@row.Focus.Href" /></td><td><span class="vw-report__path">@row.Path</span></td><td>@if (row.Value is null)
+{<span class="vw-visually-hidden">no value</span>}
+else
+{<TermChip Kind="row.Value.Kind" Text="@row.Value.Text" Type="@row.Value.Type" Full="@row.Value.Full" Href="@row.Value.Href" />}</td><td><p class="vw-report__message">@row.Message</p></td></tr>
+}</tbody></table></div></section>
+}
+}</div>
+
+@code {
+    /// <summary>A prefix for the groups' heading ids, unique on the page.</summary>
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    /// <summary>The report conforms.</summary>
+    [Parameter]
+    public bool Conforms { get; set; }
+
+    /// <summary>How many results, in words: "3 results", "No results".</summary>
+    [Parameter]
+    public string Count { get; set; } = "";
+
+    /// <summary>The position's label.</summary>
+    [Parameter]
+    public string PositionLabel { get; set; } = "";
+
+    /// <summary>The position the report was read at.</summary>
+    [Parameter]
+    public long Position { get; set; }
+
+    /// <summary>The two groupings, by shape and by focus node, the one shown current; none when there are no results.</summary>
+    [Parameter]
+    public IReadOnlyList<Molecules.TabLink> Grouping { get; set; } = [];
+
+    /// <summary>The groups shown.</summary>
+    [Parameter]
+    public IReadOnlyList<ReportGroup> Groups { get; set; } = [];
+
+    /// <summary>What a caller from whom the report is withheld is told: that none was returned to them.</summary>
+    [Parameter]
+    public string? NotReturned { get; set; }
+}

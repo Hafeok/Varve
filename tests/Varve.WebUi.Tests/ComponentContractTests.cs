@@ -268,7 +268,26 @@ public class ComponentContractTests
             return Enum.Parse(plain, value.GetString()!, ignoreCase: false);
         }
 
-        return value.Deserialize(type);
+        return value.Deserialize(type, CaseJson);
+    }
+
+    // A case's parameters as JSON: enums by name, and a fragment of markup
+    // wherever a parameter or a member of one is a RenderFragment.
+    private static readonly JsonSerializerOptions CaseJson = new()
+    {
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(), new MarkupFragment() },
+    };
+
+    private sealed class MarkupFragment : System.Text.Json.Serialization.JsonConverter<RenderFragment>
+    {
+        public override RenderFragment Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            string markup = reader.GetString() ?? string.Empty;
+            return builder => builder.AddMarkupContent(0, markup);
+        }
+
+        public override void Write(Utf8JsonWriter writer, RenderFragment value, JsonSerializerOptions options) =>
+            throw new NotSupportedException("Cases are read, never written.");
     }
 
     private static Type? ComponentType(string name) =>

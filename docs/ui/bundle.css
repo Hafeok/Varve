@@ -472,3 +472,113 @@ body.vw-root { margin: 0; }
   .vw-editor__input { color: CanvasText; }
   .vw-editor__code { visibility: hidden; }
 }
+
+/* ==================== The data explorer (Web UI part 2, #96) ==================== */
+/* ---------- Select (atom): Field's form, a native <select> ---------- */
+.vw-field select {
+  font: inherit; color: var(--ink);
+  padding: 5px 8px; min-height: 32px;
+  background: var(--surface); border: 1px solid var(--control-border); border-radius: var(--radius-sm);
+}
+.vw-field select:hover { border-color: var(--ink-muted); }
+.vw-field select:disabled { background: var(--surface-sunk); color: var(--ink-muted); }
+
+/* ---------- Menu (molecule): a button that opens a list of actions ---------- */
+.vw-menu { position: relative; display: inline-block; }
+.vw-menu__list {
+  position: absolute; z-index: 5; top: calc(100% + var(--space-1)); inset-inline-start: 0;
+  min-width: 100%; margin: 0; padding: var(--space-1) 0; list-style: none;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+}
+.vw-menu__item {
+  display: block; width: 100%; padding: var(--space-2) var(--space-4);
+  font: inherit; text-align: left; white-space: nowrap; color: var(--ink);
+  background: transparent; border: 0; cursor: pointer;
+}
+.vw-menu__item:hover { background: var(--layer); }
+.vw-menu__item[aria-disabled="true"] { color: var(--ink-muted); cursor: default; }
+.vw-menu__note { display: block; font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+
+/* ---------- metric: the type style of tokens.json, as a class ---------- */
+.vw-metric { font-family: var(--font-mono); font-size: 24px; line-height: 28px; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* ---------- AskAnswer (molecule): a word, not a state ---------- */
+.vw-answer { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); margin: 0; padding: var(--space-4); }
+.vw-answer__context { color: var(--ink-muted); }
+
+/* ---------- ResultsTable (organism) ---------- */
+.vw-results { display: grid; min-width: 0; }
+.vw-results__caption { caption-side: top; padding: var(--space-2) var(--space-4); text-align: left; font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.vw-results th code { font-size: 12px; text-transform: none; letter-spacing: 0; }
+.vw-results__foot {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4); border-top: 1px solid var(--rule);
+}
+.vw-results__status { margin: 0; margin-right: auto; }
+.vw-results__status--cut { color: var(--warn); font-weight: 600; }
+.vw-results__unbound { color: var(--ink-muted); }
+
+/* ---------- GraphGroup (organism): sections by graph ---------- */
+.vw-groups { display: grid; gap: var(--space-4); }
+.vw-groups__summary { margin: 0; color: var(--ink-muted); }
+.vw-group { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-md); min-width: 0; }
+.vw-group__title {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3);
+  margin: 0; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--rule);
+  font-family: var(--font-mono); font-size: 13px; line-height: 20px; font-weight: 600;
+}
+/* One heading style for every group: the default graph's words and a graph's IRI chip alike. */
+.vw-group__title .vw-term { font-size: inherit; line-height: inherit; font-weight: inherit; padding: 0; }
+/* Groups line up: every group's table shares one set of column widths. */
+.vw-group .vw-triples, .vw-group .vw-table { table-layout: fixed; width: 100%; }
+.vw-group .vw-triples th:nth-child(1) { width: 36px; }
+.vw-group .vw-triples th:nth-child(2), .vw-group .vw-triples th:nth-child(3) { width: 24%; }
+.vw-group .vw-triples th:nth-child(5) { width: 120px; }
+.vw-report .vw-table th:nth-child(1) { width: 120px; }
+.vw-report .vw-table th:nth-child(2), .vw-report .vw-table th:nth-child(3), .vw-report .vw-table th:nth-child(4) { width: 20%; }
+.vw-group__count { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; color: var(--ink-muted); }
+
+/* ---------- NodeBudget (molecule) ---------- */
+.vw-budget { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); margin: 0; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--rule); color: var(--ink-muted); }
+.vw-budget--over { background: var(--warn-soft); color: var(--warn); font-weight: 600; }
+.vw-budget--over a { font-weight: 400; }
+
+/* ---------- GraphView (organism): SVG; coordinates are attributes, never style ---------- */
+/* Never scaled: the layout's bounds set width and height one to one, and the view scrolls. */
+.vw-graphview { overflow: auto; max-height: 70vh; background: var(--surface); }
+.vw-graph { display: block; max-width: none; }
+.vw-edge { fill: none; stroke: var(--edge); stroke-width: 1.5; }
+.vw-edge--inferred { stroke: var(--edge-inferred); stroke-dasharray: 6 4; }
+.vw-edge--added { stroke: var(--added); stroke-width: 2.5; }
+.vw-edge--removed { stroke: var(--removed); stroke-width: 2.5; stroke-dasharray: 2 4; }
+.vw-edge__label { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-muted); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.vw-edge__label--added { fill: var(--added); }
+.vw-edge__label--removed { fill: var(--removed); }
+.vw-node rect { fill: var(--surface); stroke: var(--rule); stroke-width: 1; }
+.vw-node text { font-family: var(--font-mono); font-size: 12px; fill: var(--ink); }
+.vw-node--iri text { fill: var(--term-iri); }
+.vw-node--literal rect { fill: var(--surface-sunk); stroke: transparent; }
+.vw-node--bnode rect { stroke: var(--control-border); stroke-dasharray: 3 2; }
+.vw-node--centre rect { stroke: var(--accent); stroke-width: 2; }
+.vw-node--added rect { fill: var(--added-soft); stroke: var(--added); }
+.vw-node--removed rect { fill: var(--removed-soft); stroke: var(--removed); }
+.vw-node--removed text { text-decoration: line-through; }
+.vw-node .vw-node__type { font-family: var(--font-sans); font-size: 10px; fill: var(--ink-muted); }
+.vw-node:focus { outline: none; }
+.vw-node:focus-visible rect { stroke: var(--focus-ring); stroke-width: 3; }
+.vw-node__expand { cursor: pointer; }
+.vw-node__hit { fill: transparent; }
+.vw-node__expand circle { fill: var(--surface); stroke: var(--control-border); }
+.vw-node__expand text { font-family: var(--font-mono); font-size: 12px; fill: var(--ink); }
+.vw-graph__empty { margin: 0; padding: 0 var(--space-4) var(--space-4); color: var(--ink-muted); }
+@media (forced-colors: active) {
+  .vw-edge, .vw-node rect { stroke: CanvasText; }
+  .vw-node text, .vw-edge__label { fill: CanvasText; }
+}
+
+/* ---------- ValidationReport (organism) ---------- */
+.vw-report { display: grid; gap: var(--space-4); min-width: 0; }
+.vw-report__summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3); margin: 0; }
+.vw-report__message { margin: 0; }
+.vw-report__path { font-family: var(--font-mono); font-size: 13px; }

@@ -1,0 +1,65 @@
+@* GraphView (docs/ui/components/GraphView, ADR 0251): a laid-out
+   neighbourhood as SVG. Nodes are links in ring order with the relation in
+   their accessible names; edges and labels are aria-hidden. The drawing is
+   its layout's size, never scaled, and the view scrolls. Coordinates are
+   attributes, never styles (ADR 0202). *@
+<div class="vw-graphview">@if (Budget is not null)
+{<NodeBudget Shown="Budget.Shown" Total="Budget.Total" Budget="Budget.Budget" TableHref="@Budget.TableHref" />}<svg class="vw-graph" width="@Int(Layout.Width)" height="@Int(Layout.Height)" viewBox="@ViewBox" role="group" aria-labelledby="@(Id + "-title")"><title id="@(Id + "-title")">@Title</title><g aria-hidden="true">@foreach (GraphEdge edge in Layout.Edges)
+{<path class="@(edge.Kind is null ? "vw-edge" : "vw-edge vw-edge--" + edge.Kind)" d="@($"M{F(edge.X1)} {F(edge.Y1)}L{F(edge.X2)} {F(edge.Y2)}")" />}</g><g aria-hidden="true">@foreach (GraphLabel label in Layout.Labels)
+{@SvgText(label.Kind is null ? "vw-edge__label" : "vw-edge__label vw-edge__label--" + label.Kind, label.X, label.Y + 4, label.Text, hidden: false)}</g>@foreach (GraphNode node in Layout.Nodes)
+{
+    double rx = node.X - RadialLayout.ChipWidth / 2.0;
+    double ry = node.Y - node.Height / 2.0;
+<a class="@NodeClass(node)" href="@node.Href" aria-label="@node.Name"><title>@node.Label</title><rect x="@F(rx)" y="@F(ry)" width="@Int(RadialLayout.ChipWidth)" height="@Int(node.Height)" rx="2" />@SvgText(null, node.X, ry + 18, node.Shown, hidden: false)@if (node.Type is not null)
+{@SvgText("vw-node__type", node.X, ry + 32, node.Type, hidden: false)}</a>@if (node.Expand is not null)
+{
+    double tx = rx + RadialLayout.ChipWidth - RadialLayout.Target / 2;
+    double ty = ry - RadialLayout.Target / 2;
+<g class="vw-node__expand" role="button" tabindex="-1" aria-label="@($"{node.Expand} {node.Label}")"><rect class="vw-node__hit" x="@F(tx)" y="@F(ty)" width="@Int((int)RadialLayout.Target)" height="@Int((int)RadialLayout.Target)" /><circle cx="@F(tx + RadialLayout.Target / 2)" cy="@F(ty + RadialLayout.Target / 2)" r="8" />@SvgText(null, tx + RadialLayout.Target / 2, ty + RadialLayout.Target / 2 + 4, node.Expand == "Collapse" ? "−" : "+", hidden: true)</g>
+}
+}</svg>@if (Empty is not null)
+{<p class="vw-graph__empty">@Empty</p>}</div>
+
+@code {
+    /// <summary>A prefix for the drawing's ids, unique on the page.</summary>
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    /// <summary>The drawing's name: "Neighbourhood of notes:42 at position 18417".</summary>
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = "";
+
+    /// <summary>The laid-out neighbourhood, from <see cref="RadialLayout"/>.</summary>
+    [Parameter, EditorRequired]
+    public GraphLayout Layout { get; set; } = new(0, 0, 0, 0, [], [], []);
+
+    /// <summary>The budget line, when the neighbourhood is over it.</summary>
+    [Parameter]
+    public GraphBudget? Budget { get; set; }
+
+    /// <summary>What a neighbourhood with no statements returned to the caller says.</summary>
+    [Parameter]
+    public string? Empty { get; set; }
+
+    private string ViewBox => $"{Layout.MinX.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)} {Layout.MinY.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)} {Int(Layout.Width)} {Int(Layout.Height)}";
+
+    private static string NodeClass(GraphNode node) =>
+        "vw-node vw-node--" + node.Kind + (node.Centre ? " vw-node--centre" : "") + (node.Diff is null ? "" : " vw-node--" + node.Diff);
+
+    // SVG's text element, which Razor reserves inside a code block.
+    private static RenderFragment SvgText(string? cls, double x, double y, string content, bool hidden) => builder =>
+    {
+        builder.OpenElement(0, "text");
+        builder.AddAttribute(1, "class", cls);
+        builder.AddAttribute(2, "x", F(x));
+        builder.AddAttribute(3, "y", F(y));
+        builder.AddAttribute(4, "text-anchor", "middle");
+        builder.AddAttribute(5, "aria-hidden", hidden ? "true" : null);
+        builder.AddContent(6, content);
+        builder.CloseElement();
+    };
+
+    private static string F(double value) => value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Int(int value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+}
