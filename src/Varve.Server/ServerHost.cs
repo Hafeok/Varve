@@ -964,7 +964,7 @@ internal static partial class ServerHost
     // Pins the grants for the request. Asked for a later position than is
     // applied, the system follower is advanced once; still behind, the
     // request is 503 management-behind, with no wait (ADR 0163 point 3).
-    private static Func<HttpContext, RequestDelegate, Task> ManagementPositionAsync(Fleet fleet) => async (context, next) =>
+    internal static Func<HttpContext, RequestDelegate, Task> ManagementPositionAsync(Fleet fleet) => async (context, next) =>
     {
         Microsoft.Extensions.Primitives.StringValues asked = context.Request.Headers[MinManagementPositionHeader];
 
@@ -998,10 +998,14 @@ internal static partial class ServerHost
         // A write to a dataset whose log already records a later management
         // position than this instance applied: the system follower is
         // advanced once before the write is authorised, so it is decided by
-        // grants at least that recent (ADR 0165 point 5).
+        // grants at least that recent (ADR 0165 point 5). So is a write to a
+        // dataset whose event declarations are moving here, so that a cancel
+        // the system writer has answered is in force for it; when the advance
+        // fails, a catalogue write is refused management-behind, which a
+        // client sends again (ADR 0167, amended for #254).
         if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method)
             && DatasetOf(context.Request.Path) is { } written
-            && fleet.Recorded(written).Value > fleet.Current.Table.Position.Value)
+            && (fleet.Recorded(written).Value > fleet.Current.Table.Position.Value || fleet.IsMoving(written)))
         {
             await fleet.AdvanceAsync(context.RequestAborted).ConfigureAwait(false);
         }

@@ -49,13 +49,13 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     private readonly ManagementOrder _order;
     private readonly IdempotencyKeys _keys;
     private readonly WriterAddress? _address;
-    private readonly Func<string, bool> _moved;
+    private readonly Func<string, EventCatalogueState> _catalogue;
     private readonly TimeSpan _round;
 
-    internal OpenDatasets(ServerSettings settings, ObjectStores? objects, ManagementOrder order, IdempotencyKeys keys, TimeProvider clock, ILogger logger, Func<string, bool> moved)
+    internal OpenDatasets(ServerSettings settings, ObjectStores? objects, ManagementOrder order, IdempotencyKeys keys, TimeProvider clock, ILogger logger, Func<string, EventCatalogueState> catalogue)
     {
         _keys = keys;
-        _moved = moved;
+        _catalogue = catalogue;
         _round = settings.Fleet.FollowInterval;
         _objects = objects;
         _order = order;
@@ -585,7 +585,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         // The bounds are a durable backend's; the memory backend has no flush
         // for a batch to share, and writes each request alone (ADR 0124).
         // The event catalogue's check gates every write path (ADR 0145).
-        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, MemtableLimit = _memtableLimit, SeekDirectoryCache = _seekDirectoryCache, Validators = [new EventCatalogueValidator(new DatasetName(name), () => _moved(name)), new ReportGraphGuard()] };
+        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, MemtableLimit = _memtableLimit, SeekDirectoryCache = _seekDirectoryCache, Validators = [new EventCatalogueValidator(new DatasetName(name), () => _catalogue(name)), new ReportGraphGuard()] };
 
         try
         {

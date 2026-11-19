@@ -430,7 +430,11 @@ Varve.Protocol.ProtocolOptions.Plane.get -> Varve.Protocol.IManagementPlane?
 Varve.Protocol.ProtocolOptions.Plane.init -> void
 Varve.Protocol.EventDeclarationMove
 static Varve.Protocol.EventDeclarationMove.ResumeAsync(Varve.Protocol.ProtocolOptions! options, Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<bool>!
-Varve.Protocol.EventCatalogueValidator.EventCatalogueValidator(Varve.Protocol.Model.DatasetName dataset, System.Func<bool>! moved) -> void
+Varve.Protocol.EventCatalogueValidator.EventCatalogueValidator(Varve.Protocol.Model.DatasetName dataset, System.Func<Varve.Protocol.Model.EventCatalogueState>! state) -> void
+Varve.Protocol.Model.EventCatalogueState
+Varve.Protocol.Model.EventCatalogueState.Frozen = 1 -> Varve.Protocol.Model.EventCatalogueState
+Varve.Protocol.Model.EventCatalogueState.Open = 0 -> Varve.Protocol.Model.EventCatalogueState
+Varve.Protocol.Model.EventCatalogueState.Unconfirmed = 2 -> Varve.Protocol.Model.EventCatalogueState
 static Varve.Protocol.EventDeclarationMove.MovingSinceAsync(Varve.Protocol.IManagementPlane! plane, Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<long?>!
 Varve.Protocol.ClassificationBehindException
 Varve.Protocol.ClassificationBehindException.Binding.get -> Varve.Rdf.RdfTerm!

@@ -30,7 +30,7 @@ namespace Varve.Protocol;
 public sealed class EventCatalogueValidator : ICommitValidator
 {
     private readonly DatasetName _dataset;
-    private readonly Func<bool>? _moved;
+    private readonly Func<EventCatalogueState>? _state;
 
     /// <summary>The check of a dataset whose event declarations are in its catalogue graphs for good.</summary>
     public EventCatalogueValidator()
@@ -39,15 +39,18 @@ public sealed class EventCatalogueValidator : ICommitValidator
 
     /// <summary>
     /// The check of <paramref name="dataset"/>, which refuses every catalogue
-    /// write as <c>event-catalogue-moved</c> while <paramref name="moved"/>
-    /// says its declarations are moving or moved at the position the host has
-    /// applied (ADR 0167), before it reads the write as a declaration.
+    /// write before it reads the write as a declaration while
+    /// <paramref name="state"/> says the catalogue does not take writes, at the
+    /// position the host has applied (ADR 0167): as
+    /// <c>event-catalogue-moved</c> when it is frozen, and as
+    /// <c>management-behind</c> when the host cannot tell whether a cancel
+    /// reopened it (ADR 0167, amended for #254).
     /// </summary>
-    public EventCatalogueValidator(DatasetName dataset, Func<bool> moved)
+    public EventCatalogueValidator(DatasetName dataset, Func<EventCatalogueState> state)
     {
-        ArgumentNullException.ThrowIfNull(moved);
+        ArgumentNullException.ThrowIfNull(state);
         _dataset = dataset;
-        _moved = moved;
+        _state = state;
     }
 
     /// <inheritdoc />
@@ -64,9 +67,14 @@ public sealed class EventCatalogueValidator : ICommitValidator
             return ValidationVerdict.Accept();
         }
 
-        if (_moved?.Invoke() == true)
+        switch (_state?.Invoke() ?? EventCatalogueState.Open)
         {
-            return EventCatalogueFreeze.Refusal(_dataset);
+            case EventCatalogueState.Frozen:
+                return EventCatalogueFreeze.Refusal(_dataset);
+            case EventCatalogueState.Unconfirmed:
+                return EventCatalogueFreeze.Unconfirmed(_dataset);
+            default:
+                break;
         }
 
         DeclarationVerdict verdict = EventDeclarationCheck.Check(proposed, changes);

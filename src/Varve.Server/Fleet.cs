@@ -83,7 +83,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         _role = role;
         _placeholder = placeholder;
         _snapshot = new Snapshot(GrantTable.Empty(_bootstrap), BootstrapState.Absent);
-        Datasets = new OpenDatasets(settings, objects, _order, Keys, clock, logger, Moved);
+        Datasets = new OpenDatasets(settings, objects, _order, Keys, clock, logger, CatalogueOf);
 
         // The system dataset's writer warms its keys from the start (ADR 0246).
         if (role == ManagementRole.Writer)
@@ -109,10 +109,28 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     /// <summary>The classification projections of the datasets held here (ADR 0233).</summary>
     internal RowClassifications Classifications { get; }
 
-    // Whether a dataset's event declarations are moving or moved at the applied position (ADR 0167).
-    private bool Moved(string dataset) =>
+    // Whether a dataset's catalogue graphs take writes at the applied position
+    // (ADR 0167). Moving is unconfirmed while this instance follows the system
+    // dataset and its last advance failed: a cancel may be in force that it
+    // has not seen (ADR 0167, amended for #254).
+    private EventCatalogueState CatalogueOf(string dataset) =>
         Volatile.Read(ref _snapshot).Table.Declarations.Datasets.TryGetValue(dataset, out DatasetDeclaration? declared)
-        && declared.EventDeclarations != EventDeclarationState.InDataset;
+            ? declared.EventDeclarations switch
+            {
+                EventDeclarationState.Moved => EventCatalogueState.Frozen,
+                EventDeclarationState.Moving => System.IsFollower && Volatile.Read(ref _systemAdvanceFailed) ? EventCatalogueState.Unconfirmed : EventCatalogueState.Frozen,
+                _ => EventCatalogueState.Open,
+            }
+            : EventCatalogueState.Open;
+
+    /// <summary>
+    /// Whether <paramref name="dataset"/>'s event declarations are moving at the
+    /// applied position: a write to it advances the system follower once
+    /// before its grants are pinned (ADR 0167, amended for #254).
+    /// </summary>
+    internal bool IsMoving(DatasetName dataset) =>
+        Volatile.Read(ref _snapshot).Table.Declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared)
+        && declared.EventDeclarations == EventDeclarationState.Moving;
 
     /// <summary>Whether the fleet is this instance alone: no object store, so no follower and no forwarding.</summary>
     internal bool IsFleetOfOne { get; }
@@ -439,7 +457,9 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         ICommitValidator validator = _order.Validator(dataset, authorised);
         Declarations declarations = Pinned().Table.Declarations;
 
-        if (declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared) && declared.EventDeclarations != EventDeclarationState.InDataset)
+        // Unconfirmed is the dataset's own validator's to refuse, as management-behind (#254).
+        if (declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared) && declared.EventDeclarations != EventDeclarationState.InDataset
+            && CatalogueOf(dataset.Value) != EventCatalogueState.Unconfirmed)
         {
             validator = new OrderAndShapes(validator, new EventCatalogueFreeze(dataset));
         }
