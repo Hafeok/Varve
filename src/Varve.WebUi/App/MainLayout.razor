@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@using Varve.WebUi.Pages
 @using Varve.WebUi.SignIn
 @implements IDisposable
 @inject NavigationManager Navigation
@@ -13,11 +14,17 @@
 
    With sign-in (ADR 0201), a tab with no token starts one on its first
    screen: silently first (prompt=none), so a reload with an issuer session
-   is invisible. The callback and the signed-out screen start none. *@
+   is invisible. The callback and the signed-out screen start none.
+
+   When sign-in is not configured (ADR 0245), no screen is shown and nothing
+   is read: both planes say so, and the body names the settings to add. *@
 <Shell Server="@Settings.Server.AbsoluteUri" Instance="@Facts.Instance" Planes="Planes" Navigation="Groups()" Datasets="Offered()" Dataset="@Selected()" DatasetNavigation="DatasetGroups()" OnDataset="Choose">
     <BarActions>@if (_session is { DataSignedIn: true })
     {<Button Small="true" OnClick="SignOutAsync">Sign out</Button>}</BarActions>
-    <ChildContent><CascadingValue Value="Signed()">@Body</CascadingValue></ChildContent>
+    <ChildContent>@if (Settings.SignInNotConfigured is { } missing)
+    {<SignInNotConfigured Missing="missing" />}
+    else
+    {<CascadingValue Value="Signed()">@Body</CascadingValue>}</ChildContent>
 </Shell>
 
 @code {
@@ -44,7 +51,9 @@
     private SignInSession? _session;
 
     private IReadOnlyList<PlaneState> Planes =>
-        Settings.Anonymous || _session is null
+        Settings.SignInNotConfigured is not null
+            ? [new PlaneState("Data plane", "not configured", Anonymous: false, Absent: true), new PlaneState("Management", "not configured", Anonymous: false, Absent: true)]
+        : Settings.Anonymous || _session is null
             ? [new PlaneState("Data plane", "anonymous", Anonymous: true, Absent: false), new PlaneState("Management", "anonymous", Anonymous: true, Absent: false)]
             : [Plane("Data plane", _session.DataSignedIn, _session.DataCaller), Plane("Management", _session.ManagementSignedIn, _session.ManagementCaller)];
 
@@ -82,7 +91,7 @@
     {
         Remember();
 
-        if (_session is null || _session.DataSignedIn)
+        if (Settings.SignInNotConfigured is null && (_session is null || _session.DataSignedIn))
         {
             _ = Facts.ReadAsync(CancellationToken.None);
         }

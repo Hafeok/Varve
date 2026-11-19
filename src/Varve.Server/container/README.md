@@ -1,7 +1,8 @@
 # The container image
 
 `ghcr.io/hafeok/varve` (ADR 0111): `Varve.Server`'s Native AOT single file on
-`mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled`, one image per
+`mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled`, with the Web
+UI's bundle at `/app/webui`, served at `/ui/` by default (ADR 0245), one image per
 architecture (`linux/amd64`, `linux/arm64`) built on a native runner from the
 binary the gate ran, joined by digest into one manifest, with build
 provenance and an SPDX SBOM attested through GitHub.
