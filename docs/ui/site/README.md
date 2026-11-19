@@ -29,7 +29,7 @@ All three stylesheets are served from the site's own origin. The CSP (`style-src
 |              |  prose, 46rem                           |               |
 |  ground      |  surface                                |  surface      |
 +--------------+----------------------------------------+---------------+
-| Built from <commit>. This page is docs/....            Apache-2.0      |
+| Built from <commit>. This page is docs/....            MPL-2.0         |
 +-----------------------------------------------------------------------+
 ```
 
