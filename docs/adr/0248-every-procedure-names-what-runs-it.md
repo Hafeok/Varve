@@ -2,10 +2,10 @@
 
 ## Status
 
-**Proposed — filed unaccepted by #129, 2026-11-18** (ADR 0066), under #129's
+**Accepted — filed unaccepted by #129, 2026-11-18** (ADR 0066), under #129's
 operator-guide deliverable. It records the maintainer's answer 5 of
-2026-11-16 on #129: yes to the markers and their gate. Acceptance is the
-maintainer's act on the pull request.
+2026-11-16 on #129: yes to the markers and their gate. Accepted by the
+maintainer on 2026-11-19, written by his delegate (ADR 0239).
 
 Records decision set
 [`every-procedure-names-what-runs-it`](../decisions/every-procedure-names-what-runs-it.md).
