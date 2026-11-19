@@ -13,8 +13,12 @@ body {
   background: var(--surface);
   color: var(--ink);
   font: 400 16px/26px var(--font-sans);
-  font-variant-numeric: tabular-nums;
 }
+
+/* Figures line up where they are compared: in tables, and in a number set
+   apart, such as an ADR's in the page list. Prose keeps the face's own
+   figures, which in some system faces space out hyphens and dates. */
+.vd-table table, .vd-num { font-variant-numeric: tabular-nums; }
 
 a { color: var(--accent); text-underline-offset: 0.18em; }
 a:hover { text-decoration-thickness: 2px; }
