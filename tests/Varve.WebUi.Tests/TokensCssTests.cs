@@ -64,6 +64,74 @@ public class TokensCssTests
             TokensCss.Generate(Encoding.UTF8.GetBytes(Json)));
     }
 
+    /// <summary>
+    /// Every stylesheet under <c>docs/ui/</c> closes each brace it opens, and
+    /// never closes one it did not open. A stray brace is no parse error to a
+    /// browser: it ends a block early and every rule after it is dropped, with
+    /// no message anywhere.
+    /// </summary>
+    [Fact]
+    public void every_stylesheet_balances_its_braces()
+    {
+        foreach (string path in Directory.EnumerateFiles(Path.Combine(RepositoryRoot(), "docs", "ui"), "*.css", SearchOption.AllDirectories))
+        {
+            string? problem = BraceProblem(File.ReadAllText(path, Encoding.UTF8));
+            Assert.True(problem is null, Path.GetRelativePath(RepositoryRoot(), path) + ": " + problem);
+        }
+    }
+
+    [Theory]
+    [InlineData("a { b: c; }", null)]
+    [InlineData("@media (x) { a { b: c; } }", null)]
+    [InlineData("a { content: \"}\"; } /* } */", null)]
+    [InlineData("a { b: c; } }", "line 1 closes a brace that is not open.")]
+    [InlineData("a { b: c;\n", "1 brace is still open at the end.")]
+    public void the_brace_check_skips_comments_and_strings(string css, string? problem) =>
+        Assert.Equal(problem, BraceProblem(css));
+
+    private static string? BraceProblem(string css)
+    {
+        int depth = 0;
+        int line = 1;
+
+        for (int i = 0; i < css.Length; i++)
+        {
+            char c = css[i];
+
+            if (c == '\n')
+            {
+                line++;
+            }
+            else if (c == '/' && i + 1 < css.Length && css[i + 1] == '*')
+            {
+                int end = css.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                end = end < 0 ? css.Length : end + 1;
+                line += css.AsSpan(i, end - i).Count('\n');
+                i = end;
+            }
+            else if (c is '"' or '\'')
+            {
+                for (i++; i < css.Length && css[i] != c; i++)
+                {
+                    if (css[i] == '\\')
+                    {
+                        i++;
+                    }
+                }
+            }
+            else if (c == '{')
+            {
+                depth++;
+            }
+            else if (c == '}' && --depth < 0)
+            {
+                return "line " + line + " closes a brace that is not open.";
+            }
+        }
+
+        return depth == 0 ? null : depth + (depth == 1 ? " brace is" : " braces are") + " still open at the end.";
+    }
+
     private static string RepositoryRoot()
     {
         for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
