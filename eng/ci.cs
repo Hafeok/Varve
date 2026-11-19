@@ -280,6 +280,18 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("build-benchmarks", "the benchmark project builds; it is not run",
         () => Run("dotnet", ["build", "tests/Varve.Benchmarks/Varve.Benchmarks.csproj", "--configuration", "Release"])),
 
+    // ADR 0249 (#94): the learning track's pages quote what its samples
+    // print, byte for byte, and its terms come in the order of
+    // docs/learn/terms.md. --run builds each sample against src/, runs it,
+    // and compares every section and the final state with expected/; it
+    // then runs the static checks.
+    ("learn", "the learning track: every sample runs and prints what expected/ holds, every page quotes it, no REC term before its chapter, samples reference only packable projects",
+        () => Run("dotnet", ["run", "eng/learn.cs", "--", "--run"])),
+
+    // Its failure paths (tests/fixtures/learn/README.md).
+    ("learn-fixtures", "the learning track's gate fails each of its fixtures, for its own reason, and passes its passing one",
+        () => Run("dotnet", ["run", "eng/learn.cs", "--", "--fixtures", "tests/fixtures/learn"])),
+
     // The soak judge's failure path (ADR 0215): every fixture is judged as
     // its name says, a run that misses with 1 and one it cannot judge with 2
     // (tests/fixtures/soak-judge/README.md). The soak itself runs in the
@@ -309,6 +321,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
         () => Test("Varve.Delta.Tests")),
     ("test-rec", "the REC portfolio generator: the vendored release, REC's terms, the same bytes for each seed and size",
         () => Test("Varve.Rec.Tests")),
+
+    ("test-learn", "the learning track's data: the slice and every sample's final state conform to the pinned REC 4 shapes, and the pin holds",
+        () => Test("Varve.Learn.Tests")),
 
     ("test-json-canonical", "Varve.Json.Canonical: RFC 8785's vectors, Node's numbers as the oracle, the writer's refusals",
         () => Test("Varve.Json.Canonical.Tests")),
