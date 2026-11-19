@@ -1,0 +1,266 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using Xunit;
+
+namespace Varve.Site.Tests;
+
+/// <summary>
+/// The site's markup is the design's (docs/ui/site/README.md): a page of each
+/// kind, built from the current Markdown, against its page under
+/// <c>docs/ui/site/reference/</c>. Structure only. The reference pages are
+/// pinned to c754bcb and the docs move on, so text and heading identifiers
+/// are ignored, and a page list is compared by its shape, its current page
+/// and the order of the pages both still have. <c>docs/ui/site/reference/</c>
+/// belongs to the design: when the design changes, its side replaces those
+/// pages, and this test is how they stay true with eng/site the one renderer.
+/// </summary>
+public class ContractTests(BuiltSite site)
+{
+    public static TheoryData<string, string> Kinds => new()
+    {
+        { "index.html", "index.html" },                                                       // home
+        { "operator/index.html", "operator/index.html" },                                     // a section index
+        { "adr/0247-the-docs-site.html", "adr/0247-the-docs-site.html" },                     // an ADR, with a diagram
+        { "problems/as-of-distance-exceeded.html", "problems/as-of-distance-exceeded.html" }, // a problem type
+        { "operator/configure.html", "operator/configure.html" },                             // an operator page, with tables
+        { "adr/index.html", "adr/index.html" },                                               // the ADR index, its badges and Notes
+    };
+
+    [Theory]
+    [MemberData(nameof(Kinds))]
+    public async Task a_page_has_the_markup_of_its_reference_page(string built, string reference)
+    {
+        Element b = await PageAsync(built);
+        Element r = Reference(reference);
+
+        HeadLinks(b, r);
+        Assert.Equal(Names(Body(r).Children), Names(Body(b).Children));
+        Bar(b, r, built, reference);
+        Frame(b, r);
+        Article(b, r, built);
+        PageList(b, r, built, reference);
+        Toc(b, r);
+        Prose(b, r);
+        Foot(b, r);
+    }
+
+    /// <summary>
+    /// The design has no API reference page (#372), so a package page is held
+    /// to the frame of an article and to ul.vd-api (the maintainer's answer 5
+    /// on #368).
+    /// </summary>
+    [Fact]
+    public async Task an_api_reference_page_has_the_frame_of_an_article_and_its_members_in_ul_vd_api()
+    {
+        Element b = await PageAsync("api/Varve.Rdf.html");
+        Element r = Reference("operator/configure.html");
+
+        HeadLinks(b, r);
+        Assert.Equal(Names(Body(r).Children), Names(Body(b).Children));
+        Assert.Equal(Without(r.First("header", "vd-bar")!.Shape(), "[aria-current]"), Without(b.First("header", "vd-bar")!.Shape(), "[aria-current]"));
+        Assert.Equal("api/index.html", Current(b, "api/Varve.Rdf.html"));
+
+        // The frame of an article; its page list's length is the API's own.
+        Element bf = b.First("div", "vd-frame")!;
+        Element rf = r.First("div", "vd-frame")!;
+        Assert.Equal(rf.Classes.Order(StringComparer.Ordinal), bf.Classes.Order(StringComparer.Ordinal));
+        Assert.Equal(Names(rf.Children), Names(bf.Children).Select(static n => Without(n, ".vd-pages--long")));
+        Assert.Equal(Names(r.First("main")!.Children), Names(b.First("main")!.Children));
+        Assert.Equal(r.First("p", "vd-crumbs")!.Shape(), b.First("p", "vd-crumbs")!.Shape());
+        Assert.Equal(r.First("nav", "vd-pager")!.Shape(), b.First("nav", "vd-pager")!.Shape());
+        Toc(b, r);
+        Foot(b, r);
+
+        Element list = b.First("ul", "vd-api") ?? throw new Xunit.Sdk.XunitException("No ul.vd-api.");
+        Assert.All(list.Children, static li => Assert.Equal("li(code)", "li(" + string.Join(",", li.Children.Select(static c => c.Tag)) + ")"));
+        Assert.DoesNotContain(b.All("ul"), static ul => ul.Has("api"));
+        Anchors(b.First("div", "vd-prose")!);
+    }
+
+    private async Task<Element> PageAsync(string page) =>
+        Markup.Parse(await File.ReadAllTextAsync(Path.Combine(await site.OutputAsync(), page), TestContext.Current.CancellationToken));
+
+    private static Element Reference(string page) => Markup.Parse(File.ReadAllText(Paths.Reference(page)));
+
+    private static Element Body(Element page) => page.First("body")!;
+
+    private static List<string> Names(IEnumerable<Element> elements) => [.. elements.Select(static e => e.Name())];
+
+    private static string Without(string text, string part) => text.Replace(part, "", StringComparison.Ordinal);
+
+    /// <summary>
+    /// An href as the path it names from the site's root. The reference writes
+    /// every link from the root ("../operator/index.html" from operator/), the
+    /// generator the shortest ("index.html"): both name the same page.
+    /// </summary>
+    private static string Resolve(string page, string href) =>
+        href.Contains("://", StringComparison.Ordinal) ? href : Repository.Normalise(Repository.DirectoryOf(page) + "/" + href.Split('#')[0])!;
+
+    private static string? Current(Element page, string path) =>
+        page.First("nav", "vd-sections")!.Children.SingleOrDefault(static a => a["aria-current"] == "page") is { } a ? Resolve(path, a["href"]!) : null;
+
+    /// <summary>The same metadata, the same policy, and the same icon and stylesheets, in the same order.</summary>
+    private static void HeadLinks(Element b, Element r)
+    {
+        static List<string> Links(Element page) => [.. page.First("head")!.Children.Where(static e => e.Tag == "link").Select(static e => e["rel"] + " " + e["href"])];
+        static List<string> Metas(Element page) => [.. page.First("head")!.Children.Where(static e => e.Tag == "meta").Select(static e => string.Join(" ", e.Attributes.OrderBy(static a => a.Key, StringComparer.Ordinal).Select(static a => a.Key + "=" + a.Value)))];
+
+        Assert.Equal(Links(r), Links(b));
+        Assert.Equal(Metas(r), Metas(b));
+    }
+
+    /// <summary>The bar: the mark, the name, the sections, the current one, and the repository.</summary>
+    private static void Bar(Element b, Element r, string built, string reference)
+    {
+        Assert.Equal(r.First("header", "vd-bar")!.Shape(), b.First("header", "vd-bar")!.Shape());
+        Assert.Equal(
+            r.First("nav", "vd-sections")!.Children.Select(a => Resolve(reference, a["href"]!)),
+            b.First("nav", "vd-sections")!.Children.Select(a => Resolve(built, a["href"]!)));
+        Assert.Equal(Current(r, reference), Current(b, built));
+    }
+
+    /// <summary>The frame's areas, and their order in the document: the article, then the page list, then the contents.</summary>
+    private static void Frame(Element b, Element r)
+    {
+        Element bf = b.First("div", "vd-frame")!;
+        Element rf = r.First("div", "vd-frame")!;
+        Assert.Equal(rf.Classes.Order(StringComparer.Ordinal), bf.Classes.Order(StringComparer.Ordinal));
+        Assert.Equal(Names(rf.Children), Names(bf.Children));
+    }
+
+    /// <summary>The article: the crumbs, the head (eyebrow, title, lede, meta), the prose and the pager, in that order.</summary>
+    private static void Article(Element b, Element r, string page)
+    {
+        Element bm = b.First("main")!;
+        Element rm = r.First("main")!;
+
+        if (rm.Has("vd-home"))
+        {
+            // The home page: the head and its three ways in, the cards, the notice.
+            Assert.Equal(Names(rm.Children), Names(bm.Children));
+            Assert.Equal(rm.First("div", "vd-home-head")!.Shape(), bm.First("div", "vd-home-head")!.Shape());
+            Assert.Equal(rm.First("ul", "vd-grid")!.Children.Select(static li => li.Shape()).Distinct(), bm.First("ul", "vd-grid")!.Children.Select(static li => li.Shape()).Distinct());
+            Assert.Equal(rm.First("div", "vd-notice")!.Shape(), bm.First("div", "vd-notice")!.Shape());
+            return;
+        }
+
+        Assert.Equal(Names(rm.Children), Names(bm.Children));
+        Assert.Equal(rm.First("p", "vd-crumbs")!.Shape(), bm.First("p", "vd-crumbs")!.Shape());
+        Assert.Equal(rm.First("header", "vd-head")!.Shape(), bm.First("header", "vd-head")!.Shape());
+        Assert.Equal(rm.First("nav", "vd-pager")?.Shape(), bm.First("nav", "vd-pager")?.Shape());
+        Assert.True(bm.First("h1") is { } h1 && h1.Parent!.Has("vd-head"), $"{page}: the H1 is in the head.");
+        Assert.Single(b.All("h1"));
+    }
+
+    /// <summary>
+    /// The page list: its classes and label, the shape of its entries, one
+    /// current page that is this page, and the pages both lists hold, in the
+    /// same order.
+    /// </summary>
+    private static void PageList(Element b, Element r, string page, string reference)
+    {
+        Element? bl = b.First("nav", "vd-pages");
+        Element? rl = r.First("nav", "vd-pages");
+        Assert.Equal(rl is null, bl is null);
+
+        if (bl is null || rl is null)
+        {
+            return;
+        }
+
+        Assert.Equal(rl.Name(), bl.Name());
+        Assert.Equal(rl.Classes.Order(StringComparer.Ordinal), bl.Classes.Order(StringComparer.Ordinal));
+        Assert.Equal(Names(rl.Children), Names(bl.Children));
+        Assert.Equal(
+            rl.All("li").Select(static li => Without(li.Shape(), "[aria-current]")).Distinct().Order(StringComparer.Ordinal),
+            bl.All("li").Select(static li => Without(li.Shape(), "[aria-current]")).Distinct().Order(StringComparer.Ordinal));
+
+        Element current = Assert.Single(bl.All("a"), static a => a["aria-current"] == "page");
+        Assert.Equal(page, Resolve(page, current["href"]!));
+
+        List<string> builtOrder = [.. bl.All("a").Select(a => Resolve(page, a["href"]!))];
+        List<string> referenceOrder = [.. rl.All("a").Select(a => Resolve(reference, a["href"]!)).Where(builtOrder.Contains)];
+        Assert.NotEmpty(referenceOrder);
+        Assert.Equal(referenceOrder, builtOrder.Where(referenceOrder.Contains));
+    }
+
+    private static void Toc(Element b, Element r)
+    {
+        Element? bt = b.First("aside", "vd-toc");
+        Element? rt = r.First("aside", "vd-toc");
+        Assert.Equal(rt is null, bt is null);
+
+        if (bt is not null && rt is not null)
+        {
+            Assert.Equal(rt.Name(), bt.Name());
+            Assert.Equal(rt.All("li").Select(static li => li.Shape()).Distinct().Order(StringComparer.Ordinal), bt.All("li").Select(static li => li.Shape()).Distinct().Order(StringComparer.Ordinal));
+        }
+    }
+
+    /// <summary>The prose: every table in a wrapper of the design's kinds, an anchor on every h2 and h3, and a diagram where the reference has one.</summary>
+    private static void Prose(Element b, Element r)
+    {
+        Element? bp = b.First("div", "vd-prose");
+        Element? rp = r.First("div", "vd-prose");
+        Assert.Equal(rp is null, bp is null);
+
+        if (bp is null || rp is null)
+        {
+            return;
+        }
+
+        static IEnumerable<string> Wrappers(Element prose) => prose.All("div", "vd-table").Select(static d => string.Join(" ", d.Classes.Order(StringComparer.Ordinal))).Distinct().Order(StringComparer.Ordinal);
+
+        Assert.Equal(Wrappers(rp), Wrappers(bp));
+        Assert.All(bp.All("table"), static t => Assert.True(t.Parent!.Has("vd-table"), "Every table is in a div.vd-table."));
+        Anchors(bp);
+        Anchors(rp);
+
+        foreach (Element cell in rp.All("td").Where(static td => td.Has("vd-state-cell")).Take(1))
+        {
+            Element built = bp.All("td").First(static td => td.Has("vd-state-cell"));
+            Assert.Equal(cell.Shape(), built.Shape());
+        }
+
+        if (rp.First("figure", "vd-diagram") is { } figure)
+        {
+            Element built = bp.First("figure", "vd-diagram") ?? throw new Xunit.Sdk.XunitException("No figure.vd-diagram.");
+            Assert.Equal(figure.Shape(), built.Shape());
+            Element img = built.First("img")!;
+            Assert.StartsWith("Diagram: ", img["alt"]!, StringComparison.Ordinal);
+            Assert.EndsWith(".svg", img["src"]!, StringComparison.Ordinal);
+        }
+    }
+
+    private static void Anchors(Element prose)
+    {
+        foreach (Element heading in prose.Descendants().Where(static e => e.Tag is "h2" or "h3"))
+        {
+            Element anchor = Assert.Single(heading.Children, static c => c.Has("vd-anchor"));
+            Assert.Equal("a", anchor.Tag);
+            Assert.NotNull(anchor["aria-label"]);
+            Assert.Equal("#" + heading["id"], anchor["href"]);
+        }
+    }
+
+    /// <summary>The foot: the commit, the page's source on GitHub, and the licence.</summary>
+    private static void Foot(Element b, Element r)
+    {
+        Element bf = b.First("footer", "vd-foot")!;
+        Element rf = r.First("footer", "vd-foot")!;
+        Assert.Equal(rf.Shape(), bf.Shape());
+
+        static IEnumerable<string> Inside(Element foot) => foot.Children[0].Children.Select(static e => e.Tag + (e.Children.Count > 0 ? "(" + string.Join(",", e.Children.Select(static c => c.Tag)) + ")" : ""));
+
+        Assert.Equal(Inside(rf), Inside(bf));
+        Element commit = bf.Children[0].Children[0];
+        Assert.Equal("https://github.com/Hafeok/Varve/tree/" + BuiltSite.Commit, commit["href"]);
+    }
+}

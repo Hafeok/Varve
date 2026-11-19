@@ -2336,6 +2336,55 @@ jobs:
           path: ${{ github.workspace }}/artifacts/site
           retention-days: 7
 
+      # A design review's screenshots (#368): a page of each kind, in light
+      # and dark, at 1440 and 390 wide, under each page's own policy. Taken by
+      # the generator, which cites no decision, so the review never waits on
+      # an acceptance. Uploaded with the site; never committed.
+      - name: Screenshots for review
+        run: >
+          dotnet run --project eng/site --configuration Release --no-restore --
+          screenshots --site ${{ github.workspace }}/artifacts/site
+          --out ${{ github.workspace }}/artifacts/site-review/screenshots --chrome "$VARVE_CHROME"
+
+      # The site's tests (ADR 0247 amended 2026-11-19): the badge on a fixture
+      # ledger, site-tokens.css against tokens.json, the structure of a page
+      # of each kind against docs/ui/site/reference/, two builds byte for
+      # byte, each page under its own policy, and axe-core at WCAG 2.2 AA on
+      # three pages in both schemes at two widths. Only the browser context
+      # that runs axe bypasses the page's policy; the no-script and
+      # other-origin checks read the built files.
+      - name: Test the site
+        env:
+          VARVE_SITE_TESTS_REQUIRED: 1
+          VARVE_SITE_CACHE: ${{ runner.temp }}/site-cache
+          VARVE_SITE_REPORT: ${{ github.workspace }}/artifacts/site-review/axe.md
+        run: >
+          dotnet test
+          --project tests/Varve.Site.Tests/Varve.Site.Tests.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Site.Tests
+
+      - name: Store test durations
+        # #126: the slowest tests, in the job summary, from the step's own TRX.
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/Varve.Site.Tests
+          --label "Varve.Site.Tests on ubuntu-latest"
+
+      - name: Upload the review
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docs-site-review
+          path: |
+            ${{ github.workspace }}/artifacts/site
+            ${{ github.workspace }}/artifacts/site-review
+            ${{ github.workspace }}/artifacts/test-results
+          retention-days: 30
+          if-no-files-found: warn
+
   conformance:
     name: conformance (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
