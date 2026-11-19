@@ -94,6 +94,9 @@ internal static class QueryRun
             return;
         }
 
+        // A default graph merging two or more graphs under owl2-rl is each graph's closure, merged (ADR 0197, ruling of 2026-11-19).
+        bool perGraph = owl2Rl && MergedGraphs(query.Dataset) > 1;
+
         // A view is a part of the closure, which tier 1 has not (ADR 0198 point 1).
         (ClosureMode mode, DatasetSpec? dataset) = Views(query.Dataset, owl2Rl);
         if (!ReferenceEquals(dataset, query.Dataset))
@@ -154,6 +157,17 @@ internal static class QueryRun
         if (owl2Rl && Inconsistent(exchange, view))
         {
             context.Response.Headers["Varve-Inconsistent"] = "true";
+        }
+
+        // Where the answer is narrower than the request suggests, it says so (ADR 0197, the ruling of 2026-11-19):
+        // no OWL2RL binding of this part applies the equality rules, and a merge is answered graph by graph.
+        if (owl2Rl)
+        {
+            context.Response.Headers[EntailmentHeader.EqualityName] = EntailmentHeader.EqualityNotApplied;
+            if (perGraph)
+            {
+                context.Response.Headers[EntailmentHeader.ClosureName] = EntailmentHeader.ClosurePerGraph;
+            }
         }
         context.Response.ContentType = graph ? syntax.MediaType : results.MediaType;
 
@@ -288,6 +302,18 @@ internal static class QueryRun
         }
 
         return (new ClosureMode(defaultViews == 0 ? rest : defaultViews, namedViews == 0 ? rest : namedViews, defaultGraphs, namedGraphs), null);
+    }
+
+    /// <summary>The graphs a query's default graph merges, its views not counted: zero for the dataset's own default graph.</summary>
+    internal static int MergedGraphs(DatasetSpec? dataset)
+    {
+        if (dataset is null)
+        {
+            return 0;
+        }
+
+        Parts(dataset.DefaultGraphs, out List<RdfTerm> graphs);
+        return graphs.Count;
     }
 
     private static ClosurePart Parts(AlgebraList<RdfTerm> graphs, out List<RdfTerm> others)

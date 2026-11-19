@@ -182,8 +182,29 @@ graphs as `premiseSets`.
 - `GRAPH <…/inferred/…/tbox>`, `FROM NAMED` of it, or a Graph Store `GET`
   reads a binding's TBox conclusions.
 - `Varve-Entailment: owl2-rl` reads every graph as explicit ∪ implicit, on a
-  dataset with an `OWL2RL` binding; the answer says `Varve-Inconsistent:
-  true` when a graph it reads holds a clash.
+  dataset with an `OWL2RL` binding. What it serves is OWL 2 RL **without the
+  equality rules** (`varve:SameAsOff`, the only setting in this part), and
+  the answer says where it is narrower than the request (ADR 0197, amended
+  2026-11-19):
+  - **`Varve-Equality: not-applied`** on every `owl2-rl` answer: no
+    `owl:sameAs` was substituted through, so an answer that needs it is
+    missing.
+  - **`Varve-Closure: per-graph`** when the default graph merges two or more
+    graphs (`FROM g1 FROM g2`, or two `default-graph-uri`s): the answer is
+    each graph's closure, merged, not the closure of the merge. A conclusion
+    drawn from facts of two graphs together is missing, under a cross-graph
+    binding too unless the query also names the premise-set graph that holds
+    it.
+  - **`Varve-Inconsistent: true`** when a graph it reads holds a clash.
+  
+  `SparqlHttpClient.EntailedAnswerOf(response)` reads all three. **A graph
+  no `OWL2RL` binding covers** is read with its explicit quads only, and
+  nothing yet says so: name only covered graphs under `owl2-rl`.
+- **The service description** describes each graph an `OWL2RL` binding
+  covers with `sd:entailmentRegime ent:OWL-RDF-Based`,
+  `sd:supportedEntailmentProfile varve:OWL2RLWithoutEquality` and
+  `varve:sameAs varve:SameAsOff`. It never claims `pr:RL`, the W3C profile,
+  which includes the equality rules; part 3's `varve:SameAsClasses` will.
 - A read that names none of these reads nothing of the closure and never
   waits for it. None of them is ever written (`graph-not-writable`).
 

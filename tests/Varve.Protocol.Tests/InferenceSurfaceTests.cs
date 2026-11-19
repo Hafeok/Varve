@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using Varve.Inference.Model;
 using Varve.Inference.Store;
 using Varve.Inference.Store.Model;
+using Varve.Protocol.Client;
 using Varve.Protocol.Http;
 using Varve.Protocol.Model;
 using Varve.Rdf;
@@ -96,6 +97,104 @@ public class InferenceSurfaceTests
         string[] classes = Column(body, "c");
         Assert.Contains("http://ex/Person", classes);
         Assert.Contains("http://ex/Agent", classes);
+    }
+
+    /// <summary>
+    /// The service description claims no more than is served (ADR 0197, the
+    /// ruling of 2026-11-19): a graph an OWL2RL binding with
+    /// <c>varve:SameAsOff</c> covers is described with
+    /// <c>ent:OWL-RDF-Based</c>, the profile
+    /// <c>varve:OWL2RLWithoutEquality</c> and the binding's
+    /// <c>varve:sameAs</c>, never with <c>pr:RL</c>; a graph under an RDFS
+    /// binding has none of them.
+    /// </summary>
+    [Fact]
+    public async Task The_service_description_names_owl2_rl_without_equality_and_never_pr_RL()
+    {
+        const string Sd = "<http://www.w3.org/ns/sparql-service-description#";
+        await using (Fixture fixture = await Fixture.StartAsync(InferenceProfile.Owl2Rl))
+        {
+            string[] lines = (await (await fixture.Host.Client.SendAsync(P.Get(Sparql, "application/n-triples"), P.Ct)).Content.ReadAsStringAsync(P.Ct)).Split('\n');
+            string graph = lines.Single(l => l.Contains(Sd + "name> <http://ex/g/1>", StringComparison.Ordinal)).Split(' ')[0];
+            Assert.Contains(graph + " " + Sd + "entailmentRegime> <http://www.w3.org/ns/entailment/OWL-RDF-Based> .", lines);
+            Assert.Contains(graph + " " + Sd + "supportedEntailmentProfile> <https://w3id.org/varve/ns#OWL2RLWithoutEquality> .", lines);
+            Assert.Contains(graph + " <https://w3id.org/varve/ns#sameAs> <https://w3id.org/varve/ns#SameAsOff> .", lines);
+            Assert.Contains("_:default " + Sd + "supportedEntailmentProfile> <https://w3id.org/varve/ns#OWL2RLWithoutEquality> .", lines);
+            Assert.DoesNotContain(lines, l => l.Contains("http://www.w3.org/ns/owl-profile/RL", StringComparison.Ordinal));
+
+            // The TBox graph is no data graph of the binding: no claim.
+            string tbox = lines.Single(l => l.Contains(Sd + "name> <http://ex/tbox>", StringComparison.Ordinal)).Split(' ')[0];
+            Assert.DoesNotContain(lines, l => l.StartsWith(tbox + " " + Sd + "supportedEntailmentProfile>", StringComparison.Ordinal));
+        }
+
+        await using (Fixture rdfs = await Fixture.StartAsync(InferenceProfile.Rdfs))
+        {
+            string description = await (await rdfs.Host.Client.SendAsync(P.Get(Sparql, "application/n-triples"), P.Ct)).Content.ReadAsStringAsync(P.Ct);
+            Assert.DoesNotContain("OWL-RDF-Based", description, StringComparison.Ordinal);
+            Assert.DoesNotContain("OWL2RLWithoutEquality", description, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// Every answer under <c>owl2-rl</c> by a binding with
+    /// <c>varve:SameAsOff</c> says equality was not applied, as
+    /// <c>Varve-Equality: not-applied</c>, which <see cref="SparqlHttpClient.EntailedAnswerOf"/>
+    /// reads; an answer under another regime says nothing of it.
+    /// </summary>
+    [Fact]
+    public async Task An_owl2_rl_answer_says_equality_was_not_applied()
+    {
+        await using Fixture fixture = await Fixture.StartAsync(InferenceProfile.Owl2Rl);
+
+        HttpResponseMessage owl = await fixture.QueryAsync("ASK { GRAPH <http://ex/g/1> { <http://ex/ann> a <http://ex/Agent> } }", "owl2-rl");
+        Assert.Equal(HttpStatusCode.OK, owl.StatusCode);
+        Assert.Equal("not-applied", P.Header(owl, "Varve-Equality"));
+        Varve.Protocol.Client.Model.EntailedAnswer read = SparqlHttpClient.EntailedAnswerOf(owl);
+        Assert.True(read.EqualityNotApplied);
+        Assert.False(read.Inconsistent);
+
+        HttpResponseMessage simple = await fixture.QueryAsync("ASK { GRAPH <http://ex/g/1> { <http://ex/ann> a <http://ex/Person> } }", null);
+        Assert.Equal(HttpStatusCode.OK, simple.StatusCode);
+        Assert.False(simple.Headers.Contains("Varve-Equality"));
+        Assert.False(SparqlHttpClient.EntailedAnswerOf(simple).EqualityNotApplied);
+    }
+
+    /// <summary>
+    /// A default graph merging two or more graphs under <c>owl2-rl</c> is
+    /// answered by the union of each graph's closure, and the answer says so
+    /// as <c>Varve-Closure: per-graph</c>, by FROM and by the protocol's
+    /// <c>default-graph-uri</c> alike; one graph, a view beside it, or
+    /// <c>GRAPH</c> patterns are no merge, and say nothing.
+    /// </summary>
+    [Fact]
+    public async Task An_owl2_rl_answer_over_a_merge_says_it_was_answered_graph_by_graph()
+    {
+        await using Fixture fixture = await Fixture.StartAsync(InferenceProfile.Owl2Rl);
+
+        HttpResponseMessage merged = await fixture.QueryAsync("ASK FROM <http://ex/g/1> FROM <http://ex/g/2> { <http://ex/ann> a <http://ex/Agent> }", "owl2-rl");
+        Assert.True(merged.StatusCode == HttpStatusCode.OK, await merged.Content.ReadAsStringAsync(P.Ct));
+        Assert.Equal("per-graph", P.Header(merged, "Varve-Closure"));
+        Assert.True(SparqlHttpClient.EntailedAnswerOf(merged).PerGraphClosure);
+
+        HttpRequestMessage byProtocol = new(HttpMethod.Get, new Uri(Sparql + "?query=" + Uri.EscapeDataString("ASK { ?s ?p ?o }") + "&default-graph-uri=" + Uri.EscapeDataString("http://ex/g/1") + "&default-graph-uri=" + Uri.EscapeDataString("http://ex/g/2"), UriKind.Relative));
+        byProtocol.Headers.TryAddWithoutValidation("Accept", "application/sparql-results+json");
+        byProtocol.Headers.TryAddWithoutValidation("Varve-Entailment", "owl2-rl");
+        HttpResponseMessage protocol = await fixture.Host.Client.SendAsync(byProtocol, P.Ct);
+        Assert.Equal("per-graph", P.Header(protocol, "Varve-Closure"));
+
+        foreach (string one in (string[])[
+            "ASK FROM <http://ex/g/1> { <http://ex/ann> a <http://ex/Agent> }",
+            "ASK FROM <http://ex/g/1> FROM <" + Implicit + "> { <http://ex/ann> a <http://ex/Agent> }",
+            "ASK { GRAPH ?g { <http://ex/ann> a <http://ex/Agent> } }",
+        ])
+        {
+            HttpResponseMessage answered = await fixture.QueryAsync(one, "owl2-rl");
+            Assert.True(answered.StatusCode == HttpStatusCode.OK, one + await answered.Content.ReadAsStringAsync(P.Ct));
+            Assert.False(answered.Headers.Contains("Varve-Closure"), one);
+        }
+
+        // Under another regime there is no closure to merge, and nothing to say.
+        Assert.False((await fixture.QueryAsync("ASK FROM <http://ex/g/1> FROM <http://ex/g/2> { ?s ?p ?o }", null)).Headers.Contains("Varve-Closure"));
     }
 
     [Fact]

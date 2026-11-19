@@ -322,3 +322,24 @@ accepts it (ADR 0066).
 **The ledger.** The rulings are ADR 0195's `InferenceBehind` and
 `ClosureMemoryLimit`, ADR 0197's `ClashReportedNotServed`, and ADR 0238's
 `EntailmentNotAvailableNamesNoBinding`.
+
+## Amendment, 2026-11-19 — `Varve-Equality` and `Varve-Closure`
+
+Filed by Inference, part 2 (#171), unaccepted until the maintainer accepts
+it (ADR 0066), under the maintainer's ruling of 2026-11-19 that an answer
+narrower than its request suggests says so in-band
+(ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md), amended 2026-11-19). Two
+response headers join `Varve-Inconsistent`, each on a query answered under
+`Varve-Entailment: owl2-rl`, each absent under any other regime:
+
+- **`Varve-Equality: not-applied`**: the binding answering it has
+  `varve:sameAs varve:SameAsOff` and applied none of the equality rules.
+- **`Varve-Closure: per-graph`**: the query's default graph merged two or
+  more graphs and was answered by the union of each graph's closure, not by
+  the closure of their merge.
+
+`SparqlHttpClient.EntailedAnswerOf` reads both, and `Varve-Inconsistent`.
+
+**The ledger.** ADR 0197's `EqualityNotAppliedSaidInBand` and
+`PerGraphClosureSaidInBand`.
+

@@ -239,7 +239,7 @@ The W3C suites are the acceptance gate, from
 | `shacl12-test-suite`, SHACL 1.2 Working Draft, `core` and `sparql`, × 2 subjects | 390 |
 | `sparql11/entailment` under RDF, RDFS and D, by rewriting (ADR 0193) | 95 |
 | `rdf11/rdf-mt`, by rewriting: the 38 cases that ask no consistency question | 38 |
-| `sparql11/entailment` under OWL 2 RL, on the materialised closure (ADRs 0195, 0197) | 27 |
+| `sparql11/entailment` under OWL 2 RL without equality, on the materialised closure (ADRs 0195, 0197): 27 of its 28; `sparqldl-13` needs `owl:sameAs`, pending part 3 | 27 |
 | `rdf11/rdf-mt`, on the materialised closure: the 10 cases that expect "false", by the clash checks (ADR 0197) | 10 |
 | **Total** | **6,311 of 6,311** |
 
