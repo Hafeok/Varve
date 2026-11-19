@@ -186,10 +186,25 @@ in the code.**
 | Fleet (services), Azurite and RustFS | Linux | 1 min 38 s (38 results) | 1 min 59 s (38 results) |
 | Handover (services) | Linux | 34 s (14 results) | 36 s (14 results) |
 
-One run each. The fleet suite's 21 s more is not attributed: its tests do
-not move event declarations, so the advance-first step does not run in them,
-and one run is too few to tell a change from the runner. The model test adds
-about 2 s at 40 schedules, within the server suite's time above.
+The table is one run each. The model test adds about 2 s at 40 schedules,
+within the server suite's time above.
+
+**The fleet suite's 21 s, measured again at the maintainer's request.** The
+repeat job compares two commits alternately on one runner (`repeat-compare`,
+`repeat-at`, `repeat-services`). The figures are on
+[#254](https://github.com/Hafeok/Varve/issues/254#issuecomment-7020240154).
+
+- **Five runs a side:** `c754bcb` took 109.3 s on average (105.9 to
+  112.7 s), and `1cd717d` 112.6 s (109.9 to 117.8 s). The +3.3 s is within
+  the spread, and it sits in one property, the active-active
+  `Two_regions_…`, on both stores.
+- **That property, one step of the fix at a time,** against a control:
+  only (c) moved, +5.2 s over 8 runs a side. It came out −0.9 s and +0.4 s
+  when run twice more, 12 runs a side, and no mechanism was found: the
+  property's datasets are never `Moving`.
+- **Conclusion:** none of the 21 s is shown to be the fix. Any cost is under
+  1 to 2 s, which these runs cannot tell from zero; the same commit measured
+  6 s apart on two runners.
 
 `IdleFleetTests` ran unchanged and passed. The fix adds no commit on a timer:
 the loop's resume now commits less than before, never more.
@@ -199,9 +214,12 @@ the loop's resume now commits less than before, never more.
 - **Closed by trailer, once landed:** #254 (`Closes #254` on the close-out
   commit).
 - **Closed as a duplicate:** #217, with the reason.
-- **Opened:** [#367](https://github.com/Hafeok/Varve/issues/367), the
-  silent give-up of `AppliedAsync` on the forwarded path. It stays its own
-  issue.
+- **Opened:**
+  - [#367](https://github.com/Hafeok/Varve/issues/367), the silent give-up
+    of `AppliedAsync` on the forwarded path. It stays its own issue.
+  - [#380](https://github.com/Hafeok/Varve/issues/380), the active-active
+    property's one transport failure in its settle step, in 138 runs, found
+    while measuring the fleet suite.
 
 ## Left for the maintainer
 
