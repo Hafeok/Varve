@@ -270,11 +270,34 @@ A preflight is answered before authentication and before the read limit, so
 it needs no token. A refusal (`401`, `429`, any problem) carries the CORS
 headers too, so the application can read the problem.
 
-## The Web UI — `WebUi` (ADR 0202)
+## The Web UI — `WebUi` (ADRs 0202, 0245)
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `Path` | unset | the absolute path of a published Web UI, the `wwwroot` of `varve-webui-<version>.zip`; unset, the server serves no `/ui/` |
+| `Path` | unset; `/app/webui` in the container image | the absolute path of a published Web UI, the `wwwroot` of `varve-webui-<version>.zip`; unset, the server serves no `/ui/` |
+| `Enabled` | `true` | the off switch: `false` adds no `/ui/` at all, whatever `Path` says |
+| `Settings` | `File`; `Generated` in the container image | where `/ui/appsettings.json` comes from: `File`, the bundle's own, as edited; `Generated`, the server's answer from its own configuration, and then the bundle's file and its `.br` and `.gz` copies are never served |
+| `Server` | unset | with `Generated`: the server's absolute address the Web UI calls; unset, the origin that served it |
+| `Auth:ClientId` | unset | with `Generated`: the Web UI's own public client at the server's issuer (ADR 0201) |
+| `Auth:DataScope` | unset | with `Generated`: the scope whose token the data plane accepts |
+| `Auth:ManageScope` | unset | with `Generated`: the scope whose token the management plane accepts |
+| `Auth:ManageGrant` | `refresh` | with `Generated`: `refresh` or `exchange` (ADR 0201, amended 2026-10-28) |
+| `Auth:DataAudience`, `Auth:ManageAudience` | unset | with `Generated` and `exchange`: the `audience` each exchange names |
+
+**The generated settings** are the Web UI's `appsettings.json`, built field by
+field (ADR 0245):
+- the mode is `Anonymous` on an anonymous server and `Oidc` when the three
+  client settings are set; on an OIDC server without them it is
+  `NotConfigured`, naming the settings to add, and the Web UI says sign-in is
+  not configured;
+- the authority and the role claim are the server's own `Auth:Authority`
+  and `Auth:RoleClaimType`;
+- nothing else from the configuration is ever in them, and the client is
+  public: there is no secret to set.
+
+The server refuses to start, naming the setting, when `Server` or any
+`Auth:*` is set while `Settings` is `File` (it would do nothing), when a
+client is half set, or when a client is set on an anonymous server.
 
 Set, the server serves the Web UI under `/ui/` on the data-plane listener, and
 refuses to start if the directory holds no `index.html`. The files are public:

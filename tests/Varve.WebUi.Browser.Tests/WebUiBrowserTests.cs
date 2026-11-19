@@ -225,6 +225,50 @@ public sealed class WebUiBrowserTests
         Assert.Equal(0, await page.Locator("text=Sign out").CountAsync());
     }
 
+    // ADR 0245: a server with OIDC and no client for the Web UI answers its
+    // settings as NotConfigured, never as anonymous, and the console says
+    // so, naming the settings to add, and reads nothing. The bundle's own
+    // file says Anonymous, and is never served.
+    [Fact]
+    public async Task Sign_in_not_configured_is_said_with_the_settings_to_add_and_never_anonymous()
+    {
+        (string bundle, string chrome) = WebUiServer.Required();
+        await using WebUiServer server = await WebUiServer.StartAsync(
+            bundle,
+            new Dictionary<string, string>
+            {
+                ["Varve:Auth:Mode"] = "Oidc",
+                ["Varve:Auth:Authority"] = "http://127.0.0.1:9/issuer",
+                ["Varve:Auth:RequireHttpsMetadata"] = "false",
+                ["Varve:Auth:Audiences:0"] = "api://varve",
+                ["Varve:Manage:BootstrapOperators:0"] = "varve.operator",
+                ["Varve:WebUi:Settings"] = "Generated",
+            },
+            new JsonObject { ["Mode"] = "Anonymous" });
+        using IPlaywright playwright = await Playwright.CreateAsync();
+        await using IBrowser browser = await playwright.Chromium.LaunchAsync(new() { ExecutablePath = chrome });
+        IPage page = await browser.NewPageAsync();
+        List<string> violations = Watch(page);
+        List<string> api = [];
+        page.Request += (_, request) =>
+        {
+            if (!request.Url.StartsWith(server.Ui.AbsoluteUri, StringComparison.Ordinal))
+            {
+                api.Add(request.Url);
+            }
+        };
+
+        await page.GotoAsync(server.Ui + "datasets");
+        await page.WaitForSelectorAsync("text=Sign-in is not configured", new() { Timeout = 60_000 });
+
+        Assert.Equal(["Data plane not configured", "Management not configured"], await Planes(page));
+        Assert.Contains("Varve:WebUi:Auth:ClientId", await page.InnerTextAsync(".vw-notice__body"), StringComparison.Ordinal);
+        Assert.Equal(0, await page.Locator("text=anonymous").CountAsync());
+        Assert.Empty(await AuditAsync(page, "not configured"));
+        Assert.Empty(api);
+        Assert.Empty(violations);
+    }
+
     [Fact]
     public async Task Sign_in_takes_one_token_per_plane_and_each_is_refused_on_the_other_plane()
     {
@@ -518,7 +562,7 @@ public sealed class WebUiBrowserTests
         return address.TrimEnd('/') + "/varve";
     }
 
-    private static List<string> Watch(IPage page)
+    internal static List<string> Watch(IPage page)
     {
         List<string> violations = [];
         page.PageError += (_, error) => violations.Add("page error: " + error);
@@ -527,13 +571,13 @@ public sealed class WebUiBrowserTests
         return violations;
     }
 
-    private static async Task<IEnumerable<string>> AuditAsync(IPage page, string where)
+    internal static async Task<IEnumerable<string>> AuditAsync(IPage page, string where)
     {
         AxeResult result = await page.RunAxe(new AxeRunOptions { RunOnly = new RunOnlyOptions { Type = "tag", Values = [.. Wcag] } });
         return result.Violations.Select(violation => where + ": " + violation.Id + " (" + violation.Impact + ") " + string.Join(", ", violation.Nodes.Select(node => string.Join(" ", node.Target))));
     }
 
-    private static async Task<List<string>> Planes(IPage page) =>
+    internal static async Task<List<string>> Planes(IPage page) =>
         [.. (await page.Locator(".vw-plane").AllInnerTextsAsync()).Select(text => string.Join(" ", text.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries)))];
 
     private static Dictionary<string, string> Query(string url) =>
