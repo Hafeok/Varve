@@ -40,10 +40,11 @@ You need a test tenant, and in it the right to create app registrations
 admin consent.
 
 `deploy/azure/entra/main.bicep` already creates *Varve's API* (`api://varve`,
-v2 tokens, the app roles) and a *calling application* that holds `Varve.Write`
-as an application permission. You can reuse both: give the calling
-application the federated credential of step 3 too, and skip steps 1, 2 and
-4. Otherwise, by hand:
+v2 tokens, the app roles) and the provider leg's client: it holds `Varve.Write`
+as an application permission, and its only credential is the federated
+credential of step 3 (`githubProviderEnvironment`, default `auth-providers`).
+Deployed, it replaces steps 1 to 3: `VARVE_ENTRA_CLIENT_ID` is its
+`providerLegClientId` output. Otherwise, by hand:
 
 1. **The API's registration.** *Entra ID → App registrations → New
    registration*, single tenant, named for example `varve-api-test`.
