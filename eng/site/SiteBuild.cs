@@ -502,7 +502,7 @@ internal static partial class SiteBuild
     private static partial Regex LeadingSuperseded();
 
     /// <summary>The built site's own check: no script anywhere, and every local link reaches a file and its anchor.</summary>
-    private static List<string> OutputCheck(string output)
+    internal static List<string> OutputCheck(string output)
     {
         List<string> findings = [];
         Dictionary<string, HashSet<string>> ids = new(StringComparer.Ordinal);
