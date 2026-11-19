@@ -2,9 +2,24 @@
 
 ## What a new build reads
 
+Every format a release writes that another reads is in the
+[format inventory](../formats/README.md) (ADR 0216), with its version, the
+release that introduced it, its rule — *read forever*, *rebuilt*,
+*versioned* or *reserved* — and the fixture that release wrote, which every
+build's tests read. The log and the coordination records are read forever;
+everything under `derived/` is rebuilt.
+
 - **`log/` is format version 1 and is read for ever** from the first
   prerelease tag that wrote it (`v0.1.0-preview.1`, ADR 0029). A later
-  Varve opens any dataset an earlier one wrote.
+  Varve opens any dataset an earlier one wrote. Each build is checked
+  against the previous release this way: the `upgrade (previous release)`
+  job installs the newest tagged release's `Varve.Server` tool from
+  nuget.org, writes a dataset with it, and opens it with the build, in place
+  and from its `log/` alone, at every position (`eng/upgrade.cs`). Older
+  releases are covered by their fixtures. **Derived format 6 has no fixture
+  written by the release that shipped it** (`v0.1.0-preview.16`): its
+  fixture, `store-next`, was written from the branch, and no object-store
+  fixture carries it yet (#302).
 - **`derived/` carries its own version and is a cache.** Each build states
   the derived versions it reads; a file of another version is a cache miss
   and is rebuilt from the log (ADR 0072). This build writes extents in
@@ -83,6 +98,16 @@ that happens by design.
    projected to its head; `503` lists the datasets still opening or failed,
    each with a reason.
 
+Between steps 3 and 4, with no server holding the directory, the new build
+can show that it reads a dataset before it serves it: the same id and head
+the old build reported, and the past as it was.
+
+<!-- ci: ci.yml upgrade — eng/upgrade.cs: the previous release's tool writes the dataset, this build's info, export --as-of at every position and query read it -->
+```sh
+varve info /var/lib/varve/people
+varve export /var/lib/varve/people --as-of position:41 > /tmp/people-41.nq
+```
+
 Two processes never hold one dataset: the lease (ADR 0075) refuses the
 second, so a new process started while the old one still drains waits on
 `/health/ready` rather than corrupting anything. A rolling upgrade behind a load
@@ -108,10 +133,12 @@ source, and lists what the build refuses, before anything serves.
 
 What on this page no CI job runs, and why (ADR 0248):
 
-- **Upgrading one instance.** The stop, `dotnet tool update` and start
-  sequence: no job installs a release's published tool and upgrades it in
-  place yet; pull request C of #129 adds a job that opens a previous
-  release's dataset with this build.
+- **Upgrading one instance, as a server.** The `upgrade (previous release)`
+  job (ci.yml `upgrade`) writes with the previous release's command line and
+  reads with this build's; it runs no server of either, so the stop,
+  `dotnet tool update` and start sequence, and a server's projection state
+  written by the old build and read by the new, are not run. It reaches
+  nuget.org, so it is not a required check.
 - **A rolling upgrade of a fleet.** Old and new builds side by side on one
   store are simulated through reader records only (`ObjectFormatUpgradeTests`
   and `UncheckedSetTests`, ci.yml `build`); no job runs a real older
