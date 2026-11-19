@@ -39,6 +39,21 @@ public sealed class EventCatalogueValidator : ICommitValidator
 
     /// <summary>
     /// The check of <paramref name="dataset"/>, which refuses every catalogue
+    /// write as <c>event-catalogue-moved</c> while <paramref name="moved"/>
+    /// says its declarations are moving or moved at the position the host has
+    /// applied (ADR 0167), before it reads the write as a declaration. A host
+    /// that can tell when it cannot read the management plane takes the
+    /// overload with <see cref="EventCatalogueState"/>.
+    /// </summary>
+    public EventCatalogueValidator(DatasetName dataset, Func<bool> moved)
+    {
+        ArgumentNullException.ThrowIfNull(moved);
+        _dataset = dataset;
+        _state = () => moved() ? EventCatalogueState.Frozen : EventCatalogueState.Open;
+    }
+
+    /// <summary>
+    /// The check of <paramref name="dataset"/>, which refuses every catalogue
     /// write before it reads the write as a declaration while
     /// <paramref name="state"/> says the catalogue does not take writes, at the
     /// position the host has applied (ADR 0167): as
