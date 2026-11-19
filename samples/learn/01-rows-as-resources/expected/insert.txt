@@ -1,0 +1,5 @@
+Committed at position 2
+rooms
+-----
+6
+(1 row)

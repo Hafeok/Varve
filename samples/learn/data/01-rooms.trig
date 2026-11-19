@@ -1,0 +1,52 @@
+# The learning track's slice, chapter 1: five rooms, and nothing else.
+# Hand-written, small enough to read whole; quoted on the page (docs/learn/01-rows-as-resources.md).
+# region: prefixes
+PREFIX rec:  <https://w3id.org/rec#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
+PREFIX :     <https://example.org/learn/>
+# endregion: prefixes
+
+# region: room-2-01
+:room-2-01 a rec:Room ;
+  rdfs:label "2.01 Fjord" ;
+  rec:area :room-2-01-area ;
+  rec:capacity :room-2-01-capacity .
+:room-2-01-area a rec:ArchitectureArea ;
+  rec:netArea "24.5"^^xsd:float .
+:room-2-01-capacity a rec:ArchitectureCapacity ;
+  rec:seatingCapacity 10 .
+# endregion: room-2-01
+
+:room-2-02 a rec:Room ;
+  rdfs:label "2.02 Open office" ;
+  rec:area :room-2-02-area ;
+  rec:capacity :room-2-02-capacity .
+:room-2-02-area a rec:ArchitectureArea ;
+  rec:netArea "310.0"^^xsd:float .
+:room-2-02-capacity a rec:ArchitectureCapacity ;
+  rec:seatingCapacity 40 .
+
+:room-2-03 a rec:Room ;
+  rdfs:label "2.03 Kitchen" ;
+  rec:area :room-2-03-area .
+:room-2-03-area a rec:ArchitectureArea ;
+  rec:netArea "16.0"^^xsd:float .
+
+:room-3-01 a rec:Room ;
+  rdfs:label "3.01 Harbour" ;
+  rec:area :room-3-01-area ;
+  rec:capacity :room-3-01-capacity .
+:room-3-01-area a rec:ArchitectureArea ;
+  rec:netArea "18.0"^^xsd:float .
+:room-3-01-capacity a rec:ArchitectureCapacity ;
+  rec:seatingCapacity 6 .
+
+:room-3-02 a rec:Room ;
+  rdfs:label "3.02 Open office" ;
+  rec:area :room-3-02-area ;
+  rec:capacity :room-3-02-capacity .
+:room-3-02-area a rec:ArchitectureArea ;
+  rec:netArea "290.0"^^xsd:float .
+:room-3-02-capacity a rec:ArchitectureCapacity ;
+  rec:seatingCapacity 36 .

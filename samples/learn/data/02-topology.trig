@@ -1,0 +1,51 @@
+# The learning track's slice, chapter 2: the site, the building, two levels,
+# the assets and the points, linked to chapter 1's rooms.
+# Hand-written, small enough to read whole; quoted on the page (docs/learn/02-links-and-patterns.md).
+PREFIX rec:   <https://w3id.org/rec#>
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX :      <https://example.org/learn/>
+
+# region: topology
+:site-harbour a rec:Site ;
+  rdfs:label "Harbour Point" ;
+  rec:hasPart :building-hq .
+
+:building-hq a rec:Building ;
+  rdfs:label "Harbour House" ;
+  rec:hasPart :level-2 , :level-3 .
+
+:level-2 a rec:Level ;
+  rdfs:label "Level 2" ;
+  rec:levelNumber 2 ;
+  rec:hasPart :room-2-01 , :room-2-02 , :room-2-03 .
+
+:level-3 a rec:Level ;
+  rdfs:label "Level 3" ;
+  rec:levelNumber 3 ;
+  rec:hasPart :room-3-01 , :room-3-02 .
+# endregion: topology
+
+# region: assets-and-points
+:asset-display-2-01 a rec:Asset ;
+  rdfs:label "Display, 2.01" ;
+  rec:locatedIn :room-2-01 .
+
+:asset-display-3-01 a rec:Asset ;
+  rdfs:label "Display, 3.01" ;
+  rec:locatedIn :room-3-01 .
+
+:asset-purifier-2-02 a rec:Asset ;
+  rdfs:label "Air purifier, 2.02" ;
+  rec:locatedIn :room-2-02 ;
+  rec:hasPoint :point-co2-2-02 .
+
+:room-2-01 rec:hasPoint :point-temp-2-01 .
+:room-3-01 rec:hasPoint :point-temp-3-01 .
+:room-3-02 rec:hasPoint :point-temp-3-02 .
+
+:point-temp-2-01 a brick:Temperature_Sensor ; rdfs:label "Temperature, 2.01" .
+:point-temp-3-01 a brick:Temperature_Sensor ; rdfs:label "Temperature, 3.01" .
+:point-temp-3-02 a brick:Temperature_Sensor ; rdfs:label "Temperature, 3.02" .
+:point-co2-2-02  a brick:CO2_Sensor ;         rdfs:label "CO2, air purifier 2.02" .
+# endregion: assets-and-points
