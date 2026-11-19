@@ -393,13 +393,69 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     /// <summary>The validator of commits to the system dataset (ADR 0166).</summary>
     public ICommitValidator Validator { get; }
 
+    // The runs of each dataset's event move here, one at a time (#254).
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _moveRuns = new(StringComparer.Ordinal);
+
+    /// <inheritdoc />
+    public IDisposable? TryEnterMove(DatasetName dataset)
+    {
+        SemaphoreSlim run = _moveRuns.GetOrAdd(dataset.Value, static _ => new SemaphoreSlim(1, 1));
+        return run.Wait(0) ? new MoveRun(run) : null;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IDisposable> EnterMoveAsync(DatasetName dataset, CancellationToken cancellationToken)
+    {
+        SemaphoreSlim run = _moveRuns.GetOrAdd(dataset.Value, static _ => new SemaphoreSlim(1, 1));
+
+        while (!run.Wait(0, CancellationToken.None))
+        {
+            if (Advancing is { } advancing)
+            {
+                // A test orders the wait against the run it waits for: it is
+                // held here, and tries again when it is let go.
+                await advancing(FleetPause.MoveRunWait, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            await run.WaitAsync(cancellationToken).ConfigureAwait(false);
+            break;
+        }
+
+        return new MoveRun(run);
+    }
+
+    private sealed class MoveRun(SemaphoreSlim run) : IDisposable
+    {
+        private int _ended;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _ended, 1) == 0)
+            {
+                run.Release();
+            }
+        }
+    }
+
     /// <summary>
     /// A test's seam, null in production: awaited at the start of every
-    /// advance, before the advance takes its turn. An event move's run
+    /// advance, before the advance takes its turn, and while a move request
+    /// waits for a run of its dataset's move in progress. An event move's run
     /// advances at each of its steps, so a test holds a run between two steps
     /// here and orders other requests between them (#254).
     /// </summary>
-    internal Func<CancellationToken, ValueTask>? Advancing { get; set; }
+    internal Func<FleetPause, CancellationToken, ValueTask>? Advancing { get; set; }
+
+    /// <summary>Where <see cref="Advancing"/> holds a flow.</summary>
+    internal enum FleetPause
+    {
+        /// <summary>At the start of an advance.</summary>
+        Advance,
+
+        /// <summary>A move request, waiting for a run of its dataset's move in progress.</summary>
+        MoveRunWait,
+    }
 
     /// <summary>
     /// A test's seam, null in production: when it answers true, the system
@@ -655,7 +711,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     {
         if (Advancing is { } advancing)
         {
-            await advancing(cancellationToken).ConfigureAwait(false);
+            await advancing(FleetPause.Advance, cancellationToken).ConfigureAwait(false);
         }
 
         await _advance.WaitAsync(cancellationToken).ConfigureAwait(false);

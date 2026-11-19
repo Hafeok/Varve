@@ -560,3 +560,5 @@ static Varve.Protocol.Model.CommitWindow.operator ==(Varve.Protocol.Model.Commit
 ~override Varve.Protocol.Model.CommitWindow.Equals(object obj) -> bool
 static Varve.Protocol.Model.ProblemType.IdempotencyKeyExpired.get -> Varve.Protocol.Model.ProblemType
 Varve.Protocol.IdempotencyKeys.PrepareAsync(Varve.Store.Dataset! dataset) -> System.Threading.Tasks.ValueTask
+Varve.Protocol.IManagementPlane.EnterMoveAsync(Varve.Protocol.Model.DatasetName dataset, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<System.IDisposable!>
+Varve.Protocol.IManagementPlane.TryEnterMove(Varve.Protocol.Model.DatasetName dataset) -> System.IDisposable?

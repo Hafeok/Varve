@@ -207,6 +207,17 @@ internal static class EventMoves
         IManagementPlane plane = move.Plane;
         RdfTerm graph = ManagementVocabulary.DatasetGraph(move.Name.Value);
 
+        // One run of the dataset's move at a time here: a request waits for a
+        // run in progress, so its answer is about its own run; the interval
+        // loop's resume does not wait, and leaves the move to the run that
+        // holds it (ADR 0167, amended for #254).
+        using IDisposable? run = move.Context is null ? plane.TryEnterMove(move.Name) : await plane.EnterMoveAsync(move.Name, cancellationToken).ConfigureAwait(false);
+
+        if (run is null)
+        {
+            return Refused(ProblemType.Conflict, "A run of this dataset's move is in progress here.");
+        }
+
         // Once this run has seen the move in progress, InDataset means a cancel
         // was committed meanwhile, and the run never freezes again (#254).
         bool seenMoving = false;

@@ -670,6 +670,58 @@ public sealed class EventMoveTests
         }
     }
 
+    /// <summary>
+    /// #254, found by <c>eng/repeat.cs --load</c> after the first fixes: one run
+    /// of a dataset's move at a time. A move request holds the run, and is
+    /// held after its freeze; a round of the interval loop then leaves the
+    /// move to it and commits nothing. Released, the request judges the
+    /// catalogue itself and answers why the move was cancelled, the
+    /// <c>422</c>, never <c>409 event-move-cancelled</c> for a cancel the loop
+    /// made under it.
+    /// </summary>
+    [Fact]
+    public async Task The_interval_loop_leaves_a_move_a_request_is_running_to_that_request()
+    {
+        string root = Directory.CreateTempSubdirectory("varve-move-").FullName;
+
+        try
+        {
+            await using RunningServer server = await StartAsync(root, interval: "00:01:00");
+            await SeedAsync(server);
+            Fleet fleet = server.Started!.Fleet;
+            const string Other = Varve + "events-catalogue/https%3A%2F%2Fexample.org%2Fother";
+            Assert.Equal(HttpStatusCode.NoContent, (await UpdateAsync(server, "INSERT DATA { GRAPH <" + Other + "> { "
+                + "<https://example.org/types/Refund> a <" + Varve + "EventType> ; <" + Varve + "eventName> \"Refund\" ; "
+                + "<" + Varve + "eventClass> <https://example.org/ns#Refund> ; <" + Varve + "eventVersion> 1 ; "
+                + "<" + Varve + "eventField> <https://example.org/types/Paid/total> ; "
+                + "<" + Varve + "eventSelect> \"SELECT ?total WHERE { ?event <https://example.org/ns#total> ?total }\" . "
+                + "<https://example.org/types/Paid/total> a <" + Varve + "EventField> ; <" + Varve + "fieldName> \"total\" ; "
+                + "<" + Varve + "fieldDatatype> <http://www.w3.org/2001/XMLSchema#decimal> ; <" + Varve + "fieldRequired> true } }")).StatusCode);
+            long before = fleet.System.Head.Value;
+
+            // Held at the move's first advance after its freeze committed.
+            HeldStep held = HeldStep.Over(fleet, () => IsMoveRequest() && fleet.System.Head.Value > before);
+            Task<HttpResponseMessage> moving = MoveAsync(server);
+            await held.Reached.WaitAsync(Ct);
+            long frozen = fleet.System.Head.Value;
+
+            // A round of the loop, which applies the freeze and picks the dataset as Moving.
+            await fleet.TickAsync(Ct);
+            Assert.Equal(frozen, fleet.System.Head.Value);
+
+            held.Release();
+            HttpResponseMessage answer = await moving;
+            string body = await answer.Content.ReadAsStringAsync(Ct);
+            Assert.True(answer.StatusCode == HttpStatusCode.UnprocessableEntity, body);
+            Assert.Contains("event-declaration-invalid", body, StringComparison.Ordinal);
+            Assert.Contains("cancelled", body, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     // Whether the advance being taken is a move request's.
     private static bool IsMoveRequest() =>
         new Microsoft.AspNetCore.Http.HttpContextAccessor().HttpContext?.Request.Path.Value?.EndsWith("/events/move", StringComparison.Ordinal) == true;
@@ -690,9 +742,9 @@ public sealed class EventMoveTests
         internal static HeldStep Over(Fleet fleet, Func<bool> when)
         {
             HeldStep held = new();
-            fleet.Advancing = async cancellationToken =>
+            fleet.Advancing = async (pause, cancellationToken) =>
             {
-                if (when() && Interlocked.Exchange(ref held._held, 1) == 0)
+                if (pause == Fleet.FleetPause.Advance && when() && Interlocked.Exchange(ref held._held, 1) == 0)
                 {
                     held._reached.TrySetResult();
                     await held._release.Task.WaitAsync(cancellationToken);
