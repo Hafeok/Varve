@@ -2,6 +2,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Protocol.Model;
 
 namespace Varve.Server;
@@ -15,6 +17,7 @@ namespace Varve.Server;
 /// that advance fails, the catalogue's state is unconfirmed, and a catalogue
 /// write is refused <c>management-behind</c>.
 /// </summary>
+[Contract(typeof(EventDeclarationsMoveToTheManagementPlane.MovingWriteAdvancesFirst), Role = "the host's decision to advance before it authorises a write")]
 internal static class MovingDatasetWrites
 {
     /// <summary>Whether a write to <paramref name="dataset"/> advances <paramref name="fleet"/> first.</summary>

@@ -10,6 +10,8 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Varve.Management;
@@ -32,6 +34,7 @@ namespace Varve.Server;
 /// a write where to go. The system dataset is advanced on the interval; a
 /// data follower only when a read arrives (ADR 0164).
 /// </summary>
+[Contract(typeof(EventDeclarationsMoveToTheManagementPlane.ResumeOnlyFinishesAMove), Role = "the interval loop, which resumes a move a request started and never starts one")]
 internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, IDatasetFollowing, IWriterDirectory, IAsyncDisposable
 {
     /// <summary>The system dataset's name in the store and under the root: no dataset name can take it (ADR 0093).</summary>

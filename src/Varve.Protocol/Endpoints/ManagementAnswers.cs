@@ -4,6 +4,8 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Store.Log;
 
 namespace Varve.Protocol.Endpoints;
@@ -17,6 +19,7 @@ namespace Varve.Protocol.Endpoints;
 /// applied it yet, so it is applied before the answer too: a cancel answered
 /// is in force here (ADR 0167, amended for #254).
 /// </summary>
+[Contract(typeof(EventDeclarationsMoveToTheManagementPlane.CancelIsAnsweredOnlyWhenInForce), Role = "the advance a management write's answer waits for, a write with no change included")]
 internal static class ManagementAnswers
 {
     /// <summary>Advances the management plane after a write whose <paramref name="outcome"/> leaves a head to apply.</summary>
