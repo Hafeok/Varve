@@ -1,0 +1,134 @@
+format: 2
+version: v0.1.0-preview.22
+title: The container image ships the Web UI and serves it by default
+date: 2026-11-18
+basis:
+  - issue: 296
+  - storage-format: 1
+  - delta-format: 1
+  - adr: "0226"
+  - adr: "0227"
+  - adr: "0240"
+  - adr: "0242"
+  - adr: "0244"
+  - adr: "0245"
+  - adr: "0246"
+  - adr: "0247"
+sbom:
+  - asset: varve-webui-0.1.0-preview.22.zip sha256:453f40162e1c51cff98a16b5336bf7de4557e96090ee1469c7915506d485077f
+  - binary: varve-0.1.0-preview.22-linux-arm64.tar.gz sha256:4431e066d1fdb4e96889c49b68cd5ddcc6bbabbb8a78976fc4c403698e617d3a
+  - binary: varve-0.1.0-preview.22-linux-x64.tar.gz sha256:85d9110ced0d9f83f7299c8c95ebe33fc96630dbeffcc3df13470e0d61fb5761
+  - binary: varve-0.1.0-preview.22-osx-arm64.tar.gz sha256:da4bc14f20fc3355411f105fbbd47fbba0378bb633e4e9cd80a7b69237aa79cc
+  - binary: varve-0.1.0-preview.22-osx-x64.tar.gz sha256:9bbac8c1f32ab70130848ee3651049c20b25438dbd18390a001b31d4a0ab3f96
+  - binary: varve-0.1.0-preview.22-win-arm64.zip sha256:dc0210f5f2031d73dc58db33b9119ff87739860818162956c6b4e29795eeba01
+  - binary: varve-0.1.0-preview.22-win-x64.zip sha256:79960ba73cea0454552a3f98fb0592e45d04bb81d7783662613c5b8f9a78f197
+  - image: ghcr.io/hafeok/varve sha256:72ca666839a45d0e3c41c4a20176dcbabd04d38e5c1a15842eed8ceaa887a326
+  - nupkg: Varve.Aspire sha256:f9c6a1445fbdd7c0a7ed3581b9524226f091dca0cf77faaec52db986bc5e162e
+  - nupkg: Varve.Classification sha256:7fb03d66f8d3f99e2b54fef331368d3f01eeb67da416c0581cb2418d7099822b
+  - nupkg: Varve.Delta sha256:b86363ab1f6683b74f287cfd109728cf741115c4e311970a7cb7c0987c651a6c
+  - nupkg: Varve.Derivation sha256:45419ae4989a43cab48c8f79bd2e2ee2806a9dae24e4730943f4cb2401c79e8b
+  - nupkg: Varve.Events sha256:8dfe1fe9c323142b9a78c8239ed615afbf6c61169122096c0d16ba9a4eecf4ad
+  - nupkg: Varve.Iri sha256:b8222b47b089c8336c95fd78eb1cf582f28b39689b9546b36771ea7ca567a1d7
+  - nupkg: Varve.Json.Canonical sha256:eb17b79fc861896ad2c153d6b15801721d9291ddb44430accdecd37de3469dba
+  - nupkg: Varve.JsonLd sha256:58817a625a5df3cdf2f3374bc06cc647c34ad5340d1834cb1f475ac583a5733f
+  - nupkg: Varve.Management sha256:e2dca7167778e0072d778f8f0fe6c64c55fa944ddb8c9bc234266b599f63dee1
+  - nupkg: Varve.Protocol sha256:ebb9c25f074fb2598c90e8f449e41bd1e8a560618768ebc58f49cf5a7cb18f85
+  - nupkg: Varve.Protocol.Client sha256:e5991e28de23c338b421b8e71efc58136faa9e1ddd5b38e6f1d099c27eb084b3
+  - nupkg: Varve.Rdf sha256:b6e00fce386f117fcf295913943644cbc133fe93dc960e9fe12f4d6d2b41b944
+  - nupkg: Varve.RdfXml sha256:85d884540b2a05a439822a100520283760b2935de0f6cbadd7db47ec0ee4a98c
+  - nupkg: Varve.Shacl sha256:652781029b35026830fd5bd13780e58039084c22679c1c5b636de6715d2ca5c0
+  - nupkg: Varve.Shacl.Sparql sha256:ac86b7e1cae566752d327913bbeefb4d301a4c8060892650e8acc96062c0b0df
+  - nupkg: Varve.Shacl.Store sha256:ba65068e700aa8168cab847e11288110fcf1f0343052c4477b2e14e7ec133f6d
+  - nupkg: Varve.Sparql sha256:d2e011ab6f901b1811e277b27777b11a810abd87feb62bcf74c97e796679527c
+  - nupkg: Varve.Sparql.Entailment sha256:386bc923e206f6a8316ff9015c746d38cb1ca79f1f66103ecf63f6a114db4019
+  - nupkg: Varve.Sparql.Evaluation sha256:316a47793c9df7dc7babfbde44635032ff2143d4c1bcb02ce59e980162843d4e
+  - nupkg: Varve.Sparql.Results sha256:2ed2badfbec1486e0dff023d2f80a552aa6d506d091ea2f29c40e520ca678406
+  - nupkg: Varve.Sparql.Store sha256:3a170a828d729a346e799335c37e883ee36f80300cad891b91b6b3e318323dcb
+  - nupkg: Varve.Store sha256:645a20e01bef0ac16d507d6479b97261698bf18c666475f94b2dca3e584e067d
+  - nupkg: Varve.Store.Azure sha256:07d95c4c2a510129d70395083eb53ceb2d70bb2415f64adc21c551b6ec941a29
+  - nupkg: Varve.Store.Browser sha256:47227fbf599f4e280fa9c79504ed7199ee1806d43c12d5fcffc2801d6a0ec23e
+  - nupkg: Varve.Store.ObjectStorage sha256:ffe7d89b969eed3652f6d8f65e9f199ab22d142b67900b8e14b54e9fe9f0df8e
+  - nupkg: Varve.Store.S3 sha256:d88d080fb916727f58bb602924be1ddb90bc09b9b4449e088daad1711947f573
+  - nupkg: Varve.Turtle sha256:b770dd19728467a527216f72929b674c20f3be89e7f51034e94dc2d7558fb1f6
+  - nupkg: Varve.Xsd sha256:451ca890995a5f438cac7373146f9caf641e64beed2b6ede50e38e50ffacdd30
+  - tool: Varve.Server sha256:aef152287cdf207ca491042a9f94d24140c9a06ef946005508646847eb28bbda
+accepted-by: mailto:emil@okkels-klein.dk
+summary: |
+  ### The container image ships the Web UI (#296)
+
+  `ghcr.io/hafeok/varve` now carries the operator console and serves it at
+  `/ui/` by default. The first run is the whole of it:
+
+  ```sh
+  docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.22 serve --anonymous
+  ```
+
+  and a browser at `http://localhost:8080/ui/` (ADR 0245, filed unaccepted).
+
+  - **The bundle** is at `/app/webui`, read-only: the contents of
+    `varve-webui-<version>.zip`, unpacked unchanged from the zip the same
+    release attests. The zip stays a release asset, with its own SBOM and
+    attestations, for anyone who hosts the Web UI elsewhere. The image's
+    SBOM now lists the bundle's components, the .NET runtime for the browser
+    and Emscripten's packs among them.
+  - **The settings come from the server.** The image sets
+    `Varve:WebUi:Settings` to `Generated`: the server answers
+    `/ui/appsettings.json` from its own configuration, so nobody edits a file
+    in the image. The console signs in with the server's own issuer, and the
+    Web UI's public client is given to the server as
+    `Varve:WebUi:Auth:ClientId`, `DataScope` and `ManageScope`. The answer is
+    built from an allow-list of fields, and nothing secret is ever in it.
+  - **A server with OIDC and no client for the Web UI** says so: the console
+    shows *Sign-in is not configured*, names the settings to add, and reads
+    nothing. It never calls itself anonymous on a server that checks tokens.
+    The console now treats only the exact mode `Anonymous` as anonymous.
+  - **`Varve:WebUi:Enabled`**, `true` by default, turns the Web UI off:
+    `VARVE__WEBUI__ENABLED=false` and the server adds no `/ui/` at all.
+  - **Outside the image nothing changes.** With `Varve:WebUi:Path` unset
+    there is no `/ui/`, and an unpacked bundle's own `appsettings.json` is
+    served as edited while `Varve:WebUi:Settings` is `File`, the default.
+  - **New start-time refusals:** `Varve:WebUi:Server` or any
+    `Varve:WebUi:Auth:*` set while `Settings` is `File`, a half-set client,
+    or a client on an anonymous server refuses the start, naming the setting.
+  - **The image is larger:** 26.5 MB compressed on linux-x64, from 20.1 MB.
+
+  The Content Security Policy is unchanged. The Web UI still needs a single
+  listener: with `Varve:Manage:Urls` its management screens cannot reach
+  `/manage`, and the guide no longer says otherwise (#297).
+
+  ### Also in this release
+
+  What landed on `main` since v0.1.0-preview.21:
+  - **Nothing is resident per commit** (#222, ADR 0240): an extent's seek
+    directory is read on demand under a ceiling, so resident memory is
+    bounded by data and configuration, never by the number of commits.
+  - **Problems that say what to do** (#194, ADR 0242): `forbidden`, a failed
+    dataset, `writer-superseded` and `shutting-down` name the next step, and
+    every problem page says what to do.
+  - **Memory bounds for writing, checkpointing and reopening** (#227,
+    ADR 0244): a dataset written under a memory limit reopens under it.
+  - **Client idempotency keys** (#132, ADR 0246): a write may carry
+    `Idempotency-Key`, scoped to the authenticated agent, so a retried write
+    commits once. The client keys every write by default and retries a lost
+    response. A commit's header is read alone, without its delta (#310).
+  - **`/manage/system` names the instance that answered** (#193).
+  - **The state route takes `If-Match`** with the declaration's version
+    (#189).
+  - **The conformance runner** states what a failing protocol request sent
+    (#262).
+  - **CLI distribution** (#129, ADR 0226): `varve` ships as six attested
+    Native AOT binaries, one per platform (`linux-x64`, `linux-arm64`,
+    `osx-x64`, `osx-arm64`, `win-x64`, `win-arm64`), each with its SBOM,
+    installed by a Homebrew tap and winget manifests.
+  - **The public API freeze gate** (#316, ADR 0227): each package's surface
+    is compared against its published package, and an unmarked break is
+    refused.
+  - **The docs site** (#317, ADR 0247): a generator in `eng/` on Markdig,
+    with Mermaid drawn at build time and no script on any page, published
+    to GitHub Pages by OIDC.
+  - **Build and process:** the SDK moves to 10.0.404, and the container
+    image's base to its newer digest; a commit message's model name is
+    refused in three layers (#169); an approval is a whole comment with the
+    full sha (#290).
+
+  The storage and delta formats are unchanged.

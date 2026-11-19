@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.Server;
 
@@ -66,13 +68,62 @@ internal sealed class ServerSettings
 }
 
 /// <summary>
-/// The Web UI (ADR 0202): <see cref="Path"/> is the directory of a published
-/// Web UI bundle, the <c>wwwroot</c> of its zip. Unset, the server serves no
-/// <c>/ui/</c> at all.
+/// The Web UI (ADRs 0202, 0245): <see cref="Path"/> is the directory of a
+/// published Web UI bundle, the <c>wwwroot</c> of its zip. Unset, or with
+/// <see cref="Enabled"/> false, the server serves no <c>/ui/</c> at all. The
+/// container image sets the path to its own bundle and <see cref="Settings"/>
+/// to <c>Generated</c>.
 /// </summary>
+[Contract(typeof(TheWebUiInTheContainerImage.WebUiEnabledIsTheOffSwitch), Role = "Enabled, the setting that turns the Web UI off")]
 internal sealed class WebUiSettings
 {
     public string? Path { get; set; }
+
+    /// <summary>The off switch (ADR 0245 point 2): false, no <c>/ui/</c>, whatever the path.</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Where <c>/ui/appsettings.json</c> comes from (ADR 0245 point 3):
+    /// <c>File</c>, the bundle's own, as edited; or <c>Generated</c>, from
+    /// this configuration, and the bundle's file and its compressed copies
+    /// are never served.
+    /// </summary>
+    public string Settings { get; set; } = WebUiSettingsSource.File;
+
+    /// <summary>With <c>Generated</c>: the server's base address the Web UI calls, empty for the origin that served it.</summary>
+    public string? Server { get; set; }
+
+    /// <summary>With <c>Generated</c>: the Web UI's own public client (ADR 0201).</summary>
+    public WebUiAuthSettings Auth { get; set; } = new();
+}
+
+/// <summary>The values of <see cref="WebUiSettings.Settings"/>.</summary>
+[Contract(typeof(TheWebUiInTheContainerImage.SettingsFileOrGenerated), Role = "the two values of Varve:WebUi:Settings, File by default")]
+internal static class WebUiSettingsSource
+{
+    internal const string File = "File";
+
+    internal const string Generated = "Generated";
+}
+
+/// <summary>
+/// The Web UI's public client (ADR 0201 point 5), for the generated settings
+/// (ADR 0245). The authority and the role claim are the server's own
+/// <c>Varve:Auth</c>, never set here, and a public client has no secret.
+/// </summary>
+internal sealed class WebUiAuthSettings
+{
+    public string? ClientId { get; set; }
+
+    public string? DataScope { get; set; }
+
+    public string? ManageScope { get; set; }
+
+    public string? ManageGrant { get; set; }
+
+    public string? DataAudience { get; set; }
+
+    public string? ManageAudience { get; set; }
 }
 
 /// <summary>
@@ -422,6 +473,9 @@ internal sealed class LimitSettings
 
     /// <summary>The most commits a bounded commits range serves before <c>Link rel="next"</c> (ADR 0114).</summary>
     public int CommitsPageSize { get; set; } = 1_000;
+
+    /// <summary>How many of a dataset's last commits a client idempotency key is honoured for (ADR 0246).</summary>
+    public long IdempotencyWindow { get; set; } = 100_000;
 }
 
 /// <summary>Forwarded headers, honoured only when enabled and only from the listed proxies (ADR 0101).</summary>
