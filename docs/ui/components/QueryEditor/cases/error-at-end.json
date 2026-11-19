@@ -1,0 +1,44 @@
+{
+  "parameters": {
+    "Id": "q",
+    "Label": "Query",
+    "Text": "SELECT ?note WHERE { ?note dct:title ",
+    "Runs": [
+      {
+        "Start": 0,
+        "End": 6,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 7,
+        "End": 12,
+        "Kind": "variable"
+      },
+      {
+        "Start": 13,
+        "End": 18,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 19,
+        "End": 20,
+        "Kind": "punct"
+      },
+      {
+        "Start": 21,
+        "End": 26,
+        "Kind": "variable"
+      },
+      {
+        "Start": 27,
+        "End": 36,
+        "Kind": "iri"
+      }
+    ],
+    "Error": {
+      "Offset": 37,
+      "Message": "1:38: the query ends where a term was expected."
+    },
+    "Help": "Tab inserts two spaces. Press Escape, then Tab, to leave the editor."
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "parameters": {
+    "Id": "q",
+    "Label": "Query",
+    "Text": "SELECT ?note ?title WHERE {\n  ?note dct:title ?title\n  FILTER (LANG(?title) = \"en\"\n}",
+    "Runs": [
+      {
+        "Start": 0,
+        "End": 6,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 7,
+        "End": 12,
+        "Kind": "variable"
+      },
+      {
+        "Start": 13,
+        "End": 19,
+        "Kind": "variable"
+      },
+      {
+        "Start": 20,
+        "End": 25,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 26,
+        "End": 27,
+        "Kind": "punct"
+      },
+      {
+        "Start": 30,
+        "End": 35,
+        "Kind": "variable"
+      },
+      {
+        "Start": 36,
+        "End": 45,
+        "Kind": "iri"
+      },
+      {
+        "Start": 46,
+        "End": 52,
+        "Kind": "variable"
+      },
+      {
+        "Start": 55,
+        "End": 61,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 62,
+        "End": 63,
+        "Kind": "punct"
+      },
+      {
+        "Start": 63,
+        "End": 67,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 67,
+        "End": 68,
+        "Kind": "punct"
+      },
+      {
+        "Start": 68,
+        "End": 74,
+        "Kind": "variable"
+      },
+      {
+        "Start": 74,
+        "End": 75,
+        "Kind": "punct"
+      },
+      {
+        "Start": 76,
+        "End": 77,
+        "Kind": "punct"
+      },
+      {
+        "Start": 78,
+        "End": 82,
+        "Kind": "literal"
+      },
+      {
+        "Start": 83,
+        "End": 84,
+        "Kind": "punct"
+      }
+    ],
+    "Error": {
+      "Offset": 83,
+      "Message": "4:1: expected ')'. The FILTER on line 3 is not closed."
+    },
+    "Help": "Tab inserts two spaces. Press Escape, then Tab, to leave the editor."
+  }
+}

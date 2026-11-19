@@ -1,0 +1,295 @@
+{
+  "parameters": {
+    "Id": "q",
+    "Label": "Query",
+    "Text": "PREFIX dct: <http://purl.org/dc/terms/>\nPREFIX notes: <https://notes.example/notes/>\n# Titles of the notes created this week\nSELECT DISTINCT ?note ?title WHERE {\n  GRAPH ?g { ?note a notes:Note ; dct:title ?title ; dct:created ?d . }\n  FILTER (?d >= \"2026-10-20\"^^xsd:date && LANG(?title) = \"en\")\n  OPTIONAL { ?note dct:creator _:who }\n}\nORDER BY DESC(?d) LIMIT 500",
+    "Runs": [
+      {
+        "Start": 0,
+        "End": 6,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 7,
+        "End": 11,
+        "Kind": "iri"
+      },
+      {
+        "Start": 12,
+        "End": 39,
+        "Kind": "iri"
+      },
+      {
+        "Start": 40,
+        "End": 46,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 47,
+        "End": 53,
+        "Kind": "iri"
+      },
+      {
+        "Start": 54,
+        "End": 84,
+        "Kind": "iri"
+      },
+      {
+        "Start": 85,
+        "End": 124,
+        "Kind": "comment"
+      },
+      {
+        "Start": 125,
+        "End": 131,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 132,
+        "End": 140,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 141,
+        "End": 146,
+        "Kind": "variable"
+      },
+      {
+        "Start": 147,
+        "End": 153,
+        "Kind": "variable"
+      },
+      {
+        "Start": 154,
+        "End": 159,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 160,
+        "End": 161,
+        "Kind": "punct"
+      },
+      {
+        "Start": 164,
+        "End": 169,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 170,
+        "End": 172,
+        "Kind": "variable"
+      },
+      {
+        "Start": 173,
+        "End": 174,
+        "Kind": "punct"
+      },
+      {
+        "Start": 175,
+        "End": 180,
+        "Kind": "variable"
+      },
+      {
+        "Start": 181,
+        "End": 182,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 183,
+        "End": 193,
+        "Kind": "iri"
+      },
+      {
+        "Start": 194,
+        "End": 195,
+        "Kind": "punct"
+      },
+      {
+        "Start": 196,
+        "End": 205,
+        "Kind": "iri"
+      },
+      {
+        "Start": 206,
+        "End": 212,
+        "Kind": "variable"
+      },
+      {
+        "Start": 213,
+        "End": 214,
+        "Kind": "punct"
+      },
+      {
+        "Start": 215,
+        "End": 226,
+        "Kind": "iri"
+      },
+      {
+        "Start": 227,
+        "End": 229,
+        "Kind": "variable"
+      },
+      {
+        "Start": 230,
+        "End": 231,
+        "Kind": "punct"
+      },
+      {
+        "Start": 232,
+        "End": 233,
+        "Kind": "punct"
+      },
+      {
+        "Start": 236,
+        "End": 242,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 243,
+        "End": 244,
+        "Kind": "punct"
+      },
+      {
+        "Start": 244,
+        "End": 246,
+        "Kind": "variable"
+      },
+      {
+        "Start": 247,
+        "End": 249,
+        "Kind": "punct"
+      },
+      {
+        "Start": 250,
+        "End": 262,
+        "Kind": "literal"
+      },
+      {
+        "Start": 262,
+        "End": 264,
+        "Kind": "punct"
+      },
+      {
+        "Start": 264,
+        "End": 272,
+        "Kind": "iri"
+      },
+      {
+        "Start": 273,
+        "End": 275,
+        "Kind": "punct"
+      },
+      {
+        "Start": 276,
+        "End": 280,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 280,
+        "End": 281,
+        "Kind": "punct"
+      },
+      {
+        "Start": 281,
+        "End": 287,
+        "Kind": "variable"
+      },
+      {
+        "Start": 287,
+        "End": 288,
+        "Kind": "punct"
+      },
+      {
+        "Start": 289,
+        "End": 290,
+        "Kind": "punct"
+      },
+      {
+        "Start": 291,
+        "End": 295,
+        "Kind": "literal"
+      },
+      {
+        "Start": 295,
+        "End": 296,
+        "Kind": "punct"
+      },
+      {
+        "Start": 299,
+        "End": 307,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 308,
+        "End": 309,
+        "Kind": "punct"
+      },
+      {
+        "Start": 310,
+        "End": 315,
+        "Kind": "variable"
+      },
+      {
+        "Start": 316,
+        "End": 327,
+        "Kind": "iri"
+      },
+      {
+        "Start": 328,
+        "End": 333,
+        "Kind": "bnode"
+      },
+      {
+        "Start": 334,
+        "End": 335,
+        "Kind": "punct"
+      },
+      {
+        "Start": 336,
+        "End": 337,
+        "Kind": "punct"
+      },
+      {
+        "Start": 338,
+        "End": 343,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 344,
+        "End": 346,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 347,
+        "End": 351,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 351,
+        "End": 352,
+        "Kind": "punct"
+      },
+      {
+        "Start": 352,
+        "End": 354,
+        "Kind": "variable"
+      },
+      {
+        "Start": 354,
+        "End": 355,
+        "Kind": "punct"
+      },
+      {
+        "Start": 356,
+        "End": 361,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 362,
+        "End": 365,
+        "Kind": "literal"
+      }
+    ],
+    "Help": "Tab inserts two spaces. Press Escape, then Tab, to leave the editor."
+  }
+}

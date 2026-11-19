@@ -64,6 +64,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
+    <!-- The query editor colours with the parser's own lexer (ADR 0248). Lazy-loaded with the explorer once ADR 0252 splits it off. -->
+    <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />
   </ItemGroup>
 
   <ItemGroup>

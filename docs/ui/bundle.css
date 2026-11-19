@@ -420,3 +420,55 @@ body.vw-root { margin: 0; }
 @media (max-width: 640px) {
   .vw-triples th:last-child, .vw-triples td:last-child { display: none; }
 }
+
+/* ---------- QueryEditor: a real textarea over an aria-hidden coloured layer ----------
+   ADR 0250. Both layers sit in one grid cell with identical metrics; the textarea's
+   text is transparent and the browser does all editing. No inline styles. */
+.vw-editor {
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  border: 1px solid var(--control-border); border-radius: var(--radius-sm);
+  background: var(--surface); overflow-x: auto; min-width: 0;
+}
+.vw-editor:focus-within { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.vw-editor--invalid { border-color: var(--critical); }
+.vw-editor--readonly { background: var(--surface-sunk); }
+.vw-editor__gutter {
+  display: flex; flex-direction: column; align-items: flex-end;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border-right: 1px solid var(--rule); background: var(--surface-sunk);
+  font-family: var(--font-mono); font-size: 13px; line-height: 20px; color: var(--ink-muted);
+  user-select: none; font-variant-numeric: tabular-nums;
+}
+.vw-editor__layers { display: grid; min-width: max-content; }
+.vw-editor__code, .vw-editor__input {
+  grid-area: 1 / 1; margin: 0; border: 0;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono); font-size: 13px; line-height: 20px;
+  letter-spacing: 0; tab-size: 2; white-space: pre; overflow-wrap: normal;
+}
+.vw-editor__code { color: var(--ink); pointer-events: none; }
+.vw-editor__input {
+  resize: none; overflow: hidden; background: transparent; outline: none;
+  color: transparent; caret-color: var(--ink);
+  field-sizing: content; min-height: 120px;
+}
+.vw-editor__input::selection { background: var(--tok-selection); color: transparent; }
+.vw-editor__input::placeholder { color: var(--ink-muted); }
+
+/* Token classes: one per kind of ADR 0248's tokenizer. Never colour alone:
+   keywords are bold, comments italic, the error is underlined and named in the field's error slot. */
+.vw-tok--keyword { color: var(--tok-keyword); font-weight: 700; }
+.vw-tok--iri { color: var(--tok-iri); }
+.vw-tok--variable { color: var(--tok-variable); }
+.vw-tok--literal { color: var(--tok-literal); }
+.vw-tok--bnode { color: var(--tok-iri); }
+.vw-tok--annotation, .vw-tok--punct { color: var(--tok-punct); }
+.vw-tok--comment { color: var(--tok-comment); font-style: italic; }
+.vw-tok--word { color: var(--ink); }
+.vw-tok--match { outline: 1px solid var(--control-border); border-radius: 2px; background: var(--layer); }
+.vw-tok--error { text-decoration: underline wavy var(--critical); text-decoration-thickness: 1.5px; text-underline-offset: 3px; text-decoration-skip-ink: none; }
+.vw-tok--error-end { display: inline-block; min-width: 2ch; }
+@media (forced-colors: active) {
+  .vw-editor__input { color: CanvasText; }
+  .vw-editor__code { visibility: hidden; }
+}

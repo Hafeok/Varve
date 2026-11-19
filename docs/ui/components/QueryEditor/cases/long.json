@@ -1,0 +1,555 @@
+{
+  "parameters": {
+    "Id": "q",
+    "Label": "Query",
+    "Text": "SELECT ?s ?p ?o WHERE {\n  # line 2\n  # line 3\n  # line 4\n  # line 5\n  # line 6\n  # line 7\n  # line 8\n  # line 9\n  # line 10\n  # line 11\n  # line 12\n  # line 13\n  # line 14\n  # line 15\n  # line 16\n  # line 17\n  # line 18\n  # line 19\n  # line 20\n  # line 21\n  # line 22\n  # line 23\n  # line 24\n  # line 25\n  # line 26\n  # line 27\n  # line 28\n  # line 29\n  # line 30\n  # line 31\n  # line 32\n  # line 33\n  # line 34\n  # line 35\n  # line 36\n  # line 37\n  # line 38\n  # line 39\n  # line 40\n  # line 41\n  # line 42\n  # line 43\n  # line 44\n  # line 45\n  # line 46\n  # line 47\n  # line 48\n  # line 49\n  ?s ?p ?o .\n  # line 51\n  # line 52\n  # line 53\n  # line 54\n  # line 55\n  # line 56\n  # line 57\n  # line 58\n  # line 59\n  # line 60\n  # line 61\n  # line 62\n  # line 63\n  # line 64\n  # line 65\n  # line 66\n  # line 67\n  # line 68\n  # line 69\n  # line 70\n  # line 71\n  # line 72\n  # line 73\n  # line 74\n  # line 75\n  # line 76\n  # line 77\n  # line 78\n  # line 79\n  # line 80\n  # line 81\n  # line 82\n  # line 83\n  # line 84\n  # line 85\n  # line 86\n  # line 87\n  # line 88\n  # line 89\n  # line 90\n  # line 91\n  # line 92\n  # line 93\n  # line 94\n  # line 95\n  # line 96\n  # line 97\n  # line 98\n  # line 99\n  # line 100\n}",
+    "Runs": [
+      {
+        "Start": 0,
+        "End": 6,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 7,
+        "End": 9,
+        "Kind": "variable"
+      },
+      {
+        "Start": 10,
+        "End": 12,
+        "Kind": "variable"
+      },
+      {
+        "Start": 13,
+        "End": 15,
+        "Kind": "variable"
+      },
+      {
+        "Start": 16,
+        "End": 21,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 22,
+        "End": 23,
+        "Kind": "punct"
+      },
+      {
+        "Start": 26,
+        "End": 34,
+        "Kind": "comment"
+      },
+      {
+        "Start": 37,
+        "End": 45,
+        "Kind": "comment"
+      },
+      {
+        "Start": 48,
+        "End": 56,
+        "Kind": "comment"
+      },
+      {
+        "Start": 59,
+        "End": 67,
+        "Kind": "comment"
+      },
+      {
+        "Start": 70,
+        "End": 78,
+        "Kind": "comment"
+      },
+      {
+        "Start": 81,
+        "End": 89,
+        "Kind": "comment"
+      },
+      {
+        "Start": 92,
+        "End": 100,
+        "Kind": "comment"
+      },
+      {
+        "Start": 103,
+        "End": 111,
+        "Kind": "comment"
+      },
+      {
+        "Start": 114,
+        "End": 123,
+        "Kind": "comment"
+      },
+      {
+        "Start": 126,
+        "End": 135,
+        "Kind": "comment"
+      },
+      {
+        "Start": 138,
+        "End": 147,
+        "Kind": "comment"
+      },
+      {
+        "Start": 150,
+        "End": 159,
+        "Kind": "comment"
+      },
+      {
+        "Start": 162,
+        "End": 171,
+        "Kind": "comment"
+      },
+      {
+        "Start": 174,
+        "End": 183,
+        "Kind": "comment"
+      },
+      {
+        "Start": 186,
+        "End": 195,
+        "Kind": "comment"
+      },
+      {
+        "Start": 198,
+        "End": 207,
+        "Kind": "comment"
+      },
+      {
+        "Start": 210,
+        "End": 219,
+        "Kind": "comment"
+      },
+      {
+        "Start": 222,
+        "End": 231,
+        "Kind": "comment"
+      },
+      {
+        "Start": 234,
+        "End": 243,
+        "Kind": "comment"
+      },
+      {
+        "Start": 246,
+        "End": 255,
+        "Kind": "comment"
+      },
+      {
+        "Start": 258,
+        "End": 267,
+        "Kind": "comment"
+      },
+      {
+        "Start": 270,
+        "End": 279,
+        "Kind": "comment"
+      },
+      {
+        "Start": 282,
+        "End": 291,
+        "Kind": "comment"
+      },
+      {
+        "Start": 294,
+        "End": 303,
+        "Kind": "comment"
+      },
+      {
+        "Start": 306,
+        "End": 315,
+        "Kind": "comment"
+      },
+      {
+        "Start": 318,
+        "End": 327,
+        "Kind": "comment"
+      },
+      {
+        "Start": 330,
+        "End": 339,
+        "Kind": "comment"
+      },
+      {
+        "Start": 342,
+        "End": 351,
+        "Kind": "comment"
+      },
+      {
+        "Start": 354,
+        "End": 363,
+        "Kind": "comment"
+      },
+      {
+        "Start": 366,
+        "End": 375,
+        "Kind": "comment"
+      },
+      {
+        "Start": 378,
+        "End": 387,
+        "Kind": "comment"
+      },
+      {
+        "Start": 390,
+        "End": 399,
+        "Kind": "comment"
+      },
+      {
+        "Start": 402,
+        "End": 411,
+        "Kind": "comment"
+      },
+      {
+        "Start": 414,
+        "End": 423,
+        "Kind": "comment"
+      },
+      {
+        "Start": 426,
+        "End": 435,
+        "Kind": "comment"
+      },
+      {
+        "Start": 438,
+        "End": 447,
+        "Kind": "comment"
+      },
+      {
+        "Start": 450,
+        "End": 459,
+        "Kind": "comment"
+      },
+      {
+        "Start": 462,
+        "End": 471,
+        "Kind": "comment"
+      },
+      {
+        "Start": 474,
+        "End": 483,
+        "Kind": "comment"
+      },
+      {
+        "Start": 486,
+        "End": 495,
+        "Kind": "comment"
+      },
+      {
+        "Start": 498,
+        "End": 507,
+        "Kind": "comment"
+      },
+      {
+        "Start": 510,
+        "End": 519,
+        "Kind": "comment"
+      },
+      {
+        "Start": 522,
+        "End": 531,
+        "Kind": "comment"
+      },
+      {
+        "Start": 534,
+        "End": 543,
+        "Kind": "comment"
+      },
+      {
+        "Start": 546,
+        "End": 555,
+        "Kind": "comment"
+      },
+      {
+        "Start": 558,
+        "End": 567,
+        "Kind": "comment"
+      },
+      {
+        "Start": 570,
+        "End": 579,
+        "Kind": "comment"
+      },
+      {
+        "Start": 582,
+        "End": 591,
+        "Kind": "comment"
+      },
+      {
+        "Start": 594,
+        "End": 596,
+        "Kind": "variable"
+      },
+      {
+        "Start": 597,
+        "End": 599,
+        "Kind": "variable"
+      },
+      {
+        "Start": 600,
+        "End": 602,
+        "Kind": "variable"
+      },
+      {
+        "Start": 603,
+        "End": 604,
+        "Kind": "punct"
+      },
+      {
+        "Start": 607,
+        "End": 616,
+        "Kind": "comment"
+      },
+      {
+        "Start": 619,
+        "End": 628,
+        "Kind": "comment"
+      },
+      {
+        "Start": 631,
+        "End": 640,
+        "Kind": "comment"
+      },
+      {
+        "Start": 643,
+        "End": 652,
+        "Kind": "comment"
+      },
+      {
+        "Start": 655,
+        "End": 664,
+        "Kind": "comment"
+      },
+      {
+        "Start": 667,
+        "End": 676,
+        "Kind": "comment"
+      },
+      {
+        "Start": 679,
+        "End": 688,
+        "Kind": "comment"
+      },
+      {
+        "Start": 691,
+        "End": 700,
+        "Kind": "comment"
+      },
+      {
+        "Start": 703,
+        "End": 712,
+        "Kind": "comment"
+      },
+      {
+        "Start": 715,
+        "End": 724,
+        "Kind": "comment"
+      },
+      {
+        "Start": 727,
+        "End": 736,
+        "Kind": "comment"
+      },
+      {
+        "Start": 739,
+        "End": 748,
+        "Kind": "comment"
+      },
+      {
+        "Start": 751,
+        "End": 760,
+        "Kind": "comment"
+      },
+      {
+        "Start": 763,
+        "End": 772,
+        "Kind": "comment"
+      },
+      {
+        "Start": 775,
+        "End": 784,
+        "Kind": "comment"
+      },
+      {
+        "Start": 787,
+        "End": 796,
+        "Kind": "comment"
+      },
+      {
+        "Start": 799,
+        "End": 808,
+        "Kind": "comment"
+      },
+      {
+        "Start": 811,
+        "End": 820,
+        "Kind": "comment"
+      },
+      {
+        "Start": 823,
+        "End": 832,
+        "Kind": "comment"
+      },
+      {
+        "Start": 835,
+        "End": 844,
+        "Kind": "comment"
+      },
+      {
+        "Start": 847,
+        "End": 856,
+        "Kind": "comment"
+      },
+      {
+        "Start": 859,
+        "End": 868,
+        "Kind": "comment"
+      },
+      {
+        "Start": 871,
+        "End": 880,
+        "Kind": "comment"
+      },
+      {
+        "Start": 883,
+        "End": 892,
+        "Kind": "comment"
+      },
+      {
+        "Start": 895,
+        "End": 904,
+        "Kind": "comment"
+      },
+      {
+        "Start": 907,
+        "End": 916,
+        "Kind": "comment"
+      },
+      {
+        "Start": 919,
+        "End": 928,
+        "Kind": "comment"
+      },
+      {
+        "Start": 931,
+        "End": 940,
+        "Kind": "comment"
+      },
+      {
+        "Start": 943,
+        "End": 952,
+        "Kind": "comment"
+      },
+      {
+        "Start": 955,
+        "End": 964,
+        "Kind": "comment"
+      },
+      {
+        "Start": 967,
+        "End": 976,
+        "Kind": "comment"
+      },
+      {
+        "Start": 979,
+        "End": 988,
+        "Kind": "comment"
+      },
+      {
+        "Start": 991,
+        "End": 1000,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1003,
+        "End": 1012,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1015,
+        "End": 1024,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1027,
+        "End": 1036,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1039,
+        "End": 1048,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1051,
+        "End": 1060,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1063,
+        "End": 1072,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1075,
+        "End": 1084,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1087,
+        "End": 1096,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1099,
+        "End": 1108,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1111,
+        "End": 1120,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1123,
+        "End": 1132,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1135,
+        "End": 1144,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1147,
+        "End": 1156,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1159,
+        "End": 1168,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1171,
+        "End": 1180,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1183,
+        "End": 1192,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1195,
+        "End": 1205,
+        "Kind": "comment"
+      },
+      {
+        "Start": 1206,
+        "End": 1207,
+        "Kind": "punct"
+      }
+    ],
+    "Help": "Tab inserts two spaces. Press Escape, then Tab, to leave the editor."
+  }
+}
