@@ -1,0 +1,17 @@
+@* What the Web UI shows in place of every screen when sign-in is not
+   configured (ADR 0245): the server runs with OIDC and has no client for the
+   Web UI, or the settings name no mode the Web UI knows. It reads nothing
+   from the server, and never behaves as anonymous. *@
+<PageTitle>Sign-in is not configured · Varve</PageTitle>
+<ViewHead Title="Sign-in is not configured" />
+<Notice Title="This server has no sign-in for the Web UI" Warn="true">@if (Missing.Count > 0)
+{<text>The server checks tokens from an issuer, and the Web UI has no client to ask it for one. Add </text>@for (int i = 0; i < Missing.Count; i++)
+{@(i == 0 ? "" : i == Missing.Count - 1 ? " and " : ", ")<code>@Missing[i]</code>}<text> to the server's configuration, and restart it.</text>}
+else
+{<text>The Web UI's settings name no sign-in mode it knows: </text><code>Varve:Auth:Mode</code><text> is </text><code>Oidc</code><text> or </text><code>Anonymous</code><text>.</text>}</Notice>
+
+@code {
+    /// <summary>The settings the server names as missing; empty when the mode itself is missing or unknown.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<string> Missing { get; set; } = [];
+}

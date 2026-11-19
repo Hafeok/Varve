@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
@@ -16,8 +17,10 @@ namespace Varve.Server;
 
 /// <summary>
 /// The Web UI, served under <c>/ui/</c> from the directory
-/// <c>Varve:WebUi:Path</c> names (ADR 0202, variant A). Same origin as the
-/// API, so it needs no CORS.
+/// <c>Varve:WebUi:Path</c> names (ADR 0202, variant A), unless
+/// <c>Varve:WebUi:Enabled</c> is false; its <c>appsettings.json</c> the
+/// bundle's own or, with <c>Varve:WebUi:Settings</c> <c>Generated</c>, the
+/// server's (ADR 0245). Same origin as the API, so it needs no CORS.
 /// </summary>
 /// <remarks>
 /// <list type="bullet">
@@ -41,12 +44,24 @@ internal static partial class ServerHost
 
     private static readonly FileExtensionContentTypeProvider WebUiTypes = new();
 
-    internal static void MapWebUi(WebApplication app, string directory, string? authority)
+    internal const string WebUiSettingsFile = "appsettings.json";
+
+    /// <summary>
+    /// Serves the bundle in <paramref name="directory"/> under <c>/ui/</c>.
+    /// With <paramref name="generated"/>, <c>appsettings.json</c> is answered
+    /// with those bytes and the bundle's own file and its compressed copies
+    /// are never served (ADR 0245 point 3).
+    /// </summary>
+    internal static void MapWebUi(WebApplication app, string directory, string? authority, byte[]? generated)
     {
         PhysicalFileProvider files = new(directory);
         string policy = WebUiContentSecurityPolicy(authority);
-        app.Map(WebUiPrefix, ui => ui.Run(context => ServeWebUiAsync(context, files, policy)));
+        GeneratedFile? settings = generated is null ? null : new GeneratedFile(generated, "\"" + Convert.ToHexStringLower(SHA256.HashData(generated).AsSpan(0, 16)) + "\"");
+        app.Map(WebUiPrefix, ui => ui.Run(context => ServeWebUiAsync(context, files, policy, settings)));
     }
+
+    // The generated settings and their tag, a digest of the bytes.
+    private sealed record GeneratedFile(byte[] Bytes, string Tag);
 
     /// <summary>
     /// The policy (ADR 0202): what Blazor's boot needs, the issuer's origin for
@@ -63,7 +78,7 @@ internal static partial class ServerHost
     [GeneratedRegex(@"^_framework/[^/]+\.[a-z0-9]{10}\.(wasm|js|dat|pdb)$", RegexOptions.CultureInvariant)]
     private static partial Regex Fingerprinted();
 
-    private static async Task ServeWebUiAsync(HttpContext context, PhysicalFileProvider files, string policy)
+    private static async Task ServeWebUiAsync(HttpContext context, PhysicalFileProvider files, string policy, GeneratedFile? settings)
     {
         HttpResponse response = context.Response;
         response.Headers.ContentSecurityPolicy = policy;
@@ -93,6 +108,22 @@ internal static partial class ServerHost
         if (relative.Length == 0)
         {
             relative = "index.html";
+        }
+
+        if (settings is not null && relative.StartsWith(WebUiSettingsFile, StringComparison.OrdinalIgnoreCase))
+        {
+            // The server's own answer; the bundle's file, as edited or as
+            // built, and its .br and .gz copies are never sent.
+            if (relative.Equals(WebUiSettingsFile, StringComparison.OrdinalIgnoreCase))
+            {
+                await ServeGeneratedAsync(context, settings).ConfigureAwait(false);
+            }
+            else
+            {
+                await WriteProblemAsync(context, ProblemType.NotFound, null).ConfigureAwait(false);
+            }
+
+            return;
         }
 
         IFileInfo file = files.GetFileInfo(relative);
@@ -148,6 +179,29 @@ internal static partial class ServerHost
         }
 
         await response.SendFileAsync(sent, context.RequestAborted).ConfigureAwait(false);
+    }
+
+    private static async Task ServeGeneratedAsync(HttpContext context, GeneratedFile settings)
+    {
+        HttpResponse response = context.Response;
+        response.ContentType = "application/json";
+        response.Headers.CacheControl = "no-cache";
+        response.Headers.ETag = settings.Tag;
+
+        if (context.Request.Headers.IfNoneMatch == settings.Tag)
+        {
+            response.StatusCode = StatusCodes.Status304NotModified;
+            return;
+        }
+
+        response.ContentLength = settings.Bytes.Length;
+
+        if (HttpMethods.IsHead(context.Request.Method))
+        {
+            return;
+        }
+
+        await response.Body.WriteAsync(settings.Bytes, context.RequestAborted).ConfigureAwait(false);
     }
 
     private static IFileInfo? Compressed(PhysicalFileProvider files, HttpRequest request, string relative, IFileInfo file, string coding)

@@ -12,6 +12,89 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.22] - 2026-11-18
+
+**The container image ships the Web UI and serves it by default**
+
+### The container image ships the Web UI (#296)
+
+`ghcr.io/hafeok/varve` now carries the operator console and serves it at
+`/ui/` by default. The first run is the whole of it:
+
+```sh
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.22 serve --anonymous
+```
+
+and a browser at `http://localhost:8080/ui/` (ADR 0245, filed unaccepted).
+
+- **The bundle** is at `/app/webui`, read-only: the contents of
+  `varve-webui-<version>.zip`, unpacked unchanged from the zip the same
+  release attests. The zip stays a release asset, with its own SBOM and
+  attestations, for anyone who hosts the Web UI elsewhere. The image's
+  SBOM now lists the bundle's components, the .NET runtime for the browser
+  and Emscripten's packs among them.
+- **The settings come from the server.** The image sets
+  `Varve:WebUi:Settings` to `Generated`: the server answers
+  `/ui/appsettings.json` from its own configuration, so nobody edits a file
+  in the image. The console signs in with the server's own issuer, and the
+  Web UI's public client is given to the server as
+  `Varve:WebUi:Auth:ClientId`, `DataScope` and `ManageScope`. The answer is
+  built from an allow-list of fields, and nothing secret is ever in it.
+- **A server with OIDC and no client for the Web UI** says so: the console
+  shows *Sign-in is not configured*, names the settings to add, and reads
+  nothing. It never calls itself anonymous on a server that checks tokens.
+  The console now treats only the exact mode `Anonymous` as anonymous.
+- **`Varve:WebUi:Enabled`**, `true` by default, turns the Web UI off:
+  `VARVE__WEBUI__ENABLED=false` and the server adds no `/ui/` at all.
+- **Outside the image nothing changes.** With `Varve:WebUi:Path` unset
+  there is no `/ui/`, and an unpacked bundle's own `appsettings.json` is
+  served as edited while `Varve:WebUi:Settings` is `File`, the default.
+- **New start-time refusals:** `Varve:WebUi:Server` or any
+  `Varve:WebUi:Auth:*` set while `Settings` is `File`, a half-set client,
+  or a client on an anonymous server refuses the start, naming the setting.
+- **The image is larger:** 26.5 MB compressed on linux-x64, from 20.1 MB.
+
+The Content Security Policy is unchanged. The Web UI still needs a single
+listener: with `Varve:Manage:Urls` its management screens cannot reach
+`/manage`, and the guide no longer says otherwise (#297).
+
+### Also in this release
+
+What landed on `main` since v0.1.0-preview.21:
+- **Nothing is resident per commit** (#222, ADR 0240): an extent's seek
+  directory is read on demand under a ceiling, so resident memory is
+  bounded by data and configuration, never by the number of commits.
+- **Problems that say what to do** (#194, ADR 0242): `forbidden`, a failed
+  dataset, `writer-superseded` and `shutting-down` name the next step, and
+  every problem page says what to do.
+- **Memory bounds for writing, checkpointing and reopening** (#227,
+  ADR 0244): a dataset written under a memory limit reopens under it.
+- **Client idempotency keys** (#132, ADR 0246): a write may carry
+  `Idempotency-Key`, scoped to the authenticated agent, so a retried write
+  commits once. The client keys every write by default and retries a lost
+  response. A commit's header is read alone, without its delta (#310).
+- **`/manage/system` names the instance that answered** (#193).
+- **The state route takes `If-Match`** with the declaration's version
+  (#189).
+- **The conformance runner** states what a failing protocol request sent
+  (#262).
+- **CLI distribution** (#129, ADR 0226): `varve` ships as six attested
+  Native AOT binaries, one per platform (`linux-x64`, `linux-arm64`,
+  `osx-x64`, `osx-arm64`, `win-x64`, `win-arm64`), each with its SBOM,
+  installed by a Homebrew tap and winget manifests.
+- **The public API freeze gate** (#316, ADR 0227): each package's surface
+  is compared against its published package, and an unmarked break is
+  refused.
+- **The docs site** (#317, ADR 0247): a generator in `eng/` on Markdig,
+  with Mermaid drawn at build time and no script on any page, published
+  to GitHub Pages by OIDC.
+- **Build and process:** the SDK moves to 10.0.404, and the container
+  image's base to its newer digest; a commit message's model name is
+  refused in three layers (#169); an approval is a whole comment with the
+  full sha (#290).
+
+The storage and delta formats are unchanged.
+
 ## [0.1.0-preview.21] - 2026-11-16
 
 **Varve.Aspire requires the patched Aspire.Hosting**
@@ -2213,7 +2296,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.21...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.22...HEAD
+[0.1.0-preview.22]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.21...v0.1.0-preview.22
 [0.1.0-preview.21]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.20...v0.1.0-preview.21
 [0.1.0-preview.20]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.19...v0.1.0-preview.20
 [0.1.0-preview.19]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.18...v0.1.0-preview.19
