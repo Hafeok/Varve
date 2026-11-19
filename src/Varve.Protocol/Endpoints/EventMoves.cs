@@ -583,13 +583,8 @@ internal static class EventMoves
         switch (result.Outcome)
         {
             case CommitOutcome.Committed:
-                if (move.Options.Management is { } management)
-                {
-                    await management.AdvanceAsync(cancellationToken).ConfigureAwait(false);
-                }
-
-                return new Written(result.Position.Value, false, null);
             case CommitOutcome.NoChange:
+                await ManagementAnswers.AppliedAsync(move.Options, result.Outcome, cancellationToken).ConfigureAwait(false);
                 return new Written(result.Position.Value, false, null);
             case CommitOutcome.Conflict:
                 return new Written(0, true, null);

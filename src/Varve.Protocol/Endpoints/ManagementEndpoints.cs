@@ -663,16 +663,7 @@ internal static class ManagementEndpoints
             return;
         }
 
-        if (result.Outcome is CommitOutcome.Committed or CommitOutcome.NoChange && options.Management is { } management)
-        {
-            // The writer applies its own write before it answers: the next
-            // request here is decided by it, and its datasets converge to it.
-            // A write that changed nothing states what the head already says,
-            // which another commit may have put there without this instance
-            // having applied it yet: it is applied before the answer too, so
-            // a cancel answered 204 is in force (#254).
-            await management.AdvanceAsync(context.RequestAborted).ConfigureAwait(false);
-        }
+        await ManagementAnswers.AppliedAsync(options, result.Outcome, context.RequestAborted).ConfigureAwait(false);
 
         await Writes.AnswerAsync(exchange, result, result.Outcome == CommitOutcome.Committed ? created : StatusCodes.Status204NoContent, evidence: new ConflictEvidence(request.ExpectedPosition!.Value, request.ExpectedGraphs)).ConfigureAwait(false);
     }
