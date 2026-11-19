@@ -87,7 +87,9 @@ internal static class Layout
     public static string Page(SiteContext site, PageModel page)
     {
         string Rel(string to) => Relative(page.Output, to);
-        bool toc = !page.Home && page.Section is not null && page.Toc.Count >= TocMinimum;
+        // A section's index is its overview, and has no "On this page", as the design's reference pages show.
+        bool index = page.Section is not null && page.Output == page.Section.Output + "/index.html";
+        bool toc = !page.Home && !index && page.Section is not null && page.Toc.Count >= TocMinimum;
         bool pages = !page.Home && page.Section is not null && page.Pages.Count > 0;
 
         StringBuilder html = new();

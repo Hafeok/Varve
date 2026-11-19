@@ -234,7 +234,7 @@ internal static partial class SiteBuild
     /// then the pages its README links, in the order of the links, then every
     /// page it does not link, by name. An ADR's entry carries its number.
     /// </summary>
-    private static Dictionary<Section, List<PageEntry>> PageLists(Repository repository, SiteMap map, List<(Page Page, MarkdownDocument Document)> pages)
+    internal static Dictionary<Section, List<PageEntry>> PageLists(Repository repository, SiteMap map, List<(Page Page, MarkdownDocument Document)> pages)
     {
         Dictionary<Section, List<PageEntry>> lists = [];
 
@@ -329,7 +329,7 @@ internal static partial class SiteBuild
             heading.Inline.AppendChild(new HtmlInline(Anchor(id)));
         }
 
-        string body = Tables(Render(document), index && section is { Output: "adr" or "problems" or "rules" or "decisions" });
+        string body = Scrollable(Tables(Render(document), index && section is { Output: "adr" or "problems" or "rules" or "decisions" }));
 
         if (index && section!.Output == "adr")
         {
@@ -408,9 +408,17 @@ internal static partial class SiteBuild
             int next = html.IndexOf("<table>", start, StringComparison.Ordinal);
             bool kv = headEnd >= 0 && (next < 0 || headEnd < next)
                 && HeaderCell().Matches(html[start..headEnd]) is { Count: > 0 } cells && cells.All(static c => c.Groups[1].Value.Trim().Length == 0);
-            return "<div class=\"vd-table" + (kv ? " vd-table--kv" : "") + (index ? " vd-index" : "") + "\"><table>";
+            return "<div class=\"vd-table" + (kv ? " vd-table--kv" : "") + (index ? " vd-index" : "") + "\" tabindex=\"0\"><table>";
         }).Replace("</table>", "</table></div>", StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// A code block scrolls sideways and never wraps, and a table scrolls in
+    /// its wrapper; a reader with a keyboard must be able to reach either to
+    /// scroll it (WCAG 2.1.1, axe's scrollable-region-focusable). The site has
+    /// no script to tell which ones overflow, so each is in the tab order.
+    /// </summary>
+    public static string Scrollable(string html) => PreOpen().Replace(html, "<pre tabindex=\"0\"$1>");
 
     /// <summary>
     /// The ADR index: each Status cell becomes the ADR's badge, read from the
@@ -447,10 +455,13 @@ internal static partial class SiteBuild
     [GeneratedRegex(@" style=""text-align: (left|right|center);""", RegexOptions.CultureInvariant)]
     private static partial Regex Alignment();
 
+    [GeneratedRegex("<pre( [^>]*)?>", RegexOptions.CultureInvariant)]
+    private static partial Regex PreOpen();
+
     [GeneratedRegex("<table>", RegexOptions.CultureInvariant)]
     private static partial Regex TableOpen();
 
-    [GeneratedRegex(@"<th[^>]*>(.*?)</th>", RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"<th(?:\s[^>]*)?>(.*?)</th>", RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex HeaderCell();
 
     [GeneratedRegex(@"<th>Status</th>", RegexOptions.CultureInvariant)]
