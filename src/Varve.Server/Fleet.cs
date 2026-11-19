@@ -888,8 +888,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             try
             {
                 await Task.Delay(_settings.Fleet.FollowInterval, _clock, stopping).ConfigureAwait(false);
-                await AdvanceAsync(stopping).ConfigureAwait(false);
-                await ResumeMovesAsync(stopping).ConfigureAwait(false);
+                await TickAsync(stopping).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (stopping.IsCancellationRequested)
             {
@@ -900,6 +899,18 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
                 FleetLog.AdvanceFailed(_logger, SystemName, error.Message);
             }
         }
+    }
+
+    /// <summary>
+    /// One round of the interval loop, without its wait: the system dataset is
+    /// advanced and the datasets converged, then the event moves this instance
+    /// can finish alone are resumed. A test drives it to order a round against
+    /// requests (#254).
+    /// </summary>
+    internal async Task TickAsync(CancellationToken cancellationToken)
+    {
+        await AdvanceAsync(cancellationToken).ConfigureAwait(false);
+        await ResumeMovesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
