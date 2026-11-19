@@ -332,61 +332,6 @@ public class ComponentLevelAnalyzerTests
         return test.RunAsync(TestContext.Current.CancellationToken);
     }
 
-    // The three assemblies (ADR 0252): the sample is compiled as the named
-    // assembly, beside another that declares a page, a part and a type of a
-    // design-system level.
-    private static Task RunAcrossAsync(string assembly, string other, string source)
-    {
-        Test test = new();
-        test.TestState.Sources.Add(("Framework.cs", Framework));
-        test.TestState.Sources.Add(("Sample_razor.g.cs", source));
-        test.TestState.AdditionalProjects[other].Sources.Add(("Other.cs", $$"""
-            namespace Varve.WebUi.Pages { public class Health { } public class Query { } }
-            namespace Varve.WebUi.Parts { public class ProblemView { } }
-            namespace Varve.WebUi.Atoms { public class Button { } }
-            """));
-        test.TestState.AdditionalProjectReferences.Add(other);
-        test.SolutionTransforms.Add((solution, project) => solution.WithProjectAssemblyName(project, assembly));
-        return test.RunAsync(TestContext.Current.CancellationToken);
-    }
-
-    [Theory]
-    [InlineData("Varve.WebUi")]
-    [InlineData("Varve.WebUi.Explorer")]
-    public Task Components_naming_the_host_or_the_explorer_is_reported(string other) =>
-        RunAcrossAsync("Varve.WebUi.Components", other, Component("Organisms", "Sample", "object a = typeof(global::Varve.WebUi.Atoms.{|VARVE0006:Button|});"));
-
-    [Fact]
-    public Task An_explorer_type_naming_a_console_page_is_reported() =>
-        RunAcrossAsync("Varve.WebUi.Explorer", "Varve.WebUi", Component("Pages", "Sample", "object p = typeof(global::Varve.WebUi.Pages.{|VARVE0006:Health|});"));
-
-    [Fact]
-    public Task An_explorer_type_naming_a_component_of_components_is_clean() =>
-        RunAcrossAsync("Varve.WebUi.Explorer", "Varve.WebUi.Components", Component("Pages", "Sample", "object p = typeof(global::Varve.WebUi.Parts.ProblemView);"));
-
-    [Fact]
-    public Task The_host_naming_an_explorer_type_is_reported() =>
-        RunAcrossAsync("Varve.WebUi", "Varve.WebUi.Explorer", Component("App", "Sample", "object p = typeof(global::Varve.WebUi.Pages.{|VARVE0006:Query|});"));
-
-    [Fact]
-    public Task The_host_naming_a_component_of_components_is_clean() =>
-        RunAcrossAsync("Varve.WebUi", "Varve.WebUi.Components", Component("Pages", "Sample", "object p = typeof(global::Varve.WebUi.Parts.ProblemView);"));
-
-    [Fact]
-    public Task Components_declaring_a_routed_page_or_the_app_is_reported()
-    {
-        Test test = new();
-        test.TestState.Sources.Add(("Framework.cs", Framework));
-        test.TestState.Sources.Add(("Declared.cs", """
-            namespace Varve.WebUi.Pages { public partial class {|VARVE0006:Health|} : global::Microsoft.AspNetCore.Components.ComponentBase { } }
-            namespace Varve.WebUi.App { public sealed class {|VARVE0006:ShellFacts|} { } }
-            namespace Varve.WebUi.Pages.Services { public sealed class DatasetClients { } }
-            namespace Varve.WebUi.Parts { public partial class ProblemView : global::Microsoft.AspNetCore.Components.ComponentBase { } }
-            """));
-        test.SolutionTransforms.Add((solution, project) => solution.WithProjectAssemblyName(project, "Varve.WebUi.Components"));
-        return test.RunAsync(TestContext.Current.CancellationToken);
-    }
-
     private sealed class Test : CSharpAnalyzerTest<ComponentLevelAnalyzer, DefaultVerifier>
     {
         public Test() => ReferenceAssemblies = ReferenceAssemblies.Net.Net80;

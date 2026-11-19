@@ -7,8 +7,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Varve.WebUi/Varve.WebUi.csproj" />
-    <ProjectReference Include="../../src/Varve.WebUi.Components/Varve.WebUi.Components.csproj" />
-    <ProjectReference Include="../../src/Varve.WebUi.Explorer/Varve.WebUi.Explorer.csproj" />
     <!-- The server's problem catalogue (ADR 0119), which the tone mapping is
          checked against: a test reaches it, the Web UI never does. -->
     <ProjectReference Include="../../src/Varve.Protocol/Varve.Protocol.csproj" />

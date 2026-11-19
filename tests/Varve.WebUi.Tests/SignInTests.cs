@@ -17,7 +17,7 @@ using CsCheck;
 using Varve.Delta.Model;
 using Varve.Protocol.Client;
 using Varve.Protocol.Client.Model;
-using Varve.WebUi.Components.Pages.Services;
+using Varve.WebUi.Pages.Services;
 using Varve.WebUi.SignIn;
 using Xunit;
 
@@ -336,7 +336,7 @@ public class SignInTests
     [InlineData("""{"iss":"https://login.example","sub":"owner"}""", "roles", "https://login.example#owner", "")]
     public void The_caller_is_the_agent_the_server_names_with_the_roles_the_token_carries(string payload, string roleClaim, string agent, string roles)
     {
-        Caller caller = CallerTokens.Of(Jwt(payload), roleClaim)!;
+        Caller caller = Caller.Of(Jwt(payload), roleClaim)!;
 
         Assert.Equal(agent, caller.Agent);
         Assert.Equal(roles, string.Join(',', caller.Roles));
@@ -347,11 +347,11 @@ public class SignInTests
     [InlineData("""{"iss":"https://login.example"}""")]
     [InlineData("""{"iss":"https://login.example#x","sub":"owner"}""")]
     public void A_token_naming_no_agent_names_no_caller(string payload) =>
-        Assert.Null(CallerTokens.Of(Jwt(payload), "roles"));
+        Assert.Null(Caller.Of(Jwt(payload), "roles"));
 
     [Fact]
     public void An_opaque_token_names_no_caller() =>
-        Assert.Null(CallerTokens.Of("Zm9vYmFy-opaque", "roles"));
+        Assert.Null(Caller.Of("Zm9vYmFy-opaque", "roles"));
 
     [Fact]
     public void The_role_claim_is_roles_unless_set() =>

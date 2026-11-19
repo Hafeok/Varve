@@ -9,7 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Varve.Protocol.Model;
-using Varve.WebUi.Components.Atoms;
+using Varve.WebUi.Atoms;
 using Xunit;
 using ClientModel = Varve.Protocol.Client.Model;
 

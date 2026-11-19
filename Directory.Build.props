@@ -117,8 +117,6 @@
   <ItemGroup>
     <CompilerVisibleProperty Include="IsPackable" />
     <CompilerVisibleProperty Include="OutputType" />
-    <!-- A layer-6 library that is a host's private assembly names its host (ADR 0252). -->
-    <CompilerVisibleProperty Include="VarveHostPartOf" />
   </ItemGroup>
 
   <!--

@@ -120,7 +120,7 @@
          10.0.13 and 10.0.14 exist, and the pinned 10.0.12 of the
          Microsoft.Extensions abstractions would refuse their closure as a
          downgrade under transitive pinning. -->
-    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" Adr="0200" Scope="src/Varve.WebUi/, src/Varve.WebUi.Components/, src/Varve.WebUi.Explorer/, tests/Varve.WebUi.Tests/" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" Adr="0200" Scope="src/Varve.WebUi/, tests/Varve.WebUi.Tests/" />
 
     <!-- The Web UI's component tests (ADR 0204): renders a Razor component with
          parameters and compares its markup semantically. MIT, managed. Not
