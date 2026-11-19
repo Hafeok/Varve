@@ -231,7 +231,8 @@ and classes are the contract. From this amendment:
    `site-tokens.css` from `docs/ui/tokens.json` — every colour and shadow
    token on `:root` with its light value, the dark values under
    `@media (prefers-color-scheme: dark)`, then spacing, radius and the font
-   families — and copies `docs/ui/bundle.css`, `docs/ui/site/site.css` and
+   families, with every token reference resolved to its value in that
+   scheme, so none reaches a browser unresolved — and copies `docs/ui/bundle.css`, `docs/ui/site/site.css` and
    `docs/ui/assets/varve-core.svg` byte for byte. The site has no script to
    set `data-theme`, as the Web UI does, so the reader's system decides the
    scheme. A change to the design system is on the site at its next build.
@@ -245,17 +246,27 @@ and classes are the contract. From this amendment:
    README's links, then any other page by name. An ADR's badge is read from
    the ledger, never from its status line, because every status line on
    `main` reads the same before and after acceptance (the maintainer's
-   ruling 4 on #368, as corrected): Superseded from the ADR index row;
-   otherwise Accepted, or Not yet accepted with the count, from the ADR's own
-   decision set; an unaccepted ruling of another ADR that amends it is a note
-   with the amendment's date.
+   ruling 4 on #368, as corrected, and his wording of 2026-11-19):
+   Superseded from the ADR index row; otherwise, from the ADR's own decision
+   set, Accepted when every ruling in force is, "Accepted · N pending" when
+   some are and N are not, with the head naming the amendment those belong
+   to when their statements date one, and Not yet accepted when none is; an
+   unaccepted ruling of another ADR that amends it is a note with the
+   amendment's date.
 4. **The foot's licence is read from the repository**: the SPDX expression
    `Directory.Build.targets` states for every package, never typed.
 5. **The built site's own check is stricter**, never weaker: a page holding
    an inline style, which the policy blocks without a word, or loading any
    resource from another origin, fails the build. Markdig writes a column's
-   alignment as a style attribute; it becomes `align`.
-6. **The register.** `Deque.AxeCore.Playwright` (ADR 0204) and
+   alignment as a style attribute; it becomes `align`. A code block and a
+   table scroll sideways, so each is a named region in the tab order
+   (`tabindex="0"`, `role="region"`, a label from its language or its
+   header cells), which a keyboard can reach to scroll.
+6. **Tabular figures are for tables and numbers only.** The design set
+   them on the whole body, which in some system faces spaces out hyphens and
+   dates in prose; `site.css` sets them on tables and on an ADR's number in
+   the page list (the maintainer's answer 4 on #368).
+7. **The register.** `Deque.AxeCore.Playwright` (ADR 0204) and
    `Microsoft.Playwright` (ADR 0204, widened by point 3) widen their scope to
    `tests/Varve.Site.Tests/`, the site's tests. Nothing new enters the
    register: the faces are system faces, the one image is the repository's
