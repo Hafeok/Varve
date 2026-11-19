@@ -65,7 +65,8 @@ internal static class App
           apply    Make the repository match the declaration, writing only what differs.
                    Stops at the first failed write and prints what was not applied.
           check    Like plan, but any difference, in either direction, exits 1, and the
-                   report is also written to GITHUB_STEP_SUMMARY when that is set.
+                   report is also written to GITHUB_STEP_SUMMARY when that is set. A secret
+                   declared may_be_absent and missing is reported (=), not a difference.
 
         Options:
           --repo OWNER/NAME     The repository. Defaults to GITHUB_REPOSITORY.
@@ -207,22 +208,22 @@ internal static class App
             await File.AppendAllTextAsync(summary, RedactingWriter.Redact(markdown, options.Token), cancellationToken).ConfigureAwait(false);
         }
 
-        return changes.Count == 0 ? Ok : Differences;
+        return Report.Differences(changes) == 0 ? Ok : Differences;
     }
 
     private static async Task<int> ApplyAsync(Options options, RepoContext context, Host host, TextWriter output, TextWriter error, CancellationToken cancellationToken)
     {
         List<Change> changes = await LoadAndPlanAsync(options, context, host, error, cancellationToken).ConfigureAwait(false);
-        if (changes.Count == 0)
+        if (Report.Differences(changes) == 0)
         {
-            await output.WriteLineAsync(Report.Summary(changes)).ConfigureAwait(false);
+            await output.WriteAsync(Report.Text(changes)).ConfigureAwait(false);
             return Ok;
         }
 
         (Change? failed, Exception? exception, List<Change> notApplied) =
             await Planner.ApplyAsync(changes, output, cancellationToken).ConfigureAwait(false);
 
-        List<Change> unfixable = [.. changes.Where(c => c.Apply is null)];
+        List<Change> unfixable = [.. changes.Where(c => c.Apply is null && c.IsDifference)];
 
         if (failed is not null)
         {

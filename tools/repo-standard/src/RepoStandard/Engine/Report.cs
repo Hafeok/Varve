@@ -12,12 +12,13 @@ namespace RepoStandard.Engine;
 /// <summary>Plans and drift, as text for a terminal and as Markdown for a step summary.</summary>
 internal static class Report
 {
-    /// <summary>The symbol for an action: + create, ~ update, - delete, ! cannot change.</summary>
+    /// <summary>The symbol for an action: + create, ~ update, - delete, ! cannot change, = declared and absent.</summary>
     public static string Symbol(ChangeAction action) => action switch
     {
         ChangeAction.Create => "+",
         ChangeAction.Update => "~",
         ChangeAction.Delete => "-",
+        ChangeAction.DeclaredAbsent => "=",
         _ => "!",
     };
 
@@ -47,26 +48,37 @@ internal static class Report
         return builder.ToString();
     }
 
-    /// <summary>One sentence of counts.</summary>
+    /// <summary>
+    /// One sentence of counts. A declared absence is not a difference, and is
+    /// counted after the sentence when there is one.
+    /// </summary>
     public static string Summary(IReadOnlyList<Change> changes)
     {
-        if (changes.Count == 0)
+        int differences = Differences(changes);
+        int absent = changes.Count - differences;
+        string absences = absent == 0 ? string.Empty : $" {absent} declared, absent (not a difference).";
+
+        if (differences == 0)
         {
-            return "No differences: the repository matches the declaration.";
+            return "No differences: the repository matches the declaration." + absences;
         }
 
         int Count(ChangeAction action) => changes.Count(c => c.Action == action);
-        return $"{changes.Count} difference{(changes.Count == 1 ? string.Empty : "s")}: "
+        return $"{differences} difference{(differences == 1 ? string.Empty : "s")}: "
             + $"{Count(ChangeAction.Create)} to create, {Count(ChangeAction.Update)} to update, "
-            + $"{Count(ChangeAction.Delete)} to delete, {Count(ChangeAction.Unfixable)} repo-standard cannot change.";
+            + $"{Count(ChangeAction.Delete)} to delete, {Count(ChangeAction.Unfixable)} repo-standard cannot change."
+            + absences;
     }
+
+    /// <summary>How many of the changes are differences.</summary>
+    public static int Differences(IReadOnlyList<Change> changes) => changes.Count(c => c.IsDifference);
 
     /// <summary>The drift report as Markdown.</summary>
     public static string Markdown(string repository, IReadOnlyList<Change> changes)
     {
         StringBuilder builder = new();
         builder.Append("## repo-standard check: `").Append(repository).Append("`\n\n");
-        builder.Append(changes.Count == 0 ? "No drift. " : "**Drift.** ").Append(Summary(changes)).Append('\n');
+        builder.Append(Differences(changes) == 0 ? "No drift. " : "**Drift.** ").Append(Summary(changes)).Append('\n');
 
         if (changes.Count == 0)
         {
@@ -89,7 +101,8 @@ internal static class Report
         }
 
         builder.Append("\n`+` the declaration names it and the repository lacks it · `~` both have it and they differ · ")
-            .Append("`-` the repository has it and the declaration does not name it · `!` a difference repo-standard reports and cannot write\n");
+            .Append("`-` the repository has it and the declaration does not name it · `!` a difference repo-standard reports and cannot write · ")
+            .Append("`=` declared as allowed to be absent, and absent: not a difference\n");
         return builder.ToString();
     }
 
