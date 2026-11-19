@@ -19,6 +19,19 @@ application acting for its users"), and of the management plane (ADR 0163):
 - **A deployer**, granted `Varve.Operator`, whose only credential is GitHub
   Actions' OIDC token for the `varve-deploy` environment: what CI runs
   `varve apply` as, by workload identity federation.
+- **The Web UI** (ADR 0201), a single-page application: authorisation code
+  with PKCE, no secret, its redirect URIs each origin's `/ui/`
+  (`webUiRedirectUris`). It asks for both planes' `access_as_user`, one token
+  per plane, with admin consent.
+- **The `varve` command line**, a public client a person signs in through by
+  device code, for either plane, with admin consent for both scopes.
+- **CI's provider leg** (ADR 0223, [docs/auth-providers.md](../../../docs/auth-providers.md)),
+  granted `Varve.Write`, whose only credential is GitHub Actions' OIDC token
+  for the `auth-providers` environment (`githubProviderEnvironment`).
+
+The management API also has a delegated scope, `access_as_user`, for the Web UI
+and the command line: the person is the agent, and `Varve.Operator` in their
+own token decides.
 
 It runs at tenant scope with the Microsoft Graph Bicep extension
 (`bicepconfig.json`, `microsoftgraph/v1.0:1.0.0` from `mcr.microsoft.com`).
@@ -39,6 +52,10 @@ No secret is created, and none is needed:
 - **The sign-in client** is a public client with no credential. A person
   signs in through it by device code for the token the on-behalf-of leg
   starts from.
+- **The Web UI and the command line** are public clients with no credential;
+  the person's own sign-in is the only one.
+- **CI's provider leg** has one federated credential, for the `auth-providers`
+  environment. Restrict that environment to `main`.
 
 The `entra-obo` workflow (`workflow_dispatch` only) runs that leg. Its
 environment holds identifiers only, as variables:
@@ -47,6 +64,9 @@ environment holds identifiers only, as variables:
 - `VARVE_ENTRA_OBO_CALLER_ID`;
 - `VARVE_ENTRA_OBO_CALLER_AUDIENCE` (`api://varve-caller`);
 - `VARVE_ENTRA_OBO_SIGN_IN_ID`, the `signInClientId` output.
+The outputs `webUiClientId`, `cliClientId`, `dataScope` and `manageScope`
+configure the Web UI and the command line; `providerLegClientId` is the
+`auth-providers` environment's `VARVE_ENTRA_CLIENT_ID`.
 Assign the app roles to users and groups under *Enterprise applications*.
 Configure the server with the outputs:
 
