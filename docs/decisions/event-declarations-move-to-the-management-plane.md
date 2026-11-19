@@ -43,6 +43,12 @@ decisions:
     statement: "Moved event declarations are checked on every system commit by EventDeclarationCheck over their catalogue-graph translation, as before the move"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-26T00:00:00Z
+  - key: ResumeOnlyFinishesAMove
+    statement: "A run of the move with no request never freezes the catalogue, and a run that has seen Moving, by its own freeze or by reading it, commits nothing more when it then finds varve:InDataset; a request's run then answers 409 event-move-cancelled, which a client does not retry; amended 2026-11-19"
+  - key: CancelIsAnsweredOnlyWhenInForce
+    statement: "A cancel is answered cancelled only when it was committed and this instance has applied it, and a management write answered with no change is applied before it is answered; amended 2026-11-19"
+  - key: MovingWriteAdvancesFirst
+    statement: "A write to a dataset whose event declarations are Moving at the applied position advances the system follower once before its grants are pinned; when that advance fails, a catalogue write to it is refused 503 management-behind, never 409 event-catalogue-moved; amended 2026-11-19"
 ---
 
 The rulings of [ADR 0167](../adr/0167-event-declarations-move-to-the-management-plane.md), one line each. The ADR is the

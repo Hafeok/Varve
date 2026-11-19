@@ -21,6 +21,10 @@ dataset's graph), each by a dated block (ADR 0068).
 by what happened (point 3; see the end, "the move's forward answers by what
 happened"; [#216](https://github.com/Hafeok/Varve/issues/216)).
 
+**Amended 2026-11-19, filed unaccepted:** a cancel stays cancelled (points 3
+and 4; see the end, "a cancel stays cancelled";
+[#254](https://github.com/Hafeok/Varve/issues/254)).
+
 **Related:** ADR [0163](0163-the-management-plane.md) (the planes), ADR
 [0165](0165-the-management-position-on-the-commit.md) (the position on the
 commit, which decides the boundary) and ADR
@@ -265,3 +269,76 @@ changes, and no problem type is added.
 transport: a refused connection, and one that takes the request and closes.
 The fleet suite sends a move through an instance whose system writer's
 address refuses, and one whose address takes the request and never answers.
+
+## Amendment, 2026-11-19 — a cancel stays cancelled
+
+Ruled by the maintainer on [#254](https://github.com/Hafeok/Varve/issues/254),
+2026-11-19: "a user must never expect one thing and get another. If the
+server says the move is cancelled, a write must not then be refused as
+moved." The plan posted there was accepted, with fixes (a), (b) and (c) and
+the answer to its question A. Filed unaccepted by a cloud session for #254
+on 2026-11-19 (ADR 0066); the maintainer's acceptance is written in the
+decision set by him or his delegate (ADR 0239).
+
+**What was wrong.** Point 3 says the writer "resumes a `Moving` dataset by
+itself". The code's resume ran the move's whole driver with no caller, and
+the driver treated `varve:InDataset` as a move to start. The interval loop
+picked a dataset as `Moving` from the grants it had applied, then ran the
+driver. A cancel committed between the two was undone: the run froze the
+catalogue again, so a catalogue write authorised after the cancel, at m₃ or
+later, was refused `409 event-catalogue-moved`, against point 4. With a
+catalogue that translates, the run went on to `Moved`, which is final. A
+request's run whose cancel went stale did the same. Three more answers ran
+ahead of their effect:
+- a cancel whose write came back with a problem was answered "cancelled";
+- a management write that changed nothing, because another commit had
+  already put the head in that state, was answered before this instance
+  applied that commit;
+- a cancel answered by the system writer was not in force at a dataset's
+  writer that is another instance until that instance's next interval.
+
+**The rulings.**
+1. **The resume finishes a move; it never starts one.** A run of the move
+   with no request never freezes the catalogue. Finding `varve:InDataset`,
+   it commits nothing.
+2. **A cancel found under a run stands.** A run that has seen the move in
+   progress, by its own committed freeze or by reading `Moving`, and then
+   finds `varve:InDataset`, commits nothing more. A request's run answers
+   `409 event-move-cancelled` (member `position`, the management position it
+   found the cancel at), a problem type with a page and a "What to do"
+   (ADR 0242). The client does not retry it: a retry would undo another
+   caller's deliberate cancel, and ADR 0246 point 10's list is unchanged. A
+   run that judged the catalogue untranslatable, and whose own cancel lost to
+   an equal one, answers the `422` it would have answered.
+3. **A cancel is answered cancelled only when it is in force here.** It was
+   committed, and this instance has applied it. A cancel whose write was
+   refused, or could not be made, is answered with that write's problem. A
+   management write answered with no change is applied before it is
+   answered, as a committed one is.
+4. **A write to a moving dataset is decided after one advance.** A write to
+   a dataset whose event declarations are `Moving` at the applied position
+   advances the system follower once before its grants are pinned, as ADR
+   0165 point 5's write does when the dataset records a later position. On a
+   follower of the system dataset that is a probe of its next log slot, on
+   its writer on an object store a read of the writer record, and on a fleet
+   of one nothing. Then the datasets converge to the declarations, under the
+   advance's lock.
+5. **When the management plane cannot be read,** the advance fails and the
+   grants stay at the last applied position (ADR 0163 point 8). A catalogue
+   write to a dataset that was `Moving` there is refused `503
+   management-behind`, which a client sends again (ADR 0246 point 10), and
+   never `409 event-catalogue-moved`, which it does not. Every other write is
+   decided as before. `Moved` is final, so a catalogue write to a moved
+   dataset is `409 event-catalogue-moved` whatever the plane's state.
+
+**What this does not change.** Points 1 to 7 stand. The transitions of point
+4 are the same; this amendment says who may make them, and when an answer
+may say one was made. No ruling of ADR 0246 changes.
+
+**Code and tests.** `EventMoves.RunAsync`, `ManagementEndpoints`, the host's
+management-position step, `Fleet.CatalogueOf` and `EventCatalogueValidator`
+(`EventCatalogueState`). `EventMoveTests` holds each interleaving with the
+interval loop or a move request held between the move's steps by a signal;
+`CancelledMoveAcrossInstancesTests` holds rulings 4 and 5 with two fleets over
+a store in memory; `EventMoveModelTests` checks the move against a model over
+generated interleavings (docs/testing.md §11).
