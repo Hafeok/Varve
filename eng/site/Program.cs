@@ -6,6 +6,7 @@
 //
 //   dotnet run --project eng/site -- check [--root <repository>]
 //   dotnet run --project eng/site -- check-svg <file>…
+//   dotnet run --project eng/site -- screenshots --site <built site> --out <directory> --chrome <path>
 //   dotnet run --project eng/site -- build --out <directory> --commit <sha> [--chrome <path>] [--root <repository>] [--cache <directory>]
 //
 // check reads every page the site carries and fails on a relative link whose
@@ -53,9 +54,31 @@ if (args.Length > 1 && args[0] == "check-svg")
     return findings == 0 ? 0 : 1;
 }
 
+// screenshots: a built site's review set, each page of a kind in both schemes
+// at two widths (#368). For review only: written outside the repository and
+// uploaded by ci.yml's docs site job, never committed.
+if (args.Length == 7 && args[0] == "screenshots" && args[1] == "--site" && args[3] == "--out" && args[5] == "--chrome")
+{
+    if (!File.Exists(args[6]) || !Directory.Exists(args[2]))
+    {
+        Console.Error.WriteLine($"varve-site: no built site at {args[2]}, or no browser at {args[6]}.");
+        return 2;
+    }
+
+    try
+    {
+        return await Screenshots.WriteAsync(args[2], args[4], args[6]);
+    }
+    catch (SiteException e)
+    {
+        Console.Error.WriteLine($"varve-site: {e.Message}");
+        return 1;
+    }
+}
+
 if (args.Length == 0 || args[0] is not ("check" or "build"))
 {
-    Console.Error.WriteLine("varve-site: check [--root <repository>] | check-svg <file>… | build --out <directory> --commit <sha> [--chrome <path>] [--root <repository>] [--cache <directory>]");
+    Console.Error.WriteLine("varve-site: check [--root <repository>] | check-svg <file>… | build --out <directory> --commit <sha> [--chrome <path>] [--root <repository>] [--cache <directory>] | screenshots --site <directory> --out <directory> --chrome <path>");
     return 2;
 }
 
