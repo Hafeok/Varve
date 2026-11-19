@@ -11,6 +11,8 @@ using Varve.Rdf;
 using Xunit;
 using static Varve.Inference.Tests.Terms;
 
+using Varve.Benchmarks.Candidates;
+
 namespace Varve.Inference.Tests;
 
 /// <summary>
@@ -94,7 +96,7 @@ public class IncrementalEqualsFromScratchTests
     public void delete_and_rederive_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Rdfs, Retraction.DeleteAndRederive);
 
     [Fact]
-    public void backward_forward_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Rdfs, Retraction.BackwardForward);
+    public void backward_forward_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Rdfs, BackwardForward.Instance);
 
     [Fact]
     public void the_baseline_equals_the_oracle_at_every_commit() => Holds(InferenceProfile.Rdfs, Retraction.FromScratch);
@@ -103,13 +105,13 @@ public class IncrementalEqualsFromScratchTests
     public void under_owl_2_rl_delete_and_rederive_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Owl2Rl, Retraction.DeleteAndRederive);
 
     [Fact]
-    public void under_owl_2_rl_backward_forward_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Owl2Rl, Retraction.BackwardForward);
+    public void under_owl_2_rl_backward_forward_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Owl2Rl, BackwardForward.Instance);
 
     [Fact]
-    public void recursive_counting_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Rdfs, Retraction.RecursiveCounting);
+    public void recursive_counting_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Rdfs, RecursiveCounting.Instance);
 
     [Fact]
-    public void under_owl_2_rl_recursive_counting_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Owl2Rl, Retraction.RecursiveCounting);
+    public void under_owl_2_rl_recursive_counting_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Owl2Rl, RecursiveCounting.Instance);
 
     /// <summary>
     /// ADR 0195 point 3: a data graph's closure over the TBox closure beneath
@@ -125,7 +127,7 @@ public class IncrementalEqualsFromScratchTests
     [InlineData(InferenceProfile.Owl2Rl, "RecursiveCounting")]
     public void a_closure_over_a_tbox_beneath_equals_from_scratch_at_every_commit(InferenceProfile profile, string strategyName)
     {
-        Retraction strategy = Enum.Parse<Retraction>(strategyName);
+        Retraction strategy = Strategies.Named(strategyName);
         Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> triple = profile == InferenceProfile.Rdfs ? Triple : OwlTriple;
         Gen.Select(triple.Array[0, 8], History(triple)).Sample(sample =>
         {
@@ -240,14 +242,14 @@ public class IncrementalEqualsFromScratchTests
                 Assert.True(closure.IsExplicit(fact));
             }
 
-            if (strategy == Retraction.RecursiveCounting)
+            if (strategy == RecursiveCounting.Instance)
             {
                 // Each fact's round is the earliest any instance gives it, and
                 // its count the instances that give it that round.
                 foreach (Fact fact in actual)
                 {
-                    (int round, int count) = closure.Earliest(fact);
-                    (int held, int counted) = closure.Standing(fact);
+                    (int round, int count) = RecursiveCounting.Instance.Earliest(closure, fact);
+                    (int held, int counted) = RecursiveCounting.Instance.Standing(closure, fact);
                     bool given = closure.IsExplicit(fact) || program.Axioms.Contains(fact);
                     Assert.True(
                         given ? held == 0 : held == round && counted == count,

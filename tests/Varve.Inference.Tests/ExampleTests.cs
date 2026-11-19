@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-using System;
 using System.Linq;
 using Varve.Inference.Model;
 using Varve.Rdf;
@@ -30,7 +29,7 @@ public class ExampleTests
     public void an_axiom_asserted_then_retracted_stays(InferenceProfile profile, string strategy)
     {
         Terms terms = new();
-        Closure closure = new(Program.Of(profile, terms), Enum.Parse<Retraction>(strategy));
+        Closure closure = new(Program.Of(profile, terms), Strategies.Named(strategy));
         Fact axiom = terms.Fact(IriOf(RdfNs + "type"), IriOf(RdfsNs + "domain"), IriOf(RdfsNs + "Resource"));
         Assert.True(closure.Contains(axiom));
 
@@ -49,7 +48,7 @@ public class ExampleTests
     public void retracting_a_link_takes_what_it_alone_supported(string strategy)
     {
         Terms terms = new();
-        Closure closure = new(Program.Of(InferenceProfile.Rdfs, terms), Enum.Parse<Retraction>(strategy));
+        Closure closure = new(Program.Of(InferenceProfile.Rdfs, terms), Strategies.Named(strategy));
         RdfTerm type = IriOf(RdfNs + "type"), subClassOf = IriOf(RdfsNs + "subClassOf");
         Fact ab = terms.Fact(Named("A"), subClassOf, Named("B"));
         Fact bc = terms.Fact(Named("B"), subClassOf, Named("C"));
@@ -76,12 +75,13 @@ public class ExampleTests
         ClosureCosts costs = ClosureCosts.For(InferenceProfile.Rdfs);
         FactBudget probe = new(new MemoryAmount(long.MaxValue), costs);
         Closure empty = new(InferenceProfile.Rdfs, terms, probe);
-        long one = probe.Used.Value;
+        long one = probe.Used.Value, building = probe.Peak.Value;
         empty.Release();
         Assert.Equal(0, probe.Used.Value);
 
-        // Room for two empty closures and half of one more: two hundred facts will not fit.
-        FactBudget budget = new(new MemoryAmount((2 * one) + (one / 2)), costs);
+        // Room for an empty closure, the build of another (its working sets given back once it settles), and half of
+        // one more: two hundred facts will not fit.
+        FactBudget budget = new(new MemoryAmount(one + building + (one / 2)), costs);
         Closure first = new(InferenceProfile.Rdfs, terms, budget);
         Closure second = new(InferenceProfile.Rdfs, terms, budget);
         Assert.Equal(2 * one, budget.Used.Value);

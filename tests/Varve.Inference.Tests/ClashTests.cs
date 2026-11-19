@@ -59,7 +59,7 @@ public class ClashTests
         foreach (string strategy in new[] { "DeleteAndRederive", "BackwardForward", "RecursiveCounting" })
         {
             Terms terms = new();
-            Closure closure = new(Program.Of(InferenceProfile.Owl2Rl, terms), Enum.Parse<Retraction>(strategy));
+            Closure closure = new(Program.Of(InferenceProfile.Owl2Rl, terms), Strategies.Named(strategy));
             Fact[] facts = [.. graph.Split('|').Select(t => Parse(terms, t))];
 
             closure.Apply(facts.AsSpan(0, facts.Length - 1), []);

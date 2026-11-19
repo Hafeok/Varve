@@ -8,7 +8,7 @@ decisions:
   - key: ThreeCandidatesMeasured
     statement: "DRed, recursive counting and Backward/Forward are built behind one internal strategy, each passing the incremental-equals-from-scratch property, and measured on at least 1,000 commits of REC M under owl2rl, the sample's size, entity retractions and type changes stated"
   - key: ChosenOnTheMeasurement
-    statement: "The candidate is chosen by p99 time per commit on the owl2rl profile, with the trade stated where another is within 20% and lower on the maximum or memory, and each candidate's from-scratch build time stated beside its per-commit figures; the losers stay in src until the maintainer has ruled on the choice, then leave it for the benchmarks"
+    statement: "The lowest p99 per commit on owl2rl at REC M is taken, unless another candidate's p99 is within the bound, at most twice it and under 50 ms, and it builds from scratch in at most 0.6 of the time, which is then preferred, the maintainer ruling 2026-11-19; each candidate's build is stated beside its per-commit figures; DRed is chosen, and the losers leave src for the benchmarks"
 ---
 
 The rulings of [ADR 0196](../adr/0196-retraction-decided-by-measurement.md), one line each. The ADR is the

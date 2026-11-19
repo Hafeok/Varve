@@ -31,7 +31,7 @@ public sealed partial class Closure
 
     /// <summary>The empty graph's closure under <paramref name="profile"/>: its axioms and what they entail.</summary>
     public Closure(InferenceProfile profile, IInferenceTerms terms)
-        : this(Program.Of(profile, terms), Retraction.RecursiveCounting)
+        : this(Program.Of(profile, terms), Retraction.DeleteAndRederive)
     {
     }
 
@@ -42,7 +42,7 @@ public sealed partial class Closure
     /// </summary>
     /// <exception cref="ClosureLimitExceededException">The axioms alone would pass the budget.</exception>
     public Closure(InferenceProfile profile, IInferenceTerms terms, FactBudget budget)
-        : this(Program.Of(profile, terms), Retraction.RecursiveCounting, budget)
+        : this(Program.Of(profile, terms), Retraction.DeleteAndRederive, budget)
     {
     }
 
@@ -54,7 +54,7 @@ public sealed partial class Closure
     /// </summary>
     /// <exception cref="ClosureLimitExceededException">The axioms alone would pass the budget.</exception>
     public Closure(InferenceProfile profile, IInferenceTerms terms, FactBudget budget, Closure tbox)
-        : this(Program.Of(profile, terms), Retraction.RecursiveCounting, budget, tbox)
+        : this(Program.Of(profile, terms), Retraction.DeleteAndRederive, budget, tbox)
     {
     }
 
@@ -353,19 +353,23 @@ public sealed partial class Closure
     /// every rule at each premise it matches, against the facts there by then
     /// (ADR 0196 point 1).
     /// </summary>
-    internal void Insert(IEnumerable<Fact> facts)
-    {
-        if (Strategy == Retraction.RecursiveCounting)
-        {
-            CountingInsert(facts);
-            return;
-        }
+    internal void Insert(IEnumerable<Fact> facts) => Strategy.Insert(this, facts);
 
+    /// <summary>
+    /// Semi-naive insertion, every strategy's but one that keeps state of its
+    /// own: each new fact is added, then joined once with every rule at each
+    /// premise it matches. The pass's sets hold each fact it adds while it
+    /// runs, and are charged to the budget per entry (ADR 0195 point 6).
+    /// </summary>
+    internal void SemiNaiveInsert(IEnumerable<Fact> facts)
+    {
+        using Working working = new(Facts.Budget);
         Propagation<Fact, Rule> pass = new(Program.Dependencies, Program.Strata, EqualityComparer<Fact>.Default);
         foreach (Fact fact in facts)
         {
             if (Facts.Add(fact))
             {
+                working.Take();
                 pass.Seed(0, fact);
             }
         }
@@ -379,45 +383,30 @@ public sealed partial class Closure
             {
                 if (Facts.Add(head))
                 {
+                    working.Take();
                     into.Add(head);
                 }
             }
         });
     }
 
-    private void Retract(List<Fact> gone)
-    {
-        switch (Strategy)
-        {
-            case Retraction.DeleteAndRederive:
-                DeleteAndRederive(gone);
-                break;
-            case Retraction.BackwardForward:
-                BackwardForward(gone);
-                break;
-            case Retraction.RecursiveCounting:
-                CountingRetract(gone);
-                break;
-            case Retraction.FromScratch:
-                Rebuild();
-                break;
-            default:
-                throw new InvalidOperationException("an unknown retraction strategy");
-        }
-    }
+    private void Retract(List<Fact> gone) => Strategy.Retract(this, gone);
 
     /// <summary>
     /// DRed: over-delete every fact a retracted one derives, through facts
     /// that are neither explicit nor axioms; then put back each one still
     /// derivable in one step from what is left, and insert from those.
     /// </summary>
-    private void DeleteAndRederive(List<Fact> gone)
+    internal void DeleteAndRederive(List<Fact> gone)
     {
+        // The over-deletion's sets, and the list of what is put back, are charged per entry while they live.
+        using Working working = new(Facts.Budget);
         Propagation<Fact, Rule> overDeletion = new(Program.Dependencies, Program.Strata, EqualityComparer<Fact>.Default);
         foreach (Fact fact in gone)
         {
             if (Facts.Contains(fact))
             {
+                working.Take();
                 overDeletion.Seed(0, fact);
             }
         }
@@ -431,6 +420,7 @@ public sealed partial class Closure
             {
                 if (Facts.Contains(head) && !IsGiven(head))
                 {
+                    working.Take();
                     into.Add(head);
                 }
             }
@@ -447,51 +437,12 @@ public sealed partial class Closure
         {
             if (IsGiven(fact) || Derivable(fact))
             {
+                working.Take();
                 rederived.Add(fact);
             }
         }
 
         Insert(rederived);
-    }
-
-    /// <summary>
-    /// Backward/Forward (Motik, Nenov, Piro and Horrocks, AAAI 2015): a fact
-    /// that loses a premise is kept when a well-founded proof of it remains,
-    /// searched backwards; one with none is deleted, and the facts it was a
-    /// premise of are checked in turn.
-    /// </summary>
-    private void BackwardForward(List<Fact> gone)
-    {
-        Queue<Fact> pending = new(gone);
-        List<Fact> heads = [];
-        ProofSearch search = new(this);
-        while (pending.TryDequeue(out Fact fact))
-        {
-            if (!Facts.Contains(fact) || IsGiven(fact))
-            {
-                continue;
-            }
-
-            if (search.Proved(fact))
-            {
-                continue;
-            }
-
-            heads.Clear();
-            foreach (Rule rule in Program.Rules)
-            {
-                rule.Fire(fact, Facts, heads);
-            }
-
-            Facts.Remove(fact);
-            foreach (Fact head in heads)
-            {
-                if (Facts.Contains(head) && !IsGiven(head))
-                {
-                    pending.Enqueue(head);
-                }
-            }
-        }
     }
 
     /// <summary>Whether a fact is explicit, an axiom, or the TBox closure's beneath: a leaf of every proof here.</summary>
@@ -510,7 +461,42 @@ public sealed partial class Closure
         return false;
     }
 
-    private void Rebuild()
+    /// <summary>
+    /// A pass's working sets' charge (ADR 0195 point 6): each entry taken from
+    /// the budget before it is stored, given back when it goes, and what is
+    /// left given back when the pass ends, however it ends.
+    /// </summary>
+    internal sealed class Working(FactBudget? budget) : IDisposable
+    {
+        private long _held;
+
+        /// <exception cref="ClosureLimitExceededException">The entry would pass the budget.</exception>
+        internal void Take()
+        {
+            if (budget is not null)
+            {
+                budget.Take(budget.Costs.PerWorkingEntry);
+                _held += budget.Costs.PerWorkingEntry.Value;
+            }
+        }
+
+        internal void Give()
+        {
+            if (budget is not null && _held > 0)
+            {
+                budget.Give(budget.Costs.PerWorkingEntry);
+                _held -= budget.Costs.PerWorkingEntry.Value;
+            }
+        }
+
+        public void Dispose()
+        {
+            budget?.Give(new MemoryAmount(_held));
+            _held = 0;
+        }
+    }
+
+    internal void Rebuild()
     {
         List<Fact> all = [.. Facts.All];
         foreach (Fact fact in all)
@@ -533,18 +519,36 @@ internal sealed class Held(FactSet facts) : IReadOnlyCollection<Fact>
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 }
 
-/// <summary>How a closure retracts (ADR 0196): the candidates measured, and the baseline.</summary>
-internal enum Retraction
+/// <summary>
+/// How a closure retracts (ADR 0196): DRed, chosen by the maintainer on the
+/// measurement, and the from-scratch baseline every strategy is held to. The
+/// candidates not chosen, recursive counting and Backward/Forward, live with
+/// the benchmarks (<c>tests/Varve.Benchmarks/Retraction</c>), where the
+/// measurement can be rerun; Backward/Forward's proof search stays here, as
+/// explain's (ADR 0199).
+/// </summary>
+[Contract(typeof(RetractionDecidedByMeasurement.ChosenOnTheMeasurement), Role = "how a closure retracts: DRed, or the from-scratch baseline")]
+internal abstract class Retraction
 {
-    /// <summary>The closure of what is left, from scratch: the baseline every candidate is measured against.</summary>
-    FromScratch,
-
     /// <summary>DRed: over-delete, then rederive.</summary>
-    DeleteAndRederive,
+    internal static Retraction DeleteAndRederive { get; } = new Dred();
 
-    /// <summary>Backward/Forward: delete only what has no proof left.</summary>
-    BackwardForward,
+    /// <summary>The closure of what is left, from scratch: the baseline every strategy is measured against.</summary>
+    internal static Retraction FromScratch { get; } = new Scratch();
 
-    /// <summary>Recursive counting: each fact's round and the instances that derive it there.</summary>
-    RecursiveCounting,
+    /// <summary>Adds <paramref name="facts"/> and what they entail; semi-naive unless a strategy keeps state of its own.</summary>
+    internal virtual void Insert(Closure closure, IEnumerable<Fact> facts) => closure.SemiNaiveInsert(facts);
+
+    /// <summary>Takes out what <paramref name="gone"/>, no longer explicit, alone supported.</summary>
+    internal abstract void Retract(Closure closure, List<Fact> gone);
+
+    private sealed class Dred : Retraction
+    {
+        internal override void Retract(Closure closure, List<Fact> gone) => closure.DeleteAndRederive(gone);
+    }
+
+    private sealed class Scratch : Retraction
+    {
+        internal override void Retract(Closure closure, List<Fact> gone) => closure.Rebuild();
+    }
 }

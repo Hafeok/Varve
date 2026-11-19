@@ -197,6 +197,96 @@ public class InferenceSurfaceTests
         Assert.False((await fixture.QueryAsync("ASK FROM <http://ex/g/1> FROM <http://ex/g/2> { ?s ?p ?o }", null)).Headers.Contains("Varve-Closure"));
     }
 
+    /// <summary>
+    /// <c>owl2-rl</c>, or a view, naming a graph no binding gives a closure is
+    /// refused as <c>entailment-unsupported</c>, naming the graph (ADR 0197
+    /// point 6, ADR 0198 point 1, as amended 2026-11-19): by <c>FROM</c>, by
+    /// <c>GRAPH</c>, and the binding's own TBox graph, whose conclusions are
+    /// in the reserved graph. A covered graph is answered.
+    /// </summary>
+    [Fact]
+    public async Task Owl2_rl_or_a_view_naming_a_graph_with_no_closure_is_entailment_unsupported()
+    {
+        await using Fixture fixture = await Fixture.StartAsync(InferenceProfile.Owl2Rl);
+        foreach ((string query, string? regime, string graph) in new (string, string?, string)[]
+        {
+            ("ASK FROM <http://other/x> { ?s ?p ?o }", "owl2-rl", "http://other/x"),
+            ("ASK { GRAPH <http://other/x> { ?s ?p ?o } }", "owl2-rl", "http://other/x"),
+            ("ASK { GRAPH <http://ex/tbox> { ?s ?p ?o } }", "owl2-rl", "http://ex/tbox"),
+            ("ASK FROM <http://other/x> FROM <" + Implicit + "> { ?s ?p ?o }", null, "http://other/x"),
+        })
+        {
+            HttpResponseMessage refused = await fixture.QueryAsync(query, regime);
+            string body = await refused.Content.ReadAsStringAsync(P.Ct);
+            Assert.True(refused.StatusCode == HttpStatusCode.BadRequest, query + ": " + body);
+            using JsonDocument problem = JsonDocument.Parse(body);
+            Assert.Equal("https://w3id.org/varve/problems/entailment-unsupported", problem.RootElement.GetProperty("type").GetString());
+            Assert.Contains("<" + graph + ">", problem.RootElement.GetProperty("detail").GetString(), StringComparison.Ordinal);
+        }
+
+        HttpResponseMessage covered = await fixture.QueryAsync("ASK FROM <http://ex/g/1> { <http://ex/ann> a <http://ex/Agent> }", "owl2-rl");
+        Assert.True(covered.StatusCode == HttpStatusCode.OK, await covered.Content.ReadAsStringAsync(P.Ct));
+    }
+
+    /// <summary>
+    /// <c>GRAPH ?g</c> under <c>owl2-rl</c> over named graphs some of which
+    /// have no closure is answered, and <c>Varve-Without-Closure</c> names
+    /// those read with their explicit quads only: here the binding's TBox
+    /// graph. With <c>FROM NAMED</c> naming only covered graphs it says
+    /// nothing.
+    /// </summary>
+    [Fact]
+    public async Task Graph_variable_over_a_mix_names_the_graphs_read_without_a_closure()
+    {
+        await using Fixture fixture = await Fixture.StartAsync(InferenceProfile.Owl2Rl);
+        HttpResponseMessage mixed = await fixture.QueryAsync("SELECT ?g WHERE { GRAPH ?g { ?s ?p ?o } }", "owl2-rl");
+        Assert.True(mixed.StatusCode == HttpStatusCode.OK, await mixed.Content.ReadAsStringAsync(P.Ct));
+        Assert.Equal("<http://ex/tbox>", P.Header(mixed, "Varve-Without-Closure"));
+        Assert.Equal([new Varve.Protocol.Client.Model.GraphWithoutClosure("<http://ex/tbox>")], SparqlHttpClient.EntailedAnswerOf(mixed).WithoutClosure);
+
+        HttpResponseMessage covered = await fixture.QueryAsync("SELECT ?g FROM NAMED <http://ex/g/1> WHERE { GRAPH ?g { ?s ?p ?o } }", "owl2-rl");
+        Assert.True(covered.StatusCode == HttpStatusCode.OK, await covered.Content.ReadAsStringAsync(P.Ct));
+        Assert.False(covered.Headers.Contains("Varve-Without-Closure"));
+        Assert.Empty(SparqlHttpClient.EntailedAnswerOf(covered).WithoutClosure);
+
+        HttpResponseMessage viewed = await fixture.QueryAsync("SELECT ?g FROM NAMED <" + Implicit + "> WHERE { GRAPH ?g { ?s ?p ?o } }", null);
+        Assert.True(viewed.StatusCode == HttpStatusCode.OK, await viewed.Content.ReadAsStringAsync(P.Ct));
+        Assert.Equal("<http://ex/tbox>", P.Header(viewed, "Varve-Without-Closure"));
+    }
+
+    /// <summary>
+    /// A merge under <c>owl2-rl</c> of graphs one cross-graph binding covers
+    /// reads the premise-set graphs within it, and is the closure of the
+    /// merge: a conclusion drawn from two graphs together is answered, and no
+    /// <c>Varve-Closure</c> is sent. Under an intra-graph binding the same
+    /// merge is each graph's closure, the conclusion is missing, and the
+    /// answer says <c>per-graph</c> (ADR 0197, amended 2026-11-19).
+    /// </summary>
+    [Fact]
+    public async Task A_merge_under_a_cross_graph_binding_is_the_closure_of_the_merge()
+    {
+        const string Ask = "ASK FROM <http://ex/g/1> FROM <http://ex/g/2> { <http://ex/ann> a <http://ex/Agent> }";
+        foreach (bool crossGraph in new[] { true, false })
+        {
+            await using Dataset dataset = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+            CommitRequestBuilder request = new();
+            request.Assert(Term("http://ex/ann"), Term(Rdf + "type"), Term("http://ex/Person"), Term("http://ex/g/1"));
+            request.Assert(Term("http://ex/Person"), Term(Rdfs + "subClassOf"), Term("http://ex/Agent"), Term("http://ex/g/2"));
+            Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(request, P.Ct)).Outcome);
+            InferenceProjection projection = new(dataset, new InferenceBinding(RdfTerm.Iri("urn:b"u8), [RdfTerm.Iri("http://ex/tbox"u8)], GraphScope.Of([], ["http://ex/g/"], DefaultGraphAccess.Included), InferenceProfile.Owl2Rl) { CrossGraph = crossGraph });
+            await dataset.CatchUpAsync(projection, P.Ct);
+            await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(new ProtocolTestHost.OneDataset(dataset), inference: new Closures(projection, Refusal.None), stopping: P.Ct);
+
+            HttpRequestMessage query = P.Query(Sparql, Ask, "application/sparql-results+json");
+            query.Headers.TryAddWithoutValidation("Varve-Entailment", "owl2-rl");
+            HttpResponseMessage answered = await host.Client.SendAsync(query, P.Ct);
+            string body = await answered.Content.ReadAsStringAsync(P.Ct);
+            Assert.True(answered.StatusCode == HttpStatusCode.OK, body);
+            Assert.Contains(crossGraph ? "\"boolean\":true" : "\"boolean\":false", body.Replace(" ", string.Empty, StringComparison.Ordinal), StringComparison.Ordinal);
+            Assert.Equal(crossGraph ? null : "per-graph", answered.Headers.Contains("Varve-Closure") ? P.Header(answered, "Varve-Closure") : null);
+        }
+    }
+
     [Fact]
     public async Task Owl2_rl_over_no_owl2rl_binding_and_a_view_under_a_rewritten_regime_are_unsupported()
     {
@@ -548,6 +638,8 @@ public class InferenceSurfaceTests
         public InferenceProfile Profile => projection.Binding.Profile;
 
         public IReadOnlyList<RdfTerm>? PremiseSetOf(RdfTerm graph) => projection.PremiseSetOf(graph);
+
+        public IReadOnlyList<RdfTerm>? PremiseSetGraphs() => projection.Binding.CrossGraph ? projection.PremiseSetGraphs() : null;
 
         public IReadOnlyList<IInferenceClosure> Of(DatasetName dataset) => [this];
 

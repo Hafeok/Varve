@@ -130,12 +130,14 @@ soundness).
   basic graph pattern is evaluated simply over the explicit quads and the rows
   valid at the read's position, with ADR 0193's C1 (no generalised triple, no
   invented blank node) applied.
-- **A merged active graph** is answered by the union of its graphs' closures,
-  plus whatever cross-graph closure the caller may read (ADR 0190). That is
-  not the closure of the merge unless the binding is cross-graph; the service
-  description's claim is per named graph, and the operator guide says so.
+- **A merged active graph** is answered by the union of its graphs' closures.
+  Under one cross-graph binding (ADR 0190) that covers every merged graph, the
+  merge also reads the premise-set graphs of every set within it, and is then
+  the closure of the merge; otherwise it is not, and the answer says so with
+  `Varve-Closure: per-graph` (amended 2026-11-19, §3).
 - **`entailment-unsupported`** answers `owl2-rl` on a graph no `OWL2RL`
-  binding covers.
+  binding covers, whether the dataset has such a binding or not, when the
+  query names the graph (amended 2026-11-19, §3a).
 - **The service description** gives each named graph an `OWL2RL` binding
   covers `sd:entailmentRegime ent:OWL-RDF-Based` and
   `sd:supportedEntailmentProfile pr:RL`. `varve:defaultEntailment
@@ -244,27 +246,62 @@ description says which rules apply. In part 3, a binding with
 (amended 2026-11-19), and `SparqlHttpClient.EntailedAnswerOf(response)` reads
 it, with `Varve-Inconsistent` and `Varve-Closure`, into an `EntailedAnswer`.
 
-### 3. A merge is answered graph by graph: `Varve-Closure: per-graph`
+### 3. A merge: the closure of the merge under one cross-graph binding, else `Varve-Closure: per-graph`
 
-Point 6 already says it: a default graph that merges two or more graphs
-(`FROM g1 FROM g2`, or two `default-graph-uri`s) is answered under `owl2-rl`
-by the union of each graph's closure, not by the closure of their merge. A
-conclusion that needs facts of two of the graphs together is missing. Every
-such answer now says so: **`Varve-Closure: per-graph`**. View IRIs are not
-counted; one graph, the dataset's own default graph, and `GRAPH` patterns are
-no merge and carry no header.
+A default graph that merges two or more graphs (`FROM g1 FROM g2`, or two
+`default-graph-uri`s) is answered under `owl2-rl` as follows. View IRIs are
+not counted; one graph, the dataset's own default graph, and `GRAPH`
+patterns are no merge.
 
-**Found while doing it: a cross-graph binding is no exception yet.** Point 6
-and the review read "unless the binding is cross-graph". Under `owl2-rl` a
-merged default graph reads each graph's explicit and implicit part, and a
-cross-graph binding's conclusions drawn from two graphs are in their premise
-set's reserved graph, which is read only when it is named (ADR 0198 point 2).
-So a merge of `g1` and `g2` under a cross-graph binding is the closure of the
-merge only when the query also names the premise-set graphs of every set
-within `{g1, g2}`. The header is therefore set for every merge, cross-graph
-or not, until the merged default graph adds those premise-set graphs itself.
-That change is proposed for the maintainer, not made: it widens what a merge
-answers.
+**Included today.** Each merged graph's explicit quads and its implicit part.
+And when **one** `OWL2RL` binding with `varve:crossGraph true` has every
+merged graph among its data graphs (none of them a TBox graph), the merge
+also reads that binding's premise-set graphs whose every graph is merged
+(ADR 0190 point 6, ADR 0198 point 2). A conclusion is stored in the
+premise-set graph of each of its minimal premise sets (ADR 0195 point 5), so
+every conclusion whose premises lie in the merged graphs is in one of those
+premise-set graphs or in a graph's own implicit part: the answer is the
+closure of the merge, and carries no header. The premise-set graphs are read
+under the same grant check as any graph: a caller reads one only when it
+reads every graph of its set, which a caller merging those graphs does.
+
+**Not included today, and said by `Varve-Closure: per-graph`:**
+- a merge no single cross-graph binding covers: graphs of an intra-graph
+  binding, graphs of two different bindings, or a graph of no binding (which
+  `owl2-rl` refuses first, §3a). A conclusion that needs facts of two of the
+  graphs together is missing;
+- a merge that also names a view (`varve:explicit`, `varve:implicit`): the
+  view decides which parts are read, and the premise-set graphs are not
+  added to it;
+- an as-of read (`Varve-As-Of`, ADR 0195 point 5): the closure below the
+  history held is computed from scratch per graph, without premise sets.
+
+So the header is now set exactly when the merge is not the closure of the
+merge. ADR 0197 point 6's earlier "plus whatever cross-graph closure the
+caller may read" is corrected to this paragraph: before this amendment the
+premise-set graphs were read only when the query named them.
+
+### 3a. A graph no binding covers: `entailment-unsupported`, or `Varve-Without-Closure`
+
+`owl2-rl`, or a view (`varve:explicit`, `varve:implicit`, ADR 0198 point 1),
+**naming** a graph that no binding gives a closure is refused `400
+entailment-unsupported`, and the problem's `detail` names the graph. A graph
+is named by `FROM`, `FROM NAMED`, `default-graph-uri`, `named-graph-uri` or
+`GRAPH <g>`, in the query or a subquery. Under `owl2-rl` a graph is covered
+when an `OWL2RL` binding has it as a data graph (not a TBox graph), or it is
+that binding's reserved graph of TBox conclusions or one of its premise-set
+graphs; a view needs the same of any materialising binding. Before this
+amendment only a dataset with no `OWL2RL` binding at all was refused, and a
+graph outside every binding was read with an empty implicit part.
+
+`GRAPH ?g` names no graph, and is answered over the named graphs the query
+reads, covered or not. When some of them have no closure, the answer says
+which: **`Varve-Without-Closure`**, a comma-separated list of their IRIs in
+angle brackets (`FROM NAMED`'s, or every named graph the caller reads when
+the query names none), at most twenty, then `+N more`. Those graphs' rows
+are their explicit quads only. The header is omitted when every graph read
+has a closure. It lists only graphs the caller reads, so it shows nothing a
+grant hides (ADR 0190).
 
 ### 4. Every other place where what is served is narrower than its name
 
@@ -276,10 +313,11 @@ list is complete.
 | Where | What is served | How the user is told |
 |---|---|---|
 | 0197 point 4: `SameAsOff` | OWL 2 RL without `eq-*` | profile `varve:OWL2RLWithoutEquality`, `varve:sameAs varve:SameAsOff` (§1); `Varve-Equality: not-applied` (§2) |
-| 0197 point 6: a merged default graph | the union of each graph's closure | `Varve-Closure: per-graph` (§3) |
+| 0197 point 6: a merged default graph | the closure of the merge under one cross-graph binding covering it; otherwise the union of each graph's closure | `Varve-Closure: per-graph` exactly when it is not the closure of the merge (§3) |
 | 0197 point 5: a graph with a clash | the rules' fixpoint, not everything an inconsistent graph entails | `Varve-Inconsistent: true`; readiness's `inconsistent` and `clashes`; explain's `clashes` |
-| 0197 point 6: `owl2-rl` over a graph no `OWL2RL` binding covers | **a gap.** ADR 0197 says `entailment-unsupported`, but the code refuses only a dataset with no `OWL2RL` binding at all. On a dataset with one, a graph outside it is read with its explicit quads and an empty implicit part, and nothing says so | **not told today.** Proposed: refuse `entailment-unsupported` when the query names, by `FROM`, `FROM NAMED`, `GRAPH <g>` or the protocol, a graph no `OWL2RL` binding covers; and for `GRAPH ?g` over a mix, `Varve-Closure: none` naming that some graphs read had no closure. For the maintainer |
-| 0198 point 1: `FROM varve:implicit` over a graph with no materialising binding | an empty implicit part | the same gap and the same proposal: documented in the operator guide only |
+| 0197 point 6: `owl2-rl` naming a graph no `OWL2RL` binding covers | nothing | `400 entailment-unsupported`, naming the graph (§3a) |
+| 0198 point 1: a view naming a graph no materialising binding covers | nothing | `400 entailment-unsupported`, naming the graph (§3a) |
+| 0197 point 6: `GRAPH ?g` over named graphs some of which no binding covers | those graphs' explicit quads | `Varve-Without-Closure` listing them (§3a) |
 | 0197 point 8: the suites | `sparql11/entailment` under RL: **27 of 28** on the closure. `sparqldl-13` (its data, `data-08.ttl`, states `owl:sameAs`) waits for part 3's `sameAs` classes. `rdf-mt` needs no `eq-*` rule: its 38 rewriting cases and 10 "false" cases all run | the conformance table in `README.md` names the case pending, and the ratchet's runner prints `pending: owl:sameAs, part 3's sameAs classes (ADR 0197 point 4)` |
 | 0197 point 3: `dt-eq`, `dt-diff` not materialised | no `owl:sameAs` or `owl:differentFrom` between literals | no narrowing: each would conclude a fact with a literal subject, which C1 never serves under the regime anyway (ADR 0193) |
 | 0197 point 2: axiomatic triples bounded to the `rdf:_n` that occur, no invented blank node | the regime's own answer conditions | no narrowing: SPARQL 1.1 Entailment Regimes' C1 and C2 bound the answers the same way (ADR 0193) |
@@ -294,10 +332,13 @@ list is complete.
 
 ### The ledger
 
-`NoClaimWiderThanServed`, `EqualityNotAppliedSaidInBand` and
-`PerGraphClosureSaidInBand`, in this ADR's set. The tests are
+`NoClaimWiderThanServed`, `EqualityNotAppliedSaidInBand`,
+`PerGraphClosureSaidInBand`, `MergeUnderOneCrossGraphBindingIsItsClosure`
+and `UncoveredGraphRefusedOrSaid`, in this ADR's set. The tests are
 `InferenceSurfaceTests`:
 - `The_service_description_names_owl2_rl_without_equality_and_never_pr_RL`;
 - `An_owl2_rl_answer_says_equality_was_not_applied`;
-- `An_owl2_rl_answer_over_a_merge_says_it_was_answered_graph_by_graph`.
-
+- `An_owl2_rl_answer_over_a_merge_says_it_was_answered_graph_by_graph`;
+- `A_merge_under_a_cross_graph_binding_is_the_closure_of_the_merge`;
+- `Owl2_rl_or_a_view_naming_a_graph_with_no_closure_is_entailment_unsupported`;
+- `Graph_variable_over_a_mix_names_the_graphs_read_without_a_closure`.

@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -94,8 +95,32 @@ internal static class QueryRun
             return;
         }
 
-        // A default graph merging two or more graphs under owl2-rl is each graph's closure, merged (ADR 0197, ruling of 2026-11-19).
-        bool perGraph = owl2Rl && MergedGraphs(query.Dataset) > 1;
+        // owl2-rl or a view over a graph no binding gives a closure is refused, not answered narrower (ADR 0197, amended 2026-11-19).
+        IReadOnlyList<IInferenceClosure> closures = exchange.Options.InferenceClosures?.Of(exchange.Name) ?? [];
+        DatasetSpec? askedDataset = query.Dataset;
+        bool viewsNamed = NamesAView(askedDataset);
+        GraphsNamed? patterns = owl2Rl || viewsNamed ? GraphsNamed.Of(query) : null;
+        if (patterns is not null)
+        {
+            foreach (RdfTerm named in DatasetGraphs(askedDataset).Concat(patterns.Graphs))
+            {
+                if (!Covered(closures, named, owl2Rl))
+                {
+                    await UncoveredAsync(context, asked, named, owl2Rl).ConfigureAwait(false);
+                    return;
+                }
+            }
+        }
+
+        // A default graph merging two or more graphs under owl2-rl is each graph's closure, merged (ADR 0197, ruling of 2026-11-19),
+        // unless one cross-graph binding covers every one of them: its premise-set graphs within the merge are then read too, and
+        // the merge is the closure of the merge.
+        bool perGraph = owl2Rl && MergedGraphs(askedDataset) > 1;
+        if (perGraph && !viewsNamed && !Reads.IsAsOf(context) && WithPremiseSets(closures, askedDataset!) is { } whole)
+        {
+            query = query with { Dataset = whole };
+            perGraph = false;
+        }
 
         // A view is a part of the closure, which tier 1 has not (ADR 0198 point 1).
         (ClosureMode mode, DatasetSpec? dataset) = Views(query.Dataset, owl2Rl);
@@ -168,6 +193,12 @@ internal static class QueryRun
             {
                 context.Response.Headers[EntailmentHeader.ClosureName] = EntailmentHeader.ClosurePerGraph;
             }
+        }
+
+        // GRAPH ?g over named graphs some of which have no closure is answered, and says which were read without one.
+        if (patterns is { AnyVariable: true } && WithoutClosure(exchange, view, closures, askedDataset, owl2Rl) is { Length: > 0 } without)
+        {
+            context.Response.Headers[EntailmentHeader.WithoutClosureName] = without;
         }
         context.Response.ContentType = graph ? syntax.MediaType : results.MediaType;
 
@@ -303,6 +334,164 @@ internal static class QueryRun
 
         return (new ClosureMode(defaultViews == 0 ? rest : defaultViews, namedViews == 0 ? rest : namedViews, defaultGraphs, namedGraphs), null);
     }
+
+    /// <summary>Whether a query's dataset names a view, <c>varve:explicit</c> or <c>varve:implicit</c> (ADR 0198 point 1).</summary>
+    private static bool NamesAView(DatasetSpec? dataset) =>
+        dataset is not null && (Parts(dataset.DefaultGraphs, out _) != 0 || Parts(dataset.NamedGraphs, out _) != 0);
+
+    /// <summary>The graphs a query's <c>FROM</c> and <c>FROM NAMED</c> name, its views not counted.</summary>
+    private static List<RdfTerm> DatasetGraphs(DatasetSpec? dataset)
+    {
+        if (dataset is null)
+        {
+            return [];
+        }
+
+        Parts(dataset.DefaultGraphs, out List<RdfTerm> defaults);
+        Parts(dataset.NamedGraphs, out List<RdfTerm> named);
+        return [.. defaults, .. named];
+    }
+
+    /// <summary>
+    /// Whether a binding gives <paramref name="graph"/> a closure:
+    /// <c>owl2-rl</c> needs an OWL2RL one, a view any materialising one. A
+    /// data graph of the binding, its reserved graph of TBox conclusions and
+    /// its premise-set graphs are; its TBox graphs are not, their conclusions
+    /// being in the reserved graph (ADR 0198 point 2).
+    /// </summary>
+    private static bool Covered(IReadOnlyList<IInferenceClosure> closures, RdfTerm graph, bool owl2Rl)
+    {
+        foreach (IInferenceClosure closure in closures)
+        {
+            if (owl2Rl && closure.Profile != Varve.Inference.Model.InferenceProfile.Owl2Rl)
+            {
+                continue;
+            }
+
+            if (closure.TBoxConclusions.Equals(graph) || closure.PremiseSetOf(graph) is not null
+                || (closure.DataGraphs.Allows(graph) && !closure.TBoxGraphs.Contains(graph)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The dataset with a cross-graph binding's premise-set graphs added to
+    /// its default graph, those whose every graph is merged in it, when one
+    /// cross-graph OWL2RL binding covers every graph merged; null otherwise
+    /// (ADR 0197, amended 2026-11-19). A caller reads a premise-set graph's
+    /// rows only when it reads every graph of its set (ADR 0190 point 6).
+    /// </summary>
+    private static DatasetSpec? WithPremiseSets(IReadOnlyList<IInferenceClosure> closures, DatasetSpec dataset)
+    {
+        Parts(dataset.DefaultGraphs, out List<RdfTerm> merged);
+        HashSet<RdfTerm> within = new(merged, RdfTerm.Comparer);
+        foreach (IInferenceClosure closure in closures)
+        {
+            if (closure.Profile != Varve.Inference.Model.InferenceProfile.Owl2Rl || closure.PremiseSetGraphs() is not { } sets
+                || !merged.TrueForAll(g => closure.DataGraphs.Allows(g) && !closure.TBoxGraphs.Contains(g)))
+            {
+                continue;
+            }
+
+            List<RdfTerm> defaults = [.. dataset.DefaultGraphs];
+            foreach (RdfTerm set in sets)
+            {
+                if (closure.PremiseSetOf(set) is { } members && members.All(within.Contains))
+                {
+                    defaults.Add(set);
+                }
+            }
+
+            return dataset with { DefaultGraphs = AlgebraList.From(defaults) };
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The named graphs a <c>GRAPH ?g</c> could read that no binding gives a
+    /// closure, as a header value: <c>FROM NAMED</c>'s, or every named graph
+    /// the caller reads when it names none or only a view; at most twenty,
+    /// then how many more. Empty when every one has a closure.
+    /// </summary>
+    private static string WithoutClosure(Exchange exchange, DatasetView view, IReadOnlyList<IInferenceClosure> closures, DatasetSpec? dataset, bool owl2Rl)
+    {
+        // FROM NAMED's graphs; none when only FROM is given (SPARQL 1.1 §13.2); every named graph the caller reads
+        // when the query names none, or names only a view (ADR 0198 point 1).
+        List<RdfTerm> candidates = [];
+        ClosurePart views = 0;
+        if (dataset is not null && (dataset.DefaultGraphs.Count > 0 || dataset.NamedGraphs.Count > 0))
+        {
+            views = Parts(dataset.NamedGraphs, out candidates);
+        }
+
+        if (dataset is null || (dataset.DefaultGraphs.Count == 0 && dataset.NamedGraphs.Count == 0) || (candidates.Count == 0 && views != 0))
+        {
+            SparqlEvaluator evaluator = new(exchange.Options.Evaluation);
+            using QueryResults graphs = evaluator.Evaluate(ServiceDescriptionEndpoint.NamedGraphs, exchange.ReadableGraphs(view), exchange.Context.RequestAborted);
+            SolutionResults solutions = (SolutionResults)graphs;
+            while (solutions.MoveNext())
+            {
+                if (solutions.TryGetTerm(new ColumnIndex(0), out RdfTerm? name))
+                {
+                    candidates.Add(name!);
+                }
+            }
+        }
+
+        List<string> without = [];
+        int more = 0;
+        foreach (RdfTerm candidate in candidates)
+        {
+            if (candidate.Kind != RdfTermKind.Iri || Covered(closures, candidate, owl2Rl))
+            {
+                continue;
+            }
+
+            if (without.Count < 20)
+            {
+                without.Add("<" + System.Text.Encoding.UTF8.GetString(candidate.Lexical) + ">");
+            }
+            else
+            {
+                more++;
+            }
+        }
+
+        if (more > 0)
+        {
+            without.Add("+" + more.ToString(System.Globalization.CultureInfo.InvariantCulture) + " more");
+        }
+
+        return string.Join(", ", without);
+    }
+
+    /// <summary>
+    /// <c>owl2-rl</c>, or a view, naming a graph that no binding gives a
+    /// closure: <c>400 entailment-unsupported</c>, naming the graph (ADR 0197
+    /// point 6, ADR 0198 point 1).
+    /// </summary>
+    private static Task UncoveredAsync(HttpContext context, Microsoft.Extensions.Primitives.StringValues asked, RdfTerm graph, bool owl2Rl) =>
+        HttpProblems.WriteAsync(context, ProblemType.EntailmentUnsupported,
+            owl2Rl
+                ? "No varve:OWL2RL binding covers <" + System.Text.Encoding.UTF8.GetString(graph.Lexical) + ">: owl2-rl is answered by a binding's closure, and this graph has none. Name only graphs an OWL2RL binding covers, or read this one under simple, rdf, rdfs or d."
+                : "No materialising binding covers <" + System.Text.Encoding.UTF8.GetString(graph.Lexical) + ">: a view is a part of a binding's closure, and this graph has none. Name only graphs a varve:RDFS or varve:OWL2RL binding covers.",
+            members =>
+            {
+                members.String("value", asked.Count > 0 ? EntailmentHeader.Shown(asked) : "simple");
+                System.Text.Json.Utf8JsonWriter json = members.Raw("supported");
+                json.WriteStartArray("supported");
+                foreach (string token in EntailmentHeader.Supported)
+                {
+                    json.WriteStringValue(token);
+                }
+
+                json.WriteEndArray();
+            });
 
     /// <summary>The graphs a query's default graph merges, its views not counted: zero for the dataset's own default graph.</summary>
     internal static int MergedGraphs(DatasetSpec? dataset)

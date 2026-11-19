@@ -106,7 +106,7 @@ internal static class InferenceBench
 
         Console.WriteLine($"sample: {sample.Count} commits ({string.Join(", ", sample.GroupBy(c => c.Kind).OrderByDescending(g => g.Count()).Select(g => $"{g.Count()} {g.Key}"))}); {retracting} retract something, {entities} retract an entity, {retyping} change a type");
         closures.Clear();
-        foreach (Retraction strategy in new[] { Retraction.RecursiveCounting, Retraction.DeleteAndRederive, Retraction.BackwardForward })
+        foreach ((Retraction strategy, string strategyName) in new (Retraction, string)[] { (Candidates.RecursiveCounting.Instance, "RecursiveCounting"), (Retraction.DeleteAndRederive, "DeleteAndRederive"), (Candidates.BackwardForward.Instance, "BackwardForward") })
         {
             long start = Heap();
             Stopwatch building = Stopwatch.StartNew();
@@ -120,7 +120,7 @@ internal static class InferenceBench
 
             double build = building.Elapsed.TotalSeconds;
             long holding = Heap() - start;
-            Console.WriteLine($"//   {strategy}: built in {build:F1} s, heap {holding / 1048576.0:F0} MiB, {(double)holding / mine.Values.Sum(c => c.Count.Value):F0} B a fact");
+            Console.WriteLine($"//   {strategyName}: built in {build:F1} s, heap {holding / 1048576.0:F0} MiB, {(double)holding / mine.Values.Sum(c => c.Count.Value):F0} B a fact");
             TimeSpan budget = TimeSpan.FromMinutes(budgetMinutes);
             Stopwatch spent = Stopwatch.StartNew();
 
@@ -162,13 +162,13 @@ internal static class InferenceBench
 
                 if (spent.Elapsed > budget)
                 {
-                    Console.WriteLine($"//   {strategy}: stopped after {times.Count} commits, past its budget of {budget.TotalMinutes:F0} minutes");
+                    Console.WriteLine($"//   {strategyName}: stopped after {times.Count} commits, past its budget of {budget.TotalMinutes:F0} minutes");
                     break;
                 }
             }
 
             times.Sort();
-            Console.WriteLine($"{strategy}: {times.Count} commits, total {times.Sum() / 1000:F1} s; per commit p50 {Percentile(times, 0.5):F2} ms, p99 {Percentile(times, 0.99):F2} ms, worst {worst.Worst:F1} ms (commit {worst.At}, {worst.Kind}); facts after {mine.Values.Sum(c => c.Count.Value)}");
+            Console.WriteLine($"{strategyName}: {times.Count} commits, total {times.Sum() / 1000:F1} s; per commit p50 {Percentile(times, 0.5):F2} ms, p99 {Percentile(times, 0.99):F2} ms, worst {worst.Worst:F1} ms (commit {worst.At}, {worst.Kind}); facts after {mine.Values.Sum(c => c.Count.Value)}");
             mine.Clear();
         }
     }
@@ -298,7 +298,7 @@ internal static class InferenceBench
         tboxClosure.Apply(tbox, []);
         Stage("TBox closed");
         Stopwatch clock = Stopwatch.StartNew();
-        Closure merge = new(InferenceProgram.Of(profile, terms), Retraction.RecursiveCounting, tbox: tboxClosure);
+        Closure merge = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive, tbox: tboxClosure);
         merge.Apply([.. holders.Keys], []);
         Stage("merge closed");
         PremiseSets sets = new(merge, graphs.SelectMany(g => g.Value.Select(f => (f, new DataGraphIndex(indices[g.Key])))));
@@ -413,12 +413,12 @@ internal static class InferenceBench
         Dictionary<string, HashSet<Fact>> graphs = State(terms, RecPortfolio.Generate(size, Seed));
         long before = Heap();
         FactBudget budget = new(new MemoryAmount(long.MaxValue), ClosureCosts.For(profile));
-        Closure tboxClosure = new(InferenceProgram.Of(profile, terms), Retraction.RecursiveCounting, budget);
+        Closure tboxClosure = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive, budget);
         tboxClosure.Apply(tbox, []);
         long facts = tboxClosure.Count.Value;
         if (crossGraph)
         {
-            Closure merge = new(InferenceProgram.Of(profile, terms), Retraction.RecursiveCounting, budget, tboxClosure);
+            Closure merge = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive, budget, tboxClosure);
             merge.Apply([.. graphs.Values.SelectMany(g => g).Distinct()], []);
             string[] names = [.. graphs.Keys.Order(StringComparer.Ordinal)];
             PremiseSets sets = new(merge, names.SelectMany((n, i) => graphs[n].Select(f => (f, new DataGraphIndex(i)))));
@@ -429,7 +429,7 @@ internal static class InferenceBench
         {
             foreach (HashSet<Fact> graph in graphs.Values)
             {
-                Closure closure = new(InferenceProgram.Of(profile, terms), Retraction.RecursiveCounting, budget, tboxClosure);
+                Closure closure = new(InferenceProgram.Of(profile, terms), Retraction.DeleteAndRederive, budget, tboxClosure);
                 closure.Apply([.. graph], []);
                 facts += closure.Count.Value;
             }

@@ -324,6 +324,8 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 
         public IReadOnlyList<RdfTerm>? PremiseSetOf(RdfTerm graph) => Projection.PremiseSetOf(graph);
 
+        public IReadOnlyList<RdfTerm>? PremiseSetGraphs() => Projection.Binding.CrossGraph ? Projection.PremiseSetGraphs() : null;
+
         public InferredRows RowsAt(Position position)
         {
             switch (Projection.TryRead(position, out InferredRows? rows))

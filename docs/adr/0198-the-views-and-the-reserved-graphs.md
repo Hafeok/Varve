@@ -45,7 +45,12 @@ answer a `GRAPH ?g` should give.
   never the view's.** That differs from GraphDB on purpose.
 - **A view IRI counts as a `FROM`.** A query with `FROM` and no `FROM NAMED`
   has no named graphs, as SPARQL 1.1 §13.2 has it.
-- **A graph with no materialising binding** has an empty implicit part.
+- **A view naming a graph no materialising binding covers** (by `FROM`,
+  `FROM NAMED`, the protocol or `GRAPH <g>`) is `entailment-unsupported`,
+  naming the graph: that graph has no closure to read a part of (ADR 0197,
+  amended 2026-11-19, §3a). Under `GRAPH ?g`, such a graph read through
+  `FROM NAMED varve:implicit` has an empty implicit part, and the answer
+  lists it in `Varve-Without-Closure`.
 - **A view with `rdf`, `rdfs`, `d` or `owl2-ql`** is
   `entailment-unsupported`: a view is a part of the closure, which tier 1 does
   not have. A view combines with `simple` and `owl2-rl`.
@@ -99,8 +104,10 @@ apply to them without a check of their own, in the seam's order:
 - the refusal after erasure (ADR 0195 point 8);
 - `503 inference-behind`.
 
-A graph with no materialising binding has no closure to refuse: its explicit
-part is its quads, and its implicit part is empty, under every grant.
+A graph with no materialising binding has no closure to refuse it for: a
+view naming it is `entailment-unsupported` (point 1), and under `GRAPH ?g`
+its explicit part is its quads and its implicit part is empty, under every
+grant, and the answer says so in `Varve-Without-Closure`.
 
 ## Alternatives considered
 

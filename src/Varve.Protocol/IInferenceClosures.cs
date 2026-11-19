@@ -61,6 +61,14 @@ public interface IInferenceClosure
     IReadOnlyList<RdfTerm>? PremiseSetOf(RdfTerm graph);
 
     /// <summary>
+    /// A cross-graph binding's premise-set graphs that hold rows at its
+    /// projection's position (ADR 0190 point 6), so that a merge of its data
+    /// graphs can read them (ADR 0197, amended 2026-11-19); null for an
+    /// intra-graph binding, which has none.
+    /// </summary>
+    IReadOnlyList<RdfTerm>? PremiseSetGraphs();
+
+    /// <summary>
     /// The binding's implicit quads at <paramref name="position"/>: the rows
     /// held there, or, below what is held, the closure from scratch, after
     /// one bounded wait for the projection to reach the position.

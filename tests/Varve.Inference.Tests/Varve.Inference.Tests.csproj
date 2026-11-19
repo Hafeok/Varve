@@ -10,6 +10,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The retraction candidates ADR 0196 did not choose, kept with the benchmarks and held to the same property here. -->
+    <Compile Include="../Varve.Benchmarks/Retraction/*.cs" LinkBase="Candidates" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
     <PackageReference Include="CsCheck" />

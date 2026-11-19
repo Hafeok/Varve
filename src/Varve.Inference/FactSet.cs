@@ -123,32 +123,6 @@ internal sealed class FactSet
     /// <summary>Whether this set holds a fact itself, not through its base.</summary>
     internal bool Holds(in Fact fact) => Find(fact) != None;
 
-    /// <summary>A fact's round and count under recursive counting, if this set holds it itself; (0, 0) when it was never given them.</summary>
-    internal bool TryStanding(in Fact fact, out int round, out int count)
-    {
-        int at = Find(fact);
-        if (at == None)
-        {
-            round = count = 0;
-            return false;
-        }
-
-        round = _records[at].Round;
-        count = _records[at].Count;
-        return true;
-    }
-
-    /// <summary>Sets the round and count of a fact this set holds itself.</summary>
-    internal void SetStanding(in Fact fact, int round, int count)
-    {
-        ref Record record = ref _records[Held(fact)];
-        record.Round = round;
-        record.Count = count;
-    }
-
-    /// <summary>Adds <paramref name="delta"/> to the count of a fact this set holds itself, and returns the new count.</summary>
-    internal int AddToCount(in Fact fact, int delta) => _records[Held(fact)].Count += delta;
-
     internal bool Add(in Fact fact)
     {
         if (Find(fact) != None || (Base is { } under && under.Contains(fact)))
@@ -464,7 +438,11 @@ internal sealed class FactSet
         return (int)((hash ^ (hash >> 32)) & (uint)mask);
     }
 
-    /// <summary>A fact, its round and count, and its links in the five indices.</summary>
+    /// <summary>
+    /// A fact and its links in the five indices: 64 bytes. It carried
+    /// recursive counting's round and count besides, 8 bytes more, until
+    /// DRed was chosen (ADR 0196); DRed needs neither.
+    /// </summary>
     private struct Record
     {
         private int _nextSubject, _previousSubject, _nextPredicate, _previousPredicate, _nextObject, _previousObject;
@@ -473,15 +451,9 @@ internal sealed class FactSet
         internal Record(in Fact fact)
         {
             Fact = fact;
-            Round = 0;
-            Count = 0;
         }
 
         internal Fact Fact { get; }
-
-        internal int Round { get; set; }
-
-        internal int Count { get; set; }
 
         /// <summary>Whether the record holds a fact: a fact's subject is never <see cref="TermHandle.None"/>.</summary>
         internal readonly bool Held => !Fact.Subject.IsNone;

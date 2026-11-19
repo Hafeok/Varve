@@ -174,31 +174,30 @@ A binding's closure is held in memory (ADR 0195). Measured on REC M
 
 `Varve:Inference:ClosureBytes` is a budget that every structure a closure
 grows asks before it is allocated (ADR 0195 point 6): a fact at
-its profile's measured cost (100 bytes under `rdfs`, 70 under `owl2rl`,
-beside its 72-byte record), 96 bytes beside it for the binding's row, its
+its profile's measured cost (40 bytes under `rdfs`, 70 under `owl2rl`,
+beside its 64-byte record), 96 bytes beside it for the binding's row, its
 explicit set, a build's working sets while they live, and 160 bytes for
 each of the dataset's terms the binding keeps resolved. Readiness's `peak`
 for a binding is what it has asked for at most.
 
 **Sizing REC M** (5 million data quads, one binding over its 63 graphs,
-measured 2026-11-18 on .NET 10.0.15): a from-scratch build asks the budget
+measured 2026-11-19 on .NET 10.0.15, DRed's build): a from-scratch build asks the budget
 for at most
 
 | Profile | Facts | Closures' peak | With the rows | `ClosureBytes` at least | Heap limit at least |
 |---|---|---|---|---|---|
-| `rdfs` | 17.5 million | 4.66 GB | 6.34 GB | 6 GiB | 9 GiB |
-| `owl2rl` | 23.1 million | 4.54 GB | 6.76 GB | 6.5 GiB | 9.5 GiB |
+| `rdfs` | 17.5 million | 3.36 GB | 5.04 GB | 5 GiB | 8 GiB |
+| `owl2rl` | 23.1 million | 4.28 GB | 6.50 GB | 6.5 GiB | 9.5 GiB |
 
 with the terms' 160 bytes each on top. Every binding together takes from
 one pool: the heap limit less the memtable's worst case (820 MiB at the
 default limit above a 3.2 GiB heap limit) and `Varve:Inference:ReserveBytes`,
 2 GiB by default, kept for queries, caches and requests. The heap limit
-above is `ClosureBytes` plus those two. A build needs 0.75 to 0.88 of what
+above is `ClosureBytes` plus those two. A build needs 0.77 to 0.85 of what
 the budget counts, measured, and the budget keeps a margin of a tenth, so a
 `ClosureBytes` the pool can hold is never outrun. The same graphs bound
 `varve:crossGraph true` need their premise sets besides: on REC S, the
-budget's peak is 1.9 times the per-graph build's under `rdfs` and 2.2 times
-under `owl2rl`.
+budget's peak is 2.2 times the per-graph build's under both profiles.
 
 **The reserve** was measured at the runtime limits above, with a 5 GiB heap
 limit, four concurrent reads at 256 MiB each and a writer: the rest of the

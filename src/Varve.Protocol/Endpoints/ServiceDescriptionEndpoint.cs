@@ -38,7 +38,7 @@ internal static class ServiceDescriptionEndpoint
     private const string Rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
     private const string Rdfs = "http://www.w3.org/2000/01/rdf-schema#";
 
-    private static readonly Query NamedGraphs = SparqlParser.ParseQuery("SELECT DISTINCT ?g WHERE { GRAPH ?g { } }".AsSpan());
+    internal static readonly Query NamedGraphs = SparqlParser.ParseQuery("SELECT DISTINCT ?g WHERE { GRAPH ?g { } }".AsSpan());
 
     /// <summary><c>GET /</c> and <c>HEAD /</c>.</summary>
     internal static async Task HandleAsync(HttpContext context, ProtocolOptions options)

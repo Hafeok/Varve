@@ -9,11 +9,13 @@ question 4b: three candidates, measured on REC M histories with retractions,
 the choice made on the measurement. Acceptance is the maintainer's act on the
 pull request.
 
-**The measurement and the choice are in** (point 6, 2026-11-16): recursive
-counting, by point 5's rule. **Rerun 2026-11-19** over 1,000 commits of REC M
-under `owl2rl`, on the architect's review: the choice stands by the rule.
-Whether counting stands given its cold start, twice DRed's, is the
-maintainer's to rule; until he has, DRed stays in `src/` (point 6).
+**The measurement and the choice are in** (point 6). Recursive counting led
+on the first rule, by p99 per commit alone. **The maintainer ruled on
+2026-11-19 that DRed is chosen**, and amended point 5's rule to weigh the
+build: a cold start, a generation and a recovery each pay it, and counting
+builds in about twice DRed's time. Counting and Backward/Forward, as
+retraction strategies, have moved to `tests/Varve.Benchmarks`; the proof
+search stays in `src/` for explain (ADR 0199).
 
 Amends **0172** (deletion as a second `Propagation`; join anchors in
 Inference), by a dated amendment there.
@@ -84,19 +86,28 @@ from-scratch generation (ADR 0195 point 4).
 
 ### 5. What decides
 
-- **The candidate with the lowest p99 time per commit on the `owl2rl` profile**
-  is chosen, unless another is within 20% of it there and lower on the maximum
-  or on memory, in which case the ADR states the trade and the maintainer
-  rules.
+- **The rule, as amended by the maintainer on 2026-11-19.** On the
+  `owl2rl` profile at REC M, over at least 1,000 commits:
+  1. take the candidate with the lowest p99 time per commit;
+  2. **prefer another whose p99 is within the bound** (at most twice the
+     lowest, and under 50 ms) **and which builds from scratch in at most 0.6
+     of the first's time**: about half;
+  3. otherwise, where another is within 20% of the lowest p99 and lower on
+     the maximum or on memory, the ADR states the trade and the maintainer
+     rules.
+
+  The build is weighed because each cold start, each generation (a TBox
+  commit, a term a rule names) and each recovery from a stop pays it in full
+  (ADR 0195 points 4 to 6), while a commit's p99 inside the bound is
+  milliseconds either way.
 - **The regime in which each wins** is stated, from the worst cases.
 - **Whether a size threshold switches to a from-scratch generation** is
   stated: if a commit's over-deletion or check set exceeds a share of the
   closure beyond which a generation is cheaper on the measurement, the
   threshold is that share.
-- **The losers leave `src/`**, once the maintainer has ruled on the choice:
-  their code moves to `tests/Varve.Benchmarks`, where the measurement can be
-  rerun. Until he has, they stay behind the internal strategy, under the
-  same property (point 6).
+- **The losers leave `src/`.** Their code moves to `tests/Varve.Benchmarks`,
+  where the measurement can be rerun, and where the engine's tests still
+  hold them to the property (point 2) by linking them in.
 
 ### 6. The measurement
 
@@ -149,23 +160,24 @@ counting's state in its records, so its memory column is that store's):
 | `owl2rl` | DRed | 26.9 ms | 26.9 ms | 377 |
 | `owl2rl` | Backward/Forward | 880 ms | 880 ms | 408 |
 
-**The choice by point 5's rule: recursive counting, and it stands on 1,000
-commits.** Its p99 on `owl2rl` at REC M is 11.40 ms; DRed's, 19.67 ms, is 73%
-above it, outside point 5's 20% band, and DRed is not lower on the maximum
-(30.3 ms against 16.0 ms) nor, by more than a megabyte in 3.6 GiB, on memory.
-On 50 commits the gap was 65%. The medians are within a tenth of a
-millisecond of each other (0.45 ms and 0.36 ms).
+**The choice, by the amended rule: DRed.** At REC M under `owl2rl` over
+1,000 commits:
 
-**The trade it carries, for the maintainer.** Counting builds from scratch in
-about twice DRed's time: **492.5 s against 255.7 s** on this run, **575.1 s
-against 302.4 s** on the first, at REC M under `owl2rl`. That is what every
-cold start, every generation (a TBox commit, a term a rule names) and every
-recovery from a stop pays (ADR 0195 points 4 to 6). Per commit, counting saves
-8.3 ms at p99 and 14.3 ms at its worst, 2.5 s over the 1,000 commits; it
-costs 237 s more at each build. Point 5's rule weighs commits only, so it
-chooses counting; whether the cold start outweighs that is **not yet ruled**.
-Settling facts in round order costs counting its build time; a commit does
-not.
+| | Recursive counting | DRed | Backward/Forward |
+|---|---:|---:|---:|
+| p99 per commit | **11.40 ms** (the lowest) | 19.67 ms | 1,283.57 ms |
+| p99 against the lowest | 1 | 1.73: within the bound (≤ 2, < 50 ms) | 113: outside it |
+| Built from scratch | 492.5 s | **255.7 s** | 257.5 s |
+| Build against the lowest p99's | 1 | **0.52**: at most 0.6 | 0.52 |
+
+DRed's p99 is within the bound of counting's and it builds in 0.52 of
+counting's time, so DRed is chosen. Backward/Forward builds as fast, but its
+p99 is outside the bound. On the first measurement (50 commits) the same
+holds: 32.65 ms against 19.84 ms (1.65), and 302.4 s against 575.1 s
+(0.53). **The trade, stated:** per commit, counting would save 8.3 ms at p99
+and 14.3 ms at its worst, 2.5 s over the 1,000 commits; DRed saves 237 s at
+every build. The medians are within a tenth of a millisecond (0.45 ms and
+0.36 ms).
 
 **Where each wins.** Counting and DRed are alike at the median; DRed's worst
 commits are merges whose over-deletion reaches far, which counting's counts
@@ -178,12 +190,30 @@ magnitude under a generation's 492.5 s; there is no share of the closure past
 which a generation is cheaper on this measurement. A TBox commit is a
 generation already (ADR 0195 point 4).
 
-**The losers stay in `src/` until the maintainer rules on the choice.**
-DRed and Backward/Forward stay behind the internal strategy, under the same
-property, so the choice can still be reversed and the measurement rerun as it
-was taken. Backward/Forward's check stays in `src/` in any case, as explain's
-proof search (ADR 0199). Once the choice is ruled, the strategies not chosen
-move to `tests/Varve.Benchmarks`.
+**The losers have left `src/`.** Recursive counting and Backward/Forward,
+as retraction strategies, are in `tests/Varve.Benchmarks/Retraction`, behind
+the engine's internal `Retraction`; `--inference-closure` measures all
+three, and `Varve.Inference.Tests` links them in and holds them to the same
+property as DRed. Backward/Forward's proof search stays in `src/` as
+explain's (ADR 0199).
+
+**What the fact record loses.** It carried counting's round and count, 8
+bytes a fact: the record is now 64 bytes, its fact and its links in the five
+indices, against 72. Nothing served read them: the round and count were
+counting's bookkeeping, and DRed needs neither. Counting, measured from the
+benchmarks, keeps them in a map of its own beside the closure. What the
+closure loses with them is counting's retraction itself: a retraction no
+longer stops at a fact whose count stays above zero, so DRed's worst commits,
+merges whose over-deletion reaches far, cost it 30.3 ms where counting took
+16.0 ms. The budget's costs per fact were measured again for DRed's build
+(ADR 0195 point 6), whose working sets are now charged as counting's were.
+On REC S, at the costs measured for counting, DRed's build needed 0.653
+(`rdfs` per graph), 0.718 (`rdfs` cross-graph), 0.771 (`owl2rl` per graph)
+and 0.847 (`owl2rl` cross-graph) of what the budget counted, against
+counting's 0.815, 0.872, 0.883 and 0.747: less, except cross-graph under
+`owl2rl`. `rdfs` now charges 40 bytes a fact beside the record, not 100,
+and gives 0.832 and 0.809; `owl2rl` keeps 70. All four keep the margin of a
+tenth.
 
 ## Alternatives considered
 
@@ -193,13 +223,14 @@ move to `tests/Varve.Benchmarks`.
   with, and the fallback point 5's threshold may choose for large deletions.
 - **Keep all three in `src/`.** Three implementations of one function, two of
   them unused, is scaffolding.
+- **Choose by p99 per commit alone** (this ADR's first rule): chose counting,
+  whose build is twice DRed's. Replaced by the amended rule, which weighs the
+  build.
 
 ## Consequences
 
-- Part 2 builds three deletion passes, and keeps one once the maintainer has
-  ruled on the choice; until then all three stay in `src/`.
-- Counting, if chosen, stores a count per entailment. ADR 0195's rows then
-  carry it, and the state's format says so.
+- Part 2 built three deletion passes and keeps one, DRed, in `src/`.
+- No count is stored per entailment: the fact record is 64 bytes.
 
 ## Checks
 

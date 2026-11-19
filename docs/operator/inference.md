@@ -190,16 +190,23 @@ graphs as `premiseSets`.
     `owl:sameAs` was substituted through, so an answer that needs it is
     missing.
   - **`Varve-Closure: per-graph`** when the default graph merges two or more
-    graphs (`FROM g1 FROM g2`, or two `default-graph-uri`s): the answer is
-    each graph's closure, merged, not the closure of the merge. A conclusion
-    drawn from facts of two graphs together is missing, under a cross-graph
-    binding too unless the query also names the premise-set graph that holds
-    it.
+    graphs (`FROM g1 FROM g2`, or two `default-graph-uri`s) and the answer is
+    each graph's closure, merged, not the closure of the merge: a conclusion
+    drawn from facts of two graphs together is missing. When one binding
+    with `varve:crossGraph true` covers every merged graph, the merge also
+    reads that binding's premise-set graphs within it, is the closure of the
+    merge, and carries no header; a merge that names a view, and an as-of
+    read, are always per-graph.
   - **`Varve-Inconsistent: true`** when a graph it reads holds a clash.
-  
-  `SparqlHttpClient.EntailedAnswerOf(response)` reads all three. **A graph
-  no `OWL2RL` binding covers** is read with its explicit quads only, and
-  nothing yet says so: name only covered graphs under `owl2-rl`.
+  - **`Varve-Without-Closure`** when `GRAPH ?g` ranged over named graphs no
+    `OWL2RL` binding covers: it lists them (at most twenty, then `+N more`),
+    and their rows are explicit quads only.
+
+  `SparqlHttpClient.EntailedAnswerOf(response)` reads all four. **A graph
+  no `OWL2RL` binding covers**, named by `FROM`, `FROM NAMED`, the protocol
+  or `GRAPH <g>`, is refused
+  [`400 entailment-unsupported`](../problems/entailment-unsupported.md),
+  naming it; so is a view naming a graph no materialising binding covers.
 - **The service description** describes each graph an `OWL2RL` binding
   covers with `sd:entailmentRegime ent:OWL-RDF-Based`,
   `sd:supportedEntailmentProfile varve:OWL2RLWithoutEquality` and

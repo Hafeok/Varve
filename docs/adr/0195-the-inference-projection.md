@@ -308,8 +308,9 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   working set, the process's at the end, is the nearer to its peak. A
   closure first held each fact six times and counting's state beside it,
   about 500 bytes a fact: REC M under `rdfs` did not close in 15 GB. Each
-  fact is now one record carrying counting's round and count and its links
-  in the five indices (revised 2026-11-16).
+  fact is now one record, 64 bytes: the fact and its links in the five
+  indices (revised 2026-11-16). It carried recursive counting's round and
+  count too, 72 bytes, until DRed was chosen (ADR 0196, 2026-11-19).
 
 ### 6. Lag, `inference-behind`, the memory limit, and stops
 
@@ -385,11 +386,21 @@ the heap is asked.**
   | `owl2rl` | per graph | 0.690 | counted 45% more | 0.883 |
   | `owl2rl` | cross-graph | 0.815 | counted 23% more | 0.747 |
 
-  The measured figures are 100 bytes a fact under `rdfs` and 70 under
+  Those were counting's builds. **Measured again for DRed's** on
+  2026-11-19 (ADR 0196, amended): its build needs less than counting's, the
+  fact record being 64 bytes, not 72, and no count kept per derivation, but
+  its working sets are charged as counting's were. At the figures above,
+  DRed's need over counted was 0.653 and 0.718 under `rdfs`, 0.771 and 0.847
+  under `owl2rl` (per graph, cross-graph): `rdfs` counted half again what it
+  needed. `rdfs` now charges 40 bytes a fact, not 100, and gives **0.832**
+  per graph and **0.809** cross-graph; `owl2rl` keeps 70, its cross-graph
+  build being already near the margin.
+
+  The figures in force are 40 bytes a fact under `rdfs` and 70 under
   `owl2rl`, and 280 a fact's premise sets under both; the working entry,
   touched fact and explicit fact keep their estimates, which no build showed
-  off. REC M's peaks, by the same count: 4.66 GB under `rdfs` (17.5 million
-  facts) and 4.54 GB under `owl2rl` (23.1 million), the projection's rows
+  off. REC M's peaks, by the same count, for DRed's build: 3.36 GB under `rdfs`
+  (17.5 million facts) and 4.28 GB under `owl2rl` (23.1 million), the projection's rows
   (96 bytes a fact) besides.
 - **The margin** the budget keeps above them is **a tenth**: a build must
   finish under a heap limit of the heap held before it and 0.9 of its
@@ -401,7 +412,10 @@ the heap is asked.**
   when a build needs more; on REC S it also bisects the least heap. Run by
   hand on 2026-11-18, REC M per graph finished within the margin under both
   profiles: under `rdfs` in 4.98 GiB (the heap before, 1.08 GiB, and 0.9 of a
-  4.34 GiB peak), under `owl2rl` in 4.88 GiB (0.9 of 4.22 GiB).
+  4.34 GiB peak), under `owl2rl` in 4.88 GiB (0.9 of 4.22 GiB). Run again on
+  2026-11-19 for DRed's build at the costs in force: under `rdfs` in 3.90
+  GiB (1.08 GiB and 0.9 of a 3.13 GiB peak), under `owl2rl` in 4.66 GiB (0.9
+  of 3.98 GiB).
 
 **One pool for the process: what the heap limit leaves.**
 - **Every binding's budget also takes from one pool**, and a request is

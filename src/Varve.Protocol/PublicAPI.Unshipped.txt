@@ -617,3 +617,4 @@ override Varve.Protocol.NoClosureMemory.GetHashCode() -> int
 override Varve.Protocol.NoClosureMemory.ToString() -> string!
 static Varve.Protocol.NoClosureMemory.operator !=(Varve.Protocol.NoClosureMemory? left, Varve.Protocol.NoClosureMemory? right) -> bool
 static Varve.Protocol.NoClosureMemory.operator ==(Varve.Protocol.NoClosureMemory? left, Varve.Protocol.NoClosureMemory? right) -> bool
+Varve.Protocol.IInferenceClosure.PremiseSetGraphs() -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?

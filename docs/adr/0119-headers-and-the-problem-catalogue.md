@@ -324,23 +324,28 @@ accepts it (ADR 0066).
 `ClosureMemoryLimit`, ADR 0197's `ClashReportedNotServed`, and ADR 0238's
 `EntailmentNotAvailableNamesNoBinding`.
 
-## Amendment, 2026-11-19 — `Varve-Equality` and `Varve-Closure`
+## Amendment, 2026-11-19 — `Varve-Equality`, `Varve-Closure` and `Varve-Without-Closure`
 
 Filed by Inference, part 2 (#171), unaccepted until the maintainer accepts
 it (ADR 0066), under the maintainer's ruling of 2026-11-19 that an answer
 narrower than its request suggests says so in-band
-(ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md), amended 2026-11-19). Two
-response headers join `Varve-Inconsistent`, each on a query answered under
-`Varve-Entailment: owl2-rl`, each absent under any other regime:
+(ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md), amended 2026-11-19).
+Three response headers join `Varve-Inconsistent`. The first two are on a query
+answered under `Varve-Entailment: owl2-rl`, and absent under any other regime:
 
 - **`Varve-Equality: not-applied`**: the binding answering it has
   `varve:sameAs varve:SameAsOff` and applied none of the equality rules.
 - **`Varve-Closure: per-graph`**: the query's default graph merged two or
   more graphs and was answered by the union of each graph's closure, not by
-  the closure of their merge.
+  the closure of their merge. A merge one cross-graph binding covers is the
+  closure of the merge and carries none.
+- **`Varve-Without-Closure`**: under `owl2-rl`, or with a view, a `GRAPH ?g`
+  ranged over named graphs no binding gives a closure. Its value lists them,
+  IRIs in angle brackets separated by `, `, at most twenty, then `+N more`;
+  only graphs the caller reads.
 
-`SparqlHttpClient.EntailedAnswerOf` reads both, and `Varve-Inconsistent`.
+`SparqlHttpClient.EntailedAnswerOf` reads all three, and `Varve-Inconsistent`.
 
-**The ledger.** ADR 0197's `EqualityNotAppliedSaidInBand` and
-`PerGraphClosureSaidInBand`.
+**The ledger.** ADR 0197's `EqualityNotAppliedSaidInBand`,
+`PerGraphClosureSaidInBand` and `UncoveredGraphRefusedOrSaid`.
 

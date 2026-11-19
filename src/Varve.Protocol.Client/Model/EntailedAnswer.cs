@@ -16,11 +16,12 @@ namespace Varve.Protocol.Client.Model;
 /// </summary>
 public readonly record struct EntailedAnswer
 {
-    private EntailedAnswer(bool inconsistent, bool equalityNotApplied, bool perGraphClosure)
+    private EntailedAnswer(bool inconsistent, bool equalityNotApplied, bool perGraphClosure, IReadOnlyList<GraphWithoutClosure> withoutClosure)
     {
         Inconsistent = inconsistent;
         EqualityNotApplied = equalityNotApplied;
         PerGraphClosure = perGraphClosure;
+        WithoutClosure = withoutClosure;
     }
 
     /// <summary><c>Varve-Inconsistent: true</c>: a graph the query read holds a clash, and the answer is the rules' fixpoint all the same (ADR 0197 point 5).</summary>
@@ -39,10 +40,18 @@ public readonly record struct EntailedAnswer
     /// <c>Varve-Closure: per-graph</c>: the query's default graph merged two
     /// or more graphs, and was answered by the union of each graph's
     /// closure, not by the closure of their merge; a conclusion drawn from
-    /// facts of two graphs together is missing unless a cross-graph
-    /// binding's premise-set graph that holds it is named too.
+    /// facts of two graphs together is missing. A merge one cross-graph
+    /// binding covers is the closure of the merge, and is not so marked.
     /// </summary>
     public bool PerGraphClosure { get; }
+
+    /// <summary>
+    /// <c>Varve-Without-Closure</c>: the named graphs a <c>GRAPH ?g</c> read
+    /// that no binding gives a closure, whose rows are explicit quads only:
+    /// IRIs in angle brackets, at most twenty, then <c>+N more</c>. Empty
+    /// when the header is absent.
+    /// </summary>
+    public IReadOnlyList<GraphWithoutClosure> WithoutClosure { get => field ?? []; private init; }
 
     /// <summary>What the headers of <paramref name="response"/> say of its answer.</summary>
     public static EntailedAnswer Of(HttpResponseMessage response)
@@ -51,7 +60,10 @@ public readonly record struct EntailedAnswer
         return new EntailedAnswer(
             Is(response, "Varve-Inconsistent", "true"),
             Is(response, "Varve-Equality", "not-applied"),
-            Is(response, "Varve-Closure", "per-graph"));
+            Is(response, "Varve-Closure", "per-graph"),
+            response.Headers.TryGetValues("Varve-Without-Closure", out IEnumerable<string>? without)
+                ? Array.ConvertAll(string.Join(",", without).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries), entry => new GraphWithoutClosure(entry))
+                : []);
     }
 
     private static bool Is(HttpResponseMessage response, string header, string value) =>

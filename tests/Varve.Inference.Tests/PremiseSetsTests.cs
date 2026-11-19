@@ -10,6 +10,7 @@ using Varve.Inference.Model;
 using Varve.Rdf;
 using Xunit;
 
+
 namespace Varve.Inference.Tests;
 
 /// <summary>
@@ -37,7 +38,7 @@ public class PremiseSetsTests
 
             Closure beneath = new(program, Retraction.DeleteAndRederive);
             beneath.Apply(tbox, []);
-            Closure merge = new(program, Retraction.RecursiveCounting, budget: null, tbox: beneath);
+            Closure merge = new(program, Retraction.DeleteAndRederive, budget: null, tbox: beneath);
             merge.Apply([.. data.SelectMany(g => g).Distinct()], []);
             List<(Fact, DataGraphIndex)> held = [];
             for (int g = 0; g < Graphs; g++)
@@ -83,7 +84,7 @@ public class PremiseSetsTests
             Program program = Program.Of(profile, terms);
             Closure beneath = new(program, Retraction.DeleteAndRederive);
             beneath.Apply([.. sample.Item1.Select(t => terms.Fact(t.S, t.P, t.O)).Distinct()], []);
-            Closure merge = new(program, Retraction.RecursiveCounting, budget: null, tbox: beneath);
+            Closure merge = new(program, Retraction.DeleteAndRederive, budget: null, tbox: beneath);
             HashSet<Fact>[] graphs = [.. Enumerable.Range(0, Graphs).Select(_ => new HashSet<Fact>())];
             PremiseSets sets = new(merge, []);
             Random random = new(sample.Item3);
