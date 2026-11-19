@@ -22,6 +22,7 @@ in a graph no binding classifies, is governed by its graph alone.
 The binding names an annotated shapes graph of the dataset and the graphs it
 classifies, in the dataset's management graph:
 
+<!-- ci: ci.yml build — RowApplyTests and RowDeclarationTests -->
 ```trig
 <https://w3id.org/varve/ns#manage/dataset/portfolio> {
   ex:rows a varve:ClassifierBinding ;
@@ -33,6 +34,7 @@ classifies, in the dataset's management graph:
 The shapes graph says who the data subjects are, which predicates carry
 ownership, and which predicates are public:
 
+<!-- ci: ci.yml build — RowScopeTests and Varve.Classification.Tests -->
 ```turtle
 ex:TenantShape a sh:NodeShape ;
   sh:targetClass rec:Tenant ;
@@ -65,6 +67,7 @@ ex:SpaceKind a sh:PropertyShape ;
 
 Subject terms go on an ordinary read or write grant:
 
+<!-- ci: ci.yml build — RowApplyTests and RowScopeTests -->
 ```trig
 ex:tenant-users a varve:Grant ;
   varve:grantee ex:TenantUsers ;

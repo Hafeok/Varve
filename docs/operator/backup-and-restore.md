@@ -9,7 +9,7 @@ A file dataset is one directory under `Varve:DatasetsRoot` (ADR 0072,
 |---|---|---|
 | `log/` | the source of truth: a manifest and append-only segments, **format version 1**, never rewritten, read for ever | the dataset |
 | `derived/` | the projection's runs, the checkpoints — `extents/` and the `catalog` that names them (ADR 0139) — the commit index and bulk-load spills: rebuilt from the log on a cache miss | a slower open, and as-of reads that replay the log |
-| `lock` | the lease of the process that holds the dataset (ADR 0075) | nothing; a stale one is taken over |
+| `derived/LOCK`, `derived/LOCK.owner` | the lease of the process that holds the dataset, and whose it is (ADR 0075) | nothing; a stale one is taken over |
 
 **A backup is a copy of the directory.** `log/` alone is enough; `derived/`
 saves the replay. Every commit is flushed to the device before it is
@@ -40,6 +40,7 @@ cleanest hot copy.
 **Cold**: declare the dataset closed first, so that the copy is exactly a
 position. `$OPERATOR` is a token for the management audience (ADR 0163):
 
+<!-- ci: none — no job closes, copies and reopens a dataset yet; pull request C of #129 adds one -->
 ```sh
 curl -X PUT -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json' \
   -d '{"state":"closed"}' https://varve.example/manage/datasets/people/state
@@ -55,6 +56,7 @@ from the copy itself, or `GET /manage/datasets/people/status` before the close.
 
 A checkpoint bounds the replay an open and an as-of read do (ADR 0078):
 
+<!-- ci: ci.yml build — CliTests' checkpoint, and ManagementTests' POST …/checkpoints -->
 ```sh
 curl -X POST -H "Authorization: Bearer $OPERATOR" https://varve.example/manage/datasets/people/checkpoints
 varve checkpoint /var/lib/varve/people        # the dataset must not be held by a server
@@ -64,8 +66,9 @@ A checkpoint is an **extent set**: the intervals of every quad over the window
 since the previous checkpoint, in `derived/extents/`, named by
 `derived/catalog` (ADRs 0138, 0139). Below the newest checkpoint an as-of read
 replays no log at all; above it, only the log after it. The sets are
-derived and rebuilt if lost; a dataset written by the previous release keeps
-its full checkpoints in `derived/checkpoints/` until they are dropped.
+derived and rebuilt if lost. Full checkpoints in `derived/checkpoints/` left
+by a release before derived format 6 are misses for this build: they are not
+read, and the log answers instead (ADR 0213).
 Dropping a checkpoint merges its set into the next, so no answer changes.
 
 A dataset's `CheckpointPolicy` can write them on a schedule of commits; the
@@ -124,6 +127,7 @@ so every instance announces the catalog versions it reads in a reader record,
 and the writer deletes a set only when no record holds it (ADR 0160). Until
 then the store keeps it, and its bytes are *retained*.
 
+<!-- ci: ci.yml storage-services — ObjectStorageServerTests, against Azurite -->
 ```sh
 varve storage https://account.blob.core.windows.net/varve/people
 varve storage readers list https://account.blob.core.windows.net/varve/people
@@ -142,6 +146,7 @@ removed without a clean stop, a killed `varve query` — keeps its record. When
 `readers list` shows one that retains bytes and you know it is gone, forget it
 with the interval list showed:
 
+<!-- ci: ci.yml storage-services — ObjectStorageServerTests, against Azurite -->
 ```sh
 varve storage readers forget https://account.blob.core.windows.net/varve/people \
   --reader 3f2a… --oldest 41 --newest 42
@@ -161,6 +166,7 @@ replication; see [Azure Container Apps](azure-container-apps.md).
 Put the directory under the root, under the name the dataset should have,
 with the dataset declared closed, then declare it open:
 
+<!-- ci: none — no job restores a copy under a running server yet; pull request C of #129 adds one -->
 ```sh
 cp -a /backup/people-20261008T120000Z /var/lib/varve/people
 curl -X PUT -H "Authorization: Bearer $OPERATOR" -H 'Content-Type: application/json' \
@@ -202,25 +208,54 @@ happens then:
 `varve lease <dir>` says what the lease is now: it prints the owner file and
 tries to take the lock, releasing it at once; exit 0 free, 1 held.
 
+<!-- ci: ci.yml build — CliTests' lease case -->
 ```sh
 $ varve lease /var/lib/varve/people
-held by pid 4242 on db-1 since 2026-10-09T15:02:11Z
+owner: process 4242 on db-1, since 2026-10-09T15:02:11Z
+lock: held
 ```
 
 `varve lease --break <dir>` is for the one case the OS does not handle: a
 filesystem that did not release a dead process's lock. It takes the lock to
-prove the lease free; when it can, it removes `LOCK.owner`, reports whose it
-was and exits 0. When the lock is held it **refuses**, names the holder and
+prove the lease free; when it can, it removes `LOCK.owner` and `LOCK`,
+reports whose they were and exits 0. When the lock is held it **refuses**, names the holder and
 exits 1, so that `--break` can never let a second process in on a filesystem
 whose locks work. On a filesystem where locking fails for every caller, it
 says so and names the filesystem as the problem: the dataset must move to one
 that locks.
+
+## Damaged data
+
+Damage is told apart by where it is, and only one kind needs a backup.
+
+- **`derived/` damaged** (a run, a checkpoint's extents, a dictionary, a
+  commit index). Every block is checked before it is used (ADR 0213). A
+  block that does not match its check is a cache miss: the blob is put
+  aside, that part of the answer is read again from the log, and no read
+  fails or answers differently. The writer writes a damaged set again on its
+  next round. Nothing is for the operator to do, except to watch
+  `varve.store.derived.damaged` ([Observe](observe.md#metrics)): a count
+  that keeps rising is the disk, or the object store, under `derived/`
+  failing. Check it, or move the dataset; deleting `derived/` is never
+  needed, and is safe.
+- **A bulk load's spill damaged.** The load's own sorted input, read back
+  before its commit, did not match what it wrote
+  ([`load-spill-damaged`](../problems/load-spill-damaged.md)). Nothing was
+  committed. Running the same `varve load` again is right; if it recurs, the
+  disk under the dataset, where the spills are (`derived/bulk/`), is
+  failing.
+- **`log/` damaged.** A segment's hash does not chain, or a record is out of
+  order: the dataset fails to open with `failure` `damaged`
+  ([`unavailable`](../problems/unavailable.md)). The log is the source of
+  truth and nothing rebuilds it: [restore](#restoring) the dataset from a
+  copy. A restart does not help.
 
 ## The change feed as an incremental copy
 
 A consumer that persists the last position it applied misses nothing by
 resuming from it (`docs/spec/change-feed.md` §4):
 
+<!-- ci: ci.yml build — CliTests: feed, and a server reached with --token -->
 ```sh
 varve feed https://varve.example/datasets/people/ --from "$LAST" --token "$TOKEN" >> people.delta
 ```
@@ -237,3 +272,10 @@ feed is a new dataset with a new id.
 TriG), or one graph as N-Triples or Turtle, and `--as-of position:<n>` on a
 directory writes the past. It is what to hand to another system; it carries
 no history.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Taking a copy.** No job closes, copies and reopens a dataset yet; pull request C of #129 adds one.
+- **Restoring.** No job restores a copy under a running server yet; pull request C of #129 adds one.
