@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.WebUi.Components.Organisms;
 
@@ -26,6 +28,7 @@ namespace Varve.WebUi.Components.Organisms;
 /// scaled: the bounds are the drawing's size in pixels.
 /// </para>
 /// </remarks>
+[Contract(typeof(TheGraphView.DeterministicRadialLayout), Role = "the graph view's layout, a pure function of the rows")]
 public static class RadialLayout
 {
     /// <summary>A chip's width.</summary>

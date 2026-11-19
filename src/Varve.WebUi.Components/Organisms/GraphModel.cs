@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System.Collections.Generic;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 
 namespace Varve.WebUi.Components.Organisms;
 
@@ -72,4 +74,14 @@ public sealed record RingNeighbour(NodeSpec Node, string Predicate, string Label
 /// <param name="Total">The nodes the neighbourhood has.</param>
 /// <param name="Budget">The node budget.</param>
 /// <param name="TableHref">The same statements as a table.</param>
-public sealed record GraphBudget(int Shown, int Total, int Budget, string TableHref);
+[Contract(typeof(TheGraphView.NodeBudgetFromTheSpike), Role = "the graph view's node budget and its budget line")]
+public sealed record GraphBudget(int Shown, int Total, int Budget, string TableHref)
+{
+    /// <summary>
+    /// The node budget: the largest size on the spike's grid whose first graph
+    /// draws, cold median, in under 100 ms (ADR 0251: 50 measured 73.0 ms, 100
+    /// measured 110.5 ms). Raised only from a re-measurement on the perf
+    /// environment with the explorer lazy (#376).
+    /// </summary>
+    public const int Nodes = 50;
+}
