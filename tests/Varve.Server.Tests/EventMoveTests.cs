@@ -417,6 +417,150 @@ public sealed class EventMoveTests
         }
     }
 
+    /// <summary>
+    /// #254: a cancel is in force from its answer on. The interval loop picks
+    /// a <c>Moving</c> dataset from the declarations it applied, then resumes
+    /// it. A cancel committed between the two is not undone by the resume: it
+    /// neither freezes the catalogue again nor finishes the move, since the
+    /// resume only finishes a move that is <c>Moving</c> (ADR 0167 points 3 and
+    /// 4). The loop is held between the two by a signal, never by time.
+    /// </summary>
+    [Fact]
+    public async Task A_cancel_applied_while_the_interval_loop_resumes_the_move_stays_in_force()
+    {
+        string root = Directory.CreateTempSubdirectory("varve-move-").FullName;
+
+        try
+        {
+            await using RunningServer server = await StartAsync(root);
+            await SeedAsync(server);
+            string before = await EventsAsync(server);
+            HeldResume held = HeldResume.Over(server.Started!.Fleet);
+
+            // The freeze, by apply: the loop picks d as Moving and is held there.
+            string declared = await (await server.Client.GetAsync(new Uri("manage/datasets/d", UriKind.Relative), Ct)).Content.ReadAsStringAsync(Ct);
+            HttpResponseMessage freeze = await TrigAsync(server, "manage/datasets/d", declared.TrimEnd().TrimEnd('}') + " <urn:fleet:d> <" + Varve + "eventDeclarations> <" + Varve + "Moving> . }");
+            Assert.Equal(HttpStatusCode.NoContent, freeze.StatusCode);
+            await held.Picked.WaitAsync(Ct);
+
+            // The cancel, by apply, answered while the loop holds d.
+            string current = await (await server.Client.GetAsync(new Uri("manage/datasets/d", UriKind.Relative), Ct)).Content.ReadAsStringAsync(Ct);
+            HttpResponseMessage cancel = await TrigAsync(server, "manage/datasets/d", current.Replace("<" + Varve + "Moving>", "<" + Varve + "InDataset>", StringComparison.Ordinal).Replace("varve:Moving", "varve:InDataset", StringComparison.Ordinal));
+            Assert.True(cancel.StatusCode == HttpStatusCode.NoContent, await cancel.Content.ReadAsStringAsync(Ct));
+            long cancelled = long.Parse(cancel.Headers.GetValues("Varve-Position").Single(), System.Globalization.CultureInfo.InvariantCulture);
+
+            // The loop goes on with what it picked.
+            Assert.False(await held.ReleaseAsync(Ct));
+
+            // The cancel stands: no freeze, no switch, and the catalogue takes writes.
+            Assert.Equal(cancelled, server.Started.Fleet.System.Head.Value);
+            Assert.Equal("in-dataset", (await JsonAsync(await server.Client.GetAsync(new Uri("manage/datasets/d/events", UriKind.Relative), Ct))).RootElement.GetProperty("state").GetString());
+            HttpResponseMessage reopened = await UpdateAsync(server, "INSERT DATA { GRAPH <" + Catalogue + "> { <https://example.org/types/Paid> <http://www.w3.org/2000/01/rdf-schema#comment> \"open after the cancel\" } }");
+            Assert.True(reopened.StatusCode == HttpStatusCode.NoContent, await reopened.Content.ReadAsStringAsync(Ct));
+            Assert.Equal(before, await EventsAsync(server));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// #254, the path the flaky test takes: the move's own cancel, for a
+    /// catalogue that does not translate one-to-one, answered while the
+    /// interval loop holds a resume it picked when the dataset was
+    /// <c>Moving</c>. Released, the resume commits nothing: before the fix it
+    /// froze the catalogue again and cancelled again, and a write between the
+    /// two was refused <c>409 event-catalogue-moved</c>.
+    /// </summary>
+    [Fact]
+    public async Task The_moves_own_cancel_is_not_frozen_again_by_a_resume_the_interval_loop_holds()
+    {
+        string root = Directory.CreateTempSubdirectory("varve-move-").FullName;
+
+        try
+        {
+            await using RunningServer server = await StartAsync(root);
+            await SeedAsync(server);
+
+            // The type node of Paid's field in a second catalogue graph: no one node of the dataset's graph.
+            const string Other = Varve + "events-catalogue/https%3A%2F%2Fexample.org%2Fother";
+            string refund = "GRAPH <" + Other + "> { "
+                + "<https://example.org/types/Refund> a <" + Varve + "EventType> ; <" + Varve + "eventName> \"Refund\" ; "
+                + "<" + Varve + "eventClass> <https://example.org/ns#Refund> ; <" + Varve + "eventVersion> 1 ; "
+                + "<" + Varve + "eventField> <https://example.org/types/Paid/total> ; "
+                + "<" + Varve + "eventSelect> \"SELECT ?total WHERE { ?event <https://example.org/ns#total> ?total }\" . "
+                + "<https://example.org/types/Paid/total> a <" + Varve + "EventField> ; <" + Varve + "fieldName> \"total\" ; "
+                + "<" + Varve + "fieldDatatype> <http://www.w3.org/2001/XMLSchema#decimal> ; <" + Varve + "fieldRequired> true }";
+            Assert.Equal(HttpStatusCode.NoContent, (await UpdateAsync(server, "INSERT DATA { " + refund + " }")).StatusCode);
+            HeldResume held = HeldResume.Over(server.Started!.Fleet);
+
+            // Frozen by apply, picked by the loop and held; then the move's request resumes it and cancels.
+            string declared = await (await server.Client.GetAsync(new Uri("manage/datasets/d", UriKind.Relative), Ct)).Content.ReadAsStringAsync(Ct);
+            Assert.Equal(HttpStatusCode.NoContent, (await TrigAsync(server, "manage/datasets/d", declared.TrimEnd().TrimEnd('}') + " <urn:fleet:d> <" + Varve + "eventDeclarations> <" + Varve + "Moving> . }")).StatusCode);
+            await held.Picked.WaitAsync(Ct);
+            HttpResponseMessage move = await MoveAsync(server);
+            string body = await move.Content.ReadAsStringAsync(Ct);
+            Assert.True(move.StatusCode == HttpStatusCode.UnprocessableEntity, body);
+            Assert.Contains("cancelled", body, StringComparison.Ordinal);
+            long cancelled = server.Started.Fleet.System.Head.Value;
+
+            Assert.False(await held.ReleaseAsync(Ct));
+
+            Assert.Equal(cancelled, server.Started.Fleet.System.Head.Value);
+            Assert.Equal("in-dataset", (await JsonAsync(await server.Client.GetAsync(new Uri("manage/datasets/d/events", UriKind.Relative), Ct))).RootElement.GetProperty("state").GetString());
+            HttpResponseMessage reopened = await UpdateAsync(server, "INSERT DATA { GRAPH <" + Catalogue + "> { <https://example.org/types/Paid> <http://www.w3.org/2000/01/rdf-schema#comment> \"open again\" } }");
+            Assert.True(reopened.StatusCode == HttpStatusCode.NoContent, await reopened.Content.ReadAsStringAsync(Ct));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// The fleet's resume, wrapped: the first time the interval loop calls it,
+    /// it signals <see cref="Picked"/> and waits for <see cref="ReleaseAsync"/>
+    /// before it runs the host's resume. Every later call runs it at once.
+    /// </summary>
+    private sealed class HeldResume
+    {
+        private readonly TaskCompletionSource _picked = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<bool> _resumed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _calls;
+
+        /// <summary>Set once the loop has picked a dataset as Moving and called the resume.</summary>
+        internal Task Picked => _picked.Task;
+
+        internal static HeldResume Over(Fleet fleet)
+        {
+            Func<Varve.Protocol.Model.DatasetName, CancellationToken, Task<bool>> resume = fleet.Resume ?? throw new InvalidOperationException("The host set no resume.");
+            HeldResume held = new();
+            fleet.Resume = async (name, cancellationToken) =>
+            {
+                if (Interlocked.Increment(ref held._calls) != 1)
+                {
+                    return await resume(name, cancellationToken);
+                }
+
+                held._picked.TrySetResult();
+                await held._release.Task.WaitAsync(cancellationToken);
+                bool moved = await resume(name, cancellationToken);
+                held._resumed.TrySetResult(moved);
+                return moved;
+            };
+            return held;
+        }
+
+        /// <summary>Lets the held resume run, and answers whether it left the declarations moved.</summary>
+        internal Task<bool> ReleaseAsync(CancellationToken cancellationToken)
+        {
+            _release.TrySetResult();
+            return _resumed.Task.WaitAsync(cancellationToken);
+        }
+    }
+
     [Fact]
     public async Task A_move_is_the_dataset_admin_s_or_an_operator_s_and_a_dataset_not_declared_has_none()
     {
