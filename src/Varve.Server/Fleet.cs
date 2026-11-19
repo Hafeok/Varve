@@ -73,6 +73,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         _logger = logger;
         _accessor = accessor;
         _order = new ManagementOrder();
+        Keys = new IdempotencyKeys(new CommitWindow(settings.Limits.IdempotencyWindow));
         _instance = objects?.Instance ?? new WriterInstance(string.IsNullOrWhiteSpace(settings.ObjectStorage.Instance) ? Environment.MachineName : settings.ObjectStorage.Instance);
         IsFleetOfOne = objects is null;
         _mayClaim = IsFleetOfOne || !string.Equals(settings.Fleet.Writer, "false", StringComparison.OrdinalIgnoreCase);
@@ -82,7 +83,13 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         _role = role;
         _placeholder = placeholder;
         _snapshot = new Snapshot(GrantTable.Empty(_bootstrap), BootstrapState.Absent);
-        Datasets = new OpenDatasets(settings, objects, _order, clock, logger, Moved);
+        Datasets = new OpenDatasets(settings, objects, _order, Keys, clock, logger, Moved);
+
+        // The system dataset's writer warms its keys from the start (ADR 0246).
+        if (role == ManagementRole.Writer)
+        {
+            Datasets.WarmKeys(SystemName, system);
+        }
         Instance = new WriterName(_instance.Value);
         Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
         Classifications = new RowClassifications(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
@@ -112,6 +119,9 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     /// <summary>The declared datasets, as this instance holds them.</summary>
     internal OpenDatasets Datasets { get; }
 
+    /// <summary>The client idempotency keys this instance honours as a writer (ADR 0246).</summary>
+    internal IdempotencyKeys Keys { get; }
+
     // ---- start ----
 
     /// <summary>
@@ -119,9 +129,16 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     /// operators when it is the first writer or <paramref name="recordBootstrap"/>
     /// asks, applies the declarations, and opens the datasets they place here.
     /// </summary>
-    internal static async Task<Fleet> StartAsync(ServerSettings settings, bool recordBootstrap, TimeProvider clock, ILogger logger, IHttpContextAccessor accessor, CancellationToken cancellationToken)
+    internal static Task<Fleet> StartAsync(ServerSettings settings, bool recordBootstrap, TimeProvider clock, ILogger logger, IHttpContextAccessor accessor, CancellationToken cancellationToken) =>
+        StartAsync(settings, ObjectStores.From(settings.ObjectStorage, clock), recordBootstrap, clock, logger, accessor, cancellationToken);
+
+    /// <summary>
+    /// As above, over <paramref name="objects"/> rather than the store the
+    /// settings name: the seam a test uses to run a fleet in one process, on
+    /// an in-memory store under a clock it steps (#332). Null is a fleet of one.
+    /// </summary>
+    internal static async Task<Fleet> StartAsync(ServerSettings settings, ObjectStores? objects, bool recordBootstrap, TimeProvider clock, ILogger logger, IHttpContextAccessor accessor, CancellationToken cancellationToken)
     {
-        ObjectStores? objects = ObjectStores.From(settings.ObjectStorage, clock);
         Fleet fleet;
 
         try
@@ -339,6 +356,17 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
     /// <summary>The system dataset, as this instance holds it.</summary>
     public Dataset System => Volatile.Read(ref _system);
+
+    /// <summary>
+    /// The head of every dataset this server holds open, the system dataset's
+    /// first: what the idle test after a checkpoint compares (ADR 0244 point 6).
+    /// </summary>
+    internal IReadOnlyList<Position> Heads()
+    {
+        List<Position> heads = [System.Head];
+        Datasets.HeadsInto(heads);
+        return heads;
+    }
 
     /// <summary>The grants pinned for this request, or the applied ones outside a request.</summary>
     public GrantTable Table => Pinned().Table;
@@ -767,6 +795,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             _systemHoldOff.Succeeded();
             _role = ManagementRole.Writer;
             _routes.TryRemove(SystemName, out _);
+            Datasets.WarmKeys(SystemName, System);
             string why = record.Released is { } reason ? Commands.ObjectLease.Shown(reason) : Commands.ObjectLease.Shown(trigger);
             FleetLog.ClaimedSystem(_logger, storage.Epoch?.Value ?? 0, why);
             return true;

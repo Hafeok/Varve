@@ -205,10 +205,32 @@ public sealed class DeclarationLoaderTests
     [InlineData("environments: [{name: e, prevent_self_review: true}]", "GitHub keeps it only while there are reviewers")]
     [InlineData("actions: {allowed_actions: all, selected_actions: {verified_allowed: true}}", "applies only when allowed_actions is selected")]
     [InlineData("colour: red", "colour: not a known setting")]
+    [InlineData("secrets: [{name: A, absent: true}]", "secrets[0].absent: not a known setting")]
+    [InlineData("secrets: [{name: A, may_be_absent: yes}]", "secrets[0].may_be_absent: expected true or false")]
+    [InlineData("secrets: [{may_be_absent: true}]", "secrets[0].name: required")]
+    [InlineData("secrets: [A, {name: A, may_be_absent: true}]", "secrets[1]: secret 'A' appears more than once")]
+    [InlineData("environments: [{name: e, secrets: [{name: A, may_be_absent: true}, A]}]", "environments[0].secrets[1]: secret 'A' appears more than once")]
     public async Task Validation_names_the_path_and_the_problem(string yaml, string expected)
     {
         DeclarationException error = await Assert.ThrowsAsync<DeclarationException>(() => LoadAsync(new() { ["repo.yaml"] = yaml }, "repo.yaml"));
         Assert.Contains(expected, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_secret_is_a_name_or_a_name_that_may_be_absent()
+    {
+        JsonObject result = await LoadAsync(new()
+        {
+            ["repo.yaml"] = """
+                secrets: [A, {name: B, may_be_absent: true}, {name: C, may_be_absent: false}]
+                environments:
+                  - name: e
+                    secrets: [{name: D, may_be_absent: true}]
+                """,
+        }, "repo.yaml");
+
+        Assert.Equal(3, result["secrets"]!.AsArray().Count);
+        Assert.True(result["environments"]![0]!["secrets"]![0]!["may_be_absent"]!.GetValue<bool>());
     }
 
     [Fact]

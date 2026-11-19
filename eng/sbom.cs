@@ -20,8 +20,9 @@
 //   binary/varve-<v>-<rid>.spdx.json
 //                                 a Native AOT binary: what it is compiled
 //                                 from, and the .NET runtime it contains
-//   image/varve.spdx.json         the container: each platform's binary, and
-//                                 the base image's OS packages as Syft read
+//   image/varve.spdx.json         the container: each platform's binary, the
+//                                 Web UI's bundle once (ADR 0245), and the
+//                                 base image's OS packages as Syft read
 //                                 them from the base pinned by digest. With
 //                                 --syft, the base is the final stage's FROM
 //                                 in src/Varve.Server/container/Dockerfile,
@@ -212,25 +213,28 @@ foreach (string rid in binaries.Order(StringComparer.Ordinal))
     Add("binary", asset, $"binary/{asset}.spdx.json", document);
 }
 
-// --- the image -----------------------------------------------------------------
-
-if (images.Count > 0 && Load(server, findings) is { } image)
-{
-    JsonObject document = ImageDocument(image.graph, image.lockfile, images);
-    Add("image", ImageName, "image/varve.spdx.json", document);
-}
-
 // --- the Web UI bundle -----------------------------------------------------------
 
 // Published and never packed (ADR 0200): a release asset of static files,
 // named by its file as a binary is. A tree without the project has no line.
+// The image carries the same bundle (ADR 0245), so its document is also the
+// image's, below.
 string webUi = Path.Combine(repositoryRoot, "src", "Varve.WebUi", "Varve.WebUi.csproj");
+JsonObject? webUiDocument = null;
 
 if (File.Exists(webUi) && Load(webUi, findings) is { } ui)
 {
     string asset = WebUiAsset(version);
-    JsonObject document = WebUiDocument(asset, ui.graph, ui.lockfile);
-    Add("asset", asset, $"asset/{asset}.spdx.json", document);
+    webUiDocument = WebUiDocument(asset, ui.graph, ui.lockfile);
+    Add("asset", asset, $"asset/{asset}.spdx.json", webUiDocument);
+}
+
+// --- the image -----------------------------------------------------------------
+
+if (images.Count > 0 && Load(server, findings) is { } image)
+{
+    JsonObject document = ImageDocument(image.graph, image.lockfile, images, webUiDocument);
+    Add("image", ImageName, "image/varve.spdx.json", document);
 }
 
 if (findings.Count > 0)
@@ -443,7 +447,13 @@ static JsonObject WorkloadPack(string name, string packVersion, string purpose, 
 // prefixed with the platform, since both platforms' documents use the same
 // ones. What varies between Syft runs, its namespace and creation time and its
 // file entries, is not carried.
-JsonObject ImageDocument(RestoreGraph graph, Lockfile lockfile, List<(string Platform, string Path)> bases)
+//
+// The Web UI's bundle is in it once, at /app/webui (ADR 0245): the zip's own
+// document, its packages under SPDXRef-webui-, its root contained by the
+// image's. The bundle does not depend on the platform, so it is not repeated
+// per platform. Its build tools (Emscripten's compiler and Node.js) come with
+// it, related as they are in the zip's document, and are not contained.
+JsonObject ImageDocument(RestoreGraph graph, Lockfile lockfile, List<(string Platform, string Path)> bases, JsonObject? webUi)
 {
     Root root = new(ImageName, version!, "CONTAINER", $"pkg:oci/varve@{version}?repository_url=ghcr.io/hafeok/varve", "NOASSERTION", null);
 
@@ -536,6 +546,42 @@ JsonObject ImageDocument(RestoreGraph graph, Lockfile lockfile, List<(string Pla
         }
 
         foreach (JsonNode? licence in syft["hasExtractedLicensingInfos"]?.AsArray() ?? [])
+        {
+            extracted[licence!["licenseId"]!.GetValue<string>()] = licence.DeepClone();
+        }
+    }
+
+    if (webUi?["packages"] is JsonArray bundlePackages)
+    {
+        const string prefix = "SPDXRef-webui-";
+
+        foreach (JsonNode? package in bundlePackages)
+        {
+            JsonObject copy = package!.DeepClone().AsObject();
+            copy["SPDXID"] = prefix + copy["SPDXID"]!.GetValue<string>()["SPDXRef-".Length..];
+            addedPackages.Add(copy);
+        }
+
+        foreach (JsonNode? relationship in webUi["relationships"]!.AsArray())
+        {
+            JsonObject copy = relationship!.DeepClone().AsObject();
+
+            if (copy["spdxElementId"]!.GetValue<string>() == "SPDXRef-DOCUMENT")
+            {
+                // The zip's own DESCRIBES becomes the image containing it.
+                copy["spdxElementId"] = "SPDXRef-Root";
+                copy["relationshipType"] = "CONTAINS";
+            }
+            else
+            {
+                copy["spdxElementId"] = prefix + copy["spdxElementId"]!.GetValue<string>()["SPDXRef-".Length..];
+            }
+
+            copy["relatedSpdxElement"] = prefix + copy["relatedSpdxElement"]!.GetValue<string>()["SPDXRef-".Length..];
+            addedRelationships.Add(copy);
+        }
+
+        foreach (JsonNode? licence in webUi["hasExtractedLicensingInfos"]?.AsArray() ?? [])
         {
             extracted[licence!["licenseId"]!.GetValue<string>()] = licence.DeepClone();
         }

@@ -231,10 +231,29 @@
           "Varve.Store": "[1.0.0, )"
         }
       },
+      "varve.delta": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Turtle": "[1.0.0, )"
+        }
+      },
       "varve.derivation": {
         "type": "Project",
         "dependencies": {
           "Varve.Rdf": "[1.0.0, )"
+        }
+      },
+      "varve.events": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Delta": "[1.0.0, )",
+          "Varve.Json.Canonical": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Shacl": "[1.0.0, )",
+          "Varve.Sparql": "[1.0.0, )",
+          "Varve.Sparql.Evaluation": "[1.0.0, )",
+          "Varve.Xsd": "[1.0.0, )"
         }
       },
       "varve.iri": {
@@ -242,6 +261,43 @@
       },
       "varve.json.canonical": {
         "type": "Project"
+      },
+      "varve.jsonld": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.Json.Canonical": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Xsd": "[1.0.0, )"
+        }
+      },
+      "varve.management": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Shacl": "[1.0.0, )",
+          "Varve.Turtle": "[1.0.0, )"
+        }
+      },
+      "varve.protocol": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Delta": "[1.0.0, )",
+          "Varve.Events": "[1.0.0, )",
+          "Varve.Iri": "[1.0.0, )",
+          "Varve.JsonLd": "[1.0.0, )",
+          "Varve.Management": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.RdfXml": "[1.0.0, )",
+          "Varve.Shacl": "[1.0.0, )",
+          "Varve.Sparql": "[1.0.0, )",
+          "Varve.Sparql.Entailment": "[1.0.0, )",
+          "Varve.Sparql.Evaluation": "[1.0.0, )",
+          "Varve.Sparql.Results": "[1.0.0, )",
+          "Varve.Store": "[1.0.0, )",
+          "Varve.Turtle": "[1.0.0, )"
+        }
       },
       "varve.rdf": {
         "type": "Project",

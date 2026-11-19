@@ -64,13 +64,15 @@ public class ProblemCatalogueTests
     /// and a takeover refused, ADR 0179), <c>ReportGraphTests</c> (a
     /// validation projection behind, ADR 0174), and <c>RowScopeTests</c> (a
     /// row-restricted write refused, and a classification projection behind,
-    /// ADRs 0233 and 0236).
+    /// ADRs 0233 and 0236), and <c>IdempotencyKeyTests</c> (a key reused with
+    /// another request, a key in flight, and a key past its window, ADR 0246).
     /// </summary>
     private static readonly ImmutableArray<ProblemType> TestedElsewhere =
     [
         ProblemType.TooManyLiveTails, ProblemType.ServerBusy, ProblemType.WriterSuperseded, ProblemType.EventNotRendered,
         ProblemType.ManagementBehind, ProblemType.DatasetBehind, ProblemType.ValidationBehind, ProblemType.TakeoverRefused,
         ProblemType.RowNotWritable, ProblemType.ClassificationBehind,
+        ProblemType.IdempotencyKeyReused, ProblemType.IdempotencyKeyInFlight, ProblemType.IdempotencyKeyExpired,
     ];
 
     /// <summary>The types the management plane's endpoints emit, triggered by <see cref="every_problem_the_management_endpoints_emit_has_its_catalogued_shape"/>.</summary>

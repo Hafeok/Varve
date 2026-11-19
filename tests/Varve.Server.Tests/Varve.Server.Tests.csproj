@@ -20,4 +20,9 @@
     <PackageReference Include="CsCheck" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- An idle fleet in one process, on a store in memory (#332). -->
+    <Compile Include="../Varve.Store.Tests/ObjectStorage/MemoryObjectStore.cs" LinkBase="Objects" />
+  </ItemGroup>
+
 </Project>

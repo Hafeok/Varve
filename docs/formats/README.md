@@ -15,6 +15,10 @@ release wrote ([ADR 0216](../adr/0216-the-format-inventory.md)). The rules:
   records behind the compatibility page are versioned too (ADR 0183): one a
   release does not read is not a verification, and the answer is to run
   `varve storage verify` again.
+- **reserved:** a name in a dataset that no release has written yet. Format 1
+  writes nothing there, and every reader ignores it and never deletes it, so
+  the release that defines it breaks no older reader (ADR 0216, amended
+  2026-11-18).
 
 Each fixture is under [`testdata/formats/`](../../testdata/formats/), written
 by its generator against the published packages of the release named. The
@@ -50,6 +54,7 @@ named in its README.
 | Derived | 4 | `src/Varve.Store/DerivedFormat.cs` `Version` | v0.1.0-preview.8 | rebuilt | `objects-preview.8` |
 | Derived, extents | 5 | `src/Varve.Store/DerivedFormat.cs` `ExtentVersion` | v0.1.0-preview.15 | rebuilt | `objects-preview.15` |
 | Derived, checked | 6 | `src/Varve.Store/DerivedFormat.cs` `CheckedVersion` | the release after v0.1.0-preview.15 | rebuilt | `store-next` |
+| `proof/`, beside `log/` and `derived/` (#292) | none | — | reserved by the release after v0.1.0-preview.15 (#340) | reserved | `proof-reserved` |
 <!-- /formats -->
 
 ## What a fixture's bytes may differ by

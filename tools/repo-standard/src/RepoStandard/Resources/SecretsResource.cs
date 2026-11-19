@@ -18,7 +18,8 @@ namespace RepoStandard.Resources;
 /// <c>secrets</c>: the names of the repository's Actions secrets, asserted to
 /// exist. repo-standard never reads a secret's value, never writes one, and
 /// never deletes a secret; a difference in either direction is reported and
-/// left for a person.
+/// left for a person. A name declared <c>may_be_absent</c> and missing is
+/// reported as declared and absent, and is not a difference.
 /// </summary>
 internal sealed class SecretsResource : IResourceKind
 {
@@ -40,12 +41,16 @@ internal sealed class SecretsResource : IResourceKind
     public static IEnumerable<Change> Compare(string kind, string prefix, JsonNode? declared, JsonNode? live)
     {
         HashSet<string> want = Names(declared);
+        HashSet<string> mayBeAbsent = MayBeAbsent(declared);
         HashSet<string> have = Names(live);
 
         foreach (string name in want.Except(have).Order(StringComparer.Ordinal))
         {
-            yield return new Change(kind, $"{prefix} {name}", ChangeAction.Unfixable, [],
-                "declared and not present; repo-standard never writes a secret, so add it by hand", null);
+            yield return mayBeAbsent.Contains(name)
+                ? new Change(kind, $"{prefix} {name}", ChangeAction.DeclaredAbsent, [],
+                    "declared, absent: declared may_be_absent, so not a difference", null)
+                : new Change(kind, $"{prefix} {name}", ChangeAction.Unfixable, [],
+                    "declared and not present; repo-standard never writes a secret, so add it by hand", null);
         }
 
         foreach (string name in have.Except(want).Order(StringComparer.Ordinal))
@@ -55,8 +60,18 @@ internal sealed class SecretsResource : IResourceKind
         }
     }
 
+    /// <summary>Every name in a list, in either spelling.</summary>
     private static HashSet<string> Names(JsonNode? node) =>
+        new(Items(node).Select(item => item.Name), StringComparer.Ordinal);
+
+    /// <summary>The names declared <c>may_be_absent: true</c>.</summary>
+    private static HashSet<string> MayBeAbsent(JsonNode? node) =>
+        new(Items(node).Where(item => item.MayBeAbsent).Select(item => item.Name), StringComparer.Ordinal);
+
+    private static IEnumerable<(string Name, bool MayBeAbsent)> Items(JsonNode? node) =>
         node is JsonArray array
-            ? new HashSet<string>(array.Select(item => item?.GetValue<string>() ?? string.Empty), StringComparer.Ordinal)
-            : new HashSet<string>(StringComparer.Ordinal);
+            ? array.Select(item => item is JsonObject entry
+                ? (JsonTree.Str(entry, "name") ?? string.Empty, entry["may_be_absent"]?.GetValueKind() is System.Text.Json.JsonValueKind.True)
+                : (item?.GetValue<string>() ?? string.Empty, false))
+            : [];
 }

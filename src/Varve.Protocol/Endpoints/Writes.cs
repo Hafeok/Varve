@@ -60,6 +60,13 @@ internal static class Writes
     {
         HttpContext context = exchange.Context;
 
+        // The key first: a retry whose original moved the head is answered
+        // from its commit, not 412 (ADR 0246).
+        if (!await Keyed.BeginAsync(exchange).ConfigureAwait(false))
+        {
+            return default;
+        }
+
         if (!Preconditions.TryReadGraphs(context.Request.Headers[Preconditions.IfGraphsMatchHeader], out List<GraphPrecondition>? graphs))
         {
             await HttpProblems.BadRequest(context, "Varve-If-Graphs-Match names each graph once, as <iri>=<version> or default=<version>, separated by commas.").ConfigureAwait(false);
@@ -151,6 +158,12 @@ internal static class Writes
     internal static async Task<WritePlan> CheckGraphAsync(Exchange exchange, RdfTerm? graph, bool put)
     {
         HttpContext context = exchange.Context;
+
+        // The key before the graph's version (ADR 0246), as for any write.
+        if (!await Keyed.BeginAsync(exchange).ConfigureAwait(false))
+        {
+            return default;
+        }
 
         if (!StringValues.IsNullOrEmpty(context.Request.Headers[Preconditions.AsOfHeader]))
         {
@@ -271,11 +284,22 @@ internal static class Writes
     {
         string id = exchange.Context.TraceIdentifier;
         exchange.Response.Headers[Preconditions.RequestIdHeader] = id;
+        List<RequestTerm> attachments = exchange.Authorised is { } position ? [ManagementPositionTerm(position)] : [];
+
+        // A keyed write records its key with the commit (ADR 0246); the list
+        // is the exchange's, so the answer it will give is recorded too.
+        if (exchange.Claim is { } claim)
+        {
+            exchange.KeyAttachmentAt = attachments.Count;
+            attachments.Add(RequestTerm.FromTerm(KeyAttachment.Of(claim)));
+        }
+
+        exchange.Attachments = attachments;
         return new CommitMetadata
         {
             Agent = exchange.Options.Identity.AgentOf(exchange.Context.User),
             Cause = RdfTerm.Literal(Encoding.UTF8.GetBytes(id)),
-            Attachments = exchange.Authorised is { } position ? [ManagementPositionTerm(position)] : [],
+            Attachments = attachments,
         };
     }
 
@@ -371,6 +395,7 @@ internal static class Writes
         Exchange exchange, CommitResult result, int created = StatusCodes.Status204NoContent, Position? expected = null, ConflictEvidence? evidence = null, RdfTerm? taggedGraph = null, bool tagGraph = false)
     {
         HttpContext context = exchange.Context;
+        Keyed.Settle(exchange, result);
         Preconditions.Describe(context.Response, result.Position);
 
         // A Graph Store response is tagged with the graph's version (ADR 0126).

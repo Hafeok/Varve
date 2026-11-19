@@ -112,6 +112,12 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 2 && args[0] == "--idempotency-index")
+        {
+            IdempotencyIndexBench.RunAsync(args[1]).GetAwaiter().GetResult();
+            return;
+        }
+
         if (args.Length == 2 && args[0] == "--classification-projection")
         {
             ClassificationProjectionBench.RunAsync(args[1]).GetAwaiter().GetResult();

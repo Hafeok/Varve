@@ -30,6 +30,14 @@ written derived format 6 yet; the release that ships it is its writer.
 its `generator/README.md` says which code wrote each file and which tests
 hold current code to it.
 
+`proof-reserved` is the exception: no release writes `proof/`, which is
+reserved (`docs/spec/storage-format.md` §2.1). Its generator references no
+Varve package and writes fixed bytes, run the same way as
+`dotnet run generate.cs -- <out>` from a scratch copy. Its tests copy its
+`proof/` beside a release's own dataset, `store-preview.1`'s log and
+`objects-preview.15`'s objects, and check the bytes are untouched after
+every reader has run.
+
 Regenerating a fixture with a later release defeats it: it is that release's
 bytes, kept.
 
@@ -47,6 +55,7 @@ bytes, kept.
 | `events-preview.13` | v0.1.0-preview.13 | `schemas/` with management revisions, `cloudevents/` | `Varve.Events.Tests` `FormatFixtureTests` |
 | `plan-preview.10` | v0.1.0-preview.10 | `format-1.plan.json`, the plan | `Varve.Management.Tests` `FormatFixtureTests` |
 | `verification-next` | this branch | `varve-verification`, a passing and a failing result record | `Varve.Store.Tests` `Formats.VerificationRecordFormatTests`, `Varve.Server.Tests` `StorageVerifyTests` |
+| `proof-reserved` | none: written by `generator/generate.cs`, no Varve package | `proof/`: objects under the reserved name that no build of format 1 knows | `Formats.ReservedProofTests`, beside `store-preview.1` and `objects-preview.15` |
 
 The expectations are the generator's own: the operations the store workload
 issued (`expectations/operations.tsv`, a position, `+` or `-`, a quad), the

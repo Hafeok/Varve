@@ -25,7 +25,7 @@ Every artefact Varve ships has one **SPDX 2.3 SBOM** of its runtime closure:
 |---|---|---|
 | Each `Varve.*` package | nuget.org | what a consumer of the package resolves |
 | The `varve` tool (`Varve.Server`) | nuget.org | everything the tool package carries |
-| The container image | `ghcr.io/hafeok/varve` | each platform's binary and its closure, the .NET runtime, and the base image's OS packages |
+| The container image | `ghcr.io/hafeok/varve` | each platform's binary and its closure, the .NET runtime, the Web UI's bundle as the zip's SBOM lists it (ADR 0245), and the base image's OS packages |
 | The CLI binaries, per RID | the GitHub release, as `varve-<version>-<rid>.tar.gz` or `.zip`; Homebrew and winget install them | the closure compiled in, and the .NET runtime |
 | The Web UI bundle, `varve-webui-<version>.zip` | the GitHub release | the packages its browser build deploys, the package that carries `blazor.webassembly.js`, the .NET runtime relinked into it, and Emscripten's packs: its system libraries as contained, its compiler and Node.js as build tools |
 
@@ -191,7 +191,7 @@ code-signing key, and the keyless attestations take its place.
 | `Varve.Protocol.Client` | 8 `Microsoft.Extensions` abstractions (MIT) |
 | `Varve.Server`, the tool and the CLI | 16 (MIT, Apache-2.0), and in the binaries and the image the .NET runtime |
 | `Varve.Aspire` | 71, the `Aspire.Hosting` closure (MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause) |
-| The Web UI bundle | 28 (MIT): the Blazor WebAssembly closure and the package that carries its script; and the .NET runtime for the browser with Emscripten's system libraries, listed by pack (MIT) |
+| The Web UI bundle, in the zip and in the image | 28 (MIT): the Blazor WebAssembly closure and the package that carries its script; and the .NET runtime for the browser with Emscripten's system libraries, listed by pack (MIT) |
 
 ## Vulnerabilities
 
