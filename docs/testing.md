@@ -469,9 +469,14 @@ a dispatch with `run: repeat`, on any branch:
 | `repeat-count` | how many runs, 100 by default |
 | `repeat-os` | `ubuntu-latest` or `windows-latest` |
 | `repeat-load` | the load above |
+| `repeat-at` | the commit to run, when not the branch's head: a head red on an unaccepted decision's `CS0618` (ADR 0066) is measured at the commit before its citations |
+| `repeat-compare` | a second commit, run alternately with the first, the side that goes first changing every round, to say how much slower one is than the other |
+| `repeat-services` | with Azurite and RustFS, as the `fleet (services)` job starts them, on Linux |
 
-Its summary is in the run's step summary, and every failing run's output is
-the artifact `repeat-<os>`. The job never runs on the schedule, a push or a
+Its summary is in the run's step summary: each side's failures and the
+mean, median, least and most wall time of its runs. Every failing run's
+output, and each run's TRX, is the artifact `repeat-<os>`, so that a
+difference in time can be put on the tests that make it. The job never runs on the schedule, a push or a
 pull request, and is never a required check: `eng/required-checks.cs`
 refuses a required name that only a workflow not run on pull requests
 reports.

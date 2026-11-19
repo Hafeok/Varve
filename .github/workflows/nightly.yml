@@ -89,6 +89,18 @@ on:
         description: "repeat: beside a competing Release build and one busy thread per processor"
         type: boolean
         default: false
+      repeat-at:
+        description: "repeat: the commit to run, when not the branch's head (a head red on CS0618, ADR 0066)"
+        type: string
+        default: ""
+      repeat-compare:
+        description: "repeat: a commit to run against it, alternating, to compare their times"
+        type: string
+        default: ""
+      repeat-services:
+        description: "repeat: with the object stores of the fleet (services) job, Azurite and RustFS"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -107,6 +119,11 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.run == 'repeat'
     runs-on: ${{ inputs.repeat-os }}
     timeout-minutes: 340
+
+    # With repeat-services, its object stores come from this repository's private mirror (#118).
+    permissions:
+      contents: read
+      packages: read
 
     steps:
       - name: Line endings
@@ -136,6 +153,31 @@ jobs:
           "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
           "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
 
+      - name: Log in to GHCR
+        if: inputs.repeat-services
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start the object stores
+        # As the fleet (services) job does, and only on Linux, where it runs.
+        if: inputs.repeat-services
+        shell: bash
+        run: |
+          docker compose --file .github/storage/compose.yaml up --detach
+          for attempt in $(seq 1 60); do
+            azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
+            rustfs=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:9000/ || true)
+            token=$(curl --silent --header 'Host: issuer:8080' --data 'grant_type=client_credentials&client_id=varve-storage&client_secret=unchecked&scope=openid' http://127.0.0.1:8090/varve/token | jq -r '.access_token // empty' || true)
+            sts=$(curl --silent --output /dev/null --write-out '%{http_code}' --data-urlencode "WebIdentityToken=$token" --data 'Action=AssumeRoleWithWebIdentity&Version=2011-06-15&DurationSeconds=900' http://127.0.0.1:9000/ || true)
+            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$sts" = 200 ] && exit 0
+            sleep 1
+          done
+          docker compose --file .github/storage/compose.yaml logs
+          exit 1
+
       - name: Repeat the filter
         shell: bash
         env:
@@ -144,12 +186,23 @@ jobs:
           REPEAT_FILTER: ${{ inputs.repeat-filter }}
           REPEAT_COUNT: ${{ inputs.repeat-count }}
           REPEAT_LOAD: ${{ inputs.repeat-load }}
+          REPEAT_AT: ${{ inputs.repeat-at }}
+          REPEAT_COMPARE: ${{ inputs.repeat-compare }}
+          REPEAT_SERVICES: ${{ inputs.repeat-services }}
         run: |
-          load=()
-          if [ "$REPEAT_LOAD" = "true" ]; then load=(--load); fi
-          dotnet run eng/repeat.cs -- --project "$REPEAT_PROJECT" --filter "$REPEAT_FILTER" --count "$REPEAT_COUNT" "${load[@]}" --out "$GITHUB_WORKSPACE/artifacts/repeat"
+          options=(--trx)
+          if [ "$REPEAT_LOAD" = "true" ]; then options+=(--load); fi
+          if [ -n "$REPEAT_AT" ]; then options+=(--at "$REPEAT_AT"); fi
+          if [ -n "$REPEAT_COMPARE" ]; then options+=(--compare "$REPEAT_COMPARE"); fi
+          if [ "$REPEAT_SERVICES" = "true" ]; then
+            export VARVE_AZURITE=http://127.0.0.1:10000/devstoreaccount1
+            export VARVE_RUSTFS=http://127.0.0.1:9000,varvetest,varvetestsecret
+            export VARVE_RUSTFS_WEB_IDENTITY=http://127.0.0.1:9000/,http://127.0.0.1:8090/varve/token,issuer:8080
+            export VARVE_STORAGE_LEGS_REQUIRED=azurite,rustfs,rustfs-web-identity
+          fi
+          dotnet run eng/repeat.cs -- --project "$REPEAT_PROJECT" --filter "$REPEAT_FILTER" --count "$REPEAT_COUNT" "${options[@]}" --out "$GITHUB_WORKSPACE/artifacts/repeat"
 
-      - name: Upload every failing run's output
+      - name: Upload every failing run's output, and each run's results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
