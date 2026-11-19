@@ -23,11 +23,22 @@ internal sealed record Badge(Tone Tone, string Word)
 /// <summary>An unaccepted amendment of an ADR by another ADR: shown on the amended ADR as a note, never as its badge.</summary>
 internal sealed record AmendmentNote(string By, string? Date, int Unaccepted);
 
-/// <summary>What an ADR's head shows: its badge, its decision set, and the notes of unaccepted amendments made by other ADRs.</summary>
-internal sealed record AdrState(Badge Badge, string? Set, IReadOnlyList<AmendmentNote> Notes);
+/// <summary>Rulings of an ADR's own set still waiting for acceptance: how many, and the date of the amendment they belong to, when their statements give one.</summary>
+internal sealed record Pending(string? Amendment, int Count);
 
-/// <summary>One ruling of a decision set: accepted when its key carries accepted-by, in force unless revoked.</summary>
-internal sealed record Ruling(string Key, bool Accepted, bool Revoked);
+/// <summary>
+/// What an ADR's head shows: its badge, its decision set, its own pending
+/// rulings grouped by amendment, and the notes of unaccepted amendments made
+/// by other ADRs.
+/// </summary>
+internal sealed record AdrState(Badge Badge, string? Set, IReadOnlyList<AmendmentNote> Notes, IReadOnlyList<Pending> Pending);
+
+/// <summary>
+/// One ruling of a decision set: accepted when its key carries accepted-by,
+/// in force unless revoked, and the date of the amendment that added or
+/// changed it when its statement ends "amended YYYY-MM-DD" (ADR 0068 point 4).
+/// </summary>
+internal sealed record Ruling(string Key, bool Accepted, bool Revoked, string? Amended = null);
 
 /// <summary>A decision set: the rulings one ADR records (docs/decisions/, ADR 0062).</summary>
 internal sealed record DecisionSet(string Name, string? Adr, IReadOnlyList<Ruling> Rulings);
@@ -45,13 +56,17 @@ internal sealed record DecisionSet(string Name, string? Adr, IReadOnlyList<Rulin
 ///   superseded ADR has no set, so the index is where this is recorded;</item>
 ///   <item>it has a set, and every ruling in force in it is accepted:
 ///   Accepted, tone ok;</item>
-///   <item>it has a set with any ruling in force unaccepted: Not yet accepted,
-///   tone warn, with the count;</item>
+///   <item>some of its rulings in force are accepted and some are not:
+///   "Accepted · N pending", tone warn, N the unaccepted ones; the head says
+///   which amendment they belong to when their statements date one;</item>
+///   <item>none of its rulings in force is accepted: Not yet accepted, tone
+///   warn;</item>
 ///   <item>it has no set and the index does not say it is superseded: the
 ///   first word of its status line, tone neutral, with a "no decision set"
 ///   note. None is like this on main.</item>
 /// </list>
-/// The badge reflects the ADR's own set only. An unaccepted ruling of another
+/// The maintainer set this wording on #368 (2026-11-19). The badge reflects
+/// the ADR's own set only. An unaccepted ruling of another
 /// ADR that amends this one is a note, with the amendment's date.
 /// </summary>
 internal sealed partial class Ledger
@@ -136,6 +151,7 @@ internal sealed partial class Ledger
         }
 
         Badge badge;
+        List<Pending> pending = [];
 
         if (_supersededInIndex.Contains(number))
         {
@@ -143,8 +159,19 @@ internal sealed partial class Ledger
         }
         else if (set is not null)
         {
-            int unaccepted = Unaccepted(set);
-            badge = unaccepted == 0 ? new Badge(Tone.Ok, "Accepted") : new Badge(Tone.Warn, $"Not yet accepted · {unaccepted}");
+            List<Ruling> inForce = [.. set.Rulings.Where(static r => !r.Revoked)];
+            int unaccepted = inForce.Count(static r => !r.Accepted);
+            int accepted = inForce.Count - unaccepted;
+            badge = unaccepted == 0 ? new Badge(Tone.Ok, "Accepted")
+                : accepted == 0 ? new Badge(Tone.Warn, "Not yet accepted")
+                : new Badge(Tone.Warn, $"Accepted · {unaccepted} pending");
+
+            // Grouped by amendment, the dated ones in date order, then those no statement dates.
+            pending = [.. inForce.Where(static r => !r.Accepted)
+                .GroupBy(static r => r.Amended)
+                .OrderBy(static g => g.Key is null)
+                .ThenBy(static g => g.Key, StringComparer.Ordinal)
+                .Select(static g => new Pending(g.Key, g.Count()))];
         }
         else
         {
@@ -152,7 +179,7 @@ internal sealed partial class Ledger
             badge = new Badge(Tone.Neutral, first);
         }
 
-        return new AdrState(badge, set?.Name, notes);
+        return new AdrState(badge, set?.Name, notes, pending);
     }
 
     private static int Unaccepted(DecisionSet set) => set.Rulings.Count(static r => !r.Revoked && !r.Accepted);
@@ -182,7 +209,8 @@ internal sealed partial class Ledger
         {
             if (KeyField().Match(entry) is { Success: true } key)
             {
-                rulings.Add(new Ruling(key.Groups[1].Value, AcceptedBy().IsMatch(entry), RevokedAt().IsMatch(entry)));
+                string? amended = StatementAmended().Match(entry) is { Success: true } a2 ? a2.Groups[1].Value : null;
+                rulings.Add(new Ruling(key.Groups[1].Value, AcceptedBy().IsMatch(entry), RevokedAt().IsMatch(entry), amended));
             }
         }
 
@@ -248,6 +276,9 @@ internal sealed partial class Ledger
 
     [GeneratedRegex(@"^\s+accepted-by:\s*\S", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
     private static partial Regex AcceptedBy();
+
+    [GeneratedRegex(@"^\s+statement:\s*"".*\bamended (\d{4}-\d{2}-\d{2})""\s*$", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
+    private static partial Regex StatementAmended();
 
     [GeneratedRegex(@"^\s+revoked-at:\s*\S", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
     private static partial Regex RevokedAt();

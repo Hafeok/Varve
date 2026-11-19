@@ -153,10 +153,35 @@ public class ContractTests(BuiltSite site)
 
         Assert.Equal(Names(rm.Children), Names(bm.Children));
         Assert.Equal(rm.First("p", "vd-crumbs")!.Shape(), bm.First("p", "vd-crumbs")!.Shape());
-        Assert.Equal(rm.First("header", "vd-head")!.Shape(), bm.First("header", "vd-head")!.Shape());
+        Head(bm.First("header", "vd-head")!, rm.First("header", "vd-head")!);
         Assert.Equal(rm.First("nav", "vd-pager")?.Shape(), bm.First("nav", "vd-pager")?.Shape());
         Assert.True(bm.First("h1") is { } h1 && h1.Parent!.Has("vd-head"), $"{page}: the H1 is in the head.");
         Assert.Single(b.All("h1"));
+    }
+
+    /// <summary>
+    /// The head: its parts in order (eyebrow, title, lede, meta), each part's
+    /// shape, and the kinds of meta item. How many items the meta holds is the
+    /// ledger's answer (an ADR with pending rulings names their amendment), so
+    /// the items are compared by their distinct shapes, not their number.
+    /// </summary>
+    private static void Head(Element b, Element r)
+    {
+        Assert.Equal(Names(r.Children), Names(b.Children));
+
+        foreach ((Element rc, Element bc) in r.Children.Zip(b.Children))
+        {
+            if (rc.Tag == "dl")
+            {
+                Assert.Equal(
+                    rc.Children.Select(static d => d.Shape()).Distinct().Order(StringComparer.Ordinal),
+                    bc.Children.Select(static d => d.Shape()).Distinct().Order(StringComparer.Ordinal));
+            }
+            else
+            {
+                Assert.Equal(rc.Shape(), bc.Shape());
+            }
+        }
     }
 
     /// <summary>

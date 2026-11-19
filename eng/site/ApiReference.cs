@@ -101,7 +101,7 @@ internal static class ApiReference
             index.Append("<div class=\"vd-notice\" role=\"note\"><span class=\"vw-state vw-state--warn\">Unshipped</span><span>Before 1.0 no surface is shipped: every <code>PublicAPI.Shipped.txt</code> is empty, and everything below is <em>unshipped</em>, which may change in any preview. The freeze is #129's.</span></div>\n");
         }
 
-        index.Append("<div class=\"vd-table vd-index\" tabindex=\"0\"><table>\n<thead><tr><th>Package</th><th align=\"right\">Types</th><th align=\"right\">Lines</th></tr></thead>\n<tbody>\n");
+        index.Append("<div class=\"vd-table vd-index\" tabindex=\"0\" role=\"region\" aria-label=\"Table: Package, Types, Lines\"><table>\n<thead><tr><th>Package</th><th align=\"right\">Types</th><th align=\"right\">Lines</th></tr></thead>\n<tbody>\n");
 
         foreach (ApiPackage package in packages)
         {

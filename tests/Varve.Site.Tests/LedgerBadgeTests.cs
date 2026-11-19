@@ -2,7 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Xunit;
 
 namespace Varve.Site.Tests;
@@ -27,10 +29,46 @@ public class LedgerBadgeTests
     }
 
     [Fact]
-    public void an_unaccepted_ruling_is_not_yet_accepted_with_the_count()
+    public void some_rulings_accepted_and_some_not_is_accepted_with_the_count_pending()
     {
         AdrState state = Fixture.StateOf("0002");
-        Assert.Equal(new Badge(Tone.Warn, "Not yet accepted · 1"), state.Badge);
+        Assert.Equal(new Badge(Tone.Warn, "Accepted · 1 pending"), state.Badge);
+        Assert.Equal([new Pending(null, 1)], state.Pending);
+    }
+
+    [Fact]
+    public void no_ruling_accepted_is_not_yet_accepted_without_a_count()
+    {
+        AdrState state = Fixture.StateOf("0006");
+        Assert.Equal(new Badge(Tone.Warn, "Not yet accepted"), state.Badge);
+        Assert.Equal([new Pending(null, 1)], state.Pending);
+    }
+
+    [Fact]
+    public void pending_rulings_are_grouped_by_the_amendment_their_statements_date()
+    {
+        AdrState state = Fixture.StateOf("0010");
+        Assert.Equal(new Badge(Tone.Warn, "Accepted · 3 pending"), state.Badge);
+        Assert.Equal([new Pending("2026-11-19", 2), new Pending(null, 1)], state.Pending);
+    }
+
+    [Fact]
+    public void the_head_says_which_amendment_the_pending_rulings_belong_to_and_links_its_section()
+    {
+        Head head = SiteBuild.AdrHead("0010", "Accepted, with a pending amendment", Fixture, "adr/0010-x.html", ["context", "amendment-2026-11-19--two-rulings-added"]);
+        Assert.Equal("ADR 0010", head.Eyebrow);
+        List<(string Term, string Value)> meta = [.. head.Meta!];
+        Assert.Equal(("Status", "<span class=\"vw-state vw-state--warn\">Accepted &#183; 3 pending</span>"), meta[0]);
+        Assert.Equal(("Pending", "2 rulings, from <a href=\"#amendment-2026-11-19--two-rulings-added\">the amendment of 2026-11-19</a>"), meta[2]);
+        Assert.Equal(("Pending", "1 ruling, not dated by an amendment"), meta[3]);
+        Assert.Equal(4, meta.Count);
+    }
+
+    [Fact]
+    public void an_accepted_adr_names_nothing_pending()
+    {
+        Head head = SiteBuild.AdrHead("0001", "Every ruling accepted", Fixture, "adr/0001-x.html", []);
+        Assert.Equal(["Status", "Decision set"], head.Meta!.Select(static m => m.Term));
     }
 
     [Fact]
@@ -65,7 +103,7 @@ public class LedgerBadgeTests
         Assert.Equal(new AmendmentNote("0006", "2026-11-19", 1), note);
 
         // The amending ADR's own badge is its own set's.
-        Assert.Equal(new Badge(Tone.Warn, "Not yet accepted · 1"), Fixture.StateOf("0006").Badge);
+        Assert.Equal(new Badge(Tone.Warn, "Not yet accepted"), Fixture.StateOf("0006").Badge);
         Assert.Empty(Fixture.StateOf("0006").Notes);
     }
 
@@ -86,7 +124,7 @@ public class LedgerBadgeTests
     [Fact]
     public void the_badge_is_drawn_with_the_design_systems_state_atom()
     {
-        Assert.Equal("<span class=\"vw-state vw-state--warn\">Not yet accepted &#183; 2</span>", new Badge(Tone.Warn, "Not yet accepted · 2").Html);
+        Assert.Equal("<span class=\"vw-state vw-state--warn\">Accepted &#183; 2 pending</span>", new Badge(Tone.Warn, "Accepted · 2 pending").Html);
         Assert.Equal("<span class=\"vw-state vw-state--neutral\">Superseded</span>", new Badge(Tone.Neutral, "Superseded").Html);
     }
 

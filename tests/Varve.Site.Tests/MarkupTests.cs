@@ -89,9 +89,20 @@ public class MarkupTests
             index: false);
 
         Assert.Equal(
-            "<div class=\"vd-table vd-table--kv\" tabindex=\"0\"><table>\n<thead>\n<tr>\n<th></th>\n<th></th>\n</tr>\n</thead>\n<tbody></tbody>\n</table></div>\n"
-            + "<div class=\"vd-table\" tabindex=\"0\"><table>\n<thead>\n<tr>\n<th align=\"right\">#</th>\n<th>Title</th>\n</tr>\n</thead>\n</table></div>\n",
+            "<div class=\"vd-table vd-table--kv\" tabindex=\"0\" role=\"region\" aria-label=\"Table\"><table>\n<thead>\n<tr>\n<th></th>\n<th></th>\n</tr>\n</thead>\n<tbody></tbody>\n</table></div>\n"
+            + "<div class=\"vd-table\" tabindex=\"0\" role=\"region\" aria-label=\"Table: #, Title\"><table>\n<thead>\n<tr>\n<th align=\"right\">#</th>\n<th>Title</th>\n</tr>\n</thead>\n</table></div>\n",
             html);
+    }
+
+    [Fact]
+    public void a_code_block_is_a_named_region_in_the_tab_order()
+    {
+        Assert.Equal(
+            "<pre tabindex=\"0\" role=\"region\" aria-label=\"Code: sh\"><code class=\"language-sh\">x</code></pre>\n"
+            + "<pre tabindex=\"0\" role=\"region\" aria-label=\"Code\"><code>y</code></pre>\n"
+            + "<pre tabindex=\"0\" role=\"region\" aria-label=\"Code\" class=\"front-matter\"><code>z</code></pre>\n",
+            SiteBuild.Scrollable(
+                "<pre><code class=\"language-sh\">x</code></pre>\n<pre><code>y</code></pre>\n<pre class=\"front-matter\"><code>z</code></pre>\n"));
     }
 
     [Fact]
@@ -108,6 +119,6 @@ public class MarkupTests
         Assert.Contains("<th>Status</th><th>Notes</th>", html, System.StringComparison.Ordinal);
         Assert.Contains("<td class=\"vd-state-cell\"><span class=\"vw-state vw-state--neutral\">Superseded</span></td><td>by 0004</td>", html, System.StringComparison.Ordinal);
         Assert.Contains("<td class=\"vd-state-cell\"><span class=\"vw-state vw-state--ok\">Accepted</span></td><td><strong>amended by 0006</strong></td>", html, System.StringComparison.Ordinal);
-        Assert.Contains("<td class=\"vd-state-cell\"><span class=\"vw-state vw-state--warn\">Not yet accepted &#183; 1</span></td><td>Filed unaccepted (#1)</td>", html, System.StringComparison.Ordinal);
+        Assert.Contains("<td class=\"vd-state-cell\"><span class=\"vw-state vw-state--warn\">Accepted &#183; 1 pending</span></td><td>Filed unaccepted (#1)</td>", html, System.StringComparison.Ordinal);
     }
 }

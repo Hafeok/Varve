@@ -299,7 +299,7 @@ internal static partial class SiteBuild
         }
         else if (section?.Output == "adr" && Ledger.NumberOf(Path.GetFileName(page.Source)) is { } number)
         {
-            head = AdrHead(number, titleHtml, ledger, page.Output);
+            head = AdrHead(number, titleHtml, ledger, page.Output, document.Descendants<HeadingBlock>().Select(static h => h.GetAttributes().Id).OfType<string>().ToList());
         }
         else if (section is { Ident: true } && ProblemRows(document) is { } rows)
         {
@@ -344,13 +344,28 @@ internal static partial class SiteBuild
         "<a class=\"vd-anchor\" aria-label=\"Link to this section\" href=\"#" + Layout.Encode(id) + "\">#</a>";
 
     /// <summary>An ADR's head: its number above the title, its badge, its decision set, and any unaccepted amendment by another ADR.</summary>
-    private static Head AdrHead(string number, string titleHtml, Ledger ledger, string output)
+    internal static Head AdrHead(string number, string titleHtml, Ledger ledger, string output, IReadOnlyList<string> headingIds)
     {
         AdrState state = ledger.StateOf(number);
         List<(string, string)> meta = [("Status", state.Badge.Html)];
         meta.Add(("Decision set", state.Set is null
             ? "no decision set"
             : "<a href=\"" + Layout.Relative(output, "decisions/" + state.Set + ".html") + "\"><code>" + Layout.Encode(state.Set) + "</code></a>"));
+
+        // Which amendment the pending rulings belong to, when their statements
+        // date one, linked to the amendment's own section when the page has it.
+        // A badge that already says nothing is accepted names only dated ones.
+        bool partly = state.Badge.Word.EndsWith(" pending", StringComparison.Ordinal);
+
+        foreach (Pending pending in state.Pending.Where(p => partly || p.Amendment is not null))
+        {
+            string count = pending.Count + (pending.Count == 1 ? " ruling" : " rulings");
+            string? section = pending.Amendment is null ? null : headingIds.FirstOrDefault(id => id.StartsWith("amendment-" + pending.Amendment, StringComparison.Ordinal));
+            string where = pending.Amendment is null ? ", not dated by an amendment"
+                : section is null ? ", from the amendment of " + Layout.Encode(pending.Amendment)
+                : ", from <a href=\"#" + Layout.Encode(section) + "\">the amendment of " + Layout.Encode(pending.Amendment) + "</a>";
+            meta.Add(("Pending", count + where));
+        }
 
         foreach (AmendmentNote note in state.Notes)
         {
@@ -406,9 +421,13 @@ internal static partial class SiteBuild
             int start = match.Index + match.Length;
             int headEnd = html.IndexOf("</thead>", start, StringComparison.Ordinal);
             int next = html.IndexOf("<table>", start, StringComparison.Ordinal);
-            bool kv = headEnd >= 0 && (next < 0 || headEnd < next)
-                && HeaderCell().Matches(html[start..headEnd]) is { Count: > 0 } cells && cells.All(static c => c.Groups[1].Value.Trim().Length == 0);
-            return "<div class=\"vd-table" + (kv ? " vd-table--kv" : "") + (index ? " vd-index" : "") + "\" tabindex=\"0\"><table>";
+            List<string> headers = headEnd >= 0 && (next < 0 || headEnd < next)
+                ? [.. HeaderCell().Matches(html[start..headEnd]).Select(static c => WebUtility.HtmlDecode(Tag().Replace(c.Groups[1].Value, "")).Trim())]
+                : [];
+            bool kv = headers.Count > 0 && headers.All(static h => h.Length == 0);
+            string name = headers.Any(static h => h.Length > 0) ? "Table: " + string.Join(", ", headers.Where(static h => h.Length > 0)) : "Table";
+            return "<div class=\"vd-table" + (kv ? " vd-table--kv" : "") + (index ? " vd-index" : "") + "\" tabindex=\"0\" role=\"region\" aria-label=\""
+                + Layout.Encode(name) + "\"><table>";
         }).Replace("</table>", "</table></div>", StringComparison.Ordinal);
     }
 
@@ -416,9 +435,12 @@ internal static partial class SiteBuild
     /// A code block scrolls sideways and never wraps, and a table scrolls in
     /// its wrapper; a reader with a keyboard must be able to reach either to
     /// scroll it (WCAG 2.1.1, axe's scrollable-region-focusable). The site has
-    /// no script to tell which ones overflow, so each is in the tab order.
+    /// no script to tell which ones overflow, so each is in the tab order,
+    /// as a region with a name (the maintainer's answer 2 on #368): a table is
+    /// named by its header cells, a code block by its language.
     /// </summary>
-    public static string Scrollable(string html) => PreOpen().Replace(html, "<pre tabindex=\"0\"$1>");
+    public static string Scrollable(string html) => PreOpen().Replace(html, static m =>
+        "<pre tabindex=\"0\" role=\"region\" aria-label=\"" + (m.Groups[3].Success ? "Code: " + m.Groups[3].Value : "Code") + "\"" + m.Groups[1].Value + ">" + m.Groups[2].Value);
 
     /// <summary>
     /// The ADR index: each Status cell becomes the ADR's badge, read from the
@@ -455,8 +477,11 @@ internal static partial class SiteBuild
     [GeneratedRegex(@" style=""text-align: (left|right|center);""", RegexOptions.CultureInvariant)]
     private static partial Regex Alignment();
 
-    [GeneratedRegex("<pre( [^>]*)?>", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("<pre( [^>]*)?>(<code class=\"language-([A-Za-z0-9+#-]+)\")?", RegexOptions.CultureInvariant)]
     private static partial Regex PreOpen();
+
+    [GeneratedRegex("<[^>]*>", RegexOptions.CultureInvariant)]
+    private static partial Regex Tag();
 
     [GeneratedRegex("<table>", RegexOptions.CultureInvariant)]
     private static partial Regex TableOpen();

@@ -14,3 +14,4 @@ The fixture ledger's index: one ADR per case of the badge (ADR 0247 amended
 | [0007](0007-a-revoked-ruling.md) | A revoked ruling beside an accepted one | Accepted |
 | [0008](0008-no-set-not-superseded.md) | No set, not superseded | Proposed |
 | [0009](0009-superseded-in-part.md) | Superseded in part | Accepted; layer table **superseded by 0010** |
+| [0010](0010-accepted-with-a-pending-amendment.md) | Accepted, with rulings of a dated amendment pending | Accepted; amended 2026-11-19 |
