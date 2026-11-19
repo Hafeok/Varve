@@ -68,6 +68,14 @@
     <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />
   </ItemGroup>
 
+  <!-- The graph view's spike (#355): its page and script, from tests/, built
+       in only when -p:VarveGraphSpike=true. A shipped publish never sets it,
+       so the bundle never holds them. -->
+  <ItemGroup Condition="'$(VarveGraphSpike)' == 'true'">
+    <Content Include="../../tests/Varve.WebUi.Spike/GraphSpike.razor" Link="Pages/GraphSpike.razor" />
+    <Content Include="../../tests/Varve.WebUi.Spike/spike.js" Link="wwwroot/js/spike.js" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- docs/ui/ is the design source (ADR 0206): its two stylesheets and the
          core mark are linked into the bundle, one copy, never copied by a
