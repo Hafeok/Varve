@@ -64,6 +64,7 @@ internal sealed class SiteMap
 {
     public static readonly IReadOnlyList<Section> Sections =
     [
+        new("Learning track", "docs/learn", "learning", "Varve for SQL developers and DDD practitioners, chapter by chapter, on one RealEstateCore portfolio."),
         new("Operator guide", "docs/operator", "operator", "Running, configuring, securing and upgrading Varve."),
         new("Problem types", "docs/problems", "problems", "Every RFC 9457 problem type Varve answers, and what to do about it."),
         new("Architecture decisions", "docs/adr", "adr", "Every ADR, with its context, decision and consequences."),
@@ -114,7 +115,7 @@ internal sealed class SiteMap
 
     public Page? PageOf(string source) => _bySource.GetValueOrDefault(source);
 
-    /// <summary>The sections and single files this site carries, in order, and the two generated parts.</summary>
+    /// <summary>The sections and single files this site carries, in order, and the generated API reference.</summary>
     public IReadOnlyList<(string Title, string Output, string Summary)> Contents()
     {
         List<(string, string, string)> contents = [];
@@ -130,7 +131,6 @@ internal sealed class SiteMap
         }
 
         contents.Add(("API reference", "api/index.html", "Each package's public surface, from its API baselines."));
-        contents.Add(("Learning track", "learning/index.html", "Not written yet."));
         return contents;
     }
 
