@@ -37,6 +37,14 @@
 # A dispatch on main runs one part when evidence is needed before a release:
 # `run` is the night's whole run, the store at full depth, the Linux soak or
 # the Windows soak.
+#
+# A dispatch with `run: repeat`, on any branch, runs one named test filter N
+# times on one OS, under load if asked, and keeps the whole output of every
+# failing run (eng/repeat.cs, docs/testing.md §11, #254). It is how a test
+# that fails now and then is reproduced, and how a fix is shown to hold. It
+# never runs on the schedule, a push or a pull request, and it is never a
+# required check: eng/required-checks.cs refuses a required name reported
+# only by a workflow that does not run on pull requests.
 name: Nightly
 
 on:
@@ -49,7 +57,7 @@ on:
   workflow_dispatch:
     inputs:
       run:
-        description: What to run on main
+        description: What to run (on main, except repeat, which runs on the branch dispatched)
         type: choice
         default: night
         options:
@@ -57,6 +65,30 @@ on:
           - store at full depth
           - linux soak
           - windows soak
+          - repeat
+      repeat-project:
+        description: "repeat: the test project's directory"
+        type: string
+        default: tests/Varve.Server.Tests
+      repeat-filter:
+        description: "repeat: xUnit's filter, as -method Full.Name or -class Full.Name, repeatable"
+        type: string
+        default: ""
+      repeat-count:
+        description: "repeat: how many runs"
+        type: number
+        default: 100
+      repeat-os:
+        description: "repeat: the runner"
+        type: choice
+        default: ubuntu-latest
+        options:
+          - ubuntu-latest
+          - windows-latest
+      repeat-load:
+        description: "repeat: beside a competing Release build and one busy thread per processor"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -68,6 +100,63 @@ env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
+  repeat:
+    name: repeat (${{ inputs.repeat-os }})
+    # A dispatch only, on whichever branch it names: never the schedule, a
+    # push or a pull request, and never a required check (#254).
+    if: github.event_name == 'workflow_dispatch' && inputs.run == 'repeat'
+    runs-on: ${{ inputs.repeat-os }}
+    timeout-minutes: 340
+
+    steps:
+      - name: Line endings
+        # As the build job: the bytes tested are the bytes committed (ADR 0036).
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Temporary folder on the runner's temporary drive
+        # As the build job (#126): the tests' temporary folder on D:, not C:.
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+
+      - name: Repeat the filter
+        shell: bash
+        env:
+          # Inputs reach the script as values, never as workflow text.
+          REPEAT_PROJECT: ${{ inputs.repeat-project }}
+          REPEAT_FILTER: ${{ inputs.repeat-filter }}
+          REPEAT_COUNT: ${{ inputs.repeat-count }}
+          REPEAT_LOAD: ${{ inputs.repeat-load }}
+        run: |
+          load=()
+          if [ "$REPEAT_LOAD" = "true" ]; then load=(--load); fi
+          dotnet run eng/repeat.cs -- --project "$REPEAT_PROJECT" --filter "$REPEAT_FILTER" --count "$REPEAT_COUNT" "${load[@]}" --out "$GITHUB_WORKSPACE/artifacts/repeat"
+
+      - name: Upload every failing run's output
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: repeat-${{ inputs.repeat-os }}
+          path: ${{ github.workspace }}/artifacts/repeat
+          if-no-files-found: ignore
+
   store:
     name: store, full depth (${{ matrix.os }})
     if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'store at full depth')
