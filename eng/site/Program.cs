@@ -19,7 +19,16 @@
 // each package's API reference from its PublicAPI baselines. It runs check
 // first, and fails on what check fails on. Its output depends only on the
 // repository, the commit named and the browser, so two builds are compared
-// byte for byte in CI.
+// byte for byte in CI. Every page's foot names --commit, and nothing writes a
+// time or a date. A pull request's build names GitHub's test merge commit,
+// which is what it checked out; main's names the commit pushed; a local build
+// names whatever it is given, by convention `git rev-parse HEAD`, which a
+// working tree with uncommitted changes does not match.
+//
+// The stylesheets are the design source's (ADR 0247 amended 2026-11-19):
+// site-tokens.css is written from docs/ui/tokens.json, and docs/ui/bundle.css,
+// docs/ui/site/site.css and the mark are copied. The foot's licence is the
+// PackageLicenseExpression of Directory.Build.targets.
 //
 // Exit codes: 0 done, 1 a finding, 2 could not run.
 
