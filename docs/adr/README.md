@@ -533,6 +533,7 @@ Filed by the session for Web UI part 2 ([#96](https://github.com/Hafeok/Varve/is
 | # | Title | Status |
 |---:|---|---|
 | [0248](0248-a-public-sparql-tokenizer.md) | A public SPARQL tokenizer: the parser's lexer, reachable, with comments and classified words, in the input's units | Filed unaccepted (#355) |
+| [0249](0249-the-data-explorers-reads.md) | The data explorer's reads: one position per view, streamed lines, a read-ahead to a ceiling, history per tab | Filed unaccepted (#355); amends 0203 |
 
 ## Conformance — differential testing against Oxigraph
 
