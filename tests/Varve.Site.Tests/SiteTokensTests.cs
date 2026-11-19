@@ -5,6 +5,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using DecisionDriven;
@@ -45,9 +47,8 @@ public partial class SiteTokensTests
             foreach (JsonElement token in root.GetProperty(group).GetProperty("tokens").EnumerateArray())
             {
                 string name = token.GetProperty("name").GetString()!;
-                JsonElement value = token.GetProperty("value");
-                Assert.Equal(Css(value.ValueKind == JsonValueKind.Object ? value.GetProperty("light").GetString()! : value.GetString()!), light[name]);
-                Assert.Equal(Css(value.ValueKind == JsonValueKind.Object ? value.GetProperty("dark").GetString()! : value.GetString()!), dark[name]);
+                Assert.Equal(Expected(root, name, "light"), light[name]);
+                Assert.Equal(Expected(root, name, "dark"), dark[name]);
             }
         }
 
@@ -65,12 +66,64 @@ public partial class SiteTokensTests
         }
     }
 
+    /// <summary>
+    /// The output holds values only: no "{name}" reference, and no var()
+    /// standing for one (the maintainer's answer 3 on #368). The design's
+    /// own preview of this file wrote "{accent}" unresolved, which a browser
+    /// drops, and the focus ring with it.
+    /// </summary>
     [Fact]
-    public void the_site_sets_no_theme_attribute_and_unresolved_references_never_reach_the_css()
+    public void the_site_sets_no_theme_attribute_and_no_token_reference_is_left_unresolved()
     {
         string css = SiteStyles.Tokens(File.ReadAllBytes(Path.Combine(Paths.Root, "docs", "ui", "tokens.json")));
         Assert.DoesNotContain("data-theme", css, StringComparison.Ordinal);
-        Assert.DoesNotMatch(@":\s*\{", css);
+        Assert.DoesNotMatch(@"\{[A-Za-z0-9_-]+\}", css);
+        Assert.DoesNotContain("var(", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void a_chain_of_references_resolves_to_the_value_in_each_scheme()
+    {
+        string css = SiteStyles.Tokens(Encoding.UTF8.GetBytes(Fixture("""{ "name": "ink", "value": { "light": "#000000", "dark": "#ffffff" } }, { "name": "accent", "value": "{ink}" }, { "name": "ring", "value": "{accent}" }""")));
+        int media = css.IndexOf("@media", StringComparison.Ordinal);
+        Assert.Contains("  --ring: #000000;", css[..media], StringComparison.Ordinal);
+        Assert.Contains("    --ring: #ffffff;", css[media..], StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("""{ "name": "ring", "value": "{nothing}" }""", "refers to {nothing}, which is no token")]
+    [InlineData("""{ "name": "a", "value": "{b}" }, { "name": "b", "value": "{a}" }""", "form a cycle")]
+    public void a_reference_that_cannot_resolve_fails_the_build(string tokens, string message)
+    {
+        SiteException e = Assert.Throws<SiteException>(() => SiteStyles.Tokens(Encoding.UTF8.GetBytes(Fixture(tokens))));
+        Assert.Contains(message, e.Message, StringComparison.Ordinal);
+    }
+
+    private static string Fixture(string colourTokens) =>
+        "{ \"name\": \"Fixture\", \"color\": { \"themes\": [ { \"id\": \"light\" }, { \"id\": \"dark\" } ], \"tokens\": [ " + colourTokens + " ] },"
+        + " \"type\": { \"families\": { \"sans\": \"system-ui\" } }, \"spacing\": { \"tokens\": [] }, \"radius\": { \"tokens\": [] }, \"shadow\": { \"tokens\": [] } }";
+
+    /// <summary>A token's value in a scheme, read from tokens.json and followed through its references here, not by the generator.</summary>
+    private static string Expected(JsonElement root, string name, string theme)
+    {
+        for (int hops = 0; hops < 16; hops++)
+        {
+            string wanted = name;
+            JsonElement token = ((string[])["color", "shadow", "spacing", "radius"])
+                .SelectMany(group => root.GetProperty(group).GetProperty("tokens").EnumerateArray())
+                .Single(t => t.GetProperty("name").GetString() == wanted);
+            JsonElement value = token.GetProperty("value");
+            string text = value.ValueKind == JsonValueKind.Object ? value.GetProperty(theme).GetString()! : value.GetString()!;
+
+            if (!(text.StartsWith('{') && text.EndsWith('}')))
+            {
+                return text;
+            }
+
+            name = text[1..^1];
+        }
+
+        throw new InvalidOperationException("A reference chain longer than 16 in tokens.json.");
     }
 
     [Fact]
@@ -79,9 +132,6 @@ public partial class SiteTokensTests
         Assert.Equal("MPL-2.0", SiteStyles.Licence(new Repository(Paths.Root)));
         Assert.Contains("Mozilla Public License Version 2.0", File.ReadAllText(Path.Combine(Paths.Root, "LICENSE")), StringComparison.Ordinal);
     }
-
-    private static string Css(string value) =>
-        value.StartsWith('{') && value.EndsWith('}') ? "var(--" + value[1..^1] + ")" : value;
 
     private static Dictionary<string, string> Declarations(string css)
     {

@@ -62,7 +62,11 @@ internal static partial class SiteStyles
     /// <summary>
     /// <c>site-tokens.css</c> from <c>tokens.json</c>. The first theme is the
     /// light one, on <c>:root</c>; the second is the dark one, under the media
-    /// query. A value written <c>{name}</c> is <c>var(--name)</c>, in both.
+    /// query. A value written <c>{name}</c> is a reference to another token, and
+    /// is resolved here to that token's value in the same scheme, through any
+    /// chain of references (the maintainer's answer 3 on #368): the output
+    /// holds values only, so no reference can reach a browser unresolved. A
+    /// reference to a token that does not exist, or a cycle, fails the build.
     /// </summary>
     public static string Tokens(ReadOnlySpan<byte> tokensJson)
     {
@@ -76,19 +80,19 @@ internal static partial class SiteStyles
             throw new SiteException($"tokens.json's themes are [{string.Join(", ", themes)}]; the site expects light, then dark.");
         }
 
+        List<JsonElement> themed = [.. color.GetProperty("tokens").EnumerateArray(), .. root.GetProperty("shadow").GetProperty("tokens").EnumerateArray()];
+        List<JsonElement> fixedTokens = [.. root.GetProperty("spacing").GetProperty("tokens").EnumerateArray(), .. root.GetProperty("radius").GetProperty("tokens").EnumerateArray()];
+
         StringBuilder css = new();
         css.Append("/* ").Append(root.GetProperty("name").GetString())
             .Append(" docs site — generated from docs/ui/tokens.json. Light by default, dark by the reader's preference:\n")
-            .Append("   the site has no script, so the scheme is a media query. */\n");
+            .Append("   the site has no script, so the scheme is a media query. Every token reference is resolved. */\n");
         css.Append(":root {\n");
-        Properties(css, color.GetProperty("tokens"), "light", "  ");
-        Properties(css, root.GetProperty("shadow").GetProperty("tokens"), "light", "  ");
+        Properties(css, themed, Values(themed, fixedTokens, "light"), "  ");
         css.Append("}\n@media (prefers-color-scheme: dark) {\n  :root {\n");
-        Properties(css, color.GetProperty("tokens"), "dark", "    ");
-        Properties(css, root.GetProperty("shadow").GetProperty("tokens"), "dark", "    ");
+        Properties(css, themed, Values(themed, fixedTokens, "dark"), "    ");
         css.Append("  }\n}\n:root {\n");
-        Properties(css, root.GetProperty("spacing").GetProperty("tokens"), theme: null, "  ");
-        Properties(css, root.GetProperty("radius").GetProperty("tokens"), theme: null, "  ");
+        Properties(css, fixedTokens, Values(themed, fixedTokens, "light"), "  ");
 
         foreach (JsonProperty family in root.GetProperty("type").GetProperty("families").EnumerateObject())
         {
@@ -99,19 +103,48 @@ internal static partial class SiteStyles
         return css.ToString();
     }
 
-    private static void Properties(StringBuilder css, JsonElement tokens, string? theme, string indent)
+    /// <summary>Every token's value in one scheme, references resolved.</summary>
+    private static Dictionary<string, string> Values(List<JsonElement> themed, List<JsonElement> fixedTokens, string theme)
     {
-        foreach (JsonElement token in tokens.EnumerateArray())
+        Dictionary<string, string> raw = new(StringComparer.Ordinal);
+
+        foreach (JsonElement token in themed.Concat(fixedTokens))
         {
             JsonElement value = token.GetProperty("value");
-            string text = value.ValueKind == JsonValueKind.Object ? value.GetProperty(theme!).GetString()! : value.GetString()!;
+            raw[token.GetProperty("name").GetString()!] = value.ValueKind == JsonValueKind.Object ? value.GetProperty(theme).GetString()! : value.GetString()!;
+        }
 
-            if (text.StartsWith('{') && text.EndsWith('}'))
-            {
-                text = "var(--" + text[1..^1] + ")";
-            }
+        Dictionary<string, string> resolved = new(StringComparer.Ordinal);
 
-            css.Append(indent).Append("--").Append(token.GetProperty("name").GetString()).Append(": ").Append(text).Append(";\n");
+        foreach (string name in raw.Keys)
+        {
+            resolved[name] = Resolve(name, raw, [], theme);
+        }
+
+        return resolved;
+    }
+
+    private static string Resolve(string name, Dictionary<string, string> raw, List<string> chain, string theme)
+    {
+        if (chain.Contains(name))
+        {
+            throw new SiteException($"tokens.json's references form a cycle in the {theme} scheme: {string.Join(" -> ", chain)} -> {name}.");
+        }
+
+        if (!raw.TryGetValue(name, out string? value))
+        {
+            throw new SiteException($"tokens.json's {chain[^1]} refers to {{{name}}}, which is no token.");
+        }
+
+        return value.StartsWith('{') && value.EndsWith('}') ? Resolve(value[1..^1], raw, [.. chain, name], theme) : value;
+    }
+
+    private static void Properties(StringBuilder css, List<JsonElement> tokens, Dictionary<string, string> values, string indent)
+    {
+        foreach (JsonElement token in tokens)
+        {
+            string name = token.GetProperty("name").GetString()!;
+            css.Append(indent).Append("--").Append(name).Append(": ").Append(values[name]).Append(";\n");
         }
     }
 
