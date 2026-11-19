@@ -420,4 +420,3 @@ body.vw-root { margin: 0; }
 @media (max-width: 640px) {
   .vw-triples th:last-child, .vw-triples td:last-child { display: none; }
 }
-}
