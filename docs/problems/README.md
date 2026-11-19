@@ -30,10 +30,13 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`conflict`](conflict.md) | 409 | `position`, `expectedPosition`, `headPosition`, `graphs`, `graphsTruncated` | Another commit came first. |
 | [`dataset-open`](dataset-open.md) | 409 |  | The dataset is open; close it first. |
 | [`event-catalogue-moved`](event-catalogue-moved.md) | 409 | `manage` | The dataset's event declarations are on the management plane. |
+| [`idempotency-key-in-flight`](idempotency-key-in-flight.md) | 409 |  | A request with this idempotency key is still being answered. |
 | [`precondition-failed`](precondition-failed.md) | 412 | `position`, `expectedPosition`, `headPosition`, `graphs` | The precondition does not name the current version. |
 | [`request-too-large`](request-too-large.md) | 413 | `limit` | The request body is over the server's limit. |
 | [`unsupported-media-type`](unsupported-media-type.md) | 415 |  | The request body is in a media type or charset this endpoint does not read. |
 | [`rejected`](rejected.md) | 422 | `report` | A validator rejected the commit. |
+| [`idempotency-key-reused`](idempotency-key-reused.md) | 422 | `position` | The idempotency key was sent with another request. |
+| [`idempotency-key-expired`](idempotency-key-expired.md) | 422 | `keyPosition`, `headPosition`, `window` | Whether a write with this idempotency key committed cannot be determined. |
 | [`event-declaration-invalid`](event-declaration-invalid.md) | 422 | `declaration`, `reason` | The event declaration is not well formed. |
 | [`event-schema-incompatible`](event-schema-incompatible.md) | 422 | `declaration`, `fields` | The declaration change is incompatible with its version. |
 | [`event-not-rendered`](event-not-rendered.md) | 422 | `event`, `eventType`, `reason` | An event could not be rendered. |

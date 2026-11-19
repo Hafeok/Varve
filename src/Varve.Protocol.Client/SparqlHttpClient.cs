@@ -36,6 +36,7 @@ public sealed partial class SparqlHttpClient
     private readonly ClientLimits _limits;
     private readonly BearerTokenProvider? _tokens;
     private readonly TimeProvider? _clock;
+    private readonly KnownPosition _known = new();
 
     /// <summary>
     /// A client of the dataset at <paramref name="dataset"/> whose every request
@@ -112,7 +113,7 @@ public sealed partial class SparqlHttpClient
             request.Headers.TryAddWithoutValidation("If-Match", "\"" + expected.ToString(CultureInfo.InvariantCulture) + "\"");
         }
 
-        return SendAsync(request, cancellationToken);
+        return WriteAsync(request, cancellationToken);
     }
 
     /// <summary>
@@ -137,7 +138,7 @@ public sealed partial class SparqlHttpClient
         }
 
         request.Headers.TryAddWithoutValidation("Varve-If-Graphs-Match", header.ToString());
-        return SendAsync(request, cancellationToken);
+        return WriteAsync(request, cancellationToken);
     }
 
     /// <summary>A graph by the Graph Store Protocol: the default graph for a null <paramref name="graph"/>.</summary>
@@ -205,7 +206,7 @@ public sealed partial class SparqlHttpClient
             request.Headers.TryAddWithoutValidation("If-None-Match", "*");
         }
 
-        return SendAsync(request, cancellationToken);
+        return WriteAsync(request, cancellationToken);
     }
 
     private Uri GraphAddress(string? graph) => new(Dataset, graph is null ? "graphs?default" : "graphs?graph=" + Uri.EscapeDataString(graph));
@@ -344,7 +345,7 @@ public sealed partial class SparqlHttpClient
 
     /// <summary>Declares the dataset <paramref name="open"/> or closed, idempotently; every instance converges to it (ADR 0163).</summary>
     public Task<HttpResponseMessage> SetStateAsync(bool open, CancellationToken cancellationToken) =>
-        SendAsync(new HttpRequestMessage(HttpMethod.Put, Management("state"))
+        WriteAsync(new HttpRequestMessage(HttpMethod.Put, Management("state"))
         {
             Content = new StringContent(open ? "{\"state\":\"open\"}" : "{\"state\":\"closed\"}", Encoding.UTF8, "application/json"),
         }, cancellationToken);
@@ -371,7 +372,7 @@ public sealed partial class SparqlHttpClient
             request.Headers.TryAddWithoutValidation("If-Match", "\"" + expected.ToString(CultureInfo.InvariantCulture) + "\"");
         }
 
-        return SendAsync(request, cancellationToken);
+        return WriteAsync(request, cancellationToken);
     }
 
     /// <summary>The dataset's status (ADRs 0101, 0163), JSON; its admin's call.</summary>
@@ -382,22 +383,20 @@ public sealed partial class SparqlHttpClient
     public Task<HttpResponseMessage> CheckpointAsync(long? at, CancellationToken cancellationToken) =>
         SendAsync(new HttpRequestMessage(HttpMethod.Post, Management(at is long position ? "checkpoints?at=" + position.ToString(CultureInfo.InvariantCulture) : "checkpoints")), cancellationToken);
 
-    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        try
-        {
-            if (await TokenAsync(cancellationToken).ConfigureAwait(false) is BearerToken token)
-            {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
-            }
-        }
-        catch
-        {
-            request.Dispose();
-            throw;
-        }
+    // A read is sent once; a write carries a key and is retried with it
+    // (ADR 0246), each attempt with a token of its own.
+    private Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+        Requests.SendWriteAsync(_http, request, _limits, AuthorizeAsync, _known, cancellationToken, keyed: false);
 
-        return await Requests.SendAsync(_http, request, _limits, cancellationToken).ConfigureAwait(false);
+    private Task<HttpResponseMessage> WriteAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+        Requests.SendWriteAsync(_http, request, _limits, AuthorizeAsync, _known, cancellationToken);
+
+    private async ValueTask AuthorizeAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        if (await TokenAsync(cancellationToken).ConfigureAwait(false) is BearerToken token)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Value);
+        }
     }
 
     // The token for one request (ADR 0127).

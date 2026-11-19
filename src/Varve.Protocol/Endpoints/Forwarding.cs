@@ -37,6 +37,10 @@ internal static class Forwarding
     private static readonly ImmutableArray<string> Passed =
     [
         "Authorization", "Accept", "If-Match", "If-None-Match", Preconditions.IfGraphsMatchHeader, "Varve-Min-Management-Position", "traceparent", "tracestate",
+
+        // The client's key, checked by the writer (ADR 0246): a forwarded
+        // write keeps it, and the forwarder adds none.
+        Keyed.Header, Keyed.KeyPositionHeader,
     ];
 
     // What the forwarder's own connection decides, never passed back.

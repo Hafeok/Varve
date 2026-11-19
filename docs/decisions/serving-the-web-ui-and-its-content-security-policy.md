@@ -36,3 +36,7 @@ decisions:
 The rulings of [ADR 0202](../adr/0202-serving-the-web-ui-and-its-content-security-policy.md), one line each.
 Filed unaccepted by Web UI part 1 (#167); every citation is `CS0618` until the maintainer accepts
 them (ADR 0066).
+
+Superseded, kept here as accepted: `ZipAssetNoImage` is superseded by ADR 0245 (2026-11-16), whose
+`WebUiInTheImageAndTheZipStays` puts the same bundle in the server's container image and keeps the
+zip. A new citation names the successor.

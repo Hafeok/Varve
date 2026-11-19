@@ -151,6 +151,15 @@ public readonly record struct ProblemType
     /// <summary><c>403</c>: a tier-2 read by a caller whose grant restricts rows over a binding's graphs; it carries no member (ADR 0238, amended 2026-11-16).</summary>
     public static ProblemType EntailmentNotAvailable { get; } = new("entailment-not-available");
 
+    /// <summary><c>422</c>: a retry whose key is not found, made more than the window before the head: whether its original committed cannot be determined (ADR 0246).</summary>
+    public static ProblemType IdempotencyKeyExpired { get; } = new("idempotency-key-expired");
+
+    /// <summary><c>409</c>: a write's idempotency key is held by a request of the same agent still being answered (ADR 0246).</summary>
+    public static ProblemType IdempotencyKeyInFlight { get; } = new("idempotency-key-in-flight");
+
+    /// <summary><c>422</c>: a write's idempotency key is the same agent's key of a commit made by another request (ADR 0246).</summary>
+    public static ProblemType IdempotencyKeyReused { get; } = new("idempotency-key-reused");
+
     /// <summary><c>503</c>: a forwarded write reached an instance that does not write the dataset; it is never forwarded again (ADR 0168).</summary>
     public static ProblemType WriterMoved { get; } = new("writer-moved");
 

@@ -733,6 +733,49 @@ public abstract class FleetCases : IAsyncDisposable
     }
 
     /// <summary>
+    /// A keyed retry straight after a takeover (ADR 0246): a commits keyed
+    /// writes and is killed, the last write's answer taken as lost; b takes
+    /// d over by request, and the same keyed write sent to b at once is
+    /// answered from a's commit and commits nothing. b reads its keys in the
+    /// background after the claim, so the takeover's time is reported for
+    /// comparison with the probe's above, its window holding keyed commits.
+    /// </summary>
+    [Fact]
+    [Trait("Measure", "Handover")]
+    public async Task A_keyed_retry_straight_after_a_takeover_is_answered_from_the_old_writer_s_commit()
+    {
+        FleetLocation container = await Store.NewAsync();
+        Server a = await StartAsync("a", container, writer: "a");
+        long declared = await DeclareAsync(a, "d", "a", "b");
+        Server b = await StartAsync("b", container, writer: "a");
+        await WaitDeclaredAsync(b, declared, "d", "standby");
+
+        for (int i = 0; i < 200; i++)
+        {
+            HttpResponseMessage keyed = await KeyedUpdate(a, "d", "INSERT DATA { <http://ex/k" + i.ToString(CultureInfo.InvariantCulture) + "> <http://ex/p> 1 }", "k" + i.ToString(CultureInfo.InvariantCulture));
+            Assert.Equal(HttpStatusCode.NoContent, keyed.StatusCode);
+        }
+
+        HttpResponseMessage original = await KeyedUpdate(a, "d", "INSERT DATA { <http://ex/lost> <http://ex/p> 1 }", "lost");
+        Assert.Equal(HttpStatusCode.NoContent, original.StatusCode);
+        string position = original.Headers.GetValues("Varve-Position").Single();
+        await WaitWarmAsync(b, "d");
+
+        Stopwatch takeover = Stopwatch.StartNew();
+        a.Kill();
+        HttpResponseMessage took = await Takeover(b, "d", 1);
+        takeover.Stop();
+        Assert.True(took.StatusCode == HttpStatusCode.OK, (int)took.StatusCode + " " + await took.Content.ReadAsStringAsync(Ct) + "\n" + b.Log);
+        Measured("probe, 201 keyed commits in the window: the writer's kill to the takeover's answer", takeover);
+
+        HttpResponseMessage retry = await KeyedUpdate(b, "d", "INSERT DATA { <http://ex/lost> <http://ex/p> 1 }", "lost");
+        Assert.True(retry.StatusCode == HttpStatusCode.NoContent, (int)retry.StatusCode + " " + await retry.Content.ReadAsStringAsync(Ct) + "\n" + b.Log);
+        Assert.Equal("true", retry.Headers.GetValues("Varve-Replayed").Single());
+        Assert.Equal(position, retry.Headers.GetValues("Varve-Position").Single());
+        Assert.Equal(position, await HeadAsync(b, "d"));
+    }
+
+    /// <summary>
     /// The automation's command (ADR 0181): with a killed, <c>varve manage
     /// takeover --from a</c> names a, c and b, in that order. It skips a, which
     /// does not answer, and c, which is no standby of d, and moves d to b and
@@ -1612,6 +1655,21 @@ public abstract class FleetCases : IAsyncDisposable
 
     private static Task<HttpResponseMessage> Update(Server server, string dataset, string update) =>
         server.Http.PostAsync(new Uri(server.Address, "datasets/" + dataset + "/sparql"), new StringContent(update, Encoding.UTF8, "application/sparql-update"), Ct);
+
+    private static Task<HttpResponseMessage> KeyedUpdate(Server server, string dataset, string update, string key)
+    {
+        HttpRequestMessage request = new(HttpMethod.Post, new Uri(server.Address, "datasets/" + dataset + "/sparql")) { Content = new StringContent(update, Encoding.UTF8, "application/sparql-update") };
+        request.Headers.TryAddWithoutValidation("Idempotency-Key", "\"" + key + "\"");
+        return server.Http.SendAsync(request, Ct);
+    }
+
+    // The head a read of the dataset names.
+    private static async Task<string> HeadAsync(Server server, string dataset)
+    {
+        HttpResponseMessage read = await server.Http.PostAsync(new Uri(server.Address, "datasets/" + dataset + "/sparql"), new StringContent("ASK {}", Encoding.UTF8, "application/sparql-query"), Ct);
+        Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+        return read.Headers.GetValues("Varve-Position").Single();
+    }
 
     private static int FreePort()
     {

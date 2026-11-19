@@ -124,6 +124,13 @@ public sealed class ProtocolOptions
     public IDatasetFollowing? Following { get; init; }
 
     /// <summary>
+    /// The client idempotency keys a writer honours (ADR 0246): a write that
+    /// carries <c>Idempotency-Key</c> commits once for its agent and key over
+    /// the window. Null ignores the header.
+    /// </summary>
+    public IdempotencyKeys? Idempotency { get; init; } = new();
+
+    /// <summary>
     /// The host's validation projections, served as reserved report graphs
     /// (ADR 0174); null when the host keeps none.
     /// </summary>

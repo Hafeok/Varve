@@ -16,6 +16,10 @@
     <ProjectReference Include="../../src/Varve.Shacl.Store/Varve.Shacl.Store.csproj" />
     <ProjectReference Include="../../src/Varve.Classification/Varve.Classification.csproj" />
     <ProjectReference Include="../../src/Varve.Inference.Store/Varve.Inference.Store.csproj" />
+    <!-- The client, for the idempotency gate: its keys and retries against the server (ADR 0246). -->
+    <ProjectReference Include="../../src/Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
+    <!-- A takeover by claim in place, over the tests' object store in memory (ADR 0246). -->
+    <ProjectReference Include="../../src/Varve.Store.ObjectStorage/Varve.Store.ObjectStorage.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -28,6 +32,7 @@
     <Compile Include="../ProtocolTestHost.cs" Link="ProtocolTestHost.cs" />
     <Compile Include="../AllocationMeter.cs" Link="AllocationMeter.cs" />
     <Compile Include="../QuadSourceContract.cs" Link="QuadSourceContract.cs" />
+    <Compile Include="../Varve.Store.Tests/ObjectStorage/MemoryObjectStore.cs" LinkBase="Objects" />
     <!-- The harness's isomorphism check, test code (ADR 0030, ADR 0059). -->
     <Compile Include="../Varve.Conformance.Tests/Isomorphism.cs;../Varve.Conformance.Tests/ParsedQuad.cs" LinkBase="Conformance" />
   </ItemGroup>

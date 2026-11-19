@@ -20,29 +20,49 @@ namespace Varve.Protocol.Http;
 /// </summary>
 internal static class DeltaLines
 {
-    /// <summary>A commit record, the empty line that ends it included.</summary>
+    /// <summary>
+    /// A commit record, the empty line that ends it included, without the
+    /// writer's idempotency attachment, which is the writer's own and never
+    /// served (ADR 0246).
+    /// </summary>
     internal static void WriteCommit(IBufferWriter<byte> output, Commit commit, QuadDelta delta, TermNamer names) =>
-        DeltaWriter.WriteCommit(output, Header(commit), delta, names);
+        DeltaWriter.WriteCommit(output, Header(commit) with { Attachments = Served(commit, names, reports: true) }, delta, names);
 
     /// <summary>
     /// A commit record for a row-restricted caller: without the shapes
     /// bindings' report attachments, which it may not read (ADR 0237 point 6,
     /// ADR 0173 amended).
     /// </summary>
-    internal static void WriteCommitWithoutReports(IBufferWriter<byte> output, Commit commit, QuadDelta delta, TermNamer names)
+    internal static void WriteCommitWithoutReports(IBufferWriter<byte> output, Commit commit, QuadDelta delta, TermNamer names) =>
+        DeltaWriter.WriteCommit(output, Header(commit) with { Attachments = Served(commit, names, reports: false) }, delta, names);
+
+    // The attachments a record serves: never the idempotency key's hash
+    // (ADR 0246), and the reports only when the caller may read them.
+    private static TermHandle[] Served(Commit commit, TermNamer names, bool reports)
     {
         List<TermHandle> kept = [];
 
         foreach (TermHandle attachment in commit.Attachments.Span)
         {
-            if (!(names(attachment, out RdfTerm? term) && term.Kind == RdfTermKind.TripleTerm && term.Predicate is { } predicate && predicate.Lexical.SequenceEqual(AffectedReport)))
+            bool named = names(attachment, out RdfTerm? term);
+
+            if (named && term!.Kind == RdfTermKind.Literal && term.DatatypeIri.SequenceEqual(IdempotencyKey))
             {
-                kept.Add(attachment);
+                continue;
             }
+
+            if (!reports && named && term!.Kind == RdfTermKind.TripleTerm && term.Predicate is { } predicate && predicate.Lexical.SequenceEqual(AffectedReport))
+            {
+                continue;
+            }
+
+            kept.Add(attachment);
         }
 
-        DeltaWriter.WriteCommit(output, Header(commit) with { Attachments = kept.ToArray() }, delta, names);
+        return [.. kept];
     }
+
+    private static ReadOnlySpan<byte> IdempotencyKey => "https://w3id.org/varve/ns#idempotencyKey"u8;
 
     private static ReadOnlySpan<byte> AffectedReport => "https://w3id.org/varve/ns#affectedReport"u8;
 

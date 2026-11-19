@@ -572,6 +572,15 @@ internal static class ManagementEndpoints
             return;
         }
 
+        // The key before the versions (ADR 0246): a retry whose original
+        // committed is answered from it, never 412. The route's own checks
+        // ran before; none of them commits.
+        if (!await Keyed.BeginAsync(exchange).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        Keyed.Answering(exchange, new KeyedAnswer(created, null));
         List<(GraphPrecondition Graph, Position Version)> stale = [];
         long since = 0;
 

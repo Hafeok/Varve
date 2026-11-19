@@ -43,9 +43,17 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.21` is the latest release, and it moves `Varve.Aspire` to
+**`v0.1.0-preview.22` is the latest release, and the container image now
+ships the Web UI and serves it by default
+([#296](https://github.com/Hafeok/Varve/issues/296))**: `docker run
+ghcr.io/hafeok/varve:v0.1.0-preview.22 serve --anonymous` and a browser at
+`/ui/` is the whole first run. The server answers the console's settings
+from its own configuration, so nobody edits a file in the image, and a
+server with OIDC and no client for the console says sign-in is not
+configured rather than anonymous (ADR 0245).
+`v0.1.0-preview.21` before it moved `Varve.Aspire` to
 the patched `Aspire.Hosting`
-([#285](https://github.com/Hafeok/Varve/issues/285))**: `Aspire.Hosting` below
+([#285](https://github.com/Hafeok/Varve/issues/285)): `Aspire.Hosting` below
 13.6.5 has a known high-severity vulnerability
 ([GHSA-f7vh-h5g3-7jrh](https://github.com/advisories/GHSA-f7vh-h5g3-7jrh)),
 and `Varve.Aspire` now requires 13.6.5. The release also makes a server hold
@@ -396,52 +404,60 @@ symmetric cipher exists in that host, which changed a decision (ADR 0028).
 
 ### Server
 
-`varve` is the server and the command line in one executable. Take it as a
-.NET tool, which needs the .NET 10 runtime, or as the container image, which
-is the Native AOT binary and nothing else:
+`varve` is the server and the command line in one executable. Take the
+Native AOT binary through Homebrew (macOS, Linux) or from the release's
+archive for your platform, the .NET tool, which needs the .NET 10 runtime, or
+the container image, which is the binary and the Web UI's bundle
+([`docs/operator/run.md`](docs/operator/run.md#install)):
 
 ```bash
+brew install hafeok/varve/varve
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.21
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.22
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
 real deployment takes OIDC bearer tokens ([ADR 0037](docs/adr/0037-server-authentication.md)).
 
+The quickest first run is the image. It serves the operator console at
+`/ui/` by default, so open <http://localhost:8080/ui/> once it is up
+([the Web UI](docs/operator/web-ui.md), ADR 0245):
+
 ```bash
-varve serve --anonymous --datasets-root "$PWD/data"
-# or, listening on 8080 instead of 5000, with the datasets in the image's volume:
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.21 serve --anonymous
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.22 serve --anonymous
+# or the .NET tool on the same port, which serves no console unless Varve:WebUi:Path is set:
+varve serve --anonymous --datasets-root "$PWD/data" --urls http://localhost:8080
 
 # then declare the dataset in the management plane (ADR 0163):
-curl -X PUT http://localhost:5000/manage/datasets/people -H 'Content-Type: application/trig' \
+curl -X PUT http://localhost:8080/manage/datasets/people -H 'Content-Type: application/trig' \
   --data '<urn:people> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> "people" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#File> .'
 ```
 
-The datasets root is an absolute path. Then write, read, go back, and read
-the history:
+The datasets root is an absolute path; the image's is its volume,
+`/var/lib/varve`. Then write, read, go back, and read the history, and watch
+the commits arrive in the console:
 
 ```bash
-curl -X POST http://localhost:5000/datasets/people/sparql \
+curl -X POST http://localhost:8080/datasets/people/sparql \
   -H 'Content-Type: application/sparql-update' \
   --data 'INSERT DATA { <http://example.org/ada> <http://xmlns.com/foaf/0.1/name> "Ada Lovelace" }'
-curl -X POST http://localhost:5000/datasets/people/sparql \
+curl -X POST http://localhost:8080/datasets/people/sparql \
   -H 'Content-Type: application/sparql-update' \
   --data 'DELETE DATA { <http://example.org/ada> <http://xmlns.com/foaf/0.1/name> "Ada Lovelace" }'
 
 # No rows: commit 2 deleted her.
-curl -G http://localhost:5000/datasets/people/sparql \
+curl -G http://localhost:8080/datasets/people/sparql \
   -H 'Accept: application/sparql-results+json' \
   --data-urlencode 'query=SELECT ?name WHERE { ?person <http://xmlns.com/foaf/0.1/name> ?name }'
 
 # "Ada Lovelace": the dataset as commit 1 left it.
-curl -G http://localhost:5000/datasets/people/sparql \
+curl -G http://localhost:8080/datasets/people/sparql \
   -H 'Accept: application/sparql-results+json' -H 'Varve-As-Of: position:1' \
   --data-urlencode 'query=SELECT ?name WHERE { ?person <http://xmlns.com/foaf/0.1/name> ?name }'
 
 # Both commits, as the changes they made. Without `to` the feed stays open
 # and tails new commits as they close.
-curl 'http://localhost:5000/datasets/people/commits?to=2'
+curl 'http://localhost:8080/datasets/people/commits?to=2'
 ```
 
 [`docs/operator/`](docs/operator/README.md) is the rest: running it under

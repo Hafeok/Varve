@@ -543,10 +543,14 @@ internal static partial class ServerHost
         }
 
         // The Web UI is static files, public, before CORS, rate limits and
-        // tokens (ADR 0202).
-        if (!string.IsNullOrWhiteSpace(settings.WebUi.Path))
+        // tokens (ADR 0202); off by its switch, and its settings generated
+        // from this configuration when they are asked for (ADR 0245).
+        if (settings.WebUi.Enabled && !string.IsNullOrWhiteSpace(settings.WebUi.Path))
         {
-            MapWebUi(app, settings.WebUi.Path, anonymous ? null : settings.Auth.Authority);
+            byte[]? generated = settings.WebUi.Settings == WebUiSettingsSource.Generated
+                ? GeneratedWebUiSettings.Write(GeneratedWebUiSettings.From(settings))
+                : null;
+            MapWebUi(app, settings.WebUi.Path, anonymous ? null : settings.Auth.Authority, generated);
         }
 
         // CORS first (ADR 0132): a preflight is answered before a token or a
@@ -634,6 +638,7 @@ internal static partial class ServerHost
             Authorization = app.Services.GetRequiredService<IAuthorizationService>(),
             Clock = clock,
             Limits = Limits(settings),
+            Idempotency = fleet.Keys,
             Evaluation = new EvaluationOptions { Clock = clock, Randomness = new SystemRandomness(), ServiceHandler = outbound.Service, MemoryBudget = new MemoryBytes(settings.Limits.MaxQueryMemory) },
             Stopping = stopping,
             Telemetry = new TelemetryOptions { QueryText = settings.Telemetry.QueryText },
@@ -1082,6 +1087,7 @@ internal static partial class ServerHost
             Authorization = new OperatorsOnly(options.Authorization),
             Clock = options.Clock,
             Limits = options.Limits,
+            Idempotency = options.Idempotency,
             Evaluation = options.Evaluation,
             Stopping = options.Stopping,
             Telemetry = options.Telemetry,

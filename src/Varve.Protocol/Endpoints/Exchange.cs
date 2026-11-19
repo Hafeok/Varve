@@ -14,6 +14,7 @@ using Varve.Protocol.Http;
 using Varve.Protocol.Model;
 using Varve.Rdf;
 using Varve.Store;
+using Varve.Store.Log;
 
 namespace Varve.Protocol.Endpoints;
 
@@ -42,6 +43,15 @@ internal sealed class Exchange
     internal Management.Model.ManagementPosition? Authorised { get; }
 
     internal HttpContext Context { get; }
+
+    /// <summary>The idempotency key this request holds while it commits (ADR 0246); none without a key.</summary>
+    internal KeyClaim? Claim { get; set; }
+
+    /// <summary>The attachments of the commit's metadata, which a keyed write's answer updates before it commits.</summary>
+    internal List<RequestTerm>? Attachments { get; set; }
+
+    /// <summary>Where in <see cref="Attachments"/> the key's attachment is.</summary>
+    internal int? KeyAttachmentAt { get; set; }
 
     internal ProtocolOptions Options { get; }
 

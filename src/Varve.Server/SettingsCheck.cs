@@ -8,6 +8,8 @@ using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Net;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.Extensions.Configuration;
 
 namespace Varve.Server;
@@ -17,6 +19,7 @@ namespace Varve.Server;
 /// listed, and a server with any refuses to start rather than fall back to a
 /// default for a value that was given and is wrong.
 /// </summary>
+[Contract(typeof(TheWebUiInTheContainerImage.WebUiSettingsReadOnlyWhenGenerated), Role = "the Web UI's settings refused at start where they would do nothing or are half set")]
 internal static class SettingsCheck
 {
     /// <summary>
@@ -36,7 +39,7 @@ internal static class SettingsCheck
         "Auth:Mode", "Auth:Authority", "Auth:Audiences:*", "Auth:SubjectClaim", "Auth:ApplicationClaim", "Auth:RoleClaimType", "Auth:RequireHttpsMetadata", "Auth:Production",
         "Auth:Management:Audience",
         "Limits:QueryTimeout", "Limits:ResultSizeCap", "Limits:MaxRequestBody", "Limits:PinnedReadLifetime", "Limits:FeedHeartbeat",
-        "Limits:MaxConcurrentReads", "Limits:ReadQueueLength", "Limits:MaxQueryMemory", "Limits:MaxAsOfDistance", "Limits:MaxLiveTailsPerClient", "Limits:CommitsPageSize",
+        "Limits:MaxConcurrentReads", "Limits:ReadQueueLength", "Limits:MaxQueryMemory", "Limits:MaxAsOfDistance", "Limits:MaxLiveTailsPerClient", "Limits:CommitsPageSize", "Limits:IdempotencyWindow",
         "ForwardedHeaders:Enabled", "ForwardedHeaders:KnownProxies:*",
         "Federation:AllowedEndpoints:*", "Federation:AllowPrivateAddresses", "Federation:Timeout", "Federation:MaxResponseBytes",
         "Load:AllowedSources:*", "Load:AllowPrivateAddresses", "Load:Timeout", "Load:MaxResponseBytes",
@@ -48,7 +51,8 @@ internal static class SettingsCheck
         "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes", "Store:MemtableLimit", "Store:ReleaseMemoryAfterCheckpoint", "Store:SeekDirectoryCacheBytes",
         "Inference:HistoryBytes", "Inference:ClosureBytes", "Inference:ReserveBytes",
         "Events:Source", "Events:EventHubs:Host", "Events:EventHubs:Hub",
-        "WebUi:Path",
+        "WebUi:Path", "WebUi:Enabled", "WebUi:Settings", "WebUi:Server",
+        "WebUi:Auth:ClientId", "WebUi:Auth:DataScope", "WebUi:Auth:ManageScope", "WebUi:Auth:ManageGrant", "WebUi:Auth:DataAudience", "WebUi:Auth:ManageAudience",
     ];
 
     /// <summary>
@@ -311,15 +315,17 @@ internal static class SettingsCheck
             errors.Add("Varve:WebUi:Path is the absolute path of a published Web UI, the directory holding its index.html (ADR 0202); it is '" + settings.WebUi.Path + "'.");
         }
 
+        CheckWebUi(settings, errors);
+
         CheckObjectStorage(settings.ObjectStorage, errors);
 
         CheckFleet(settings, errors);
 
         LimitSettings limits = settings.Limits;
 
-        if (limits.MaxConcurrentReads < 1 || limits.ReadQueueLength < 0 || limits.MaxQueryMemory < 1 || limits.MaxAsOfDistance < 0 || limits.MaxLiveTailsPerClient < 1 || limits.CommitsPageSize < 1)
+        if (limits.MaxConcurrentReads < 1 || limits.ReadQueueLength < 0 || limits.MaxQueryMemory < 1 || limits.MaxAsOfDistance < 0 || limits.MaxLiveTailsPerClient < 1 || limits.CommitsPageSize < 1 || limits.IdempotencyWindow < 1)
         {
-            errors.Add("Varve:Limits: MaxConcurrentReads, MaxQueryMemory, MaxLiveTailsPerClient and CommitsPageSize are positive, and ReadQueueLength and MaxAsOfDistance are zero or more (ADR 0114).");
+            errors.Add("Varve:Limits: MaxConcurrentReads, MaxQueryMemory, MaxLiveTailsPerClient, CommitsPageSize and IdempotencyWindow are positive, and ReadQueueLength and MaxAsOfDistance are zero or more (ADRs 0114, 0246).");
         }
 
         if (limits.QueryTimeout <= TimeSpan.Zero || limits.PinnedReadLifetime <= TimeSpan.Zero || limits.FeedHeartbeat <= TimeSpan.Zero)
@@ -378,6 +384,89 @@ internal static class SettingsCheck
     }
 
     // The fleet and the management plane (ADRs 0163, 0164, 0168).
+    // The Web UI's settings (ADR 0245 point 3): its client and its server
+    // address are read only when the server generates the console's
+    // settings, so set with File they would silently do nothing, and are
+    // refused. A client half set, a grant that is neither, a client on an
+    // anonymous server: each is a listed error.
+    private static void CheckWebUi(ServerSettings settings, List<string> errors)
+    {
+        WebUiSettings ui = settings.WebUi;
+        List<(string Name, string Value)> set = WebUiClientSettings(ui);
+
+        if (!string.IsNullOrWhiteSpace(ui.Server))
+        {
+            set.Insert(0, ("Varve:WebUi:Server", ui.Server));
+        }
+
+        switch (ui.Settings)
+        {
+            case WebUiSettingsSource.File:
+                foreach ((string name, _) in set)
+                {
+                    errors.Add(name + " is set, and is read only when Varve:WebUi:Settings is Generated; it is File, so the bundle's own appsettings.json is served (ADR 0245).");
+                }
+
+                return;
+
+            case WebUiSettingsSource.Generated:
+                break;
+
+            default:
+                errors.Add("Varve:WebUi:Settings is File or Generated (ADR 0245); it is '" + ui.Settings + "'.");
+                return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(ui.Server)
+            && (!Uri.TryCreate(ui.Server, UriKind.Absolute, out Uri? server) || (server.Scheme != Uri.UriSchemeHttp && server.Scheme != Uri.UriSchemeHttps)))
+        {
+            errors.Add("Varve:WebUi:Server is the server's absolute http or https address, or unset for the origin that served the Web UI; it is '" + ui.Server + "'.");
+        }
+
+        List<(string Name, string Value)> client = WebUiClientSettings(ui);
+
+        if (settings.Auth.Mode == "Anonymous")
+        {
+            foreach ((string name, _) in client)
+            {
+                errors.Add(name + " is set on an anonymous server, where the Web UI signs nobody in (ADR 0245).");
+            }
+
+            return;
+        }
+
+        if (client.Count > 0 && GeneratedWebUiSettings.MissingClientSettings(ui.Auth) is { Count: > 0 } missing)
+        {
+            errors.Add("The Web UI's client is half configured: " + string.Join(", ", missing) + (missing.Count == 1 ? " is" : " are") + " not set (ADR 0245, ADR 0201 point 5).");
+        }
+
+        if (!string.IsNullOrWhiteSpace(ui.Auth.ManageGrant) && ui.Auth.ManageGrant is not ("refresh" or "exchange"))
+        {
+            errors.Add("Varve:WebUi:Auth:ManageGrant is refresh or exchange (ADR 0201, amended 2026-10-28); it is '" + ui.Auth.ManageGrant + "'.");
+        }
+    }
+
+    // The Web UI's client settings that are set, by name.
+    private static List<(string Name, string Value)> WebUiClientSettings(WebUiSettings ui)
+    {
+        List<(string Name, string Value)> set = [];
+        Add("ClientId", ui.Auth.ClientId);
+        Add("DataScope", ui.Auth.DataScope);
+        Add("ManageScope", ui.Auth.ManageScope);
+        Add("ManageGrant", ui.Auth.ManageGrant);
+        Add("DataAudience", ui.Auth.DataAudience);
+        Add("ManageAudience", ui.Auth.ManageAudience);
+        return set;
+
+        void Add(string name, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                set.Add(("Varve:WebUi:Auth:" + name, value));
+            }
+        }
+    }
+
     private static void CheckFleet(ServerSettings settings, List<string> errors)
     {
         FleetSettings fleet = settings.Fleet;

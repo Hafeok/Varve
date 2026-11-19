@@ -14,3 +14,4 @@ They are the picture of what the pages compose, not a second contract: the cases
 | Fleet | [System writer](fleet--writer.html), [System follower](fleet--follower.html), [403](fleet--forbidden.html) |
 | Commits | [Live](commits--live.html), [A commit's delta](commits--delta.html), [Paused](commits--paused.html), [Empty](commits--empty.html) |
 | Grants | [Table](declarations--grants.html), [Source](declarations--source.html), [As of](declarations--asof.html), [403](declarations--forbidden.html) |
+| Sign-in | [Not configured](signin--notconfigured.html): the server has OIDC and no client for the Web UI (ADR 0245); it replaces every screen |
