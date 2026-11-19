@@ -618,12 +618,7 @@ internal static partial class ServerHost
             // Every dataset's head, the system dataset's first: the collection
             // pauses the whole process (ADR 0244 point 6).
             AfterCheckpoint = settings.Store.ReleaseMemoryAfterCheckpoint
-                ? IdleRelease.Over(() =>
-                {
-                    List<Varve.Store.Log.Position> heads = [fleet.System.Head];
-                    datasets.HeadsInto(heads);
-                    return heads;
-                })
+                ? IdleRelease.Over(fleet.Heads)
                 : null,
             Datasets = datasets,
             Administration = datasets,

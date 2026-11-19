@@ -24,6 +24,13 @@ internal enum ChangeAction
 
     /// <summary>A difference repo-standard reports and cannot write.</summary>
     Unfixable,
+
+    /// <summary>
+    /// Not a difference: a secret the declaration says may be absent, and is.
+    /// Reported for the reader and never counted, written or failed on (ADR
+    /// 0039, amended 2026-11-18).
+    /// </summary>
+    DeclaredAbsent,
 }
 
 /// <summary>One field that differs, as a dotted path and both values.</summary>
@@ -45,4 +52,8 @@ internal sealed record Change(
     ChangeAction Action,
     IReadOnlyList<FieldChange> Fields,
     string? Note,
-    Func<CancellationToken, Task>? Apply);
+    Func<CancellationToken, Task>? Apply)
+{
+    /// <summary>Whether this is a difference: everything but a declared absence.</summary>
+    public bool IsDifference => Action is not ChangeAction.DeclaredAbsent;
+}
