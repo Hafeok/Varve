@@ -168,12 +168,19 @@ internal static class BoundedReads
         m.Number("projectedPosition", error.Projected.Value);
     };
 
-    /// <summary>The members of <c>inference-unavailable</c>: the binding, why, the failure's class (ADR 0242 ruling 2), the limit and what the closure reached.</summary>
+    /// <summary>
+    /// The members of <c>inference-unavailable</c>: the binding, why, the
+    /// failure's class (ADR 0242 ruling 2, amended 2026-11-19), the limit and
+    /// what the closure reached. A binding stopped at its memory limit is
+    /// <c>configuration</c>: a setting or the memory fixes it. One that failed
+    /// is <c>defect</c>: the same commit fails the same way again, and only a
+    /// version that fixes it does (ADR 0195 point 6).
+    /// </summary>
     internal static Action<ProblemMembers> InferenceUnavailable(InferenceUnavailableException error) => m =>
     {
         m.String("binding", System.Text.Encoding.UTF8.GetString(error.Binding.Lexical));
         m.String("reason", error.Failure is null ? "memory-limit" : "failed");
-        m.String("failure", "configuration");
+        m.String("failure", error.Failure is null ? "configuration" : "defect");
         if (error.Failure is null)
         {
             m.Number("limit", error.Limit.Value);

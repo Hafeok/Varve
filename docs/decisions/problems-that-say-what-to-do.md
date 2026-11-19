@@ -27,6 +27,8 @@ decisions:
     statement: "Every page in docs/problems/ has a What to do section, and a test fails a page without one"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-11-16T00:00:00Z
+  - key: DefectIsItsOwnClass
+    statement: "Amended 2026-11-19: a failure no repeat and no setting can cure, whose cause is the code, is classed defect, not configuration, and its problem's detail and page say to report it with the log and upgrade; a binding stopped by a failure is the first"
 ---
 
 The rulings of [ADR 0242](../adr/0242-problems-that-say-what-to-do.md),

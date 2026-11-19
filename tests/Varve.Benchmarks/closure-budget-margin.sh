@@ -3,7 +3,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #
-# The closure budget's margin (ADR 0195, amended 2026-11-18, point 3): a
+# The closure budget's margin (ADR 0195 point 6): a
 # from-scratch build must finish under a hard heap limit of the heap held
 # before it plus MARGIN of what its budget counted at peak. It fails when a
 # build needs more than the budget assumes, less the margin it keeps.

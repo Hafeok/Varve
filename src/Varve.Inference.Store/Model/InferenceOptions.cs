@@ -21,8 +21,7 @@ public sealed class InferenceOptions
 
     /// <summary>
     /// What the projection keeps per fact beside the closure, charged to the
-    /// binding's budget with each fact (ADR 0195 point 6, as amended
-    /// 2026-11-18): an open row's entry in its graph's map, with room for
+    /// binding's budget with each fact (ADR 0195 point 6): an open row's entry in its graph's map, with room for
     /// the map to double. The closures' own costs are the engine's, per
     /// profile (<see cref="ClosureCosts.For"/>).
     /// </summary>

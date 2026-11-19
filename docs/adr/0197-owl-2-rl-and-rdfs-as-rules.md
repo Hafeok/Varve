@@ -2,7 +2,8 @@
 
 ## Status
 
-**Filed unaccepted by Inference, part 2 (#171, under #95), 2026-11-06**
+**Accepted — filed unaccepted by Inference, part 2 (#171, under #95),
+2026-11-06**
 (ADR 0066). Decided by the maintainer on the plan in #95 (2026-10-27),
 questions 3b, 3c and 5, with `sameAs` off in this part. Acceptance is the
 maintainer's act on the pull request.
@@ -34,19 +35,36 @@ a closure read would answer them differently.
 
 ### 2. `varve:RDFS`: the RDFS entailment rules, bounded
 
-- **The rules:** `rdf1`, `rdf2`, `rdfs2`–`rdfs13`, as RDF 1.1 Semantics §9.2.1
-  gives them, with the recognised datatypes `xsd:string` and `rdf:langString`.
-- **Axiomatic triples** are RDF and RDFS's, with `rdf:_n` restricted to the
-  container membership properties that occur in the graph, as ADR 0193 does.
-- **No rule invents a term.** The rules that introduce a blank node for a
-  literal (RDF 1.1 Semantics' generalised `rdfD1`, `rdfs1`) are replaced by
-  their generalised form over the literal itself, held for the joins and
-  never served (ADR 0195 point 2).
-- **The clash checks** are the RDFS and D inconsistencies RDF 1.1 adds: a
-  literal ill-typed for a recognised datatype, and a literal in the range of a
-  datatype whose value space does not hold it (for example `rdfs:range
-  xsd:string` meeting a language-tagged object). They are rules whose head is
-  `false`. The 10 `rdf-mt` cases that expect "false" are decided by them.
+The rules are RDF 1.1 Semantics' entailment patterns (W3C Recommendation, 25
+February 2014), by the names it gives them:
+
+- **`rdfD2`** (§8.1.1, *Patterns of RDF entailment*): `xxx aaa yyy` gives
+  `aaa rdf:type rdf:Property`. RDF 1.1 has no `rdf1` or `rdf2`: those are
+  the 2004 RDF Semantics' names, and 2004's `rdf2` (`rdf:XMLLiteral`) has no
+  counterpart.
+- **`rdfs1`–`rdfs13`**, `rdfs4a` and `rdfs4b` among them (§9.2.1, *Patterns
+  of RDFS entailment*). `rdfs1` types each recognised datatype IRI as an
+  `rdfs:Datatype`: an axiom per datatype, which invents nothing.
+- **The recognised datatypes** under `varve:RDFS` are `xsd:string` and
+  `rdf:langString`, which every RDF interpretation recognises (§8: an RDF
+  interpretation recognising D is one where D includes both).
+- **Axiomatic triples** are the RDF axiomatic triples (§8, in the body of
+  *RDF Interpretations*) and the RDFS axiomatic triples (§9, in the body of
+  *RDFS Interpretations*), with `rdf:_n` restricted to the container
+  membership properties that occur in the graph, as ADR 0193 does.
+- **No rule invents a term.** `rdfD1` (§8.1.1) concludes a blank node for a
+  literal of a recognised datatype. It is replaced by Appendix A's
+  generalised `GrdfD1` (*Entailment rules*, informative), `"sss"^^ddd
+  rdf:type ddd` over the literal itself, held for the joins and never
+  served (ADR 0195 point 2). The rule is named `rdfD1` in the closure, since
+  it stands for that pattern.
+- **The clash checks** are the D and RDFS unsatisfiability RDF 1.1 adds (§7.1,
+  §9.2.1): a literal ill-typed for a recognised datatype (`dt-not-type`), a
+  literal in the range of a datatype whose value space does not hold it (for
+  example `rdfs:range xsd:string` meeting a language-tagged object), and a
+  subclass between recognised datatypes whose value spaces do not nest
+  (`dt-subclass`). They are rules whose head is `false`. The 10 `rdf-mt`
+  cases that expect "false" are decided by them.
 
 ### 3. `varve:OWL2RL`: OWL 2 RL/RDF, with `sameAs` off
 

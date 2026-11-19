@@ -18,8 +18,7 @@ using Xunit;
 namespace Varve.Server.Tests;
 
 /// <summary>
-/// A binding's memory limit in a real process (#335; ADR 0195 point 6, as
-/// amended 2026-11-18): the server runs as a child process under a hard heap
+/// A binding's memory limit in a real process (#335; ADR 0195 point 6): the server runs as a child process under a hard heap
 /// limit, <c>DOTNET_GCHeapHardLimit</c>, so that a closure the budget lets
 /// outgrow the heap kills it.
 /// </summary>
@@ -126,7 +125,7 @@ public class ClosureMemoryGateTests
 
     /// <summary>
     /// A server that declares no closure binding starts at any heap limit,
-    /// whatever its pool (ADR 0195, amended 2026-11-18, point 10): with the
+    /// whatever its pool (ADR 0195 point 6): with the
     /// default 2 GiB reserve, the pool is empty under 2.67 GiB and something
     /// above it, and the server starts and answers either way.
     /// </summary>
@@ -149,7 +148,7 @@ public class ClosureMemoryGateTests
 
     /// <summary>
     /// A server whose pool is empty and that declares a closure binding
-    /// (ADR 0195, amended 2026-11-18, point 10): it starts, and the binding
+    /// (ADR 0195 point 6): it starts, and the binding
     /// is stopped at its memory limit as it is declared, before it builds,
     /// with a limit of 0. A closure read answers <c>503
     /// inference-unavailable</c>, no <c>Retry-After</c>, its detail naming
@@ -193,7 +192,7 @@ public class ClosureMemoryGateTests
         private const int MemtableEntries = 10_000;
         private const long MemtableWorst = 4L * MemtableEntries * 215;
 
-        /// <summary>The pool the server's settings leave under <paramref name="heap"/>: the heap less the memtable's worst case and the reserve (ADR 0195, amended 2026-11-18, point 10).</summary>
+        /// <summary>The pool the server's settings leave under <paramref name="heap"/>: the heap less the memtable's worst case and the reserve (ADR 0195 point 6).</summary>
         internal static long Pool(long heap) => heap - MemtableWorst - Reserve(heap);
 
         /// <summary>The least heap whose pool holds <paramref name="closureBytes"/>.</summary>

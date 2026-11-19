@@ -55,7 +55,7 @@ public sealed class PremiseSets
     // The graphs of the pairs the last reach was for: the sets Update derives again are those holding one.
     private HashSet<int> _retracted = [];
 
-    // What the sets hold of the closure's budget (ADR 0195 point 6, as amended 2026-11-18): a charge per fact
+    // What the sets hold of the closure's budget (ADR 0195 point 6): a charge per fact
     // with sets, and one per entry of a propagation's queue or a reach while it lives.
     private long _labelCharge;
     private long _workingCharge;

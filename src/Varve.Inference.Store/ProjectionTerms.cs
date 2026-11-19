@@ -94,8 +94,7 @@ internal sealed class ProjectionTerms(IQuadSource source) : IInferenceTerms
     /// <summary>
     /// Resolves <paramref name="handle"/> into the terms kept, if it is not
     /// kept already: what a pass does before it changes anything, so that a
-    /// store read that fails leaves the closure as it was (ADR 0195,
-    /// amended 2026-11-18). Answers whether the term was new.
+    /// store read that fails leaves the closure as it was (ADR 0195 point 6). Answers whether the term was new.
     /// </summary>
     internal bool Warm(TermHandle handle)
     {

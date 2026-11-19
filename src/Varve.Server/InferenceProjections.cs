@@ -68,8 +68,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
     }
 
     /// <summary>
-    /// The pool every binding of the process takes from (ADR 0195, amended
-    /// 2026-11-18, point 10): the collector's heap limit less the memtable's
+    /// The pool every binding of the process takes from (ADR 0195 point 6): the collector's heap limit less the memtable's
     /// worst case and <c>Varve:Inference:ReserveBytes</c>, kept for queries,
     /// caches and requests; none when they leave nothing.
     /// </summary>
@@ -78,7 +77,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 
     /// <summary>
     /// Why the settings leave the bindings' pool nothing, or null when they
-    /// leave it something (ADR 0195, amended 2026-11-18, point 10). With
+    /// leave it something (ADR 0195 point 6). With
     /// none, every materialising binding is stopped at its memory limit as it
     /// is declared, before it builds; the instance starts all the same, so a
     /// server that declares no such binding runs at any heap limit.
@@ -420,7 +419,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
         {
             if (withoutMemory is not null)
             {
-                // No pool to build in: stopped at its memory limit before anything is built, and never tried again (ADR 0195 point 10).
+                // No pool to build in: stopped at its memory limit before anything is built, and never tried again (ADR 0195 point 6).
                 _withoutMemory = withoutMemory;
                 Projection.Refuse();
                 ProjectionLog.NoMemory(logger, Name, withoutMemory.HeapLimit.Value, withoutMemory.MemtableWorst.Value, withoutMemory.Reserve.Value);
@@ -487,8 +486,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
         }
 
         /// <summary>
-        /// Feeds the projection from its position (ADR 0195, amended
-        /// 2026-11-18). A store read or write that fails holds the feed off:
+        /// Feeds the projection from its position (ADR 0195 point 6). A store read or write that fails holds the feed off:
         /// it waits, longer each time up to half a minute, and resumes from
         /// the projection's position, as a follower catches up, with no
         /// generation; a projection a failure has stopped stays stopped.

@@ -289,7 +289,7 @@ internal static class SettingsCheck
                 + ", less the memtable's worst case, " + MemtableWorstBytes(settings).ToString(System.Globalization.CultureInfo.InvariantCulture)
                 + " (four times Varve:Store:MemtableLimit at " + MemtableDefault.EntryBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 + " bytes an entry, ADR 0244 point 5), and Varve:Inference:ReserveBytes, " + settings.Inference.ReserveBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                + ", kept for queries, caches and requests (ADR 0195, amended 2026-11-18). Raise the heap limit, or lower one of the three.");
+                + ", kept for queries, caches and requests (ADR 0195 point 6). Raise the heap limit, or lower one of the three.");
         }
 
         if (settings.Inference.ReserveBytes < 0)

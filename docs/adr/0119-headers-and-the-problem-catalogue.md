@@ -302,12 +302,13 @@ accepts it (ADR 0066).
   trailer (ADR 0095).
 - **`inference-unavailable`** (`503`, **no `Retry-After`**; members
   `binding`, `reason`, `failure`, and for `reason` `memory-limit` also
-  `limit` and `reached`, in bytes): a tier-2 read of a binding whose
-  materialisation stopped at `Varve:Inference:ClosureBytes`, answered at once
-  (ADR [0195](0195-the-inference-projection.md) point 6, revised
-  2026-11-16). `failure` is `configuration`, ADR
-  [0242](0242-problems-that-say-what-to-do.md) ruling 2's class: no retry
-  helps. Added on the maintainer's answer C of 2026-11-16 (#171), with the
+  `limit` and `reached`, in bytes): a tier-2 read of a binding that is
+  stopped, answered at once (ADR [0195](0195-the-inference-projection.md)
+  point 6). `reason` is `memory-limit`, its materialisation refused at
+  `Varve:Inference:ClosureBytes` or the pool, with `failure`
+  `configuration`; or `failed`, its projection failed, with `failure`
+  `defect` (ADR [0242](0242-problems-that-say-what-to-do.md) ruling 2, amended
+  2026-11-19). No retry helps either. Added on the maintainer's answer C of 2026-11-16 (#171), with the
   shape proposed there (comment 6916253220).
 - **`entailment-not-available`** carries no `binding` (ADR 0238, amended
   2026-11-16), which replaces that member in the amendment of 2026-10-30

@@ -46,7 +46,9 @@ internal static class InferenceBench
 {
     private const ulong Seed = 20261015;
 
-    internal static void Run(string sizeName, string profileName, int held)
+    private const string TypeIri = "<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>";
+
+    internal static void Run(string sizeName, string profileName, int held, int budgetMinutes = 20)
     {
         RecSize size = Enum.Parse<RecSize>(sizeName);
         InferenceProfile profile = profileName == "owl2rl" ? InferenceProfile.Owl2Rl : InferenceProfile.Rdfs;
@@ -88,6 +90,21 @@ internal static class InferenceBench
             return;
         }
 
+        // What the commits measured do (ADR 0196 point 6, rerun 2026-11-19): their kinds, how many retract
+        // anything, how many retract an entity (every type of a subject, none asserted back), and how many
+        // change a type (a type of a subject retracted and another asserted for it).
+        List<RecCommit> sample = [.. history.Skip(cut)];
+        int retracting = 0, entities = 0, retyping = 0;
+        foreach (RecCommit commit in sample)
+        {
+            retracting += commit.Retracted.Count > 0 ? 1 : 0;
+            HashSet<(string, string)> typedOut = [.. commit.Retracted.Where(q => q.Predicate == TypeIri).Select(q => (q.Subject, q.Graph))];
+            HashSet<(string, string)> typedIn = [.. commit.Asserted.Where(q => q.Predicate == TypeIri).Select(q => (q.Subject, q.Graph))];
+            entities += typedOut.Any(s => !typedIn.Contains(s)) ? 1 : 0;
+            retyping += typedOut.Any(typedIn.Contains) ? 1 : 0;
+        }
+
+        Console.WriteLine($"sample: {sample.Count} commits ({string.Join(", ", sample.GroupBy(c => c.Kind).OrderByDescending(g => g.Count()).Select(g => $"{g.Count()} {g.Key}"))}); {retracting} retract something, {entities} retract an entity, {retyping} change a type");
         closures.Clear();
         foreach (Retraction strategy in new[] { Retraction.RecursiveCounting, Retraction.DeleteAndRederive, Retraction.BackwardForward })
         {
@@ -104,7 +121,7 @@ internal static class InferenceBench
             double build = building.Elapsed.TotalSeconds;
             long holding = Heap() - start;
             Console.WriteLine($"//   {strategy}: built in {build:F1} s, heap {holding / 1048576.0:F0} MiB, {(double)holding / mine.Values.Sum(c => c.Count.Value):F0} B a fact");
-            TimeSpan budget = TimeSpan.FromMinutes(20);
+            TimeSpan budget = TimeSpan.FromMinutes(budgetMinutes);
             Stopwatch spent = Stopwatch.StartNew();
 
             List<double> times = [];

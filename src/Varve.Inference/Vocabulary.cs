@@ -106,11 +106,11 @@ internal static class Vocabulary
     /// <summary>The literals of OWL 2 RL/RDF's cardinality rules, 0 and 1 as <c>xsd:nonNegativeInteger</c>.</summary>
     internal static RdfTerm Cardinality(string value) => RdfTerm.Literal(Encoding.UTF8.GetBytes(value), Xsd("nonNegativeInteger"));
 
-    /// <summary>The datatypes the RDFS profile recognises (RDF 1.1 Semantics §9.2).</summary>
+    /// <summary>The datatypes the RDFS profile recognises: those every RDF interpretation recognises (RDF 1.1 Semantics §8).</summary>
     internal static readonly ImmutableArray<RdfTerm> RdfsDatatypes = [XsdString, LangString];
 
     /// <summary>
-    /// The RDF axiomatic triples (RDF 1.1 Semantics §8.1), less those of
+    /// The RDF axiomatic triples (RDF 1.1 Semantics §8, RDF Interpretations), less those of
     /// <c>rdf:_n</c>, which hold only for the ones that occur.
     /// </summary>
     internal static (RdfTerm S, RdfTerm P, RdfTerm O)[] RdfAxioms() =>
@@ -119,7 +119,7 @@ internal static class Vocabulary
         (First, Type, Property), (Rest, Type, Property), (Value, Type, Property), (Nil, Type, List),
     ];
 
-    /// <summary>The RDFS axiomatic triples (RDF 1.1 Semantics §9.1), less those of <c>rdf:_n</c>.</summary>
+    /// <summary>The RDFS axiomatic triples (RDF 1.1 Semantics §9, RDFS Interpretations), less those of <c>rdf:_n</c>.</summary>
     internal static (RdfTerm S, RdfTerm P, RdfTerm O)[] RdfsAxioms() =>
     [
         (Type, Domain, Resource), (Domain, Domain, Property), (Range, Domain, Property),

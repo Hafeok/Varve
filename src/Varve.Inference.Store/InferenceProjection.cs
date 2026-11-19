@@ -113,8 +113,7 @@ public sealed class InferenceProjection : IProjection
     public ByteCount HistoryHeld => new(Volatile.Read(ref _closedBytes));
 
     /// <summary>
-    /// Whether the binding is stopped (ADR 0195 point 6, as amended
-    /// 2026-11-18): by its memory limit, or by a pass that failed
+    /// Whether the binding is stopped (ADR 0195 point 6): by its memory limit, or by a pass that failed
     /// (<see cref="Failure"/>). A stopped binding is never tried again by
     /// the projection: it stays refused until its owner makes another.
     /// </summary>
@@ -125,7 +124,7 @@ public sealed class InferenceProjection : IProjection
     /// I/O failure, a timeout, a request to an object store that failed. A
     /// pass that meets one holds off and is applied again from the
     /// projection's position, never stopped and never rebuilt for it (ADR
-    /// 0195, amended 2026-11-18). A log that does not verify or a format this
+    /// 0195 point 6). A log that does not verify or a format this
     /// build cannot read is not one: the same bytes fail again.
     /// </summary>
     public static bool IsStorageFailure(Exception error) =>
@@ -142,7 +141,7 @@ public sealed class InferenceProjection : IProjection
 
     /// <summary>
     /// Stops the binding at its memory limit before it builds anything, at
-    /// every position (ADR 0195, amended 2026-11-18, point 10): its owner has
+    /// every position (ADR 0195 point 6): its owner has
     /// no memory to give it, the bindings' pool being empty. Every closure
     /// read is then refused as the memory limit refuses one, and nothing
     /// tries it again; a restart with memory for a pool makes another.
@@ -484,7 +483,7 @@ public sealed class InferenceProjection : IProjection
         if (saved.StoppedAt != long.MaxValue)
         {
             // A binding saved stopped is built again by the restart that reads it,
-            // under the limit the restart reads (ADR 0195, amended 2026-11-18): a miss.
+            // under the limit the restart reads (ADR 0195 point 6): a miss.
             return false;
         }
 
@@ -668,11 +667,11 @@ public sealed class InferenceProjection : IProjection
     /// <summary>The most they have held at once since they were built, the build included, by the budget's count: <c>peak</c> on readiness, what the binding needs of <c>ClosureBytes</c>.</summary>
     public MemoryAmount ClosurePeak => _state?.Budget.Peak ?? new MemoryAmount(0);
 
-    /// <summary>A budget of <see cref="InferenceOptions.ClosureBytes"/> at the binding's profile's costs (ADR 0195 point 6, as amended 2026-11-18).</summary>
+    /// <summary>A budget of <see cref="InferenceOptions.ClosureBytes"/> at the binding's profile's costs (ADR 0195 point 6).</summary>
     internal FactBudget NewBudget() => new(new MemoryAmount(_options.ClosureBytes.Value), InferenceOptions.CostsFor(Binding.Profile), _options.Pool);
 
     /// <summary>
-    /// Applies a commit (ADR 0195 point 4, as amended 2026-11-18). A
+    /// Applies a commit (ADR 0195 point 4). A
     /// generation is made for these causes only: a commit that changes a
     /// bound TBox graph, and a commit that allocates a term a rule names. A
     /// budget refusal or a memory failure stops the binding at its memory

@@ -254,8 +254,7 @@ public sealed partial class Closure
     }
 
     /// <summary>
-    /// A pass's working sets' charge (ADR 0195 point 6, as amended
-    /// 2026-11-18): each entry of the frontier, the queue and the seeded set
+    /// A pass's working sets' charge (ADR 0195 point 6): each entry of the frontier, the queue and the seeded set
     /// taken from the budget before it is stored, given back when it goes,
     /// and what is left given back when the pass ends, however it ends.
     /// </summary>

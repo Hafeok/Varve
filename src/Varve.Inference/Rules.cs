@@ -418,7 +418,7 @@ internal sealed class LiteralTyping : Rule
 }
 
 /// <summary>
-/// The axiomatic triples of an <c>rdf:_n</c> (RDF 1.1 Semantics §8.1, §9.1),
+/// The axiomatic triples of an <c>rdf:_n</c> (RDF 1.1 Semantics §8 and §9, in their bodies),
 /// for each one that occurs in a fact (ADR 0197 point 2).
 /// </summary>
 internal sealed class ContainerMembershipAxioms : Rule

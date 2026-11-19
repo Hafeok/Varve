@@ -19,7 +19,7 @@ using static Varve.Inference.Store.Tests.Support;
 namespace Varve.Inference.Store.Tests;
 
 /// <summary>
-/// What stops a binding and what does not (ADR 0195, amended 2026-11-18): a
+/// What stops a binding and what does not (ADR 0195 point 6): a
 /// store read that fails during a pass holds the pass off, before anything
 /// changed, and the commit is applied again from the projection's position
 /// once the store answers, with no generation; a failure no repeat can cure

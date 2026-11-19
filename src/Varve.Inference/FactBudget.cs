@@ -11,8 +11,7 @@ using Varve.Inference.Model;
 namespace Varve.Inference;
 
 /// <summary>
-/// The bytes the closures sharing it may hold together (ADR 0195 point 6, as
-/// amended 2026-11-18): a binding's memory limit. Every structure a closure
+/// The bytes the closures sharing it may hold together (ADR 0195 point 6): a binding's memory limit. Every structure a closure
 /// grows asks it first: a fact at <see cref="ClosureCosts.PerFact"/>, the fact
 /// store's arrays at their new size before they are allocated, and a build's
 /// working sets per entry. A request that would pass the limit throws

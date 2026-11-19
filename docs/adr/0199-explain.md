@@ -2,7 +2,8 @@
 
 ## Status
 
-**Filed unaccepted by Inference, part 2 (#171, under #95), 2026-11-06**
+**Accepted — filed unaccepted by Inference, part 2 (#171, under #95),
+2026-11-06**
 (ADR 0066). Decided by the maintainer on the plan in #95 (2026-10-27),
 question 4d. Acceptance is the maintainer's act on the pull request.
 

@@ -251,6 +251,32 @@ public class InferenceSurfaceTests
     }
 
     /// <summary>
+    /// A binding stopped because its projection failed is answered as a
+    /// defect, never as configuration (ADR 0195 point 6, ADR 0242 ruling 2 as
+    /// amended 2026-11-19): <c>reason</c> <c>failed</c>, <c>failure</c>
+    /// <c>defect</c>, no <c>Retry-After</c>, no limit; the detail says to
+    /// report it and upgrade.
+    /// </summary>
+    [Fact]
+    public async Task A_binding_stopped_by_a_failure_is_answered_as_a_defect()
+    {
+        await using Fixture failed = await Fixture.StartAsync(InferenceProfile.Rdfs, refuse: Refusal.Failed);
+        HttpResponseMessage refused = await failed.QueryAsync("SELECT ?x WHERE { GRAPH <" + Conclusions + "> { ?s ?p ?x } }", null);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, refused.StatusCode);
+        Assert.False(refused.Headers.Contains("Retry-After"));
+        using JsonDocument unavailable = JsonDocument.Parse(await refused.Content.ReadAsStringAsync(P.Ct));
+        JsonElement root = unavailable.RootElement;
+        Assert.Equal("https://w3id.org/varve/problems/inference-unavailable", root.GetProperty("type").GetString());
+        Assert.Equal("failed", root.GetProperty("reason").GetString());
+        Assert.Equal("defect", root.GetProperty("failure").GetString());
+        Assert.False(root.TryGetProperty("limit", out _));
+        Assert.False(root.TryGetProperty("reached", out _));
+        string detail = root.GetProperty("detail").GetString()!;
+        Assert.Contains("report", detail, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("upgrade", detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// ADR 0198 point 3, ADR 0022 as amended: a read of the closure never
     /// denies a term its rows hold, a vocabulary constant the dataset lacks
     /// included, whichever term it is asked for first, even while the
@@ -370,6 +396,7 @@ public class InferenceSurfaceTests
         None,
         Behind,
         Stopped,
+        Failed,
     }
 
     /// <summary>A dataset with a TBox and one data graph, a binding's projection over it, and the host reading it through the seam.</summary>
@@ -537,6 +564,7 @@ public class InferenceSurfaceTests
             {
                 Refusal.Behind => throw new InferenceBehindException(Binding, position, new Position(0)),
                 Refusal.Stopped => throw new InferenceUnavailableException(Binding, new ByteCount(1024), new ByteCount(2048)),
+                Refusal.Failed => throw new InferenceUnavailableException(Binding, new InvalidOperationException("an invariant broke")),
                 _ => projection.TryRead(position, out InferredRows? rows) == InferenceReadOutcome.Held
                     ? rows!
                     : projection.ReadFromScratchAsync(position, CancellationToken.None).AsTask().GetAwaiter().GetResult(),
@@ -552,6 +580,7 @@ public class InferenceSurfaceTests
             {
                 Refusal.Behind => throw new InferenceBehindException(Binding, position, new Position(0)),
                 Refusal.Stopped => throw new InferenceUnavailableException(Binding, new ByteCount(1024), new ByteCount(2048)),
+                Refusal.Failed => throw new InferenceUnavailableException(Binding, new InvalidOperationException("an invariant broke")),
                 _ => projection.ExplainAsync(position, graph, subject, predicate, @object, CancellationToken.None).AsTask().GetAwaiter().GetResult().Explanation!,
             };
         }

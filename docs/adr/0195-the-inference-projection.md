@@ -2,7 +2,8 @@
 
 ## Status
 
-**Filed unaccepted by Inference, part 2 (#171, under #95), 2026-11-06**
+**Accepted — filed unaccepted by Inference, part 2 (#171, under #95),
+2026-11-06**
 (ADR 0066). Decided by the maintainer on the plan in #95 (2026-10-27),
 question 4a, and on #171's plan comment (2026-11-06), which verified this
 ADR's two premises and fixed its erasure precondition. Acceptance is the
@@ -15,8 +16,17 @@ in bytes (point 5), the closure's memory limit and `inference-unavailable`
 inconsistency on readiness (point 6). The changes follow ADRs 0238, 0240,
 0242 and 0244, which main gained after this ADR was first filed.
 
-Amends **0119** (`inference-behind`, `inference-unavailable`), by a dated
-amendment there.
+**Revised 2026-11-18 and 2026-11-19**, before acceptance, on the maintainer's
+rulings on #171 and #335 and the architect's review of 2026-11-19: a closure
+too large is refused before the heap is asked, from one pool for the process
+that is what the heap limit leaves (point 6); generations for stated causes
+only (point 4); a stopped binding, at its memory limit or by a failure, stays
+refused until an operator's act (point 6); a store that fails holds a pass
+off (point 6). These were filed on 2026-11-18 as an amendment and are folded
+into the decision here, which reads as one.
+
+Amends **0119** (`inference-behind`, `inference-unavailable`) and **0242**
+(the `defect` class of ruling 2), each by a dated amendment there.
 
 ## Context
 
@@ -207,8 +217,8 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   10 GiB under `rdfs` and at most 9 GiB under `owl2rl`; the live heap,
   what is held once built, is 5.4 and 5.6 GiB. The build's transient is
   near twice the finished closure's heap (#339). The deaths were the
-  defect the amendment of 2026-11-18 below fixes: under the budget, the
-  same build is refused as `stopped (memory-limit)` instead.
+  defect point 6's budget fixes: under it, the same build is refused as
+  `stopped (memory-limit)` instead.
 
 ### 4. Commits and generations
 
@@ -220,12 +230,15 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   data graph holding its own copy cost, on REC S, as many facts again as the
   TBox closure for every graph (revised 2026-11-16, on the measurement
   below).
-- **A generation** starts on a commit that changes a bound TBox graph or the
-  rules graph, on the first commit after a rules graph that did not load, on
-  a commit that allocates a term a rule names, and on any commit whose
-  incremental pass fails. A generation rebuilds the TBox closure and every
-  data graph's over it from the commit's state, and opens or closes only
-  the rows that differ.
+- **A generation is made for stated causes only:** a commit that changes a
+  bound TBox graph or the rules graph, the first commit after a rules graph
+  that did not load, a commit that allocates a term a rule names, and a cold
+  start or a saved state that does not check (point 5). **A failed pass is
+  never a generation**: it either holds the pass off or stops the binding
+  (point 6), since a rebuild after a failure would need more memory than the
+  pass that failed, and repeat a defect. A generation rebuilds the TBox
+  closure and every data graph's over it from the commit's state, and opens
+  or closes only the rows that differ.
   - A TBox change is a generation because the TBox closure is shared beneath
     every data graph's and never changes under one. TBox commits are rare
     beside data commits; their cost is a from-scratch closure (point 5a).
@@ -298,7 +311,7 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   fact is now one record carrying counting's round and count and its links
   in the five indices (revised 2026-11-16).
 
-### 6. Lag, `inference-behind`, and the memory limit
+### 6. Lag, `inference-behind`, the memory limit, and stops
 
 - **Readiness** reports, per binding, under its dataset's line as
   `inference`:
@@ -307,15 +320,19 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   - `premiseSets` for a cross-graph binding;
   - `inconsistent` and `clashes`, the count of clashes at its position
     (ADR 0197 point 5);
-  - its state: `following`, `regenerating after erasure` (point 8), or
-    `stopped (memory-limit)`, with `limit` and `reached`.
+  - `held` and `peak`: the bytes its closures hold now, and the most they
+    have held, its builds included, by the budget's count;
+  - its state: `following`, `regenerating after erasure` (point 8),
+    `stopped (memory-limit)` with `limit` and `reached`, or `stopped
+    (failed)`.
 
   None of these ever makes the dataset unready or "behind".
 - **A read that needs the closure at a position the projection has not
   reached** waits two seconds, then answers `503 inference-behind`, with
   members `binding`, `position` and `projectedPosition`, and `Retry-After: 1`
   (ADR 0119, amended). A query that streams has its cut after the first byte
-  as a `Varve-Error` trailer (ADR 0095).
+  as a `Varve-Error` trailer (ADR 0095). A read of a stopped binding is
+  refused before it is waited for, so it never answers `inference-behind`.
 - **A term never reads as absent while the closure is behind.** A term lookup
   that misses while a closure the read needs is behind yields a staged handle,
   as `ReportGraphs.TryInternalise` does since #186; any match through it then
@@ -323,28 +340,192 @@ graphs, this ADR's amendment says so before any other layout is chosen.
   2026-10-30 (`DenialCoversQuadsNotYetLoaded`), and every source this part
   adds is held to `tests/QuadSourceContract.cs`.
 
-**The closure's memory is limited, and a binding over the limit stops.**
-- `Varve:Inference:ClosureBytes` bounds what one binding's closure may hold:
-  its facts, indices and open rows, by the projection's own accounting at a
-  stated cost per quad. Unset, it is a quarter of the collector's heap limit
-  (`GCMemoryInfo.TotalAvailableMemoryBytes`), the share ADR 0244 point 5
-  gives the memtable's worst case. A value the operator sets is kept as set.
-- **A materialisation that would pass it stops**, a cold start's or a
-  generation's or a commit's, and serves no partial closure. Spilling the
-  closure to disk is not in this part.
+**The closure's memory is limited, and a closure too large is refused before
+the heap is asked.**
+- **`Varve:Inference:ClosureBytes`** bounds what one binding's closures may
+  hold together. Unset, it is a quarter of the collector's heap limit
+  (`GCMemoryInfo.TotalAvailableMemoryBytes`), or the pool if that is less.
+  A value the operator sets is kept as set, and refused at start if it is
+  above the pool.
+- **The budget is asked before every allocation.** `FactBudget` counts bytes.
+  Every structure a closure grows asks it first:
+  - each fact, at its profile's cost (`ClosureCosts.For`), with the
+    projection's open row beside it (`InferenceOptions.RowBytes`);
+  - the fact store's record array and table, at their new size before they
+    grow;
+  - each explicit fact;
+  - each entry of a pass's record of changes;
+  - each entry of counting's frontier, queue and seeded set while it lives;
+  - each fact's premise sets in a cross-graph binding, and their
+    propagation's entries;
+  - each dataset term the projection keeps resolved
+    (`InferenceOptions.TermBytes`).
+
+  A build is **admitted** only if its given facts alone fit, and each given
+  fact read is charged before it is buffered. A request past the limit throws
+  `ClosureLimitExceededException` on the build's own thread before the
+  allocation, and the closure gives back everything it took when its owner
+  drops it. A materialisation that would pass the limit, a cold start's, a
+  generation's or a commit's, stops and serves no partial closure. Catching
+  `OutOfMemoryException` is not the mechanism: it can surface on any thread.
+  Spilling the closure to disk is not in this part.
+- **The costs are measured, per profile,** from what a build needs against
+  what its budget counts. On REC S (3 graphs; `Varve.Benchmarks
+  --closure-budget S <profile> <per-graph|cross>`), each from-scratch
+  build's least heap limit was bisected to 1 MiB under
+  `DOTNET_GCHeapHardLimit`, less the heap held before it, and divided by the
+  budget's peak. The first estimates charged every profile alike: 128 bytes a
+  fact beside its record, 96 a working entry, 256 a fact a pass touches, 160
+  a fact's premise sets, 80 an explicit fact.
+
+  | Profile | Build | Need ÷ counted, estimates | Off by | Need ÷ counted, measured figures |
+  |---|---|---|---|---|
+  | `rdfs` | per graph | 0.811 | counted 23% more than needed | 0.815 |
+  | `rdfs` | cross-graph | 1.073 | counted 7% less: a build could outrun its limit | 0.872 |
+  | `owl2rl` | per graph | 0.690 | counted 45% more | 0.883 |
+  | `owl2rl` | cross-graph | 0.815 | counted 23% more | 0.747 |
+
+  The measured figures are 100 bytes a fact under `rdfs` and 70 under
+  `owl2rl`, and 280 a fact's premise sets under both; the working entry,
+  touched fact and explicit fact keep their estimates, which no build showed
+  off. REC M's peaks, by the same count: 4.66 GB under `rdfs` (17.5 million
+  facts) and 4.54 GB under `owl2rl` (23.1 million), the projection's rows
+  (96 bytes a fact) besides.
+- **The margin** the budget keeps above them is **a tenth**: a build must
+  finish under a heap limit of the heap held before it and 0.9 of its
+  budget's peak, so the budget counts at least a ninth more than any build
+  needs, room for the collector's slack and for data unlike REC S's. The
+  figures come from REC S alone, so the nightly's `closure-budget` job holds
+  REC S and REC M to that margin, under both profiles, per graph and
+  cross-graph (`tests/Varve.Benchmarks/closure-budget-margin.sh`), and fails
+  when a build needs more; on REC S it also bisects the least heap. Run by
+  hand on 2026-11-18, REC M per graph finished within the margin under both
+  profiles: under `rdfs` in 4.98 GiB (the heap before, 1.08 GiB, and 0.9 of a
+  4.34 GiB peak), under `owl2rl` in 4.88 GiB (0.9 of 4.22 GiB).
+
+**One pool for the process: what the heap limit leaves.**
+- **Every binding's budget also takes from one pool**, and a request is
+  refused when either would pass. The pool is the collector's heap limit,
+  less the memtable's worst case, less a reserve for queries, caches and
+  requests (`Varve:Inference:ReserveBytes`). ADR 0244's default memtable
+  limit is a sixteenth of the heap limit at 215 bytes an entry, between
+  10,000 and 1,000,000 entries; its worst case is four times its limit (ADR
+  0244 point 5): a quarter of the heap limit up to a heap limit of 3.2 GiB,
+  and 820 MiB above that.
+- **The reserve is 2 GiB by default**, measured at the small-machine
+  settings (`Varve.Benchmarks --server-reserve`): a 5 GiB heap limit,
+  `MaxConcurrentReads` 4, `MaxQueryMemory` 256 MiB, and no binding. A
+  million quads were loaded and the server restarted; then, for 120 s, eight
+  clients sorted, grouped, deduplicated and constructed the whole dataset,
+  and a writer committed 200 quads at a time. The memtable was held to
+  50,000 entries (41 MiB at its worst) so that its share is known.
+
+  | Heap limit | Peak resident | What the load got |
+  |---|---|---|
+  | 5 GiB | 2,852 MiB | 33 answered, 6 `read-limit-exceeded`, 3,419 commits |
+  | 2 GiB | 2,135 MiB | 31 answered, 7 `read-limit-exceeded`, 3,154 commits |
+  | 1.5 GiB | 1,527 MiB | 37 answered, 4 `read-limit-exceeded`, **3 failed with 500**, 3,096 commits |
+  | 1.25 GiB | 1,356 MiB | the dataset failed: 80,125 commits and 821,813 reads refused `503 unavailable` |
+
+  So there the rest of the server needed more than 1.5 GiB and at most 2 GiB
+  of heap.
+- **What the division promises, and what it does not.** The closures (at
+  most the pool) and the memtable at its worst **never pass the heap limit
+  less the reserve**: that is enforced, by the budget and by ADR 0244. **The
+  reserve is not a bound on queries.** It is what the pool leaves aside, and
+  nothing holds the queries to it: one query is bounded by
+  `MaxQueryMemory` (ADR 0114), and the queries running at once may hold up
+  to `MaxConcurrentReads` × `MaxQueryMemory`, which can exceed the reserve.
+  At the defaults that is 64 × 256 MiB, 16 GiB against a 2 GiB reserve; at
+  the small-machine settings, four reads at 256 MiB, it is 1 GiB and within
+  it. Past the reserve, a query's own allocation is what fails. A bound on
+  the memory all queries hold together is #359. Until then, an operator who
+  raises `MaxConcurrentReads` or `MaxQueryMemory` raises the reserve with
+  them.
+- **At the small-machine settings** (5 GiB): the memtable's worst case is
+  820 MiB, the reserve 2 GiB, the pool 2.2 GiB, and `ClosureBytes` defaults
+  to 1.25 GiB.
+- **An empty pool never stops the instance starting.** Under a heap limit of
+  2.67 GiB the defaults leave no pool. Bindings are declared in the
+  management plane after the instance has started, so a server that declares
+  none runs at any heap limit. A materialising binding declared on an
+  instance with no pool is stopped at its memory limit as it is declared,
+  before it builds anything, with a `limit` of 0 on readiness; every closure
+  read of it answers `503 inference-unavailable`, its `detail` naming the
+  heap limit, the memtable's worst case and `Varve:Inference:ReserveBytes`,
+  and what to lower or raise. The log says the same at error level.
+- **The instance refuses at startup** a `ClosureBytes` above the pool and a
+  negative `ReserveBytes`.
+
+**A stopped binding stays refused.**
+- **Two stops.** A budget refusal, or an `OutOfMemoryException` that reaches
+  a pass all the same, stops the binding at its memory limit, `stopped
+  (memory-limit)`. A failure no repeat can cure (below) stops it as
+  `stopped (failed)`.
 - **Every tier-2 read of a stopped binding answers `503
-  inference-unavailable` at once**, with no wait and **no `Retry-After`**:
-  members `binding`, `reason` `memory-limit`, `failure` `configuration` (ADR
-  0242 ruling 2's class: the host's configuration cannot run it, and no retry
-  helps), `limit` and `reached` in bytes, `reached` a lower bound on what the
-  closure needs. The `detail` names the setting and says to raise it or the
-  instance's memory and restart. Tier-1 regimes on the same graphs are still
-  served.
-- **It is tried again** at a restart, where the setting is read, and on a
-  commit that starts a generation, under the same limit; never on a timer.
-- **`docs/operator/small-machine.md` states the closure's bytes per quad**
-  under each profile, from the benchmark, beside ADR 0244's figures, so that
-  an operator can size `ClosureBytes` for a binding before applying it.
+  inference-unavailable` at once**, with no wait and **no `Retry-After`**,
+  members `binding`, `reason` and `failure`. Tier-1 regimes on the same
+  graphs are still served.
+  - **`reason` `memory-limit`**: `failure` is `configuration` (ADR 0242
+    ruling 2: the host's configuration cannot run it, and no retry helps),
+    with `limit` and `reached` in bytes, `reached` a lower bound on what the
+    closure needs. The `detail` names the setting and says to raise it or
+    the instance's memory, and restart.
+  - **`reason` `failed`**: `failure` is **`defect`** (ADR 0242 ruling 2, as
+    amended 2026-11-19), its own class: neither the operator's
+    configuration nor a passing condition, but the code, and only a version
+    that fixes it cures it. No `limit` or `reached`. The `detail` says to
+    report it with the instance's log and upgrade.
+- **Neither is tried again automatically**: not by a data commit, a TBox
+  commit, a reset or a timer.
+- **How an operator brings it back.** There are two acts, and no other:
+  - **Restart the instance.** A saved state that records a stop is not
+    loaded: the restarted instance builds the binding from the head, once,
+    under the limit it reads at start. Restarted with nothing changed, a
+    `memory-limit` binding stops again at the same place, since the same data
+    needs the same memory, so the act is a restart with a raised
+    `ClosureBytes`, or more memory, and readiness's `peak` from the stop
+    says how much the build had asked for when it was refused. A `failed`
+    binding restarted unchanged fails again unless the version started fixes
+    the defect.
+  - **Change the binding's declaration** in the management plane (`varve
+    apply`, or a `PUT` to `/manage/datasets/{name}`): its profile, TBox
+    graphs, data graphs or `varve:crossGraph`. The changed binding is another
+    projection, built at once from the head under the limit in force.
+    Re-applying the same declaration builds nothing.
+
+  There is no "retry" act on a running instance: a retry under the same limit
+  and the same data cannot cure either stop.
+
+**What holds a pass off, and what stops a binding.** A store read or write
+that fails is not a stop. Every pass reads what it needs from the store, the
+delta's terms, whether a changed graph is emptied, a term a rule names,
+before it changes a closure, so a read that fails leaves the closures as they
+were and the position where it was. The failure is an `IOException`, a
+`TimeoutException` or an `HttpRequestException`; the feed logs it, holds off
+(one second, doubling to thirty), and resumes from the projection's position,
+as a follower's catch-up does, with no generation. A generation's build that
+fails to read is made again the same way, the closures in use kept meanwhile.
+A save of the projection's state that fails is logged, and the next save
+tries again. The failures that stop a binding, each because repeating it
+gives the same result:
+- **a budget refusal** (`memory-limit`): the same data needs the same memory,
+  and the limit is read at start;
+- **an `OutOfMemoryException`** that reaches a pass all the same
+  (`memory-limit`): the costs undercounted, and a repeat asks the heap for the
+  same bytes;
+- **any other exception from the engine or the projection** (`failed`): a
+  defect; the pass is a function of the commit and the closures, so the same
+  commit fails again, and repeating it would spin;
+- **a store failure after a pass began changing a closure** (`failed`): the
+  pass reads before it changes anything, so a read inside the change is
+  itself a defect, and the closures are half changed; only a build repairs
+  them, and a build is what the recovery above makes.
+
+**Also.**
+- **`docs/operator/small-machine.md` sizes `ClosureBytes` and the heap
+  limit** for REC M under each profile, from the budget's peaks, and states
+  the small-container case.
 - **An idle server returns what a generation's work left**, as it does after a
   checkpoint (ADR 0244 point 6): the host's, not the projection's.
 
@@ -362,8 +543,8 @@ projections. Every tier-2 surface goes through it:
 **A refusal of tier 2 sits there and nowhere else**, in this order:
 1. the row-level refusal, `403 entailment-not-available` (ADR 0238, amended
    2026-11-16 to carry no `binding`), which #14 adds at this seam;
-2. a binding stopped by its memory limit, `503 inference-unavailable`
-   (point 6);
+2. a binding stopped, by its memory limit (`stopped (memory-limit)`) or by
+   a failure (`stopped (failed)`), `503 inference-unavailable` (point 6);
 3. point 8's refusal after erasure;
 4. a projection behind the read's position, `503 inference-behind` after the
    wait (point 6).
@@ -412,7 +593,27 @@ state.
   is held never passes the ceiling.
 - **A binding over its memory limit** answers `inference-unavailable` on every
   tier-2 surface and serves no partial closure, with the limit set below the
-  closure's size in the tests.
+  closure's size in the tests, and stays refused through a data commit, a
+  TBox commit and a reset.
+- **The memory gate** (`Varve.Server.Tests`, `ClosureMemoryGateTests`) runs
+  the server as a child process under a hard heap limit:
+  - at 512 MiB, with `ClosureBytes` at the most the settings allow, a closure
+    past it is refused as `stopped (memory-limit)`, a read answers 503 with no
+    `Retry-After`, the process stays up, a second dataset's binding keeps
+    answering, and the refused binding stays refused after a TBox commit;
+  - under both profiles, intra- and cross-graph, a build whose budget peak is
+    a tenth under its limit finishes on the least heap the settings allow;
+  - a server with no closure binding starts at 128 MiB, 512 MiB, 2 GiB and
+    4 GiB, its pool empty at the first three, with `ClosureBytes` unset;
+  - with `ClosureBytes` unset and no pool, a declared binding is stopped at
+    its memory limit with a `limit` of 0, and a read's detail names
+    `Varve:Inference:ReserveBytes` and the heap limit.
+- **A store that fails holds the pass off** (`StorageFailureTests`): the
+  store's reads fail during a pass and recover, and the binding follows again
+  at the head with its generations unchanged and its rows the oracle's; a
+  pass that fails with a defect stops the binding as `stopped (failed)`
+  through a data commit, a TBox commit and a reset, and a read of it answers
+  `failure` `defect` (`InferenceSurfaceTests`).
 - **ADR 0190's grant property**, over the tier-2 surfaces: 200 cases on a pull
   request, 5,000 nightly.
 - **The cache-damage gate.** A byte zeroed, flipped or cut at any offset of a
@@ -431,6 +632,15 @@ state.
   stable across positions. Premise 1 shows they are, and a second dictionary
   would cost a translation per term on every read.
 - **Purge on erasure** (the plan's first wording). Insufficient, by premise 2.
+- **Count facts at a flat cost, and catch `OutOfMemoryException`.** This
+  ADR's first filing charged 256 bytes a fact, while a from-scratch build
+  needs more than twice that. On REC M a cross-graph build under a 6, 8 or
+  9 GiB heap limit died of an unhandled `OutOfMemoryException` (exit 134)
+  instead of being refused (#335), and an exception of that kind can surface
+  on any thread. Rejected for point 6's budget, asked before each allocation.
+- **A failed pass as a generation.** The first filing rebuilt on any failed
+  pass: a rebuild needs more memory than the pass that failed, and repeats a
+  defect. Rejected for point 4's stated causes and point 6's stops.
 - **Share the closure as writer-written extents.** Would spare each instance
   its cold-start rebuild. A later decision, made on the cold-start benchmark
   at REC M and L if a restart there costs more than an operator accepts.
@@ -466,8 +676,9 @@ state.
   - **0238**: the row-level refusal at the seam, first in order;
   - **0240**: nothing held grows with the commits; closed rows under a
     ceiling, as its seek directories are;
-  - **0242**: `inference-unavailable` classed by its ruling 2, and every
-    problem page with its `## What to do`;
+  - **0242**: `inference-unavailable` classed by its ruling 2,
+    `configuration` at the memory limit and `defect` for a failure (amended
+    2026-11-19), and every problem page with its `## What to do`;
   - **0244**: the closure's limit follows the heap limit, and the idle
     release after a generation.
 
@@ -479,235 +690,10 @@ state.
 - **Analyzer rule.** None new. Each rule firing, each changed quad and each
   row's match is `[HotPath]` (`VARVE0003`).
 - **Open questions owned.** Point 8's "meet it or refuse", by milestone 9.
-
-## Amendment, 2026-11-18 — a closure too large is refused before the heap is asked
-
-Filed by Inference, part 2 (#171, under #95), unaccepted until the
-maintainer accepts it (ADR 0066). Decided by the maintainer on #171 and
-#335 on 2026-11-18: #335 blocks this part, and is fixed here.
-
-**What was wrong.** Point 6's budget counted facts at 256 bytes each, while
-a from-scratch build needs more than twice that, so a `ClosureBytes` near
-the heap limit let a build exhaust the heap first. On REC M, a cross-graph
-build under a 6, 8 or 9 GiB heap limit died of an unhandled
-`OutOfMemoryException` (exit 134) instead of being refused. `ApplyAsync` also
-made any failed pass a generation, a rebuild that needed more memory still,
-and the server's feed did not handle the result. Under the old code the gate
-below fails: after 120 s the binding still reads `following` with a lag of
-11, its feed dead, nothing refused.
-
-It amends point 4 (generations), point 6 (the memory limit) and point 9
-(what is tested):
-
-1. **The budget is asked before every allocation.** `FactBudget` counts
-   bytes. Every structure a closure grows asks it first:
-   - each fact, at its profile's cost (`ClosureCosts.For`), with the
-     projection's open row beside it (`InferenceOptions.RowBytes`);
-   - the fact store's record array and table, at their new size before
-     they grow;
-   - each explicit fact;
-   - each entry of a pass's record of changes;
-   - each entry of counting's frontier, queue and seeded set while it
-     lives;
-   - each fact's premise sets in a cross-graph binding, and their
-     propagation's entries.
-   
-   A build is **admitted** only if its given facts alone fit, and each given
-   fact read is charged before it is buffered. A request past the limit
-   throws `ClosureLimitExceededException` on the build's own thread before
-   the allocation; the closure gives back everything it took when its owner
-   drops it. Catching `OutOfMemoryException` is not the mechanism.
-2. **One pool for the process.** Every binding's budget also takes from a
-   pool shared by the process; a request is refused when either would
-   pass. The pool is what is left of the heap limit after the memtable's
-   worst case and a stated reserve (point 10). `SettingsCheck` refuses a
-   `ClosureBytes` above the pool.
-3. **The figures are measured, per profile.** `ClosureCosts.For(profile)`
-   is set from what a build needs against what its budget counts, measured
-   under `DOTNET_GCHeapHardLimit` (below), and a test fails when a build
-   needs more than the budget assumes.
-   
-   **Measured** on REC S (3 graphs; `Varve.Benchmarks --closure-budget S
-   <profile> <per-graph|cross>`): each from-scratch build's least heap
-   limit, bisected to 1 MiB, less the heap held before it, over the
-   budget's peak. The first estimates charged every profile alike: 128
-   bytes a fact beside its record, 96 a working entry, 256 a fact a pass
-   touches, 160 a fact's premise sets, 80 an explicit fact.
-
-   | Profile | Build | Need ÷ counted, estimates | Off by | Need ÷ counted, measured figures |
-   |---|---|---|---|---|
-   | `rdfs` | per graph | 0.811 | counted 23% more than needed | 0.815 |
-   | `rdfs` | cross-graph | 1.073 | counted 7% less: a build could outrun its limit | 0.872 |
-   | `owl2rl` | per graph | 0.690 | counted 45% more | 0.883 |
-   | `owl2rl` | cross-graph | 0.815 | counted 23% more | 0.747 |
-
-   The measured figures are 100 bytes a fact under `rdfs` and 70 under
-   `owl2rl`, and 280 a fact's premise sets under both; the working entry,
-   touched fact and explicit fact keep their estimates, which no build
-   showed off. Each build now needs at most 0.88 of what it is counted.
-
-   **The margin** the budget keeps above them is **a tenth**: a build must
-   finish under a heap limit of the heap held before it and 0.9 of its
-   budget's peak, so the budget counts at least a ninth more than any build
-   needs, room for the collector's own slack and for data unlike REC S's.
-   The figures come from REC S alone, so the nightly's `closure-budget` job
-   holds REC S and REC M to that margin, under both profiles, per graph and
-   cross-graph (`tests/Varve.Benchmarks/closure-budget-margin.sh`), and
-   fails when a build needs more; on REC S it also bisects the least heap,
-   to report how far under the count each build stays. Run by hand on
-   2026-11-18, REC M per graph finished within the margin under both
-   profiles: under `rdfs` in 4.98 GiB (the heap before, 1.08 GiB, and 0.9 of
-   a 4.34 GiB peak), under `owl2rl` in 4.88 GiB (0.9 of 4.22 GiB). REC M
-   cross-graph is left to the nightly. REC M's peaks, by the same count:
-   4.66 GB under `rdfs` (17.5 million facts) and 4.54 GB under `owl2rl`
-   (23.1 million), the projection's rows (96 bytes a fact) besides.
-4. **A generation is made for stated causes only:** a commit that changes a
-   bound TBox graph, a commit that allocates a term a rule names, and a cold
-   start or a saved state that does not check. "Any failed pass is a
-   generation" is removed.
-5. **A stopped binding stays refused.** A budget refusal, or an
-   `OutOfMemoryException` that reaches a pass all the same, stops the
-   binding at its memory limit (`stopped (memory-limit)`). A failure that
-   no repeat can cure (point 9) stops it as `stopped (failed)`, answered
-   `inference-unavailable` with `reason` `failed`. Either answers 503 with
-   no `Retry-After`, `failure` `configuration`. Neither is tried again
-   automatically: not by a data commit, a TBox commit, a reset or a timer.
-   Point 6's "tried again … on a commit that starts a generation" is
-   withdrawn. How an operator brings it back is point 8.
-6. **Readiness reports `held` and `peak`** per binding: the bytes its
-   closures hold now, and the most they have held, the build included, by
-   the budget's count.
-7. **The gate** (`Varve.Server.Tests`, `ClosureMemoryGateTests`) runs the
-   server as a child process under a 512 MiB hard heap limit with
-   `ClosureBytes` at the most the settings allow:
-   - a closure past it is refused, as `stopped (memory-limit)`, and a read
-     answers 503 `inference-unavailable` with no `Retry-After`;
-   - the process stays up;
-   - a second dataset's binding keeps answering;
-   - the refused binding stays refused after a TBox commit.
-   
-   A second test, under both profiles, intra- and cross-graph, builds data
-   whose budget peak is a tenth under its limit on the least heap the
-   settings allow for it; the build must finish.
-
-8. **How an operator brings a stopped binding back.** There are two
-   acts, and no other:
-   - **Restart the instance.** A projection's saved state that records a
-     stop is not loaded: the restarted instance builds the binding from the
-     head, once, under the limit it reads at start. A restart with nothing
-     changed stops a `memory-limit` binding again, at the same place, since
-     the same data needs the same memory; so the act is a restart with a
-     raised `Varve:Inference:ClosureBytes`, or more memory for the
-     instance, and readiness's `peak` from the stop says how much the build
-     had asked for when it was refused. A `failed` binding restarted
-     unchanged fails again unless the defect is fixed in the version
-     started.
-   - **Change the binding's declaration** in the management plane
-     (`varve apply`, or a `PUT` to `/manage/datasets/{name}`): its profile,
-     its TBox graphs, its data graphs or `varve:crossGraph`. The changed
-     binding is another projection, built at once from the head, with no
-     restart, under the limit in force. Re-applying the same declaration
-     changes nothing and builds nothing.
-   
-   There is no "retry" act on a running instance: a retry under the same
-   limit and the same data cannot cure either stop.
-9. **What holds a pass off, and what stops a binding.** A store read or
-   write that fails is not a stop. Every pass reads what it needs from the
-   store — the delta's terms, whether a changed graph is emptied, a term a
-   rule names — before it changes a closure, so a read that fails leaves the
-   closures as they were and the position where it was. The failure is an
-   `IOException`, a `TimeoutException` or an `HttpRequestException`. The
-   feed logs it, holds off (one second, doubling to thirty), and resumes
-   from the projection's position, as a follower's catch-up does, with no
-   generation. A generation's build that fails to read is made again the
-   same way, the closures in use kept meanwhile. A save of the projection's
-   state that fails is logged; the next save tries again, and a restart
-   before it rebuilds or reads the last good save. The failures that stop a
-   binding, each because repeating it gives the same result:
-   - **A budget refusal** (`memory-limit`): the same data needs the same
-     memory, and the limit is read at start.
-   - **An `OutOfMemoryException`** that reaches a pass all the same
-     (`memory-limit`): the budget's figures undercounted (point 3), and a
-     repeat asks the heap for the same bytes.
-   - **Any other exception from the engine or the projection** (`failed`):
-     a defect. The pass is a function of the commit and the closures, so
-     the same commit fails again; repeating it would also spin.
-   - **A store failure after a pass began changing a closure** (`failed`):
-     the pass reads before it changes anything, so a read inside the change
-     is itself a defect, and the closures are half changed: only a build can
-     repair them, and a build is what the stop's recovery (point 8) makes.
-   
-   A test (`StorageFailureTests`) fails the store's reads during a pass,
-   lets them recover, and requires the binding following again at the head
-   with its generations unchanged and its rows the oracle's; a second fails
-   a pass with a defect and requires `stopped (failed)` through a data
-   commit, a TBox commit and a reset.
-10. **The pool is what the heap limit leaves.** The pool is the collector's
-   heap limit, less the memtable's worst case, less a reserve for queries,
-   caches and requests (`Varve:Inference:ReserveBytes`). It is none when
-   those leave nothing, and then every materialising binding is refused at
-   its memory limit.
-
-   ADR 0244's default memtable limit is a sixteenth of the heap limit at
-   215 bytes an entry, between 10,000 and 1,000,000 entries. Its worst case
-   is four times its limit (ADR 0244 point 5): a quarter of the heap limit
-   up to a heap limit of 3.2 GiB, and 820 MiB above that.
-
-   **The reserve is 2 GiB by default**, measured at the small-machine
-   settings (`Varve.Benchmarks --server-reserve`): a 5 GiB heap limit,
-   `MaxConcurrentReads` 4, `MaxQueryMemory` 256 MiB, and no binding. A
-   million quads were loaded and the server restarted. Then, for 120 s,
-   eight clients sorted, grouped, deduplicated and constructed the whole
-   dataset, and a writer committed 200 quads at a time:
-
-   | Heap limit | Peak resident | What the load got |
-   |---|---|---|
-   | 5 GiB | 2,852 MiB | 33 answered, 6 `read-limit-exceeded`, 3,419 commits |
-   | 2 GiB | 2,135 MiB | 31 answered, 7 `read-limit-exceeded`, 3,154 commits |
-   | 1.5 GiB | 1,527 MiB | 37 answered, 4 `read-limit-exceeded`, **3 failed with 500**, 3,096 commits |
-   | 1.25 GiB | 1,356 MiB | the dataset failed: 80,125 commits and 821,813 reads refused `503 unavailable` |
-
-   So the rest of the server needs more than 1.5 GiB and at most 2 GiB of
-   heap there; the memtable was held to 50,000 entries (41 MiB at its worst)
-   so that its share is known. The reserve is expected to grow with
-   `MaxConcurrentReads` × `MaxQueryMemory`, which was not measured. An
-   instance that raises either should raise the reserve: the default of 64
-   concurrent reads could ask the queries alone for 16 GiB.
-
-   **What they promise together.** The closures (at most the pool), the
-   memtable at its worst and the reserve never pass the heap limit. At the
-   small-machine settings (5 GiB):
-   - the memtable's worst case is 820 MiB;
-   - the reserve is 2 GiB;
-   - the pool is 2.2 GiB;
-   - `ClosureBytes` defaults to 1.25 GiB.
-
-   Under a heap limit of 2.67 GiB the defaults leave no pool, so a small
-   container serves no materialising binding until its operator lowers the
-   reserve or the memtable. **An empty pool never stops the instance
-   starting**: bindings are declared in the management plane after it has
-   started, and a server that declares none runs at any heap limit
-   (tested from 128 MiB to 4 GiB). A materialising binding declared on an
-   instance with no pool is stopped at its memory limit as it is declared,
-   before it builds anything, with a `limit` of 0 on readiness. Every
-   closure read of it answers `503 inference-unavailable`, no
-   `Retry-After`, its detail naming the heap limit, the memtable's worst
-   case and `Varve:Inference:ReserveBytes`, and what to lower or raise; the
-   log says the same at error level. Nothing tries it again; a restart with
-   memory for a pool builds it. Other datasets, and its own tier-1 reads,
-   are served (`ClosureMemoryGateTests`). A read of a stopped binding is
-   refused before it is waited for, so it never answers `inference-behind`.
-
-   The instance refuses at startup:
-   - a `ClosureBytes` above the pool;
-   - a negative `ReserveBytes`.
-
-   Unset, `ClosureBytes` is a quarter of the heap limit, or the pool if
-   that is less.
-
-**The ledger.** The rulings are `BudgetAskedBeforeEveryAllocation`,
-`OnePoolPerProcess`, `CostsMeasuredPerProfile`,
-`GenerationsForStatedCausesOnly`, `StoppedStaysRefused`,
-`StopsAreRecoveredByAnAct`, `StorageFailuresHoldOff`,
-`PoolIsWhatTheHeapLeaves` and `MarginAboveTheMeasuredCosts`.
-
+  A bound on the memory all queries hold together is #359.
+- **The ledger.** Point 6's rulings are `ClosureMemoryLimit`,
+  `BudgetAskedBeforeEveryAllocation`, `OnePoolPerProcess`,
+  `CostsMeasuredPerProfile`, `MarginAboveTheMeasuredCosts`,
+  `PoolIsWhatTheHeapLeaves`, `StoppedStaysRefused`,
+  `StopsAreRecoveredByAnAct` and `StorageFailuresHoldOff`; point 4's,
+  `GenerationsPublishedWhole` and `GenerationsForStatedCausesOnly`.

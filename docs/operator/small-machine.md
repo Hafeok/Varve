@@ -173,7 +173,7 @@ A binding's closure is held in memory (ADR 0195). Measured on REC M
 755 under `owl2rl`, the store's own data not included: 3.4 and 3.6 GiB.
 
 `Varve:Inference:ClosureBytes` is a budget that every structure a closure
-grows asks before it is allocated (ADR 0195, amended 2026-11-18): a fact at
+grows asks before it is allocated (ADR 0195 point 6): a fact at
 its profile's measured cost (100 bytes under `rdfs`, 70 under `owl2rl`,
 beside its 72-byte record), 96 bytes beside it for the binding's row, its
 explicit set, a build's working sets while they live, and 160 bytes for
@@ -202,8 +202,14 @@ under `owl2rl`.
 
 **The reserve** was measured at the runtime limits above, with a 5 GiB heap
 limit, four concurrent reads at 256 MiB each and a writer: the rest of the
-server needed more than 1.5 GiB and at most 2 GiB. Raise it if you raise
-`Varve:Limits:MaxConcurrentReads` or `Varve:Limits:MaxQueryMemory`.
+server needed more than 1.5 GiB and at most 2 GiB. **The reserve is not a
+limit on queries.** The closures and the memtable are held under the heap
+limit less the reserve, but nothing holds the queries to the reserve: they
+may hold up to `Varve:Limits:MaxConcurrentReads` × `Varve:Limits:MaxQueryMemory`
+together, 1 GiB at the settings above and 16 GiB at the defaults (64 × 256
+MiB). Past the reserve a query's own allocation is what fails. Keep that
+product within the reserve, and raise the reserve if you raise either
+(#359 is a bound on all queries together).
 
 At the 5 GiB heap limit above, the pool is 2.2 GiB, and `ClosureBytes`
 unset is a quarter of the heap limit, 1.25 GiB: about a million data quads

@@ -6,9 +6,9 @@ decisions:
   - key: DeletionIsASecondPropagation
     statement: "Each retraction candidate is a deletion pass with its own transfer over the binding's dependency graph, Propagation unchanged, rule joins anchored at each changed fact"
   - key: ThreeCandidatesMeasured
-    statement: "DRed, recursive counting and Backward/Forward are built behind one internal strategy, each passing the incremental-equals-from-scratch property, and measured on REC M histories at the stated retraction rates"
+    statement: "DRed, recursive counting and Backward/Forward are built behind one internal strategy, each passing the incremental-equals-from-scratch property, and measured on at least 1,000 commits of REC M under owl2rl, the sample's size, entity retractions and type changes stated"
   - key: ChosenOnTheMeasurement
-    statement: "The candidate is chosen by p99 time per commit on the owl2rl profile, with the trade stated where another is within 20% and lower on the maximum or memory, and the losers leave src for the benchmarks"
+    statement: "The candidate is chosen by p99 time per commit on the owl2rl profile, with the trade stated where another is within 20% and lower on the maximum or memory, and each candidate's from-scratch build time stated beside its per-commit figures; the losers stay in src until the maintainer has ruled on the choice, then leave it for the benchmarks"
 ---
 
 The rulings of [ADR 0196](../adr/0196-retraction-decided-by-measurement.md), one line each. The ADR is the

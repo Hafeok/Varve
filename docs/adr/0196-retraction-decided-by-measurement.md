@@ -2,14 +2,18 @@
 
 ## Status
 
-**Filed unaccepted by Inference, part 2 (#171, under #95), 2026-11-06**
+**Accepted — filed unaccepted by Inference, part 2 (#171, under #95),
+2026-11-06**
 (ADR 0066). Decided by the maintainer on the plan in #95 (2026-10-27),
 question 4b: three candidates, measured on REC M histories with retractions,
 the choice made on the measurement. Acceptance is the maintainer's act on the
 pull request.
 
 **The measurement and the choice are in** (point 6, 2026-11-16): recursive
-counting, by point 5's rule.
+counting, by point 5's rule. **Rerun 2026-11-19** over 1,000 commits of REC M
+under `owl2rl`, on the architect's review: the choice stands by the rule.
+Whether counting stands given its cold start, twice DRed's, is the
+maintainer's to rule; until he has, DRed stays in `src/` (point 6).
 
 Amends **0172** (deletion as a second `Propagation`; join anchors in
 Inference), by a dated amendment there.
@@ -89,25 +93,49 @@ from-scratch generation (ADR 0195 point 4).
   stated: if a commit's over-deletion or check set exceeds a share of the
   closure beyond which a generation is cheaper on the measurement, the
   threshold is that share.
-- **The losers leave `src/`.** Their code moves to `tests/Varve.Benchmarks`,
-  where the measurement can be rerun.
+- **The losers leave `src/`**, once the maintainer has ruled on the choice:
+  their code moves to `tests/Varve.Benchmarks`, where the measurement can be
+  rerun. Until he has, they stay behind the internal strategy, under the
+  same property (point 6).
 
 ### 6. The measurement
 
-Filled 2026-11-16. The machine: 4 cores, 15 GB, .NET 10.0.15, Release.
-`Varve.Benchmarks --inference-closure <size> <profile> 50`: the closures
-built at the history less its last 50 commits, each graph's over the shared
-TBox closure (ADR 0195 point 3), then those commits applied one by one under
-each candidate.
+The machine: 4 cores, 15 GB, .NET 10.0.15, Release. `Varve.Benchmarks
+--inference-closure <size> <profile> <commits> [budget minutes]`: the
+closures built at the history less its last `<commits>` commits, each
+graph's over the shared TBox closure (ADR 0195 point 4), then those commits
+applied one by one under each candidate, each candidate in a closure of its
+own, built from scratch first.
 
-**REC M, `owl2rl`** (63 graphs, 5,053,093 quads at commit 24,950 of 25,000;
-23.1 million facts held, 18.0 million rows):
+**REC M, `owl2rl`, 1,000 commits** (rerun 2026-11-19, on the architect's
+review: a 50-commit sample's p99 is its worst commit). 63 graphs, 5,050,283
+quads at commit 24,000 of 25,000; 23.1 million facts held, 18.0 million
+rows. **The sample:** 1,000 commits, of which 432 retract something, **95
+retract an entity** (every type of a subject, none asserted back) and **52
+change a type** (a type retracted and another asserted for the same
+subject). By kind: 349 points added, 219 tenants in, 155 splits, 130
+moves, 52 retypes, 48 tenants out, 29 points retired, 18 merges. No commit
+of it changes the TBox. That is 9.5% of commits retracting an entity and
+5.2% changing a type, against point 3's 20% and 1%: REC M's generator
+retracts by renovation kinds, not by those shares, and point 3's rates are
+not what was measured.
 
-| Candidate | Built from scratch | Heap held | Per commit p50 | p99 | Worst, and its commit |
-|---|---:|---:|---:|---:|---|
-| Recursive counting | 575.1 s | 3,621 MiB, 165 B a fact | 0.92 ms | 19.84 ms | 19.8 ms, 24,991 (a merge of rooms) |
-| DRed | 302.4 s | 3,607 MiB, 164 B a fact | 0.92 ms | 32.65 ms | 32.6 ms, 24,958 (a merge) |
-| Backward/Forward | 292.8 s | 3,607 MiB, 164 B a fact | 459.47 ms | 1,615.56 ms | 1,615.6 ms, 24,990 (a split) |
+| Candidate | Built from scratch (a cold start, a generation) | Heap held | Per commit p50 | p99 | Worst, and its commit | All 1,000 commits |
+|---|---:|---:|---:|---:|---|---:|
+| Recursive counting | **492.5 s** | 3,621 MiB, 165 B a fact | 0.45 ms | **11.40 ms** | 16.0 ms, 24,991 (a merge) | 1.0 s |
+| DRed | **255.7 s** | 3,607 MiB, 164 B a fact | 0.36 ms | 19.67 ms | 30.3 ms, 24,697 (a merge) | 3.5 s |
+| Backward/Forward | 257.5 s | 3,607 MiB, 164 B a fact | 0.53 ms | 1,283.57 ms | 1,407.5 ms, 24,706 (a merge) | 223.2 s |
+
+Every candidate ends at the same 23,026,270 facts.
+
+**REC M, `owl2rl`, 50 commits** (2026-11-16, the first measurement, at
+commit 24,950; its p99 is its worst commit):
+
+| Candidate | Built from scratch | Per commit p50 | p99 | Worst, and its commit |
+|---|---:|---:|---:|---|
+| Recursive counting | 575.1 s | 0.92 ms | 19.84 ms | 19.8 ms, 24,991 (a merge of rooms) |
+| DRed | 302.4 s | 0.92 ms | 32.65 ms | 32.6 ms, 24,958 (a merge) |
+| Backward/Forward | 292.8 s | 459.47 ms | 1,615.56 ms | 1,615.6 ms, 24,990 (a split) |
 
 **REC S** (3 graphs, 203,047 quads; measured before the fact store held
 counting's state in its records, so its memory column is that store's):
@@ -121,32 +149,41 @@ counting's state in its records, so its memory column is that store's):
 | `owl2rl` | DRed | 26.9 ms | 26.9 ms | 377 |
 | `owl2rl` | Backward/Forward | 880 ms | 880 ms | 408 |
 
-**The choice: recursive counting.** It has the lowest p99 on `owl2rl` at
-REC M, 19.8 ms; DRed's, 32.6 ms, is 65% above it, outside point 5's band.
-Counting's memory premium is gone since the fact store keeps each fact's
-round and count in its record (ADR 0195 point 5a, revised 2026-11-16): 165
-bytes a fact against DRed's 164.
+**The choice by point 5's rule: recursive counting, and it stands on 1,000
+commits.** Its p99 on `owl2rl` at REC M is 11.40 ms; DRed's, 19.67 ms, is 73%
+above it, outside point 5's 20% band, and DRed is not lower on the maximum
+(30.3 ms against 16.0 ms) nor, by more than a megabyte in 3.6 GiB, on memory.
+On 50 commits the gap was 65%. The medians are within a tenth of a
+millisecond of each other (0.45 ms and 0.36 ms).
 
-**The trade it carries.** Counting builds from scratch in about twice
-DRed's time, 575 s against 302 s at REC M under `owl2rl`: what a cold start
-and a generation pay (ADR 0195 points 4 and 5). Settling facts in round
-order costs that; a commit does not.
+**The trade it carries, for the maintainer.** Counting builds from scratch in
+about twice DRed's time: **492.5 s against 255.7 s** on this run, **575.1 s
+against 302.4 s** on the first, at REC M under `owl2rl`. That is what every
+cold start, every generation (a TBox commit, a term a rule names) and every
+recovery from a stop pays (ADR 0195 points 4 to 6). Per commit, counting saves
+8.3 ms at p99 and 14.3 ms at its worst, 2.5 s over the 1,000 commits; it
+costs 237 s more at each build. Point 5's rule weighs commits only, so it
+chooses counting; whether the cold start outweighs that is **not yet ruled**.
+Settling facts in round order costs counting its build time; a commit does
+not.
 
-**Where each wins.** Counting and DRed tie at the median; DRed's worst
+**Where each wins.** Counting and DRed are alike at the median; DRed's worst
 commits are merges whose over-deletion reaches far, which counting's counts
 stop at once. Backward/Forward checks every fact a retraction reaches for a
-proof, which on a large closure costs its median alone half a second.
+proof: its median is now near the others', since most of the 1,000 commits
+retract nothing, but a merge costs it over a second.
 
-**No size threshold.** A data commit's worst, 19.8 ms, is five orders of
-magnitude under a generation's 575 s; there is no share of the closure past
+**No size threshold.** A data commit's worst, 16.0 ms, is four orders of
+magnitude under a generation's 492.5 s; there is no share of the closure past
 which a generation is cheaper on this measurement. A TBox commit is a
 generation already (ADR 0195 point 4).
 
-**The losers.** Backward/Forward's check stays in `src/` as explain's proof
-search (ADR 0199). DRed and Backward/Forward as retraction strategies move
-to `tests/Varve.Benchmarks` once this ADR is accepted; until then they stay
-behind the internal strategy, under the same property, so the measurement
-can be rerun as it was taken.
+**The losers stay in `src/` until the maintainer rules on the choice.**
+DRed and Backward/Forward stay behind the internal strategy, under the same
+property, so the choice can still be reversed and the measurement rerun as it
+was taken. Backward/Forward's check stays in `src/` in any case, as explain's
+proof search (ADR 0199). Once the choice is ruled, the strategies not chosen
+move to `tests/Varve.Benchmarks`.
 
 ## Alternatives considered
 
@@ -159,7 +196,8 @@ can be rerun as it was taken.
 
 ## Consequences
 
-- Part 2 builds three deletion passes and keeps one.
+- Part 2 builds three deletion passes, and keeps one once the maintainer has
+  ruled on the choice; until then all three stay in `src/`.
 - Counting, if chosen, stores a count per entailment. ADR 0195's rows then
   carry it, and the state's format says so.
 

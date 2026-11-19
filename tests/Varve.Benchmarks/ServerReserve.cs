@@ -18,7 +18,7 @@ namespace Varve.Benchmarks;
 
 /// <summary>
 /// What a server holds beside its closures and its memtable while it
-/// answers (ADR 0195, amended 2026-11-18, point 10): the reserve the
+/// answers (ADR 0195 point 6): the reserve the
 /// inference bindings' pool leaves for queries, caches and requests. The
 /// server runs at the small-machine settings (a 5 GiB heap limit, four
 /// concurrent reads, 256 MiB a query), with no inference binding and a

@@ -876,7 +876,7 @@ internal static partial class ServerHost
                 }
                 if (status.Reached > 0 || status.State == "stopped (memory-limit)")
                 {
-                    // A binding stopped at its memory limit says it, even one stopped before it built (ADR 0195 point 10).
+                    // A binding stopped at its memory limit says it, even one stopped before it built (ADR 0195 point 6).
                     json.WriteNumber("limit", status.Limit);
                     json.WriteNumber("reached", status.Reached);
                 }

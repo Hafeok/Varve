@@ -91,7 +91,7 @@ internal sealed class Program
 
         private void Axiom(RdfTerm s, RdfTerm p, RdfTerm o) => Axioms.Add(new Fact(terms.Handle(s), terms.Handle(p), terms.Handle(o)));
 
-        /// <summary>RDF 1.1 Semantics §9.2.1, with §8's RDF rules, bounded as ADR 0197 point 2 has it.</summary>
+        /// <summary>RDF 1.1 Semantics §9.2.1 (RDFS patterns), with §8.1.1's rdfD2 and Appendix A's GrdfD1, bounded as ADR 0197 point 2 has it.</summary>
         internal void Rdfs(IReadOnlyCollection<RdfTerm> datatypes)
         {
             Slot type = C(Vocabulary.Type), subClass = C(Vocabulary.SubClassOf), subProperty = C(Vocabulary.SubPropertyOf);
@@ -108,7 +108,7 @@ internal sealed class Program
             }
 
             // rdfs1, and OWL 2 RL's dt-type1: each recognised datatype is a datatype.
-            // xsd:string and rdf:langString are recognised always (RDF 1.1 Semantics §7).
+            // xsd:string and rdf:langString are recognised always (RDF 1.1 Semantics §8).
             HashSet<RdfTerm> all = new(datatypes, RdfTerm.Comparer);
             all.UnionWith(Vocabulary.RdfsDatatypes);
             HashSet<ulong> recognised = [];

@@ -116,7 +116,7 @@ public sealed class HostTests
     /// <summary>
     /// The bindings' pool is the heap limit less the memtable's worst case
     /// (ADR 0244 point 5) and the reserve for queries, caches and requests
-    /// (ADR 0195, amended 2026-11-18, point 10); a ClosureBytes above it is
+    /// (ADR 0195 point 6); a ClosureBytes above it is
     /// refused at startup, one within it is not.
     /// </summary>
     [Fact]

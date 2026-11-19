@@ -176,7 +176,7 @@ public sealed class InferenceUnavailableException : Exception
     /// <summary>
     /// The binding was stopped at its memory limit before it built anything:
     /// the instance has no memory for closures, <paramref name="memory"/>
-    /// saying why (ADR 0195, amended 2026-11-18, point 10).
+    /// saying why (ADR 0195 point 6).
     /// </summary>
     public InferenceUnavailableException(RdfTerm binding, NoClosureMemory memory)
         : base(Explain(memory))
@@ -189,11 +189,11 @@ public sealed class InferenceUnavailableException : Exception
 
     /// <summary>
     /// The binding's projection stopped because a pass failed with
-    /// <paramref name="failure"/> (ADR 0195 point 6, as amended 2026-11-18):
+    /// <paramref name="failure"/> (ADR 0195 point 6):
     /// not retried, so not retryable; a fix or an upgrade, then a restart.
     /// </summary>
     public InferenceUnavailableException(RdfTerm binding, Exception failure)
-        : base("The closure of this binding stopped: its projection failed (" + failure?.GetType().Name + "). It is not tried again; restart the instance once the cause is fixed.", failure)
+        : base("The closure of this binding stopped: its projection failed (" + failure?.GetType().Name + "), a defect that the same commit repeats. It is not tried again. Report it with the instance's log, and upgrade to a version that fixes it; a restart builds the binding again.", failure)
     {
         ArgumentNullException.ThrowIfNull(binding);
         ArgumentNullException.ThrowIfNull(failure);
@@ -238,8 +238,7 @@ public sealed class InferenceUnavailableException : Exception
 }
 
 /// <summary>
-/// Why an instance has no memory for closures (ADR 0195, amended 2026-11-18,
-/// point 10): its heap limit, less the memtable's worst case and the reserve
+/// Why an instance has no memory for closures (ADR 0195 point 6): its heap limit, less the memtable's worst case and the reserve
 /// kept for queries, caches and requests, leaves the bindings' pool nothing.
 /// </summary>
 /// <param name="HeapLimit">The collector's heap limit.</param>

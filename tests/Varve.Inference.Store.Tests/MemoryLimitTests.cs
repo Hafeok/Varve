@@ -19,8 +19,7 @@ namespace Varve.Inference.Store.Tests;
 /// ADR 0195 point 6: a binding whose closures would pass its limit stops,
 /// serves no partial closure at or above the commit that stopped it, still
 /// serves the history below it, and is never tried again: not by a data
-/// commit, a TBox commit or a reset (ADR 0195 point 6, as amended
-/// 2026-11-18); only a new projection, its owner's, builds it again.
+/// commit, a TBox commit or a reset (ADR 0195 point 6); only a new projection, its owner's, builds it again.
 /// </summary>
 public class MemoryLimitTests
 {

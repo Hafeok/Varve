@@ -246,7 +246,7 @@ internal sealed class InferenceSettings
 
     /// <summary>
     /// The heap kept for everything but the closures and the memtable:
-    /// queries, caches and requests (ADR 0195, amended 2026-11-18, point 10).
+    /// queries, caches and requests (ADR 0195 point 6).
     /// The bindings' pool is the heap limit less this and the memtable's worst
     /// case. 2 GiB by default, measured at the small-machine settings.
     /// </summary>

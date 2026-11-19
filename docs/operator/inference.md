@@ -214,9 +214,11 @@ graphs as `premiseSets`.
 - A binding stopped by `Varve:Inference:ClosureBytes`, or because its
   projection failed:
   [`503 inference-unavailable`](../problems/inference-unavailable.md), with
-  no `Retry-After`. Nothing tries it again automatically: a restart, with
-  the limit raised, or a change to the binding's declaration builds it
-  again (the problem page says which act does what). A store that fails to
+  no `Retry-After`: `failure` `configuration` at the memory limit, `defect`
+  when the projection failed. Nothing tries it again automatically: a
+  restart, with the limit raised, or a change to the binding's declaration
+  builds it again; a defect needs an upgrade first, and a report (the
+  problem page says which act does what). A store that fails to
   answer stops nothing: the binding holds off and resumes where it was.
 - A caller whose grant restricts rows over the binding's graphs:
   [`403 entailment-not-available`](../problems/entailment-not-available.md).

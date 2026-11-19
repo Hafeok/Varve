@@ -83,7 +83,7 @@ internal abstract class Materialisation
         Materialisation built = projection.Binding.CrossGraph ? new CrossGraphMaterialisation(terms, projection) : new PerGraphMaterialisation(terms, projection);
         try
         {
-            // Admission (ADR 0195 point 6, as amended 2026-11-18): each given fact
+            // Admission (ADR 0195 point 6): each given fact
             // read is charged as a working entry before it is buffered, and the
             // build is refused before it derives anything if the given facts alone
             // could not be held.
@@ -158,8 +158,7 @@ internal abstract class Materialisation
             return null;
         }
 
-        // Every store read before anything changes (ADR 0195, amended
-        // 2026-11-18): the commit's terms resolved, and which graphs it
+        // Every store read before anything changes (ADR 0195 point 6): the commit's terms resolved, and which graphs it
         // empties. A read that fails here leaves the closures as they were,
         // and the commit is applied again when the store answers.
         foreach (Quad quad in delta.Asserted)

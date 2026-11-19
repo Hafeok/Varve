@@ -12,7 +12,7 @@ public readonly record struct MemoryAmount(long Value);
 
 /// <summary>
 /// What a <see cref="FactBudget"/> charges each structure of a closure (ADR
-/// 0195 point 6, as amended 2026-11-18), before it is allocated. The fact
+/// 0195 point 6), before it is allocated. The fact
 /// store's record array and table are charged at their own size; the rest
 /// per entry, each figure an entry's bytes with room for the collection
 /// holding it to double.
