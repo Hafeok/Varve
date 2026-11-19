@@ -88,6 +88,10 @@ What landed on `main` since v0.1.0-preview.21:
 - **The docs site** (#317, ADR 0247): a generator in `eng/` on Markdig,
   with Mermaid drawn at build time and no script on any page, published
   to GitHub Pages by OIDC.
+- **The operator's guide, corrected** (#129, ADR 0248): every finding of
+  its audit that still held is corrected, a page on damaged data is added
+  (#274), and every procedure names the CI job that runs it, or why none
+  can, checked by a gate in `eng/ci.cs`.
 - **Build and process:** the SDK moves to 10.0.404, and the container
   image's base to its newer digest; a commit message's model name is
   refused in three layers (#169); an approval is a whole comment with the
