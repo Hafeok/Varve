@@ -614,6 +614,62 @@ public sealed class EventMoveTests
         }
     }
 
+    /// <summary>
+    /// #254, found by <see cref="EventMoveModelTests"/>: the move's own cancel
+    /// is committed, and the move is held before it applies it. An operator's
+    /// cancel by apply then changes nothing, because the head already says
+    /// <c>InDataset</c>. Its <c>204</c> is still in force: the instance
+    /// applies the head before it answers, so the state reads
+    /// <c>in-dataset</c> and a catalogue write is accepted. Before, a write that
+    /// changed nothing was answered with this instance still at the freeze.
+    /// </summary>
+    [Fact]
+    public async Task An_apply_that_changes_nothing_is_answered_once_this_instance_applied_the_head()
+    {
+        string root = Directory.CreateTempSubdirectory("varve-move-").FullName;
+
+        try
+        {
+            await using RunningServer server = await StartAsync(root);
+            await SeedAsync(server);
+            Fleet fleet = server.Started!.Fleet;
+            fleet.Resume = null;
+            const string Other = Varve + "events-catalogue/https%3A%2F%2Fexample.org%2Fother";
+            Assert.Equal(HttpStatusCode.NoContent, (await UpdateAsync(server, "INSERT DATA { GRAPH <" + Other + "> { "
+                + "<https://example.org/types/Refund> a <" + Varve + "EventType> ; <" + Varve + "eventName> \"Refund\" ; "
+                + "<" + Varve + "eventClass> <https://example.org/ns#Refund> ; <" + Varve + "eventVersion> 1 ; "
+                + "<" + Varve + "eventField> <https://example.org/types/Paid/total> ; "
+                + "<" + Varve + "eventSelect> \"SELECT ?total WHERE { ?event <https://example.org/ns#total> ?total }\" . "
+                + "<https://example.org/types/Paid/total> a <" + Varve + "EventField> ; <" + Varve + "fieldName> \"total\" ; "
+                + "<" + Varve + "fieldDatatype> <http://www.w3.org/2001/XMLSchema#decimal> ; <" + Varve + "fieldRequired> true } }")).StatusCode);
+            long before = fleet.System.Head.Value;
+
+            // Held at the move's first advance after its freeze and its own cancel committed.
+            HeldStep held = HeldStep.Over(fleet, () => IsMoveRequest() && fleet.System.Head.Value == before + 2);
+            Task<HttpResponseMessage> moving = MoveAsync(server);
+            await held.Reached.WaitAsync(Ct);
+            Assert.Equal("moving", (await JsonAsync(await server.Client.GetAsync(new Uri("manage/datasets/d/events", UriKind.Relative), Ct))).RootElement.GetProperty("state").GetString());
+
+            // The operator's cancel: the head already says InDataset.
+            string declared = await (await server.Client.GetAsync(new Uri("manage/datasets/d", UriKind.Relative), Ct)).Content.ReadAsStringAsync(Ct);
+            Assert.Contains("InDataset", declared, StringComparison.Ordinal);
+            HttpResponseMessage cancel = await TrigAsync(server, "manage/datasets/d", declared);
+            Assert.True(cancel.StatusCode == HttpStatusCode.NoContent, await cancel.Content.ReadAsStringAsync(Ct));
+
+            Assert.Equal("in-dataset", (await JsonAsync(await server.Client.GetAsync(new Uri("manage/datasets/d/events", UriKind.Relative), Ct))).RootElement.GetProperty("state").GetString());
+            HttpResponseMessage reopened = await UpdateAsync(server, "INSERT DATA { GRAPH <" + Catalogue + "> { <https://example.org/types/Paid> <http://www.w3.org/2000/01/rdf-schema#comment> \"open after the cancel\" } }");
+            Assert.True(reopened.StatusCode == HttpStatusCode.NoContent, await reopened.Content.ReadAsStringAsync(Ct));
+
+            held.Release();
+            HttpResponseMessage answer = await moving;
+            Assert.True(answer.StatusCode == HttpStatusCode.UnprocessableEntity, await answer.Content.ReadAsStringAsync(Ct));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     // Whether the advance being taken is a move request's.
     private static bool IsMoveRequest() =>
         new Microsoft.AspNetCore.Http.HttpContextAccessor().HttpContext?.Request.Path.Value?.EndsWith("/events/move", StringComparison.Ordinal) == true;
