@@ -1005,7 +1005,7 @@ internal static partial class ServerHost
         // client sends again (ADR 0167, amended for #254).
         if (!HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method)
             && DatasetOf(context.Request.Path) is { } written
-            && (fleet.Recorded(written).Value > fleet.Current.Table.Position.Value || fleet.IsMoving(written)))
+            && MovingDatasetWrites.AdvanceFirst(fleet, written))
         {
             await fleet.AdvanceAsync(context.RequestAborted).ConfigureAwait(false);
         }
