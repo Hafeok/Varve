@@ -49,7 +49,11 @@ namespace Varve.Server.Tests;
 /// <item>with no move in progress, they are <c>in-dataset</c>, and a catalogue
 /// write is accepted: the catalogue is never frozen;</item>
 /// <item>an answer that says the move was cancelled holds: the declarations
-/// are <c>in-dataset</c> when it is given.</item>
+/// are <c>in-dataset</c> when it is given;</item>
+/// <item>and it gives the true reason: <c>409 event-move-cancelled</c> only
+/// when another request, a cancel by apply, was acknowledged while the move
+/// request was in flight, and <c>422</c> "cancelled" only for a catalogue
+/// that does not translate.</item>
 /// </list>
 /// </summary>
 public sealed class EventMoveModelTests
@@ -133,7 +137,8 @@ public sealed class EventMoveModelTests
         private readonly AsyncLocal<bool> _inTick = new();
         private bool _refusing;
 
-        // Whether the move request in flight has been stepped past its first pause, so has read the state.
+        // Whether the move request in flight has been let go from an advance, so has read the state: its
+        // first advance comes before its first read, and a wait for a run of the move reads nothing.
         private bool _moveStepped;
         private int _writes;
 
@@ -141,18 +146,21 @@ public sealed class EventMoveModelTests
         private bool _started;
         private bool _cancelledSinceStart;
 
+        // Whether a cancel by apply was acknowledged while the move request in flight was.
+        private bool _appliedCancelDuringMove;
+
         internal Model(RunningServer server, bool translates)
         {
             _server = server;
             _fleet = server.Started!.Fleet;
             _translates = translates;
-            _fleet.Advancing = async cancellationToken =>
+            _fleet.Advancing = async (pause, cancellationToken) =>
             {
                 Actor? actor = _inTick.Value ? _tick : IsMoveRequest() ? _move : null;
 
                 if (actor is not null)
                 {
-                    await actor.PauseAsync(cancellationToken);
+                    await actor.PauseAsync(pause, cancellationToken);
                 }
             };
             _fleet.RefusingManagementWrites = () => _refusing;
@@ -186,6 +194,7 @@ public sealed class EventMoveModelTests
                 case Kind.Cancel when await StateAsync() == "moving":
                     if ((await PutAsync(WithState(await DeclaredAsync(), "InDataset"))).StatusCode == HttpStatusCode.NoContent)
                     {
+                        _appliedCancelDuringMove |= _move.InFlight;
                         await CancelledAsync("a cancel by apply answered 204");
                     }
 
@@ -193,11 +202,12 @@ public sealed class EventMoveModelTests
                 case Kind.StartMove when !_move.InFlight:
                     Started();
                     _moveStepped = false;
+                    _appliedCancelDuringMove = false;
                     await _move.StartAsync(async () => await _server.Client.PostAsync(new Uri("manage/datasets/d/events/move", UriKind.Relative), null, Ct));
                     await AnsweredAsync();
                     break;
                 case Kind.StepMove when _move.InFlight:
-                    _moveStepped = true;
+                    _moveStepped |= _move.Held == Fleet.FleetPause.Advance;
                     await _move.StepAsync();
                     await AnsweredAsync();
                     break;
@@ -239,7 +249,7 @@ public sealed class EventMoveModelTests
             {
                 if (_move.InFlight)
                 {
-                    _moveStepped = true;
+                    _moveStepped |= _move.Held == Fleet.FleetPause.Advance;
                     await _move.StepAsync();
                     await AnsweredAsync();
                 }
@@ -281,10 +291,12 @@ public sealed class EventMoveModelTests
 
             if (answer.StatusCode == HttpStatusCode.UnprocessableEntity && body.Contains("cancelled", StringComparison.Ordinal))
             {
+                Assert.False(_translates, "Invariant 4: the move answered 422 cancelled for a catalogue that translates: " + body);
                 await CancelledAsync("the move answered 422 cancelled");
             }
             else if (answer.StatusCode == HttpStatusCode.Conflict && body.Contains("event-move-cancelled", StringComparison.Ordinal))
             {
+                Assert.True(_appliedCancelDuringMove, "Invariant 4: the move answered 409 event-move-cancelled, and no cancel by apply was acknowledged while it ran: " + body);
                 await CancelledAsync("the move answered 409 event-move-cancelled");
             }
             else if (answer.StatusCode == HttpStatusCode.OK)
@@ -307,9 +319,9 @@ public sealed class EventMoveModelTests
 
             // A move request in flight that has not yet read the state is
             // concurrent with the cancel, and may still start a move after it.
-            // One that has read it (it is held past its first pause, which
-            // comes before its first read) has seen the move this cancel
-            // stopped, and must not move after it.
+            // One that has read it (let go from an advance; its first comes
+            // before its first read) has seen the move this cancel stopped,
+            // and must not move after it.
             _cancelledSinceStart = !_move.InFlight || _moveStepped;
         }
 
@@ -383,9 +395,13 @@ public sealed class EventMoveModelTests
 
         internal bool InFlight => _run is { IsCompleted: false };
 
+        /// <summary>Where the actor is held now: at an advance, or waiting for a run of the move in progress.</summary>
+        internal Fleet.FleetPause Held { get; private set; }
+
         // Called on the actor's own flow, where the move's code advances.
-        internal async Task PauseAsync(CancellationToken cancellationToken)
+        internal async Task PauseAsync(Fleet.FleetPause pause, CancellationToken cancellationToken)
         {
+            Held = pause;
             _paused.Writer.TryWrite(true);
             await _go.Reader.ReadAsync(cancellationToken);
         }
