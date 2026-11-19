@@ -39,8 +39,8 @@ namespace Varve.Server.Tests;
 /// <i>cancelled</i> by an acknowledged cancel: a cancel by apply answered
 /// <c>204</c>, or a move answered "cancelled" (<c>422</c>) or
 /// <c>409 event-move-cancelled</c>. A cancel acknowledged while a move request
-/// is in flight does not close the move: that request is concurrent with it,
-/// and may start a move after it. A move is <i>in progress</i> from its start
+/// is in flight that has not yet read the state does not close the move: that
+/// request is concurrent with it, and may start a move after it. A move is <i>in progress</i> from its start
 /// until a cancel, or while a move request is in flight. After every action:
 /// </para>
 /// <list type="number">
@@ -132,6 +132,9 @@ public sealed class EventMoveModelTests
         private readonly Actor _move = new("M");
         private readonly AsyncLocal<bool> _inTick = new();
         private bool _refusing;
+
+        // Whether the move request in flight has been stepped past its first pause, so has read the state.
+        private bool _moveStepped;
         private int _writes;
 
         // The model: a move started and not cancelled since; and a cancel acknowledged with no start since.
@@ -189,10 +192,12 @@ public sealed class EventMoveModelTests
                     break;
                 case Kind.StartMove when !_move.InFlight:
                     Started();
+                    _moveStepped = false;
                     await _move.StartAsync(async () => await _server.Client.PostAsync(new Uri("manage/datasets/d/events/move", UriKind.Relative), null, Ct));
                     await AnsweredAsync();
                     break;
                 case Kind.StepMove when _move.InFlight:
+                    _moveStepped = true;
                     await _move.StepAsync();
                     await AnsweredAsync();
                     break;
@@ -234,6 +239,7 @@ public sealed class EventMoveModelTests
             {
                 if (_move.InFlight)
                 {
+                    _moveStepped = true;
                     await _move.StepAsync();
                     await AnsweredAsync();
                 }
@@ -299,10 +305,12 @@ public sealed class EventMoveModelTests
             string state = await StateAsync();
             Assert.True(state == "in-dataset", "Invariant 3: " + what + ", and the declarations are " + state + ".");
 
-            // A move request in flight now is concurrent with the cancel, and
-            // may still start a move after it: the cancel closes the move only
-            // when none is.
-            _cancelledSinceStart = !_move.InFlight;
+            // A move request in flight that has not yet read the state is
+            // concurrent with the cancel, and may still start a move after it.
+            // One that has read it (it is held past its first pause, which
+            // comes before its first read) has seen the move this cancel
+            // stopped, and must not move after it.
+            _cancelledSinceStart = !_move.InFlight || _moveStepped;
         }
 
         private async Task<string> StateAsync() =>
