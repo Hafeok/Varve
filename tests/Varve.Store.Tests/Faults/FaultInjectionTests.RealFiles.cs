@@ -418,16 +418,17 @@ public static partial class FaultInjectionTests
 
         private sealed class Both(IDisposable mirrored, IDisposable real) : IDisposable
         {
-            private bool _disposed;
+            // A power cut disposes what is open while the store may be
+            // disposing it too, so the first to arrive disposes (#214).
+            private int _disposed;
 
             public void Dispose()
             {
-                if (_disposed)
+                if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 {
                     return;
                 }
 
-                _disposed = true;
                 real.Dispose();
 
                 try
@@ -442,7 +443,8 @@ public static partial class FaultInjectionTests
 
         private sealed class Handle(IFileHandle mirrored, IFileHandle real) : IFileHandle
         {
-            private bool _disposed;
+            // As Both's: the cut and the store may dispose it at once (#214).
+            private int _disposed;
 
             public long Length => real.Length;
 
@@ -462,12 +464,11 @@ public static partial class FaultInjectionTests
 
             public void Dispose()
             {
-                if (_disposed)
+                if (Interlocked.Exchange(ref _disposed, 1) != 0)
                 {
                     return;
                 }
 
-                _disposed = true;
                 real.Dispose();
 
                 try
