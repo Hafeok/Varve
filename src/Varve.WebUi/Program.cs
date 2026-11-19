@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -25,14 +26,18 @@ builder.RootComponents.Add(typeof(App), "#app", ParameterView.FromDictionary(new
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 Uri server = ServerAddress.From(builder.Configuration["Varve:Server"], new Uri(builder.HostEnvironment.BaseAddress));
-bool anonymous = !string.Equals(builder.Configuration["Varve:Auth:Mode"], "Oidc", StringComparison.Ordinal);
-builder.Services.AddSingleton(new WebUiSettings(server, anonymous));
+// Anonymous only when the settings say so; a server with OIDC and no client
+// for the Web UI says NotConfigured, and so does a mode missing or unknown
+// (ADR 0245): then nothing signs in, and the shell says what to add.
+List<string> missing = [.. builder.Configuration.GetSection("Varve:Auth:Missing").GetChildren().Select(name => name.Value).OfType<string>()];
+WebUiSettings settings = WebUiSettings.From(server, builder.Configuration["Varve:Auth:Mode"], missing);
+builder.Services.AddSingleton(settings);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(new HttpClient());
 builder.Services.AddSingleton(services => new VarveHealthClient(services.GetRequiredService<HttpClient>(), server, ClientLimits.Default));
 
 // Sign-in (ADR 0201): the Web UI's own public client, one token per plane.
-if (!anonymous)
+if (!settings.Anonymous && settings.SignInNotConfigured is null)
 {
     OidcOptions oidc = OidcOptions.From(
         builder.Configuration["Varve:Auth:Authority"],
