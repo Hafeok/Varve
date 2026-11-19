@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>as-of-distance-exceeded — Varve</title>
+<link rel="icon" href="../varve-core.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../site-tokens.css">
+<link rel="stylesheet" href="../bundle.css">
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+<a class="vd-skip" href="#main">Skip to content</a>
+<header class="vd-bar">
+<a class="vd-brand" href="../index.html"><img src="../varve-core.svg" alt=""><b>Varve</b><span>Documentation</span></a>
+<nav class="vd-sections" aria-label="Sections"><a href="../operator/index.html">Operator guide</a><a href="../spec/index.html">Specifications</a><a href="../adr/index.html">Decisions</a><a href="../problems/index.html" aria-current="page">Problems</a><a href="../api/index.html">API</a></nav>
+<a class="vd-repo" href="https://github.com/Hafeok/Varve">GitHub</a>
+</header>
+<div class="vd-frame vd-frame--wide">
+<main class="vd-article" id="main"><p class="vd-crumbs"><a href="../index.html">Documentation</a><span aria-hidden="true">/</span><a href="../problems/index.html">Problem types</a><a class="vd-jump" href="#pages">Pages in this section ↓</a></p><header class="vd-head"><span class="vd-eyebrow">Problem type <code>HTTP 422</code></span><h1 class="vd-ident">as-of-distance-exceeded</h1><p class="vd-lede">The as-of position is too far from its nearest checkpoint.</p></header><div class="vd-prose"><div class="vd-table vd-table--kv"><table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Type</strong></td>
+<td><code>https://w3id.org/varve/problems/as-of-distance-exceeded</code></td>
+</tr>
+<tr>
+<td><strong>Title</strong></td>
+<td>The as-of position is too far from its nearest checkpoint.</td>
+</tr>
+<tr>
+<td><strong>Status</strong></td>
+<td><code>422</code></td>
+</tr>
+<tr>
+<td><strong>Members</strong></td>
+<td><code>limit</code>, <code>actual</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>A <code>Varve-As-Of</code> position more than <code>Varve:Limits:MaxAsOfDistance</code> commits above its nearest checkpoint, refused before any log is read (ADR 0114). <code>limit</code> and <code>actual</code> are commits.</p>
+<h2 id="what-to-do">What to do <a class="vd-anchor" aria-label="Link to this section" href="#what-to-do">#</a></h2>
+<ul>
+<li>A client: read at a position closer to a checkpoint, or ask an operator
+for one. Sending the same request again is refused again.</li>
+<li>An operator: take a checkpoint at or below the position, with <code>varve checkpoint</code> or <code>POST /manage/datasets/{name}/checkpoints</code>
+(<a href="../operator/backup-and-restore.html#checkpoints">Back up and restore</a>), or
+raise <code>Varve:Limits:MaxAsOfDistance</code> (<a href="../operator/configure.html">Configure</a>).</li>
+</ul>
+<p>Every problem is <code>application/problem+json</code> (RFC 9457) with <code>type</code>, <code>title</code>
+and <code>status</code> as above, <code>detail</code> when there is more to say, and <code>instance</code>,
+the request id the response also carries as <code>Varve-Request-Id</code> (ADR 0119).
+The shape is fixed by <code>ProblemCatalogue</code> in <code>Varve.Protocol</code>, which a test
+holds to this page.</p>
+</div><nav class="vd-pager" aria-label="Previous and next"><a class="vd-prev" href="../problems/memory-limit-exceeded.html"><small>Previous</small><b>memory-limit-exceeded</b></a><a class="vd-next" href="../problems/declaration-invalid.html"><small>Next</small><b>declaration-invalid</b></a></nav></main>
+<nav class="vd-pages vd-pages--long vd-pages--ident" id="pages" aria-label="Problem types"><h2>Problem types</h2><ol><li><a href="../problems/index.html">Overview</a></li><li><a href="../problems/sparql-syntax.html">sparql-syntax</a></li><li><a href="../problems/rdf-syntax.html">rdf-syntax</a></li><li><a href="../problems/bad-request.html">bad-request</a></li><li><a href="../problems/entailment-unsupported.html">entailment-unsupported</a></li><li><a href="../problems/entailment-refused.html">entailment-refused</a></li><li><a href="../problems/operation-failed.html">operation-failed</a></li><li><a href="../problems/unauthorized.html">unauthorized</a></li><li><a href="../problems/forbidden.html">forbidden</a></li><li><a href="../problems/agent-required.html">agent-required</a></li><li><a href="../problems/graph-not-writable.html">graph-not-writable</a></li><li><a href="../problems/dataset-not-found.html">dataset-not-found</a></li><li><a href="../problems/not-found.html">not-found</a></li><li><a href="../problems/graph-not-found.html">graph-not-found</a></li><li><a href="../problems/position-not-reached.html">position-not-reached</a></li><li><a href="../problems/before-first-commit.html">before-first-commit</a></li><li><a href="../problems/below-archive-horizon.html">below-archive-horizon</a></li><li><a href="../problems/method-not-allowed.html">method-not-allowed</a></li><li><a href="../problems/not-acceptable.html">not-acceptable</a></li><li><a href="../problems/conflict.html">conflict</a></li><li><a href="../problems/dataset-open.html">dataset-open</a></li><li><a href="../problems/event-catalogue-moved.html">event-catalogue-moved</a></li><li><a href="../problems/idempotency-key-in-flight.html">idempotency-key-in-flight</a></li><li><a href="../problems/precondition-failed.html">precondition-failed</a></li><li><a href="../problems/request-too-large.html">request-too-large</a></li><li><a href="../problems/unsupported-media-type.html">unsupported-media-type</a></li><li><a href="../problems/rejected.html">rejected</a></li><li><a href="../problems/idempotency-key-reused.html">idempotency-key-reused</a></li><li><a href="../problems/idempotency-key-expired.html">idempotency-key-expired</a></li><li><a href="../problems/event-declaration-invalid.html">event-declaration-invalid</a></li><li><a href="../problems/event-schema-incompatible.html">event-schema-incompatible</a></li><li><a href="../problems/event-not-rendered.html">event-not-rendered</a></li><li><a href="../problems/shapes-violated.html">shapes-violated</a></li><li><a href="../problems/binding-not-incremental.html">binding-not-incremental</a></li><li><a href="../problems/shapes-invalid.html">shapes-invalid</a></li><li><a href="../problems/memory-limit-exceeded.html">memory-limit-exceeded</a></li><li><a href="../problems/as-of-distance-exceeded.html" aria-current="page">as-of-distance-exceeded</a></li><li><a href="../problems/declaration-invalid.html">declaration-invalid</a></li><li><a href="../problems/too-many-live-tails.html">too-many-live-tails</a></li><li><a href="../problems/too-many-requests.html">too-many-requests</a></li><li><a href="../problems/unavailable.html">unavailable</a></li><li><a href="../problems/commit-outcome-unknown.html">commit-outcome-unknown</a></li><li><a href="../problems/read-limit-exceeded.html">read-limit-exceeded</a></li><li><a href="../problems/shutting-down.html">shutting-down</a></li><li><a href="../problems/not-ready.html">not-ready</a></li><li><a href="../problems/server-busy.html">server-busy</a></li><li><a href="../problems/writer-superseded.html">writer-superseded</a></li><li><a href="../problems/management-behind.html">management-behind</a></li><li><a href="../problems/dataset-behind.html">dataset-behind</a></li><li><a href="../problems/validation-behind.html">validation-behind</a></li><li><a href="../problems/classification-behind.html">classification-behind</a></li><li><a href="../problems/row-not-writable.html">row-not-writable</a></li><li><a href="../problems/writer-moved.html">writer-moved</a></li><li><a href="../problems/writer-stepped-down.html">writer-stepped-down</a></li><li><a href="../problems/takeover-refused.html">takeover-refused</a></li><li><a href="../problems/reader-forgotten.html">reader-forgotten</a></li><li><a href="../problems/read-unannounced-extent-gone.html">read-unannounced-extent-gone</a></li><li><a href="../problems/load-spill-damaged.html">load-spill-damaged</a></li><li><a href="../problems/storage-full.html">storage-full</a></li></ol></nav>
+
+</div>
+<footer class="vd-foot"><span>Built from <a href="https://github.com/Hafeok/Varve/tree/c754bcb7e1f0a2d4"><code>c754bcb7e1f0</code></a>. This page is <a href="https://github.com/Hafeok/Varve/blob/c754bcb7e1f0/docs/problems/as-of-distance-exceeded.md">docs/problems/as-of-distance-exceeded.md</a>.</span><span>Apache-2.0</span></footer>
+</body>
+</html>

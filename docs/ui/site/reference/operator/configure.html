@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Configure — Varve</title>
+<link rel="icon" href="../varve-core.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../site-tokens.css">
+<link rel="stylesheet" href="../bundle.css">
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+<a class="vd-skip" href="#main">Skip to content</a>
+<header class="vd-bar">
+<a class="vd-brand" href="../index.html"><img src="../varve-core.svg" alt=""><b>Varve</b><span>Documentation</span></a>
+<nav class="vd-sections" aria-label="Sections"><a href="../operator/index.html" aria-current="page">Operator guide</a><a href="../spec/index.html">Specifications</a><a href="../adr/index.html">Decisions</a><a href="../problems/index.html">Problems</a><a href="../api/index.html">API</a></nav>
+<a class="vd-repo" href="https://github.com/Hafeok/Varve">GitHub</a>
+</header>
+<div class="vd-frame ">
+<main class="vd-article" id="main"><p class="vd-crumbs"><a href="../index.html">Documentation</a><span aria-hidden="true">/</span><a href="../operator/index.html">Operator guide</a><a class="vd-jump" href="#pages">Pages in this section ↓</a></p><header class="vd-head"><h1>Configure</h1></header><div class="vd-prose"><p>Everything is under the <code>Varve</code> section (ADR 0101). Values that name a choice
+are strings, so a wrong one is a listed error, not a binder exception. Paths
+are absolute. A <code>TimeSpan</code> is <code>hh:mm:ss</code>; a byte count is a number of bytes.</p>
+<h2 id="sources-and-precedence-adr-0115">Sources and precedence (ADR 0115) <a class="vd-anchor" aria-label="Link to this section" href="#sources-and-precedence-adr-0115">#</a></h2>
+<p>Settings come from, later sources winning:</p>
+<ol>
+<li><code>appsettings.json</code> in the working directory, when there is one;</li>
+<li>the files <code>--config &lt;path&gt;</code> names, in order;</li>
+<li>the environment: <code>VARVE__AUTH__MODE=Oidc</code>, two underscores for each colon;</li>
+<li>the command line: <code>--Varve:Auth:Mode=Oidc</code>, or <code>--set Auth:Mode=Oidc</code>, or
+the typed options of <code>varve serve</code> (<code>--auth-mode Oidc</code>, <code>--authority</code>,
+<code>--audience</code>, <code>--datasets-root</code>, <code>--anonymous</code>, <code>--urls</code>), which map onto
+the same keys. <code>--record-bootstrap</code> is no key: it asks the system writer
+to record the configured bootstrap operators (below).</li>
+</ol>
+<p><strong>A key the server does not know refuses to start</strong>, naming it: a misspelt
+<code>Varve:Limit:QueryTimeout</code> is an error, never a default silently taken. A
+value that does not validate refuses to start too, with every error listed.</p>
+<p><code>varve serve --print-config …</code> prints every effective value as JSON with the
+source it came from (<code>command line</code>, <code>environment</code>, <code>file &lt;path&gt;</code>,
+<code>default</code>), secrets redacted, validates, and exits without serving: run it
+before a change goes live, and keep its output with the change.</p>
+<pre><code class="language-sh">varve serve --print-config --config /etc/varve/varve.json --set Limits:QueryTimeout=00:00:10
+</code></pre>
+<pre><code class="language-json">{
+  &quot;Varve&quot;: {
+    &quot;DatasetsRoot&quot;: &quot;/var/lib/varve&quot;,
+    &quot;Manage&quot;: { &quot;BootstrapOperators&quot;: [ &quot;Varve.Operator&quot; ] },
+    &quot;Auth&quot;: { &quot;Mode&quot;: &quot;Oidc&quot;, &quot;Authority&quot;: &quot;https://login.example/&quot;, &quot;Audiences&quot;: [ &quot;api://varve&quot; ] },
+    &quot;Limits&quot;: { &quot;QueryTimeout&quot;: &quot;00:00:30&quot; },
+    &quot;Federation&quot;: { &quot;AllowedEndpoints&quot;: [ &quot;https://query.wikidata.org/&quot; ] },
+    &quot;Load&quot;: { &quot;AllowedSources&quot;: [ &quot;https://data.example/&quot; ] },
+    &quot;ForwardedHeaders&quot;: { &quot;Enabled&quot;: true, &quot;KnownProxies&quot;: [ &quot;10.0.0.2&quot; ] }
+  }
+}
+</code></pre>
+<h2 id="datasets">Datasets <a class="vd-anchor" aria-label="Link to this section" href="#datasets">#</a></h2>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DatasetsRoot</code></td>
+<td>none</td>
+<td>the directory file datasets live under, one subdirectory per dataset, and the fleet's system dataset under <code>_fleet/</code> when there is no object store; absolute</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Datasets are not configuration</strong> (ADR 0163). They are declared in the
+management plane, as TriG, with <code>varve apply</code> or <code>PUT /manage/datasets/{name}</code>;
+every instance of the fleet converges to the declarations. A declared <code>File</code>
+dataset is the directory of its name under the root; <code>Memory</code> keeps nothing
+and starts empty; <code>ObjectStorage</code> is in the object store under the prefix
+<code>{name}/</code>. A dataset name is 1 to 63 characters of <code>[A-Za-z0-9._-]</code>, starting
+with a letter or a digit (ADR 0093). Durability is the backend's (ADR 0073).
+A directory under the root that is not declared is not served. Declaring,
+closing and deleting is <a href="../operator/datasets.html">Datasets</a>.</p>
+<p>With neither <code>DatasetsRoot</code> nor <code>ObjectStorage</code>, the system dataset is in
+memory and every declaration is lost when the process stops; the server
+warns at start.</p>
+<h2 id="the-fleet--fleet-and-manage">The fleet — <code>Fleet</code> and <code>Manage</code> <a class="vd-anchor" aria-label="Link to this section" href="#the-fleet--fleet-and-manage">#</a></h2>
+<p>The servers that share one system dataset are a fleet (ADR 0163): one writes
+it, the others follow it (ADR 0164) and forward writes (ADR 0168). A server
+with no object store is a fleet of one. <a href="../operator/fleet.html">The fleet</a> explains the
+model and its request costs.</p>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Fleet:Writer</code></td>
+<td><code>true</code></td>
+<td><code>true</code>, <code>false</code>, or an instance name compared with <code>ObjectStorage:Instance</code>: whether this instance writes the system dataset; any value but <code>false</code> lets it claim the datasets placed on it. A fleet of one is its own writer whatever this says. With <code>Fleet:AutomaticHandover</code>, the system dataset's writer set instead: instance names separated by commas, no spaces, the preferred writer first</td>
+</tr>
+<tr>
+<td><code>Fleet:AutomaticHandover</code></td>
+<td><code>false</code></td>
+<td>whether the system dataset hands over to a warm standby (ADR 0179 point 13): <code>Fleet:Writer</code> is then its writer set, under the same start rule and race as a dataset's (<a href="../operator/fleet.html#standbys-a-writer-set">Standbys</a>)</td>
+</tr>
+<tr>
+<td><code>Fleet:InternalUrl</code></td>
+<td>none</td>
+<td>the address other instances forward writes to, recorded in the writer record at claim; required on an instance that may claim in an object-store fleet; <code>https</code>, or <code>http</code> inside a private network only, since a caller's token crosses it</td>
+</tr>
+<tr>
+<td><code>Fleet:FollowInterval</code></td>
+<td><code>00:00:01</code></td>
+<td>how old a follower's last advance may be before a read advances it, and how often the system dataset is advanced; at most a minute (ADR 0164)</td>
+</tr>
+<tr>
+<td><code>Fleet:AllowedLag</code></td>
+<td>100</td>
+<td>how many system positions this instance may be behind the system tail and be ready</td>
+</tr>
+<tr>
+<td><code>Manage:BootstrapOperators</code></td>
+<td><code>[]</code></td>
+<td>agent IRIs (<code>&lt;issuer&gt;#&lt;subject&gt;</code>) or role values that are always operators; the first system writer records them; at least one under <code>Oidc</code> (ADR 0163 point 7)</td>
+</tr>
+<tr>
+<td><code>Manage:Urls</code></td>
+<td>unset</td>
+<td>listeners, <code>;</code>-separated, that serve <code>/manage/</code> alone; with them, the host's own listeners serve no management route</td>
+</tr>
+</tbody>
+</table></div>
+<p>A configured bootstrap set that differs from the recorded one makes the
+instance not ready (<code>bootstrap: mismatch</code>). Change it by starting the system
+writer once with <code>varve serve --record-bootstrap</code>: an explicit system commit.</p>
+<h2 id="removed-keys">Removed keys <a class="vd-anchor" aria-label="Link to this section" href="#removed-keys">#</a></h2>
+<p>These keys are refused at start, each naming what replaces it:</p>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Replaced by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Datasets:{name}:Storage</code></td>
+<td>a dataset's declaration (ADR 0163); <code>varve apply --from-config &lt;file&gt;</code> prints the TriG</td>
+</tr>
+<tr>
+<td><code>Auth:Datasets:{name}:…</code></td>
+<td>grants in the dataset's declaration (ADR 0166); <code>varve apply --from-config</code> prints them too</td>
+</tr>
+<tr>
+<td><code>Auth:Server:Admin</code></td>
+<td><code>Manage:BootstrapOperators</code>, and <code>varve:operator</code> grants in the fleet graph</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="the-object-store--objectstorage">The object store — <code>ObjectStorage</code> <a class="vd-anchor" aria-label="Link to this section" href="#the-object-store--objectstorage">#</a></h2>
+<p>One container or bucket for the server's <code>ObjectStorage</code> datasets, a dataset
+per prefix <code>{name}/</code> (ADRs 0134–0139), and the fleet's system dataset under
+<code>_fleet/</code> (ADR 0163). A dataset is declared with <code>varve:storage varve:ObjectStorage</code>. Its placed instance claims its next writer epoch (ADR
+0136); every other instance follows it read-only and forwards its writes
+(<a href="../operator/fleet.html">The fleet</a>).</p>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ObjectStorage:Provider</code></td>
+<td>none</td>
+<td><code>Azure</code> or <code>S3Compatible</code></td>
+</tr>
+<tr>
+<td><code>ObjectStorage:ContainerUrl</code></td>
+<td>none</td>
+<td>Azure: <code>https://{account}.blob.core.windows.net/{container}</code>; <code>http</code> only on loopback, for Azurite</td>
+</tr>
+<tr>
+<td><code>ObjectStorage:Endpoint</code></td>
+<td>none</td>
+<td>S3-compatible: the service's <code>https</code> address</td>
+</tr>
+<tr>
+<td><code>ObjectStorage:Bucket</code></td>
+<td>none</td>
+<td>S3-compatible: the bucket</td>
+</tr>
+<tr>
+<td><code>ObjectStorage:Region</code></td>
+<td>none</td>
+<td>S3-compatible: the region the signature is for</td>
+</tr>
+<tr>
+<td><code>ObjectStorage:StsEndpoint</code></td>
+<td>Amazon's, <code>https://sts.amazonaws.com/</code></td>
+<td>S3-compatible: the STS endpoint the workload's web identity is exchanged at, a self-hosted server's own (RustFS: its root); <code>https</code>, or <code>http</code> only on loopback, with no query or user information (ADR 0137)</td>
+</tr>
+<tr>
+<td><code>ObjectStorage:CachePath</code></td>
+<td>none</td>
+<td>absolute; the local cache, a directory per dataset, and a follower's under <code>_followers/</code>: extent pages and the derived data any instance rebuilds</td>
+</tr>
+<tr>
+<td><code>ObjectStorage:CacheBytes</code></td>
+<td>8 GiB</td>
+<td>the most each dataset's extent page cache holds; at least 64 MiB (ADR 0139)</td>
+</tr>
+<tr>
+<td><code>ObjectStorage:Instance</code></td>
+<td>the machine name</td>
+<td>who this server is in the writer record that <code>varve lease</code> shows, and the name <code>Fleet:Writer</code> and <code>varve:placedOn</code> compare with</td>
+</tr>
+<tr>
+<td><code>ObjectStorage:ReaderId</code></td>
+<td>a random id kept in each dataset's cache</td>
+<td>this server's reader id: the name of its reader record in each dataset, <code>readers/&lt;id&gt;</code> (ADR 0160). Set it where the cache does not survive a restart, as on Container Apps, so a restart replaces the record its last run left. A follower's record is the id with <code>-follower</code>, so a writer and a follower of one dataset on this server hold one each. 1 to 119 ASCII letters, digits, <code>-</code>, <code>_</code> or <code>.</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>No credential is configured, and none is accepted</strong> (ADR 0137). Azure is
+reached as the workload's identity: Container Apps' managed identity, workload
+identity (<code>AZURE_FEDERATED_TOKEN_FILE</code>, <code>AZURE_TENANT_ID</code>, <code>AZURE_CLIENT_ID</code>),
+or on a workstation <code>az account get-access-token</code>; it needs Storage Blob Data
+Contributor on the container. An S3-compatible store is reached by
+<code>AssumeRoleWithWebIdentity</code> (<code>AWS_WEB_IDENTITY_TOKEN_FILE</code>, <code>AWS_ROLE_ARN</code>),
+at Amazon's STS or at the store's own (<code>ObjectStorage:StsEndpoint</code>). A
+key named like <code>AccountKey</code>, <code>ConnectionString</code> or <code>SecretAccessKey</code>, or a SAS
+token in the address, refuses the start, naming the rule. Durability is the
+store's: <code>Replicated</code>, a commit returns once the store acknowledged its
+chunk. A follower — a read-only open — writes nothing and needs only read
+access (Storage Blob Data Reader on Azure).</p>
+<p><strong>Supported stores.</strong> A writer's open first checks that the store refuses a
+second create of a name and a replace against a stale version, and refuses to
+open on one that does not (ADR 0134). That check catches a store that ignores
+conditional writes; it cannot catch one that enforces them for one request at
+a time but not under concurrency. The evidence for that is the contract
+suite's race property, and the stores it has passed are the supported ones:
+<strong>Azure Blob Storage</strong> (Azurite in CI, a real account on the optional leg) and
+<strong>RustFS</strong>. <strong>Any other S3-compatible store is untested.</strong> Garage is known not
+to enforce conditional writes and is refused.</p>
+<h2 id="authentication--auth">Authentication — <code>Auth</code> <a class="vd-anchor" aria-label="Link to this section" href="#authentication--auth">#</a></h2>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Mode</code></td>
+<td>none, required</td>
+<td><code>Oidc</code> or <code>Anonymous</code></td>
+</tr>
+<tr>
+<td><code>Authority</code></td>
+<td>—</td>
+<td>the OIDC issuer; its discovery document is <code>/.well-known/openid-configuration</code> under it; required for <code>Oidc</code></td>
+</tr>
+<tr>
+<td><code>Audiences</code></td>
+<td><code>[]</code></td>
+<td>the data plane's audiences; at least one for <code>Oidc</code></td>
+</tr>
+<tr>
+<td><code>Management:Audience</code></td>
+<td><code>api://varve-manage</code></td>
+<td>the management plane's audience, which <code>Audiences</code> must not name: each plane accepts only its own, and a token for both is refused by both (ADR 0163 point 1)</td>
+</tr>
+<tr>
+<td><code>SubjectClaim</code></td>
+<td><code>sub</code></td>
+<td>the claim that names the caller as a commit's agent: <code>oid</code> for Entra</td>
+</tr>
+<tr>
+<td><code>ApplicationClaim</code></td>
+<td><code>azp</code></td>
+<td>the claim that names the application acting for the caller, recorded on the request span as <code>varve.azp</code> and never in the log; <code>appid</code> for an Entra v1 token (ADR 0127)</td>
+</tr>
+<tr>
+<td><code>RoleClaimType</code></td>
+<td><code>roles</code></td>
+<td>the claim whose values are mapped to permissions</td>
+</tr>
+<tr>
+<td><code>RequireHttpsMetadata</code></td>
+<td><code>true</code></td>
+<td>refuse an authority whose metadata is not served over HTTPS; off only for a loopback issuer in a test</td>
+</tr>
+<tr>
+<td><code>Production</code></td>
+<td><code>false</code></td>
+<td>refuse anonymous mode</td>
+</tr>
+<tr>
+<td>Grants are not configuration: they are declared with each dataset (ADR</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>0166). <a href="../operator/authenticate.html">Authenticate</a> explains the model and shows provider</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>examples.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="limits--limits">Limits — <code>Limits</code> <a class="vd-anchor" aria-label="Link to this section" href="#limits--limits">#</a></h2>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>QueryTimeout</code></td>
+<td><code>00:00:30</code></td>
+<td>a read is cut after this, with an error trailer where the format allows (ADR 0095); <code>request-timeout</code></td>
+</tr>
+<tr>
+<td><code>ResultSizeCap</code></td>
+<td>1 GiB</td>
+<td>a read is cut after this many bytes; <code>result-too-large</code></td>
+</tr>
+<tr>
+<td><code>MaxRequestBody</code></td>
+<td>100 MiB</td>
+<td>a request body above this is <code>413 request-too-large</code></td>
+</tr>
+<tr>
+<td><code>PinnedReadLifetime</code></td>
+<td><code>00:02:00</code></td>
+<td>the longest a response may hold its pin</td>
+</tr>
+<tr>
+<td><code>FeedHeartbeat</code></td>
+<td><code>00:00:15</code></td>
+<td>a live tail writes a heartbeat line at this interval</td>
+</tr>
+<tr>
+<td><code>MaxConcurrentReads</code></td>
+<td>64</td>
+<td>reads evaluated at once; a read beyond this waits in the queue</td>
+</tr>
+<tr>
+<td><code>ReadQueueLength</code></td>
+<td>256</td>
+<td>reads waiting; one more is <code>503 server-busy</code> with <code>Retry-After</code> (ADR 0114)</td>
+</tr>
+<tr>
+<td><code>MaxQueryMemory</code></td>
+<td>256 MiB</td>
+<td>what one query's joins, sorts, groups and <code>DISTINCT</code> may hold, counted by rows; over it is <code>422 memory-limit-exceeded</code>, before the first byte or as a trailer (ADR 0114)</td>
+</tr>
+<tr>
+<td><code>MaxAsOfDistance</code></td>
+<td>10,000</td>
+<td>how many positions below the head a <code>Varve-As-Of</code> read may go; further is <code>422 as-of-distance-exceeded</code>; a checkpoint at or below the position makes any distance cheap (ADR 0114)</td>
+</tr>
+<tr>
+<td><code>MaxLiveTailsPerClient</code></td>
+<td>16</td>
+<td>live tails of <code>/commits</code> open per caller (per subject, or per address anonymous); one more is <code>429 too-many-live-tails</code></td>
+</tr>
+<tr>
+<td><code>CommitsPageSize</code></td>
+<td>1,000</td>
+<td>commits a <code>GET /commits</code> range answers before a <code>Link rel=&quot;next&quot;</code></td>
+</tr>
+<tr>
+<td><code>IdempotencyWindow</code></td>
+<td>100,000</td>
+<td>how many of a dataset's last commits a client's <code>Idempotency-Key</code> is honoured for; a retry of an older write is <code>422 idempotency-key-expired</code>. Counted in commits, never time; the writer reads this many commit headers before its first keyed write (ADR 0246)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every duration is positive and every count at least one, or the server does
+not start. Each limit's problem type is in <code>docs/problems/</code>, with its
+members: what the limit was and what the request asked for. The service
+description states <code>varve:resultSizeCap</code>, <code>varve:maxAsOfDistance</code> and
+<code>varve:commitsPageSize</code>, so a client can read them.</p>
+<h2 id="health-and-readiness--health-adr-0113">Health and readiness — <code>Health</code> (ADR 0113) <a class="vd-anchor" aria-label="Link to this section" href="#health-and-readiness--health-adr-0113">#</a></h2>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ReadyLag</code></td>
+<td><code>0</code></td>
+<td>how many positions a dataset's default projection may be behind its head and the server still ready; <code>0</code> is at head</td>
+</tr>
+<tr>
+<td><code>RateLimit</code></td>
+<td><code>60</code></td>
+<td>probes per minute per client address on <code>/health/live</code> and <code>/health/ready</code> before <code>429 too-many-requests</code></td>
+</tr>
+<tr>
+<td><code>StopDelay</code></td>
+<td><code>00:00:00</code></td>
+<td>how long readiness answers <code>503</code> before the listener closes on a stop, so a load balancer takes the instance out first; up to five minutes</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="the-lease--lease-adr-0116">The lease — <code>Lease</code> (ADR 0116) <a class="vd-anchor" aria-label="Link to this section" href="#the-lease--lease-adr-0116">#</a></h2>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WaitFor</code></td>
+<td><code>00:00:30</code></td>
+<td>how long a dataset lease another process holds is retried at start, logging the holder each second, before the dataset is failed with the holder as its reason; up to ten minutes</td>
+</tr>
+</tbody>
+</table></div>
+<p>A lease is never broken by the server. <a href="../operator/backup-and-restore.html#a-stale-lease">Back up and restore</a>
+says what <code>varve lease</code> does when a process died holding one.</p>
+<h2 id="service-over-http--federation-adr-0104"><code>SERVICE</code> over HTTP — <code>Federation</code> (ADR 0104) <a class="vd-anchor" aria-label="Link to this section" href="#service-over-http--federation-adr-0104">#</a></h2>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AllowedEndpoints</code></td>
+<td><code>[]</code></td>
+<td>IRI prefixes a <code>SERVICE</code> endpoint may start with; <strong>empty refuses every <code>SERVICE</code></strong>, which is the evaluator's own default</td>
+</tr>
+<tr>
+<td><code>AllowPrivateAddresses</code></td>
+<td><code>false</code></td>
+<td>let an endpoint resolve to loopback, link-local or a private range</td>
+</tr>
+<tr>
+<td><code>Timeout</code></td>
+<td><code>00:00:30</code></td>
+<td>the time to the endpoint's response headers</td>
+</tr>
+<tr>
+<td><code>MaxResponseBytes</code></td>
+<td>100 MiB</td>
+<td>the most the endpoint may answer</td>
+</tr>
+</tbody>
+</table></div>
+<p>Only <code>http</code> and <code>https</code>, never a redirect, never credentials in the address
+(ADR 0103). A refused endpoint is a failed <code>SERVICE</code>, and <code>SILENT</code> turns it
+into an empty result as the evaluator decides (ADR 0055).</p>
+<h2 id="load-over-http--load-adr-0104"><code>LOAD</code> over HTTP — <code>Load</code> (ADR 0104) <a class="vd-anchor" aria-label="Link to this section" href="#load-over-http--load-adr-0104">#</a></h2>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AllowedSources</code></td>
+<td><code>[]</code></td>
+<td>IRI prefixes a <code>LOAD</code> document may start with; <strong>empty refuses every <code>LOAD</code></strong></td>
+</tr>
+<tr>
+<td><code>AllowPrivateAddresses</code></td>
+<td><code>false</code></td>
+<td>as above</td>
+</tr>
+<tr>
+<td><code>Timeout</code></td>
+<td><code>00:01:00</code></td>
+<td>the time to the document's response headers</td>
+</tr>
+<tr>
+<td><code>MaxResponseBytes</code></td>
+<td>1 GiB</td>
+<td>the largest document</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="behind-a-proxy--forwardedheaders">Behind a proxy — <code>ForwardedHeaders</code> <a class="vd-anchor" aria-label="Link to this section" href="#behind-a-proxy--forwardedheaders">#</a></h2>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Enabled</code></td>
+<td><code>false</code></td>
+<td>honour <code>X-Forwarded-For</code>, <code>-Proto</code> and <code>-Host</code></td>
+</tr>
+<tr>
+<td><code>KnownProxies</code></td>
+<td><code>[]</code></td>
+<td>the addresses the headers are honoured from; with none listed, from none</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="browsers-from-another-origin--cors-adr-0132">Browsers from another origin — <code>Cors</code> (ADR 0132) <a class="vd-anchor" aria-label="Link to this section" href="#browsers-from-another-origin--cors-adr-0132">#</a></h2>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AllowedOrigins</code></td>
+<td><code>[]</code></td>
+<td>the origins a browser application may call from, each <code>scheme://host[:port]</code> with no path, or <code>*</code> for any; <strong>empty adds no CORS at all</strong>: no response carries an <code>Access-Control-*</code> header</td>
+</tr>
+<tr>
+<td><code>MaxAge</code></td>
+<td><code>00:10:00</code></td>
+<td>how long a browser may cache a preflight (<code>Access-Control-Max-Age</code>)</td>
+</tr>
+</tbody>
+</table></div>
+<pre><code class="language-json">{ &quot;Varve&quot;: { &quot;Cors&quot;: { &quot;AllowedOrigins&quot;: [ &quot;https://console.example.org&quot; ] } } }
+</code></pre>
+<p>A browser application sends its token in <code>Authorization</code>, exactly like any
+other client, so credentials mode is never allowed:
+<code>Access-Control-Allow-Credentials</code> is never sent, whatever is configured.</p>
+<ul>
+<li><strong>Allowed methods:</strong> <code>GET</code>, <code>HEAD</code>, <code>POST</code>, <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code>.</li>
+<li><strong>Allowed request headers:</strong> <code>Authorization</code>, <code>Content-Type</code>, <code>Accept</code>,
+<code>If-Match</code>, <code>If-None-Match</code>, <code>Varve-If-Graphs-Match</code> (ADR 0126),
+<code>Last-Event-ID</code>, <code>Varve-As-Of</code>, <code>traceparent</code>, <code>tracestate</code>.</li>
+<li><strong>Exposed response headers:</strong> <code>Varve-Position</code>, <code>ETag</code>,
+<code>Varve-Request-Id</code>, <code>Link</code>, <code>Location</code>, <code>Retry-After</code>,
+<code>WWW-Authenticate</code>.</li>
+</ul>
+<p>A preflight is answered before authentication and before the read limit, so
+it needs no token. A refusal (<code>401</code>, <code>429</code>, any problem) carries the CORS
+headers too, so the application can read the problem.</p>
+<h2 id="the-web-ui--webui-adrs-0202-0245">The Web UI — <code>WebUi</code> (ADRs 0202, 0245) <a class="vd-anchor" aria-label="Link to this section" href="#the-web-ui--webui-adrs-0202-0245">#</a></h2>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Path</code></td>
+<td>unset; <code>/app/webui</code> in the container image</td>
+<td>the absolute path of a published Web UI, the <code>wwwroot</code> of <code>varve-webui-&lt;version&gt;.zip</code>; unset, the server serves no <code>/ui/</code></td>
+</tr>
+<tr>
+<td><code>Enabled</code></td>
+<td><code>true</code></td>
+<td>the off switch: <code>false</code> adds no <code>/ui/</code> at all, whatever <code>Path</code> says</td>
+</tr>
+<tr>
+<td><code>Settings</code></td>
+<td><code>File</code>; <code>Generated</code> in the container image</td>
+<td>where <code>/ui/appsettings.json</code> comes from: <code>File</code>, the bundle's own, as edited; <code>Generated</code>, the server's answer from its own configuration, and then the bundle's file and its <code>.br</code> and <code>.gz</code> copies are never served</td>
+</tr>
+<tr>
+<td><code>Server</code></td>
+<td>unset</td>
+<td>with <code>Generated</code>: the server's absolute address the Web UI calls; unset, the origin that served it</td>
+</tr>
+<tr>
+<td><code>Auth:ClientId</code></td>
+<td>unset</td>
+<td>with <code>Generated</code>: the Web UI's own public client at the server's issuer (ADR 0201)</td>
+</tr>
+<tr>
+<td><code>Auth:DataScope</code></td>
+<td>unset</td>
+<td>with <code>Generated</code>: the scope whose token the data plane accepts</td>
+</tr>
+<tr>
+<td><code>Auth:ManageScope</code></td>
+<td>unset</td>
+<td>with <code>Generated</code>: the scope whose token the management plane accepts</td>
+</tr>
+<tr>
+<td><code>Auth:ManageGrant</code></td>
+<td><code>refresh</code></td>
+<td>with <code>Generated</code>: <code>refresh</code> or <code>exchange</code> (ADR 0201, amended 2026-10-28)</td>
+</tr>
+<tr>
+<td><code>Auth:DataAudience</code>, <code>Auth:ManageAudience</code></td>
+<td>unset</td>
+<td>with <code>Generated</code> and <code>exchange</code>: the <code>audience</code> each exchange names</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>The generated settings</strong> are the Web UI's <code>appsettings.json</code>, built field by
+field (ADR 0245):</p>
+<ul>
+<li>the mode is <code>Anonymous</code> on an anonymous server and <code>Oidc</code> when the three
+client settings are set; on an OIDC server without them it is
+<code>NotConfigured</code>, naming the settings to add, and the Web UI says sign-in is
+not configured;</li>
+<li>the authority and the role claim are the server's own <code>Auth:Authority</code>
+and <code>Auth:RoleClaimType</code>;</li>
+<li>nothing else from the configuration is ever in them, and the client is
+public: there is no secret to set.</li>
+</ul>
+<p>The server refuses to start, naming the setting, when <code>Server</code> or any
+<code>Auth:*</code> is set while <code>Settings</code> is <code>File</code> (it would do nothing), when a
+client is half set, or when a client is set on an anonymous server.</p>
+<p>Set, the server serves the Web UI under <code>/ui/</code> on the data-plane listener, and
+refuses to start if the directory holds no <code>index.html</code>. The files are public:
+no token is asked for them. Every <code>/ui/</code> response carries the Web UI's
+Content Security Policy, with <code>Auth:Authority</code>'s origin allowed for the token
+requests. After editing <code>appsettings.json</code> in the bundle, nothing else is
+needed: the server never serves a compressed copy older than its file.</p>
+<h2 id="telemetry--telemetry-adr-0112">Telemetry — <code>Telemetry</code> (ADR 0112) <a class="vd-anchor" aria-label="Link to this section" href="#telemetry--telemetry-adr-0112">#</a></h2>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Telemetry:QueryText</code></td>
+<td><code>false</code></td>
+<td>record <code>db.query.text</code>, the query or update as sent, on the request span; off because a query can carry data</td>
+</tr>
+</tbody>
+</table></div>
+<p>The exporter itself is configured by the standard <code>OTEL_*</code> environment
+variables, not under <code>Varve:</code>; see <a href="../operator/observe.html">Observe</a>.</p>
+<h2 id="writing-the-log--store-adr-0124">Writing the log — <code>Store</code> (ADR 0124) <a class="vd-anchor" aria-label="Link to this section" href="#writing-the-log--store-adr-0124">#</a></h2>
+<p>Commits that queue while a write of the log is in flight are written
+together, each still its own commit, with one flush: <strong>group commit</strong>. A
+commit that finds the dataset idle is written at once; there is no timer.</p>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Store:GroupCommit:MaxRecords</code></td>
+<td><code>1024</code></td>
+<td>a batch takes no more commits once it holds this many records; <code>1</code> writes every commit alone. A dataset in memory always writes each commit alone: it has no flush for a batch to share</td>
+</tr>
+<tr>
+<td><code>Store:GroupCommit:MaxBytes</code></td>
+<td>4 MiB</td>
+<td>the most bytes of records a batch of two or more commits may hold; at most 4 MiB, the format's write window</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>varve.store.commit.batch_size</code> (<a href="../operator/observe.html">Observe</a>) shows how many
+commits each write carried.</p>
+<p>The memtable holds what has not yet been written to <code>derived/</code> as a run
+(ADR 0070). It bounds a writer's memory before a spill, and a follower's,
+which is opened again from the writer's newest catalog once its memtable has
+grown by the limit since it opened (ADR 0164 point 5). On a small replica,
+this is the setting that bounds a follower's memory.</p>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Store:MemtableLimit</code></td>
+<td>what fits the machine</td>
+<td>the memtable's bound, in entries: one per quad asserted or retracted, and one per term it adds. Measured on .NET 10, a quad holds 192 bytes, its six order keys, and a short term about 96. Unset, it is the smaller of 1,000,000 and a sixteenth of the collector's heap limit at 215 bytes an entry, and at least 10,000 (ADR 0244): 1,000,000 with 3.5 GB of heap or more, about 117,000 in a 512 MB container. The memtable holds between its limit and twice it while a flush runs, and a merge of its tiers needs a second copy of what it merges; a commit that arrives with twice the limit held waits for the flush. Lower flushes and re-opens a follower more often; a read is never wrong for it</td>
+</tr>
+<tr>
+<td><code>Store:ReleaseMemoryAfterCheckpoint</code></td>
+<td><code>true</code></td>
+<td>once a checkpoint a caller asked for has been taken, and no dataset on the server has then taken a commit for five seconds, the server has the collector return what it can to the operating system (ADR 0244). An idle server otherwise keeps what the import and the checkpoint allocated until something else allocates: measured on an import of 3.06 million quads, 372 MB without it and 155 MB with it. No runtime setting does this (<code>DOTNET_GCConserveMemory=9</code> left 322 MB), and an ordinary collection does not either. It does not run while any dataset on the server is written to, because the collection pauses the whole process: there it frees nothing (315 MB against 330 MB), and the longest commit beside it was 136 ms against 24 ms, with the 99th percentile unchanged at 3.4 ms against 3.1 ms. The wait decides only when memory is returned, never correctness. The checkpoint's answer does not wait for it. <code>false</code> leaves the collector alone</td>
+</tr>
+<tr>
+<td><code>Store:SeekDirectoryCacheBytes</code></td>
+<td><code>33554432</code></td>
+<td>the most bytes of extent sets' seek directories a dataset keeps in memory (ADR 0240). A read as of a position inside a checkpointed window finds a quad's history through its set's seek directory, which is read from the set when such a read first needs it and kept here, the least recently used out first. It bounds what a dataset's history costs in memory: nothing is held per commit. <code>0</code> keeps none, and every such read reads its directories again. A read is never wrong for it; a read of the present never uses it</td>
+</tr>
+</tbody>
+</table></div>
+<p>The writer merges its extent sets in the background (ADRs 0158, 0159), so a
+read of the present merges a bounded number of runs however many
+checkpoints are taken; see <a href="../operator/backup-and-restore.html#checkpoints">Back up and restore</a>.</p>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Store:ExtentMerges:Enabled</code></td>
+<td><code>true</code></td>
+<td>whether the writer merges adjacent extent sets as maintenance; a merge never changes a result</td>
+</tr>
+<tr>
+<td><code>Store:ExtentMerges:FanOut</code></td>
+<td><code>4</code></td>
+<td>how many adjacent sets of one size merge into one: 2 to 16. Higher keeps fewer rewrites and more sets</td>
+</tr>
+<tr>
+<td><code>Store:ExtentMerges:MaxSetBytes</code></td>
+<td>256 MiB</td>
+<td>no merge makes a set larger, and a set past half of it is not merged again; at least 1 MiB. It bounds one merge's work and the largest blob uploaded; an as-of read inside a set costs its matches whatever the set's size (ADR 0177). See <a href="../operator/backup-and-restore.html#merges">Back up and restore</a> for when to raise it</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="domain-events--events-adrs-0143-0144">Domain events — <code>Events</code> (ADRs 0143, 0144) <a class="vd-anchor" aria-label="Link to this section" href="#domain-events--events-adrs-0143-0144">#</a></h2>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Events:Source</code></td>
+<td>unset</td>
+<td>the base of every event's <code>source</code> and every schema URL: an absolute <code>http</code> or <code>https</code> URL ending in <code>/</code>, under which a dataset is <code>datasets/{name}</code></td>
+</tr>
+<tr>
+<td><code>Events:EventHubs:Host</code></td>
+<td>unset</td>
+<td>the Event Hubs namespace's host, <code>{namespace}.servicebus.windows.net</code>, that the AsyncAPI document lists as the <code>eventhubs</code> server; with <code>Hub</code>, both or neither</td>
+</tr>
+<tr>
+<td><code>Events:EventHubs:Hub</code></td>
+<td>unset</td>
+<td>the event hub's name</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Byte identity holds per base.</strong> A rendered event is the same bytes every
+time it is read, and its <code>source</code> and <code>dataschema</code> name the base. With
+<code>Events:Source</code> unset, the base is the request's own scheme, host and path
+base, so a deployment reached under more than one host name renders
+different bytes under each. Set <code>Events:Source</code> to the one public URL. The
+Event Hubs server is only named here: publishing to it is an application's
+work, as the Event Hubs sample shows (<a href="../operator/integrate.html">Integrate</a>).</p>
+<h2 id="the-runtime-adr-0110">The runtime (ADR 0110) <a class="vd-anchor" aria-label="Link to this section" href="#the-runtime-adr-0110">#</a></h2>
+<p>The server ships its runtime configuration: the <strong>workstation</strong> garbage
+collector, <strong>concurrent</strong>, with <code>System.GC.ConserveMemory</code> <strong>5</strong>, in the
+tool's <code>runtimeconfig.json</code> and in the Native AOT binary alike. The Web SDK's
+default would be the server collector, which keeps committed memory
+proportional to what every core allocated; the server's live heap is small
+and allocates in bursts, which the workstation collector fits, and
+<code>ConserveMemory</code> compacts the large object heap that the 6c soak found
+fragmenting. The soak gate is judged under this configuration, with its
+drift measured against minutes 30–40, after the collector has reached its
+working size (ADR 0082, amended and superseded in part by ADR 0110). Every
+release from 1.0.0 runs that soak for four hours on Linux and judges it by
+script, and is refused unless the weekly Windows soak passed within eight
+days and while a red or invalid soak's issue is open. A preview is informed
+by the nightly's soaks and not refused on them, and its release notes say
+what they were (ADR 0215, amended 2026-11-03).</p>
+<p><code>DOTNET_GCHeapHardLimit</code>, <code>DOTNET_gcServer</code> and the rest still apply as to
+any .NET process and override what ships: in a container the runtime bounds
+the heap to the cgroup limit by itself, and no hard limit of Varve's own is
+set.</p>
+</div><nav class="vd-pager" aria-label="Previous and next"><a class="vd-prev" href="../operator/run.html"><small>Previous</small><b>Run</b></a><a class="vd-next" href="../operator/authenticate.html"><small>Next</small><b>Authenticate</b></a></nav></main>
+<nav class="vd-pages" id="pages" aria-label="Operator guide"><h2>Operator guide</h2><ol><li><a href="../operator/index.html">Overview</a></li><li><a href="../operator/run.html">Run</a></li><li><a href="../operator/configure.html" aria-current="page">Configure</a></li><li><a href="../operator/authenticate.html">Authenticate</a></li><li><a href="../operator/datasets.html">Datasets: their boundary, their declaration, and their setup</a></li><li><a href="../operator/fleet.html">The fleet</a></li><li><a href="../operator/shapes.html">Shapes</a></li><li><a href="../operator/inference.html">Inference</a></li><li><a href="../operator/moving-event-schemas.html">Moving event schemas</a></li><li><a href="../operator/integrate.html">Integrate: the commits resource as a stream, and domain events</a></li><li><a href="../operator/row-level-access.html">Row-level access</a></li><li><a href="../operator/observe.html">Observe</a></li><li><a href="../operator/backup-and-restore.html">Back up and restore</a></li><li><a href="../operator/upgrade.html">Upgrade</a></li><li><a href="../operator/small-machine.html">Run on a small machine</a></li><li><a href="../operator/azure-container-apps.html">Run on Azure Container Apps</a></li><li><a href="../operator/kubernetes.html">Run on Kubernetes</a></li><li><a href="../operator/web-ui.html">The Web UI</a></li></ol></nav>
+<aside class="vd-toc" aria-label="On this page"><div><h2>On this page</h2><ol><li class="vd-toc-2"><a href="#sources-and-precedence-adr-0115">Sources and precedence (ADR 0115)</a></li><li class="vd-toc-2"><a href="#datasets">Datasets</a></li><li class="vd-toc-2"><a href="#the-fleet--fleet-and-manage">The fleet — Fleet and Manage</a></li><li class="vd-toc-2"><a href="#removed-keys">Removed keys</a></li><li class="vd-toc-2"><a href="#the-object-store--objectstorage">The object store — ObjectStorage</a></li><li class="vd-toc-2"><a href="#authentication--auth">Authentication — Auth</a></li><li class="vd-toc-2"><a href="#limits--limits">Limits — Limits</a></li><li class="vd-toc-2"><a href="#health-and-readiness--health-adr-0113">Health and readiness — Health (ADR 0113)</a></li><li class="vd-toc-2"><a href="#the-lease--lease-adr-0116">The lease — Lease (ADR 0116)</a></li><li class="vd-toc-2"><a href="#service-over-http--federation-adr-0104">SERVICE over HTTP — Federation (ADR 0104)</a></li><li class="vd-toc-2"><a href="#load-over-http--load-adr-0104">LOAD over HTTP — Load (ADR 0104)</a></li><li class="vd-toc-2"><a href="#behind-a-proxy--forwardedheaders">Behind a proxy — ForwardedHeaders</a></li><li class="vd-toc-2"><a href="#browsers-from-another-origin--cors-adr-0132">Browsers from another origin — Cors (ADR 0132)</a></li><li class="vd-toc-2"><a href="#the-web-ui--webui-adrs-0202-0245">The Web UI — WebUi (ADRs 0202, 0245)</a></li><li class="vd-toc-2"><a href="#telemetry--telemetry-adr-0112">Telemetry — Telemetry (ADR 0112)</a></li><li class="vd-toc-2"><a href="#writing-the-log--store-adr-0124">Writing the log — Store (ADR 0124)</a></li><li class="vd-toc-2"><a href="#domain-events--events-adrs-0143-0144">Domain events — Events (ADRs 0143, 0144)</a></li><li class="vd-toc-2"><a href="#the-runtime-adr-0110">The runtime (ADR 0110)</a></li></ol></div></aside>
+</div>
+<footer class="vd-foot"><span>Built from <a href="https://github.com/Hafeok/Varve/tree/c754bcb7e1f0a2d4"><code>c754bcb7e1f0</code></a>. This page is <a href="https://github.com/Hafeok/Varve/blob/c754bcb7e1f0/docs/operator/configure.md">docs/operator/configure.md</a>.</span><span>Apache-2.0</span></footer>
+</body>
+</html>

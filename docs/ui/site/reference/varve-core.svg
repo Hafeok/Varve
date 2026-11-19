@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Varve — the package icon. Original work, drawn for this repository.
+
+  A sediment core. A varve is the pair of layers a lake lays down in one year —
+  a thick pale band from the summer melt, a thin dark line from the winter
+  still — and counting the couplets reads the years off the bed without a
+  clock.
+
+  That is this project in one image: the record is the sequence of deposits,
+  nothing is ever rewritten, and the present is only the topmost layer. The
+  years are not alike, which is why the bands vary and one is bright — a flood
+  year, still legible a thousand layers later.
+
+  A core rather than bare stripes, because a silhouette survives being drawn at
+  32 pixels in a package list and a field of horizontal lines does not.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <clipPath id="core">
+      <rect x="34" y="10" width="60" height="108" rx="30" ry="30" />
+    </clipPath>
+  </defs>
+
+  <rect x="0" y="0" width="128" height="128" fill="#0d1319" />
+
+  <g clip-path="url(#core)">
+    <rect x="34" y="10" width="60" height="108" fill="#11181f" />
+
+    <!-- Oldest at the bottom. Pale summer band, dark winter line. -->
+    <rect x="34" y="106" width="60" height="12" fill="#93acc4" />
+    <rect x="34" y="102" width="60" height="4"  fill="#141d26" />
+    <rect x="34" y="94"  width="60" height="8"  fill="#63788e" />
+    <rect x="34" y="90"  width="60" height="4"  fill="#141d26" />
+    <rect x="34" y="75"  width="60" height="15" fill="#9db6cd" />
+    <rect x="34" y="71"  width="60" height="4"  fill="#141d26" />
+    <rect x="34" y="65"  width="60" height="6"  fill="#5a6f85" />
+    <rect x="34" y="62"  width="60" height="3"  fill="#141d26" />
+
+    <!-- The flood year. -->
+    <rect x="34" y="45"  width="60" height="17" fill="#eef5fb" />
+    <rect x="34" y="41"  width="60" height="4"  fill="#141d26" />
+
+    <rect x="34" y="34"  width="60" height="7"  fill="#7e97b0" />
+    <rect x="34" y="30"  width="60" height="4"  fill="#141d26" />
+    <rect x="34" y="20"  width="60" height="10" fill="#93acc4" />
+    <rect x="34" y="16"  width="60" height="4"  fill="#141d26" />
+    <rect x="34" y="10"  width="60" height="6"  fill="#63788e" />
+  </g>
+
+  <rect x="34" y="10" width="60" height="108" rx="30" ry="30"
+        fill="none" stroke="#2c3a49" stroke-width="4" />
+</svg>
