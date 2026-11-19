@@ -3,11 +3,13 @@
 @attribute [Contract(typeof(TheWebUiDesignSource.DomainChoicesArePartsOverGenericComponents), Role = "the formats an answer downloads in")]
 @* Download an answer (ADR 0249 point 5; ADR 0206 ruling D8): a part over the
    Menu molecule, offering the formats the server writes an answer of its form
-   in. While a download runs the menu says so and takes no second choice. *@
+   in. While a download runs the menu stays open, says so beside its format
+   and takes no second choice; when it ends, the menu closes. *@
 <Menu Id="@Id" Label="Download" Small="true" Items="Items()" Open="_open" OpenChanged="value => _open = value" OnChoose="ChooseAsync" Busy="Busy" />
 
 @code {
     private bool _open;
+    private bool _wasBusy;
 
     /// <summary>A stable id, unique on the page: the list's.</summary>
     [Parameter, EditorRequired]
@@ -32,6 +34,17 @@
     /// <summary>Raised with the format chosen.</summary>
     [Parameter]
     public EventCallback<DownloadFormat> OnDownload { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        if (_wasBusy && !Busy)
+        {
+            _open = false;
+        }
+
+        _wasBusy = Busy;
+    }
 
     private IReadOnlyList<MenuItem> Items() =>
         [.. DownloadFormat.For(Form).Select(format => new MenuItem(format.Text, Busy && format == Downloading ? Progress ?? "Downloading…" : null))];

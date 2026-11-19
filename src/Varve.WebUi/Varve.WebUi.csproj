@@ -108,11 +108,11 @@
          and what only it uses, fetched when one of its routes is first
          visited. The first screen and this set are two rows of
          eng/browser-size.json, and the set here is the one that file names.
-         Varve.Sparql.Results joins it when a page streams a query: until
-         then it is trimmed out, and the SDK refuses a lazy assembly it
-         trimmed. -->
+         Varve.Sparql.Results is the client's TSV reader, which only the
+         Query page's streamed answers reach. -->
     <BlazorWebAssemblyLazyLoad Include="Varve.WebUi.Explorer.wasm" />
     <BlazorWebAssemblyLazyLoad Include="Varve.Sparql.wasm" />
+    <BlazorWebAssemblyLazyLoad Include="Varve.Sparql.Results.wasm" />
     <!-- The host names no type of the explorer (VARVE0006), so the trimmer
          would drop it whole: ExplorerRoots.xml keeps its pages and parts,
          which the router finds once it is loaded, and what they use of

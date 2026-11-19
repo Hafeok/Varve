@@ -534,6 +534,7 @@ Filed by the session for Web UI part 2 ([#96](https://github.com/Hafeok/Varve/is
 |---:|---|---|
 | [0248](0248-a-public-sparql-tokenizer.md) | A public SPARQL tokenizer: the parser's lexer, reachable, with comments and classified words, in the input's units | Filed unaccepted (#355) |
 | [0249](0249-the-data-explorers-reads.md) | The data explorer's reads: one position per view, streamed lines, a read-ahead to a ceiling, history per tab | Filed unaccepted (#355); amends 0203 |
+| [0250](0250-the-query-editor.md) | The query editor: a textarea over a coloured layer, coloured and checked by the parser, once a frame | Filed unaccepted (#355) |
 | [0251](0251-the-graph-view.md) | The graph view: SVG through Razor, a deterministic radial layout, a node budget of 50 from the spike | Filed unaccepted (#355) |
 | [0252](0252-the-web-uis-private-assemblies.md) | The Web UI's private assemblies: the components at layer 6, the lazy explorer at 7, the host at 8 | Filed unaccepted (#355); amends 0060, 0200, 0206 |
 

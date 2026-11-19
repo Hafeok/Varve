@@ -1,0 +1,514 @@
+@page "/datasets/{Name}/query"
+@implements IAsyncDisposable
+@inject DatasetClients Datasets
+@inject WebUiSettings Settings
+@inject IJSRuntime Js
+@using System.Globalization
+@using System.Net.Http
+@using Varve.Rdf
+@* Query (#96, ADRs 0249 and 0250): a SPARQL query against one dataset, read
+   under a regime at a position the reader picks. The editor colours with the
+   parser's own lexer and shows the parser's first error, in the server's own
+   words, before anything is sent. A run is one view at one position: its
+   first answer resolves the selector, and Show more, Run again and a download
+   all read at that position. A SELECT is read ahead to 5,000 rows and then
+   closed, and shown 500 at a time; Show more never goes back to the server.
+   Every answer is the server's, under the caller's grants and row rules: an
+   empty one is "returned to you", and a refusal is the problem as sent. *@
+<PageTitle>Query @Name · Varve</PageTitle>
+<ViewHead Title="Query" CrumbText="@Name" CrumbHref="@("datasets/" + Uri.EscapeDataString(Name))">@if (_read is FeedPosition read)
+{<PositionStamp Label="read at position" Value="read.Value" />}
+else if (_head is FeedPosition head)
+{<PositionStamp Label="head" Value="head.Value" />}</ViewHead>
+
+@if (_failure is not null)
+{
+    <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="null" OnReadAgain="RunAsync" />
+}
+
+<QueryEditor Id="query-text" Label="SPARQL query" Text="@_text" Runs="_runs" Error="_error" Match="_match" Help="Tab inserts two spaces. Press Escape, then Tab, to leave the editor." />
+<div class="vw-actions"><RegimeSelect Id="query-regime" Description="_description" Selected="_regime" SelectedChanged="regime => _regime = regime" /><AsOfControl Id="query-asof" Selector="_handedAsOf" SelectorChanged="selector => _asOf = selector" Head="_head" MaxDistance="_description?.MaxAsOfDistance" Resolved="_read" ResolvedCommitted="_committed" /><Button Kind="ButtonKind.Primary" Disabled="@(WhyNot() is not null)" DisabledReason="@WhyNot()" OnClick="RunAsync">Run</Button>@if (Mine().Count > 0)
+{<Menu Id="query-history" Label="History" Small="true" Items="HistoryItems()" Open="_historyOpen" OpenChanged="open => _historyOpen = open" OnChoose="RecallAsync" /><Button Small="true" OnClick="ClearHistoryAsync">Clear history</Button>}</div>
+
+@if (_problem is Problem problem)
+{
+    <ProblemView Problem="problem" Facts="_problemFacts" Dataset="@Name" />
+}
+else if (_form == QueryForm.Boolean && _ask is Varve.Protocol.Client.Model.AskAnswer ask)
+{
+    <AskAnswer Answer="ask.Result == AskResult.True" Context="@("answered under " + Regime(ask.Entailment))" PositionLabel="at position" Position="_read?.Value ?? 0" />
+    <div class="vw-actions"><DownloadMenu Id="query-download" Form="QueryForm.Boolean" Busy="_downloading is not null" Downloading="_downloading" Progress="@_progress" OnDownload="DownloadAsync" /></div>
+}
+else if (_form == QueryForm.Solutions && _ran)
+{
+    <ResultsTable Caption="@Caption()" Variables="_variables" Rows="Shown()" EmptyText="@EmptyText()" Status="@Status()" Cut="_end == QueryEnd.Cut" RequestId="@(_end == QueryEnd.Cut ? _requestId : null)"><Actions>@ResultActions()</Actions></ResultsTable>
+}
+else if (_form == QueryForm.Graph && _ran)
+{
+    <TripleList Caption="@Caption()">@foreach (Statement statement in _statements.Take(_shown))
+    {<Triple><Subject><Term Value="statement.Subject" /></Subject><Predicate><Term Value="statement.Predicate" /></Predicate><Object><Term Value="statement.Object" /></Object></Triple>}</TripleList>
+    <p class="vw-muted" role="status">@(_statements.Count == 0 && _end == QueryEnd.Complete ? EmptyText() : Status())</p>
+    @ResultActions()
+}
+
+@code {
+    /// <summary>How many rows or statements the browser reads before closing the answer (ADR 0249 point 5).</summary>
+    private const int Ceiling = 5_000;
+
+    /// <summary>How many more each Show more shows.</summary>
+    private const int Step = 500;
+
+    private const string Start = "SELECT ?s ?p ?o WHERE {\n  ?s ?p ?o\n}\nLIMIT 100";
+
+    private string _text = Start;
+    private IReadOnlyList<EditorRun> _runs = QueryColouring.Runs(Start);
+    private EditorError? _error;
+    private IReadOnlyList<int> _match = [];
+
+    private DatasetDescription? _description;
+    private FeedPosition? _head;
+    private Entailment? _regime;
+    private AsOfSelector _handedAsOf;
+    private AsOfSelector? _asOf = AsOfSelector.Head;
+
+    // The view: what the last run asked and what it read.
+    private string _ranText = "";
+    private Entailment? _ranRegime;
+    private QueryForm? _form;
+    private bool _ran;
+    private FeedPosition? _read;
+    private CommitTime? _committed;
+    private Entailment? _answeredUnder;
+    private Problem? _problem;
+    private ResponseFacts? _problemFacts;
+    private string? _failure;
+    private Varve.Protocol.Client.Model.AskAnswer? _ask;
+    private IReadOnlyList<string> _variables = [];
+    private readonly List<IReadOnlyList<TermValue?>> _rows = [];
+    private readonly List<Statement> _statements = [];
+    private int _shown = Step;
+    private QueryEnd _end = QueryEnd.Complete;
+    private bool _ceilingReached;
+    private bool _cancelled;
+    private string? _requestId;
+    private CancellationTokenSource? _reading;
+
+    private DownloadFormat? _downloading;
+    private string? _progress;
+
+    private QueryHistory _history = QueryHistory.Read(null);
+    private bool _historyOpen;
+
+    private DotNetObjectReference<QueryPage>? _self;
+    private IJSObjectReference? _editor;
+
+    /// <summary>The dataset's name, from the address.</summary>
+    [Parameter]
+    public string Name { get; set; } = "";
+
+    /// <inheritdoc />
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            VarveResult<DatasetDescription> described = await Datasets.For(new DatasetName(Name)).ServiceDescriptionAsync(CancellationToken.None);
+            _description = described.Value;
+            _head = described.Facts.Position;
+        }
+        catch (HttpRequestException unreachable)
+        {
+            _failure = unreachable.Message;
+        }
+    }
+
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        _self = DotNetObjectReference.Create(this);
+        _editor = await Js.InvokeAsync<IJSObjectReference>("varveWebUi.editor", "query-text", _self);
+        _history = QueryHistory.Read(await Js.InvokeAsync<string?>("varveWebUi.historyRead"));
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// The editor's text and caret, at most once a frame (ADR 0250): coloured
+    /// by the tokenizer, checked by the parser, the bracket at the caret
+    /// matched. The textarea keeps its own value; the layer follows it.
+    /// </summary>
+    [JSInvokable]
+    public void Edited(string text, int caret)
+    {
+        if (text != _text)
+        {
+            _text = text;
+            _runs = QueryColouring.Runs(text);
+            _error = QueryColouring.Error(text);
+        }
+
+        _match = QueryColouring.Match(text, _runs, caret);
+        StateHasChanged();
+    }
+
+    // Why Run cannot be pressed, said beside it; none when it can.
+    private string? WhyNot() =>
+        string.IsNullOrWhiteSpace(_text) ? "Write a query to run."
+        : _error is not null ? "The query has a syntax error."
+        : QueryColouring.Form(_text) is null ? "Write SELECT, ASK, CONSTRUCT or DESCRIBE."
+        : _asOf is null ? "Choose where to read."
+        : null;
+
+    private Task RunAsync() =>
+        _asOf is AsOfSelector selector && WhyNot() is null ? ReadAsync(_text, _regime, selector) : Task.CompletedTask;
+
+    // A new view: the selector resolved by its first answer, and every later
+    // read of the view pinned to that position (ADR 0249 point 2).
+    private async Task ReadAsync(string text, Entailment? regime, AsOfSelector selector)
+    {
+        await StopAsync();
+        CancellationTokenSource reading = new();
+        _reading = reading;
+        _ranText = text;
+        _ranRegime = regime;
+        _form = QueryColouring.Form(text);
+        _ran = true;
+        _read = null;
+        _committed = null;
+        _answeredUnder = null;
+        _problem = null;
+        _problemFacts = null;
+        _failure = null;
+        _ask = null;
+        _variables = [];
+        _rows.Clear();
+        _statements.Clear();
+        _shown = Step;
+        _end = QueryEnd.Reading;
+        _ceilingReached = false;
+        _cancelled = false;
+        _requestId = null;
+        await RememberAsync(text, regime, selector);
+
+        SparqlHttpClient client = Datasets.For(new DatasetName(Name));
+        QueryReadOptions options = new(selector, regime);
+
+        try
+        {
+            if (_form == QueryForm.Boolean)
+            {
+                VarveResult<Varve.Protocol.Client.Model.AskAnswer> asked = await client.AskAsync(text, options, reading.Token);
+                Answered(asked.Facts, asked.Problem);
+                _ask = asked.Value;
+                _answeredUnder = asked.Value?.Entailment;
+                _end = QueryEnd.Complete;
+                return;
+            }
+
+            VarveResult<QueryAnswer> started = await client.StartQueryAsync(text, _form!.Value, options, reading.Token);
+            Answered(started.Facts, started.Problem);
+
+            if (started.Value is not QueryAnswer answer)
+            {
+                _end = QueryEnd.Complete;
+                return;
+            }
+
+            await using (answer)
+            {
+                _committed = answer.CommitTime;
+                _answeredUnder = answer.Entailment;
+                _variables = [.. answer.Variables.Select(variable => variable.Value)];
+                StateHasChanged();
+
+                try
+                {
+                    if (_form == QueryForm.Solutions)
+                    {
+                        await foreach (IReadOnlyList<Solution> batch in answer.ReadSolutionsAsync(reading.Token))
+                        {
+                            _rows.AddRange(batch.Take(Ceiling - _rows.Count).Select(solution => (IReadOnlyList<TermValue?>)[.. solution.Values.Select(Cell)]));
+
+                            if (_rows.Count >= Ceiling)
+                            {
+                                _ceilingReached = true;
+                                break;
+                            }
+
+                            StateHasChanged();
+                        }
+                    }
+                    else
+                    {
+                        await foreach (IReadOnlyList<Statement> batch in answer.ReadStatementsAsync(reading.Token))
+                        {
+                            _statements.AddRange(batch.Take(Ceiling - _statements.Count));
+
+                            if (_statements.Count >= Ceiling)
+                            {
+                                _ceilingReached = true;
+                                break;
+                            }
+
+                            StateHasChanged();
+                        }
+                    }
+                }
+                catch (OperationCanceledException) when (reading.IsCancellationRequested)
+                {
+                    _cancelled = true;
+                }
+            }
+
+            // Disposed: a ceiling or a cancel closed it, the server finished
+            // it, or it broke before its end.
+            _end = answer.End == QueryEnd.Reading ? QueryEnd.Closed : answer.End;
+        }
+        catch (OperationCanceledException) when (reading.IsCancellationRequested)
+        {
+            _cancelled = true;
+            _end = QueryEnd.Closed;
+        }
+        catch (HttpRequestException unreachable)
+        {
+            _failure = unreachable.Message;
+            _end = QueryEnd.Cut;
+            _ran = false;
+        }
+    }
+
+    private void Answered(ResponseFacts facts, Problem? problem)
+    {
+        _read = facts.Position;
+        _head = facts.Position is FeedPosition read && (_head is null || read.Value > _head.Value.Value) ? read : _head;
+        _requestId = facts.RequestId?.Value;
+        _problem = problem;
+        _problemFacts = problem is null ? null : facts;
+    }
+
+    private async Task CancelAsync()
+    {
+        if (_reading is CancellationTokenSource reading)
+        {
+            await reading.CancelAsync();
+        }
+    }
+
+    private async Task StopAsync()
+    {
+        if (_reading is CancellationTokenSource reading)
+        {
+            _reading = null;
+            await reading.CancelAsync();
+            reading.Dispose();
+        }
+    }
+
+    // Run again at the view's position: the one a cut answer was read at.
+    private Task RunAgainAsync() =>
+        _read is FeedPosition read ? ReadAsync(_ranText, _ranRegime, AsOfSelector.At(read)) : Task.CompletedTask;
+
+    private void ShowMore() => _shown += Step;
+
+    // A download is a fresh read pinned to the view's position, copied to the
+    // browser's file as it arrives (ADR 0249 point 5).
+    private async Task DownloadAsync(DownloadFormat format)
+    {
+        if (_read is not FeedPosition read || _downloading is not null)
+        {
+            return;
+        }
+
+        _downloading = format;
+        _progress = "Downloading…";
+        int id = await Js.InvokeAsync<int>("varveWebUi.downloadBegin");
+        BrowserFile file = new(Js, id, written =>
+        {
+            _progress = Bytes(written) + " downloaded";
+            StateHasChanged();
+        });
+
+        try
+        {
+            VarveResult<Download> downloaded = await Datasets.For(new DatasetName(Name))
+                .DownloadAsync(_ranText, format.MediaType, new QueryReadOptions(AsOfSelector.At(read), _ranRegime), file, CancellationToken.None);
+
+            if (downloaded.Problem is Problem problem)
+            {
+                await file.DropAsync();
+                _problem = problem;
+                _problemFacts = downloaded.Facts;
+                return;
+            }
+
+            await file.SaveAsync(Name + "-" + read.Value.ToString(CultureInfo.InvariantCulture) + "." + format.Extension, format.MediaType);
+        }
+        catch (HttpRequestException unreachable)
+        {
+            await file.DropAsync();
+            _failure = unreachable.Message;
+        }
+        finally
+        {
+            _downloading = null;
+            _progress = null;
+        }
+    }
+
+    private async Task RememberAsync(string text, Entailment? regime, AsOfSelector selector)
+    {
+        _history = _history.With(new HistoryEntry(text, Name, regime?.Value ?? "", QueryHistory.Write(selector)));
+        await Js.InvokeVoidAsync("varveWebUi.historyWrite", _history.ToJson());
+    }
+
+    private IReadOnlyList<HistoryEntry> Mine() => [.. _history.Entries.Where(entry => entry.Dataset == Name)];
+
+    private IReadOnlyList<MenuItem> HistoryItems() =>
+        [.. Mine().Select(entry => new MenuItem(FirstLine(entry.Query) + " · " + (entry.Regime.Length == 0 ? "default regime" : entry.Regime) + " · " + entry.AsOf.Replace(':', ' ')))];
+
+    // A query from the history back in the editor, with its regime and selector.
+    private async Task RecallAsync(int index)
+    {
+        IReadOnlyList<HistoryEntry> mine = Mine();
+
+        if (index < 0 || index >= mine.Count)
+        {
+            return;
+        }
+
+        HistoryEntry entry = mine[index];
+        _historyOpen = false;
+        _regime = entry.Regime.Length == 0 ? null : new Entailment(entry.Regime);
+        _handedAsOf = QueryHistory.ReadSelector(entry.AsOf) ?? AsOfSelector.Head;
+        _asOf = _handedAsOf;
+
+        if (_editor is not null)
+        {
+            await _editor.InvokeVoidAsync("set", entry.Query);
+        }
+    }
+
+    private async Task ClearHistoryAsync()
+    {
+        _history = QueryHistory.Read(null);
+        await Js.InvokeVoidAsync("varveWebUi.historyClear");
+    }
+
+    private IReadOnlyList<IReadOnlyList<TermValue?>> Shown() => [.. _rows.Take(_shown)];
+
+    private int Count => _form == QueryForm.Graph ? _statements.Count : _rows.Count;
+
+    private string Noun(int count) => _form == QueryForm.Graph ? (count == 1 ? "statement" : "statements") : (count == 1 ? "row" : "rows");
+
+    private string Caption() =>
+        _end is QueryEnd.Complete || _ceilingReached
+            ? Number(Count) + " " + Noun(Count) + " · answered under " + Regime(_answeredUnder)
+            : "Answered under " + Regime(_answeredUnder);
+
+    private string? EmptyText() =>
+        _end == QueryEnd.Complete && Count == 0 ? "No " + Noun(0) + " returned to you at position " + (_read?.Value.ToString(CultureInfo.InvariantCulture) ?? "?") + "." : null;
+
+    private string? Status()
+    {
+        int count = Count;
+        int shown = Math.Min(_shown, count);
+
+        return _end switch
+        {
+            QueryEnd.Reading => "Reading: " + Number(count) + " " + Noun(count) + " so far.",
+            QueryEnd.Cut => "The response ended before the server finished it, after " + Number(count) + " " + Noun(count) + ".",
+            _ when _cancelled => "Cancelled after " + Number(count) + " " + Noun(count) + ".",
+            _ when _ceilingReached => "Showing " + Number(shown) + " of " + Number(count) + " " + Noun(count) + ". Stopped at " + Number(Ceiling) + " " + Noun(Ceiling) + ": download the result to read the rest.",
+            _ when count == 0 => null,
+            _ when shown < count => "Showing " + Number(shown) + " of " + Number(count) + " " + Noun(count) + ".",
+            _ => "All " + Number(count) + " " + Noun(count) + " returned to you.",
+        };
+    }
+
+    private RenderFragment ResultActions() => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "vw-actions");
+
+        if (_end == QueryEnd.Reading)
+        {
+            builder.OpenComponent<Button>(2);
+            builder.AddAttribute(3, nameof(Button.Small), true);
+            builder.AddAttribute(4, nameof(Button.OnClick), EventCallback.Factory.Create(this, CancelAsync));
+            builder.AddAttribute(5, nameof(Button.ChildContent), (RenderFragment)(b => b.AddContent(0, "Cancel")));
+            builder.CloseComponent();
+        }
+        else if (_end == QueryEnd.Cut && _read is FeedPosition read)
+        {
+            builder.OpenComponent<Button>(6);
+            builder.AddAttribute(7, nameof(Button.Small), true);
+            builder.AddAttribute(8, nameof(Button.OnClick), EventCallback.Factory.Create(this, RunAgainAsync));
+            builder.AddAttribute(9, nameof(Button.ChildContent), (RenderFragment)(b => b.AddContent(0, "Run again at " + read.Value.ToString(CultureInfo.InvariantCulture))));
+            builder.CloseComponent();
+        }
+        else
+        {
+            if (_shown < Count)
+            {
+                builder.OpenComponent<Button>(10);
+                builder.AddAttribute(11, nameof(Button.Small), true);
+                builder.AddAttribute(12, nameof(Button.OnClick), EventCallback.Factory.Create(this, ShowMore));
+                builder.AddAttribute(13, nameof(Button.ChildContent), (RenderFragment)(b => b.AddContent(0, "Show " + Number(Math.Min(Step, Count - _shown)) + " more")));
+                builder.CloseComponent();
+            }
+
+            if (_read is not null)
+            {
+                builder.OpenComponent<DownloadMenu>(14);
+                builder.AddAttribute(15, nameof(DownloadMenu.Id), "query-download");
+                builder.AddAttribute(16, nameof(DownloadMenu.Form), _form ?? QueryForm.Solutions);
+                builder.AddAttribute(17, nameof(DownloadMenu.Busy), _downloading is not null);
+                builder.AddAttribute(18, nameof(DownloadMenu.Downloading), _downloading);
+                builder.AddAttribute(19, nameof(DownloadMenu.Progress), _progress);
+                builder.AddAttribute(20, nameof(DownloadMenu.OnDownload), EventCallback.Factory.Create<DownloadFormat>(this, DownloadAsync));
+                builder.CloseComponent();
+            }
+        }
+
+        builder.CloseElement();
+    };
+
+    private static TermValue? Cell(RdfTerm? term) => term is null ? null : TermValues.Of(term);
+
+    private static string Regime(Entailment? regime) => regime?.Value ?? "the dataset's default";
+
+    private static string Number(long value) => value.ToString("N0", CultureInfo.InvariantCulture);
+
+    private static string Bytes(long bytes) =>
+        bytes < 1_000_000 ? (bytes / 1000.0).ToString("0.0", CultureInfo.InvariantCulture) + " kB" : (bytes / 1_000_000.0).ToString("0.0", CultureInfo.InvariantCulture) + " MB";
+
+    private static string FirstLine(string query)
+    {
+        string line = query.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0 && !l.StartsWith("PREFIX", StringComparison.OrdinalIgnoreCase) && !l.StartsWith('#')) ?? query.Trim();
+        return line.Length <= 60 ? line : line[..59] + "…";
+    }
+
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        await StopAsync();
+
+        if (_editor is not null)
+        {
+            try
+            {
+                await _editor.InvokeVoidAsync("dispose");
+                await _editor.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The tab is gone; so is the editor.
+            }
+        }
+
+        _self?.Dispose();
+    }
+}

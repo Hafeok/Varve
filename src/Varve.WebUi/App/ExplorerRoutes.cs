@@ -21,7 +21,7 @@ namespace Varve.WebUi.App;
 internal static partial class ExplorerRoutes
 {
     /// <summary>The lazy set, as the boot manifest names it.</summary>
-    internal static ImmutableArray<string> Assemblies { get; } = ["Varve.WebUi.Explorer.wasm", "Varve.Sparql.wasm"];
+    internal static ImmutableArray<string> Assemblies { get; } = ["Varve.WebUi.Explorer.wasm", "Varve.Sparql.wasm", "Varve.Sparql.Results.wasm"];
 
     /// <summary>Whether a path, relative to the Web UI's base, is one of the explorer's: <c>datasets/{d}/</c> then one of its screens.</summary>
     internal static bool Matches(string path) => Route().IsMatch(path);

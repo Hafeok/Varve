@@ -184,7 +184,7 @@ public class ExplorerPartsTests
     }
 
     [Fact]
-    public void a_running_download_says_so_beside_its_format_and_takes_no_second_choice()
+    public void a_running_download_says_so_beside_its_format_takes_no_second_choice_and_closes_the_menu_when_it_ends()
     {
         using BunitContext context = new();
         DownloadFormat? chosen = null;
@@ -202,6 +202,10 @@ public class ExplorerPartsTests
         Assert.All(menu.FindAll(".vw-menu__item"), item => Assert.Equal("true", item.GetAttribute("aria-disabled")));
         menu.FindAll(".vw-menu__item")[0].Click();
         Assert.Null(chosen);
+
+        menu.Render(p => p.Add(m => m.Busy, false));
+        Assert.Empty(menu.FindAll(".vw-menu__list"));
+        Assert.Equal("false", menu.Find("button").GetAttribute("aria-expanded"));
     }
 
     private static string[] Values(IRenderedComponent<RegimeSelect> select) =>

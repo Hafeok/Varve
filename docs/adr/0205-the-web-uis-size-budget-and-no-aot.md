@@ -127,6 +127,22 @@ own stated budget, with both numbers measured.
    `Varve.Sparql.Results` joins the lazy set when a page streams a query; it
    is trimmed out until then. The ruling is `ExplorerBudgetMeasured`.
 
+4. **With the Query screen** (measured 2026-11-19, the same way), the
+   first screen holds the explorer's reads in `Varve.Protocol.Client`
+   (13.3 kB more, now reachable) and the components the Query screen
+   composes. `Varve.Sparql.Results`, the client's TSV reader, which only
+   the Query screen's streamed answers reach, joins the lazy set, as point
+   3 said it would:
+
+   | Row | After the split | With the Query screen | Budget |
+   |---|---|---|---|
+   | `webui`, the first screen | 1,884.6 kB | **1,907.4 kB** | 1,920.0 kB (unchanged) |
+   | `webui-explorer` | 48.4 kB | **91.1 kB** (`Varve.Sparql` 45.4, `Varve.WebUi.Explorer` 26.3, `Varve.Sparql.Results` 19.4) | 60.0 kB: **31.1 kB over, for the maintainer's ruling** |
+
+   The explorer's 60 kB was set from a lazy set with no page in it. Point
+   3's rule would make it 100 kB. Raising a budget weakens the gate, so it
+   is left at 60 kB, failing, for the maintainer to rule on (#355).
+
 Both failure paths were run, before the split: the set naming
 `Varve.Sparql.Results`, which is not lazy, fails with the difference; a
 40,000-byte budget fails 5.4 kB over. After the split, the first measurement's
