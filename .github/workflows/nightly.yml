@@ -322,6 +322,48 @@ jobs:
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
 
+  # The learning track (ADR 0249 points 6 and 7): every sample published
+  # trimmed on Windows and macOS (ci.yml runs Linux on every pull request),
+  # and built against the newest published Varve packages, as a reader
+  # restores them, with its output compared with the pages.
+  learn:
+    name: learn (${{ matrix.leg }})
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - leg: trimmed, win-x64
+            os: windows-latest
+            run: --trimmed win-x64
+          - leg: trimmed, osx-arm64
+            os: macos-15
+            run: --trimmed osx-arm64
+          - leg: published packages
+            os: ubuntu-latest
+            run: --packages
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Run every sample and compare
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.run }}" = "--packages" ]; then
+            # The newest release descriptor names the newest published version.
+            version=$(ls releases | sed -n 's/^v\(.*\)\.yaml$/\1/p' | sort -V | tail -n 1)
+            echo "Building the samples against Varve $version from nuget.org."
+            dotnet run eng/learn.cs -- --run --packages "$version"
+          else
+            dotnet run eng/learn.cs -- --run ${{ matrix.run }}
+          fi
+
   # The four-hour soak on Linux, every night (ADR 0215 point 6, amended
   # 2026-11-02): a preview checks its latest run here instead of running it.
   # About 245 minutes, inside the soak job's 340 (release-gate.yml).
