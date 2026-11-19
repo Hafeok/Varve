@@ -27,7 +27,7 @@ the model.
 
 ## A sketch
 
-<!-- ci: none — a sketch, not the shipped files: kubernetes-sample validates deploy/kubernetes/ with kubeconform, and deploying it is pull request D of #129 -->
+<!-- ci: none — a sketch, not the shipped files: kubernetes.yml kind deploys deploy/kubernetes/, which is this sketch made whole -->
 ```yaml
 apiVersion: v1
 kind: Service
@@ -95,7 +95,9 @@ reads, and data writes to the datasets other pods write, go on.
 
 [`deploy/kubernetes/`](../../deploy/kubernetes/) is the sketch above made
 whole, with handover (ADRs 0179–0181). CI validates both files with
-kubeconform, strict, against Kubernetes 1.34.
+kubeconform, strict, against Kubernetes 1.34, on every pull request, and
+deploys them in kind every night and on every change to them
+([What CI deploys](#what-ci-deploys-in-kind)).
 
 - **`fleet.yaml`.** Every pod is a member of the system dataset's writer
   set, `Varve:Fleet:Writer: varve-0,varve-1,varve-2`, with
@@ -127,15 +129,59 @@ kubeconform, strict, against Kubernetes 1.34.
 Replace each `{…}`: the image digest, the storage account, the tenant, and
 the client ids of the store's and the operator's identities. Leave `{pod}`
 in `handover.yaml`'s `--address` as it is: the controller fills it in with
-each pod's name at run time.
+each pod's name at run time. Then apply both:
+
+<!-- ci: kubernetes.yml kind — through .github/kind/'s patches, which change only what kind cannot give (below) -->
+```sh
+kubectl apply --filename deploy/kubernetes/fleet.yaml --filename deploy/kubernetes/handover.yaml
+kubectl --namespace varve rollout status statefulset/varve
+kubectl --namespace varve rollout status deployment/varve-handover
+```
 
 Neither file sets `Varve:ObjectStorage:ReaderId`, and the cache is an
 `emptyDir`, so a pod that restarts uncleanly announces a new reader and the
 old record holds extent sets back until `varve storage readers forget`
 removes it (ADR 0160, #303).
 
+## What CI deploys in kind
+
+`kubernetes.yml`'s `kind` job deploys both files every night, and on every
+change to `deploy/kubernetes/`, to a one-node kind cluster. It builds the
+image from the commit and applies the files through the patches in
+`.github/kind/`, which change only what kind cannot give:
+
+- **The store is Azurite**, in the cluster, not Azure Blob Storage. Each pod
+  reaches it through a forwarder on its own loopback address, because the
+  server signs with Azurite's development key only there (ADR 0137).
+- **The fleet is anonymous**, and the controller runs without its sign-in:
+  no identity provider is reachable from the cluster.
+- **Each pod requests a quarter of a CPU and 512 MiB**, so that three fit on
+  one runner.
+
+**What it checks**, through each pod's own address:
+1. The three pods and the controller turn ready. `varve-0` writes the system
+   dataset, and the others follow it.
+2. A dataset declared through `varve-2` is placed on `varve-0`, with
+   `varve-1` and `varve-2` its warm standbys.
+3. A write through `varve-2` is forwarded to `varve-0`, and `varve-1` reads
+   it.
+4. **A hung writer.** `varve-0`'s process is stopped, so it releases nothing.
+   Its readiness fails, and the controller sees the pod turn not ready and
+   takes over: `varve-1` holds the dataset and the system dataset, by the
+   trigger `probe`. A write through `varve-2` then reaches `varve-1`.
+5. **A deleted writer.** `varve-1`'s pod is deleted, releases in its grace,
+   and another member holds the dataset; writes and reads go on.
+
 ## Not run in CI
 
 What on this page no CI job runs, and why (ADR 0248):
 
-- **A sketch.** A sketch, not the shipped files: kubernetes-sample validates deploy/kubernetes/ with kubeconform, and deploying it is pull request D of #129.
+- **A sketch.** It is not the shipped files. `kubernetes.yml` `kind` deploys
+  `deploy/kubernetes/`, which is this sketch made whole.
+- **Workload identity.** kind has none, so neither the store's identity nor
+  the controller's federated token is exercised. Neither is Entra: the fleet
+  in kind is anonymous.
+- **The sample's resource requests**, one CPU and 2 GiB per pod, which one
+  runner cannot fit three times.
+- **A node's loss and a rolling upgrade.** The cluster has one node, and the
+  job deploys one image.

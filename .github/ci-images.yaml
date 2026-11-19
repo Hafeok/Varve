@@ -77,11 +77,12 @@ images:
     upstream: mcr.microsoft.com/azure-storage/azurite:3.37.0
     digest: sha256:830430c1da1a2d537e08f3e6764dd1f5ae00cf0346bcaf625b968ec3f0971fd5
     licence: MIT (https://github.com/Azure/Azurite/blob/main/LICENSE)
-    jobs: [samples (eventhubs), storage (services), fleet (services), handover (services)]
+    jobs: [samples (eventhubs), storage (services), fleet (services), handover (services), kubernetes (kind)]
     why: >-
       the Event Hubs emulator's metadata and checkpoint store (ADR 0146);
       Azure Blob Storage for the object-storage legs (ADR 0134); and the
-      fleet's shared store (ADR 0163)
+      fleet's shared store (ADR 0163), in kind too, where its Node.js also
+      runs each pod's loopback forwarder to it (.github/kind/)
 
   - name: rustfs
     upstream: ghcr.io/rustfs/rustfs:1.0.1
@@ -98,6 +99,20 @@ images:
     why: >-
       validates deploy/kubernetes/'s manifests, strict, against a pinned
       Kubernetes schema version (ADR 0181 point 8)
+
+  - name: kind-node
+    upstream: gcr.io/k8s-staging-kind/node:v1.37.0
+    digest: sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+    licence: Apache-2.0 (https://github.com/kubernetes-sigs/kind/blob/main/LICENSE); Kubernetes is Apache-2.0, and its Debian base carries its packages' own licences
+    jobs: [kubernetes (kind)]
+    why: >-
+      the node of the kind cluster deploy/kubernetes/ is deployed to (#129).
+      This digest is the default node image kind v0.33.0 names
+      (pkg/apis/config/defaults/image.go at v0.33.0), resolved on
+      2026-11-19. kind publishes it as kindest/node on Docker Hub, which no
+      row may name as upstream (ADR 0099, amendment 2026-10-20); it is
+      copied from kind's own staging registry, where the same digest is
+      built
 
   - name: eventhubs-emulator
     upstream: mcr.microsoft.com/azure-messaging/eventhubs-emulator:2.2.1

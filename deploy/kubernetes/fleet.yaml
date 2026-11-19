@@ -2,7 +2,8 @@
 # 0181; docs/operator/kubernetes.md). Three pods, each one instance, all
 # members of the system dataset's writer set; datasets name their placedOn
 # and standbyOn among varve-0, varve-1 and varve-2. Replace each {…}.
-# kubeconform validates this file in CI (ADR 0181 point 8).
+# kubeconform validates this file in CI (ADR 0181 point 8), and
+# .github/workflows/kubernetes.yml deploys it in kind with handover.yaml.
 apiVersion: v1
 kind: Namespace
 metadata:

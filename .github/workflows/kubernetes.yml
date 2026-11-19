@@ -1,0 +1,149 @@
+# deploy/kubernetes/ deployed, in kind, every night and on every change to it
+# (#129). ci.yml's kubernetes sample validates the files on every pull
+# request; this deploys them and runs the fleet.
+#
+# The job builds the server's image from the commit, as ci.yml's container
+# job builds it, and loads it into a one-node kind cluster from this
+# repository's mirror (#118). It applies the sample's two files, fleet.yaml
+# and handover.yaml, through the patches in .github/kind/, which change only
+# what kind cannot give (each patch says what and why): the store is Azurite,
+# not Azure Blob Storage by workload identity; the fleet is anonymous, not
+# signed in through Entra; the controller has no operator sign-in. Then
+# .github/kind/check.sh checks a forwarded write, a read on a standby, a
+# takeover by the controller from a hung writer, and a deleted writer.
+#
+# Not checked here: workload identity, to the store or for the controller's
+# token; Entra; the sample's resource requests, which one runner cannot fit;
+# a multi-node cluster, so a node's loss; a rolling upgrade.
+#
+# Not a required check, and not run on every pull request: a pull request
+# that changes deploy/kubernetes/, .github/kind/ or this file runs it.
+name: Kubernetes
+
+on:
+  schedule:
+    # 03:23 UTC every day: off the hour, and after nightly.yml's start.
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - deploy/kubernetes/**
+      - .github/kind/**
+      - .github/workflows/kubernetes.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - deploy/kubernetes/**
+      - .github/kind/**
+      - .github/workflows/kubernetes.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kubernetes-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+jobs:
+  kind:
+    name: kubernetes (kind)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    # The kind node image and Azurite come from this repository's private
+    # mirror (#118).
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-linux-x64-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-linux-x64-
+
+      - name: Restore, for every RID at once
+        run: dotnet restore src/Varve.Server
+
+      - name: Publish the server
+        # The Native AOT binary, as ci.yml's container job publishes it.
+        run: >
+          dotnet publish src/Varve.Server
+          --configuration Release
+          --runtime linux-x64
+          --no-restore
+          --output ${{ github.workspace }}/artifacts/server-aot
+
+      - name: Build the image
+        # The shipped Dockerfile, without the Web UI's bundle (the fleet patch
+        # turns the Web UI off), tagged for kind and never pushed.
+        run: |
+          mkdir -p "${{ github.workspace }}/artifacts/server-aot/webui"
+          docker build \
+            --file src/Varve.Server/container/Dockerfile \
+            --tag ghcr.io/hafeok/varve:kind \
+            "${{ github.workspace }}/artifacts/server-aot"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create the kind cluster
+        # kind's release binary, which the Action checks against the
+        # release's SHA-256, and the node image kind v0.33.0 names as its
+        # default, from the mirror.
+        uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
+        with:
+          version: v0.33.0
+          kubectl_version: v1.37.1
+          node_image: ghcr.io/hafeok/varve-ci/kind-node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+          cluster_name: varve
+          wait: 120s
+
+      - name: Load the image into the cluster
+        run: kind load docker-image ghcr.io/hafeok/varve:kind --name varve
+
+      - name: Deploy deploy/kubernetes
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/kind/deploy.sh
+
+      - name: Check the fleet
+        env:
+          KIND_NODE: varve-control-plane
+        run: .github/kind/check.sh
+
+      - name: The cluster's state
+        if: failure()
+        run: |
+          kubectl --namespace varve get pods --output wide || true
+          kubectl --namespace varve get events --sort-by=.lastTimestamp || true
+          kubectl --namespace varve describe pods || true
+          for pod in varve-0 varve-1 varve-2; do
+            echo "::group::$pod"
+            kubectl --namespace varve logs "$pod" --container varve --previous 2> /dev/null || true
+            kubectl --namespace varve logs "$pod" --container varve || true
+            echo "::endgroup::"
+          done
+          kubectl --namespace varve logs deployment/varve-handover || true
+          kubectl --namespace varve logs deployment/azurite || true
