@@ -216,9 +216,10 @@ rulesets:
       - context: container (linux-x64)
       - context: container (linux-arm64)
       - context: aspire sample
+      # The learning track (ADR 0249): Linux and the trimmed run. ci.yml's
+      # Windows and macOS legs run on every pull request and become required
+      # after ten consecutive clean runs on main (#364).
       - context: learn (ubuntu-latest)
-      - context: learn (windows-latest)
-      - context: learn (macos-15)
       - context: learn (trimmed)
   bypass_actors: []
 environments:

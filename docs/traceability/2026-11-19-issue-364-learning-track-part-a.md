@@ -170,8 +170,10 @@ The answer to the plan:
   - In ci.yml, `learn` on Linux, Windows and macOS, and `learn (trimmed)`.
   - In the nightly, trimmed runs on Windows and macOS, and the samples built
     against the newest published packages.
-  - The four ci.yml contexts are added to the ruleset's required checks in
-    `.github/repo-standard.yaml`, for the maintainer to review.
+  - `learn (ubuntu-latest)` and `learn (trimmed)` join the ruleset's
+    required checks in `.github/repo-standard.yaml`. The Windows and macOS
+    legs run on every pull request and become required after ten
+    consecutive clean runs on `main` (the maintainer, 2026-11-19).
 - **The samples.**
   - `samples/learn/01-rows-as-resources` and `02-links-and-patterns`, each a
     layer-6 console project that names `Varve.Store`, `Varve.Turtle` and
