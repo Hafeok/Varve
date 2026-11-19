@@ -106,4 +106,12 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Lazy-loaded (ADR 0205, amended 2026-11-19): what only the explorer
+         uses, fetched when one of its routes is first visited. The first
+         screen and this set are two rows of eng/browser-size.json, and the
+         set here is the one that file names. -->
+    <BlazorWebAssemblyLazyLoad Include="Varve.Sparql.wasm" />
+  </ItemGroup>
+
 </Project>

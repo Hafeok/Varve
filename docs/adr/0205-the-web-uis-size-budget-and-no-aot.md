@@ -88,3 +88,40 @@ adding more without anyone deciding to.
   - Layer ownership: `eng/`, outside the layers.
   - Analyzer rule: none. The gate is a script, and its failure path was run
     (a 1.8 MB budget failed; a 2.1 MB one printed the ratchet line).
+
+## Amendment, 2026-11-19 — two rows: the first screen, and the explorer's lazy set
+
+Filed by the session for Web UI part 2 (#355, under #96), unaccepted until
+the maintainer accepts it (ADR 0066). Decided by the maintainer's ruling 5 of
+2026-11-02 and D1 of 2026-11-18: the explorer's assemblies are lazy-loaded,
+the console's first screen keeps this ADR's budget, and the explorer gets its
+own stated budget, with both numbers measured.
+
+1. **Two rows.** `eng/browser-size.cs` reads the boot manifest's
+   `lazyAssembly` entries (in `dotnet.js` in .NET 10) and measures:
+   - **`webui`, the first screen:** every file under `_framework/` but the
+     lazy set. Its budget stays 1,920,000 bytes.
+   - **`webui-explorer`, the lazy set:** the assemblies the manifest marks
+     lazy. Its budget is set by point 3's own rule.
+   The ruling is `TwoRowsFirstScreenAndLazySet`.
+2. **The lazy set is named.** `webui-explorer.assemblies` lists the lazy
+   assemblies, and the gate fails when the manifest's set differs: one lazy
+   that the file does not name, or named and loaded with the first screen.
+   Moving an assembly between the rows is an amendment here. The ruling is
+   `TheLazySetIsNamed`.
+3. **The numbers**, measured on 2026-11-19 from a clean tree at this branch's
+   head, interpreted and trimmed:
+
+   | Row | Measured | Budget |
+   |---|---|---|
+   | `webui`, the first screen | 1,901.6 kB | 1,920.0 kB (unchanged) |
+   | `webui-explorer`: `Varve.Sparql` (the parser, its lexer and the tokenizer) | 45.4 kB | 50.0 kB |
+
+   The first screen grew from 1,861.7 kB on the part 2 plan: the explorer's
+   components, which are in `Varve.WebUi.wasm` (152.6 → 176.7 kB) until
+   ADR 0252's split, and what the lazy parser keeps in eager assemblies.
+   `Varve.Sparql.Results` joins the lazy set when a page streams a query; it
+   is trimmed out until then. The ruling is `ExplorerBudgetMeasured`.
+
+Both failure paths were run: the set naming `Varve.Sparql.Results`, which is
+not lazy, fails with the difference; a 40,000-byte budget fails 5.4 kB over.
