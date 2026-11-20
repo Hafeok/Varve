@@ -1,0 +1,10 @@
+PREFIX rec: <https://w3id.org/rec#>
+PREFIX :    <https://example.org/learn/>
+
+SELECT ?space ?point ?type
+WHERE {
+  :building-hq rec:hasPart+ ?space .
+  ?space (rec:hasPoint | ^rec:locatedIn/rec:hasPoint) ?point .
+  ?point a ?type .
+}
+ORDER BY ?space ?point

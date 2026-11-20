@@ -90,7 +90,6 @@ internal static partial class SiteBuild
         }
 
         WriteText(Path.Combine(output, "index.html"), Layout.Page("index.html", "Varve documentation", Home(map), commit, null, navigation));
-        WriteText(Path.Combine(output, "learning", "index.html"), Layout.Page("learning/index.html", "Learning track", Learning(), commit, null, navigation));
         ApiReference.Write(repository, output, commit, navigation);
 
         await using (Stream css = typeof(SiteBuild).Assembly.GetManifestResourceStream("site.css")!)
@@ -187,10 +186,6 @@ internal static partial class SiteBuild
         html.Append("</dl>\n");
         return html.ToString();
     }
-
-    private static string Learning() =>
-        "<h1>Learning track</h1>\n"
-        + "<p class=\"notice\"><strong>Stub.</strong> This page is a placeholder, marked as one: the learning track, Varve for SQL developers and DDD practitioners, is not written yet. It is milestone <a href=\"" + Layout.Repository + "/issues/94\">#94</a>, and its pages take this place on the site when they land.</p>\n";
 
     /// <summary>The built site's own check: no script anywhere, and every local link reaches a file and its anchor.</summary>
     private static List<string> OutputCheck(string output)

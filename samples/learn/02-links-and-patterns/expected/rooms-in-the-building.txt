@@ -1,0 +1,8 @@
+level    | name
+---------+-----------------
+:level-2 | 2.01 Fjord
+:level-2 | 2.02 Open office
+:level-2 | 2.03 Kitchen
+:level-3 | 3.01 Harbour
+:level-3 | 3.02 Open office
+(5 rows)

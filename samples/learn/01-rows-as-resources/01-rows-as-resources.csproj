@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Chapter 1 of the learning track, rows as resources (#94):
+       docs/learn/01-rows-as-resources.md quotes it and its output. -->
+  <PropertyGroup>
+    <RootNamespace>Varve.Learn</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <VarveReference Include="Varve.Store" />
+    <VarveReference Include="Varve.Turtle" />
+    <VarveReference Include="Varve.Sparql.Store" />
+  </ItemGroup>
+
+</Project>

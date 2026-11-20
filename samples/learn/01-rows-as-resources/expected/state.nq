@@ -1,0 +1,45 @@
+<https://example.org/learn/room-2-01-area> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureArea> .
+<https://example.org/learn/room-2-01-area> <https://w3id.org/rec#netArea> "24.5"^^<http://www.w3.org/2001/XMLSchema#float> .
+<https://example.org/learn/room-2-01-capacity> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureCapacity> .
+<https://example.org/learn/room-2-01-capacity> <https://w3id.org/rec#seatingCapacity> "10"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/learn/room-2-01> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Room> .
+<https://example.org/learn/room-2-01> <http://www.w3.org/2000/01/rdf-schema#label> "2.01 Fjord" .
+<https://example.org/learn/room-2-01> <https://w3id.org/rec#area> <https://example.org/learn/room-2-01-area> .
+<https://example.org/learn/room-2-01> <https://w3id.org/rec#capacity> <https://example.org/learn/room-2-01-capacity> .
+<https://example.org/learn/room-2-02-area> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureArea> .
+<https://example.org/learn/room-2-02-area> <https://w3id.org/rec#netArea> "310.0"^^<http://www.w3.org/2001/XMLSchema#float> .
+<https://example.org/learn/room-2-02-capacity> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureCapacity> .
+<https://example.org/learn/room-2-02-capacity> <https://w3id.org/rec#seatingCapacity> "40"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/learn/room-2-02> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Room> .
+<https://example.org/learn/room-2-02> <http://www.w3.org/2000/01/rdf-schema#label> "2.02 Open office" .
+<https://example.org/learn/room-2-02> <https://w3id.org/rec#area> <https://example.org/learn/room-2-02-area> .
+<https://example.org/learn/room-2-02> <https://w3id.org/rec#capacity> <https://example.org/learn/room-2-02-capacity> .
+<https://example.org/learn/room-2-03-area> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureArea> .
+<https://example.org/learn/room-2-03-area> <https://w3id.org/rec#netArea> "16.0"^^<http://www.w3.org/2001/XMLSchema#float> .
+<https://example.org/learn/room-2-03> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Room> .
+<https://example.org/learn/room-2-03> <http://www.w3.org/2000/01/rdf-schema#label> "2.03 Kitchen" .
+<https://example.org/learn/room-2-03> <https://w3id.org/rec#area> <https://example.org/learn/room-2-03-area> .
+<https://example.org/learn/room-3-01-area> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureArea> .
+<https://example.org/learn/room-3-01-area> <https://w3id.org/rec#netArea> "18.0"^^<http://www.w3.org/2001/XMLSchema#float> .
+<https://example.org/learn/room-3-01-capacity> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureCapacity> .
+<https://example.org/learn/room-3-01-capacity> <https://w3id.org/rec#seatingCapacity> "6"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/learn/room-3-01> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Room> .
+<https://example.org/learn/room-3-01> <http://www.w3.org/2000/01/rdf-schema#label> "3.01 Harbour" .
+<https://example.org/learn/room-3-01> <https://w3id.org/rec#area> <https://example.org/learn/room-3-01-area> .
+<https://example.org/learn/room-3-01> <https://w3id.org/rec#capacity> <https://example.org/learn/room-3-01-capacity> .
+<https://example.org/learn/room-3-02-area> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureArea> .
+<https://example.org/learn/room-3-02-area> <https://w3id.org/rec#netArea> "290.0"^^<http://www.w3.org/2001/XMLSchema#float> .
+<https://example.org/learn/room-3-02-capacity> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureCapacity> .
+<https://example.org/learn/room-3-02-capacity> <https://w3id.org/rec#seatingCapacity> "36"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/learn/room-3-02> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Room> .
+<https://example.org/learn/room-3-02> <http://www.w3.org/2000/01/rdf-schema#label> "3.02 Open office" .
+<https://example.org/learn/room-3-02> <https://w3id.org/rec#area> <https://example.org/learn/room-3-02-area> .
+<https://example.org/learn/room-3-02> <https://w3id.org/rec#capacity> <https://example.org/learn/room-3-02-capacity> .
+<https://example.org/learn/room-3-03-area> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureArea> .
+<https://example.org/learn/room-3-03-area> <https://w3id.org/rec#netArea> "3.0"^^<http://www.w3.org/2001/XMLSchema#float> .
+<https://example.org/learn/room-3-03-capacity> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureCapacity> .
+<https://example.org/learn/room-3-03-capacity> <https://w3id.org/rec#seatingCapacity> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/learn/room-3-03> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Room> .
+<https://example.org/learn/room-3-03> <http://www.w3.org/2000/01/rdf-schema#label> "3.03 Phone booth" .
+<https://example.org/learn/room-3-03> <https://w3id.org/rec#area> <https://example.org/learn/room-3-03-area> .
+<https://example.org/learn/room-3-03> <https://w3id.org/rec#capacity> <https://example.org/learn/room-3-03-capacity> .
