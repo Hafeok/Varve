@@ -145,8 +145,7 @@ and from the catalogue's pages:
 
 ## Amendment, 2026-11-19 — `defect`, a class of its own
 
-Filed by Inference, part 2 (#171), unaccepted until the maintainer accepts
-it (ADR 0066), on the architect's review of #171 on 2026-11-19.
+Filed by Inference, part 2 (#171), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20, on the architect's review of #171 on 2026-11-19.
 
 Ruling 2's classes are `damaged`, `configuration` and `transient`, each
 saying whether a retry helps and what does. A failure whose cause is the

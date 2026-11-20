@@ -9,7 +9,7 @@ a fourth profile, and in this part the only one with an effect. Acceptance is
 the maintainer's act on the pull request. **Amends ADR
 [0166](0166-varve-management-and-the-vocabulary.md)** by a dated amendment.
 
-**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: the `RDFS` and `OWL2RL` profiles take effect; see the end. Filed unaccepted.
+**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: the `RDFS` and `OWL2RL` profiles take effect; see the end. Filed unaccepted, and accepted by the maintainer on 2026-11-20.
 
 ## Context
 
@@ -165,8 +165,7 @@ default.
 
 ## Amendment, 2026-11-06 — the materialising profiles in effect
 
-Filed by Inference, part 2 (#171, under #95), unaccepted until the maintainer
-accepts it (ADR 0066).
+Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20.
 
 Point 1's table changes, for this part:
 - `varve:profile varve:RDFS` and `varve:OWL2RL` are in effect

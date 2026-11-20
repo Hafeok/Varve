@@ -11,7 +11,7 @@ request. Amends, each by a dated amendment:
   header in the `Vary` list;
 - **ADR [0132](0132-cors.md)**: the header joins both CORS lists.
 
-**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: `owl2-rl` is served by the closure; see the end. Filed unaccepted.
+**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: `owl2-rl` is served by the closure; see the end. Filed unaccepted, and accepted by the maintainer on 2026-11-20.
 
 ## Context
 
@@ -136,8 +136,7 @@ request. Amends, each by a dated amendment:
 
 ## Amendment, 2026-11-06 — `owl2-rl` served by the closure
 
-Filed by Inference, part 2 (#171, under #95), unaccepted until the maintainer
-accepts it (ADR 0066).
+Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20.
 
 - **`owl2-rl`** is in effect on graphs an `OWL2RL` binding covers, answered
   by the closure (ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md) point 6). On

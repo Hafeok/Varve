@@ -5,20 +5,34 @@ adr: 0198
 decisions:
   - key: ExplicitAndImplicitViews
     statement: "varve:explicit and varve:implicit in FROM or FROM NAMED read the explicit or implicit part of the graphs they cover, a view counting as a FROM, and combine with simple and owl2-rl only"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
   - key: GraphBindsTheRealGraph
     statement: "Under a view in FROM NAMED, GRAPH ?g binds the real graph's IRI, never the view's"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
   - key: ReservedInferredGraphs
     statement: "A binding's TBox-only conclusions are read as varve:inferred/{binding}/tbox and its cross-graph conclusions as varve:inferred/{binding}/{d}, under ADR 0190's read rule, tagged with the position they were read at"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
   - key: ClosureSourcesHoldTheContract
     statement: "The implicit view, the reserved graphs and the staged vocabulary constants never deny a term they will yield, answering with a staged handle while the closure is behind"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
   - key: InferenceGraphsNotWritable
     statement: "InferenceGraphGuard refuses a quad in varve:explicit, varve:implicit or under varve:inferred/ as graph-not-writable on every write path"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
   - key: ClosureReadOnFirstNeed
     statement: "A read of a view, a reserved graph or owl2-rl reads each binding's rows through the seam when a match first needs them, once, and a match over a graph's implicit part filters them in memory; a membership test is a match"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
   - key: BothViewsBehindTheSeam
     statement: "A read of varve:explicit, varve:implicit or a reserved graph resolves the closure through ADR 0195's seam and answers its refusals in its order, with no check of its own"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
 ---
 
 The rulings of [ADR 0198](../adr/0198-the-views-and-the-reserved-graphs.md), one line each. The ADR is the
-narrative; this is what code cites. Filed unaccepted by Inference, part 2 (#171) (ADR 0066); every
-citation is `CS0618` until the maintainer accepts them.
+narrative; this is what code cites. Filed unaccepted by Inference, part 2 (#171) (ADR 0066), and accepted by the
+maintainer on 2026-11-20, written by his delegate (ADR 0239).

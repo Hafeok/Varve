@@ -196,8 +196,7 @@ soundness).
 
 ## Amendment, 2026-11-19 — no name wider than what is served
 
-Filed by Inference, part 2 (#171, under #95), unaccepted until the
-maintainer accepts it (ADR 0066). The maintainer's ruling of 2026-11-19, on
+Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20. The maintainer's ruling of 2026-11-19, on
 the review's point 7: **a user must never expect one thing and get
 another.** A name or a claim Varve exposes is never wider than what is
 served, and where an answer is narrower than its request suggests, the
