@@ -165,6 +165,7 @@ public sealed class LogShipper
 
                 byte[] bytes = read.Bytes.ToArray();
                 Follow(open, bytes);
+                await BarrierAsync(cancellationToken).ConfigureAwait(false);
                 await CreateAsync(_target.Chunk(segment, chunk), bytes, new LogSlot(ObjectNames.Slot(segment, chunk)), cancellationToken).ConfigureAwait(false);
                 moved = true;
                 continue;
@@ -617,6 +618,9 @@ public sealed class LogShipper
         }
     }
 
+    private ValueTask BarrierAsync(CancellationToken cancellationToken) =>
+        _options.BeforeLogWrite is { } before ? before(cancellationToken) : ValueTask.CompletedTask;
+
     // A consolidated segment of the source, onto the target: its fence chunks,
     // then the segment, then the deletes of the chunks it replaced. Never a
     // delete before the segment is there.
@@ -639,6 +643,9 @@ public sealed class LogShipper
                     }
                 }
             }
+
+            // The segment's bytes are read: what they refer to goes first (decision 13).
+            await BarrierAsync(cancellationToken).ConfigureAwait(false);
 
             // The fence chunks the source kept, which the target does not have yet.
             HashSet<int> have = [.. held.Chunks.Select(chunk => chunk.Chunk)];

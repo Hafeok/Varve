@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Varve.Store.Log;
 
 namespace Varve.Store.ObjectStorage.Model;
@@ -43,6 +45,14 @@ public sealed record ShippingOptions
 
     /// <summary>A directory of this machine in which a consolidated segment is staged on its way; the shipper empties what it puts there.</summary>
     public required CacheDirectory Staging { get; init; }
+
+    /// <summary>
+    /// Runs after the shipper has read log bytes from the source and before
+    /// it creates them on the target (ADR 0184 decision 13). A host ships
+    /// there what those commits refer to, the source fleet's system dataset,
+    /// so that the target never holds a commit ahead of it. None by default.
+    /// </summary>
+    public Func<CancellationToken, ValueTask>? BeforeLogWrite { get; init; }
 
     /// <summary>The host's clock: what a retry of a lost answer waits on (ADR 0136).</summary>
     public required TimeProvider Clock { get; init; }

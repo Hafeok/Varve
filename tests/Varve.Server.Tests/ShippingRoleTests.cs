@@ -178,6 +178,73 @@ public sealed class ShippingRoleTests
     }
 
     /// <summary>
+    /// ADR 0184 decision 13 and ADR 0185 decision 8 (the maintainer's answer
+    /// D3 on #166): the source fleet's system dataset is shipped to
+    /// <c>fleets/{fleet id}/</c> on the target's store, and it is there
+    /// before any chunk of a dataset that refers to it.
+    /// </summary>
+    [Fact]
+    public async Task the_fleets_system_dataset_is_shipped_ahead_of_the_dataset_commits_that_refer_to_it()
+    {
+        await using Scene scene = await Scene.StartAsync(verified: true);
+        string fleets = "fleets/" + scene.Fleet.System.Id.Value.ToString("D") + "/";
+
+        // Every create of a chunk of the dataset on the target: the system dataset's copy must already
+        // hold every chunk the source's system dataset held when the chunk was about to be written.
+        List<string> behind = [];
+        scene.Target.Hook = (operation, name) =>
+        {
+            if (operation == ObjectOperation.Create && name.Value.StartsWith("orders/log/", StringComparison.Ordinal) && name.Value.Contains(".chunks/", StringComparison.Ordinal))
+            {
+                foreach (string source in scene.Source.Names().Where(n => n.StartsWith("_fleet/log/", StringComparison.Ordinal) && n.Contains(".chunks/", StringComparison.Ordinal)))
+                {
+                    if (scene.Target.Get(fleets + source["_fleet/".Length..]) is null)
+                    {
+                        behind.Add(name.Value + " was created before " + source);
+                    }
+                }
+            }
+
+            return null;
+        };
+
+        Dataset dataset = await scene.DeclareAsync();
+        await CommitAsync(dataset, 0, 3);
+        await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == dataset.Head.Value);
+        scene.Target.Hook = null;
+
+        Assert.Empty(behind);
+        Assert.Contains(fleets + "log/MANIFEST", scene.Target.Names());
+        LineageRecord lineage = (await Backend.ReadLineageAsync(scene.Target, new ObjectName(fleets), Ct))!;
+        Assert.True(lineage.IsReplica);
+        Assert.Equal(scene.Fleet.System.Id, lineage.Source!.Dataset);
+
+        // A follower of the copy reads the declarations the source fleet holds.
+        string cache = Directory.CreateTempSubdirectory("varve-shipped-fleet-").FullName;
+
+        try
+        {
+            await using Backend storage = await Backend.OpenAsync(new ObjectStorageOptions
+            {
+                Store = scene.Target,
+                Prefix = new ObjectName(fleets),
+                Cache = new CacheDirectory(cache),
+                Access = ObjectStorageAccess.ReadOnly,
+                Clock = TimeProvider.System,
+                ProbeRandomness = TestRandomness.Instance,
+            }, Ct);
+            await using Dataset copy = await Dataset.OpenFollowerAsync(storage, new DatasetOptions { Clock = TimeProvider.System }, Ct);
+            Assert.Equal(scene.Fleet.System.Head, copy.Head);
+            using DatasetView view = copy.Pin();
+            Assert.True(DeclarationReader.Read(view).Datasets.ContainsKey("orders"));
+        }
+        finally
+        {
+            Directory.Delete(cache, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// Decision 9: a target's provider is one the compatibility page of the
     /// build lists as verified. A declaration that reached the system
     /// dataset by another road is still refused by the shipper, with nothing

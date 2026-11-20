@@ -86,20 +86,21 @@ internal sealed partial class Shipping : IAsyncDisposable
     private readonly OpenDatasets _datasets;
     private readonly ObjectStores? _objects;
     private readonly ReplicationSettings _settings;
-    private readonly Func<DatasetId?> _fleet;
+    private readonly Func<Dataset> _system;
+    private readonly Dictionary<string, FleetCopy> _fleets = new(StringComparer.Ordinal);
     private readonly TimeProvider _clock;
     private readonly ILogger _logger;
     private readonly Lock _lock = new();
     private readonly Dictionary<(string Dataset, string Target), Entry> _entries = [];
     private bool _disposed;
 
-    internal Shipping(Func<Declarations> declarations, OpenDatasets datasets, ObjectStores? objects, ReplicationSettings settings, Func<DatasetId?> fleet, TimeProvider clock, ILogger logger)
+    internal Shipping(Func<Declarations> declarations, OpenDatasets datasets, ObjectStores? objects, ReplicationSettings settings, Func<Dataset> system, TimeProvider clock, ILogger logger)
     {
         _declarations = declarations;
         _datasets = datasets;
         _objects = objects;
         _settings = settings;
-        _fleet = fleet;
+        _system = system;
         _clock = clock;
         _logger = logger;
     }
@@ -201,6 +202,16 @@ internal sealed partial class Shipping : IAsyncDisposable
         {
             await entry.StopAsync().ConfigureAwait(false);
         }
+
+        lock (_lock)
+        {
+            foreach (FleetCopy copy in _fleets.Values)
+            {
+                copy.Dispose();
+            }
+
+            _fleets.Clear();
+        }
     }
 
     /// <summary>
@@ -262,6 +273,100 @@ internal sealed partial class Shipping : IAsyncDisposable
     // The last part of the shipper's reader id (ADR 0184 decision 7): a short digest of the target's store and prefix.
     private static string DigestOf(string target) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(target)).AsSpan(0, 6));
+
+    // The copy of this fleet's system dataset on one target store, shared by every dataset shipped there.
+    private FleetCopy FleetCopyOf(string store)
+    {
+        lock (_lock)
+        {
+            return _fleets.TryGetValue(store, out FleetCopy? copy) ? copy : _fleets[store] = new FleetCopy(this, store);
+        }
+    }
+
+    /// <summary>
+    /// The source fleet's system dataset on one target store (ADR 0185
+    /// decision 8, the maintainer's answer D3 on #166): shipped to
+    /// <c>fleets/{fleet id}/</c> there, ahead of every dataset commit that
+    /// refers to it (ADR 0184 decision 13).
+    /// </summary>
+    /// <remarks>
+    /// A dataset's shipper calls <see cref="ShipAsync"/> after it has read
+    /// log bytes from the source and before it creates them on the target.
+    /// Every commit in those bytes recorded a management position its writer
+    /// had applied, so that position was in the source's store before the
+    /// bytes were read, and a round that starts now ships it. Where this
+    /// instance writes the dataset, its own applied position bounds what its
+    /// commits recorded, so a round is skipped while that has not moved.
+    /// </remarks>
+    private sealed class FleetCopy(Shipping owner, string store) : IDisposable
+    {
+        private readonly SemaphoreSlim _gate = new(1, 1);
+        private LogShipper? _shipper;
+        private long _shipped = -1;
+
+        public void Dispose() => _gate.Dispose();
+
+        // appliedBounds: the commits about to be shipped were written by this instance, so its applied
+        // management position bounds what they recorded.
+        internal async ValueTask ShipAsync(bool appliedBounds, CancellationToken cancellationToken)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                Dataset system = owner._system();
+                long applied = system.Head.Value;
+
+                if (_shipper is not null && appliedBounds && applied == _shipped)
+                {
+                    return;
+                }
+
+                try
+                {
+                    _shipper ??= await LogShipper.StartAsync(Options(), cancellationToken).ConfigureAwait(false);
+
+                    if (_shipper is not null)
+                    {
+                        await _shipper.ShipAsync(cancellationToken).ConfigureAwait(false);
+                        _shipped = applied;
+                    }
+                }
+                catch
+                {
+                    _shipper = null;
+                    throw;
+                }
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        private ShippingOptions Options()
+        {
+            ObjectStores objects = owner._objects!;
+            Dataset system = owner._system();
+            string fleet = system.Id.Value.ToString("D");
+            string digest = DigestOf(store + "/fleets/" + fleet);
+            string staging = objects.StagingOf(Fleet.SystemName, digest);
+            Directory.CreateDirectory(staging);
+
+            return new ShippingOptions
+            {
+                Source = objects.Store,
+                SourcePrefix = ObjectStores.PrefixOf(Fleet.SystemName),
+                Target = objects.OpenTarget(store, owner._settings),
+                TargetPrefix = new ObjectName("fleets/" + fleet + "/"),
+                Lineage = new LineageSource(new StoreAddress(objects.Address), ObjectStores.PrefixOf(Fleet.SystemName), system.Id, system.Id),
+                Reader = new ReaderId((objects.ConfiguredReader ?? objects.Instance.Value) + "-ship-" + digest),
+                Holder = objects.Instance,
+                Staging = new CacheDirectory(staging),
+                Clock = owner._clock,
+            };
+        }
+    }
 
     private sealed class Entry : IAsyncDisposable
     {
@@ -405,6 +510,7 @@ internal sealed partial class Shipping : IAsyncDisposable
             }
 
             ObjectStores objects = _owner._objects!;
+            FleetCopy fleet = _owner.FleetCopyOf(Target.Store!);
             string digest = DigestOf(Key);
             string staging = objects.StagingOf(_dataset, digest);
             Directory.CreateDirectory(staging);
@@ -415,7 +521,8 @@ internal sealed partial class Shipping : IAsyncDisposable
                 SourcePrefix = ObjectStores.PrefixOf(_dataset),
                 Target = objects.OpenTarget(Target.Store!, _owner._settings),
                 TargetPrefix = new ObjectName(Target.Prefix + "/"),
-                Lineage = new LineageSource(new StoreAddress(objects.Address), ObjectStores.PrefixOf(_dataset), Dataset.Id, _owner._fleet()),
+                Lineage = new LineageSource(new StoreAddress(objects.Address), ObjectStores.PrefixOf(_dataset), Dataset.Id, _owner._system().Id),
+                BeforeLogWrite = stopping => fleet.ShipAsync(Writes, stopping),
                 Reader = new ReaderId((objects.ConfiguredReader ?? objects.Instance.Value) + "-ship-" + digest),
                 Holder = objects.Instance,
                 Staging = new CacheDirectory(staging),

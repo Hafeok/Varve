@@ -593,3 +593,5 @@ Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException() ->
 Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException(Varve.Store.ObjectStorage.Model.VerificationRecord? found, Varve.Store.ObjectStorage.Model.VerificationSuite minimum) -> void
 Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException(string! message) -> void
 Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException(string! message, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.BeforeLogWrite.get -> System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
+Varve.Store.ObjectStorage.Model.ShippingOptions.BeforeLogWrite.init -> void

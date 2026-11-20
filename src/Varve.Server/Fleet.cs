@@ -94,7 +94,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
         Classifications = new RowClassifications(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
         Entailment = new EntailmentBindingsOfTheFleet(this);
-        Shipping = new Shipping(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, objects, settings.Replication, () => IsFleetOfOne ? null : _system.Id, clock, logger);
+        Shipping = new Shipping(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, objects, settings.Replication, () => System, clock, logger);
     }
 
     /// <summary>The shippers of the datasets this instance ships (ADR 0184).</summary>
