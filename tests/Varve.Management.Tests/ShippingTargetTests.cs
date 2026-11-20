@@ -90,4 +90,42 @@ public sealed class ShippingTargetTests
 
         Assert.Contains(declarations.Findings, finding => finding.Message.Contains(says, StringComparison.Ordinal));
     }
+
+    private const string Copy = """
+        <https://w3id.org/varve/ns#manage/dataset/orders> {
+          n:orders a varve:Dataset ; varve:datasetName "orders" ; varve:storage varve:ObjectStorage ; varve:copyOf n:primary .
+          n:primary a varve:ShippingSource ; varve:store "https://acct.blob.core.windows.net/primary" ; varve:prefix "orders" .
+        }
+        """;
+
+    /// <summary>ADR 0185 decision 10: a dataset declared a copy of a source, in the fleet that serves the copy.</summary>
+    [Fact]
+    public void A_dataset_reads_what_it_is_a_copy_of()
+    {
+        Declarations declarations = T.Read(Copy);
+
+        Assert.Empty(declarations.Findings);
+        CopySourceDeclaration source = declarations.Datasets["orders"].CopyOf!;
+        Assert.Equal("https://acct.blob.core.windows.net/primary", source.Store);
+        Assert.Equal("orders", source.Prefix);
+        Assert.Null(T.Read(Orders).Datasets["orders"].CopyOf);
+    }
+
+    [Theory]
+    [InlineData("varve:storage varve:ObjectStorage ;", "varve:storage varve:File ;", "only a dataset on varve:ObjectStorage is a copy")]
+    [InlineData("varve:prefix \"orders\" .", ".", "a shipping source states varve:store and varve:prefix")]
+    [InlineData("https://acct.blob.core.windows.net/primary", "https://acct.blob.core.windows.net/primary?sig=abc", "no query and no fragment")]
+    [InlineData("varve:copyOf n:primary .", ".", "at most one source")]
+    [InlineData("n:primary a varve:ShippingSource ;", "n:primary", "at most one source")]
+    [InlineData("varve:copyOf n:primary .", "varve:copyOf n:primary , n:other .", "at most one source")]
+    // A copy is not shipped on: a replica has no writer for a shipper to run on.
+    [InlineData("varve:copyOf n:primary .", "varve:copyOf n:primary ; varve:shipsTo n:t . n:t a varve:ShippingTarget ; varve:store \"s3://r\" ; varve:prefix \"o\" ; varve:provider \"rustfs\" .", "a dataset that is a copy is not shipped on")]
+    public void A_copy_that_is_not_of_one_source_in_an_object_store_is_refused(string from, string to, string says)
+    {
+        Assert.Contains(from, Copy, StringComparison.Ordinal);
+
+        Declarations declarations = T.Read(Copy.Replace(from, to, StringComparison.Ordinal));
+
+        Assert.Contains(declarations.Findings, finding => finding.Message.Contains(says, StringComparison.Ordinal));
+    }
 }

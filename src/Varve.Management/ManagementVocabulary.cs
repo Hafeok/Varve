@@ -79,6 +79,7 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm SubjectTemplate = Term("SubjectTemplate");
     internal static readonly RdfTerm SubjectLink = Term("SubjectLink");
     internal static readonly RdfTerm ShippingTarget = Term("ShippingTarget");
+    internal static readonly RdfTerm ShippingSource = Term("ShippingSource");
 
     // Properties.
     internal static readonly RdfTerm DatasetName = Term("datasetName");
@@ -117,6 +118,7 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm Profile = Term("profile");
     internal static readonly RdfTerm DefaultEntailment = Term("defaultEntailment");
     internal static readonly RdfTerm ShipsTo = Term("shipsTo");
+    internal static readonly RdfTerm CopyOf = Term("copyOf");
     internal static readonly RdfTerm Store = Term("store");
     internal static readonly RdfTerm PrefixProperty = Term("prefix");
     internal static readonly RdfTerm Provider = Term("provider");
@@ -187,7 +189,7 @@ public static class ManagementVocabulary
         "ClassifierBinding", "SubjectTemplate", "SubjectLink", "subject", "subjectPrefix", "subjectTemplate", "subjectClass", "subjectLink",
         "linkPredicate", "linkTarget", "createUnder", "CallerAgent",
         "profile", "defaultEntailment", "Rewriting",
-        "ShippingTarget", "shipsTo", "store", "prefix", "provider", "shippedOn",
+        "ShippingTarget", "shipsTo", "store", "prefix", "provider", "shippedOn", "ShippingSource", "copyOf",
     }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>The terms reserved for later milestones, refused with the reason.</summary>

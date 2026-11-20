@@ -282,6 +282,7 @@ public static class DeclarationReader
             List<BindingDeclaration> bindings = [.. Bindings()];
             List<TBoxBindingDeclaration> tboxBindings = TBoxBindings(out RdfTerm? defaultEntailment);
             List<ShippingTargetDeclaration> shippingTargets = ShippingTargets(node, storage);
+            CopySourceDeclaration? copyOf = CopyOf(node, storage, shippingTargets.Count > 0);
 
             foreach (GrantDeclaration grant in grants)
             {
@@ -306,8 +307,65 @@ public static class DeclarationReader
                 Bindings = bindings,
                 TBoxBindings = tboxBindings,
                 ShippingTargets = shippingTargets,
+                CopyOf = copyOf,
                 DefaultEntailment = defaultEntailment,
             };
+        }
+
+        // varve:copyOf and varve:ShippingSource (ADR 0185 decision 3). The shapes state none of it.
+        private CopySourceDeclaration? CopyOf(RdfTerm dataset, StorageKind storage, bool ships)
+        {
+            List<RdfTerm> linked = Values(dataset, ManagementVocabulary.CopyOf);
+            List<RdfTerm> typed = [.. Typed(ManagementVocabulary.ShippingSource)];
+
+            if (linked.Count == 0 && typed.Count == 0)
+            {
+                return null;
+            }
+
+            if (linked.Count != 1 || typed.Count != 1 || !linked[0].Equals(typed[0]))
+            {
+                Residual(dataset, ManagementVocabulary.CopyOf, "a dataset is a copy of at most one source: varve:copyOf names the one varve:ShippingSource declared in this graph");
+                return null;
+            }
+
+            RdfTerm node = typed[0];
+            bool ok = true;
+
+            if (storage != StorageKind.ObjectStorage)
+            {
+                Residual(dataset, ManagementVocabulary.CopyOf, "only a dataset on varve:ObjectStorage is a copy: a shipper writes to an object store (ADR 0184)");
+                ok = false;
+            }
+
+            if (ships)
+            {
+                Residual(dataset, ManagementVocabulary.CopyOf, "a dataset that is a copy is not shipped on: a replica has no writer for a shipper to run on (ADR 0185)");
+                ok = false;
+            }
+
+            string? store = AtMostOneLiteral(node, ManagementVocabulary.Store, ref ok);
+            string? prefix = AtMostOneLiteral(node, ManagementVocabulary.PrefixProperty, ref ok);
+
+            if (store is null || prefix is null)
+            {
+                Residual(node, ManagementVocabulary.Store, "a shipping source states varve:store and varve:prefix: the store and the prefix the dataset is shipped from");
+                return null;
+            }
+
+            if (!IsStoreAddress(store))
+            {
+                Residual(node, ManagementVocabulary.Store, "varve:store is the address of a container or a bucket: https://… or s3://…, with no query and no fragment");
+                ok = false;
+            }
+
+            if (!IsPrefix(prefix))
+            {
+                Residual(node, ManagementVocabulary.PrefixProperty, "varve:prefix is one or more names of letters, digits, '.', '_' and '-', separated by '/'");
+                ok = false;
+            }
+
+            return ok ? new CopySourceDeclaration(node) { Store = store, Prefix = prefix } : null;
         }
 
         // varve:shipsTo and varve:ShippingTarget (ADR 0184). The shapes state

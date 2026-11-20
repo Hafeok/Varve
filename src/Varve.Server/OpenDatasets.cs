@@ -293,8 +293,41 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             // Not read this round: what was known stands, and an unknown one is found at the claim itself.
         }
 
+        if (entry.Replica == ReplicaState.None && declared.CopyOf is null)
+        {
+            return false;
+        }
+
         if (entry.Replica == ReplicaState.None)
         {
+            // Declared a copy (ADR 0185 decision 3), and the store does not say replica. This fleet never
+            // creates a dataset under such a declaration: only the source's shipper makes a copy.
+            entry.ReplicaRead = false;
+
+            try
+            {
+                if (!await _objects.ExistsAsync(name, cancellationToken).ConfigureAwait(false))
+                {
+                    await WaitForTheCopyAsync(name, entry, "It is declared a copy of the dataset under '" + declared.CopyOf!.Prefix + "' at " + declared.CopyOf.Store
+                        + ", and waits for the first shipping round: the source's shipper writes its lineage record and its log. Nothing is created here (ADR 0185).", DatasetFailure.Transient).ConfigureAwait(false);
+                    return true;
+                }
+
+                if (await _objects.PromotedAtAsync(name, cancellationToken).ConfigureAwait(false) is null)
+                {
+                    await WaitForTheCopyAsync(name, entry, "It is declared a copy, and the store holds a dataset under its name that has no lineage record: that one is no copy, and is not written here. "
+                        + "Remove varve:copyOf if it is this fleet's own dataset, or ship to another prefix (ADR 0185).", DatasetFailure.Configuration).ConfigureAwait(false);
+                    return true;
+                }
+            }
+            catch (Exception error) when (error is System.IO.IOException or System.Net.Http.HttpRequestException or TimeoutException)
+            {
+                await WaitForTheCopyAsync(name, entry, "It is declared a copy, and its store could not be read this round: " + error.Message, DatasetFailure.Transient).ConfigureAwait(false);
+                return true;
+            }
+
+            // A promoted copy whose promotion finished: this fleet's own dataset from here on.
+            entry.ReplicaRead = true;
             return false;
         }
 
@@ -311,6 +344,21 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         }
 
         return true;
+    }
+
+    // A dataset declared a copy that is not there to follow yet: closed, with why. It is no failed open: nothing
+    // is logged as one, and the claim hold-off is not entered.
+    private static async Task WaitForTheCopyAsync(string name, Entry entry, string reason, DatasetFailure failure)
+    {
+        _ = name;
+
+        if (entry.State == DatasetState.Open)
+        {
+            await entry.ReleaseAsync().ConfigureAwait(false);
+        }
+
+        entry.Placed(DatasetRole.Follower);
+        entry.Fail(reason, failure);
     }
 
     // A writer's open that failed is logged at warning once (#251), and at

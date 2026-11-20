@@ -85,6 +85,25 @@ public sealed record ShippingTargetDeclaration(RdfTerm Node)
     public string? ShippedOn { get; init; }
 }
 
+/// <summary>
+/// What a dataset is a copy of, as declared in the fleet that serves the
+/// copy (ADR 0185 decision 3): the source's store and the source dataset's
+/// prefix in it. A dataset declared so is never created by this fleet: it
+/// is written by the source's shipper, and followed here until an operator
+/// promotes it.
+/// </summary>
+/// <param name="Node">The source's node.</param>
+[DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
+[Contract(typeof(PromotionAcrossCopies.ADatasetIsDeclaredACopy), Role = "the source a dataset is declared a copy of")]
+public sealed record CopySourceDeclaration(RdfTerm Node)
+{
+    /// <summary>The source store's address, as the copy's lineage record names it.</summary>
+    public required string Store { get; init; }
+
+    /// <summary>The source dataset's prefix in that store, without a trailing slash.</summary>
+    public required string Prefix { get; init; }
+}
+
 /// <summary>One dataset's declarations (ADR 0163).</summary>
 [DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
 public sealed class DatasetDeclaration
@@ -124,6 +143,9 @@ public sealed class DatasetDeclaration
 
     /// <summary>The dataset's TBox bindings (ADR 0194), whose graph sets do not overlap.</summary>
     public IReadOnlyList<TBoxBindingDeclaration> TBoxBindings { get; init; } = [];
+
+    /// <summary>What the dataset is a copy of (ADR 0185), or none for a dataset that is no copy.</summary>
+    public CopySourceDeclaration? CopyOf { get; init; }
 
     /// <summary>Where the dataset is shipped (ADR 0184). Empty for a dataset that is not.</summary>
     public IReadOnlyList<ShippingTargetDeclaration> ShippingTargets { get; init; } = [];

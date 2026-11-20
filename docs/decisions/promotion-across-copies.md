@@ -12,7 +12,13 @@ decisions:
   - key: PromotionIsAnsweredByAWarmMemberOfTheTargetFleet
     statement: "PUT …/state with promote is answered by the instance that receives it, a member of the writer set following the replica, whatever the hold-off: it marks the lineage promoted, claims in place with trigger promotion one above the highest of the record's epoch, every adopted chunk's and the catalog wrapper's, and fences; where no fleet serves the target, varve promote --embedded does the same and releases with the reason promotion"
   - key: AnIncompletePromotionIsCompletedOnlyByPromoting
-    statement: "A promotion that fails after winning the record releases with promotion, never storage-error, and a promoted lineage with no fenced promotion claim refuses a write-open until the promotion is run again, which is idempotent"
+    statement: "A promotion that fails after winning the record releases with promotion, never storage-error, and a promoted lineage with no fenced promotion claim is promotion-incomplete: it refuses a write-open, and a write sent to it, until the promotion is run again, which is idempotent and keeps the first promotion's lineage"
+  - key: ADatasetIsDeclaredACopy
+    statement: "A dataset's graph may say varve:copyOf a varve:ShippingSource, a store and a prefix; the fleet never creates a dataset under such a declaration, its placed member writes nothing and readiness says it waits for the first shipping round, both sides may be declared in one apply, and a copy is not shipped on"
+  - key: AReplicaIsFollowedAsAStandby
+    statement: "The instance that would write a replica, a member of its writer set or its placed instance, follows it as a standby tailing on the interval, with or without automatic handover; any other instance follows it on demand"
+  - key: ALostPromotionIsEpochMoved
+    statement: "A promotion that finds the lineage or the writer record changed between its read and its write is refused as takeover-refused with the reason epoch-moved, and is not retried"
   - key: TheReturningPrimaryIsRefused
     statement: "The old primary's shipper stops with replica-promoted when it reads the lineage, and with shipping-diverged when it raced the promotion at the fence slot; a promoted copy takes no write from its old source"
   - key: AManagementPositionBelongsToItsFleet

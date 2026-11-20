@@ -158,6 +158,71 @@ the commit, so it is exactly as durable as its commit. If a promotion
 loses an acknowledged commit that had not been shipped, a retry with its
 key commits once on the promoted copy. Promotion promises no more.
 
+**10. A dataset is declared a copy in the fleet that serves it** (the
+maintainer's ruling of 2026-11-20 on #166).
+
+```turtle
+n:orders a varve:Dataset ; varve:datasetName "orders" ;
+    varve:storage varve:ObjectStorage ;
+    varve:copyOf n:primary .
+
+n:primary a varve:ShippingSource ;
+    varve:store "https://acct.blob.core.windows.net/primary" ;
+    varve:prefix "orders" .
+```
+
+- **A fleet never creates a dataset under such a declaration.** Only the
+  source's shipper makes a copy.
+- **Until the first shipping round has written the lineage,** the member
+  placed on it opens nothing and writes nothing. Readiness gives the
+  reason: it waits for the first shipping round.
+- **After it, the member follows,** as decision 3 has it.
+- **Both sides may be declared in one apply.** A fleet may ship a dataset
+  to another prefix of its own store and serve the copy. The order in which
+  the two are declared does not matter, since neither waits on a
+  declaration: the copy waits on the store.
+- **A store that holds a dataset with no lineage under that name** is not a
+  copy, and is not written. Readiness says so, and that a retry cannot
+  help.
+- **A dataset an instance already writes stays its own** when it is then
+  declared a copy. A copy is found before a claim, never under one.
+- **A copy is not shipped on.** `varve:copyOf` and `varve:shipsTo` on one
+  dataset are refused: a replica has no writer for a shipper to run on.
+  After a promotion the operator removes `varve:copyOf` before declaring a
+  target.
+- Without the declaration decision 3 still holds once a lineage is there.
+  The declaration closes the time before it is.
+
+**11. A replica is followed as a standby by the instance that would write
+it,** whether or not the dataset declares automatic handover.
+- It tails on the interval, so its projection is warm when an operator
+  promotes. Decision 4's "following the replica" means this.
+- An instance that would not write the dataset follows it as an ordinary
+  follower, on demand.
+- "Would write it" is: in the writer set where the dataset has one, and
+  the placed instance where it has none.
+
+**12. A promotion that loses to another claim is refused as
+`epoch-moved`.** Decision 4 lists five reasons. A sixth is needed for a
+promotion that finds the lineage or the writer record changed between its
+read and its write: another promotion, or another claim, came first.
+- It is the takeover's reason of the same name, with the same meaning:
+  the request is a no-op, and the dataset's state says who holds it now.
+- Nothing is retried. The operator reads the state and promotes again only
+  if the dataset is still a replica.
+
+**13. A promotion that did not finish has a name:
+`promotion-incomplete`.** It is what decision 6's refused write-open is
+called everywhere it shows:
+- the reason of `409 dataset-is-replica` for a write sent to such a copy;
+- the state a member reads before it claims, and follows on;
+- the state the promoting member is left in when its promotion fails after
+  it won the record.
+
+It is distinct from `replica` because what an operator does differs:
+promote again, with the same source and position. Promoting again keeps
+the first promotion's lineage as it was written.
+
 ## Alternatives considered
 
 - **The command line claims on the target directly,** as the approved plan

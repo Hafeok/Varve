@@ -372,3 +372,21 @@ override Varve.Management.Model.ShippingTargetDeclaration.GetHashCode() -> int
 override Varve.Management.Model.ShippingTargetDeclaration.ToString() -> string!
 static Varve.Management.Model.ShippingTargetDeclaration.operator !=(Varve.Management.Model.ShippingTargetDeclaration? left, Varve.Management.Model.ShippingTargetDeclaration? right) -> bool
 static Varve.Management.Model.ShippingTargetDeclaration.operator ==(Varve.Management.Model.ShippingTargetDeclaration? left, Varve.Management.Model.ShippingTargetDeclaration? right) -> bool
+Varve.Management.Model.CopySourceDeclaration
+Varve.Management.Model.CopySourceDeclaration.<Clone>$() -> Varve.Management.Model.CopySourceDeclaration!
+Varve.Management.Model.CopySourceDeclaration.CopySourceDeclaration(Varve.Rdf.RdfTerm! Node) -> void
+Varve.Management.Model.CopySourceDeclaration.Deconstruct(out Varve.Rdf.RdfTerm! Node) -> void
+Varve.Management.Model.CopySourceDeclaration.Equals(Varve.Management.Model.CopySourceDeclaration? other) -> bool
+Varve.Management.Model.CopySourceDeclaration.Node.get -> Varve.Rdf.RdfTerm!
+Varve.Management.Model.CopySourceDeclaration.Node.init -> void
+Varve.Management.Model.CopySourceDeclaration.Prefix.get -> string!
+Varve.Management.Model.CopySourceDeclaration.Prefix.init -> void
+Varve.Management.Model.CopySourceDeclaration.Store.get -> string!
+Varve.Management.Model.CopySourceDeclaration.Store.init -> void
+Varve.Management.Model.DatasetDeclaration.CopyOf.get -> Varve.Management.Model.CopySourceDeclaration?
+Varve.Management.Model.DatasetDeclaration.CopyOf.init -> void
+override Varve.Management.Model.CopySourceDeclaration.Equals(object? obj) -> bool
+override Varve.Management.Model.CopySourceDeclaration.GetHashCode() -> int
+override Varve.Management.Model.CopySourceDeclaration.ToString() -> string!
+static Varve.Management.Model.CopySourceDeclaration.operator !=(Varve.Management.Model.CopySourceDeclaration? left, Varve.Management.Model.CopySourceDeclaration? right) -> bool
+static Varve.Management.Model.CopySourceDeclaration.operator ==(Varve.Management.Model.CopySourceDeclaration? left, Varve.Management.Model.CopySourceDeclaration? right) -> bool

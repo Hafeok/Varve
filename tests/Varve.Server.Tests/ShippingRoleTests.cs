@@ -335,6 +335,89 @@ public sealed class ShippingRoleTests
     }
 
     /// <summary>
+    /// The maintainer's ruling of 2026-11-20 on #166: a dataset declared a
+    /// copy of a source is never created by the fleet that serves it. Both
+    /// sides are declared in one apply. Until the first shipping round the
+    /// copy's member writes nothing and says what it waits for; after it, it
+    /// follows.
+    /// </summary>
+    [Fact]
+    public async Task a_dataset_declared_a_copy_is_never_created_and_waits_for_the_first_shipping_round()
+    {
+        // The store is not verified yet, so the first round cannot run and the wait can be seen.
+        await using Scene scene = await Scene.StartAsync(verified: false, shipsWithinItsOwnStore: true);
+        DatasetName orders = new("orders");
+        DatasetName copy = new("copy");
+
+        // One apply: the source, shipped to another prefix of the same store, and the copy.
+        await RunningServer.DeclareAsync(scene.Fleet,
+            "@prefix varve: <" + ManagementVocabulary.Namespace + "> .\n"
+            + "<" + ManagementVocabulary.DatasetGraphPrefix + "orders> {\n"
+            + "  <urn:both:orders> a varve:Dataset ; varve:datasetName \"orders\" ; varve:storage varve:ObjectStorage ; varve:placedOn \"a\" ; varve:shipsTo <urn:both:target> .\n"
+            + "  <urn:both:target> a varve:ShippingTarget ; varve:store \"https://fleet.invalid/source\" ; varve:prefix \"copy\" ; varve:provider \"azurite\" .\n"
+            + "}\n"
+            + "<" + ManagementVocabulary.DatasetGraphPrefix + "copy> {\n"
+            + "  <urn:both:copy> a varve:Dataset ; varve:datasetName \"copy\" ; varve:storage varve:ObjectStorage ; varve:placedOn \"a\" ; varve:copyOf <urn:both:source> .\n"
+            + "  <urn:both:source> a varve:ShippingSource ; varve:store \"https://fleet.invalid/source\" ; varve:prefix \"orders\" .\n"
+            + "}\n");
+        Assert.True(scene.Fleet.Datasets.TryResolve(orders, out Dataset? source));
+        await CommitAsync(source, 0, 4);
+        await scene.WaitForAsync(s => s.State == ShippingState.StoreUnverified);
+
+        // The copy is not there, its member created nothing under its prefix, and readiness's reason says what it waits for.
+        for (int round = 0; round < 5; round++)
+        {
+            await scene.Fleet.AdvanceAsync(Ct);
+        }
+
+        Assert.False(scene.Fleet.Datasets.TryResolve(copy, out _));
+        Assert.DoesNotContain(scene.Source.Names(), name => name.StartsWith("copy/", StringComparison.Ordinal));
+        DatasetEntry waiting = scene.Fleet.Datasets.List().Single(entry => entry.Name == copy);
+        Assert.Equal(DatasetState.Failed, waiting.State);
+        Assert.Equal(DatasetFailure.Transient, waiting.Failure);
+        Assert.Contains("waits for the first shipping round", waiting.Reason, StringComparison.Ordinal);
+        Assert.Contains("Nothing is created here", waiting.Reason, StringComparison.Ordinal);
+
+        // The store is verified, the first round runs, and the member follows what the shipper wrote.
+        await scene.VerifyAsync(scene.Source);
+        await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == source.Head.Value);
+        await Scene.UntilAsync(() => scene.Fleet.Datasets.StandbyOf(copy).Warm, "the member does not follow the copy");
+        Assert.True(scene.Fleet.Datasets.TryResolve(copy, out Dataset? replica));
+        Assert.Equal(source.Head, replica.Head);
+        Assert.True((await Backend.ReadLineageAsync(scene.Source, new ObjectName("copy/"), Ct))!.IsReplica);
+        Assert.DoesNotContain("copy/writer", scene.Source.Names());
+    }
+
+    /// <summary>
+    /// A dataset this instance already writes is not taken from it by declaring it a copy: a copy is found before a
+    /// claim, never under one. The same declaration met at a start, with the dataset not open, is refused instead,
+    /// and nothing is written (reported on #166 as an asymmetry for the maintainer).
+    /// </summary>
+    [Fact]
+    public async Task a_dataset_this_instance_already_writes_stays_its_own_when_it_is_declared_a_copy()
+    {
+        await using Scene scene = await Scene.StartAsync(verified: true);
+
+        // An ordinary dataset first, then the same name declared a copy.
+        await RunningServer.DeclareAsync(scene.Fleet, Declared(string.Empty));
+        Assert.True(scene.Fleet.Datasets.TryResolve(new DatasetName("own"), out Dataset? own));
+        await CommitAsync(own, 0, 2);
+        string[] before = [.. scene.Source.Names().Where(name => name.StartsWith("own/log/", StringComparison.Ordinal))];
+
+        await RunningServer.DeclareAsync(scene.Fleet, Declared(" ; varve:copyOf <urn:own:source>") .Replace("}\n", "  <urn:own:source> a varve:ShippingSource ; varve:store \"https://elsewhere.invalid/primary\" ; varve:prefix \"own\" .\n}\n", StringComparison.Ordinal));
+
+        // It was this instance's own dataset, open for write: it stays so. A copy is found before a claim, never under one.
+        Assert.Equal(DatasetRole.Writer, scene.Fleet.Datasets.RoleOf(new DatasetName("own")));
+        Assert.Equal(before, scene.Source.Names().Where(name => name.StartsWith("own/log/", StringComparison.Ordinal)));
+
+        static string Declared(string more) =>
+            "@prefix varve: <" + ManagementVocabulary.Namespace + "> .\n"
+            + "<" + ManagementVocabulary.DatasetGraphPrefix + "own> {\n"
+            + "  <urn:own:d> a varve:Dataset ; varve:datasetName \"own\" ; varve:storage varve:ObjectStorage ; varve:placedOn \"a\"" + more + " .\n"
+            + "}\n";
+    }
+
+    /// <summary>
     /// Decision 9: the compatibility page is a notice and never a refusal.
     /// What refuses a target is the absence of a verification record at its
     /// store. A target of a provider the page does not list as verified is
@@ -408,7 +491,7 @@ public sealed class ShippingRoleTests
 
         public Fleet Fleet { get; private set; } = null!;
 
-        public static async Task<Scene> StartAsync(bool verified)
+        public static async Task<Scene> StartAsync(bool verified, bool shipsWithinItsOwnStore = false)
         {
             Scene scene = new();
 
@@ -427,17 +510,17 @@ public sealed class ShippingRoleTests
             settings.Fleet.FollowInterval = Interval;
             settings.Replication.ShipInterval = Interval;
             ObjectStores objects = ObjectStores.Over(scene.Source, settings.ObjectStorage, TimeProvider.System);
-            objects.TargetsForTests = address => address == TargetAddress ? scene.Target : null;
+            objects.TargetsForTests = address => address == TargetAddress ? scene.Target : shipsWithinItsOwnStore && address == "https://fleet.invalid/source" ? scene.Source : null;
             scene.Fleet = await Fleet.StartAsync(settings, objects, recordBootstrap: false, TimeProvider.System, NullLogger.Instance, new HttpContextAccessor(), Ct);
             scene._loops.Add(scene.Fleet.RunAsync(scene._stopping.Token));
             return scene;
         }
 
         /// <summary>The record a passing run of the suite leaves at the target's root (ADR 0183).</summary>
-        public async Task VerifyAsync()
+        public async Task VerifyAsync(MemoryObjectStore? store = null)
         {
             VerificationOutcome outcome = await ObjectStoreVerification.RunAsync(
-                Target, new VerificationOptions { Rounds = new VerificationRounds(1), Randomness = TestRandomness.Instance, Clock = TimeProvider.System }, Ct);
+                store ?? Target, new VerificationOptions { Rounds = new VerificationRounds(1), Randomness = TestRandomness.Instance, Clock = TimeProvider.System }, Ct);
             Assert.Null(outcome.Counterexample);
         }
 
