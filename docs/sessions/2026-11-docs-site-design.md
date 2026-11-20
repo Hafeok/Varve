@@ -8,7 +8,7 @@ not the maintainer's delegate (ADR 0239). The prompts are in the
 
 | PR | Issue | Closes | Decision |
 |---|---|---|---|
-| [#379](https://github.com/Hafeok/Varve/pull/379) | [#368](https://github.com/Hafeok/Varve/issues/368), under #129 | #368 | ADR 0247 amended 2026-11-19, `SiteStyledFromDesignSource`, filed unaccepted |
+| [#379](https://github.com/Hafeok/Varve/pull/379) | [#368](https://github.com/Hafeok/Varve/issues/368), under #129 | #368 | ADR 0247 amended 2026-11-19, `SiteStyledFromDesignSource`, filed unaccepted and accepted 2026-11-20 |
 
 The pull request was red on `CS0618` for the unaccepted ruling, and on
 nothing else, until the maintainer's delegate accepted
@@ -64,7 +64,11 @@ number is the rules that passed.
 **Tests:** `tests/Varve.Site.Tests` has 67 tests. All 67 pass, both locally
 and in CI's `docs site` job.
 
-**Badges on the branch:** 213 Accepted, 7 Superseded, and 1 "Accepted · 1 pending" (ADR 0247).
+**Badges:** 213 Accepted, 7 Superseded and 1 "Accepted · 1 pending" (ADR 0247)
+while the ruling was unaccepted. After the acceptance and the merge of
+`main`: 215 Accepted (ADR 0248 joined from `main`) and 7 Superseded, none
+pending. That ADR 0247's badge changed with nothing but its ledger is the
+point of reading it from there.
 
 ## What the maintainer changed after the screenshots
 
