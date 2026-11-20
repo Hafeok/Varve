@@ -140,13 +140,7 @@ Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepte
 
 - **`owl2-rl`** is in effect on graphs an `OWL2RL` binding covers, answered
   by the closure (ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md) point 6). On
-  any other graph the query names it is `entailment-unsupported`. The regime
-  is `ent:OWL-RDF-Based`, as the table above has it; the profile a graph is
-  described with is what its binding applies:
-  `varve:OWL2RLWithoutEquality` under `varve:SameAsOff`, the only setting in
-  this part, and `pr:RL` only where the equality rules are in effect (ADR
-  0197 points 4 and 6). The table's `pr:RL` is the profile the token asks
-  for, not one this part claims to serve.
+  any other graph it is `entailment-unsupported`.
 - **The view IRIs** combine with `simple` and `owl2-rl` only; with any other
   regime they are `entailment-unsupported`
   (ADR [0198](0198-the-views-and-the-reserved-graphs.md) point 1).
