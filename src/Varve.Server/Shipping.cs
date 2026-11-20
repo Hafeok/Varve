@@ -203,6 +203,58 @@ internal sealed partial class Shipping : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Readiness's <c>shipping</c> member of a dataset (ADR 0184 decision 11):
+    /// each target by name, with its state, the source position its log holds
+    /// at least and the lag behind <paramref name="head"/>, the position of
+    /// its catalog beside them, and what the last failure said. Nothing is
+    /// written for a dataset this instance ships nowhere.
+    /// </summary>
+    internal static void Write(System.Text.Json.Utf8JsonWriter json, IReadOnlyList<ShippingStatus> targets, long? head)
+    {
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        json.WriteStartObject("shipping");
+
+        foreach (ShippingStatus target in targets)
+        {
+            json.WriteStartObject(target.Target);
+            json.WriteString("state", target.State);
+
+            if (target.ShippedThrough is { } through)
+            {
+                json.WriteNumber("shippedThrough", through);
+
+                if (head is { } at)
+                {
+                    json.WriteNumber("lag", Math.Max(0, at - through));
+                }
+            }
+
+            if (target.CatalogPosition is { } catalog)
+            {
+                json.WriteNumber("catalogPosition", catalog);
+            }
+
+            if (target.Failures > 0)
+            {
+                json.WriteNumber("failures", target.Failures);
+            }
+
+            if (target.Detail is { } detail)
+            {
+                json.WriteString("detail", detail);
+            }
+
+            json.WriteEndObject();
+        }
+
+        json.WriteEndObject();
+    }
+
     /// <summary>A target as readiness and the logs name it: its store and prefix, or its directory. An address carries no credential (ADR 0037).</summary>
     internal static string NameOf(ShippingTargetDeclaration target) =>
         target.Directory ?? target.Store!.TrimEnd('/') + "/" + target.Prefix;

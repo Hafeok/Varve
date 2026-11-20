@@ -144,6 +144,39 @@ public sealed class ShippingRoleTests
         await CommitAsync(dataset, 2, 4);
     }
 
+    /// <summary>Readiness's <c>shipping</c> member (decision 11): the tail and the catalog's position side by side, and a failure's reason.</summary>
+    [Fact]
+    public void readiness_reports_each_target_with_its_tail_its_catalog_position_and_its_failure()
+    {
+        using MemoryStream stream = new();
+
+        using (System.Text.Json.Utf8JsonWriter json = new(stream))
+        {
+            json.WriteStartObject();
+            Shipping.Write(json,
+            [
+                new ShippingStatus("https://a.invalid/copies/orders", ShippingState.Shipping, 40, 32, 0, null),
+                new ShippingStatus("s3://replicas/orders", ShippingState.StoreUnverified, null, null, 3, "Run 'varve storage verify'."),
+            ], 42);
+            json.WriteEndObject();
+        }
+
+        Assert.Equal(
+            """{"shipping":{"https://a.invalid/copies/orders":{"state":"shipping","shippedThrough":40,"lag":2,"catalogPosition":32},"s3://replicas/orders":{"state":"store-unverified","failures":3,"detail":"Run \u0027varve storage verify\u0027."}}}""",
+            Encoding.UTF8.GetString(stream.ToArray()));
+
+        using MemoryStream none = new();
+
+        using (System.Text.Json.Utf8JsonWriter json = new(none))
+        {
+            json.WriteStartObject();
+            Shipping.Write(json, [], 42);
+            json.WriteEndObject();
+        }
+
+        Assert.Equal("{}", Encoding.UTF8.GetString(none.ToArray()));
+    }
+
     private static int Requests(MemoryObjectStore store) =>
         store.Count(ObjectOperation.Create) + store.Count(ObjectOperation.Replace) + store.Count(ObjectOperation.Delete) + store.Count(ObjectOperation.Read) + store.Count(ObjectOperation.List);
 
