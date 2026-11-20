@@ -22,6 +22,7 @@ and 0194 (the binding's vocabulary). The rewriting is `Varve.Sparql.Entailment`.
 A binding is a node in the dataset's management graph,
 `varve:manage/dataset/{name}`, beside the dataset's own declaration:
 
+<!-- ci: ci.yml build — TBoxBindingTests and EntailmentTests -->
 ```trig
 @prefix varve: <https://w3id.org/varve/ns#> .
 
@@ -77,6 +78,7 @@ it, not before) and **narrows**. The saved plan's JSON carries the list as
 `datasetPublic`, written only when the apply names one: a plan without is
 format 1 as earlier releases wrote it.
 
+<!-- ci: ci.yml build — TBoxBindingTests asserts this text -->
 ```text
 System position 41
 Dataset-public graphs, read by every reader of their dataset:
@@ -115,7 +117,9 @@ The value may also be the regime's IRI in angle brackets,
 From the command line, `varve query <url> --entailment rdfs`; from
 `Varve.Protocol.Client`, `QueryAsync(query, accept, asOf, "rdfs", …)`. A
 local `varve query` over a dataset directory answers under simple entailment
-only, since the bindings are a server's declarations.
+only, since the bindings are a server's declarations: asked for `rdf`, `rdfs`
+or `d` there, it refuses with exit code 1 and says to name the dataset by
+URL.
 
 ## What a query sees
 

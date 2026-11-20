@@ -10,8 +10,10 @@
 A commit to the fleet's system dataset would leave a management graph it
 touches with a finding of the code validator (ADR 0166 point 4): a term the
 vocabulary does not know, a value of the wrong kind, a blank node, a term
-reserved for a later milestone, or an event-schema term, which management
-graphs hold only from part 2 on (ADR 0167). `findings` lists each, with its
+reserved for a later milestone, or an event-schema term in a graph whose
+dataset's event declarations have not moved: a dataset's graph holds them
+only once it says `varve:eventDeclarations varve:Moved`, which
+`POST /manage/datasets/{name}/events/move` makes it say (ADR 0167). `findings` lists each, with its
 `graph`, its `focus` node and `path` when it has them, and a `message`.
 Nothing was committed.
 
