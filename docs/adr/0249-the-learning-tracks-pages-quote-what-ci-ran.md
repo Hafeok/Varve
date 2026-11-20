@@ -4,8 +4,9 @@
 
 **Accepted — filed unaccepted by #364, 2026-11-19** (ADR 0066), under the
 learning track, #94. It records the plan the maintainer accepted on #94 on
-2026-11-19, answers 1 to 5 included. Numbered 0249, because 0248 is taken by
-#345, whose marker grammar this ADR extends; it lands after #345.
+2026-11-19, answers 1 to 5 included. Numbered 0249, after
+[0248](0248-every-procedure-names-what-runs-it.md), whose marker grammar this
+ADR extends.
 
 Records decision set
 [`the-learning-tracks-pages-quote-what-ci-ran`](../decisions/the-learning-tracks-pages-quote-what-ci-ran.md).
@@ -31,7 +32,7 @@ waiting to happen: the first change to the evaluator's ordering, a sample or
 the data leaves the page showing what nobody ran. The same holds for a term
 used early, and for a "not yet" left on a page after the feature ships.
 
-ADR 0248 (#345) gives the operator guide a marker on the line before every
+[ADR 0248](0248-every-procedure-names-what-runs-it.md) gives the operator guide a marker on the line before every
 fenced block, naming the job that runs it, `none` with a reason, or
 `example`, and a gate, `eng/procedures.cs`, that checks the markers name
 real jobs. It doesn't check that a block equals what the job produced,
