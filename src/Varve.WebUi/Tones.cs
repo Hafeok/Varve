@@ -105,6 +105,7 @@ public static class Tones
         ["load-spill-damaged"] = Tone.Critical,
         ["takeover-refused"] = Tone.Critical,
         ["store-unverified"] = Tone.Critical,
+        ["dataset-is-replica"] = Tone.Critical,
         ["writer-stepped-down"] = Tone.Critical,
 
         // Inference part 1 and milestone 9 part 1. A classification behind is

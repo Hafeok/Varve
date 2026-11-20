@@ -277,6 +277,9 @@ public sealed class ShippingRoleTests
         Assert.True(target.Datasets.TryResolve(orders, out Dataset? replica));
         Assert.Equal(source.Head, replica.Head);
 
+        // A write has no writer to go to, and the route says why: a retry cannot help.
+        Assert.Equal(WriterRouteKind.Replica, (await target.RouteAsync(new WriterTarget(orders), Ct)).Kind);
+
         // D3: the source fleet grants alice the dataset. Its system dataset is on the target's store, and grants nothing there.
         Caller alice = new("https://login.example/v2.0#alice", "alice", new Dictionary<string, IReadOnlyList<string>>(), "roles");
         Assert.True(scene.Fleet.Table.Reaches(alice, "orders"));
@@ -299,6 +302,8 @@ public sealed class ShippingRoleTests
         Assert.False(lineage.IsReplica);
         Assert.Equal("t", lineage.Promoted!.By.Value);
         Assert.Equal(promoted.Epoch.Value, lineage.Promoted.Epoch.Value);
+
+        Assert.Equal(WriterRouteKind.Local, (await target.RouteAsync(new WriterTarget(orders), Ct)).Kind);
 
         // It writes on, at once, on the same open dataset.
         await CommitAsync(replica, 5, 7);

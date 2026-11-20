@@ -105,6 +105,15 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     }
 
     /// <summary>This instance's role in a dataset; none when it does not know the dataset.</summary>
+    /// <summary>What the dataset's lineage said when this instance last read it (ADR 0185): a replica takes no write.</summary>
+    internal ReplicaState ReplicaOf(DatasetName name)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(name.Value, out Entry? entry) ? entry.Replica : ReplicaState.None;
+        }
+    }
+
     internal DatasetRole? RoleOf(DatasetName name)
     {
         lock (_gate)

@@ -989,6 +989,15 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
                 return WriterRoute.Local;
             }
 
+            // A replica has no writer to route to (ADR 0185 decision 3). Never kept: a promotion ends it.
+            switch (Datasets.ReplicaOf(dataset))
+            {
+                case ReplicaState.Replica:
+                    return new WriterRoute(WriterRouteKind.Replica, null, 0);
+                case ReplicaState.PromotionIncomplete:
+                    return new WriterRoute(WriterRouteKind.PromotionIncomplete, null, 0);
+            }
+
             name = dataset.Value;
         }
         else

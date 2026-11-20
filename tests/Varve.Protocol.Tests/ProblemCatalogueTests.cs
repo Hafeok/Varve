@@ -76,7 +76,7 @@ public class ProblemCatalogueTests
     ];
 
     /// <summary>The types the management plane's endpoints emit, triggered by <see cref="every_problem_the_management_endpoints_emit_has_its_catalogued_shape"/>.</summary>
-    private static readonly ImmutableArray<ProblemType> ManagementTriggered = [ProblemType.DeclarationInvalid, ProblemType.DatasetOpen, ProblemType.WriterMoved, ProblemType.StoreUnverified];
+    private static readonly ImmutableArray<ProblemType> ManagementTriggered = [ProblemType.DeclarationInvalid, ProblemType.DatasetOpen, ProblemType.WriterMoved, ProblemType.StoreUnverified, ProblemType.DatasetIsReplica];
 
     [Fact]
     public void every_problem_type_is_catalogued_with_a_page_stating_the_same_shape_and_what_to_do()
@@ -301,6 +301,7 @@ public class ProblemCatalogueTests
         Dataset moved = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
         ProtocolTestHost.Datasets datasets = new();
         datasets.Add("moved", moved);
+        datasets.Add("copy", moved);
         TestPlane plane = new(system);
         const string Declared = "<urn:y> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"y\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#Memory> .";
 
@@ -321,6 +322,7 @@ public class ProblemCatalogueTests
             {
                 [ProblemType.DeclarationInvalid] = () => Put("manage/datasets/x", "<urn:x> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"x\" ; <https://w3id.org/varve/ns#erasureMode> \"y\" .", "application/trig"),
                 [ProblemType.DatasetOpen] = () => new HttpRequestMessage(HttpMethod.Delete, new Uri("manage/datasets/y", UriKind.Relative)),
+                [ProblemType.DatasetIsReplica] = () => P.Update("datasets/copy/sparql", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"),
                 [ProblemType.StoreUnverified] = () => Put(
                     "manage/datasets/z",
                     "<urn:z> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"z\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#ObjectStorage> ; <https://w3id.org/varve/ns#shipsTo> <urn:z:replica> . "
@@ -505,7 +507,12 @@ public class ProblemCatalogueTests
         public WriterName Instance { get; } = new("this-one");
 
         public ValueTask<WriterRoute> RouteAsync(WriterTarget target, CancellationToken cancellationToken) =>
-            ValueTask.FromResult(target.Dataset is { Value: "moved" } ? new WriterRoute(WriterRouteKind.Remote, "http://127.0.0.1:9/", 7) : WriterRoute.Local);
+            ValueTask.FromResult(target.Dataset switch
+            {
+                { Value: "moved" } => new WriterRoute(WriterRouteKind.Remote, "http://127.0.0.1:9/", 7),
+                { Value: "copy" } => new WriterRoute(WriterRouteKind.Replica, null, 0),
+                _ => WriterRoute.Local,
+            });
 
         public void Stale(WriterTarget target)
         {

@@ -612,3 +612,6 @@ static Varve.Protocol.Model.PromotionAsk.operator !=(Varve.Protocol.Model.Promot
 static Varve.Protocol.Model.PromotionAsk.operator ==(Varve.Protocol.Model.PromotionAsk? left, Varve.Protocol.Model.PromotionAsk? right) -> bool
 ~override Varve.Protocol.Model.PromotionAnswer.Equals(object obj) -> bool
 ~override Varve.Protocol.Model.PromotionAnswer.ToString() -> string
+Varve.Protocol.Model.WriterRouteKind.PromotionIncomplete = 4 -> Varve.Protocol.Model.WriterRouteKind
+Varve.Protocol.Model.WriterRouteKind.Replica = 3 -> Varve.Protocol.Model.WriterRouteKind
+static Varve.Protocol.Model.ProblemType.DatasetIsReplica.get -> Varve.Protocol.Model.ProblemType

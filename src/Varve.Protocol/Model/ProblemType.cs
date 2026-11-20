@@ -160,6 +160,9 @@ public readonly record struct ProblemType
     /// <summary><c>409</c>: a declared shipping target names a provider the compatibility page compiled into this build does not list as verified (ADR 0184 decision 9).</summary>
     public static ProblemType StoreUnverified { get; } = new("store-unverified");
 
+    /// <summary><c>409</c>: a write to a dataset that is a replica, written by log shipping alone until an operator promotes it (ADR 0185 decision 3).</summary>
+    public static ProblemType DatasetIsReplica { get; } = new("dataset-is-replica");
+
     /// <summary><c>409</c>: a takeover request this instance refuses, with the reason and the writer epoch now (ADR 0179 point 6).</summary>
     public static ProblemType TakeoverRefused { get; } = new("takeover-refused");
 
