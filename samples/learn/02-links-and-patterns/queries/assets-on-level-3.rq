@@ -1,0 +1,11 @@
+PREFIX rec:  <https://w3id.org/rec#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX :     <https://example.org/learn/>
+
+SELECT ?asset ?name ?room
+WHERE {
+  :level-3 rec:hasPart+ ?room .
+  ?asset rec:locatedIn ?room ;
+         rdfs:label ?name .
+}
+ORDER BY ?name

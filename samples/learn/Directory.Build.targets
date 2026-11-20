@@ -22,6 +22,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Shared/*.cs" LinkBase="Shared" />
     <None Include="$(MSBuildThisFileDirectory)data/*.trig" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="queries/*.rq;queries/*.ru" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(VarveFrom)' == 'project'">

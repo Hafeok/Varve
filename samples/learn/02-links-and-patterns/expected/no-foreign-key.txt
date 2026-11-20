@@ -1,1 +1,4 @@
-Committed at position 1
+asset       | room       | roomIsDescribed
+------------+------------+----------------
+:asset-lost | :room-9-99 | false
+(1 row)

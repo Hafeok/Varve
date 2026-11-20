@@ -15,6 +15,3 @@ from chapter 1 without a row.
 |---:|---|
 | 1 | `rec:Room`, `rec:area`, `rec:ArchitectureArea`, `rec:netArea`, `rec:capacity`, `rec:ArchitectureCapacity`, `rec:seatingCapacity` |
 | 2 | `rec:Site`, `rec:Building`, `rec:Level`, `rec:levelNumber`, `rec:hasPart`, `rec:isPartOf`, `rec:Asset`, `rec:locatedIn`, `rec:isLocationOf`, `rec:hasPoint`, `brick:Temperature_Sensor`, `brick:CO2_Sensor` |
-
-
-

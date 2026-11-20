@@ -202,3 +202,27 @@ The answer to the plan:
 - **The ADR.** 0249, filed unaccepted, with its decision set. It extends
   0248 (#345), and the pull request opens once #345 is on `main`.
 - **Nothing in `src/` changed.**
+
+## After the pull request opened (2026-11-20)
+
+- **CI fixes.**
+  - `learn (trimmed)`: a global `-r` broke CI's locked restore of `src/`
+    (NU1004), so a trimmed sample's runtime is now set in its props from
+    `VarveTrimFor`.
+  - `docs site`: Mermaid's stadium shape draws differently on each build,
+    so chapter 1's diagram uses rectangles. The cause is filed as #386.
+- **The track teaches RDF and SPARQL, not Varve specifics.** The session's
+  user, reading chapters 1 and 2, said:
+
+  > The chatpers are written with Varve in mind but we are actually
+  > teaching SPARQL and RDF and not Varve specifics
+
+  Asked which way to go, the user chose "Generic RDF/SPARQL first".
+  - Each chapter's queries now live in `.rq` and `.ru` files that the
+    sample runs and the page quotes, so the pages show plain SPARQL, not
+    C#.
+  - The prose says "RDF" and "an RDF store" where it said "Varve".
+  - The Varve wiring (the dataset, the loader, commits and their
+    positions, the packages) moved into one section, "In Varve", at the
+    end of each chapter.
+  - The chapter list is unchanged.

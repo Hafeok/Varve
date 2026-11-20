@@ -1,4 +1,3 @@
-Committed at position 1
 seats | tenOrMore
 ------+----------
 ten   |

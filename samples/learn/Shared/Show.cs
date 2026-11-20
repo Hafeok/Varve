@@ -42,11 +42,14 @@ internal static class Show
         Console.WriteLine("== " + name + " ==");
     }
 
-    /// <summary>Evaluates <paramref name="sparql"/> over <paramref name="source"/> and prints its solutions as a table.</summary>
-    internal static void Query(IQuadSource source, string sparql)
+    /// <summary>The text of the sample's query or update file <paramref name="name"/>, under <c>queries/</c>.</summary>
+    internal static string File(string name) => System.IO.File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "queries", name));
+
+    /// <summary>Evaluates the query in the sample's file <paramref name="name"/> over <paramref name="source"/> and prints its solutions as a table.</summary>
+    internal static void Query(IQuadSource source, string name)
     {
         SparqlEvaluator evaluator = new(new EvaluationOptions { Clock = TimeProvider.System });
-        using QueryResults results = evaluator.Evaluate(SparqlParser.ParseQuery(sparql), source, CancellationToken.None);
+        using QueryResults results = evaluator.Evaluate(SparqlParser.ParseQuery(File(name)), source, CancellationToken.None);
         SolutionResults solutions = (SolutionResults)results;
         List<string> header = [.. solutions.Variables.Select(v => v.Name)];
         List<string[]> rows = [];
@@ -78,7 +81,7 @@ internal static class Show
         Console.WriteLine("(" + rows.Count.ToString(CultureInfo.InvariantCulture) + (rows.Count == 1 ? " row)" : " rows)"));
     }
 
-    /// <summary>A term as the track writes it: an IRI by its prefixed name, a literal by its value, its datatype when it is not a plain string.</summary>
+    /// <summary>A term as the track writes it: an IRI by its prefixed name, a literal by its value, its datatype unless it is a string, an integer or a boolean.</summary>
     internal static string Text(RdfTerm term)
     {
         string lexical = Encoding.UTF8.GetString(term.Lexical);
@@ -86,7 +89,7 @@ internal static class Show
         {
             RdfTermKind.Iri => Name(lexical),
             RdfTermKind.Literal when term.Datatype is { } datatype
-                && Encoding.UTF8.GetString(datatype.Lexical) is not ("http://www.w3.org/2001/XMLSchema#string" or "http://www.w3.org/2001/XMLSchema#integer")
+                && Encoding.UTF8.GetString(datatype.Lexical) is not ("http://www.w3.org/2001/XMLSchema#string" or "http://www.w3.org/2001/XMLSchema#integer" or "http://www.w3.org/2001/XMLSchema#boolean")
                 => lexical + "^^" + Name(Encoding.UTF8.GetString(datatype.Lexical)),
             RdfTermKind.Literal => lexical,
             _ => "_:" + lexical,
@@ -108,7 +111,7 @@ internal static class Show
 
         using DatasetView head = dataset.Pin();
         CanonicalDataset canonical = RdfCanonicaliser.Canonicalise(head);
-        File.WriteAllBytes(args[at + 1], canonical.NQuads.ToArray());
+        System.IO.File.WriteAllBytes(args[at + 1], canonical.NQuads.ToArray());
     }
 
     private static string Name(string iri)

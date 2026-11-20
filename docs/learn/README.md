@@ -1,10 +1,18 @@
-# Learning track: Varve for SQL developers
+# Learning track: RDF and SPARQL for SQL developers, with Varve
 
-This track is for someone who knows SQL well and RDF not at all. SPARQL's
-syntax is the easy part. What trips people up are modelling habits that
-are right in a relational database and wrong in a graph. Each chapter
+This track is for someone who knows SQL well and RDF not at all. It
+teaches RDF and SPARQL, the W3C standards, and Varve where it runs them.
+SPARQL's syntax is the easy part. What trips people up are modelling habits
+that are right in a relational database and wrong in a graph. Each chapter
 takes one habit and one question, shows the SQL you would write, and sets
-Varve's way beside it on the same question.
+the RDF way beside it on the same question.
+
+Each chapter keeps the two apart. The data and the queries are standard
+RDF and SPARQL, and hold in any RDF store. A section headed "In Varve" at
+the end of each chapter shows how the sample runs them in Varve, and what
+Varve adds. The chapters on commits, history, change feeds, row-level
+access and the server are about what Varve does beyond the standards, and
+say so.
 
 Every chapter works on the same data, a property portfolio described in
 [RealEstateCore](https://w3id.org/rec) (REC), a published vocabulary for

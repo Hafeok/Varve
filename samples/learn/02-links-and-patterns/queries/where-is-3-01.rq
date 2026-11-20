@@ -1,0 +1,9 @@
+PREFIX rec: <https://w3id.org/rec#>
+PREFIX :    <https://example.org/learn/>
+
+SELECT ?container ?type
+WHERE {
+  :room-3-01 ^rec:hasPart+ ?container .
+  ?container a ?type .
+}
+ORDER BY ?container

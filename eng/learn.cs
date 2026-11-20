@@ -708,7 +708,7 @@ static void WritePages(string root)
             result.Add(line);
         }
 
-        File.WriteAllText(page, string.Join('\n', result) + "\n");
+        File.WriteAllText(page, string.Join('\n', result).TrimEnd('\n') + "\n");
     }
 }
 
