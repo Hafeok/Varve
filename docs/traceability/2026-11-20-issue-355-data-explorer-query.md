@@ -375,6 +375,30 @@ Open PR (a) now.
 Close-out: the traceability record and the descriptor. Drop the CS0618 workaround once the ADRs are accepted on the repo, and not before.
 ````
 
+### The numbers, the merge and the digests (2026-11-20)
+
+````text
+For the data explorer session (#387).
+
+1. Numbers: option 1. The tokenizer becomes ADR 0253 and the explorer's
+   reads ADR 0254; 0250–0252 stay. Before renumbering, check `main` and
+   every open pull request again, and say so if 0253 or 0254 has been
+   taken since.
+2. Merge `main`, then renumber: files, decision sets, citations, the
+   README rows and the description. Add one line on the pull request
+   saying which ADR had which number before, since the plan and the
+   issue comments still use the old ones.
+3. `a-public-sparql-tokenizer` stays unaccepted. Nothing accepted for
+   #129's ADR 0248 carries over to it.
+4. The descriptor's digests: take them from this pull request's hosted
+   SBOM job, on the run for the head that has everything except the
+   digests. Say on the pull request which run they came from. The next
+   run must pass the descriptor check with no further change; if `main`
+   moves, repeat. Never edit a descriptor that `main` holds.
+5. Report the head as the full 40-character hash with the hosted result,
+   and the #382 comparison when the head runs are done.
+````
+
 ## The report
 
 What was decided, measured and found is the pull request's body, and each step

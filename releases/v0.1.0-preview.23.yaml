@@ -1,0 +1,72 @@
+format: 2
+version: v0.1.0-preview.23
+title: Web UI, part 2 (a) — the data explorer's Query screen
+date: 2026-11-20
+basis:
+  - issue: 355
+  - storage-format: 1
+  - delta-format: 1
+  - adr: "0248"
+  - adr: "0250"
+  - adr: "0251"
+  - adr: "0252"
+  - adr: "0253"
+  - adr: "0254"
+sbom:
+summary: |
+  ### Web UI, part 2 (a) — the data explorer's Query screen (#355, part 2 of #96)
+
+  The Web UI gains its data explorer, lazy-loaded on its first route, and
+  its first screen, Query. The console is unchanged, and its first screen
+  stays within the 1,920,000-byte budget. The storage and delta formats are
+  unchanged. #96 stays open for the explorer's other screens.
+
+  #### Added
+
+  - **The Query screen** (`datasets/{name}/query`).
+    - **The editor** (ADR 0250): a textarea over a layer coloured by the
+      parser's own lexer. It shows the parser's first error in the server's
+      words before anything is sent.
+    - **The choices:** the regime, from those the service description lists;
+      and where to read, at the head, a position or a time. A position too
+      far below the head is refused before sending.
+    - **A SELECT** is read ahead to 5,000 rows, closed, and shown 500 at a
+      time. A cancel, a cut and the ceiling each say so. ASK, CONSTRUCT and
+      DESCRIBE each have their own view.
+    - **A download** in any format the server writes is a fresh read at the
+      view's position, never held whole in the browser.
+    - **History:** the tab's last 20 queries, cleared at sign-out.
+  - **A public SPARQL tokenizer** (ADR 0253): `SparqlTokenizer.Tokenize`, the
+    parser's lexer with comments and classified words, in the input's UTF-8
+    or UTF-16 units.
+  - **The explorer's reads in `Varve.Protocol.Client`** (ADR 0254; ADR 0203,
+    amended):
+    - `StartQueryAsync`, with `QueryAnswer`, streams a SELECT as TSV and a
+      graph as N-Triples, a line at a time;
+    - `AskAsync`, `DownloadAsync`, `ReadDiffAsync` and
+      `ServiceDescriptionAsync`;
+    - a body that breaks before its end ends as cut, never as an exception.
+    - Nothing was removed.
+  - **A read the client ended is said on the server** (ADR 0112, amended):
+    `varve.request.aborted = true` on its span, and one log line with its
+    request id.
+  - **The Web UI in three assemblies** (ADR 0252):
+    - `Varve.WebUi.Components` (layer 6, loaded with the first screen) holds
+      what the console uses;
+    - `Varve.WebUi.Explorer` (layer 7) loads with the explorer's first
+      route, with `Varve.Sparql` and `Varve.Sparql.Results`;
+    - the host `Varve.WebUi` is at layer 8.
+  - **The size gate's two rows** (ADR 0205, amended): the first screen at
+    1,902.9 kB against 1,920.0 kB, and the explorer's lazy set at 96.9 kB
+    against 100.0 kB.
+  - **The graph view** (ADR 0251): a deterministic radial layout in SVG,
+    with a node budget of 50 from its spike. It is on no screen yet.
+  - **Every procedure in the operator's guide names what runs it**
+    (ADR 0248, from #129), first shipped here.
+
+  #### Not yet
+
+  - **A design-side form row** for the Query screen's controls (#383), and
+    a results-table case for a triple term (#377).
+  - **The decision ledger in the host's first screen** (#375).
+  - **The graph view's budget**, re-measured on the perf environment (#376).
