@@ -247,6 +247,7 @@ internal static class ObjectLease
         ReleaseReason.Placement => "placement",
         ReleaseReason.StorageError => "storage-error",
         ReleaseReason.LocalDiskError => "local-disk-error",
+        ReleaseReason.Promotion => "promotion",
         _ => reason.ToString(),
     };
 
@@ -256,6 +257,7 @@ internal static class ObjectLease
         ClaimTrigger.Operator => "operator",
         ClaimTrigger.Abdication => "abdication",
         ClaimTrigger.Probe => "probe",
+        ClaimTrigger.Promotion => "promotion",
         _ => trigger.ToString(),
     };
 }

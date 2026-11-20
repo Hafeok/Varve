@@ -38,7 +38,27 @@ public sealed class DatasetIsReplicaException : Exception
         Lineage = lineage;
 
     /// <summary>The lineage record that says so, where one was read.</summary>
-    public LineageRecord? Lineage { get; }
+    public LineageRecord? Lineage { get; private init; }
+
+    /// <summary>
+    /// Whether the lineage says <c>promoted</c> and no promotion claim was
+    /// fenced (ADR 0185 decision 6): a promotion that failed part way, which
+    /// only promoting again completes.
+    /// </summary>
+    public bool IsPromotionIncomplete { get; private init; }
+
+    /// <summary>The dataset's promotion did not finish, as <paramref name="lineage"/> and its writer record show.</summary>
+    public static DatasetIsReplicaException PromotionIncomplete(LineageRecord lineage)
+    {
+        ArgumentNullException.ThrowIfNull(lineage);
+        return new DatasetIsReplicaException(
+            "The dataset's lineage record says it was promoted at position " + lineage.Promoted?.Position + ", and no promotion claim fenced its log: the promotion did not finish. "
+            + "It is not opened for write until it is promoted again, which completes it (varve promote, ADR 0185).")
+        {
+            Lineage = lineage,
+            IsPromotionIncomplete = true,
+        };
+    }
 
     private static string Describe(LineageRecord lineage)
     {

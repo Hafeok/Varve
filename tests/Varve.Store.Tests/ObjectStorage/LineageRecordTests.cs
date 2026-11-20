@@ -186,8 +186,14 @@ public sealed class LineageRecordTests
         Assert.Equal(["lineage"], harness.Store.Names());
     }
 
+    /// <summary>
+    /// A dataset with no lineage opens for write. One whose lineage says
+    /// promoted, with no promotion claim that fenced its log, does not: that
+    /// is a promotion that failed part way (ADR 0185 decision 6). A promoted
+    /// copy that opens for write is in <c>LogShipperTests</c>.
+    /// </summary>
     [Fact]
-    public async Task a_dataset_with_no_lineage_or_a_promoted_one_opens_for_write_and_the_record_reads_from_the_store()
+    public async Task a_dataset_with_no_lineage_opens_for_write_and_a_promoted_one_with_no_fenced_promotion_claim_does_not()
     {
         await using ObjectHarness plain = new();
         Assert.Null(await Backend.ReadLineageAsync(plain.Store, null, T.Ct));
@@ -195,7 +201,9 @@ public sealed class LineageRecordTests
 
         await using ObjectHarness promoted = new();
         promoted.Store.Put("lineage", LineageRecordFormat.Write(Promoted()));
-        Assert.NotNull((await promoted.OpenAsync()).Epoch);
+        DatasetIsReplicaException refused = await Assert.ThrowsAsync<DatasetIsReplicaException>(() => promoted.OpenAsync());
+        Assert.True(refused.IsPromotionIncomplete);
+        Assert.Equal(["lineage"], promoted.Store.Names());
 
         LineageRecord read = (await Backend.ReadLineageAsync(promoted.Store, null, T.Ct))!;
         Assert.Equal(LineageState.Promoted, read.State);

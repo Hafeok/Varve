@@ -1243,6 +1243,20 @@ public sealed partial class Dataset : IAsyncDisposable
     /// <summary>The hash of the header of the commit at <paramref name="position"/>; the genesis hash at 0.</summary>
     internal byte[] HeaderHashAt(long position) => position == 0 ? LogFormat.Genesis() : _state.Commits.Entry(position).HeaderHash();
 
+    /// <summary>
+    /// The header hash of the commit at <paramref name="position"/>, 32
+    /// bytes: what the next commit's header chains to (storage format §4).
+    /// A host records it where it states which log a copy continues, as a
+    /// promotion's lineage record does (ADR 0185). Position 0 has the
+    /// genesis value.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="position"/> is past the head.</exception>
+    public ReadOnlyMemory<byte> HeaderHash(Position position)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(position.Value, _state.Head);
+        return HeaderHashAt(position.Value);
+    }
+
     /// <summary>The names of the derived blobs found damaged since the dataset opened (ADR 0213).</summary>
     internal IReadOnlyCollection<string> Damaged => (IReadOnlyCollection<string>)_damaged.Keys;
 

@@ -595,3 +595,37 @@ Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException(stri
 Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException(string! message, System.Exception! innerException) -> void
 Varve.Store.ObjectStorage.Model.ShippingOptions.BeforeLogWrite.get -> System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
 Varve.Store.ObjectStorage.Model.ShippingOptions.BeforeLogWrite.init -> void
+Varve.Store.ObjectStorage.DatasetIsReplicaException.IsPromotionIncomplete.get -> bool
+Varve.Store.ObjectStorage.Model.ClaimTrigger.Promotion = 5 -> Varve.Store.ObjectStorage.Model.ClaimTrigger
+Varve.Store.ObjectStorage.Model.PromotionOutcome
+Varve.Store.ObjectStorage.Model.PromotionOutcome.Lost = 4 -> Varve.Store.ObjectStorage.Model.PromotionOutcome
+Varve.Store.ObjectStorage.Model.PromotionOutcome.NotAReplica = 1 -> Varve.Store.ObjectStorage.Model.PromotionOutcome
+Varve.Store.ObjectStorage.Model.PromotionOutcome.PositionMismatch = 3 -> Varve.Store.ObjectStorage.Model.PromotionOutcome
+Varve.Store.ObjectStorage.Model.PromotionOutcome.Promoted = 0 -> Varve.Store.ObjectStorage.Model.PromotionOutcome
+Varve.Store.ObjectStorage.Model.PromotionOutcome.SourceMismatch = 2 -> Varve.Store.ObjectStorage.Model.PromotionOutcome
+Varve.Store.ObjectStorage.Model.PromotionRequest
+Varve.Store.ObjectStorage.Model.PromotionRequest.<Clone>$() -> Varve.Store.ObjectStorage.Model.PromotionRequest!
+Varve.Store.ObjectStorage.Model.PromotionRequest.Address.get -> Varve.Store.ObjectStorage.Model.WriterAddress?
+Varve.Store.ObjectStorage.Model.PromotionRequest.Address.init -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.Equals(Varve.Store.ObjectStorage.Model.PromotionRequest? other) -> bool
+Varve.Store.ObjectStorage.Model.PromotionRequest.Expected.get -> Varve.Store.Log.Position
+Varve.Store.ObjectStorage.Model.PromotionRequest.Expected.init -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.Hash.get -> Varve.Store.ObjectStorage.Model.CommitHeaderHash
+Varve.Store.ObjectStorage.Model.PromotionRequest.Hash.init -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.Instance.get -> Varve.Store.ObjectStorage.Model.WriterInstance
+Varve.Store.ObjectStorage.Model.PromotionRequest.Instance.init -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.PromotionRequest() -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.Randomness.get -> Varve.Store.ObjectStorage.Model.IProbeRandomness!
+Varve.Store.ObjectStorage.Model.PromotionRequest.Randomness.init -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.Source.get -> Varve.Store.ObjectStorage.Model.StoreAddress
+Varve.Store.ObjectStorage.Model.PromotionRequest.Source.init -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.Verified.get -> Varve.Store.Log.Position
+Varve.Store.ObjectStorage.Model.PromotionRequest.Verified.init -> void
+Varve.Store.ObjectStorage.Model.ReleaseReason.Promotion = 6 -> Varve.Store.ObjectStorage.Model.ReleaseReason
+Varve.Store.ObjectStorage.ObjectStorage.PromoteInPlaceAsync(Varve.Store.ObjectStorage.Model.PromotionRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.PromotionOutcome>
+override Varve.Store.ObjectStorage.Model.PromotionRequest.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.PromotionRequest.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.PromotionRequest.ToString() -> string!
+static Varve.Store.ObjectStorage.DatasetIsReplicaException.PromotionIncomplete(Varve.Store.ObjectStorage.Model.LineageRecord! lineage) -> Varve.Store.ObjectStorage.DatasetIsReplicaException!
+static Varve.Store.ObjectStorage.Model.PromotionRequest.operator !=(Varve.Store.ObjectStorage.Model.PromotionRequest? left, Varve.Store.ObjectStorage.Model.PromotionRequest? right) -> bool
+static Varve.Store.ObjectStorage.Model.PromotionRequest.operator ==(Varve.Store.ObjectStorage.Model.PromotionRequest? left, Varve.Store.ObjectStorage.Model.PromotionRequest? right) -> bool

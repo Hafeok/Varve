@@ -459,6 +459,131 @@ public sealed class LogShipperTests
     }
 
     /// <summary>
+    /// ADR 0185 decision 4: a follower of a replica promotes it in place. The
+    /// lineage says promoted, with the verified tail; the claim's trigger is
+    /// promotion, above every epoch the copy carries; the dataset commits at
+    /// once; and the old source's shipper is refused.
+    /// </summary>
+    [Fact]
+    public async Task a_follower_promotes_its_replica_in_place_and_writes_on_from_the_shipped_tail()
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), Small());
+        await CommitAsync(writer, 0, 6);
+        await writer.CheckpointAsync(new Position(4), T.Ct);
+        LogShipper shipper = (await pair.StartAsync())!;
+        await shipper.ShipAsync(T.Ct);
+
+        Backend storage = await pair.Target.OpenAsync(ObjectStorageAccess.ReadOnly);
+        await using Dataset replica = await Dataset.OpenFollowerAsync(storage, Small(), T.Ct);
+        Position tail = replica.Head;
+        Assert.Equal(writer.Head, tail);
+
+        PromotionOutcome outcome = PromotionOutcome.Lost;
+        Assert.True(await replica.TakeWriteAsync(async claim => (outcome = await storage.PromoteInPlaceAsync(Pair.Promotion(replica, tail), claim)) == PromotionOutcome.Promoted, T.Ct));
+        Assert.Equal(PromotionOutcome.Promoted, outcome);
+
+        LineageRecord lineage = (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!;
+        Assert.False(lineage.IsReplica);
+        Assert.Equal(tail, lineage.Promoted!.Position);
+        Assert.Equal(Convert.ToHexStringLower(replica.HeaderHash(tail).Span), lineage.Promoted.Hash.Value);
+        Assert.Equal("promoter", lineage.Promoted.By.Value);
+
+        // One above the source writer's epoch, which the copy's chunks and its catalog's wrapper carry and its own record never showed.
+        WriterRecord source = (await Backend.ReadWriterAsync(pair.Source.Store, null, T.Ct))!;
+        WriterRecord record = (await Backend.ReadWriterAsync(pair.Target.Store, null, T.Ct))!;
+        Assert.Equal(source.Epoch.Value + 1, record.Epoch.Value);
+        Assert.Equal(record.Epoch, lineage.Promoted.Epoch);
+        Assert.Equal(ClaimTrigger.Promotion, record.History[^1].Trigger);
+        Assert.NotNull(record.History[^1].Fence);
+
+        // It writes on, from the tail.
+        await CommitAsync(replica, 6, 9);
+        Assert.Equal(tail.Value + 3, replica.Head.Value);
+
+        // The returning primary: its shipper is refused, and writes nothing.
+        await CommitAsync(writer, 6, 8);
+        string[] before = [.. pair.Target.Store.Names()];
+        ReplicaPromotedException refused = await Assert.ThrowsAsync<ReplicaPromotedException>(async () => await shipper.ShipAsync(T.Ct));
+        Assert.Equal(tail, refused.Lineage!.Promoted!.Position);
+        Assert.Equal(before, pair.Target.Store.Names());
+    }
+
+    /// <summary>ADR 0185 decision 4: the operator states the source and the position, and a promotion that finds otherwise writes nothing.</summary>
+    [Fact]
+    public async Task a_promotion_that_does_not_find_what_the_operator_expects_writes_nothing()
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), Small());
+        await CommitAsync(writer, 0, 4);
+        await (await pair.StartAsync())!.ShipAsync(T.Ct);
+
+        await using Backend storage = await pair.Target.OpenAsync(ObjectStorageAccess.ReadOnly);
+        await using Dataset replica = await Dataset.OpenFollowerAsync(storage, Small(), T.Ct);
+        string[] before = [.. pair.Target.Store.Names()];
+        pair.Target.Store.ResetCounts();
+
+        Assert.Equal(PromotionOutcome.SourceMismatch, await storage.PromoteInPlaceAsync(Pair.Promotion(replica, replica.Head) with { Source = new StoreAddress("memory://another") }, T.Ct));
+        Assert.Equal(PromotionOutcome.PositionMismatch, await storage.PromoteInPlaceAsync(Pair.Promotion(replica, new Position(replica.Head.Value - 1)), T.Ct));
+
+        // A dataset that is no copy: the source itself, followed.
+        await using Backend own = await pair.Source.OpenAsync(ObjectStorageAccess.ReadOnly);
+        await using Dataset follower = await Dataset.OpenFollowerAsync(own, Small(), T.Ct);
+        Assert.Equal(PromotionOutcome.NotAReplica, await own.PromoteInPlaceAsync(Pair.Promotion(follower, follower.Head), T.Ct));
+
+        Assert.Equal(before, pair.Target.Store.Names());
+        Assert.Equal(0, pair.Target.Store.Count(ObjectOperation.Create) + pair.Target.Store.Count(ObjectOperation.Replace) + pair.Target.Store.Count(ObjectOperation.Delete));
+        Assert.True((await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!.IsReplica);
+    }
+
+    /// <summary>
+    /// ADR 0185 decision 6: a promotion that replaced the lineage and then
+    /// failed leaves a dataset that is not opened for write, and only
+    /// promoting again completes it.
+    /// </summary>
+    [Fact]
+    public async Task a_promotion_that_failed_part_way_is_completed_only_by_promoting_again()
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), Small());
+        await CommitAsync(writer, 0, 4);
+        await (await pair.StartAsync())!.ShipAsync(T.Ct);
+        Position tail;
+
+        await using (Backend storage = await pair.Target.OpenAsync(ObjectStorageAccess.ReadOnly))
+        await using (Dataset replica = await Dataset.OpenFollowerAsync(storage, Small(), T.Ct))
+        {
+            tail = replica.Head;
+
+            // The store stops taking the writer record: the lineage is replaced, and the claim is not made.
+            pair.Target.Store.Hook = (operation, name) => name.Value == "writer" && operation is ObjectOperation.Create or ObjectOperation.Replace
+                ? throw new IOException("stopped at the claim")
+                : null;
+            await Assert.ThrowsAsync<IOException>(async () => await storage.PromoteInPlaceAsync(Pair.Promotion(replica, tail), T.Ct));
+            pair.Target.Store.Hook = null;
+        }
+
+        Assert.False((await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!.IsReplica);
+        DatasetIsReplicaException refused = await Assert.ThrowsAsync<DatasetIsReplicaException>(async () => await pair.Target.OpenAsync());
+        Assert.True(refused.IsPromotionIncomplete);
+        Assert.Contains("promoted again", refused.Message, StringComparison.Ordinal);
+
+        // Promoting again, on the same lineage, completes it. A promotion that names another position is still refused.
+        Backend again = await pair.Target.OpenAsync(ObjectStorageAccess.ReadOnly);
+        await using Dataset second = await Dataset.OpenFollowerAsync(again, Small(), T.Ct);
+        LineagePromotion first = (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!.Promoted!;
+        Assert.True(await second.TakeWriteAsync(async claim => await again.PromoteInPlaceAsync(Pair.Promotion(second, tail), claim) == PromotionOutcome.Promoted, T.Ct));
+        Assert.Equal(first, (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!.Promoted);
+        await CommitAsync(second, 4, 6);
+        await second.DisposeAsync();
+        await again.DisposeAsync();
+
+        // Closed and opened for write, as any dataset.
+        await using Dataset reopened = await T.OpenOrCreate(await pair.Target.OpenAsync(), Small());
+        Assert.Equal(tail.Value + 2, reopened.Head.Value);
+    }
+
+    /// <summary>
     /// The failure-injection gate (#166): the shipper is stopped at every
     /// write and delete it makes on the target, once before the store sees
     /// the request and once after the store applied it. Whatever it left, the
@@ -663,6 +788,17 @@ public sealed class LogShipperTests
             List<SortedSet<string>> views = await FormatFixtures.ViewsAsync(follower);
             Assert.Equal((await FormatFixtures.ViewsAsync(writer)).Take(views.Count), views);
         }
+
+        /// <summary>A promotion of the target by the instance "promoter", as an operator who expects <paramref name="expected"/> asks for it.</summary>
+        public static PromotionRequest Promotion(Dataset replica, Position expected) => new()
+        {
+            Instance = new WriterInstance("promoter"),
+            Source = new StoreAddress("memory://source"),
+            Expected = expected,
+            Verified = replica.Head,
+            Hash = new CommitHeaderHash(Convert.ToHexStringLower(replica.HeaderHash(replica.Head).Span)),
+            Randomness = TestRandomness.Instance,
+        };
 
         public string[] SourceSets() => Sets(Source.Store);
 

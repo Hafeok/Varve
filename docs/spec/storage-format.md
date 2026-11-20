@@ -745,7 +745,7 @@ replace-if-unchanged against the version read:
 | `format` | number | `1`. Another value is refused, never guessed at |
 | `epoch` | number | the current writer epoch, from 1 |
 | `holder` | string | the instance that claimed it |
-| `released` | string, optional | present when the holder released the epoch: `shutdown`, `operator-takeover`, `placement`, `storage-error` or `local-disk-error` |
+| `released` | string, optional | present when the holder released the epoch: `shutdown`, `operator-takeover`, `placement`, `storage-error`, `local-disk-error`, or `promotion` (a promotion of a copy that did not finish, or that no fleet serves, ADR 0185) |
 | `history` | array | every claim, in epoch order |
 
 Each claim in `history`:
@@ -754,7 +754,7 @@ Each claim in `history`:
 |---|---|---|
 | `epoch` | number | the epoch claimed |
 | `holder` | string | the instance that claimed it |
-| `trigger` | string | why: `restart` (an open for write), `operator` (`varve lease --take`), `abdication` (a claim of a released epoch), or `probe` (a takeover request, ADR 0179 point 6) |
+| `trigger` | string | why: `restart` (an open for write), `operator` (`varve lease --take`), `abdication` (a claim of a released epoch), `probe` (a takeover request, ADR 0179 point 6), or `promotion` (an operator promoted a copy on another store, ADR 0185) |
 | `at` | string | when, an `xsd:dateTime` in UTC, for the operator; nothing decides by it |
 | `fence` | string, optional | the log slot the claim fenced, `NNNNNNNN.chunks/CCCCCCCC` |
 | `address` | string, optional | where the holder answered, its `Varve:Fleet:InternalUrl`; a forwarder routes writes to it, and the automation asks it before a takeover (ADR 0181) |
