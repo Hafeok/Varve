@@ -76,7 +76,7 @@ public class ProblemCatalogueTests
     ];
 
     /// <summary>The types the management plane's endpoints emit, triggered by <see cref="every_problem_the_management_endpoints_emit_has_its_catalogued_shape"/>.</summary>
-    private static readonly ImmutableArray<ProblemType> ManagementTriggered = [ProblemType.DeclarationInvalid, ProblemType.DatasetOpen, ProblemType.WriterMoved];
+    private static readonly ImmutableArray<ProblemType> ManagementTriggered = [ProblemType.DeclarationInvalid, ProblemType.DatasetOpen, ProblemType.WriterMoved, ProblemType.StoreUnverified];
 
     [Fact]
     public void every_problem_type_is_catalogued_with_a_page_stating_the_same_shape_and_what_to_do()
@@ -321,6 +321,11 @@ public class ProblemCatalogueTests
             {
                 [ProblemType.DeclarationInvalid] = () => Put("manage/datasets/x", "<urn:x> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"x\" ; <https://w3id.org/varve/ns#erasureMode> \"y\" .", "application/trig"),
                 [ProblemType.DatasetOpen] = () => new HttpRequestMessage(HttpMethod.Delete, new Uri("manage/datasets/y", UriKind.Relative)),
+                [ProblemType.StoreUnverified] = () => Put(
+                    "manage/datasets/z",
+                    "<urn:z> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"z\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#ObjectStorage> ; <https://w3id.org/varve/ns#shipsTo> <urn:z:replica> . "
+                    + "<urn:z:replica> a <https://w3id.org/varve/ns#ShippingTarget> ; <https://w3id.org/varve/ns#store> \"s3://replicas\" ; <https://w3id.org/varve/ns#prefix> \"z\" ; <https://w3id.org/varve/ns#provider> \"never-tried\" .",
+                    "application/trig"),
                 [ProblemType.WriterMoved] = () =>
                 {
                     HttpRequestMessage forwarded = P.Update("datasets/moved/sparql", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }");
@@ -485,6 +490,13 @@ public class ProblemCatalogueTests
         public ManagementStatus Status => new(ManagementRole.Writer, 0, new ManagementPosition(system.Head.Value), new ManagementPosition(system.Head.Value), BootstrapState.Absent, null);
 
         public ICommitValidator Validator { get; } = new ManagementValidator();
+
+        // As a server does against its compiled page: here every provider is untested.
+        public UnverifiedTarget? CheckShippingTargets(Declarations proposed) =>
+            proposed.Datasets.Values.SelectMany(dataset => dataset.ShippingTargets.Select(target => (dataset, target)))
+                .Where(pair => pair.target.Provider is not null)
+                .Select(pair => new UnverifiedTarget(pair.dataset.Name, pair.target.Provider!, "untested"))
+                .FirstOrDefault();
     }
 
     /// <summary>Another instance writes the dataset "moved"; this one writes the rest.</summary>

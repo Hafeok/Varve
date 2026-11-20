@@ -123,8 +123,10 @@ again.**
 - Promoting again is idempotent on the same lineage.
 
 **7. The returning primary is refused twice.**
-- Its shipper reads the lineage every round and stops with
-  `409 replica-promoted`, naming the promoted position.
+- Its shipper reads the lineage every round and stops in the state
+  `replica-promoted`, which readiness reports with the promoted position.
+  It is a state and not a problem type: the shipper answers no request
+  (ADR 0184 decision 9).
 - If it raced the promotion, its create at the fence slot finds other
   bytes of another epoch, and it stops with `shipping-diverged`.
 - A promoted copy takes no write from its old source: the source has no

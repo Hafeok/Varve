@@ -555,3 +555,21 @@ static Varve.Protocol.Model.CommitWindow.operator ==(Varve.Protocol.Model.Commit
 ~override Varve.Protocol.Model.CommitWindow.Equals(object obj) -> bool
 static Varve.Protocol.Model.ProblemType.IdempotencyKeyExpired.get -> Varve.Protocol.Model.ProblemType
 Varve.Protocol.IdempotencyKeys.PrepareAsync(Varve.Store.Dataset! dataset) -> System.Threading.Tasks.ValueTask
+Varve.Protocol.IManagementPlane.CheckShippingTargets(Varve.Management.Model.Declarations! proposed) -> Varve.Protocol.Model.UnverifiedTarget?
+Varve.Protocol.Model.UnverifiedTarget
+Varve.Protocol.Model.UnverifiedTarget.<Clone>$() -> Varve.Protocol.Model.UnverifiedTarget!
+Varve.Protocol.Model.UnverifiedTarget.Dataset.get -> string!
+Varve.Protocol.Model.UnverifiedTarget.Dataset.init -> void
+Varve.Protocol.Model.UnverifiedTarget.Deconstruct(out string! Dataset, out string! Provider, out string! State) -> void
+Varve.Protocol.Model.UnverifiedTarget.Equals(Varve.Protocol.Model.UnverifiedTarget? other) -> bool
+Varve.Protocol.Model.UnverifiedTarget.Provider.get -> string!
+Varve.Protocol.Model.UnverifiedTarget.Provider.init -> void
+Varve.Protocol.Model.UnverifiedTarget.State.get -> string!
+Varve.Protocol.Model.UnverifiedTarget.State.init -> void
+Varve.Protocol.Model.UnverifiedTarget.UnverifiedTarget(string! Dataset, string! Provider, string! State) -> void
+override Varve.Protocol.Model.UnverifiedTarget.Equals(object? obj) -> bool
+override Varve.Protocol.Model.UnverifiedTarget.GetHashCode() -> int
+override Varve.Protocol.Model.UnverifiedTarget.ToString() -> string!
+static Varve.Protocol.Model.ProblemType.StoreUnverified.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.UnverifiedTarget.operator !=(Varve.Protocol.Model.UnverifiedTarget? left, Varve.Protocol.Model.UnverifiedTarget? right) -> bool
+static Varve.Protocol.Model.UnverifiedTarget.operator ==(Varve.Protocol.Model.UnverifiedTarget? left, Varve.Protocol.Model.UnverifiedTarget? right) -> bool

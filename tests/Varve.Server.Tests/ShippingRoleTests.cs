@@ -177,6 +177,50 @@ public sealed class ShippingRoleTests
         Assert.Equal("{}", Encoding.UTF8.GetString(none.ToArray()));
     }
 
+    /// <summary>
+    /// Decision 9: a target's provider is one the compatibility page of the
+    /// build lists as verified. A declaration that reached the system
+    /// dataset by another road is still refused by the shipper, with nothing
+    /// written.
+    /// </summary>
+    [Fact]
+    public async Task a_target_of_an_unverified_provider_is_never_written_to()
+    {
+        await using Scene scene = await Scene.StartAsync(verified: true);
+        string[] before = [.. scene.Target.Names()];
+        Dataset dataset = await scene.DeclareAsync(provider: "minio-ce");
+        await CommitAsync(dataset, 0, 2);
+
+        ShippingStatus refused = await scene.WaitForAsync(s => s.State == ShippingState.StoreUnverified);
+
+        Assert.Contains("'minio-ce' is untested", refused.Detail, StringComparison.Ordinal);
+        Assert.Equal(before, scene.Target.Names());
+    }
+
+    [Fact]
+    public void an_apply_is_checked_against_the_compatibility_page_compiled_into_the_build()
+    {
+        Assert.Equal("verified", CompatibilityPage.StateOf("azurite"));
+        Assert.Equal("verified", CompatibilityPage.StateOf("rustfs"));
+        Assert.Equal("unsupported", CompatibilityPage.StateOf("garage"));
+        Assert.Equal("no adapter", CompatibilityPage.StateOf("gcs"));
+        Assert.Equal("unknown", CompatibilityPage.StateOf("not-on-the-page"));
+
+        static Varve.Management.Model.Declarations Declared(string target) => DeclarationReader.Read(ManagementTrig.TryParse(Encoding.UTF8.GetBytes(
+            "@prefix varve: <" + ManagementVocabulary.Namespace + "> .\n"
+            + "<" + ManagementVocabulary.DatasetGraphPrefix + "orders> {\n"
+            + "  <urn:ship:orders> a varve:Dataset ; varve:datasetName \"orders\" ; varve:storage varve:ObjectStorage ; varve:shipsTo <urn:ship:replica> .\n"
+            + "  <urn:ship:replica> a varve:ShippingTarget ; " + target + " .\n"
+            + "}\n"), null, out _)!);
+
+        Assert.Null(CompatibilityPage.Check(Declared("varve:store \"s3://replicas\" ; varve:prefix \"orders\" ; varve:provider \"rustfs\"")));
+        Assert.Equal(new UnverifiedTarget("orders", "minio-ce", "untested"), CompatibilityPage.Check(Declared("varve:store \"s3://replicas\" ; varve:prefix \"orders\" ; varve:provider \"minio-ce\"")));
+        Assert.Equal(new UnverifiedTarget("orders", "nowhere", "unknown"), CompatibilityPage.Check(Declared("varve:store \"s3://replicas\" ; varve:prefix \"orders\" ; varve:provider \"nowhere\"")));
+
+        // A directory target names no provider and is exempt.
+        Assert.Null(CompatibilityPage.Check(Declared("varve:directory \"/var/lib/varve/replica\"")));
+    }
+
     private static int Requests(MemoryObjectStore store) =>
         store.Count(ObjectOperation.Create) + store.Count(ObjectOperation.Replace) + store.Count(ObjectOperation.Delete) + store.Count(ObjectOperation.Read) + store.Count(ObjectOperation.List);
 
@@ -239,13 +283,13 @@ public sealed class ShippingRoleTests
         }
 
         /// <summary>Declares the dataset <c>orders</c>, placed on this instance and shipped to the target, and returns it open.</summary>
-        public async Task<Dataset> DeclareAsync()
+        public async Task<Dataset> DeclareAsync(string provider = "azurite")
         {
             await RunningServer.DeclareAsync(Fleet,
                 "@prefix varve: <" + ManagementVocabulary.Namespace + "> .\n"
                 + "<" + ManagementVocabulary.DatasetGraphPrefix + "orders> {\n"
                 + "  <urn:ship:orders> a varve:Dataset ; varve:datasetName \"orders\" ; varve:storage varve:ObjectStorage ; varve:placedOn \"a\" ; varve:shipsTo <urn:ship:replica> .\n"
-                + "  <urn:ship:replica> a varve:ShippingTarget ; varve:store \"" + TargetAddress + "\" ; varve:prefix \"orders\" ; varve:provider \"memory\" .\n"
+                + "  <urn:ship:replica> a varve:ShippingTarget ; varve:store \"" + TargetAddress + "\" ; varve:prefix \"orders\" ; varve:provider \"" + provider + "\" .\n"
                 + "}\n");
             Assert.True(Fleet.Datasets.TryResolve(new DatasetName("orders"), out Dataset? dataset));
             return dataset;

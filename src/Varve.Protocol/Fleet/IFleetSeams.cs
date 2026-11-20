@@ -112,6 +112,16 @@ public interface IManagementPlane
     /// </summary>
     IReadOnlyList<RdfTerm>? CheckBindings(Declarations proposed) => null;
 
+    /// <summary>
+    /// Checks each shipping target of <paramref name="proposed"/> against the
+    /// compatibility page compiled into this build, before the management
+    /// commit is submitted (ADR 0184 decision 9): the first target whose
+    /// provider the page does not list as verified, or null. The page is all
+    /// an apply can see; the verification record at the store is the
+    /// shipper's to read. None by default.
+    /// </summary>
+    UnverifiedTarget? CheckShippingTargets(Declarations proposed) => null;
+
     /// <summary>A shapes binding of <paramref name="dataset"/> at the applied position, with its classification where this instance holds the dataset; null when there is no such binding. None by default.</summary>
     BindingDescription? DescribeBinding(DatasetName dataset, RdfTerm binding) => null;
 

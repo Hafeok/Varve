@@ -248,9 +248,24 @@ a dataset.**
 - At run time the shipper needs a verification record at the target's
   store (ADR 0183) whose suite is at or above this build's lowest, and the
   declared `varve:provider` verified on the compatibility page compiled
-  into the build. Otherwise it stops with `409 store-unverified`, naming
-  the page.
-- `varve apply` checks the page, which is all it can see.
+  into the build. Otherwise it writes nothing to the target and reports
+  the state `store-unverified` on readiness, with what to run. It tries
+  again with its back-off, so a store verified afterwards is shipped to
+  without a restart.
+- `varve apply` checks the page, which is all it can see. A declaration
+  whose provider the page does not list as verified is refused with
+  `409 store-unverified`, naming the dataset, the provider and the page's
+  state for it.
+- **The page's states are compiled into the server** from
+  `src/Varve.Server/object-store-providers.txt`, which
+  `eng/object-stores.cs` writes with the page and `eng/status.cs` holds to
+  it. So Azure Blob Storage cannot be a target until its result record is
+  in a build.
+- **A shipper's state is not a problem type.** `store-unverified` is one
+  because an apply answers it. `shipping-diverged`,
+  `shipping-target-not-empty` and `replica-promoted` are met only by the
+  shipper, which answers no request: they are states on readiness, each
+  with its detail, and a line in the log.
 - **A directory target is exempt.** There, every write is an append of the
   next bytes after the tail has been checked, under the directory's lease.
   Byte identity means its segment files equal the concatenation of the
@@ -261,8 +276,9 @@ a dataset.**
 
 **10. A target that holds another dataset is refused.** A prefix whose
 manifest names another dataset, or that has a log and no lineage naming
-this source, is `409 shipping-target-not-empty`. A copy made by `ShipAsync`
-is such a prefix.
+this source, is the state `shipping-target-not-empty`. Nothing is written
+to it, and the shipper stops for that target. A copy made by `ShipAsync` is
+such a prefix.
 
 **11. A target's failure is never the source's.**
 - The shipper never abdicates, never releases, and never touches the

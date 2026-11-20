@@ -625,6 +625,23 @@ internal static class ManagementEndpoints
             return;
         }
 
+        // ADR 0184 decision 9: a shipping target's provider is one the compatibility page lists as verified.
+        if (plane.CheckShippingTargets(Proposed(desired)) is { } unverified)
+        {
+            await HttpProblems.WriteAsync(
+                context,
+                ProblemType.StoreUnverified,
+                "Dataset " + unverified.Dataset + " declares a shipping target of provider '" + unverified.Provider + "', which the compatibility page of this build lists as " + unverified.State
+                + ". A log is shipped only to a store the contract suite has passed against (docs/operator/object-stores.md).",
+                members =>
+                {
+                    members.String("dataset", unverified.Dataset);
+                    members.String("provider", unverified.Provider);
+                    members.String("state", unverified.State);
+                }).ConfigureAwait(false);
+            return;
+        }
+
         CommitRequestBuilder request;
 
         using (DatasetView view = system.Pin())

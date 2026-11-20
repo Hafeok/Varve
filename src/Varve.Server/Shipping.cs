@@ -158,7 +158,7 @@ internal sealed partial class Shipping : IAsyncDisposable
 
             foreach (((string name, string key), Entry entry) in _entries)
             {
-                if (name == dataset.Value && (!wanted.ContainsKey(key) || !ReferenceEquals(entry.Dataset, held) || entry.Writes != writes))
+                if (name == dataset.Value && (!wanted.TryGetValue(key, out ShippingTargetDeclaration? declaredNow) || declaredNow != entry.Target || !ReferenceEquals(entry.Dataset, held) || entry.Writes != writes))
                 {
                     stopped.Add(entry);
                 }
@@ -267,7 +267,6 @@ internal sealed partial class Shipping : IAsyncDisposable
     {
         private readonly Shipping _owner;
         private readonly string _dataset;
-        private readonly ShippingTargetDeclaration _target;
         private readonly CancellationTokenSource _stop = new();
         private readonly ClaimHoldOff _holdOff;
         private Task _run = Task.CompletedTask;
@@ -277,7 +276,7 @@ internal sealed partial class Shipping : IAsyncDisposable
         {
             _owner = owner;
             _dataset = dataset;
-            _target = target;
+            Target = target;
             Key = key;
             Dataset = held;
             Writes = writes;
@@ -288,6 +287,8 @@ internal sealed partial class Shipping : IAsyncDisposable
         }
 
         internal string Key { get; }
+
+        internal ShippingTargetDeclaration Target { get; }
 
         internal Dataset Dataset { get; }
 
@@ -319,7 +320,7 @@ internal sealed partial class Shipping : IAsyncDisposable
 
         private async Task RunAsync(CancellationToken stopping)
         {
-            if (_target.Directory is not null)
+            if (Target.Directory is not null)
             {
                 Report(ShippingState.DirectoryNotShipped, null, null, "This build does not ship to a directory yet.");
                 return;
@@ -396,6 +397,13 @@ internal sealed partial class Shipping : IAsyncDisposable
 
         private ShippingOptions Options()
         {
+            // The provider is one the compatibility page of this build lists as verified (ADR 0184 decision 9).
+            if (CompatibilityPage.StateOf(Target.Provider!) is var state && state != CompatibilityPage.Verified)
+            {
+                throw new StoreUnverifiedException("The shipping target's provider '" + Target.Provider + "' is " + state
+                    + " on the compatibility page of this build (docs/operator/object-stores.md). Nothing was written to it.");
+            }
+
             ObjectStores objects = _owner._objects!;
             string digest = DigestOf(Key);
             string staging = objects.StagingOf(_dataset, digest);
@@ -405,8 +413,8 @@ internal sealed partial class Shipping : IAsyncDisposable
             {
                 Source = objects.Store,
                 SourcePrefix = ObjectStores.PrefixOf(_dataset),
-                Target = objects.OpenTarget(_target.Store!, _owner._settings),
-                TargetPrefix = new ObjectName(_target.Prefix + "/"),
+                Target = objects.OpenTarget(Target.Store!, _owner._settings),
+                TargetPrefix = new ObjectName(Target.Prefix + "/"),
                 Lineage = new LineageSource(new StoreAddress(objects.Address), ObjectStores.PrefixOf(_dataset), Dataset.Id, _owner._fleet()),
                 Reader = new ReaderId((objects.ConfiguredReader ?? objects.Instance.Value) + "-ship-" + digest),
                 Holder = objects.Instance,
