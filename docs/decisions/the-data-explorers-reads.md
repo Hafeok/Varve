@@ -8,7 +8,7 @@ decisions:
   - key: OneViewOnePosition
     statement: "A view's first read resolves its selector and every later read of the view is pinned to that answer's position; a time is sent at most once per view"
   - key: RegimeAddedIsTwoReadsAtOnePosition
-    statement: "What a regime added is the regime's answer less simple's at the same position; of it, what the readable TBox graphs assert is from the ontology and the rest inferred; SELECT rows are never marked"
+    statement: "What a regime added is the regime's answer less simple's at the same position; of it, what the readable TBox graphs assert is from the ontology and the rest inferred; SELECT rows are never marked. Marks are shown only when both reads ran to their end at one position: if either stopped at the ceiling, was cancelled or broke, or the positions differ, no statement is marked and the view says why. A store blank node's label (ADR 0098) is the same in both reads and is compared; a statement holding a blank node the query made, whose label is one execution's, is not compared, and the view says how many"
   - key: LineFormatsReadALineAtATime
     statement: "SELECT is read as SPARQL 1.1 TSV and a graph as N-Triples, the body cut into whole lines and each batch parsed alone, the cutting held to the chunk-boundary oracle"
   - key: ReadAheadToACeilingThenClose

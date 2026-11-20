@@ -46,10 +46,33 @@ how much of one the browser holds.
    meant to share one (point 3) is shown only if it did.
 3. **What a regime added is two reads at one position** (ruling 8, D4):
    read A under the regime, read B under `simple` at A's position. A − B,
-   as quads, is marked; of it, a triple the readable TBox graphs assert is
-   "from the ontology", the rest "inferred", both dashed. SELECT rows are
+   as statements, is marked; of it, a triple the readable TBox graphs assert
+   is "from the ontology", the rest "inferred", both dashed. SELECT rows are
    never marked; the table names the regime that answered, from the echoed
-   `Varve-Entailment`.
+   `Varve-Entailment`. `RegimeComparison` in the explorer's Parts makes the
+   marks; two cases decide whether a statement can be compared at all.
+   - **Blank nodes.** A store's blank node is written with the label its
+     identity gives it, `b` and a number, the same in every response at every
+     position (ADR 0098 point 1). That is what makes its label the same in
+     read A and read B, so a statement whose blank nodes are all the store's
+     is compared by its terms, labels included. A blank node the query makes
+     (a `CONSTRUCT` template's, `BNODE()`) is labelled `q` and a number,
+     unique in one execution (`sparql-evaluation.md` §7.9): nothing makes
+     `q3` in A the node `q3` in B. A statement that holds one, inside a triple
+     term too, is not compared. It is drawn plain, neither inferred nor
+     asserted, and the view says under the graph how many: "2 statements hold
+     a blank node this query made, which two reads cannot match, so they are
+     not marked." Any label that is not a store's is treated so. Entailment
+     makes no blank node of its own: the regimes rewrite the query over
+     stored terms.
+   - **Cut reads.** Marks are shown only when both reads ran to their end,
+     at one position. If either stopped at the ceiling, was cancelled, or
+     broke before the server finished it, or the two positions differ, no
+     statement is marked, and the view says why in one line, for example
+     "Nothing is marked as added: the read under the regime stopped before
+     its end, at the ceiling or by a cancel, so what the regime added cannot
+     be told."
+   - Both are held by `RegimeComparisonTests`.
 4. **SELECT is read as TSV and a graph as N-Triples, a line at a time**
    (D5). Both are line formats in which a line is a solution or a statement:
    SPARQL 1.1 Query Results CSV and TSV Formats §4 writes a term in Turtle
