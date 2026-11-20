@@ -34,6 +34,7 @@ internal static class Cli
         root.Subcommands.Add(Apply.Command(io));
         root.Subcommands.Add(Manage.Command(io));
         root.Subcommands.Add(Lease.Command(io));
+        root.Subcommands.Add(Promote.Command(io));
         root.Subcommands.Add(Storage.Command(io));
         root.Subcommands.Add(Serve.Command());
         ParseResult parsed = root.Parse(args);
