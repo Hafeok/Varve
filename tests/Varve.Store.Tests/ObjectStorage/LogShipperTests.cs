@@ -480,13 +480,13 @@ public sealed class LogShipperTests
         Assert.Equal(writer.Head, tail);
 
         PromotionOutcome outcome = PromotionOutcome.Lost;
-        Assert.True(await replica.TakeWriteAsync(async claim => (outcome = await storage.PromoteInPlaceAsync(Pair.Promotion(replica, tail), claim)) == PromotionOutcome.Promoted, T.Ct));
+        Assert.True(await replica.TakeWriteAsync(async claim => (outcome = await storage.PromoteInPlaceAsync((await Pair.PromotionAsync(replica, tail)), claim)) == PromotionOutcome.Promoted, T.Ct));
         Assert.Equal(PromotionOutcome.Promoted, outcome);
 
         LineageRecord lineage = (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!;
         Assert.False(lineage.IsReplica);
         Assert.Equal(tail, lineage.Promoted!.Position);
-        Assert.Equal(Convert.ToHexStringLower(replica.HeaderHash(tail).Span), lineage.Promoted.Hash.Value);
+        Assert.Equal(Convert.ToHexStringLower((await replica.HeaderHashAsync(tail, T.Ct)).Span), lineage.Promoted.Hash.Value);
         Assert.Equal("promoter", lineage.Promoted.By.Value);
 
         // One above the source writer's epoch, which the copy's chunks and its catalog's wrapper carry and its own record never showed.
@@ -509,6 +509,47 @@ public sealed class LogShipperTests
         Assert.Equal(before, pair.Target.Store.Names());
     }
 
+    /// <summary>
+    /// The header hash a lineage records (ADR 0185): every position from 0
+    /// to the head has one, a position past the head is refused, and a
+    /// position below the checkpoint a dataset opened from reads the same
+    /// after the open as before it.
+    /// </summary>
+    [Fact]
+    public async Task a_position_has_one_header_hash_before_and_after_a_reopen_and_none_past_the_head()
+    {
+        await using ObjectHarness harness = new();
+        string[] before;
+
+        await using (Dataset writer = await T.OpenOrCreate(await harness.OpenAsync(), Small()))
+        {
+            await CommitAsync(writer, 0, 12);
+            before = [.. await HashesAsync(writer)];
+            Assert.Equal(13, before.Distinct().Count());
+            Assert.Equal(new string('0', 64).Length, before[0].Length);
+            await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await writer.HeaderHashAsync(new Position(writer.Head.Value + 1), T.Ct));
+            await writer.CheckpointAsync(new Position(9), T.Ct);
+        }
+
+        // Opened from the checkpoint: positions at or below it are in a prefix nothing has read yet.
+        await using Dataset reopened = await T.OpenOrCreate(await harness.OpenAsync(instance: "second"), Small());
+        Assert.Equal(before[^1], Convert.ToHexStringLower((await reopened.HeaderHashAsync(reopened.Head, T.Ct)).Span));
+        Assert.Equal(before[3], Convert.ToHexStringLower((await reopened.HeaderHashAsync(new Position(3), T.Ct)).Span));
+        Assert.Equal(before, await HashesAsync(reopened));
+
+        static async Task<List<string>> HashesAsync(Dataset dataset)
+        {
+            List<string> hashes = [];
+
+            for (long position = 0; position <= dataset.Head.Value; position++)
+            {
+                hashes.Add(Convert.ToHexStringLower((await dataset.HeaderHashAsync(new Position(position), T.Ct)).Span));
+            }
+
+            return hashes;
+        }
+    }
+
     /// <summary>ADR 0185 decision 4: the operator states the source and the position, and a promotion that finds otherwise writes nothing.</summary>
     [Fact]
     public async Task a_promotion_that_does_not_find_what_the_operator_expects_writes_nothing()
@@ -523,13 +564,13 @@ public sealed class LogShipperTests
         string[] before = [.. pair.Target.Store.Names()];
         pair.Target.Store.ResetCounts();
 
-        Assert.Equal(PromotionOutcome.SourceMismatch, await storage.PromoteInPlaceAsync(Pair.Promotion(replica, replica.Head) with { Source = new StoreAddress("memory://another") }, T.Ct));
-        Assert.Equal(PromotionOutcome.PositionMismatch, await storage.PromoteInPlaceAsync(Pair.Promotion(replica, new Position(replica.Head.Value - 1)), T.Ct));
+        Assert.Equal(PromotionOutcome.SourceMismatch, await storage.PromoteInPlaceAsync((await Pair.PromotionAsync(replica, replica.Head)) with { Source = new StoreAddress("memory://another") }, T.Ct));
+        Assert.Equal(PromotionOutcome.PositionMismatch, await storage.PromoteInPlaceAsync((await Pair.PromotionAsync(replica, new Position(replica.Head.Value - 1))), T.Ct));
 
         // A dataset that is no copy: the source itself, followed.
         await using Backend own = await pair.Source.OpenAsync(ObjectStorageAccess.ReadOnly);
         await using Dataset follower = await Dataset.OpenFollowerAsync(own, Small(), T.Ct);
-        Assert.Equal(PromotionOutcome.NotAReplica, await own.PromoteInPlaceAsync(Pair.Promotion(follower, follower.Head), T.Ct));
+        Assert.Equal(PromotionOutcome.NotAReplica, await own.PromoteInPlaceAsync((await Pair.PromotionAsync(follower, follower.Head)), T.Ct));
 
         Assert.Equal(before, pair.Target.Store.Names());
         Assert.Equal(0, pair.Target.Store.Count(ObjectOperation.Create) + pair.Target.Store.Count(ObjectOperation.Replace) + pair.Target.Store.Count(ObjectOperation.Delete));
@@ -559,7 +600,7 @@ public sealed class LogShipperTests
             pair.Target.Store.Hook = (operation, name) => name.Value == "writer" && operation is ObjectOperation.Create or ObjectOperation.Replace
                 ? throw new IOException("stopped at the claim")
                 : null;
-            await Assert.ThrowsAsync<IOException>(async () => await storage.PromoteInPlaceAsync(Pair.Promotion(replica, tail), T.Ct));
+            await Assert.ThrowsAsync<IOException>(async () => await storage.PromoteInPlaceAsync((await Pair.PromotionAsync(replica, tail)), T.Ct));
             pair.Target.Store.Hook = null;
         }
 
@@ -572,7 +613,7 @@ public sealed class LogShipperTests
         Backend again = await pair.Target.OpenAsync(ObjectStorageAccess.ReadOnly);
         await using Dataset second = await Dataset.OpenFollowerAsync(again, Small(), T.Ct);
         LineagePromotion first = (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!.Promoted!;
-        Assert.True(await second.TakeWriteAsync(async claim => await again.PromoteInPlaceAsync(Pair.Promotion(second, tail), claim) == PromotionOutcome.Promoted, T.Ct));
+        Assert.True(await second.TakeWriteAsync(async claim => await again.PromoteInPlaceAsync((await Pair.PromotionAsync(second, tail)), claim) == PromotionOutcome.Promoted, T.Ct));
         Assert.Equal(first, (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!.Promoted);
         await CommitAsync(second, 4, 6);
         await second.DisposeAsync();
@@ -790,13 +831,13 @@ public sealed class LogShipperTests
         }
 
         /// <summary>A promotion of the target by the instance "promoter", as an operator who expects <paramref name="expected"/> asks for it.</summary>
-        public static PromotionRequest Promotion(Dataset replica, Position expected) => new()
+        public static async Task<PromotionRequest> PromotionAsync(Dataset replica, Position expected) => new()
         {
             Instance = new WriterInstance("promoter"),
             Source = new StoreAddress("memory://source"),
             Expected = expected,
             Verified = replica.Head,
-            Hash = new CommitHeaderHash(Convert.ToHexStringLower(replica.HeaderHash(replica.Head).Span)),
+            Hash = new CommitHeaderHash(Convert.ToHexStringLower((await replica.HeaderHashAsync(replica.Head, T.Ct)).Span)),
             Randomness = TestRandomness.Instance,
         };
 

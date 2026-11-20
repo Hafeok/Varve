@@ -397,6 +397,7 @@ internal sealed partial class OpenDatasets
         // The tail as this instance replayed it: every commit verified against the chain (ADR 0184 decision 6).
         await TailAsync(name, entry, cancellationToken).ConfigureAwait(false);
         Position tail = dataset.Head;
+        CommitHeaderHash hash = new(Convert.ToHexStringLower((await dataset.HeaderHashAsync(tail, cancellationToken).ConfigureAwait(false)).Span));
         PromotionOutcome outcome = PromotionOutcome.Lost;
         bool won;
 
@@ -411,7 +412,7 @@ internal sealed partial class OpenDatasets
                         Source = new StoreAddress(ask.Source),
                         Expected = ask.Position,
                         Verified = tail,
-                        Hash = new CommitHeaderHash(Convert.ToHexStringLower(dataset.HeaderHash(tail).Span)),
+                        Hash = hash,
                         Randomness = SystemProbeRandomness.Instance,
                     },
                     claim).ConfigureAwait(false)) == PromotionOutcome.Promoted,

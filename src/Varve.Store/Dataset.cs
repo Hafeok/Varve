@@ -1250,11 +1250,31 @@ public sealed partial class Dataset : IAsyncDisposable
     /// promotion's lineage record does (ADR 0185). Position 0 has the
     /// genesis value.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// **I/O.** None for the head, nor for any position after the dataset's
+    /// last checkpoint: those are in memory. A position at or below the
+    /// checkpoint the dataset opened from is in the commit index's prefix,
+    /// which is read from the log once, here, if nothing has read it yet.
+    /// </para>
+    /// <para>
+    /// **History.** A log keeps every commit, so every position from 0 to
+    /// the head has a hash. There is no retained history below which one is
+    /// missing.
+    /// </para>
+    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="position"/> is past the head.</exception>
-    public ReadOnlyMemory<byte> HeaderHash(Position position)
+    public async ValueTask<ReadOnlyMemory<byte>> HeaderHashAsync(Position position, CancellationToken cancellationToken = default)
     {
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(position.Value, _state.Head);
-        return HeaderHashAt(position.Value);
+        State state = _state;
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(position.Value, state.Head);
+
+        if (state.Commits.Prefix is { } prefix && position.Value > 0 && !state.Commits.Knows(position.Value))
+        {
+            await prefix.LoadAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return position.Value == 0 ? LogFormat.Genesis() : state.Commits.Entry(position.Value).HeaderHash();
     }
 
     /// <summary>The names of the derived blobs found damaged since the dataset opened (ADR 0213).</summary>
