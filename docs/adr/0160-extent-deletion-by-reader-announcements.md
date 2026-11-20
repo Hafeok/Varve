@@ -368,3 +368,25 @@ in [ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md).
   record with the member as it reads any, ignoring what it does not know;
   this build reads one without it as 4.
 - `varve storage readers list` and readiness's `retention` show it.
+
+## Amendment, 2026-11-20 — a shipper is a reader of the source, and deletes on its target
+
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+- **A shipper announces on the source** as any reader does: one record per
+  target, `readers/<reader>-ship-<digest>`, by announce then confirm. Its
+  interval runs from the version the target's catalog is to the version it
+  is copying, and moves forward only after the target's catalog is
+  replaced. A stopped shipper holds its sets until it resumes or its
+  record is forgotten.
+- **On its target the shipper deletes, and holds no epoch.** A set the
+  target's catalog no longer names goes only when no reader record of the
+  target holds a version that could name it, and the source has deleted
+  it. The shipper takes the target's catalog version as the one that
+  stopped naming the set, which is never too early.
+- **The writer's rule is unchanged.** This ADR's "only the writer deletes"
+  holds for a dataset that has a writer. A replica has none.
+
+**The ledger.** No ruling changes. The ruling is
+`TheShipperIsAReaderAndAMaintenanceWriter`, in ADR 0184's set.

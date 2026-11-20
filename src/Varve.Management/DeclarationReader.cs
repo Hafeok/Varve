@@ -281,6 +281,8 @@ public static class DeclarationReader
             List<GrantDeclaration> grants = Grants(name);
             List<BindingDeclaration> bindings = [.. Bindings()];
             List<TBoxBindingDeclaration> tboxBindings = TBoxBindings(out RdfTerm? defaultEntailment);
+            List<ShippingTargetDeclaration> shippingTargets = ShippingTargets(node, storage);
+            CopySourceDeclaration? copyOf = CopyOf(node, storage, shippingTargets.Count > 0);
 
             foreach (GrantDeclaration grant in grants)
             {
@@ -304,8 +306,234 @@ public static class DeclarationReader
                 Grants = grants.FindAll(static grant => grant.Access != GrantAccess.Operator),
                 Bindings = bindings,
                 TBoxBindings = tboxBindings,
+                ShippingTargets = shippingTargets,
+                CopyOf = copyOf,
                 DefaultEntailment = defaultEntailment,
             };
+        }
+
+        // varve:copyOf and varve:ShippingSource (ADR 0185 decision 3). The shapes state none of it.
+        private CopySourceDeclaration? CopyOf(RdfTerm dataset, StorageKind storage, bool ships)
+        {
+            List<RdfTerm> linked = Values(dataset, ManagementVocabulary.CopyOf);
+            List<RdfTerm> typed = [.. Typed(ManagementVocabulary.ShippingSource)];
+
+            if (linked.Count == 0 && typed.Count == 0)
+            {
+                return null;
+            }
+
+            if (linked.Count != 1 || typed.Count != 1 || !linked[0].Equals(typed[0]))
+            {
+                Residual(dataset, ManagementVocabulary.CopyOf, "a dataset is a copy of at most one source: varve:copyOf names the one varve:ShippingSource declared in this graph");
+                return null;
+            }
+
+            RdfTerm node = typed[0];
+            bool ok = true;
+
+            if (storage != StorageKind.ObjectStorage)
+            {
+                Residual(dataset, ManagementVocabulary.CopyOf, "only a dataset on varve:ObjectStorage is a copy: a shipper writes to an object store (ADR 0184)");
+                ok = false;
+            }
+
+            if (ships)
+            {
+                Residual(dataset, ManagementVocabulary.CopyOf, "a dataset that is a copy is not shipped on: a replica has no writer for a shipper to run on (ADR 0185)");
+                ok = false;
+            }
+
+            string? store = AtMostOneLiteral(node, ManagementVocabulary.Store, ref ok);
+            string? prefix = AtMostOneLiteral(node, ManagementVocabulary.PrefixProperty, ref ok);
+
+            if (store is null || prefix is null)
+            {
+                Residual(node, ManagementVocabulary.Store, "a shipping source states varve:store and varve:prefix: the store and the prefix the dataset is shipped from");
+                return null;
+            }
+
+            if (!IsStoreAddress(store))
+            {
+                Residual(node, ManagementVocabulary.Store, "varve:store is the address of a container or a bucket: https://… or s3://…, with no query and no fragment");
+                ok = false;
+            }
+
+            if (!IsPrefix(prefix))
+            {
+                Residual(node, ManagementVocabulary.PrefixProperty, "varve:prefix is one or more names of letters, digits, '.', '_' and '-', separated by '/'");
+                ok = false;
+            }
+
+            return ok ? new CopySourceDeclaration(node) { Store = store, Prefix = prefix } : null;
+        }
+
+        // varve:shipsTo and varve:ShippingTarget (ADR 0184). The shapes state
+        // none of it: every rule here is the residual check's.
+        private List<ShippingTargetDeclaration> ShippingTargets(RdfTerm dataset, StorageKind storage)
+        {
+            List<RdfTerm> linked = Values(dataset, ManagementVocabulary.ShipsTo);
+            List<RdfTerm> typed = [.. Typed(ManagementVocabulary.ShippingTarget)];
+            List<ShippingTargetDeclaration> targets = [];
+
+            foreach (RdfTerm node in linked)
+            {
+                if (!typed.Exists(node.Equals))
+                {
+                    Residual(dataset, ManagementVocabulary.ShipsTo, "varve:shipsTo names a varve:ShippingTarget declared in this graph");
+                }
+            }
+
+            if (typed.Count > 0 && storage != StorageKind.ObjectStorage)
+            {
+                Residual(dataset, ManagementVocabulary.ShipsTo, "only a dataset on varve:ObjectStorage is shipped: the file backend cannot be a shipping source (ADR 0184); copy it once with ShipAsync, or back it up and restore it");
+            }
+
+            foreach (RdfTerm node in typed)
+            {
+                if (!linked.Exists(node.Equals))
+                {
+                    Residual(node, ManagementVocabulary.ShipsTo, "a varve:ShippingTarget is named by the dataset's varve:shipsTo");
+                    continue;
+                }
+
+                if (ShippingTarget(node) is not { } target)
+                {
+                    continue;
+                }
+
+                if (targets.Exists(other => other.Store == target.Store && other.Prefix == target.Prefix))
+                {
+                    Residual(node, null, "two shipping targets of a dataset do not name the same place");
+                    continue;
+                }
+
+                targets.Add(target);
+            }
+
+            return targets;
+        }
+
+        private ShippingTargetDeclaration? ShippingTarget(RdfTerm node)
+        {
+            bool ok = true;
+            string? store = AtMostOneLiteral(node, ManagementVocabulary.Store, ref ok);
+            string? prefix = AtMostOneLiteral(node, ManagementVocabulary.PrefixProperty, ref ok);
+            string? provider = AtMostOneLiteral(node, ManagementVocabulary.Provider, ref ok);
+            string? shippedOn = AtMostOneLiteral(node, ManagementVocabulary.ShippedOn, ref ok);
+
+            if (!ok)
+            {
+                return null;
+            }
+
+            // A target is a store and a prefix, with the store's provider. Anything else is refused (ADR 0184 decision 1).
+            {
+                if (store is null || prefix is null || provider is null)
+                {
+                    Residual(node, ManagementVocabulary.Store, "a shipping target states varve:store, varve:prefix and varve:provider: it is a store and a prefix in it");
+                    return null;
+                }
+
+                if (!IsStoreAddress(store))
+                {
+                    Residual(node, ManagementVocabulary.Store, "varve:store is the address of a container or a bucket: https://… or s3://…, with no query and no fragment");
+                    ok = false;
+                }
+
+                if (!IsPrefix(prefix))
+                {
+                    Residual(node, ManagementVocabulary.PrefixProperty, "varve:prefix is one or more names of letters, digits, '.', '_' and '-', separated by '/'");
+                    ok = false;
+                }
+
+                if (!IsPrefix(provider) || provider.Contains('/', StringComparison.Ordinal))
+                {
+                    Residual(node, ManagementVocabulary.Provider, "varve:provider is a provider's id on the compatibility page (docs/operator/object-stores.md)");
+                    ok = false;
+                }
+            }
+
+            if (shippedOn is { Length: 0 })
+            {
+                Residual(node, ManagementVocabulary.ShippedOn, "varve:shippedOn names an instance");
+                ok = false;
+            }
+
+            return ok ? new ShippingTargetDeclaration(node) { Store = store, Prefix = prefix, Provider = provider, ShippedOn = shippedOn } : null;
+        }
+
+        private string? AtMostOneLiteral(RdfTerm node, RdfTerm predicate, ref bool ok)
+        {
+            List<RdfTerm> values = Values(node, predicate);
+
+            if (values.Count == 0)
+            {
+                return null;
+            }
+
+            RdfTerm value = values[0];
+
+            if (values.Count > 1 || value.Kind != RdfTermKind.Literal || !value.Language.IsEmpty
+                || (value.Datatype is { } datatype && !datatype.Lexical.SequenceEqual("http://www.w3.org/2001/XMLSchema#string"u8)))
+            {
+                Residual(node, predicate, "this property is stated at most once, as a plain string literal");
+                ok = false;
+                return null;
+            }
+
+            return Encoding.UTF8.GetString(value.Lexical);
+        }
+
+        // A container or a bucket: https://host/path or s3://bucket. No
+        // credential can be part of an address (ADR 0037): no user info, no
+        // query, no fragment.
+        private static bool IsStoreAddress(string value)
+        {
+            string? rest = value.StartsWith("https://", StringComparison.Ordinal) ? value["https://".Length..]
+                : value.StartsWith("s3://", StringComparison.Ordinal) ? value["s3://".Length..]
+                : null;
+
+            if (rest is null || rest.Length == 0 || rest[0] == '/')
+            {
+                return false;
+            }
+
+            foreach (char c in rest)
+            {
+                if (c is '@' or '?' or '#' or '\\' || char.IsWhiteSpace(c) || char.IsControl(c))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsPrefix(string value)
+        {
+            if (value.Length == 0)
+            {
+                return false;
+            }
+
+            foreach (string name in value.Split('/'))
+            {
+                if (name.Length == 0 || name is "." or "..")
+                {
+                    return false;
+                }
+
+                foreach (char c in name)
+                {
+                    if (!char.IsAsciiLetterOrDigit(c) && c is not ('.' or '_' or '-'))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
         }
 
         // varve:eventDeclarations, on the dataset node only (ADR 0167).

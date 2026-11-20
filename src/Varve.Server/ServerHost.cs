@@ -716,7 +716,8 @@ internal static partial class ServerHost
                 spill,
                 cache,
                 open && dataset!.StorageFull,
-                datasets.DegradedOf(entry.Name)));
+                datasets.DegradedOf(entry.Name),
+                datasets.AwaitsShipping(entry.Name)));
         }
 
         ManagementStatus management = fleet.Status;
@@ -815,6 +816,18 @@ internal static partial class ServerHost
             json.WriteEndObject();
         }
 
+        // Each shipping target of the dataset on this instance (ADR 0184 decision 11): its state, how far the
+        // target's log got and the position of its catalog beside it. Reported, and never a reason to be unready.
+        void Shipped(Utf8JsonWriter json, string name)
+        {
+            if (!DatasetName.TryParse(name, out DatasetName dataset))
+            {
+                return;
+            }
+
+            Shipping.Write(json, fleet.Shipping.StatusOf(dataset), fleet.Datasets.TryResolve(dataset, out Dataset? open) ? open.Head.Value : null);
+        }
+
         // Each binding's classification projection lag (ADR 0233): reported, and never a reason to be unready.
         void Classification(Utf8JsonWriter json, string name)
         {
@@ -871,6 +884,12 @@ internal static partial class ServerHost
                     json.WriteStartObject(state.Name);
                     json.WriteString("state", state.State);
                     json.WriteString("role", Role(state.Role));
+
+                    // A copy that waits for its first shipping round says so (ADR 0185 decision 10).
+                    if (state.State == "awaiting-shipping" && state.Reason is { } awaits)
+                    {
+                        json.WriteString("reason", awaits);
+                    }
                     Moving(json, state.Name);
 
                     if (state.Position is long position)
@@ -886,6 +905,7 @@ internal static partial class ServerHost
                     Standby(json, state);
                     Validation(json, state.Name);
                     Classification(json, state.Name);
+                    Shipped(json, state.Name);
                     FullReads(json, state.Name);
                     json.WriteEndObject();
                 }
@@ -933,6 +953,7 @@ internal static partial class ServerHost
                 Standby(json, state);
                 Validation(json, state.Name);
                 Classification(json, state.Name);
+                Shipped(json, state.Name);
                 FullReads(json, state.Name);
                 json.WriteEndObject();
             }

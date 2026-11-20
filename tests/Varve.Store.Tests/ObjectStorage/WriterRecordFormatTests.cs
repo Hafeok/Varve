@@ -22,12 +22,12 @@ namespace Varve.Store.Tests.Objects;
 public sealed class WriterRecordFormatTests
 {
     internal static readonly (ClaimTrigger Trigger, string Name)[] Triggers =
-        [(ClaimTrigger.Restart, "restart"), (ClaimTrigger.Operator, "operator"), (ClaimTrigger.Abdication, "abdication"), (ClaimTrigger.Probe, "probe")];
+        [(ClaimTrigger.Restart, "restart"), (ClaimTrigger.Operator, "operator"), (ClaimTrigger.Abdication, "abdication"), (ClaimTrigger.Probe, "probe"), (ClaimTrigger.Promotion, "promotion")];
 
     internal static readonly (ReleaseReason Reason, string Name)[] Reasons =
     [
         (ReleaseReason.Shutdown, "shutdown"), (ReleaseReason.OperatorTakeover, "operator-takeover"), (ReleaseReason.Placement, "placement"),
-        (ReleaseReason.StorageError, "storage-error"), (ReleaseReason.LocalDiskError, "local-disk-error"),
+        (ReleaseReason.StorageError, "storage-error"), (ReleaseReason.LocalDiskError, "local-disk-error"), (ReleaseReason.Promotion, "promotion"),
     ];
 
     [Fact]

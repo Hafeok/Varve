@@ -295,6 +295,10 @@ internal sealed class ObjectDerivedStore : IDerivedStore, IDerivedStoreLimits, I
         _open.Clear();
     }
 
+    /// <summary>The epoch in the catalog's wrapper as the store holds it now (ADR 0139), or zero where there is no catalog.</summary>
+    internal async ValueTask<long> CatalogEpochAsync(CancellationToken cancellationToken) =>
+        await ConditionalWrites.ReadWholeAsync(_store, _names.Derived(CatalogName), cancellationToken).ConfigureAwait(false) is { } read ? Unwrap(read.Bytes).Epoch : 0;
+
     private static byte[] Wrap(long epoch, ReadOnlySpan<byte> payload)
     {
         byte[] bytes = new byte[WrapperLength + payload.Length];

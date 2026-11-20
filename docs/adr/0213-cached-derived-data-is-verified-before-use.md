@@ -508,3 +508,23 @@ sides' medians, 20,000 resamples of the pairs.
   (−1.5% to +10.4%): the same as over all runs.
 - The checkpoints' +19% and the load's +3.1% are stated as accepted in the
   consequences above.
+
+## Amendment, 2026-11-20 — a shipper copies a set as it is
+
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+- **A set is copied as bytes, and never rewritten on a target.** A rewrite
+  for an older reader, and a repair, are the source writer's. Their result
+  reaches the target as a new set under a fresh name.
+- **Open: the check before the copy.** ADR 0184 decision 5 says the
+  shipper checks each blob as this ADR does before it copies it. The
+  shipper as built does not: this ADR's check is internal to `Varve.Store`
+  and the shipper is in `Varve.Store.ObjectStorage`. A damaged blob is
+  therefore copied, and is refused by the reader on the target as it is on
+  the source. The question is with the maintainer on #166. Until it is
+  answered, ADR 0184's decision 5 and the code disagree, and this
+  amendment says which way.
+
+**The ledger.** No ruling changes. `ASetIsVerifiedThenCopiedAsItIs`, in
+ADR 0184's set, is not met by the code yet.

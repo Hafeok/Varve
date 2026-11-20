@@ -1,0 +1,14 @@
+azure-blob untested
+azurite verified
+rustfs verified
+amazon-s3 untested
+cloudflare-r2 untested
+gcs-s3 untested
+gcs no adapter
+ceph-rgw untested
+seaweedfs untested
+hetzner untested
+scaleway untested
+ovhcloud untested
+minio-ce untested
+garage unsupported

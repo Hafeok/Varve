@@ -555,3 +555,79 @@ static Varve.Protocol.Model.CommitWindow.operator ==(Varve.Protocol.Model.Commit
 ~override Varve.Protocol.Model.CommitWindow.Equals(object obj) -> bool
 static Varve.Protocol.Model.ProblemType.IdempotencyKeyExpired.get -> Varve.Protocol.Model.ProblemType
 Varve.Protocol.IdempotencyKeys.PrepareAsync(Varve.Store.Dataset! dataset) -> System.Threading.Tasks.ValueTask
+Varve.Protocol.IManagementPlane.PromoteAsync(Varve.Protocol.Model.DatasetName dataset, Varve.Protocol.Model.PromotionAsk! ask, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.PromotionAnswer?>
+Varve.Protocol.Model.PromotionAnswer
+Varve.Protocol.Model.PromotionAnswer.Deconstruct(out Varve.Protocol.Model.PromotionRefusal Refusal, out Varve.Protocol.Model.TakeoverEpoch Epoch, out Varve.Store.Log.Position Position) -> void
+Varve.Protocol.Model.PromotionAnswer.Epoch.get -> Varve.Protocol.Model.TakeoverEpoch
+Varve.Protocol.Model.PromotionAnswer.Epoch.init -> void
+Varve.Protocol.Model.PromotionAnswer.Equals(Varve.Protocol.Model.PromotionAnswer other) -> bool
+Varve.Protocol.Model.PromotionAnswer.Position.get -> Varve.Store.Log.Position
+Varve.Protocol.Model.PromotionAnswer.Position.init -> void
+Varve.Protocol.Model.PromotionAnswer.PromotionAnswer() -> void
+Varve.Protocol.Model.PromotionAnswer.PromotionAnswer(Varve.Protocol.Model.PromotionRefusal Refusal, Varve.Protocol.Model.TakeoverEpoch Epoch, Varve.Store.Log.Position Position) -> void
+Varve.Protocol.Model.PromotionAnswer.Refusal.get -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionAnswer.Refusal.init -> void
+Varve.Protocol.Model.PromotionAsk
+Varve.Protocol.Model.PromotionAsk.<Clone>$() -> Varve.Protocol.Model.PromotionAsk!
+Varve.Protocol.Model.PromotionAsk.Deconstruct(out string! Source, out Varve.Store.Log.Position Position) -> void
+Varve.Protocol.Model.PromotionAsk.Equals(Varve.Protocol.Model.PromotionAsk? other) -> bool
+Varve.Protocol.Model.PromotionAsk.Position.get -> Varve.Store.Log.Position
+Varve.Protocol.Model.PromotionAsk.Position.init -> void
+Varve.Protocol.Model.PromotionAsk.PromotionAsk(string! Source, Varve.Store.Log.Position Position) -> void
+Varve.Protocol.Model.PromotionAsk.Source.get -> string!
+Varve.Protocol.Model.PromotionAsk.Source.init -> void
+Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.Cold = 2 -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.EpochMoved = 6 -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.None = 0 -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.NotAReplica = 3 -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.NotInWriterSet = 1 -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.PositionMismatch = 5 -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.SourceMismatch = 4 -> Varve.Protocol.Model.PromotionRefusal
+override Varve.Protocol.Model.PromotionAnswer.GetHashCode() -> int
+override Varve.Protocol.Model.PromotionAsk.Equals(object? obj) -> bool
+override Varve.Protocol.Model.PromotionAsk.GetHashCode() -> int
+override Varve.Protocol.Model.PromotionAsk.ToString() -> string!
+static Varve.Protocol.Model.PromotionAnswer.operator !=(Varve.Protocol.Model.PromotionAnswer left, Varve.Protocol.Model.PromotionAnswer right) -> bool
+static Varve.Protocol.Model.PromotionAnswer.operator ==(Varve.Protocol.Model.PromotionAnswer left, Varve.Protocol.Model.PromotionAnswer right) -> bool
+static Varve.Protocol.Model.PromotionAsk.operator !=(Varve.Protocol.Model.PromotionAsk? left, Varve.Protocol.Model.PromotionAsk? right) -> bool
+static Varve.Protocol.Model.PromotionAsk.operator ==(Varve.Protocol.Model.PromotionAsk? left, Varve.Protocol.Model.PromotionAsk? right) -> bool
+~override Varve.Protocol.Model.PromotionAnswer.Equals(object obj) -> bool
+~override Varve.Protocol.Model.PromotionAnswer.ToString() -> string
+Varve.Protocol.Model.WriterRouteKind.PromotionIncomplete = 4 -> Varve.Protocol.Model.WriterRouteKind
+Varve.Protocol.Model.WriterRouteKind.Replica = 3 -> Varve.Protocol.Model.WriterRouteKind
+static Varve.Protocol.Model.ProblemType.DatasetIsReplica.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.IManagementPlane.UntestedTargets(Varve.Management.Model.Declarations! proposed) -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.Model.UntestedTarget!>!
+Varve.Protocol.Model.UntestedTarget
+Varve.Protocol.Model.UntestedTarget.<Clone>$() -> Varve.Protocol.Model.UntestedTarget!
+Varve.Protocol.Model.UntestedTarget.Dataset.get -> string!
+Varve.Protocol.Model.UntestedTarget.Dataset.init -> void
+Varve.Protocol.Model.UntestedTarget.Deconstruct(out string! Dataset, out string! Provider, out string! State) -> void
+Varve.Protocol.Model.UntestedTarget.Equals(Varve.Protocol.Model.UntestedTarget? other) -> bool
+Varve.Protocol.Model.UntestedTarget.HeaderValue.get -> string!
+Varve.Protocol.Model.UntestedTarget.Provider.get -> string!
+Varve.Protocol.Model.UntestedTarget.Provider.init -> void
+Varve.Protocol.Model.UntestedTarget.State.get -> string!
+Varve.Protocol.Model.UntestedTarget.State.init -> void
+Varve.Protocol.Model.UntestedTarget.UntestedTarget(string! Dataset, string! Provider, string! State) -> void
+const Varve.Protocol.Model.UntestedTarget.Header = "Varve-Notice" -> string!
+override Varve.Protocol.Model.UntestedTarget.Equals(object? obj) -> bool
+override Varve.Protocol.Model.UntestedTarget.GetHashCode() -> int
+override Varve.Protocol.Model.UntestedTarget.ToString() -> string!
+static Varve.Protocol.Model.UntestedTarget.operator !=(Varve.Protocol.Model.UntestedTarget? left, Varve.Protocol.Model.UntestedTarget? right) -> bool
+static Varve.Protocol.Model.UntestedTarget.operator ==(Varve.Protocol.Model.UntestedTarget? left, Varve.Protocol.Model.UntestedTarget? right) -> bool
+Varve.Protocol.IManagementPlane.ForeignFleetAsync(Varve.Protocol.Model.DatasetName dataset, Varve.Store.Log.Position position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.ForeignFleet?>
+Varve.Protocol.Model.ForeignFleet
+Varve.Protocol.Model.ForeignFleet.<Clone>$() -> Varve.Protocol.Model.ForeignFleet!
+Varve.Protocol.Model.ForeignFleet.Dataset.get -> Varve.Protocol.Model.DatasetName
+Varve.Protocol.Model.ForeignFleet.Dataset.init -> void
+Varve.Protocol.Model.ForeignFleet.Deconstruct(out Varve.Store.Dataset? System, out Varve.Protocol.Model.DatasetName Dataset) -> void
+Varve.Protocol.Model.ForeignFleet.Equals(Varve.Protocol.Model.ForeignFleet? other) -> bool
+Varve.Protocol.Model.ForeignFleet.ForeignFleet(Varve.Store.Dataset? System, Varve.Protocol.Model.DatasetName Dataset) -> void
+Varve.Protocol.Model.ForeignFleet.System.get -> Varve.Store.Dataset?
+Varve.Protocol.Model.ForeignFleet.System.init -> void
+override Varve.Protocol.Model.ForeignFleet.Equals(object? obj) -> bool
+override Varve.Protocol.Model.ForeignFleet.GetHashCode() -> int
+override Varve.Protocol.Model.ForeignFleet.ToString() -> string!
+static Varve.Protocol.Model.ForeignFleet.operator !=(Varve.Protocol.Model.ForeignFleet? left, Varve.Protocol.Model.ForeignFleet? right) -> bool
+static Varve.Protocol.Model.ForeignFleet.operator ==(Varve.Protocol.Model.ForeignFleet? left, Varve.Protocol.Model.ForeignFleet? right) -> bool

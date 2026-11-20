@@ -424,3 +424,213 @@ static Varve.Store.ObjectStorage.Model.VerificationRacers.operator !=(Varve.Stor
 static Varve.Store.ObjectStorage.Model.VerificationRacers.operator ==(Varve.Store.ObjectStorage.Model.VerificationRacers left, Varve.Store.ObjectStorage.Model.VerificationRacers right) -> bool
 static Varve.Store.ObjectStorage.ObjectStoreVerification.Racers.get -> Varve.Store.ObjectStorage.Model.VerificationRacers
 ~override Varve.Store.ObjectStorage.Model.VerificationRacers.Equals(object obj) -> bool
+Varve.Store.ObjectStorage.DatasetIsReplicaException
+Varve.Store.ObjectStorage.DatasetIsReplicaException.DatasetIsReplicaException() -> void
+Varve.Store.ObjectStorage.DatasetIsReplicaException.DatasetIsReplicaException(Varve.Store.ObjectStorage.Model.LineageRecord! lineage) -> void
+Varve.Store.ObjectStorage.DatasetIsReplicaException.DatasetIsReplicaException(string! message) -> void
+Varve.Store.ObjectStorage.DatasetIsReplicaException.DatasetIsReplicaException(string! message, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.DatasetIsReplicaException.Lineage.get -> Varve.Store.ObjectStorage.Model.LineageRecord?
+Varve.Store.ObjectStorage.Model.CommitHeaderHash
+Varve.Store.ObjectStorage.Model.CommitHeaderHash.CommitHeaderHash() -> void
+Varve.Store.ObjectStorage.Model.CommitHeaderHash.CommitHeaderHash(string! value) -> void
+Varve.Store.ObjectStorage.Model.CommitHeaderHash.Equals(Varve.Store.ObjectStorage.Model.CommitHeaderHash other) -> bool
+Varve.Store.ObjectStorage.Model.CommitHeaderHash.Value.get -> string!
+Varve.Store.ObjectStorage.Model.LineagePromotion
+Varve.Store.ObjectStorage.Model.LineagePromotion.<Clone>$() -> Varve.Store.ObjectStorage.Model.LineagePromotion!
+Varve.Store.ObjectStorage.Model.LineagePromotion.At.get -> Varve.Store.ObjectStorage.Model.ClaimTime
+Varve.Store.ObjectStorage.Model.LineagePromotion.At.init -> void
+Varve.Store.ObjectStorage.Model.LineagePromotion.By.get -> Varve.Store.ObjectStorage.Model.WriterInstance
+Varve.Store.ObjectStorage.Model.LineagePromotion.By.init -> void
+Varve.Store.ObjectStorage.Model.LineagePromotion.Epoch.get -> Varve.Store.ObjectStorage.Model.WriterEpoch
+Varve.Store.ObjectStorage.Model.LineagePromotion.Epoch.init -> void
+Varve.Store.ObjectStorage.Model.LineagePromotion.Equals(Varve.Store.ObjectStorage.Model.LineagePromotion? other) -> bool
+Varve.Store.ObjectStorage.Model.LineagePromotion.Hash.get -> Varve.Store.ObjectStorage.Model.CommitHeaderHash
+Varve.Store.ObjectStorage.Model.LineagePromotion.Hash.init -> void
+Varve.Store.ObjectStorage.Model.LineagePromotion.LineagePromotion() -> void
+Varve.Store.ObjectStorage.Model.LineagePromotion.Position.get -> Varve.Store.Log.Position
+Varve.Store.ObjectStorage.Model.LineagePromotion.Position.init -> void
+Varve.Store.ObjectStorage.Model.LineageRecord
+Varve.Store.ObjectStorage.Model.LineageRecord.<Clone>$() -> Varve.Store.ObjectStorage.Model.LineageRecord!
+Varve.Store.ObjectStorage.Model.LineageRecord.Equals(Varve.Store.ObjectStorage.Model.LineageRecord? other) -> bool
+Varve.Store.ObjectStorage.Model.LineageRecord.IsReplica.get -> bool
+Varve.Store.ObjectStorage.Model.LineageRecord.LineageRecord() -> void
+Varve.Store.ObjectStorage.Model.LineageRecord.Promoted.get -> Varve.Store.ObjectStorage.Model.LineagePromotion?
+Varve.Store.ObjectStorage.Model.LineageRecord.Promoted.init -> void
+Varve.Store.ObjectStorage.Model.LineageRecord.Source.get -> Varve.Store.ObjectStorage.Model.LineageSource?
+Varve.Store.ObjectStorage.Model.LineageRecord.Source.init -> void
+Varve.Store.ObjectStorage.Model.LineageRecord.State.get -> Varve.Store.ObjectStorage.Model.LineageState
+Varve.Store.ObjectStorage.Model.LineageRecord.State.init -> void
+Varve.Store.ObjectStorage.Model.LineageRecord.Understood.get -> bool
+Varve.Store.ObjectStorage.Model.LineageRecord.Understood.init -> void
+Varve.Store.ObjectStorage.Model.LineageSource
+Varve.Store.ObjectStorage.Model.LineageSource.<Clone>$() -> Varve.Store.ObjectStorage.Model.LineageSource!
+Varve.Store.ObjectStorage.Model.LineageSource.Dataset.get -> Varve.Store.Log.DatasetId
+Varve.Store.ObjectStorage.Model.LineageSource.Dataset.init -> void
+Varve.Store.ObjectStorage.Model.LineageSource.Deconstruct(out Varve.Store.ObjectStorage.Model.StoreAddress Store, out Varve.Store.Log.ObjectName? Prefix, out Varve.Store.Log.DatasetId Dataset, out Varve.Store.Log.DatasetId? Fleet) -> void
+Varve.Store.ObjectStorage.Model.LineageSource.Equals(Varve.Store.ObjectStorage.Model.LineageSource? other) -> bool
+Varve.Store.ObjectStorage.Model.LineageSource.Fleet.get -> Varve.Store.Log.DatasetId?
+Varve.Store.ObjectStorage.Model.LineageSource.Fleet.init -> void
+Varve.Store.ObjectStorage.Model.LineageSource.LineageSource(Varve.Store.ObjectStorage.Model.StoreAddress Store, Varve.Store.Log.ObjectName? Prefix, Varve.Store.Log.DatasetId Dataset, Varve.Store.Log.DatasetId? Fleet) -> void
+Varve.Store.ObjectStorage.Model.LineageSource.Prefix.get -> Varve.Store.Log.ObjectName?
+Varve.Store.ObjectStorage.Model.LineageSource.Prefix.init -> void
+Varve.Store.ObjectStorage.Model.LineageSource.Store.get -> Varve.Store.ObjectStorage.Model.StoreAddress
+Varve.Store.ObjectStorage.Model.LineageSource.Store.init -> void
+Varve.Store.ObjectStorage.Model.LineageState
+Varve.Store.ObjectStorage.Model.LineageState.Promoted = 1 -> Varve.Store.ObjectStorage.Model.LineageState
+Varve.Store.ObjectStorage.Model.LineageState.Replica = 0 -> Varve.Store.ObjectStorage.Model.LineageState
+Varve.Store.ObjectStorage.Model.LineageState.Unknown = 2 -> Varve.Store.ObjectStorage.Model.LineageState
+Varve.Store.ObjectStorage.Model.StoreAddress
+Varve.Store.ObjectStorage.Model.StoreAddress.Equals(Varve.Store.ObjectStorage.Model.StoreAddress other) -> bool
+Varve.Store.ObjectStorage.Model.StoreAddress.StoreAddress() -> void
+Varve.Store.ObjectStorage.Model.StoreAddress.StoreAddress(string! value) -> void
+Varve.Store.ObjectStorage.Model.StoreAddress.Value.get -> string!
+override Varve.Store.ObjectStorage.Model.CommitHeaderHash.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.CommitHeaderHash.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.LineagePromotion.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.LineagePromotion.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.LineagePromotion.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.LineageRecord.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.LineageRecord.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.LineageRecord.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.LineageSource.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.LineageSource.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.LineageSource.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.StoreAddress.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.StoreAddress.ToString() -> string!
+static Varve.Store.ObjectStorage.Model.CommitHeaderHash.operator !=(Varve.Store.ObjectStorage.Model.CommitHeaderHash left, Varve.Store.ObjectStorage.Model.CommitHeaderHash right) -> bool
+static Varve.Store.ObjectStorage.Model.CommitHeaderHash.operator ==(Varve.Store.ObjectStorage.Model.CommitHeaderHash left, Varve.Store.ObjectStorage.Model.CommitHeaderHash right) -> bool
+static Varve.Store.ObjectStorage.Model.LineagePromotion.operator !=(Varve.Store.ObjectStorage.Model.LineagePromotion? left, Varve.Store.ObjectStorage.Model.LineagePromotion? right) -> bool
+static Varve.Store.ObjectStorage.Model.LineagePromotion.operator ==(Varve.Store.ObjectStorage.Model.LineagePromotion? left, Varve.Store.ObjectStorage.Model.LineagePromotion? right) -> bool
+static Varve.Store.ObjectStorage.Model.LineageRecord.operator !=(Varve.Store.ObjectStorage.Model.LineageRecord? left, Varve.Store.ObjectStorage.Model.LineageRecord? right) -> bool
+static Varve.Store.ObjectStorage.Model.LineageRecord.operator ==(Varve.Store.ObjectStorage.Model.LineageRecord? left, Varve.Store.ObjectStorage.Model.LineageRecord? right) -> bool
+static Varve.Store.ObjectStorage.Model.LineageSource.operator !=(Varve.Store.ObjectStorage.Model.LineageSource? left, Varve.Store.ObjectStorage.Model.LineageSource? right) -> bool
+static Varve.Store.ObjectStorage.Model.LineageSource.operator ==(Varve.Store.ObjectStorage.Model.LineageSource? left, Varve.Store.ObjectStorage.Model.LineageSource? right) -> bool
+static Varve.Store.ObjectStorage.Model.StoreAddress.operator !=(Varve.Store.ObjectStorage.Model.StoreAddress left, Varve.Store.ObjectStorage.Model.StoreAddress right) -> bool
+static Varve.Store.ObjectStorage.Model.StoreAddress.operator ==(Varve.Store.ObjectStorage.Model.StoreAddress left, Varve.Store.ObjectStorage.Model.StoreAddress right) -> bool
+static Varve.Store.ObjectStorage.ObjectStorage.ReadLineageAsync(Varve.Store.IObjectStore! store, Varve.Store.Log.ObjectName? prefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.LineageRecord?>
+~override Varve.Store.ObjectStorage.Model.CommitHeaderHash.Equals(object obj) -> bool
+~override Varve.Store.ObjectStorage.Model.StoreAddress.Equals(object obj) -> bool
+Varve.Store.ObjectStorage.LogShipper
+Varve.Store.ObjectStorage.LogShipper.ShipLogAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.ShippedLog!>
+Varve.Store.ObjectStorage.Model.ShippedLog
+Varve.Store.ObjectStorage.Model.ShippedLog.<Clone>$() -> Varve.Store.ObjectStorage.Model.ShippedLog!
+Varve.Store.ObjectStorage.Model.ShippedLog.Equals(Varve.Store.ObjectStorage.Model.ShippedLog? other) -> bool
+Varve.Store.ObjectStorage.Model.ShippedLog.Moved.get -> bool
+Varve.Store.ObjectStorage.Model.ShippedLog.Moved.init -> void
+Varve.Store.ObjectStorage.Model.ShippedLog.NextSlot.get -> Varve.Store.ObjectStorage.Model.LogSlot
+Varve.Store.ObjectStorage.Model.ShippedLog.NextSlot.init -> void
+Varve.Store.ObjectStorage.Model.ShippedLog.ShippedLog() -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions
+Varve.Store.ObjectStorage.Model.ShippingOptions.<Clone>$() -> Varve.Store.ObjectStorage.Model.ShippingOptions!
+Varve.Store.ObjectStorage.Model.ShippingOptions.Clock.get -> System.TimeProvider!
+Varve.Store.ObjectStorage.Model.ShippingOptions.Clock.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.Equals(Varve.Store.ObjectStorage.Model.ShippingOptions? other) -> bool
+Varve.Store.ObjectStorage.Model.ShippingOptions.Lineage.get -> Varve.Store.ObjectStorage.Model.LineageSource!
+Varve.Store.ObjectStorage.Model.ShippingOptions.Lineage.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.ShippingOptions() -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.Source.get -> Varve.Store.IObjectStore!
+Varve.Store.ObjectStorage.Model.ShippingOptions.Source.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.SourcePrefix.get -> Varve.Store.Log.ObjectName?
+Varve.Store.ObjectStorage.Model.ShippingOptions.SourcePrefix.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.Staging.get -> Varve.Store.ObjectStorage.Model.CacheDirectory
+Varve.Store.ObjectStorage.Model.ShippingOptions.Staging.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.Target.get -> Varve.Store.IObjectStore!
+Varve.Store.ObjectStorage.Model.ShippingOptions.Target.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.TargetPrefix.get -> Varve.Store.Log.ObjectName?
+Varve.Store.ObjectStorage.Model.ShippingOptions.TargetPrefix.init -> void
+Varve.Store.ObjectStorage.ReplicaPromotedException
+Varve.Store.ObjectStorage.ReplicaPromotedException.Lineage.get -> Varve.Store.ObjectStorage.Model.LineageRecord?
+Varve.Store.ObjectStorage.ReplicaPromotedException.ReplicaPromotedException() -> void
+Varve.Store.ObjectStorage.ReplicaPromotedException.ReplicaPromotedException(Varve.Store.ObjectStorage.Model.LineageRecord! lineage) -> void
+Varve.Store.ObjectStorage.ReplicaPromotedException.ReplicaPromotedException(string! message) -> void
+Varve.Store.ObjectStorage.ReplicaPromotedException.ReplicaPromotedException(string! message, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.ShippingDivergedException
+Varve.Store.ObjectStorage.ShippingDivergedException.ShippingDivergedException() -> void
+Varve.Store.ObjectStorage.ShippingDivergedException.ShippingDivergedException(Varve.Store.ObjectStorage.Model.LogSlot slot, string! how) -> void
+Varve.Store.ObjectStorage.ShippingDivergedException.ShippingDivergedException(Varve.Store.ObjectStorage.Model.LogSlot slot, string! how, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.ShippingDivergedException.ShippingDivergedException(string! message) -> void
+Varve.Store.ObjectStorage.ShippingDivergedException.ShippingDivergedException(string! message, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.ShippingDivergedException.Slot.get -> Varve.Store.ObjectStorage.Model.LogSlot?
+Varve.Store.ObjectStorage.ShippingTargetNotEmptyException
+Varve.Store.ObjectStorage.ShippingTargetNotEmptyException.ShippingTargetNotEmptyException() -> void
+Varve.Store.ObjectStorage.ShippingTargetNotEmptyException.ShippingTargetNotEmptyException(string! message) -> void
+Varve.Store.ObjectStorage.ShippingTargetNotEmptyException.ShippingTargetNotEmptyException(string! message, System.Exception! innerException) -> void
+override Varve.Store.ObjectStorage.Model.ShippedLog.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.ShippedLog.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.ShippedLog.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.ShippingOptions.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.ShippingOptions.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.ShippingOptions.ToString() -> string!
+static Varve.Store.ObjectStorage.LogShipper.StartAsync(Varve.Store.ObjectStorage.Model.ShippingOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.LogShipper?>
+static Varve.Store.ObjectStorage.Model.ShippedLog.operator !=(Varve.Store.ObjectStorage.Model.ShippedLog? left, Varve.Store.ObjectStorage.Model.ShippedLog? right) -> bool
+static Varve.Store.ObjectStorage.Model.ShippedLog.operator ==(Varve.Store.ObjectStorage.Model.ShippedLog? left, Varve.Store.ObjectStorage.Model.ShippedLog? right) -> bool
+static Varve.Store.ObjectStorage.Model.ShippingOptions.operator !=(Varve.Store.ObjectStorage.Model.ShippingOptions? left, Varve.Store.ObjectStorage.Model.ShippingOptions? right) -> bool
+static Varve.Store.ObjectStorage.Model.ShippingOptions.operator ==(Varve.Store.ObjectStorage.Model.ShippingOptions? left, Varve.Store.ObjectStorage.Model.ShippingOptions? right) -> bool
+Varve.Store.ObjectStorage.LogShipper.ShipAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.ShippedRound!>
+Varve.Store.ObjectStorage.Model.ShippedRound
+Varve.Store.ObjectStorage.Model.ShippedRound.<Clone>$() -> Varve.Store.ObjectStorage.Model.ShippedRound!
+Varve.Store.ObjectStorage.Model.ShippedRound.Catalog.get -> Varve.Store.CatalogSummary?
+Varve.Store.ObjectStorage.Model.ShippedRound.Catalog.init -> void
+Varve.Store.ObjectStorage.Model.ShippedRound.Equals(Varve.Store.ObjectStorage.Model.ShippedRound? other) -> bool
+Varve.Store.ObjectStorage.Model.ShippedRound.Log.get -> Varve.Store.ObjectStorage.Model.ShippedLog!
+Varve.Store.ObjectStorage.Model.ShippedRound.Log.init -> void
+Varve.Store.ObjectStorage.Model.ShippedRound.Moved.get -> bool
+Varve.Store.ObjectStorage.Model.ShippedRound.Moved.init -> void
+Varve.Store.ObjectStorage.Model.ShippedRound.ShippedRound() -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.Holder.get -> Varve.Store.ObjectStorage.Model.WriterInstance?
+Varve.Store.ObjectStorage.Model.ShippingOptions.Holder.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.Reader.get -> Varve.Store.Log.ReaderId
+Varve.Store.ObjectStorage.Model.ShippingOptions.Reader.init -> void
+override Varve.Store.ObjectStorage.Model.ShippedRound.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.ShippedRound.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.ShippedRound.ToString() -> string!
+static Varve.Store.ObjectStorage.Model.ShippedRound.operator !=(Varve.Store.ObjectStorage.Model.ShippedRound? left, Varve.Store.ObjectStorage.Model.ShippedRound? right) -> bool
+static Varve.Store.ObjectStorage.Model.ShippedRound.operator ==(Varve.Store.ObjectStorage.Model.ShippedRound? left, Varve.Store.ObjectStorage.Model.ShippedRound? right) -> bool
+Varve.Store.ObjectStorage.StoreUnverifiedException
+Varve.Store.ObjectStorage.StoreUnverifiedException.Found.get -> Varve.Store.ObjectStorage.Model.VerificationRecord?
+Varve.Store.ObjectStorage.StoreUnverifiedException.Minimum.get -> Varve.Store.ObjectStorage.Model.VerificationSuite
+Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException() -> void
+Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException(Varve.Store.ObjectStorage.Model.VerificationRecord? found, Varve.Store.ObjectStorage.Model.VerificationSuite minimum) -> void
+Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException(string! message) -> void
+Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException(string! message, System.Exception! innerException) -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.BeforeLogWrite.get -> System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
+Varve.Store.ObjectStorage.Model.ShippingOptions.BeforeLogWrite.init -> void
+Varve.Store.ObjectStorage.DatasetIsReplicaException.IsPromotionIncomplete.get -> bool
+Varve.Store.ObjectStorage.Model.ClaimTrigger.Promotion = 5 -> Varve.Store.ObjectStorage.Model.ClaimTrigger
+Varve.Store.ObjectStorage.Model.PromotionOutcome
+Varve.Store.ObjectStorage.Model.PromotionOutcome.Lost = 4 -> Varve.Store.ObjectStorage.Model.PromotionOutcome
+Varve.Store.ObjectStorage.Model.PromotionOutcome.NotAReplica = 1 -> Varve.Store.ObjectStorage.Model.PromotionOutcome
+Varve.Store.ObjectStorage.Model.PromotionOutcome.PositionMismatch = 3 -> Varve.Store.ObjectStorage.Model.PromotionOutcome
+Varve.Store.ObjectStorage.Model.PromotionOutcome.Promoted = 0 -> Varve.Store.ObjectStorage.Model.PromotionOutcome
+Varve.Store.ObjectStorage.Model.PromotionOutcome.SourceMismatch = 2 -> Varve.Store.ObjectStorage.Model.PromotionOutcome
+Varve.Store.ObjectStorage.Model.PromotionRequest
+Varve.Store.ObjectStorage.Model.PromotionRequest.<Clone>$() -> Varve.Store.ObjectStorage.Model.PromotionRequest!
+Varve.Store.ObjectStorage.Model.PromotionRequest.Address.get -> Varve.Store.ObjectStorage.Model.WriterAddress?
+Varve.Store.ObjectStorage.Model.PromotionRequest.Address.init -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.Equals(Varve.Store.ObjectStorage.Model.PromotionRequest? other) -> bool
+Varve.Store.ObjectStorage.Model.PromotionRequest.Expected.get -> Varve.Store.Log.Position
+Varve.Store.ObjectStorage.Model.PromotionRequest.Expected.init -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.Hash.get -> Varve.Store.ObjectStorage.Model.CommitHeaderHash
+Varve.Store.ObjectStorage.Model.PromotionRequest.Hash.init -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.Instance.get -> Varve.Store.ObjectStorage.Model.WriterInstance
+Varve.Store.ObjectStorage.Model.PromotionRequest.Instance.init -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.PromotionRequest() -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.Randomness.get -> Varve.Store.ObjectStorage.Model.IProbeRandomness!
+Varve.Store.ObjectStorage.Model.PromotionRequest.Randomness.init -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.Source.get -> Varve.Store.ObjectStorage.Model.StoreAddress
+Varve.Store.ObjectStorage.Model.PromotionRequest.Source.init -> void
+Varve.Store.ObjectStorage.Model.PromotionRequest.Verified.get -> Varve.Store.Log.Position
+Varve.Store.ObjectStorage.Model.PromotionRequest.Verified.init -> void
+Varve.Store.ObjectStorage.Model.ReleaseReason.Promotion = 6 -> Varve.Store.ObjectStorage.Model.ReleaseReason
+Varve.Store.ObjectStorage.ObjectStorage.PromoteInPlaceAsync(Varve.Store.ObjectStorage.Model.PromotionRequest! request, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.PromotionOutcome>
+override Varve.Store.ObjectStorage.Model.PromotionRequest.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.PromotionRequest.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.PromotionRequest.ToString() -> string!
+static Varve.Store.ObjectStorage.DatasetIsReplicaException.PromotionIncomplete(Varve.Store.ObjectStorage.Model.LineageRecord! lineage) -> Varve.Store.ObjectStorage.DatasetIsReplicaException!
+static Varve.Store.ObjectStorage.Model.PromotionRequest.operator !=(Varve.Store.ObjectStorage.Model.PromotionRequest? left, Varve.Store.ObjectStorage.Model.PromotionRequest? right) -> bool
+static Varve.Store.ObjectStorage.Model.PromotionRequest.operator ==(Varve.Store.ObjectStorage.Model.PromotionRequest? left, Varve.Store.ObjectStorage.Model.PromotionRequest? right) -> bool
+Varve.Store.ObjectStorage.Model.ReplicaState
+Varve.Store.ObjectStorage.Model.ReplicaState.None = 0 -> Varve.Store.ObjectStorage.Model.ReplicaState
+Varve.Store.ObjectStorage.Model.ReplicaState.PromotionIncomplete = 2 -> Varve.Store.ObjectStorage.Model.ReplicaState
+Varve.Store.ObjectStorage.Model.ReplicaState.Replica = 1 -> Varve.Store.ObjectStorage.Model.ReplicaState
+static Varve.Store.ObjectStorage.ObjectStorage.ReplicaStateAsync(Varve.Store.IObjectStore! store, Varve.Store.Log.ObjectName? prefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.ReplicaState>

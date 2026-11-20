@@ -40,8 +40,21 @@ static class ObjectStoresPage
 
     public const string ResultsPath = "testdata/object-stores/results";
 
+    // The page's states as the server compiles them in (ADR 0184 decision 9):
+    // one line per provider, "<id> <state>", in the page's order.
+    public const string StatesPath = "src/Varve.Server/object-store-providers.txt";
+
     // The page for these files, or null with the reasons it cannot be made.
-    public static string? Generate(Func<string, string?> read, Func<string, IEnumerable<string>> list, List<string> problems)
+    public static string? Generate(Func<string, string?> read, Func<string, IEnumerable<string>> list, List<string> problems) =>
+        Load(read, list, problems) is var (providers, results) ? Render(providers, results) : null;
+
+    // The states file for these files, or null with the reasons it cannot be made.
+    public static string? GenerateStates(Func<string, string?> read, Func<string, IEnumerable<string>> list, List<string> problems) =>
+        Load(read, list, problems) is var (providers, results)
+            ? string.Concat(providers.Select(provider => $"{provider.Id} {State(provider, results)}\n"))
+            : null;
+
+    private static (List<StoreProvider> Providers, List<StoreResult> Results)? Load(Func<string, string?> read, Func<string, IEnumerable<string>> list, List<string> problems)
     {
         int before = problems.Count;
         string? providersText = read(ProvidersPath);
@@ -74,7 +87,7 @@ static class ObjectStoresPage
             }
         }
 
-        return problems.Count == before ? Render(providers, results) : null;
+        return problems.Count == before ? (providers, results) : null;
     }
 
     // The check eng/status.cs makes: the page is what the files generate.
@@ -105,6 +118,14 @@ static class ObjectStoresPage
             }
 
             problems.Add($"{pagePath} is not what {ProvidersPath} and the records under {ResultsPath}/ generate, from line {line + 1}; it is never edited by hand: run `dotnet run eng/object-stores.cs` (ADR 0183)");
+        }
+
+        // The states the server compiles in are the page's (ADR 0184 decision 9).
+        List<string> unused = [];
+
+        if (GenerateStates(read, list, unused) is { } states && read(StatesPath)?.ReplaceLineEndings("\n") != states)
+        {
+            problems.Add($"{StatesPath} is not what {ProvidersPath} and the records under {ResultsPath}/ generate; it is never edited by hand: run `dotnet run eng/object-stores.cs` (ADR 0184)");
         }
     }
 

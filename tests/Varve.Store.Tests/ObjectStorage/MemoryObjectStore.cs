@@ -113,6 +113,15 @@ internal sealed class MemoryObjectStore : IObjectStore
         }
     }
 
+    /// <summary>Removes an object behind the backend's back.</summary>
+    public void Remove(string name)
+    {
+        lock (_gate)
+        {
+            _objects.Remove(name);
+        }
+    }
+
     /// <summary>Writes an object behind the backend's back: a test's way to damage or plant one.</summary>
     public void Put(string name, byte[] bytes)
     {

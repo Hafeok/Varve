@@ -157,6 +157,9 @@ public readonly record struct ProblemType
     /// <summary><c>503</c>: the writer released its epoch, abdicating, and commits nothing more; a standby or its own restart takes the dataset over (ADR 0179).</summary>
     public static ProblemType WriterSteppedDown { get; } = new("writer-stepped-down");
 
+    /// <summary><c>409</c>: a write to a dataset that is a replica, written by log shipping alone until an operator promotes it (ADR 0185 decision 3).</summary>
+    public static ProblemType DatasetIsReplica { get; } = new("dataset-is-replica");
+
     /// <summary><c>409</c>: a takeover request this instance refuses, with the reason and the writer epoch now (ADR 0179 point 6).</summary>
     public static ProblemType TakeoverRefused { get; } = new("takeover-refused");
 

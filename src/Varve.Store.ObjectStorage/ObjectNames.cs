@@ -29,6 +29,9 @@ internal sealed class ObjectNames(ObjectName? prefix)
 
     public ObjectName Writer => new(_prefix + "writer");
 
+    /// <summary>The lineage record, <c>lineage</c>, beside the writer record (ADR 0185).</summary>
+    public ObjectName Lineage => new(_prefix + "lineage");
+
     /// <summary>Where the reader records are, <c>readers/</c> (ADR 0160).</summary>
     public ObjectName Readers => new(_prefix + "readers/");
 
@@ -60,6 +63,9 @@ internal sealed class ObjectNames(ObjectName? prefix)
     public ObjectName Segment(int segment) => new(_prefix + LogPart + Number(segment) + SegmentSuffix);
 
     public ObjectName Chunk(int segment, int chunk) => new(_prefix + LogPart + Slot(segment, chunk));
+
+    /// <summary>Where a segment's chunks are, <c>log/NNNNNNNN.chunks/</c>.</summary>
+    public ObjectName Chunks(int segment) => new(_prefix + LogPart + Number(segment) + ChunksPart);
 
     /// <summary>A slot as the writer record names it: <c>NNNNNNNN.chunks/CCCCCCCC</c>.</summary>
     public static string Slot(int segment, int chunk) => Number(segment) + ChunksPart + Number(chunk);

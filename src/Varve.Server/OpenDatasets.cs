@@ -17,6 +17,7 @@ using Varve.Protocol;
 using Varve.Protocol.Model;
 using Varve.Store;
 using Varve.Store.Log;
+using Varve.Store.ObjectStorage;
 using Varve.Store.ObjectStorage.Model;
 using Backend = Varve.Store.ObjectStorage.ObjectStorage;
 
@@ -104,6 +105,24 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     }
 
     /// <summary>This instance's role in a dataset; none when it does not know the dataset.</summary>
+    /// <summary>Whether the dataset is declared a copy and waits for its first shipping round (ADR 0185 decision 10): not open, and not a failure.</summary>
+    internal bool AwaitsShipping(DatasetName name)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(name.Value, out Entry? entry) && entry.State == DatasetState.Failed && entry.AwaitsShipping;
+        }
+    }
+
+    /// <summary>What the dataset's lineage said when this instance last read it (ADR 0185): a replica takes no write.</summary>
+    internal ReplicaState ReplicaOf(DatasetName name)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(name.Value, out Entry? entry) ? entry.Replica : ReplicaState.None;
+        }
+    }
+
     internal DatasetRole? RoleOf(DatasetName name)
     {
         lock (_gate)
@@ -225,6 +244,13 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                 writing: entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer && !entry.Superseded,
                 spillFailing: entry.Dataset?.SpillFailure is not null);
 
+            // ADR 0185 decision 3: a replica is followed, and the start rule never runs while its lineage says so.
+            if (await FollowsAReplicaAsync(name, entry, declared, placement, storage, fresh, cancellationToken).ConfigureAwait(false))
+            {
+                ReportOpen(name, entry);
+                continue;
+            }
+
             if (placement.HasWriterSet(declared, storage))
             {
                 await ConvergeMemberAsync(name, entry, declared, placement, fresh, cancellationToken).ConfigureAwait(false);
@@ -241,6 +267,109 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
             ReportOpen(name, entry);
         }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="name"/> is a replica, or a copy whose
+    /// promotion did not finish, and so is followed here and not claimed
+    /// (ADR 0185 decisions 3 and 6).
+    /// </summary>
+    /// <remarks>
+    /// The lineage is read once for a dataset this instance does not write,
+    /// and again each round only while it says replica: that is how a member
+    /// learns that another one promoted it. A member that would write the
+    /// dataset follows it as a standby, tailing on the interval, so that it
+    /// is warm when an operator promotes. This is not a store failure: the
+    /// claim hold-off is not entered, and nothing is logged as one.
+    /// </remarks>
+    [DesignDecision(typeof(PromotionAcrossCopies.AReplicaIsNeverOpenedForWrite), Scope = ExceptionScope.Boundary)]
+    private async Task<bool> FollowsAReplicaAsync(string name, Entry entry, DatasetDeclaration declared, Placement placement, DatasetStorage storage, bool fresh, CancellationToken cancellationToken)
+    {
+        entry.AwaitsShipping = false;
+        bool holding = entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer;
+
+        if (storage != DatasetStorage.ObjectStorage || _objects is null || declared.Closed || holding || (entry.ReplicaRead && entry.Replica == ReplicaState.None))
+        {
+            return false;
+        }
+
+        try
+        {
+            entry.Replica = await _objects.ReplicaStateAsync(name, cancellationToken).ConfigureAwait(false);
+            entry.ReplicaRead = true;
+        }
+        catch (Exception error) when (error is System.IO.IOException or System.Net.Http.HttpRequestException or TimeoutException or System.IO.InvalidDataException)
+        {
+            // Not read this round: what was known stands, and an unknown one is found at the claim itself.
+        }
+
+        if (entry.Replica == ReplicaState.None && declared.CopyOf is null)
+        {
+            return false;
+        }
+
+        if (entry.Replica == ReplicaState.None)
+        {
+            // Declared a copy (ADR 0185 decision 3), and the store does not say replica. This fleet never
+            // creates a dataset under such a declaration: only the source's shipper makes a copy.
+            entry.ReplicaRead = false;
+
+            try
+            {
+                if (!await _objects.ExistsAsync(name, cancellationToken).ConfigureAwait(false))
+                {
+                    entry.AwaitsShipping = true;
+                    await WaitForTheCopyAsync(name, entry, "It is declared a copy of the dataset under '" + declared.CopyOf!.Prefix + "' at " + declared.CopyOf.Store
+                        + ", and waits for the first shipping round: the source's shipper writes its lineage record and its log. Nothing is created here (ADR 0185).", DatasetFailure.Transient).ConfigureAwait(false);
+                    return true;
+                }
+
+                if (await _objects.PromotedAtAsync(name, cancellationToken).ConfigureAwait(false) is null)
+                {
+                    await WaitForTheCopyAsync(name, entry, "It is declared a copy, and the store holds a dataset under its name that has no lineage record: that one is no copy, and is not written here. "
+                        + "Remove varve:copyOf if it is this fleet's own dataset, or ship to another prefix (ADR 0185).", DatasetFailure.Configuration).ConfigureAwait(false);
+                    return true;
+                }
+            }
+            catch (Exception error) when (error is System.IO.IOException or System.Net.Http.HttpRequestException or TimeoutException)
+            {
+                await WaitForTheCopyAsync(name, entry, "It is declared a copy, and its store could not be read this round: " + error.Message, DatasetFailure.Transient).ConfigureAwait(false);
+                return true;
+            }
+
+            // A promoted copy whose promotion finished: this fleet's own dataset from here on.
+            entry.ReplicaRead = true;
+            return false;
+        }
+
+        bool member = placement.HasWriterSet(declared, storage) ? placement.IsMember(declared) : placement.RoleOf(declared, storage) == DatasetRole.Writer;
+        DatasetRole role = member ? DatasetRole.Standby : DatasetRole.Follower;
+
+        if (entry.State != DatasetState.Open || entry.Role != role)
+        {
+            await SwitchAsync(name, entry, role, wait: fresh, abdicate: null, cancellationToken).ConfigureAwait(false);
+        }
+        else if (role == DatasetRole.Standby)
+        {
+            await TailAsync(name, entry, cancellationToken).ConfigureAwait(false);
+        }
+
+        return true;
+    }
+
+    // A dataset declared a copy that is not there to follow yet: closed, with why. It is no failed open: nothing
+    // is logged as one, and the claim hold-off is not entered.
+    private static async Task WaitForTheCopyAsync(string name, Entry entry, string reason, DatasetFailure failure)
+    {
+        _ = name;
+
+        if (entry.State == DatasetState.Open)
+        {
+            await entry.ReleaseAsync().ConfigureAwait(false);
+        }
+
+        entry.Placed(DatasetRole.Follower);
+        entry.Fail(reason, failure);
     }
 
     // A writer's open that failed is logged at warning once (#251), and at
@@ -671,6 +800,13 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
                 WarmKeys(name, written);
             }
         }
+        catch (DatasetIsReplicaException replica) when (role == DatasetRole.Writer)
+        {
+            // Found at the claim itself (ADR 0185 decision 3): followed from here on, and not a failure.
+            entry.Replica = replica.IsPromotionIncomplete ? ReplicaState.PromotionIncomplete : ReplicaState.Replica;
+            entry.ReplicaRead = true;
+            await OpenEntryAsync(name, entry, DatasetRole.Standby, wait, cancellationToken).ConfigureAwait(false);
+        }
         catch (Exception error) when (error is not OperationCanceledException)
         {
             if (entry.Storage == DatasetStorage.ObjectStorage && role == DatasetRole.Writer)
@@ -729,6 +865,14 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             return;
         }
 
+        // ADR 0185 decision 8: a commit at or below a promoted copy's promoted position records a position in
+        // another fleet's system dataset. The watermark is never seeded from one, or every write here would
+        // wait for a management position this fleet may never reach.
+        if (_objects is not null && await IsForeignAsync(name, dataset.Head, cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
         // The head commit's header alone (#310): the delta is never read.
         CommitHeaderTerms head = await dataset.ReadMetadataAsync(dataset.Head, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<Varve.Rdf.RdfTerm> attachments = head.Attachments;
@@ -737,6 +881,26 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         {
             _order.Observe(name, recorded);
         }
+    }
+
+    // Whether the commit at a position was written under the fleet a promoted copy was shipped from. The
+    // lineage is read once per open of a dataset this instance writes.
+    [DesignDecision(typeof(PromotionAcrossCopies.AManagementPositionBelongsToItsFleet), Scope = ExceptionScope.Boundary)]
+    private async Task<bool> IsForeignAsync(DatasetName name, Position position, CancellationToken cancellationToken)
+    {
+        Entry? entry;
+
+        lock (_gate)
+        {
+            entry = _entries.TryGetValue(name.Value, out Entry? held) ? held : null;
+        }
+
+        if (entry is not { Storage: DatasetStorage.ObjectStorage })
+        {
+            return false;
+        }
+
+        return await _objects!.PromotedAtAsync(name.Value, cancellationToken).ConfigureAwait(false) is { } promoted && position.Value <= promoted.Value;
     }
 
     private async Task DeleteStorageAsync(string name, DatasetStorage storage, CancellationToken cancellationToken)
@@ -830,6 +994,15 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         internal Dataset? Dataset { get; private set; }
 
+        /// <summary>What the dataset's lineage said when it was last read (ADR 0185): a replica is followed and never claimed.</summary>
+        internal ReplicaState Replica { get; set; }
+
+        /// <summary>Whether the dataset is declared a copy that its first shipping round has not written yet.</summary>
+        internal bool AwaitsShipping { get; set; }
+
+        /// <summary>Whether the lineage has been read since this entry was made.</summary>
+        internal bool ReplicaRead { get; set; }
+
         /// <summary>Placed here and following until the previous writer's release is seen.</summary>
         internal bool AwaitingRelease { get; set; }
 
@@ -870,6 +1043,12 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         /// <summary>A claim's outcome, for the hold-off: open as the writer ends it, anything else lengthens it.</summary>
         internal void Claimed(bool opened)
         {
+            // A replica found at the claim is not a store that failed (ADR 0185 decision 3).
+            if (!opened && Replica != ReplicaState.None)
+            {
+                return;
+            }
+
             if (opened)
             {
                 HoldOff?.Succeeded();

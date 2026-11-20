@@ -389,11 +389,13 @@ Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replicati
 
 ## Replication, part 2 (#166)
 
-Filed by [#166](https://github.com/Hafeok/Varve/issues/166), part 2 of Replication ([#97](https://github.com/Hafeok/Varve/issues/97)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered 0183–0186, in three pull requests. The first is 0183, for [#117](https://github.com/Hafeok/Varve/issues/117). Amended by it, likewise unaccepted: 0134 (the suite as shipped code, a second broken store); 0216 (the verification record and the result record); 0217 (the verification record read by its rule).
+Filed by [#166](https://github.com/Hafeok/Varve/issues/166), part 2 of Replication ([#97](https://github.com/Hafeok/Varve/issues/97)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered 0183–0186, in three pull requests. The first is 0183, for [#117](https://github.com/Hafeok/Varve/issues/117); the second is 0184 and 0185, whose dated amendments are filed with the code that makes them true. Amended by 0183, likewise unaccepted: 0134 (the suite as shipped code, a second broken store); 0216 (the verification record and the result record); 0217 (the verification record read by its rule).
 
 | # | Title | Status |
 |---:|---|---|
 | [0183](0183-object-store-verification-and-the-compatibility-page.md) | Object store verification: the suite as shipped code, a record at the store, and a generated compatibility page | Filed unaccepted (#166, for #117) |
+| [0184](0184-log-shipping.md) | Log shipping: a byte-identical copy of a dataset in another store, written by create-if-absent | Filed unaccepted (#166) |
+| [0185](0185-promotion-across-copies-and-the-lineage-record.md) | Promotion across copies: an operator's act, a lineage record, and a management position that belongs to its fleet | Filed unaccepted (#166) |
 
 ## Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit
 

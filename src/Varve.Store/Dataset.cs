@@ -1243,6 +1243,40 @@ public sealed partial class Dataset : IAsyncDisposable
     /// <summary>The hash of the header of the commit at <paramref name="position"/>; the genesis hash at 0.</summary>
     internal byte[] HeaderHashAt(long position) => position == 0 ? LogFormat.Genesis() : _state.Commits.Entry(position).HeaderHash();
 
+    /// <summary>
+    /// The header hash of the commit at <paramref name="position"/>, 32
+    /// bytes: what the next commit's header chains to (storage format §4).
+    /// A host records it where it states which log a copy continues, as a
+    /// promotion's lineage record does (ADR 0185). Position 0 has the
+    /// genesis value.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// **I/O.** None for the head, nor for any position after the dataset's
+    /// last checkpoint: those are in memory. A position at or below the
+    /// checkpoint the dataset opened from is in the commit index's prefix,
+    /// which is read from the log once, here, if nothing has read it yet.
+    /// </para>
+    /// <para>
+    /// **History.** A log keeps every commit, so every position from 0 to
+    /// the head has a hash. There is no retained history below which one is
+    /// missing.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="position"/> is past the head.</exception>
+    public async ValueTask<ReadOnlyMemory<byte>> HeaderHashAsync(Position position, CancellationToken cancellationToken = default)
+    {
+        State state = _state;
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(position.Value, state.Head);
+
+        if (state.Commits.Prefix is { } prefix && position.Value > 0 && !state.Commits.Knows(position.Value))
+        {
+            await prefix.LoadAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return position.Value == 0 ? LogFormat.Genesis() : state.Commits.Entry(position.Value).HeaderHash();
+    }
+
     /// <summary>The names of the derived blobs found damaged since the dataset opened (ADR 0213).</summary>
     internal IReadOnlyCollection<string> Damaged => (IReadOnlyCollection<string>)_damaged.Keys;
 
