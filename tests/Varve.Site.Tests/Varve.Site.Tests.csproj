@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The docs site's tests (ADR 0247, amended 2026-11-19): the ADR badge on a
+       fixture ledger, site-tokens.css held to tokens.json, the diagram alt,
+       page order, and, on a site built here in the runner's Chrome, its
+       structure against docs/ui/site/reference/, two builds byte for byte,
+       its policy, and axe-core in both schemes at two widths. The browser
+       cases are skipped where VARVE_CHROME is not given, unless
+       VARVE_SITE_TESTS_REQUIRED says they must run; ci.yml's docs site job
+       runs them all. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../eng/site/Site.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+    <PackageReference Include="Microsoft.Playwright" />
+    <PackageReference Include="Deque.AxeCore.Playwright" />
+  </ItemGroup>
+
+</Project>

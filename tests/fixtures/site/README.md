@@ -19,6 +19,10 @@ The `site-links-fixtures` job in `eng/ci.cs` requires exactly those exit codes.
 `script` is a page whose links are whole and which holds a `<script>`: the
 link gate passes it, and `build` refuses it after writing, with exit 1
 (ADR 0247 point 6). The `site-script-fixture` job in `eng/ci.cs` runs it.
+It also holds the smallest design source a build reads (`docs/ui/tokens.json`,
+`bundle.css`, `site/site.css`, `assets/varve-core.svg`) and a
+`Directory.Build.targets` stating the licence (ADR 0247 amended 2026-11-19), so
+that the one finding, and the reason for the exit code, is the script.
 
 ```
 dotnet run --project eng/site -- build --root tests/fixtures/site/script --out artifacts/site-script-fixture --commit 0000000000000000000000000000000000000000

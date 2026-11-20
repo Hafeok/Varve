@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Operating Varve — Varve</title>
+<link rel="icon" href="../varve-core.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../site-tokens.css">
+<link rel="stylesheet" href="../bundle.css">
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+<a class="vd-skip" href="#main">Skip to content</a>
+<header class="vd-bar">
+<a class="vd-brand" href="../index.html"><img src="../varve-core.svg" alt=""><b>Varve</b><span>Documentation</span></a>
+<nav class="vd-sections" aria-label="Sections"><a href="../operator/index.html" aria-current="page">Operator guide</a><a href="../spec/index.html">Specifications</a><a href="../adr/index.html">Decisions</a><a href="../problems/index.html">Problems</a><a href="../api/index.html">API</a></nav>
+<a class="vd-repo" href="https://github.com/Hafeok/Varve">GitHub</a>
+</header>
+<div class="vd-frame vd-frame--wide">
+<main class="vd-article" id="main"><p class="vd-crumbs"><a href="../index.html">Documentation</a><a class="vd-jump" href="#pages">Pages in this section ↓</a></p><header class="vd-head"><h1>Operator guide</h1><p class="vd-lede">Running, configuring, securing and upgrading Varve.</p></header><div class="vd-prose"><p>The operator's guide to <code>Varve.Server</code>: one executable that is the server and
+the <code>varve</code> command line (ADR 0105). Fifteen pages, each a task:</p>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Page</th>
+<th>What it covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../operator/run.html">Run</a></td>
+<td>installing the executable, starting the server, what it listens on, liveness and readiness, stopping it</td>
+</tr>
+<tr>
+<td><a href="../operator/configure.html">Configure</a></td>
+<td>every setting under <code>Varve:</code>, with its default and what refuses to start</td>
+</tr>
+<tr>
+<td><a href="../operator/authenticate.html">Authenticate</a></td>
+<td>OIDC bearer tokens, claims to permissions, graph-scoped grants, on-behalf-of and the attribution rule, anonymous mode, and how the command line gets a token</td>
+</tr>
+<tr>
+<td><a href="../operator/datasets.html">Datasets</a></td>
+<td>where a dataset's boundary goes; declaring datasets, settings and grants as TriG with <code>varve apply</code> and <code>/manage/</code>; and a setup an application applies on every start: <code>AddVarve</code>, <code>varve setup apply</code>, <code>WithDataset</code>, the setup file</td>
+</tr>
+<tr>
+<td><a href="../operator/fleet.html">The fleet</a></td>
+<td>the system dataset, its writer and followers, placement, write forwarding, reading your writes, readiness, and what each costs in store requests</td>
+</tr>
+<tr>
+<td><a href="../operator/shapes.html">Shapes</a></td>
+<td>shapes bindings: declaring one, <code>reject</code>, <code>report</code> and <code>off</code>, which shapes can be checked per commit, the attachment, the report graph and who reads it, the projection's lag, cold start and cost, and the composition REC and Brick need</td>
+</tr>
+<tr>
+<td><a href="../operator/inference.html">Inference</a></td>
+<td>TBox bindings: declaring one, who reads the TBox and what <code>varve apply --plan</code> shows, <code>Varve-Entailment</code> and the default regime, what a query sees, the service description and the cost</td>
+</tr>
+<tr>
+<td><a href="../operator/moving-event-schemas.html">Moving event schemas</a></td>
+<td>moving a dataset's event declarations from its catalogue graphs to the management plane: the freeze, the copy, a stopped move, and declaring event types afterwards</td>
+</tr>
+<tr>
+<td><a href="../operator/integrate.html">Integrate</a></td>
+<td>the commits resource as the stream other systems follow, <code>FollowAsync</code> and its checkpoint, at least once; domain events as CloudEvents, their catalogue, schemas and AsyncAPI, <code>FollowEventsAsync</code>, and the Event Hubs bridge</td>
+</tr>
+<tr>
+<td><a href="../operator/row-level-access.html">Row-level access</a></td>
+<td>classifier bindings, subject-scoped grants, the write rule, what a row-restricted caller sees, the classification projection, access requests</td>
+</tr>
+<tr>
+<td><a href="../operator/observe.html">Observe</a></td>
+<td>the OTLP exporter and the <code>OTEL_*</code> variables, every span and metric by name, the log events, what it costs</td>
+</tr>
+<tr>
+<td><a href="../operator/backup-and-restore.html">Back up and restore</a></td>
+<td>what the files are, taking a copy, checkpoints, restoring, and the change feed as an incremental copy</td>
+</tr>
+<tr>
+<td><a href="../operator/upgrade.html">Upgrade</a></td>
+<td>what a new build reads, what it rewrites, and the order of a rolling upgrade</td>
+</tr>
+<tr>
+<td><a href="../operator/small-machine.html">A small machine</a></td>
+<td>a Raspberry Pi 5: the file backend on NVMe, an object store on a NAS only by identity, the runtime limits for 8 GB</td>
+</tr>
+<tr>
+<td><a href="../operator/azure-container-apps.html">Azure Container Apps</a></td>
+<td>datasets in Blob Storage, the template, the writer app and the reader app, cold start, costs</td>
+</tr>
+<tr>
+<td><a href="../operator/kubernetes.html">Kubernetes</a></td>
+<td>a fleet as one StatefulSet with a headless service, workload identity for the store</td>
+</tr>
+<tr>
+<td><a href="../operator/web-ui.html">The Web UI</a></td>
+<td>the operator console in a browser: served by the server or a static host, its Content Security Policy, signing in per issuer, anonymous mode</td>
+</tr>
+</tbody>
+</table></div>
+<p>Every refusal the server answers is an RFC 9457 problem of a type listed in
+<a href="../problems/index.html"><code>docs/problems/</code></a>, one page per type with its status
+and its members (ADR 0119). Every term the service description coins under
+<code>https://w3id.org/varve/ns#</code> is in <a href="https://github.com/Hafeok/Varve/blob/c754bcb7e1f0/docs/vocabulary.md"><code>docs/vocabulary.md</code></a>.</p>
+<p>The decisions behind the pages are ADRs 0101 (the host), 0105 (the command
+line), 0106 (the admin API), 0163–0168 (the management plane, the
+follower, the management position, the vocabulary, the event-schema move, write forwarding), 0169–0176 (shapes bindings, the validation projection and the REC gate), 0107 (graph-level authorisation), 0230–0238 (row-level access), 0104 (<code>SERVICE</code>
+and <code>LOAD</code> over HTTP), 0112 (telemetry), 0037, 0100 and 0127 (authentication
+and on-behalf-of), 0128 and 0129 (the feed's format and following it), 0130
+and 0131 (setup), 0132 (CORS), and 0200–0206 (the Web UI). The protocol a
+client speaks is in <code>src/Varve.Protocol/README.md</code> and
+<code>docs/spec/change-feed.md</code>.</p>
+</div></main>
+<nav class="vd-pages" id="pages" aria-label="Operator guide"><h2>Operator guide</h2><ol><li><a href="../operator/index.html" aria-current="page">Overview</a></li><li><a href="../operator/run.html">Run</a></li><li><a href="../operator/configure.html">Configure</a></li><li><a href="../operator/authenticate.html">Authenticate</a></li><li><a href="../operator/datasets.html">Datasets: their boundary, their declaration, and their setup</a></li><li><a href="../operator/fleet.html">The fleet</a></li><li><a href="../operator/shapes.html">Shapes</a></li><li><a href="../operator/inference.html">Inference</a></li><li><a href="../operator/moving-event-schemas.html">Moving event schemas</a></li><li><a href="../operator/integrate.html">Integrate: the commits resource as a stream, and domain events</a></li><li><a href="../operator/row-level-access.html">Row-level access</a></li><li><a href="../operator/observe.html">Observe</a></li><li><a href="../operator/backup-and-restore.html">Back up and restore</a></li><li><a href="../operator/upgrade.html">Upgrade</a></li><li><a href="../operator/small-machine.html">Run on a small machine</a></li><li><a href="../operator/azure-container-apps.html">Run on Azure Container Apps</a></li><li><a href="../operator/kubernetes.html">Run on Kubernetes</a></li><li><a href="../operator/web-ui.html">The Web UI</a></li></ol></nav>
+
+</div>
+<footer class="vd-foot"><span>Built from <a href="https://github.com/Hafeok/Varve/tree/c754bcb7e1f0a2d4"><code>c754bcb7e1f0</code></a>. This page is <a href="https://github.com/Hafeok/Varve/blob/c754bcb7e1f0/docs/operator/README.md">docs/operator/README.md</a>.</span><span>MPL-2.0</span></footer>
+</body>
+</html>
