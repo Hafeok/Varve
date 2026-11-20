@@ -15,7 +15,8 @@ filed unaccepted.
 **Amended 2026-11-19** ([below](#amendment-2026-11-19--the-site-is-styled-from-the-design-source)):
 the site is styled from the design source, `docs/ui/` (ADR 0206), and loads
 three stylesheets of its own origin where point 6 says one. Filed unaccepted
-by #368, ruling `SiteStyledFromDesignSource` (ADR 0066).
+by #368, ruling `SiteStyledFromDesignSource` (ADR 0066), and accepted by the
+maintainer on 2026-11-20.
 
 Records decision set [`docs-site`](../decisions/docs-site.md).
 
@@ -217,8 +218,7 @@ files written against GitHub's renderer.
 
 ## Amendment, 2026-11-19 — the site is styled from the design source
 
-Filed by #368, under #129's docs-site deliverable, unaccepted until the
-maintainer accepts it (ADR 0066). Recording the maintainer's answers of
+Filed by #368, under #129's docs-site deliverable, unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20. Recording the maintainer's answers of
 2026-11-19 on #368 to the plan's questions.
 
 **What changes.** The site's stylesheet was embedded in `eng/site` and drawn

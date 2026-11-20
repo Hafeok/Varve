@@ -41,6 +41,8 @@ decisions:
     accepted-at: 2026-11-17T00:00:00Z
   - key: SiteStyledFromDesignSource
     statement: "The docs site embeds no stylesheet: at build it writes site-tokens.css from docs/ui/tokens.json, light on root and dark under prefers-color-scheme dark, copies docs/ui/bundle.css and docs/ui/site/site.css verbatim, and writes the frame and heads of docs/ui/site, with an ADR's badge read from the ledger and never from its status line; amended 2026-11-19"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
 ---
 
 The rulings of [ADR 0247](../adr/0247-the-docs-site.md), filed unaccepted by
@@ -48,4 +50,4 @@ The rulings of [ADR 0247](../adr/0247-the-docs-site.md), filed unaccepted by
 by his delegate (ADR 0239).
 
 `SiteStyledFromDesignSource` is added by the ADR's amendment of 2026-11-19
-(#368), filed unaccepted until the maintainer accepts it (ADR 0066).
+(#368), filed unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20.
