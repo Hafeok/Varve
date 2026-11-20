@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 
-namespace Varve.WebUi.Components.Organisms;
+namespace Varve.WebUi.Explorer.Organisms;
 
 /// <summary>
 /// A laid-out neighbourhood, as <c>GraphView</c> draws it: every coordinate

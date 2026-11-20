@@ -80,14 +80,14 @@ the explorer's lazy set (ADR 0248).
 
 ## Consequences
 
-- `QueryEditor` (an organism in `Varve.WebUi.Components`) knows no
-  tokenizer. `QueryColouring` (a part in `Varve.WebUi.Explorer`) holds the
-  mapping, the form and the bracket match, with the parser.
+- `QueryEditor`, an organism, knows no tokenizer. `QueryColouring`, a
+  part, holds the mapping, the form and the bracket match, with the parser.
+  Both are in `Varve.WebUi.Explorer`: only explorer pages use the editor
+  (ADR 0252 point 7).
 - The editor's colours are the `tok-*` tokens, used nowhere else.
 - **Checks:**
   - Against the accepted ADRs: 0200 (no inline style; the layer's spans are
     classes), 0205 (no new package), 0206 (the levels and the cases), 0248
     (the tokenizer). No conflict.
-  - Layer ownership: `Varve.WebUi.Components` (6) and
-    `Varve.WebUi.Explorer` (7), ADR 0252.
+  - Layer ownership: `Varve.WebUi.Explorer` (7), ADR 0252.
   - Analyzer rule: none new.

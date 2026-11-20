@@ -4,8 +4,9 @@
 
 using System.Collections.Generic;
 using Varve.WebUi.Components.Atoms;
+using Varve.WebUi.Explorer.Atoms;
 
-namespace Varve.WebUi.Components.Organisms;
+namespace Varve.WebUi.Explorer.Organisms;
 
 /// <summary>One group of a <c>ValidationReport</c>: a shape or a focus node, and its results.</summary>
 /// <param name="Title">The shape or the focus node the group is of.</param>

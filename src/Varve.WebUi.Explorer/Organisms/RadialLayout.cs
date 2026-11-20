@@ -8,7 +8,7 @@ using System.Linq;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 
-namespace Varve.WebUi.Components.Organisms;
+namespace Varve.WebUi.Explorer.Organisms;
 
 /// <summary>
 /// The graph view's layout (ADR 0251): deterministic and radial, no physics.

@@ -3,9 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using Microsoft.AspNetCore.Components;
-using Varve.WebUi.Components.Atoms;
+using Varve.WebUi.Explorer.Atoms;
 
-namespace Varve.WebUi.Components.Organisms;
+namespace Varve.WebUi.Explorer.Organisms;
 
 /// <summary>One graph's group in a <c>GraphGroup</c>: the graph, a count and the page's body for it.</summary>
 /// <param name="Graph">The graph, or null for the default graph.</param>

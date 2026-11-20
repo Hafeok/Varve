@@ -144,6 +144,22 @@ own stated budget, with both numbers measured.
    replaces it under point 3's rule, which does not weaken the gate:
    91,087 B plus 5% is 95,641 B, rounded up to 10 kB, 100,000 B.
 
+5. **With the explorer-only components moved** (ADR 0252 point 7,
+   2026-11-20): the components only explorer pages use, and those designed
+   for the explorer's screens, leave the first screen for the lazy set.
+
+   | Row | With the Query screen | With the components moved | Budget |
+   |---|---|---|---|
+   | `webui`, the first screen | 1,907.7 kB | **1,902.9 kB** | 1,920.0 kB (unchanged) |
+   | `webui-explorer` | 91.1 kB | **96.9 kB** (96,883 B: `Varve.Sparql` 45,407, `Varve.WebUi.Explorer` 32,009, `Varve.Sparql.Results` 19,467) | 100.0 kB (unchanged) |
+
+   `Varve.WebUi.Components` drops 4.5 kB (30,871 B to 26,360 B) and the
+   explorer gains 5.7 kB (26,292 B to 32,009 B): the Query screen's
+   components (`QueryEditor`, `ResultsTable`, `AskAnswer`, `Menu`, `Select`
+   and `TermValue`) change rows. The graph's and validation's components are
+   on no page, so the trimmer drops them from either row. The first screen
+   drops 4.8 kB, and is 17.1 kB under its budget.
+
 Both failure paths were run, before the split: the set naming
 `Varve.Sparql.Results`, which is not lazy, fails with the difference; a
 40,000-byte budget fails 5.4 kB over. After the split, the first measurement's

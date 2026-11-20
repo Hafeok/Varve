@@ -36,7 +36,7 @@ server.listen(0, '127.0.0.1', async () => {
     for (let load = 0; load < 10; load++) {
       const context = await browser.newContext();
       const page = await context.newPage();
-      await page.goto(`http://127.0.0.1:${port}/ui/_spike/graph?n=${n}`);
+      await page.goto(`http://127.0.0.1:${port}/ui/datasets/_spike/graphs/spike?n=${n}`);
       await page.waitForSelector('#spike-result[data-done="true"]', { timeout: 180000 });
       const lines = (await page.textContent('#spike-result')).trim().split('\n').slice(1).map(l => l.split('\t'));
       for (const [kind, nodes, layout, render, frame, total] of lines) {

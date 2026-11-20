@@ -9,7 +9,7 @@ using DecisionDriven.Ledger.Varve;
 using Varve.Protocol.Client.Model;
 using Varve.Sparql;
 using Varve.Sparql.Algebra;
-using Varve.WebUi.Components.Organisms;
+using Varve.WebUi.Explorer.Organisms;
 
 namespace Varve.WebUi.Explorer.Parts;
 

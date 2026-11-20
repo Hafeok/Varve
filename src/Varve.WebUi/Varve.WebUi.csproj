@@ -73,11 +73,10 @@
     <ProjectReference Include="../Varve.WebUi.Explorer/Varve.WebUi.Explorer.csproj" />
   </ItemGroup>
 
-  <!-- The graph view's spike (#355): its page and script, from tests/, built
-       in only when -p:VarveGraphSpike=true. A shipped publish never sets it,
-       so the bundle never holds them. -->
+  <!-- The graph view's spike (#355): its script, from tests/, built in only
+       when -p:VarveGraphSpike=true; its page is the explorer's, under the same
+       switch. A shipped publish never sets it, so the bundle never holds them. -->
   <ItemGroup Condition="'$(VarveGraphSpike)' == 'true'">
-    <Content Include="../../tests/Varve.WebUi.Spike/GraphSpike.razor" Link="Pages/GraphSpike.razor" />
     <Content Include="../../tests/Varve.WebUi.Spike/spike.js" Link="wwwroot/js/spike.js" />
   </ItemGroup>
 

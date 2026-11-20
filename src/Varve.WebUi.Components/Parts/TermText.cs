@@ -5,17 +5,19 @@
 using System;
 using System.Collections.Immutable;
 using System.Text;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Varve.Rdf;
-using Varve.WebUi.Components.Atoms;
 
 namespace Varve.WebUi.Components.Parts;
 
 /// <summary>
-/// An RDF term as a <c>TermChip</c> shows it, as a value, for components that
-/// draw terms from data (a results table): the same compact IRIs, captions
-/// and blank node labels as the <c>Term</c> part.
+/// How a term is written on a chip, shared by the console's <c>Term</c> part
+/// and the explorer's term values: the vocabularies every dataset shares as
+/// prefixes, a literal's caption, and UTF-8 as text.
 /// </summary>
-public static class TermValues
+[Contract(typeof(TheWebUisPrivateAssemblies.EagerOnlyWhenAConsolePageUses), Role = "what the console's Term part uses of a term's text, kept eager; the explorer's term values build on it")]
+public static class TermText
 {
     private const string XsdString = "http://www.w3.org/2001/XMLSchema#string";
 
@@ -35,32 +37,8 @@ public static class TermValues
         ("varve", "https://w3id.org/varve/ns#"),
     ];
 
-    /// <summary>
-    /// <paramref name="term"/> as a chip's parameters. A triple term is its
-    /// three terms written out, as a chip of its own kind, which TermChip does
-    /// not yet show from a value (#377).
-    /// </summary>
-    public static TermValue Of(RdfTerm term)
-    {
-        ArgumentNullException.ThrowIfNull(term);
-
-        switch (term.Kind)
-        {
-            case RdfTermKind.Iri:
-                string iri = Text(term.Lexical);
-                string compact = Compact(iri);
-                return new TermValue(TermKind.Iri, compact, Full: compact == iri ? null : iri);
-            case RdfTermKind.Literal:
-                return new TermValue(TermKind.Literal, Text(term.Lexical), LiteralType(term));
-            case RdfTermKind.BlankNode:
-                return new TermValue(TermKind.BlankNode, "_:" + Text(term.Lexical));
-            default:
-                return new TermValue(TermKind.Triple, "<< " + Of(term.Subject!).Text + " " + Of(term.Predicate!).Text + " " + Of(term.Object!).Text + " >>");
-        }
-    }
-
     /// <summary>A literal's caption: its language, or its datatype unless <c>xsd:string</c>.</summary>
-    internal static string? LiteralType(RdfTerm literal)
+    public static string? LiteralType(RdfTerm literal)
     {
         string language = Text(literal.Language);
 
@@ -74,7 +52,7 @@ public static class TermValues
     }
 
     /// <summary>An IRI under a shared vocabulary as <c>prefix:local</c>; any other whole.</summary>
-    internal static string Compact(string iri)
+    public static string Compact(string iri)
     {
         foreach ((string prefix, string ns) in Prefixes)
         {
@@ -87,5 +65,6 @@ public static class TermValues
         return iri;
     }
 
-    internal static string Text(ReadOnlySpan<byte> utf8) => Encoding.UTF8.GetString(utf8);
+    /// <summary>UTF-8 bytes as a string.</summary>
+    public static string Text(ReadOnlySpan<byte> utf8) => Encoding.UTF8.GetString(utf8);
 }

@@ -26,6 +26,13 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
   </ItemGroup>
 
+  <!-- The graph view's spike (#355): its page, from tests/, built in only when
+       -p:VarveGraphSpike=true (the host links its script). At an explorer
+       route, so it loads with the explorer that holds the graph view. -->
+  <ItemGroup Condition="'$(VarveGraphSpike)' == 'true'">
+    <Content Include="../../tests/Varve.WebUi.Spike/GraphSpike.razor" Link="Pages/GraphSpike.razor" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Varve.WebUi.Tests" />
   </ItemGroup>

@@ -130,14 +130,14 @@ All times are in milliseconds.
 
 ## Consequences
 
-- `GraphView` and `RadialLayout` are organisms in `Varve.WebUi.Components`
-  (ADR 0252 keeps the design system's levels there). Their code is in the
-  first screen's bytes, not the explorer's lazy set, until a later ADR moves
-  them.
+- `GraphView` and `RadialLayout` are organisms in `Varve.WebUi.Explorer`,
+  lazy: only explorer screens draw a graph (ADR 0252 point 7). The spike's
+  page is built into the explorer too, at an explorer route, under the same
+  switch.
 - `GraphView` is on no page until the Graph screen's own slice.
 - **Checks:**
   - Against the accepted ADRs: 0200 (the CSP: attributes, no inline style),
     0205 (the size gate: no new package), 0206 (the levels and their cases).
     No conflict.
-  - Layer ownership: `Varve.WebUi.Components` (layer 6, ADR 0252).
+  - Layer ownership: `Varve.WebUi.Explorer` (layer 7, ADR 0252).
   - Analyzer rule: none new.

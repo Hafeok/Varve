@@ -34,7 +34,7 @@ shared mutable state, no static registries. **High cohesion**: one reason to cha
 | 3 | `Varve.Sparql.Evaluation` (optimiser and evaluator, one package — ADR 0048), `Varve.Shacl` (SHACL Core, with no SPARQL — ADR 0148), `Varve.Delta` (the change feed's format, by dependency — ADR 0128), `Varve.Sparql.Entailment` (entailment regimes by query rewriting — ADR 0191) |
 | 4 | `Varve.Store` — log, projection contract, pre-commit validator contract; `Varve.Events` (domain events rendered from quads, by dependency — ADR 0143); `Varve.Shacl.Sparql` (SHACL-SPARQL over the evaluator, through `Varve.Shacl`'s extension contract — ADR 0148); `Varve.Management` (the management plane's declarations and grants, by dependency — ADR 0166) |
 | 5 | integrations: `Varve.Sparql.Store`, `Varve.Store.Browser`, `Varve.Shacl.Store` (commit-time gating under a shapes binding — ADR 0169), `Varve.Classification` (the shape-derived classifier and the classification projection — ADR 0232) |
-| 6 | hosts — every executable: the server, the CLI, the smoke apps, the benchmarks (ADR 0060); and `Varve.WebUi.Components`, the Web UI's shared components, a private assembly of its host (ADR 0252) |
+| 6 | hosts — every executable: the server, the CLI, the smoke apps, the benchmarks (ADR 0060); and `Varve.WebUi.Components`, the Web UI's components a console page uses, a private assembly of its host (ADR 0252) |
 | 7 | `Varve.WebUi.Explorer`, the Web UI's lazy-loaded explorer, a private assembly of its host (ADR 0252) |
 | 8 | `Varve.WebUi`, the Web UI's host, above its two private assemblies (ADR 0252) |
 

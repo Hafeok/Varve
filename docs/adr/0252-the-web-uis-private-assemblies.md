@@ -8,6 +8,8 @@ request. Decided by the maintainer as D1-b on the part 2 plan, 2026-11-18,
 with one condition: VARVE0006 covers all three assemblies. Revised in place on
 2026-11-19, before acceptance, by the maintainer's ruling that DD0001 is right
 and the layering is what changes: the three assemblies take layers 6, 7 and 8.
+Revised in place again on 2026-11-20, by the maintainer's ruling that a
+component is eager only when a console page uses it (point 7).
 
 It records the decision set
 [`the-web-uis-private-assemblies`](../decisions/the-web-uis-private-assemblies.md),
@@ -48,8 +50,8 @@ direction.
 
    | Layer | Assembly | Loaded | Holds |
    |---:|---|---|---|
-   | 6 | `Varve.WebUi.Components` | eager | what both page sets share: the design system's levels (Atoms to Templates), the parts both use (the problem view, the read stamps, the term, the unreachable notice), `Pages.Services`' `DatasetClients`, and the values they need (`Tones`, `Times`, `ProblemDocs`, `WebUiSettings`, the signed-in `Caller`) |
-   | 7 | `Varve.WebUi.Explorer` | lazy | the explorer's parts and pages, and its reference to `Varve.Sparql` |
+   | 6 | `Varve.WebUi.Components` | eager | what a console page uses, which the explorer's pages may use too (point 7): the design system's components the console composes (Atoms to Templates), the parts both use (the problem view, the read stamps, the term, the unreachable notice), `Pages.Services`' `DatasetClients`, and the values they need (`Tones`, `Times`, `ProblemDocs`, `WebUiSettings`, `TermText`, the signed-in `Caller`) |
+   | 7 | `Varve.WebUi.Explorer` | lazy | the explorer's pages and parts, the components only its pages use, at their levels, and its references to `Varve.Sparql` and, through the client, `Varve.Sparql.Results` |
    | 8 | `Varve.WebUi` | the host | the app, the console's pages and parts, and the sign-in |
 
    Every reference among them points strictly down: the host (8) to the
@@ -80,6 +82,17 @@ direction.
    lazy, and `Varve.Sparql.Results` when a page streams a query. The router
    loads them when a route of the explorer is first visited, deep links
    included, and adds their pages from what the loader returns.
+7. **A component is eager only when a console page uses it.** The reason
+   `Varve.WebUi.Components` loads with the first screen is that the console
+   needs it, so it holds only what a console page, part or the shell uses,
+   directly or through another component. A component that only explorer
+   pages use, or one designed for an explorer screen and not yet on a page,
+   is in `Varve.WebUi.Explorer`, at its level there, and VARVE0006's levels
+   hold inside it as everywhere. When a console page first uses an explorer
+   component, the component moves down to the components assembly. A
+   console design on no page (`LagMeter`) stays, and the trimmer drops it.
+   The inventory that applied this on 2026-11-20 is on #355: 18 files moved,
+   and the first screen dropped 4.8 kB.
 
 ## Alternatives considered
 
