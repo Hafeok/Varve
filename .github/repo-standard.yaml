@@ -295,6 +295,11 @@ environments:
 # client secret and no service-account key is stored, here or anywhere. What is
 # here are identifiers, kept as secrets only because repo-standard cannot yet
 # declare an environment's variables (#239). docs/auth-providers.md sets them.
+# The test tenants are not provisioned yet, and ADR 0223 has the provider leg
+# skip when none of its identifiers is present. By the maintainer's ruling of
+# 2026-11-17 on #327 the five may be absent: check reports each as "declared,
+# absent" and is not red for it (ADR 0039, amended 2026-11-18). Once a tenant
+# is provisioned, its names drop the mark.
 - name: auth-providers
   wait_timer: 0
   prevent_self_review: false
@@ -305,11 +310,11 @@ environments:
   branch_policies:
   - name: main
   secrets:
-  - VARVE_ENTRA_TENANT
-  - VARVE_ENTRA_CLIENT_ID
-  - VARVE_ENTRA_AUDIENCE
-  - VARVE_GOOGLE_WORKLOAD_IDENTITY_PROVIDER
-  - VARVE_GOOGLE_SERVICE_ACCOUNT_EMAIL
+  - {name: VARVE_ENTRA_TENANT, may_be_absent: true}
+  - {name: VARVE_ENTRA_CLIENT_ID, may_be_absent: true}
+  - {name: VARVE_ENTRA_AUDIENCE, may_be_absent: true}
+  - {name: VARVE_GOOGLE_WORKLOAD_IDENTITY_PROVIDER, may_be_absent: true}
+  - {name: VARVE_GOOGLE_SERVICE_ACCOUNT_EMAIL, may_be_absent: true}
 # The repository has no Actions secrets of its own: a repository secret is
 # readable by any workflow a same-repository pull request defines. Both Apps'
 # keys are in the gates environment above.

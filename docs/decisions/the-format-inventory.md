@@ -31,6 +31,10 @@ decisions:
     statement: "A varve apply saved plan is versioned and positional, not read forever: a format this version does not read is refused with a message that tells the operator to plan again"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-11-02T00:00:00Z
+  - key: ProofIsReserved
+    statement: "proof/ beside log/ and derived/ is reserved in storage format 1 for log checkpoints: no build of format 1 writes there, every reader ignores it and none deletes, moves or rewrites it, and a fixture of objects no build knows proves it on both backends"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-18T00:00:00Z
 ---
 
 The rulings of [ADR 0216](../adr/0216-the-format-inventory.md), filed unaccepted
