@@ -268,9 +268,9 @@ state (`recorded`, `absent` or `mismatch`). Each dataset carries:
     `target-unconfigured`, `shipping-diverged`,
     `shipping-target-not-empty` or `replica-promoted`. In the last three
     the shipper has stopped for that target and changes nothing there.
-    `store-unverified` means the target's store holds no verification
-    record this build accepts: run `varve storage verify` against it, and
-    the shipper starts by itself. Nothing is written to it until then.
+    Each state has a page with what to do, under
+    [Shipping states](shipping/README.md), and `varve status --server
+    <address>` prints them with their detail.
   - `shippedThrough` and `lag`: the source position the target's log holds
     at least, and how many positions the dataset's head is past it. The
     lag is what would be lost if the source were lost now.

@@ -105,6 +105,15 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     }
 
     /// <summary>This instance's role in a dataset; none when it does not know the dataset.</summary>
+    /// <summary>Whether the dataset is declared a copy and waits for its first shipping round (ADR 0185 decision 10): not open, and not a failure.</summary>
+    internal bool AwaitsShipping(DatasetName name)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(name.Value, out Entry? entry) && entry.State == DatasetState.Failed && entry.AwaitsShipping;
+        }
+    }
+
     /// <summary>What the dataset's lineage said when this instance last read it (ADR 0185): a replica takes no write.</summary>
     internal ReplicaState ReplicaOf(DatasetName name)
     {
@@ -276,6 +285,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     [DesignDecision(typeof(PromotionAcrossCopies.AReplicaIsNeverOpenedForWrite), Scope = ExceptionScope.Boundary)]
     private async Task<bool> FollowsAReplicaAsync(string name, Entry entry, DatasetDeclaration declared, Placement placement, DatasetStorage storage, bool fresh, CancellationToken cancellationToken)
     {
+        entry.AwaitsShipping = false;
         bool holding = entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer;
 
         if (storage != DatasetStorage.ObjectStorage || _objects is null || declared.Closed || holding || (entry.ReplicaRead && entry.Replica == ReplicaState.None))
@@ -308,6 +318,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             {
                 if (!await _objects.ExistsAsync(name, cancellationToken).ConfigureAwait(false))
                 {
+                    entry.AwaitsShipping = true;
                     await WaitForTheCopyAsync(name, entry, "It is declared a copy of the dataset under '" + declared.CopyOf!.Prefix + "' at " + declared.CopyOf.Store
                         + ", and waits for the first shipping round: the source's shipper writes its lineage record and its log. Nothing is created here (ADR 0185).", DatasetFailure.Transient).ConfigureAwait(false);
                     return true;
@@ -985,6 +996,9 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         /// <summary>What the dataset's lineage said when it was last read (ADR 0185): a replica is followed and never claimed.</summary>
         internal ReplicaState Replica { get; set; }
+
+        /// <summary>Whether the dataset is declared a copy that its first shipping round has not written yet.</summary>
+        internal bool AwaitsShipping { get; set; }
 
         /// <summary>Whether the lineage has been read since this entry was made.</summary>
         internal bool ReplicaRead { get; set; }

@@ -378,6 +378,13 @@ public sealed class ShippingRoleTests
         Assert.Contains("waits for the first shipping round", waiting.Reason, StringComparison.Ordinal);
         Assert.Contains("Nothing is created here", waiting.Reason, StringComparison.Ordinal);
 
+        // It is not a failure of this instance, which stays ready: the state has its own name.
+        Assert.True(scene.Fleet.Datasets.AwaitsShipping(copy));
+        (bool ready, IReadOnlyList<DatasetReadiness> lines) = Readiness.Evaluate(
+            [new DatasetHealth("copy", waiting.State, waiting.Reason, 0, 0, false, Role: DatasetRole.Follower, AwaitsShipping: true)], 100, draining: false, null, 0);
+        Assert.True(ready);
+        Assert.Equal("awaiting-shipping", Assert.Single(lines).State);
+
         // The store is verified, the first round runs, and the member follows what the shipper wrote.
         await scene.VerifyAsync(scene.Source);
         await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == source.Head.Value);
@@ -386,6 +393,7 @@ public sealed class ShippingRoleTests
         Assert.Equal(source.Head, replica.Head);
         Assert.True((await Backend.ReadLineageAsync(scene.Source, new ObjectName("copy/"), Ct))!.IsReplica);
         Assert.DoesNotContain("copy/writer", scene.Source.Names());
+        Assert.False(scene.Fleet.Datasets.AwaitsShipping(copy));
     }
 
     /// <summary>

@@ -716,7 +716,8 @@ internal static partial class ServerHost
                 spill,
                 cache,
                 open && dataset!.StorageFull,
-                datasets.DegradedOf(entry.Name)));
+                datasets.DegradedOf(entry.Name),
+                datasets.AwaitsShipping(entry.Name)));
         }
 
         ManagementStatus management = fleet.Status;
@@ -883,6 +884,12 @@ internal static partial class ServerHost
                     json.WriteStartObject(state.Name);
                     json.WriteString("state", state.State);
                     json.WriteString("role", Role(state.Role));
+
+                    // A copy that waits for its first shipping round says so (ADR 0185 decision 10).
+                    if (state.State == "awaiting-shipping" && state.Reason is { } awaits)
+                    {
+                        json.WriteString("reason", awaits);
+                    }
                     Moving(json, state.Name);
 
                     if (state.Position is long position)

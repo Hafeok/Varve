@@ -18,7 +18,7 @@ namespace Varve.Server;
 /// head, its projection, whether it failed, and whether its storage no longer
 /// holds the writer epoch (ADR 0136).
 /// </summary>
-internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed, bool Superseded = false, DatasetRole Role = DatasetRole.Writer, Varve.Store.ExtentRetention? Retention = null, bool Tailing = false, bool Warm = false, Exception? Spill = null, Varve.Store.ObjectStorage.Model.LocalCache Cache = Varve.Store.ObjectStorage.Model.LocalCache.None, bool StorageFull = false, DatasetDegraded? Degraded = null);
+internal readonly record struct DatasetHealth(string Name, DatasetState State, string? Reason, long Head, long Projection, bool Failed, bool Superseded = false, DatasetRole Role = DatasetRole.Writer, Varve.Store.ExtentRetention? Retention = null, bool Tailing = false, bool Warm = false, Exception? Spill = null, Varve.Store.ObjectStorage.Model.LocalCache Cache = Varve.Store.ObjectStorage.Model.LocalCache.None, bool StorageFull = false, DatasetDegraded? Degraded = null, bool AwaitsShipping = false);
 
 /// <summary>
 /// A dataset this instance released for storage-error or local-disk-error and
@@ -164,6 +164,12 @@ internal static class Readiness
                     break;
                 case DatasetState.Closed:
                     line = new DatasetReadiness(dataset.Name, "closed", null, null);
+                    break;
+
+                // Declared a copy, and its first shipping round has not written it yet (ADR 0185 decision 10).
+                // Nothing here failed and nothing here can hurry it, so the instance stays ready.
+                case DatasetState.Failed when dataset.AwaitsShipping:
+                    line = new DatasetReadiness(dataset.Name, "awaiting-shipping", dataset.Reason, null);
                     break;
                 default:
                     line = new DatasetReadiness(dataset.Name, "failed", dataset.Reason, null);

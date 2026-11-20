@@ -61,6 +61,57 @@ public sealed class PromoteCommandTests
         Assert.Contains("orders: not promoted. position-mismatch: The copy's last position is 118, not the 120 asked for.", error.ToString(), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// <c>varve status</c>: each dataset, and each shipping target with its
+    /// state and its detail, as readiness reports them (ADR 0184 decision
+    /// 11). A copy that waits for its first shipping round says why.
+    /// </summary>
+    [Fact]
+    public async Task status_shows_each_shipping_target_with_its_state_and_its_detail()
+    {
+        Answering handler = new(HttpStatusCode.OK,
+            """{"status":"ready","datasets":{"copy":{"state":"awaiting-shipping","role":"follower","reason":"It is declared a copy, and waits for the first shipping round."},"orders":{"state":"ready","role":"writer","position":42,"lag":0,"shipping":{"https://a.invalid/copies/orders":{"state":"shipping","shippedThrough":40,"lag":2,"catalogPosition":32},"s3://replicas/orders":{"state":"shipping-diverged","failures":1,"detail":"The shipping target has diverged from its source at log slot 00000003/00000002."}}}}}""");
+        using HttpClient http = new(handler);
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        bool ready = await Status.ShowAsync(http, "https://varve-1.example", new Io(output, error, Stream.Null), Ct);
+
+        Assert.True(ready);
+        Assert.Equal(HttpMethod.Get, handler.Method);
+        Assert.Equal("https://varve-1.example/health/ready", handler.Address);
+        Assert.Null(handler.Authorization);
+        Assert.Equal(
+            """
+            https://varve-1.example: ready
+              copy: awaiting-shipping, follower
+                It is declared a copy, and waits for the first shipping round.
+              orders: ready, writer, at position 42
+                ships to https://a.invalid/copies/orders: shipping, through position 40 (2 behind), checkpoint at 32
+                ships to s3://replicas/orders: shipping-diverged, 1 failed round
+                  The shipping target has diverged from its source at log slot 00000003/00000002.
+
+            """.ReplaceLineEndings(Environment.NewLine),
+            output.ToString());
+    }
+
+    [Fact]
+    public async Task status_of_an_instance_that_is_not_ready_lists_what_is_not_and_says_so()
+    {
+        Answering handler = new(HttpStatusCode.ServiceUnavailable,
+            """{"type":"https://w3id.org/varve/problems/not-ready","title":"The server is not ready.","status":503,"datasets":[{"name":"orders","state":"failed","role":"writer","reason":"The store did not answer."}]}""");
+        using HttpClient http = new(handler);
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        bool ready = await Status.ShowAsync(http, "https://varve-1.example", new Io(output, error, Stream.Null), Ct);
+
+        Assert.False(ready);
+        Assert.Contains("https://varve-1.example: not ready", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("  orders: failed, writer", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("    The store did not answer.", output.ToString(), StringComparison.Ordinal);
+    }
+
     private sealed class Answering(HttpStatusCode status, string body) : HttpMessageHandler
     {
         public int Requests { get; private set; }
@@ -79,7 +130,7 @@ public sealed class PromoteCommandTests
             Method = request.Method;
             Address = request.RequestUri!.ToString();
             Authorization = request.Headers.Authorization?.ToString();
-            Body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            Body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
             return new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, status == HttpStatusCode.OK ? "application/json" : "application/problem+json") };
         }
     }
