@@ -150,6 +150,8 @@ jobs:
           VARVE_SPILL_DAMAGE_STRIDE: "1"
           # The fence after a consolidation (#181).
           VARVE_FENCE_SCHEDULES: "3000"
+          # The contract suite's races (ADR 0183, #117): 64 rounds of each.
+          VARVE_VERIFY_ROUNDS: "64"
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj

@@ -280,6 +280,22 @@ environments:
   branch_policies:
   - name: main
   secrets: []
+# The contract suite against Amazon S3 (ADR 0183, #117): aws-objects.yml,
+# dispatched by the maintainer. It exchanges GitHub's OIDC token for this
+# environment at Amazon's STS for a role's temporary credentials, and reads
+# only identifiers, as variables; no secret is stored here. Only main deploys
+# to it, as for every environment a credential trusts (#101). Until the role
+# exists the variables are unset, and the leg skips, saying so (ADR 0223).
+- name: aws-objects
+  wait_timer: 0
+  prevent_self_review: false
+  reviewers: []
+  deployment_branch_policy:
+    protected_branches: false
+    custom_branch_policies: true
+  branch_policies:
+  - name: main
+  secrets: []
 # The docs site (ADR 0247): docs-site.yml's deploy job writes to GitHub Pages
 # by its own OIDC token, with pages: write and id-token: write on that job
 # alone. Only main deploys to it, so no pull request and no other branch can

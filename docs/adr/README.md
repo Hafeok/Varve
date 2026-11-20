@@ -387,6 +387,14 @@ Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replicati
 | [0180](0180-warm-standbys-and-the-writer-set.md) | Warm standbys and the writer set: `placedOn` ∪ `standbyOn`, placement by events, and what warm means | Filed unaccepted (#165) |
 | [0181](0181-handover-automation.md) | Handover automation: the orchestrator judges liveness, one idempotent command acts, and the two-app layout keeps restart | Filed unaccepted (#165) |
 
+## Replication, part 2 (#166)
+
+Filed by [#166](https://github.com/Hafeok/Varve/issues/166), part 2 of Replication ([#97](https://github.com/Hafeok/Varve/issues/97)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered 0183–0186, in three pull requests. The first is 0183, for [#117](https://github.com/Hafeok/Varve/issues/117). Amended by it, likewise unaccepted: 0134 (the suite as shipped code, a second broken store); 0216 (the verification record and the result record); 0217 (the verification record read by its rule).
+
+| # | Title | Status |
+|---:|---|---|
+| [0183](0183-object-store-verification-and-the-compatibility-page.md) | Object store verification: the suite as shipped code, a record at the store, and a generated compatibility page | Filed unaccepted (#166, for #117) |
+
 ## Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit
 
 Filed by milestone Inference ([#95](https://github.com/Hafeok/Varve/issues/95)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set); by part 1 (#170), 0003 (the packages), 0119 (`entailment-unsupported`), 0132 (the header under CORS) and 0166 (the binding's terms).

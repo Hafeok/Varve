@@ -147,6 +147,9 @@ suite's race property, and the stores it has passed are the supported ones:
 **RustFS**. **Any other S3-compatible store is untested.** Garage is known not
 to enforce conditional writes and is refused.
 
+[Object stores](object-stores.md) lists every store with the evidence for
+it, and `varve storage verify` runs the suite against yours (ADR 0183).
+
 ## Authentication — `Auth`
 
 | Setting | Default | Meaning |

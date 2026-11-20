@@ -172,7 +172,7 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     // README.md ships in every package; its Status section and the roadmap's
     // headings are a checked projection (ADR 0102).
-    ("status", "README.md's status and docs/roadmap.md's headings match the releases, the baseline and the projects",
+    ("status", "README.md's status and docs/roadmap.md's headings match the releases, the baseline and the projects, and the object-store compatibility page is its generation",
         () => Run("dotnet", ["run", "eng/status.cs", "--", "--check"])),
 
     ("status-fixtures", "the status check fails each of its fixtures, for its own reason",
