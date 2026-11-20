@@ -82,6 +82,32 @@ public sealed class WebUiQueryTests
         Assert.Equal(1_000, await page.Locator(".vw-results tbody tr").CountAsync());
         findings.AddRange(await WebUiBrowserTests.AuditAsync(page, "query: at the ceiling"));
 
+        // A read the explorer closes at its ceiling is one the client ended,
+        // and the server says so on its span, by request id (ADR 0112, amended
+        // 2026-11-20). Six thousand rows squared do not fit in any buffer, so
+        // the server is still writing when the page closes the answer.
+        using (Spans spans = new())
+        {
+            IResponse crossed = await page.RunAndWaitForResponseAsync(
+                () => RunAsync(page, "SELECT ?n ?m WHERE { ?s " + Order + " ?n . ?t " + Order + " ?m }"),
+                response => response.Url.Contains("/sparql", StringComparison.Ordinal));
+            string id = (await crossed.AllHeadersAsync())["varve-request-id"];
+            await page.WaitForSelectorAsync(".vw-results__status:has-text('Stopped at 5,000 rows')", new() { Timeout = 60_000 });
+            System.Diagnostics.Activity? ended = null;
+
+            for (int wait = 0; wait < 200 && ended is null; wait++)
+            {
+                ended = spans.All.FirstOrDefault(span => Equals(span.GetTagItem("varve.request_id"), id));
+                await Task.Delay(50, TestContext.Current.CancellationToken);
+            }
+
+            Assert.NotNull(ended);
+            Assert.Equal(true, ended.GetTagItem("varve.request.aborted"));
+        }
+
+        await RunAsync(page, ordered);
+        await page.WaitForSelectorAsync(".vw-results__status:has-text('Stopped at 5,000 rows')", new() { Timeout = 60_000 });
+
         // The download reads at the view's position, and holds every row.
         await page.ClickAsync(".vw-menu > button:has-text('Download')");
         IDownload download = await page.RunAndWaitForDownloadAsync(() => page.ClickAsync(".vw-menu__item:has-text('CSV')"));
@@ -108,7 +134,7 @@ public sealed class WebUiQueryTests
             Assert.Equal(ordered, newest.GetProperty("query").GetString());
             Assert.Equal("notes", newest.GetProperty("dataset").GetString());
             Assert.Equal("head", newest.GetProperty("asOf").GetString());
-            Assert.Equal(4, stored.RootElement.GetArrayLength());
+            Assert.Equal(5, stored.RootElement.GetArrayLength());
         }
 
         Assert.True(findings.Count == 0 && violations.Count == 0, string.Join(Environment.NewLine, findings.Concat(violations)));
@@ -136,5 +162,28 @@ public sealed class WebUiQueryTests
         using HttpClient http = new() { BaseAddress = server.Address };
         using HttpResponseMessage written = await http.PostAsync("datasets/notes/sparql", new StringContent(update.ToString(), new MediaTypeHeaderValue("application/sparql-update")), TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.NoContent, written.StatusCode);
+    }
+
+    // Every span the server's Varve.Protocol source finished while this listened:
+    // the server runs in this process.
+    private sealed class Spans : IDisposable
+    {
+        private readonly System.Collections.Concurrent.ConcurrentQueue<System.Diagnostics.Activity> _finished = new();
+        private readonly System.Diagnostics.ActivityListener _listener;
+
+        internal Spans()
+        {
+            _listener = new System.Diagnostics.ActivityListener
+            {
+                ShouldListenTo = source => source.Name == "Varve.Protocol",
+                Sample = (ref System.Diagnostics.ActivityCreationOptions<System.Diagnostics.ActivityContext> _) => System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded,
+                ActivityStopped = _finished.Enqueue,
+            };
+            System.Diagnostics.ActivitySource.AddActivityListener(_listener);
+        }
+
+        internal IReadOnlyCollection<System.Diagnostics.Activity> All => _finished;
+
+        public void Dispose() => _listener.Dispose();
     }
 }

@@ -19,4 +19,10 @@ internal static partial class ProtocolLog
 
     [LoggerMessage(EventId = 2, Level = LogLevel.Information, Message = "{Method} {Path} answered {Status} for request {RequestId}")]
     internal static partial void Refused(ILogger logger, string method, string path, int status, string requestId);
+
+    // ADR 0112, amended 2026-11-20 (D6), ruling AReadTheClientEndedIsTaggedAndLogged:
+    // a read the client ended before the server finished it, by request id,
+    // so a cancel in the explorer is found.
+    [LoggerMessage(EventId = 3, Level = LogLevel.Information, Message = "{Method} {Path} ended by the client before its response did, for request {RequestId}")]
+    internal static partial void EndedByTheClient(ILogger logger, string method, string path, string requestId);
 }
