@@ -19,7 +19,7 @@ Then, on the first part's review:
   manual change to a setting it declares, and leaves one it does not declare
   alone.
 
-**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: the closure's computed graphs are not writable; see the end. Filed unaccepted.
+**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: the closure's computed graphs are not writable; see the end. Filed unaccepted, and accepted by the maintainer on 2026-11-20.
 
 ## Context
 
@@ -300,8 +300,7 @@ amendment as written.
 
 ## Amendment, 2026-11-06 — the closure's computed graphs
 
-Filed by Inference, part 2 (#171, under #95), unaccepted until the maintainer
-accepts it (ADR 0066).
+Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20.
 
 Point 5, as amended on 2026-10-23 for the report graph, applies to the
 closure's graphs too: `varve:explicit`, `varve:implicit` and every graph under

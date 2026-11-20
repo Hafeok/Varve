@@ -108,8 +108,7 @@ The REC repository is under the BSD-3-Clause licence.
 
 ## Amendment, 2026-11-18 — links between buildings, a parameter of the generator
 
-Filed by Inference, part 2 (#171, under #95), unaccepted until the
-maintainer accepts it (ADR 0066). Decided by the maintainer on #171 on
+Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20. Decided by the maintainer on #171 on
 2026-11-18: a REC variant with links between buildings, REC M unchanged,
 the density a parameter deterministic by seed, run at two densities at
 least, never a gate.
@@ -135,8 +134,7 @@ link commit (`RecPortfolio.Generate(size, seed, linksPerMille)`).
 
 ## Amendment, 2026-11-18 — a benchmark axiom set beside REC, not part of it
 
-Filed by Inference, part 2 (#171, under #95), unaccepted until the
-maintainer accepts it (ADR 0066). Decided by the maintainer on #171 on
+Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20. Decided by the maintainer on #171 on
 2026-11-18.
 
 REC 4.1 and its Brick state nothing that joins two data facts of different

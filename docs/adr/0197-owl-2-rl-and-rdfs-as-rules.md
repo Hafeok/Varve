@@ -14,8 +14,9 @@ and get another, and on the maintainer's answers of the same day on a graph
 no binding covers and on a merge under a cross-graph binding. What is served
 where it is narrower than its name is said in-band: points 4, 6 and 8, and
 point 9, which lists every such place. These were filed on 2026-11-19 as an
-amendment and are folded into the body here; no point is withdrawn by a later
-one.
+amendment, accepted by the maintainer on 2026-11-20 with the rest of this
+ADR, and are folded into the body here at the maintainer's request; no point
+is withdrawn by a later one.
 
 Amends **0192** (`owl2-rl` served) and **0194** (the `RDFS` and `OWL2RL`
 profiles, `crossGraph` and `SameAsOff` in effect), each by a dated amendment.

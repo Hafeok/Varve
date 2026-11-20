@@ -93,8 +93,7 @@ tier-1 answers equal a from-scratch closure over the quads it sees.
 ## Amendment, 2026-11-16 — `entailment-not-available` carries no `binding`
 
 Filed by Inference, part 2 ([#171](https://github.com/Hafeok/Varve/issues/171)),
-at the maintainer's direction of 2026-11-16 (#171, answer D), unaccepted until
-the maintainer accepts it (ADR 0066). Point 2's refusal is unchanged. What
+at the maintainer's direction of 2026-11-16 (#171, answer D), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20. Point 2's refusal is unchanged. What
 changes is its members.
 
 **`403 entailment-not-available` has no `binding` member.** ADR

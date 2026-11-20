@@ -9,7 +9,7 @@ the amendment of ADR 0003 it needs. Amends **0003** (layer 2), **0150** (the
 stratification moves here) and **0152** (path evaluation moves here), by dated
 amendments in those files.
 
-**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: deletion and join anchors land in Inference; see the end. Filed unaccepted.
+**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: deletion and join anchors land in Inference; see the end. Filed unaccepted, and accepted by the maintainer on 2026-11-20.
 
 ## Context
 
@@ -115,8 +115,7 @@ below layer 3.
 
 ## Amendment, 2026-11-06 — deletion and join anchors land in Inference
 
-Filed by Inference, part 2 (#171, under #95), unaccepted until the maintainer
-accepts it (ADR 0066).
+Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20.
 
 Point 4 said Inference adds deletion for least fixpoints and anchors for
 join-shaped rule bodies. Inference, part 2 adds them in `Varve.Inference`

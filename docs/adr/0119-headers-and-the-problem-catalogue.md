@@ -21,7 +21,7 @@ point 4 (the cache headers).
 problem types `storage-full` and `commit-outcome-unknown`, and the `not-ready` member `writesRefused`; see
 the end.
 
-**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: `inference-behind` joins the catalogue; see the end. Filed unaccepted.
+**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: `inference-behind` joins the catalogue; see the end. Filed unaccepted, and accepted by the maintainer on 2026-11-20.
 
 ## Context
 
@@ -291,8 +291,7 @@ Each has its page in `docs/problems/` when it is catalogued.
 
 ## Amendment, 2026-11-06 — `inference-behind`, `inference-unavailable`, and the inference guard's `graph-not-writable`
 
-Filed by Inference, part 2 (#171, under #95), unaccepted until the maintainer
-accepts it (ADR 0066).
+Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20.
 
 - **`inference-behind`** (`503`, members `binding`, `position`,
   `projectedPosition`; `Retry-After: 1`): a read that needs a binding's
@@ -326,8 +325,7 @@ accepts it (ADR 0066).
 
 ## Amendment, 2026-11-19 — `Varve-Equality`, `Varve-Closure` and `Varve-Without-Closure`
 
-Filed by Inference, part 2 (#171), unaccepted until the maintainer accepts
-it (ADR 0066), under the maintainer's ruling of 2026-11-19 that an answer
+Filed by Inference, part 2 (#171), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20, under the maintainer's ruling of 2026-11-19 that an answer
 narrower than its request suggests says so in-band
 (ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md) points 4, 6 and 9).
 Three response headers join `Varve-Inconsistent`. The first two are on a query
