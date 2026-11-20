@@ -7,8 +7,8 @@ using System;
 namespace Varve.Protocol.Client.Model;
 
 /// <summary>
-/// One entry of <c>Varve-Without-Closure</c> (ADR 0197, amended
-/// 2026-11-19): a named graph's IRI in angle brackets, read without a
+/// One entry of <c>Varve-Without-Closure</c> (ADR 0197
+/// point 6): a named graph's IRI in angle brackets, read without a
 /// closure, or <c>+N more</c> after the twentieth.
 /// </summary>
 public readonly record struct GraphWithoutClosure

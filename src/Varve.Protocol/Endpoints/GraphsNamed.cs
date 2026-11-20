@@ -10,8 +10,8 @@ namespace Varve.Protocol.Endpoints;
 
 /// <summary>
 /// The graphs a query names by IRI in <c>GRAPH</c> patterns, its own and its
-/// subqueries', and whether one names a variable (ADR 0197, amended
-/// 2026-11-19): what <c>owl2-rl</c> and a view check against the bindings.
+/// subqueries', and whether one names a variable (ADR 0197
+/// point 6): what <c>owl2-rl</c> and a view check against the bindings.
 /// </summary>
 internal sealed class GraphsNamed : AlgebraRewriter
 {

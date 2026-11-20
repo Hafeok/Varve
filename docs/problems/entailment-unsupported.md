@@ -13,8 +13,7 @@ Inference answers (`owl2-ql`). Also:
 
 - **`owl2-rl` naming a graph no `varve:OWL2RL` binding covers**, or on a
   dataset with no such binding at all: that regime is answered by an OWL 2
-  RL closure, which only such a binding keeps (ADR 0197 point 6, amended
-  2026-11-19). A graph is named by `FROM`, `FROM NAMED`,
+  RL closure, which only such a binding keeps (ADR 0197 point 6). A graph is named by `FROM`, `FROM NAMED`,
   `default-graph-uri`, `named-graph-uri` or `GRAPH <g>`, in the query or a
   subquery; `detail` names the graph. A binding covers its data graphs
   (not its TBox graphs), its reserved graph of TBox conclusions and its

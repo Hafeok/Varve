@@ -260,7 +260,7 @@ public class InferenceSurfaceTests
     /// merge: a conclusion drawn from two graphs together is answered, and no
     /// <c>Varve-Closure</c> is sent. Under an intra-graph binding the same
     /// merge is each graph's closure, the conclusion is missing, and the
-    /// answer says <c>per-graph</c> (ADR 0197, amended 2026-11-19).
+    /// answer says <c>per-graph</c> (ADR 0197 point 6).
     /// </summary>
     [Fact]
     public async Task A_merge_under_a_cross_graph_binding_is_the_closure_of_the_merge()

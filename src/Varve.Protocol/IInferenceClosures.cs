@@ -63,7 +63,7 @@ public interface IInferenceClosure
     /// <summary>
     /// A cross-graph binding's premise-set graphs that hold rows at its
     /// projection's position (ADR 0190 point 6), so that a merge of its data
-    /// graphs can read them (ADR 0197, amended 2026-11-19); null for an
+    /// graphs can read them (ADR 0197 point 6); null for an
     /// intra-graph binding, which has none.
     /// </summary>
     IReadOnlyList<RdfTerm>? PremiseSetGraphs();

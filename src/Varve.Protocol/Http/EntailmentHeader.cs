@@ -52,7 +52,7 @@ internal static class EntailmentHeader
     /// <c>Varve-Without-Closure</c>: an answer under <c>owl2-rl</c>, or over a
     /// view, whose <c>GRAPH ?g</c> could read named graphs no binding gives a
     /// closure, read with their explicit quads only; the value names them,
-    /// twenty at most, then how many more (ADR 0197, amended 2026-11-19).
+    /// twenty at most, then how many more (ADR 0197 point 6).
     /// </summary>
     internal const string WithoutClosureName = "Varve-Without-Closure";
 

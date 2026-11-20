@@ -95,7 +95,7 @@ internal static class QueryRun
             return;
         }
 
-        // owl2-rl or a view over a graph no binding gives a closure is refused, not answered narrower (ADR 0197, amended 2026-11-19).
+        // owl2-rl or a view over a graph no binding gives a closure is refused, not answered narrower (ADR 0197 point 6).
         IReadOnlyList<IInferenceClosure> closures = exchange.Options.InferenceClosures?.Of(exchange.Name) ?? [];
         DatasetSpec? askedDataset = query.Dataset;
         bool viewsNamed = NamesAView(askedDataset);
@@ -382,7 +382,7 @@ internal static class QueryRun
     /// The dataset with a cross-graph binding's premise-set graphs added to
     /// its default graph, those whose every graph is merged in it, when one
     /// cross-graph OWL2RL binding covers every graph merged; null otherwise
-    /// (ADR 0197, amended 2026-11-19). A caller reads a premise-set graph's
+    /// (ADR 0197 point 6). A caller reads a premise-set graph's
     /// rows only when it reads every graph of its set (ADR 0190 point 6).
     /// </summary>
     private static DatasetSpec? WithPremiseSets(IReadOnlyList<IInferenceClosure> closures, DatasetSpec dataset)

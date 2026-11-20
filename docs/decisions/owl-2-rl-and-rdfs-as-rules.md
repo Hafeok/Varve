@@ -22,9 +22,9 @@ decisions:
   - key: EqualityNotAppliedSaidInBand
     statement: "Ruled 2026-11-19: every answer under owl2-rl by a binding with varve:SameAsOff carries Varve-Equality: not-applied"
   - key: PerGraphClosureSaidInBand
-    statement: "Ruled 2026-11-19: an answer under owl2-rl whose default graph merges two or more graphs is the closure of the merge when one cross-graph OWL2RL binding covers every merged graph, the merge being read with that binding's premise-set graphs within it, and is otherwise the union of each graph's closure and carries Varve-Closure: per-graph; a merge naming a view and an as-of read are always per-graph (amended 2026-11-19)"
+    statement: "Ruled 2026-11-19: an answer under owl2-rl whose default graph merges two or more graphs is the closure of the merge when one cross-graph OWL2RL binding covers every merged graph, the merge being read with that binding's premise-set graphs within it, and is otherwise the union of each graph's closure and carries Varve-Closure: per-graph; a merge naming a view and an as-of read are always per-graph"
   - key: UncoveredGraphRefusedOrSaid
-    statement: "Amended 2026-11-19: owl2-rl, or a view, naming by FROM, FROM NAMED, the protocol or GRAPH <g> a graph no binding gives a closure is 400 entailment-unsupported naming the graph; GRAPH ?g over named graphs some of which have no closure is answered, and carries Varve-Without-Closure listing those the caller reads, at most twenty then +N more"
+    statement: "Ruled 2026-11-19: owl2-rl, or a view, naming by FROM, FROM NAMED, the protocol or GRAPH <g> a graph no binding gives a closure is 400 entailment-unsupported naming the graph; GRAPH ?g over named graphs some of which have no closure is answered, and carries Varve-Without-Closure listing those the caller reads, at most twenty then +N more"
 ---
 
 The rulings of [ADR 0197](../adr/0197-owl-2-rl-and-rdfs-as-rules.md), one line each. The ADR is the

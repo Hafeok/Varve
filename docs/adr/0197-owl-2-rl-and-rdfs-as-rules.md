@@ -8,6 +8,15 @@
 questions 3b, 3c and 5, with `sameAs` off in this part. Acceptance is the
 maintainer's act on the pull request.
 
+**Revised 2026-11-19**, before acceptance, on the maintainer's ruling of
+2026-11-19 on the review's point 7, that a user must never expect one thing
+and get another, and on the maintainer's answers of the same day on a graph
+no binding covers and on a merge under a cross-graph binding. What is served
+where it is narrower than its name is said in-band: points 4, 6 and 8, and
+point 9, which lists every such place. These were filed on 2026-11-19 as an
+amendment and are folded into the body here; no point is withdrawn by a later
+one.
+
 Amends **0192** (`owl2-rl` served) and **0194** (the `RDFS` and `OWL2RL`
 profiles, `crossGraph` and `SameAsOff` in effect), each by a dated amendment.
 
@@ -97,8 +106,15 @@ February 2014), by the names it gives them:
   conclusions are in the closure. The rules that substitute through it
   (`eq-ref`, `eq-sym`, `eq-trans`, `eq-rep-s`, `eq-rep-p`, `eq-rep-o`) do not.
 - `varve:SameAsClasses` stays reserved, refused with a message naming part 3.
+- **The answer says so.** Every response to a query answered under `owl2-rl`
+  by a binding with `varve:SameAsOff` carries **`Varve-Equality:
+  not-applied`**, beside `Varve-Inconsistent`. In this part every `OWL2RL`
+  binding is one, so every `owl2-rl` answer carries it: an answer that needs
+  `owl:sameAs` substituted through is missing from it. A binding with part
+  3's `varve:SameAsClasses` will answer without it. The graph's service
+  description names the rules that apply (point 6).
 - The cases of `sparql11/entailment` and `rdf-mt` that need the eq-* rules are
-  exempted by name, "until part 3's `sameAs` classes".
+  exempted by name, "until part 3's `sameAs` classes" (point 8).
 
 ### 5. A clash is reported, never served as everything
 
@@ -125,24 +141,76 @@ soundness).
 
 ### 6. `Varve-Entailment: owl2-rl`
 
-- Maps to `ent:OWL-RDF-Based` with the profile `pr:RL`, and is answered by the
-  closure (SPARQL 1.1 Entailment Regimes §6.4.5 allows the RL rules): each
-  basic graph pattern is evaluated simply over the explicit quads and the rows
-  valid at the read's position, with ADR 0193's C1 (no generalised triple, no
-  invented blank node) applied.
-- **A merged active graph** is answered by the union of its graphs' closures.
-  Under one cross-graph binding (ADR 0190) that covers every merged graph, the
-  merge also reads the premise-set graphs of every set within it, and is then
-  the closure of the merge; otherwise it is not, and the answer says so with
-  `Varve-Closure: per-graph` (amended 2026-11-19, §3).
-- **`entailment-unsupported`** answers `owl2-rl` on a graph no `OWL2RL`
-  binding covers, whether the dataset has such a binding or not, when the
-  query names the graph (amended 2026-11-19, §3a).
-- **The service description** gives each named graph an `OWL2RL` binding
-  covers `sd:entailmentRegime ent:OWL-RDF-Based` and
-  `sd:supportedEntailmentProfile pr:RL`. `varve:defaultEntailment
-  ent:OWL-RDF-Based` is in effect on an `OWL2RL` binding, and refused on any
-  other.
+- **The regime.** `owl2-rl` maps to `ent:OWL-RDF-Based` and is answered by the
+  closure (SPARQL 1.1 Entailment Regimes §6.4.5 allows a profile's rules):
+  each basic graph pattern is evaluated simply over the explicit quads and the
+  rows valid at the read's position, with ADR 0193's C1 (no generalised
+  triple, no invented blank node) applied.
+- **The service description** describes each graph an `OWL2RL` binding
+  covers, the default graph included when the binding does, with:
+  - `sd:entailmentRegime ent:OWL-RDF-Based`;
+  - `sd:supportedEntailmentProfile varve:OWL2RLWithoutEquality`
+    (`https://w3id.org/varve/ns#OWL2RLWithoutEquality`): OWL 2 RL/RDF without
+    the equality rules, the rules a binding with `varve:SameAsOff` applies
+    (point 4);
+  - `varve:sameAs` with the binding's own value, `varve:SameAsOff` in this
+    part (ADR 0194).
+
+  **`pr:RL`** (`http://www.w3.org/ns/owl-profile/RL`) names OWL 2 RL as OWL 2
+  Profiles §4.3 gives it, equality rules included. It is claimed only for a
+  graph whose binding applies them, `varve:SameAsClasses`, which is part 3's;
+  in this part no graph is described with it.
+
+  **Why `ent:OWL-RDF-Based` is no wider claim.** The regime names the
+  semantics the answers are entailments under, and every answer the closure
+  gives is entailed under the OWL 2 RDF-Based semantics: the rules are sound
+  for it (Theorem PR1 needs consistency for completeness, not for
+  soundness). The profile names how much is computed. A reader who knows only
+  W3C profiles finds none it recognises, and assumes no completeness, which
+  is the truth. The TBox graphs are no binding's data graphs and carry none of
+  these. `varve:defaultEntailment ent:OWL-RDF-Based` is in effect on an
+  `OWL2RL` binding, and refused on any other.
+- **A graph no binding covers.** `owl2-rl` **naming** a graph no `OWL2RL`
+  binding covers is refused `400 entailment-unsupported`, and the problem's
+  `detail` names the graph; so is a dataset with no `OWL2RL` binding at all.
+  A graph is named by `FROM`, `FROM NAMED`, `default-graph-uri`,
+  `named-graph-uri` or `GRAPH <g>`, in the query or a subquery. An `OWL2RL`
+  binding covers its data graphs (not its TBox graphs), its reserved graph of
+  TBox conclusions and its premise-set graphs. A view naming a graph no
+  materialising binding covers is refused the same way (ADR 0198 point 1).
+- **`GRAPH ?g`** names no graph, and is answered over the named graphs the
+  query reads, covered or not: `FROM NAMED`'s, or every named graph the caller
+  reads when the query names none. A graph with no closure is read with its
+  explicit quads only, and the answer says which: **`Varve-Without-Closure`**,
+  their IRIs in angle brackets separated by `, `, at most twenty, then
+  `+N more`. It lists only graphs the caller reads, so it shows nothing a
+  grant hides (ADR 0190), and is omitted when every graph read has a closure.
+- **A merged default graph** (`FROM g1 FROM g2`, or two
+  `default-graph-uri`s; view IRIs are not counted, and one graph, the
+  dataset's own default graph and `GRAPH` patterns are no merge) reads each
+  merged graph's explicit quads and implicit part.
+  - **The closure of the merge** when **one** `OWL2RL` binding with
+    `varve:crossGraph true` has every merged graph among its data graphs: the
+    merge also reads that binding's premise-set graphs whose every graph is
+    merged (ADR 0190 point 6, ADR 0198 point 2). A conclusion is stored in
+    the premise-set graph of each of its minimal premise sets (ADR 0195
+    point 5), so every conclusion whose premises lie in the merged graphs is
+    in one of them or in a graph's own implicit part. The premise-set graphs
+    pass the same grant check as any graph: a caller reads one only when it
+    reads every graph of its set, which a caller merging those graphs does.
+    The answer carries no header.
+  - **Otherwise the union of each graph's closure**, and the answer carries
+    **`Varve-Closure: per-graph`**: a conclusion that needs facts of two of
+    the graphs together is missing. That is a merge no single cross-graph
+    binding covers (graphs of an intra-graph binding, or of two bindings), a
+    merge that also names a view (the view decides which parts are read, and
+    the premise-set graphs are not added to it), and an as-of read
+    (`Varve-As-Of`, ADR 0195 point 5), whose closure below the history held
+    is computed per graph, without premise sets.
+- **The headers** `Varve-Equality`, `Varve-Closure` and
+  `Varve-Without-Closure` are catalogued in ADR 0119 (amended 2026-11-19),
+  beside `Varve-Inconsistent` (point 5). `SparqlHttpClient.EntailedAnswerOf`
+  reads all four into an `EntailedAnswer`.
 
 ### 7. The binding's terms in effect (ADR 0194, amended)
 
@@ -159,11 +227,56 @@ soundness).
 
 ### 8. The suites
 
-- `sparql11/entailment`, OWL-RDF-Based with profile RL: the **28** cases on
-  the closure subject, under the ratchet, the eq-* cases exempted by name.
-- `rdf-mt`: the 10 "false" cases on the `RDFS` profile's clash checks.
+- `sparql11/entailment`, OWL-RDF-Based with profile RL: **27 of its 28**
+  cases run on the closure, under the ratchet. `sparqldl-13` (its data,
+  `data-08.ttl`, states `owl:sameAs`) is exempted by name until part 3's
+  `sameAs` classes: the conformance table in `README.md` names it pending,
+  and the ratchet's runner prints `pending: owl:sameAs, part 3's sameAs
+  classes (ADR 0197 point 4)`.
+- `rdf-mt`: the 10 "false" cases on the `RDFS` profile's clash checks. It
+  needs no `eq-*` rule: its 38 rewriting cases and 10 "false" cases all run.
 - **The W3C OWL 2 RL test cases** are not vendored: their licence (D1) is not
   settled. They are part 3's `owl2-conformance` job, under ADR 0212, if it is.
+
+### 9. No name wider than what is served
+
+The maintainer's ruling of 2026-11-19: **a user must never expect one thing
+and get another.** A name or a claim Varve exposes is never wider than what
+is served, and where an answer is narrower than its request suggests, the
+answer says so in-band. For each place in ADRs 0195 to 0199 where an answer
+could be read as wider than it is, this is how the user is told. Places where
+the narrowing is the regime's own answer condition, and so no narrowing, are
+listed too, so the list is complete.
+
+| Where | What is served | How the user is told |
+|---|---|---|
+| 0197 point 4: `SameAsOff` | OWL 2 RL without `eq-*` | profile `varve:OWL2RLWithoutEquality`, `varve:sameAs varve:SameAsOff` (point 6); `Varve-Equality: not-applied` (point 4) |
+| 0197 point 6: a merged default graph | the closure of the merge under one cross-graph binding covering it; otherwise the union of each graph's closure | `Varve-Closure: per-graph` exactly when it is not the closure of the merge (point 6) |
+| 0197 point 5: a graph with a clash | the rules' fixpoint, not everything an inconsistent graph entails | `Varve-Inconsistent: true`; readiness's `inconsistent` and `clashes`; explain's `clashes` |
+| 0197 point 6: `owl2-rl` naming a graph no `OWL2RL` binding covers | nothing | `400 entailment-unsupported`, naming the graph (point 6) |
+| 0198 point 1: a view naming a graph no materialising binding covers | nothing | `400 entailment-unsupported`, naming the graph (point 6) |
+| 0197 point 6: `GRAPH ?g` over named graphs some of which no binding covers | those graphs' explicit quads | `Varve-Without-Closure` listing them (point 6) |
+| 0197 point 8: the suites | `sparql11/entailment` under RL: **27 of 28** on the closure. `sparqldl-13` (its data, `data-08.ttl`, states `owl:sameAs`) waits for part 3's `sameAs` classes. `rdf-mt` needs no `eq-*` rule: its 38 rewriting cases and 10 "false" cases all run | the conformance table in `README.md` names the case pending, and the ratchet's runner prints `pending: owl:sameAs, part 3's sameAs classes (ADR 0197 point 4)` |
+| 0197 point 3: `dt-eq`, `dt-diff` not materialised | no `owl:sameAs` or `owl:differentFrom` between literals | no narrowing: each would conclude a fact with a literal subject, which C1 never serves under the regime anyway (ADR 0193) |
+| 0197 point 2: axiomatic triples bounded to the `rdf:_n` that occur, no invented blank node | the regime's own answer conditions | no narrowing: SPARQL 1.1 Entailment Regimes' C1 and C2 bound the answers the same way (ADR 0193) |
+| 0197 point 1: `rdfs` from the rewriting even beside an `RDFS` binding | the RDFS regime's answer | no narrowing: the regime's conditions, C2 and the multiplicities, are kept |
+| 0195 / ADR 0190 point 6: a cross-graph conclusion | in its premise-set graph, read only by a caller who reads every graph of its set: when named, or within a merge one cross-graph binding covers (point 6) | the service description lists only graphs the caller reads; a caller who reads one graph of a set is not told the conclusion exists, by design, since that would show what the other graph holds (ADR 0190 point 2) |
+| 0199 point 4: explain of a quad the caller does not see | `absent` | `absent` means "not entailed by the graphs you read", stated on the explain page; saying more would show what the caller cannot read (ADR 0190) |
+| 0199 point 2, 0197 point 5: a clash in a graph the caller does not read | not named, `Varve-Inconsistent` not set | the same: the header speaks of the graphs the query read |
+| 0195 point 6: a binding at its memory limit, failed, or with no pool | nothing | `503 inference-unavailable`, `reason`, readiness (refused, never an empty answer) |
+| 0195 point 5: a read behind the projection | nothing | `503 inference-behind` with `Retry-After` (refused, never a stale answer) |
+| 0195 point 5: an as-of read below the history held | the closure computed from scratch | no narrowing: the same answer, slower |
+| 0196: the retraction strategy | the same closure | no narrowing: held to the from-scratch build by the property tests |
+
+The ledger holds it as `NoClaimWiderThanServed`, `EqualityNotAppliedSaidInBand`,
+`PerGraphClosureSaidInBand` and `UncoveredGraphRefusedOrSaid`. The tests are
+`InferenceSurfaceTests`:
+- `The_service_description_names_owl2_rl_without_equality_and_never_pr_RL`;
+- `An_owl2_rl_answer_says_equality_was_not_applied`;
+- `An_owl2_rl_answer_over_a_merge_says_it_was_answered_graph_by_graph`;
+- `A_merge_under_a_cross_graph_binding_is_the_closure_of_the_merge`;
+- `Owl2_rl_or_a_view_naming_a_graph_with_no_closure_is_entailment_unsupported`;
+- `Graph_variable_over_a_mix_names_the_graphs_read_without_a_closure`.
 
 ## Alternatives considered
 
@@ -181,7 +294,11 @@ soundness).
 - An `OWL2RL` binding's closure holds the `RDFS` closure and the RL
   conclusions; its size is measured on REC M (ADR 0196's workload).
 - `Varve-Inconsistent` is a new response header, catalogued with ADR 0119's
-  headers by amendment of 0192.
+  headers by amendment of 0192; `Varve-Equality`, `Varve-Closure` and
+  `Varve-Without-Closure` are catalogued by ADR 0119's amendment of
+  2026-11-19.
+- `varve:OWL2RLWithoutEquality` is a new term in the `varve:` vocabulary,
+  the profile a graph under `varve:SameAsOff` is described with.
 
 ## Checks
 
@@ -189,156 +306,7 @@ soundness).
   0225). Touches **0050**/**0051** (datatypes by value), **0192** and **0194**
   (amended), **0193** (C1 reused), **0195**. No conflict.
 - **Layer ownership.** `Varve.Inference` (4): the rules, the checks, the
-  compiled program. `Varve.Protocol` (5): the header and the service
-  description.
+  compiled program. `Varve.Protocol` (5): the headers, the refusal and the
+  service description. `Varve.Protocol.Client`: `EntailedAnswer`.
 - **Analyzer rule.** None new.
 - **Open questions owned.** None.
-
-## Amendment, 2026-11-19 — no name wider than what is served
-
-Filed by Inference, part 2 (#171, under #95), unaccepted until the
-maintainer accepts it (ADR 0066). The maintainer's ruling of 2026-11-19, on
-the review's point 7: **a user must never expect one thing and get
-another.** A name or a claim Varve exposes is never wider than what is
-served, and where an answer is narrower than its request suggests, the
-answer says so in-band. It amends points 4, 6 and 8, and ADR 0119 by its own
-dated amendment.
-
-### 1. The service description: `varve:OWL2RLWithoutEquality`, never `pr:RL` here
-
-`pr:RL` (`http://www.w3.org/ns/owl-profile/RL`) names OWL 2 RL as OWL 2
-Profiles §4.3 gives it, equality rules included. A binding with
-`varve:sameAs varve:SameAsOff` applies every rule of tables 4–9 but
-`eq-ref`, `eq-sym`, `eq-trans` and `eq-rep-s`/`-p`/`-o` (point 4), so it does
-not serve `pr:RL`, and point 6's claim of it is withdrawn. Each graph an
-`OWL2RL` binding covers, the default graph included when the binding does,
-is described with:
-
-- `sd:entailmentRegime ent:OWL-RDF-Based`;
-- `sd:supportedEntailmentProfile varve:OWL2RLWithoutEquality`
-  (`https://w3id.org/varve/ns#OWL2RLWithoutEquality`): OWL 2 RL/RDF without
-  the equality rules, the rules this part applies;
-- `varve:sameAs varve:SameAsOff`, the binding's own term (ADR 0194).
-
-**Why `ent:OWL-RDF-Based` is not a wider claim.** The regime names the
-semantics the answers are entailments under, and every answer the closure
-gives is entailed under the OWL 2 RDF-Based semantics: the rules are sound
-for it (OWL 2 Profiles, Theorem PR1 needs consistency for completeness, not
-for soundness). Under that regime SPARQL 1.1 Entailment Regimes lets a
-service answer by a profile's rules (§6.4.5, as point 6 cites) and say which
-by the profile it names. So the regime claims what every answer is sound
-for, and the profile names how much is computed. A reader who knows only W3C profiles finds none it
-recognises, and assumes no completeness, which is the truth. The TBox graphs
-are no binding's data graphs and carry none of these.
-
-`pr:RL` is claimed only where the equality rules are in effect: part 3's
-`varve:SameAsClasses`. The code is `ServiceDescriptionEndpoint.Owl2Rl`.
-
-### 2. `Varve-Equality: not-applied`
-
-Every response to a query answered under `owl2-rl` by a binding with
-`varve:SameAsOff` carries **`Varve-Equality: not-applied`**, beside
-`Varve-Inconsistent`. In this part every `OWL2RL` binding is one, so every
-`owl2-rl` answer carries it. An answer that needs `owl:sameAs` substituted
-through is missing from it; the header says so in-band, and the graph's
-description says which rules apply. In part 3, a binding with
-`varve:SameAsClasses` answers without it. It is catalogued in ADR 0119
-(amended 2026-11-19), and `SparqlHttpClient.EntailedAnswerOf(response)` reads
-it, with `Varve-Inconsistent` and `Varve-Closure`, into an `EntailedAnswer`.
-
-### 3. A merge: the closure of the merge under one cross-graph binding, else `Varve-Closure: per-graph`
-
-A default graph that merges two or more graphs (`FROM g1 FROM g2`, or two
-`default-graph-uri`s) is answered under `owl2-rl` as follows. View IRIs are
-not counted; one graph, the dataset's own default graph, and `GRAPH`
-patterns are no merge.
-
-**Included today.** Each merged graph's explicit quads and its implicit part.
-And when **one** `OWL2RL` binding with `varve:crossGraph true` has every
-merged graph among its data graphs (none of them a TBox graph), the merge
-also reads that binding's premise-set graphs whose every graph is merged
-(ADR 0190 point 6, ADR 0198 point 2). A conclusion is stored in the
-premise-set graph of each of its minimal premise sets (ADR 0195 point 5), so
-every conclusion whose premises lie in the merged graphs is in one of those
-premise-set graphs or in a graph's own implicit part: the answer is the
-closure of the merge, and carries no header. The premise-set graphs are read
-under the same grant check as any graph: a caller reads one only when it
-reads every graph of its set, which a caller merging those graphs does.
-
-**Not included today, and said by `Varve-Closure: per-graph`:**
-- a merge no single cross-graph binding covers: graphs of an intra-graph
-  binding, graphs of two different bindings, or a graph of no binding (which
-  `owl2-rl` refuses first, §3a). A conclusion that needs facts of two of the
-  graphs together is missing;
-- a merge that also names a view (`varve:explicit`, `varve:implicit`): the
-  view decides which parts are read, and the premise-set graphs are not
-  added to it;
-- an as-of read (`Varve-As-Of`, ADR 0195 point 5): the closure below the
-  history held is computed from scratch per graph, without premise sets.
-
-So the header is now set exactly when the merge is not the closure of the
-merge. ADR 0197 point 6's earlier "plus whatever cross-graph closure the
-caller may read" is corrected to this paragraph: before this amendment the
-premise-set graphs were read only when the query named them.
-
-### 3a. A graph no binding covers: `entailment-unsupported`, or `Varve-Without-Closure`
-
-`owl2-rl`, or a view (`varve:explicit`, `varve:implicit`, ADR 0198 point 1),
-**naming** a graph that no binding gives a closure is refused `400
-entailment-unsupported`, and the problem's `detail` names the graph. A graph
-is named by `FROM`, `FROM NAMED`, `default-graph-uri`, `named-graph-uri` or
-`GRAPH <g>`, in the query or a subquery. Under `owl2-rl` a graph is covered
-when an `OWL2RL` binding has it as a data graph (not a TBox graph), or it is
-that binding's reserved graph of TBox conclusions or one of its premise-set
-graphs; a view needs the same of any materialising binding. Before this
-amendment only a dataset with no `OWL2RL` binding at all was refused, and a
-graph outside every binding was read with an empty implicit part.
-
-`GRAPH ?g` names no graph, and is answered over the named graphs the query
-reads, covered or not. When some of them have no closure, the answer says
-which: **`Varve-Without-Closure`**, a comma-separated list of their IRIs in
-angle brackets (`FROM NAMED`'s, or every named graph the caller reads when
-the query names none), at most twenty, then `+N more`. Those graphs' rows
-are their explicit quads only. The header is omitted when every graph read
-has a closure. It lists only graphs the caller reads, so it shows nothing a
-grant hides (ADR 0190).
-
-### 4. Every other place where what is served is narrower than its name
-
-For each place in ADRs 0195 to 0199 where an answer could be read as wider
-than it is, this is how the user is told. Places where the narrowing is the
-regime's own answer condition, and so no narrowing, are listed too, so the
-list is complete.
-
-| Where | What is served | How the user is told |
-|---|---|---|
-| 0197 point 4: `SameAsOff` | OWL 2 RL without `eq-*` | profile `varve:OWL2RLWithoutEquality`, `varve:sameAs varve:SameAsOff` (§1); `Varve-Equality: not-applied` (§2) |
-| 0197 point 6: a merged default graph | the closure of the merge under one cross-graph binding covering it; otherwise the union of each graph's closure | `Varve-Closure: per-graph` exactly when it is not the closure of the merge (§3) |
-| 0197 point 5: a graph with a clash | the rules' fixpoint, not everything an inconsistent graph entails | `Varve-Inconsistent: true`; readiness's `inconsistent` and `clashes`; explain's `clashes` |
-| 0197 point 6: `owl2-rl` naming a graph no `OWL2RL` binding covers | nothing | `400 entailment-unsupported`, naming the graph (§3a) |
-| 0198 point 1: a view naming a graph no materialising binding covers | nothing | `400 entailment-unsupported`, naming the graph (§3a) |
-| 0197 point 6: `GRAPH ?g` over named graphs some of which no binding covers | those graphs' explicit quads | `Varve-Without-Closure` listing them (§3a) |
-| 0197 point 8: the suites | `sparql11/entailment` under RL: **27 of 28** on the closure. `sparqldl-13` (its data, `data-08.ttl`, states `owl:sameAs`) waits for part 3's `sameAs` classes. `rdf-mt` needs no `eq-*` rule: its 38 rewriting cases and 10 "false" cases all run | the conformance table in `README.md` names the case pending, and the ratchet's runner prints `pending: owl:sameAs, part 3's sameAs classes (ADR 0197 point 4)` |
-| 0197 point 3: `dt-eq`, `dt-diff` not materialised | no `owl:sameAs` or `owl:differentFrom` between literals | no narrowing: each would conclude a fact with a literal subject, which C1 never serves under the regime anyway (ADR 0193) |
-| 0197 point 2: axiomatic triples bounded to the `rdf:_n` that occur, no invented blank node | the regime's own answer conditions | no narrowing: SPARQL 1.1 Entailment Regimes' C1 and C2 bound the answers the same way (ADR 0193) |
-| 0197 point 1: `rdfs` from the rewriting even beside an `RDFS` binding | the RDFS regime's answer | no narrowing: the regime's conditions, C2 and the multiplicities, are kept |
-| 0195 / ADR 0190 point 6: a cross-graph conclusion | in its premise-set graph, read only by a caller who reads every graph of its set, and only when named | the service description lists only graphs the caller reads; a caller who reads one graph of a set is not told the conclusion exists, by design, since that would show what the other graph holds (ADR 0190 point 2) |
-| 0199 point 4: explain of a quad the caller does not see | `absent` | `absent` means "not entailed by the graphs you read", stated on the explain page; saying more would show what the caller cannot read (ADR 0190) |
-| 0199 point 2, 0197 point 5: a clash in a graph the caller does not read | not named, `Varve-Inconsistent` not set | the same: the header speaks of the graphs the query read |
-| 0195 point 6: a binding at its memory limit, failed, or with no pool | nothing | `503 inference-unavailable`, `reason`, readiness (refused, never an empty answer) |
-| 0195 point 5: a read behind the projection | nothing | `503 inference-behind` with `Retry-After` (refused, never a stale answer) |
-| 0195 point 5: an as-of read below the history held | the closure computed from scratch | no narrowing: the same answer, slower |
-| 0196: the retraction strategy | the same closure | no narrowing: held to the from-scratch build by the property tests |
-
-### The ledger
-
-`NoClaimWiderThanServed`, `EqualityNotAppliedSaidInBand`,
-`PerGraphClosureSaidInBand`, `MergeUnderOneCrossGraphBindingIsItsClosure`
-and `UncoveredGraphRefusedOrSaid`, in this ADR's set. The tests are
-`InferenceSurfaceTests`:
-- `The_service_description_names_owl2_rl_without_equality_and_never_pr_RL`;
-- `An_owl2_rl_answer_says_equality_was_not_applied`;
-- `An_owl2_rl_answer_over_a_merge_says_it_was_answered_graph_by_graph`;
-- `A_merge_under_a_cross_graph_binding_is_the_closure_of_the_merge`;
-- `Owl2_rl_or_a_view_naming_a_graph_with_no_closure_is_entailment_unsupported`;
-- `Graph_variable_over_a_mix_names_the_graphs_read_without_a_closure`.

@@ -47,8 +47,8 @@ answer a `GRAPH ?g` should give.
   has no named graphs, as SPARQL 1.1 §13.2 has it.
 - **A view naming a graph no materialising binding covers** (by `FROM`,
   `FROM NAMED`, the protocol or `GRAPH <g>`) is `entailment-unsupported`,
-  naming the graph: that graph has no closure to read a part of (ADR 0197,
-  amended 2026-11-19, §3a). Under `GRAPH ?g`, such a graph read through
+  naming the graph: that graph has no closure to read a part of (ADR 0197
+  point 6). Under `GRAPH ?g`, such a graph read through
   `FROM NAMED varve:implicit` has an empty implicit part, and the answer
   lists it in `Varve-Without-Closure`.
 - **A view with `rdf`, `rdfs`, `d` or `owl2-ql`** is

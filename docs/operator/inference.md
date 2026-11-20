@@ -184,8 +184,8 @@ graphs as `premiseSets`.
 - `Varve-Entailment: owl2-rl` reads every graph as explicit ∪ implicit, on a
   dataset with an `OWL2RL` binding. What it serves is OWL 2 RL **without the
   equality rules** (`varve:SameAsOff`, the only setting in this part), and
-  the answer says where it is narrower than the request (ADR 0197, amended
-  2026-11-19):
+  the answer says where it is narrower than the request (ADR 0197
+  points 4, 6 and 9):
   - **`Varve-Equality: not-applied`** on every `owl2-rl` answer: no
     `owl:sameAs` was substituted through, so an answer that needs it is
     missing.

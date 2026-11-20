@@ -329,7 +329,7 @@ accepts it (ADR 0066).
 Filed by Inference, part 2 (#171), unaccepted until the maintainer accepts
 it (ADR 0066), under the maintainer's ruling of 2026-11-19 that an answer
 narrower than its request suggests says so in-band
-(ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md), amended 2026-11-19).
+(ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md) points 4, 6 and 9).
 Three response headers join `Varve-Inconsistent`. The first two are on a query
 answered under `Varve-Entailment: owl2-rl`, and absent under any other regime:
 
