@@ -855,17 +855,32 @@ public sealed class LogShipperTests
             SortedDictionary<int, SortedDictionary<int, byte[]>> chunks = [];
             SortedDictionary<int, byte[]> consolidated = [];
 
-            foreach (string name in store.Names().Where(name => name.StartsWith("log/", StringComparison.Ordinal) && name != "log/MANIFEST"))
+            // The names are listed and then read one by one, and a writer's consolidation deletes chunks behind
+            // its last commit. A name gone between the two means the store moved: the whole reading is taken again.
+            for (bool whole = false; !whole;)
             {
-                int segment = int.Parse(name.AsSpan(4, 8), System.Globalization.CultureInfo.InvariantCulture);
+                whole = true;
+                chunks.Clear();
+                consolidated.Clear();
 
-                if (name.EndsWith(".seg", StringComparison.Ordinal))
+                foreach (string name in store.Names().Where(name => name.StartsWith("log/", StringComparison.Ordinal) && name != "log/MANIFEST"))
                 {
-                    consolidated[segment] = store.Get(name)!;
-                }
-                else
-                {
-                    (chunks.TryGetValue(segment, out var of) ? of : chunks[segment] = [])[int.Parse(name.AsSpan(^8), System.Globalization.CultureInfo.InvariantCulture)] = store.Get(name)![ChunkHeader.Size..];
+                    if (store.Get(name) is not { } bytes)
+                    {
+                        whole = false;
+                        break;
+                    }
+
+                    int segment = int.Parse(name.AsSpan(4, 8), System.Globalization.CultureInfo.InvariantCulture);
+
+                    if (name.EndsWith(".seg", StringComparison.Ordinal))
+                    {
+                        consolidated[segment] = bytes;
+                    }
+                    else
+                    {
+                        (chunks.TryGetValue(segment, out var of) ? of : chunks[segment] = [])[int.Parse(name.AsSpan(^8), System.Globalization.CultureInfo.InvariantCulture)] = bytes[ChunkHeader.Size..];
+                    }
                 }
             }
 
