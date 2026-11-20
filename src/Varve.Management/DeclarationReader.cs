@@ -344,7 +344,7 @@ public static class DeclarationReader
                     continue;
                 }
 
-                if (targets.Exists(other => other.Directory == target.Directory && other.Store == target.Store && other.Prefix == target.Prefix))
+                if (targets.Exists(other => other.Store == target.Store && other.Prefix == target.Prefix))
                 {
                     Residual(node, null, "two shipping targets of a dataset do not name the same place");
                     continue;
@@ -362,7 +362,6 @@ public static class DeclarationReader
             string? store = AtMostOneLiteral(node, ManagementVocabulary.Store, ref ok);
             string? prefix = AtMostOneLiteral(node, ManagementVocabulary.PrefixProperty, ref ok);
             string? provider = AtMostOneLiteral(node, ManagementVocabulary.Provider, ref ok);
-            string? directory = AtMostOneLiteral(node, ManagementVocabulary.Directory, ref ok);
             string? shippedOn = AtMostOneLiteral(node, ManagementVocabulary.ShippedOn, ref ok);
 
             if (!ok)
@@ -370,25 +369,11 @@ public static class DeclarationReader
                 return null;
             }
 
-            if (directory is not null)
-            {
-                if (store is not null || prefix is not null || provider is not null)
-                {
-                    Residual(node, ManagementVocabulary.Directory, "a shipping target is a varve:directory, or a varve:store with its varve:prefix and varve:provider, not both");
-                    return null;
-                }
-
-                if (directory.Length == 0)
-                {
-                    Residual(node, ManagementVocabulary.Directory, "varve:directory is a path");
-                    return null;
-                }
-            }
-            else
+            // A target is a store and a prefix, with the store's provider. Anything else is refused (ADR 0184 decision 1).
             {
                 if (store is null || prefix is null || provider is null)
                 {
-                    Residual(node, ManagementVocabulary.Store, "a shipping target states varve:store, varve:prefix and varve:provider, or a varve:directory");
+                    Residual(node, ManagementVocabulary.Store, "a shipping target states varve:store, varve:prefix and varve:provider: it is a store and a prefix in it");
                     return null;
                 }
 
@@ -417,7 +402,7 @@ public static class DeclarationReader
                 ok = false;
             }
 
-            return ok ? new ShippingTargetDeclaration(node) { Store = store, Prefix = prefix, Provider = provider, Directory = directory, ShippedOn = shippedOn } : null;
+            return ok ? new ShippingTargetDeclaration(node) { Store = store, Prefix = prefix, Provider = provider, ShippedOn = shippedOn } : null;
         }
 
         private string? AtMostOneLiteral(RdfTerm node, RdfTerm predicate, ref bool ok)

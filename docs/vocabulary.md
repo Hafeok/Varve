@@ -162,9 +162,8 @@ system writer records. Every node is an IRI. The code validator in
 | `varve:claimType` | the claim a group's value is in | on a group, an `xsd:string` |
 | `varve:ShapesBinding`, `varve:TBoxBinding` | a binding of a graph of shapes, which gates commits (ADR 0170), or of TBox graphs, which a query of its data graphs is rewritten against (ADR 0194) | `rdf:type` of a binding node |
 | `varve:boundGraph` | the graph a binding names, a named graph of the same dataset: a shapes binding's shapes graph, exactly one; a TBox binding's TBox graphs, one or more, which every reader of the dataset reads (ADR 0190) | on a binding node |
-| `varve:shipsTo`, `varve:ShippingTarget` | where a dataset is shipped: a second store, or a directory, that its log, sets and catalog are copied to (ADR 0184) | `varve:shipsTo` on a dataset's node, naming a node whose `rdf:type` is `varve:ShippingTarget` |
-| `varve:store`, `varve:prefix`, `varve:provider` | a shipping target's store address (`https://…` or `s3://…`, no credential in it), the dataset's prefix there, and the store's provider id on [the compatibility page](operator/object-stores.md) | on a shipping target, each an `xsd:string`, all three or none |
-| `varve:directory` | a directory shipped to, in place of a store | on a shipping target, an `xsd:string` |
+| `varve:shipsTo`, `varve:ShippingTarget` | where a dataset is shipped: a second store that its log, sets and catalog are copied to (ADR 0184) | `varve:shipsTo` on a dataset's node, naming a node whose `rdf:type` is `varve:ShippingTarget` |
+| `varve:store`, `varve:prefix`, `varve:provider` | a shipping target's store address (`https://…` or `s3://…`, no credential in it), the dataset's prefix there, and the store's provider id on [the compatibility page](operator/object-stores.md) | on a shipping target, each an `xsd:string`, all three |
 | `varve:shippedOn` | the instance that ships, when it is not the dataset's writer | on a shipping target, an `xsd:string`, at most one |
 | `varve:profile` | what a TBox binding does: `varve:Rewriting`, a query rewritten against the TBox (tier 1) | on a TBox binding, exactly one |
 | `varve:Rewriting` | the value of `varve:profile` in effect | on a TBox binding |

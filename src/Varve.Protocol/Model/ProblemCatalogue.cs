@@ -116,7 +116,6 @@ public static class ProblemCatalogue
         new(ProblemType.WriterSteppedDown, 503, "The writer released the dataset and commits nothing more.", "reason"),
         new(ProblemType.TakeoverRefused, 409, "This instance refuses to take the dataset over.", "reason", "epoch"),
         new(ProblemType.DatasetIsReplica, 409, "The dataset is a replica and takes no write.", "reason"),
-        new(ProblemType.StoreUnverified, 409, "A shipping target's store is not a verified one.", "dataset", "provider", "state"),
         new(ProblemType.DeclarationInvalid, 422, "The management declarations are not valid.", "findings"),
         new(ProblemType.ReaderForgotten, 503, "This instance's reader record was forgotten; it attaches again."),
         new(ProblemType.ReadUnannouncedExtentGone, 503, "An unannounced read found an extent gone."),

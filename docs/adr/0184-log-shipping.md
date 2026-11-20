@@ -20,7 +20,7 @@ maintainer's answers to its delta plan, recorded on #166 on 2026-11-16.
   rewrites;
 - [ADR 0113](0113-health-and-readiness.md) and
   [ADR 0119](0119-headers-and-the-problem-catalogue.md):
-  readiness gains `shipping`, and the catalogue `store-unverified`.
+  readiness gains `shipping`, and an apply's answer a notice header;
 
 Records decision set [`log-shipping`](../decisions/log-shipping.md).
 
@@ -78,7 +78,10 @@ n:replica a varve:ShippingTarget ;
   `s3://…`, with no user info, no query and no fragment. A SAS token in an
   address is refused when the declaration is read.
 
-- A target is a store and a prefix, or `varve:directory` with a path.
+- **A target is a store and a prefix. Anything else is refused at apply.**
+  A directory is not a target (the maintainer's ruling of 2026-11-20 on
+  #166): `varve:directory` is not in the vocabulary. Directory targets are
+  #391, after 1.0.
 - **The source is always an object store.** A dataset on the file backend
   cannot be shipped (the maintainer's answer D10). A directory has no
   reader records for decision 7, no epochs, and its lease admits one
@@ -244,35 +247,33 @@ a dataset.**
   prefix.** A replica is never opened for write (ADR 0185), and a
   follower's open flushes nothing (ADR 0244 point 2).
 
-**9. A target is a verified store, or a directory.**
-- At run time the shipper needs a verification record at the target's
-  store (ADR 0183) whose suite is at or above this build's lowest, and the
-  declared `varve:provider` verified on the compatibility page compiled
-  into the build. Otherwise it writes nothing to the target and reports
-  the state `store-unverified` on readiness, with what to run. It tries
-  again with its back-off, so a store verified afterwards is shipped to
-  without a restart.
-- `varve apply` checks the page, which is all it can see. A declaration
-  whose provider the page does not list as verified is refused with
-  `409 store-unverified`, naming the dataset, the provider and the page's
-  state for it.
-- **The page's states are compiled into the server** from
+**9. A target is a verified store, and what verifies it is a record at the
+store.**
+- **The gate is at run time, and it is the record.** The shipper needs a
+  verification record at the target's store (ADR 0183) whose suite is at
+  or above this build's lowest. Without one it writes nothing to the
+  target and reports the state `store-unverified` on readiness, with what
+  to run. It tries again with its back-off, so a store verified afterwards
+  is shipped to without a restart.
+- **The compatibility page is a notice, never a refusal** (the maintainer's
+  ruling of 2026-11-20 on #166). `varve apply` accepts a target whose
+  provider the page does not list as verified. Its answer says in-band, per
+  such target, that the project has not tested that provider and that
+  shipping starts once the store holds a verification record:
+  - the response carries one `Varve-Notice` header per target,
+    `shipping-provider-untested; dataset=…; provider=…; state=…`;
+  - `varve apply` prints each as a sentence, and exits 0.
+- **Why.** The page says what the project tested. The record says what was
+  run against this store. An operator who ran the suite against a store the
+  project never tried has the evidence the gate asks for.
+- **The page's states are compiled into the server** for the notice, from
   `src/Varve.Server/object-store-providers.txt`, which
   `eng/object-stores.cs` writes with the page and `eng/status.cs` holds to
-  it. So Azure Blob Storage cannot be a target until its result record is
-  in a build.
-- **A shipper's state is not a problem type.** `store-unverified` is one
-  because an apply answers it. `shipping-diverged`,
-  `shipping-target-not-empty` and `replica-promoted` are met only by the
-  shipper, which answers no request: they are states on readiness, each
-  with its detail, and a line in the log.
-- **A directory target is exempt.** There, every write is an append of the
-  next bytes after the tail has been checked, under the directory's lease.
-  Byte identity means its segment files equal the concatenation of the
-  source's chunks.
-- **A directory target is not followed while it is shipped to.** Its gate
-  is byte identity, and a dataset opened on it once the shipper has let
-  go.
+  it.
+- **No request is answered `store-unverified`.** It is a readiness state
+  only, as `shipping-diverged`, `shipping-target-not-empty` and
+  `replica-promoted` are: each is met only by the shipper, which answers no
+  request, and each has its detail on readiness and a line in the log.
 
 **10. A target that holds another dataset is refused.** A prefix whose
 manifest names another dataset, or that has a log and no lineage naming
@@ -404,9 +405,11 @@ adopts it. Until #203 chooses, `varve:erasureMode` stays reserved.
   - The same for a segment the source consolidated before its chunks were
     shipped: a follower that starts afterwards reads the same log.
   - Two shippers at once ship one copy.
-  - A target that diverged, a target that holds another dataset and an
-    unverified target are each refused, with nothing written.
+  - A target that diverged, a target that holds another dataset and a
+    target whose store holds no verification record are each refused, with
+    nothing written.
+  - An apply of a target on a provider the page has not verified is
+    applied, with its notice.
   - A commit waits for no target, with the target stalled.
-  - Between Azurite and RustFS, and from each to a directory, in
-    `shipping (services)`.
+  - Between Azurite and RustFS, in `shipping (services)`.
 - **Open questions owned.** Erasure mode across copies: #203.

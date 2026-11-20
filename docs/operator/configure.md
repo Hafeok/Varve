@@ -171,6 +171,10 @@ does not say.
   target as it does to its own store.
 - A target declared as `s3://…` with no entry here is reported on readiness
   as `target-unconfigured`, and nothing is written to it.
+- **A target is a store and a prefix.** A directory is not one.
+- **`varve apply` accepts a target on a provider the project has not
+  tested,** and says so beside its answer. What a target needs is a
+  verification record at its store ([Object stores](object-stores.md)).
 
 ## Authentication — `Auth`
 

@@ -335,27 +335,25 @@ public sealed class ShippingRoleTests
     }
 
     /// <summary>
-    /// Decision 9: a target's provider is one the compatibility page of the
-    /// build lists as verified. A declaration that reached the system
-    /// dataset by another road is still refused by the shipper, with nothing
-    /// written.
+    /// Decision 9: the compatibility page is a notice and never a refusal.
+    /// What refuses a target is the absence of a verification record at its
+    /// store. A target of a provider the page does not list as verified is
+    /// shipped once its store holds one.
     /// </summary>
     [Fact]
-    public async Task a_target_of_an_unverified_provider_is_never_written_to()
+    public async Task a_target_of_a_provider_the_page_has_not_tested_is_shipped_when_its_store_holds_a_record()
     {
         await using Scene scene = await Scene.StartAsync(verified: true);
-        string[] before = [.. scene.Target.Names()];
         Dataset dataset = await scene.DeclareAsync(provider: "minio-ce");
         await CommitAsync(dataset, 0, 2);
 
-        ShippingStatus refused = await scene.WaitForAsync(s => s.State == ShippingState.StoreUnverified);
+        await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == dataset.Head.Value);
 
-        Assert.Contains("'minio-ce' is untested", refused.Detail, StringComparison.Ordinal);
-        Assert.Equal(before, scene.Target.Names());
+        Assert.Contains("orders/log/MANIFEST", scene.Target.Names());
     }
 
     [Fact]
-    public void an_apply_is_checked_against_the_compatibility_page_compiled_into_the_build()
+    public void an_apply_is_told_which_providers_the_compatibility_page_compiled_into_the_build_has_not_verified()
     {
         Assert.Equal("verified", CompatibilityPage.StateOf("azurite"));
         Assert.Equal("verified", CompatibilityPage.StateOf("rustfs"));
@@ -363,19 +361,23 @@ public sealed class ShippingRoleTests
         Assert.Equal("no adapter", CompatibilityPage.StateOf("gcs"));
         Assert.Equal("unknown", CompatibilityPage.StateOf("not-on-the-page"));
 
-        static Varve.Management.Model.Declarations Declared(string target) => DeclarationReader.Read(ManagementTrig.TryParse(Encoding.UTF8.GetBytes(
+        static Varve.Management.Model.Declarations Declared(string provider) => DeclarationReader.Read(ManagementTrig.TryParse(Encoding.UTF8.GetBytes(
             "@prefix varve: <" + ManagementVocabulary.Namespace + "> .\n"
             + "<" + ManagementVocabulary.DatasetGraphPrefix + "orders> {\n"
             + "  <urn:ship:orders> a varve:Dataset ; varve:datasetName \"orders\" ; varve:storage varve:ObjectStorage ; varve:shipsTo <urn:ship:replica> .\n"
-            + "  <urn:ship:replica> a varve:ShippingTarget ; " + target + " .\n"
+            + "  <urn:ship:replica> a varve:ShippingTarget ; varve:store \"s3://replicas\" ; varve:prefix \"orders\" ; varve:provider \"" + provider + "\" .\n"
             + "}\n"), null, out _)!);
 
-        Assert.Null(CompatibilityPage.Check(Declared("varve:store \"s3://replicas\" ; varve:prefix \"orders\" ; varve:provider \"rustfs\"")));
-        Assert.Equal(new UnverifiedTarget("orders", "minio-ce", "untested"), CompatibilityPage.Check(Declared("varve:store \"s3://replicas\" ; varve:prefix \"orders\" ; varve:provider \"minio-ce\"")));
-        Assert.Equal(new UnverifiedTarget("orders", "nowhere", "unknown"), CompatibilityPage.Check(Declared("varve:store \"s3://replicas\" ; varve:prefix \"orders\" ; varve:provider \"nowhere\"")));
+        Assert.Empty(CompatibilityPage.Untested(Declared("rustfs")));
+        Assert.Equal([new UntestedTarget("orders", "minio-ce", "untested")], CompatibilityPage.Untested(Declared("minio-ce")));
+        Assert.Equal([new UntestedTarget("orders", "nowhere", "unknown")], CompatibilityPage.Untested(Declared("nowhere")));
+        Assert.Equal("shipping-provider-untested; dataset=orders; provider=gcs; state=no-adapter", Assert.Single(CompatibilityPage.Untested(Declared("gcs"))).HeaderValue);
 
-        // A directory target names no provider and is exempt.
-        Assert.Null(CompatibilityPage.Check(Declared("varve:directory \"/var/lib/varve/replica\"")));
+        // What varve apply prints for one.
+        Assert.Equal(
+            "Notice: dataset orders ships to a store of provider 'gcs', which this build's compatibility page lists as no adapter. The project has not tested it. "
+            + "Shipping starts once that store holds a verification record: run 'varve storage verify' against it (docs/operator/object-stores.md).",
+            Varve.Server.Commands.Apply.Notice("shipping-provider-untested; dataset=orders; provider=gcs; state=no-adapter"));
     }
 
     private static int Requests(MemoryObjectStore store) =>

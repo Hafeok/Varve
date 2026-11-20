@@ -555,24 +555,6 @@ static Varve.Protocol.Model.CommitWindow.operator ==(Varve.Protocol.Model.Commit
 ~override Varve.Protocol.Model.CommitWindow.Equals(object obj) -> bool
 static Varve.Protocol.Model.ProblemType.IdempotencyKeyExpired.get -> Varve.Protocol.Model.ProblemType
 Varve.Protocol.IdempotencyKeys.PrepareAsync(Varve.Store.Dataset! dataset) -> System.Threading.Tasks.ValueTask
-Varve.Protocol.IManagementPlane.CheckShippingTargets(Varve.Management.Model.Declarations! proposed) -> Varve.Protocol.Model.UnverifiedTarget?
-Varve.Protocol.Model.UnverifiedTarget
-Varve.Protocol.Model.UnverifiedTarget.<Clone>$() -> Varve.Protocol.Model.UnverifiedTarget!
-Varve.Protocol.Model.UnverifiedTarget.Dataset.get -> string!
-Varve.Protocol.Model.UnverifiedTarget.Dataset.init -> void
-Varve.Protocol.Model.UnverifiedTarget.Deconstruct(out string! Dataset, out string! Provider, out string! State) -> void
-Varve.Protocol.Model.UnverifiedTarget.Equals(Varve.Protocol.Model.UnverifiedTarget? other) -> bool
-Varve.Protocol.Model.UnverifiedTarget.Provider.get -> string!
-Varve.Protocol.Model.UnverifiedTarget.Provider.init -> void
-Varve.Protocol.Model.UnverifiedTarget.State.get -> string!
-Varve.Protocol.Model.UnverifiedTarget.State.init -> void
-Varve.Protocol.Model.UnverifiedTarget.UnverifiedTarget(string! Dataset, string! Provider, string! State) -> void
-override Varve.Protocol.Model.UnverifiedTarget.Equals(object? obj) -> bool
-override Varve.Protocol.Model.UnverifiedTarget.GetHashCode() -> int
-override Varve.Protocol.Model.UnverifiedTarget.ToString() -> string!
-static Varve.Protocol.Model.ProblemType.StoreUnverified.get -> Varve.Protocol.Model.ProblemType
-static Varve.Protocol.Model.UnverifiedTarget.operator !=(Varve.Protocol.Model.UnverifiedTarget? left, Varve.Protocol.Model.UnverifiedTarget? right) -> bool
-static Varve.Protocol.Model.UnverifiedTarget.operator ==(Varve.Protocol.Model.UnverifiedTarget? left, Varve.Protocol.Model.UnverifiedTarget? right) -> bool
 Varve.Protocol.IManagementPlane.PromoteAsync(Varve.Protocol.Model.DatasetName dataset, Varve.Protocol.Model.PromotionAsk! ask, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.PromotionAnswer?>
 Varve.Protocol.Model.PromotionAnswer
 Varve.Protocol.Model.PromotionAnswer.Deconstruct(out Varve.Protocol.Model.PromotionRefusal Refusal, out Varve.Protocol.Model.TakeoverEpoch Epoch, out Varve.Store.Log.Position Position) -> void
@@ -615,3 +597,22 @@ static Varve.Protocol.Model.PromotionAsk.operator ==(Varve.Protocol.Model.Promot
 Varve.Protocol.Model.WriterRouteKind.PromotionIncomplete = 4 -> Varve.Protocol.Model.WriterRouteKind
 Varve.Protocol.Model.WriterRouteKind.Replica = 3 -> Varve.Protocol.Model.WriterRouteKind
 static Varve.Protocol.Model.ProblemType.DatasetIsReplica.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.IManagementPlane.UntestedTargets(Varve.Management.Model.Declarations! proposed) -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.Model.UntestedTarget!>!
+Varve.Protocol.Model.UntestedTarget
+Varve.Protocol.Model.UntestedTarget.<Clone>$() -> Varve.Protocol.Model.UntestedTarget!
+Varve.Protocol.Model.UntestedTarget.Dataset.get -> string!
+Varve.Protocol.Model.UntestedTarget.Dataset.init -> void
+Varve.Protocol.Model.UntestedTarget.Deconstruct(out string! Dataset, out string! Provider, out string! State) -> void
+Varve.Protocol.Model.UntestedTarget.Equals(Varve.Protocol.Model.UntestedTarget? other) -> bool
+Varve.Protocol.Model.UntestedTarget.HeaderValue.get -> string!
+Varve.Protocol.Model.UntestedTarget.Provider.get -> string!
+Varve.Protocol.Model.UntestedTarget.Provider.init -> void
+Varve.Protocol.Model.UntestedTarget.State.get -> string!
+Varve.Protocol.Model.UntestedTarget.State.init -> void
+Varve.Protocol.Model.UntestedTarget.UntestedTarget(string! Dataset, string! Provider, string! State) -> void
+const Varve.Protocol.Model.UntestedTarget.Header = "Varve-Notice" -> string!
+override Varve.Protocol.Model.UntestedTarget.Equals(object? obj) -> bool
+override Varve.Protocol.Model.UntestedTarget.GetHashCode() -> int
+override Varve.Protocol.Model.UntestedTarget.ToString() -> string!
+static Varve.Protocol.Model.UntestedTarget.operator !=(Varve.Protocol.Model.UntestedTarget? left, Varve.Protocol.Model.UntestedTarget? right) -> bool
+static Varve.Protocol.Model.UntestedTarget.operator ==(Varve.Protocol.Model.UntestedTarget? left, Varve.Protocol.Model.UntestedTarget? right) -> bool

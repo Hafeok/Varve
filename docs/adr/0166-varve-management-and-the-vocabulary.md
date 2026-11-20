@@ -319,11 +319,10 @@ A dataset's graph may say where the dataset is shipped. The terms:
 | `varve:store` | the target store's address, a container or a bucket |
 | `varve:prefix` | the dataset's prefix in that store |
 | `varve:provider` | the store's provider, an id on the compatibility page (ADR 0183) |
-| `varve:directory` | a directory shipped to, in place of the three above |
 | `varve:shippedOn` | the instance that ships, when it is not the dataset's writer |
 
 - **The residual check states every rule,** and the shapes none: a target
-  is one place in one of the two forms, it is named by `varve:shipsTo`, two
+  is a store and a prefix with its provider, it is named by `varve:shipsTo`, two
   targets do not name one place, and only a dataset on
   `varve:ObjectStorage` has one.
 - **An address carries no credential** (ADR 0037): no user info, no query

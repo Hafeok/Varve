@@ -76,7 +76,7 @@ public class ProblemCatalogueTests
     ];
 
     /// <summary>The types the management plane's endpoints emit, triggered by <see cref="every_problem_the_management_endpoints_emit_has_its_catalogued_shape"/>.</summary>
-    private static readonly ImmutableArray<ProblemType> ManagementTriggered = [ProblemType.DeclarationInvalid, ProblemType.DatasetOpen, ProblemType.WriterMoved, ProblemType.StoreUnverified, ProblemType.DatasetIsReplica];
+    private static readonly ImmutableArray<ProblemType> ManagementTriggered = [ProblemType.DeclarationInvalid, ProblemType.DatasetOpen, ProblemType.WriterMoved, ProblemType.DatasetIsReplica];
 
     [Fact]
     public void every_problem_type_is_catalogued_with_a_page_stating_the_same_shape_and_what_to_do()
@@ -323,11 +323,6 @@ public class ProblemCatalogueTests
                 [ProblemType.DeclarationInvalid] = () => Put("manage/datasets/x", "<urn:x> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"x\" ; <https://w3id.org/varve/ns#erasureMode> \"y\" .", "application/trig"),
                 [ProblemType.DatasetOpen] = () => new HttpRequestMessage(HttpMethod.Delete, new Uri("manage/datasets/y", UriKind.Relative)),
                 [ProblemType.DatasetIsReplica] = () => P.Update("datasets/copy/sparql", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"),
-                [ProblemType.StoreUnverified] = () => Put(
-                    "manage/datasets/z",
-                    "<urn:z> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"z\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#ObjectStorage> ; <https://w3id.org/varve/ns#shipsTo> <urn:z:replica> . "
-                    + "<urn:z:replica> a <https://w3id.org/varve/ns#ShippingTarget> ; <https://w3id.org/varve/ns#store> \"s3://replicas\" ; <https://w3id.org/varve/ns#prefix> \"z\" ; <https://w3id.org/varve/ns#provider> \"never-tried\" .",
-                    "application/trig"),
                 [ProblemType.WriterMoved] = () =>
                 {
                     HttpRequestMessage forwarded = P.Update("datasets/moved/sparql", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }");
@@ -361,6 +356,42 @@ public class ProblemCatalogueTests
     private const string Catalogue = "https://w3id.org/varve/ns#events-catalogue/default";
 
     private const string Sh = "http://www.w3.org/ns/shacl#";
+
+    /// <summary>
+    /// ADR 0184 decision 9: the compatibility page is a notice and never a
+    /// refusal. A shipping target whose provider the page does not list as
+    /// verified is applied, and the answer says so in-band, once per target.
+    /// </summary>
+    [Fact]
+    public async Task an_apply_of_a_target_on_an_untested_provider_is_applied_and_its_answer_says_so()
+    {
+        Dataset system = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+        TestPlane plane = new(system);
+
+        await using (system)
+        await using (ProtocolTestHost host = await ProtocolTestHost.StartAsync(new ProtocolTestHost.Datasets(), map: (app, o) => app.MapVarveManagement(o, plane), stopping: P.Ct))
+        {
+            const string Ns = "https://w3id.org/varve/ns#";
+            HttpResponseMessage applied = await host.Client.SendAsync(
+                Put(
+                    "manage/datasets/z",
+                    "<urn:z> a <" + Ns + "Dataset> ; <" + Ns + "datasetName> \"z\" ; <" + Ns + "storage> <" + Ns + "ObjectStorage> ; <" + Ns + "shipsTo> <urn:z:replica> . "
+                    + "<urn:z:replica> a <" + Ns + "ShippingTarget> ; <" + Ns + "store> \"s3://replicas\" ; <" + Ns + "prefix> \"z\" ; <" + Ns + "provider> \"never-tried\" .",
+                    "application/trig"),
+                P.Ct);
+
+            Assert.Equal(System.Net.HttpStatusCode.Created, applied.StatusCode);
+            Assert.Equal(["shipping-provider-untested; dataset=z; provider=never-tried; state=untested"], applied.Headers.GetValues(UntestedTarget.Header));
+            using DatasetView view = system.Pin();
+            Assert.Single(DeclarationReader.Read(view).Datasets["z"].ShippingTargets);
+
+            // A dataset that ships nowhere carries no notice.
+            HttpResponseMessage plain = await host.Client.SendAsync(
+                Put("manage/datasets/y", "<urn:y> a <" + Ns + "Dataset> ; <" + Ns + "datasetName> \"y\" ; <" + Ns + "storage> <" + Ns + "Memory> .", "application/trig"), P.Ct);
+            Assert.Equal(System.Net.HttpStatusCode.Created, plain.StatusCode);
+            Assert.False(plain.Headers.Contains(UntestedTarget.Header));
+        }
+    }
 
     private static HttpRequestMessage Put(string path, string body, string mediaType) =>
         new(HttpMethod.Put, new Uri(path, UriKind.Relative)) { Content = new StringContent(body, Encoding.UTF8, mediaType) };
@@ -494,11 +525,8 @@ public class ProblemCatalogueTests
         public ICommitValidator Validator { get; } = new ManagementValidator();
 
         // As a server does against its compiled page: here every provider is untested.
-        public UnverifiedTarget? CheckShippingTargets(Declarations proposed) =>
-            proposed.Datasets.Values.SelectMany(dataset => dataset.ShippingTargets.Select(target => (dataset, target)))
-                .Where(pair => pair.target.Provider is not null)
-                .Select(pair => new UnverifiedTarget(pair.dataset.Name, pair.target.Provider!, "untested"))
-                .FirstOrDefault();
+        public IReadOnlyList<UntestedTarget> UntestedTargets(Declarations proposed) =>
+            [.. proposed.Datasets.Values.SelectMany(dataset => dataset.ShippingTargets.Where(target => target.Provider is not null).Select(target => new UntestedTarget(dataset.Name, target.Provider!, "untested")))];
     }
 
     /// <summary>Another instance writes the dataset "moved"; this one writes the rest.</summary>

@@ -430,7 +430,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         ShapesBindings.Check(proposed, name => Datasets.TryResolve(name, out Dataset? dataset) ? dataset : null);
 
     /// <inheritdoc />
-    public UnverifiedTarget? CheckShippingTargets(Declarations proposed) => CompatibilityPage.Check(proposed);
+    public IReadOnlyList<UntestedTarget> UntestedTargets(Declarations proposed) => CompatibilityPage.Untested(proposed);
 
     /// <inheritdoc />
     public BindingDescription? DescribeBinding(DatasetName dataset, RdfTerm binding)

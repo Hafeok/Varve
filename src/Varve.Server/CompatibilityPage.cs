@@ -17,9 +17,11 @@ namespace Varve.Server;
 /// The compatibility page as this build knows it (ADR 0183, ADR 0184
 /// decision 9): each provider's state, from
 /// <c>object-store-providers.txt</c>, which <c>eng/object-stores.cs</c>
-/// writes with the page and <c>eng/status.cs</c> holds to it.
+/// writes with the page and <c>eng/status.cs</c> holds to it. It is a notice
+/// on an apply and never a refusal: what refuses a target is the absence of
+/// a verification record at its store, which the shipper reads.
 /// </summary>
-[Contract(typeof(LogShipping.ATargetIsAVerifiedStoreOrADirectory), Role = "the provider states compiled into the build")]
+[Contract(typeof(LogShipping.ATargetIsAVerifiedStore), Role = "the provider states compiled into the build")]
 internal static class CompatibilityPage
 {
     /// <summary>The state of a provider the page lists as one the suite passed against.</summary>
@@ -30,21 +32,23 @@ internal static class CompatibilityPage
     /// <summary>The page's state for <paramref name="provider"/>, or <c>unknown</c> for an id it does not list.</summary>
     internal static string StateOf(string provider) => States.TryGetValue(provider, out string? state) ? state : "unknown";
 
-    /// <summary>The first store target of <paramref name="proposed"/> whose provider is not verified, or null. A directory target is exempt.</summary>
-    internal static UnverifiedTarget? Check(Declarations proposed)
+    /// <summary>Every target of <paramref name="proposed"/> whose provider the page does not list as verified, in the order declared.</summary>
+    internal static IReadOnlyList<UntestedTarget> Untested(Declarations proposed)
     {
+        List<UntestedTarget> untested = [];
+
         foreach (DatasetDeclaration dataset in proposed.Datasets.Values)
         {
             foreach (ShippingTargetDeclaration target in dataset.ShippingTargets)
             {
-                if (target.Provider is { } provider && StateOf(provider) != Verified)
+                if (StateOf(target.Provider) != Verified)
                 {
-                    return new UnverifiedTarget(dataset.Name, provider, StateOf(provider));
+                    untested.Add(new UntestedTarget(dataset.Name, target.Provider, StateOf(target.Provider)));
                 }
             }
         }
 
-        return null;
+        return untested;
     }
 
     private static FrozenDictionary<string, string> Load()

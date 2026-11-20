@@ -355,19 +355,17 @@ Varve.Management.Model.DatasetDeclaration.ShippingTargets.init -> void
 Varve.Management.Model.ShippingTargetDeclaration
 Varve.Management.Model.ShippingTargetDeclaration.<Clone>$() -> Varve.Management.Model.ShippingTargetDeclaration!
 Varve.Management.Model.ShippingTargetDeclaration.Deconstruct(out Varve.Rdf.RdfTerm! Node) -> void
-Varve.Management.Model.ShippingTargetDeclaration.Directory.get -> string?
-Varve.Management.Model.ShippingTargetDeclaration.Directory.init -> void
 Varve.Management.Model.ShippingTargetDeclaration.Equals(Varve.Management.Model.ShippingTargetDeclaration? other) -> bool
 Varve.Management.Model.ShippingTargetDeclaration.Node.get -> Varve.Rdf.RdfTerm!
 Varve.Management.Model.ShippingTargetDeclaration.Node.init -> void
-Varve.Management.Model.ShippingTargetDeclaration.Prefix.get -> string?
+Varve.Management.Model.ShippingTargetDeclaration.Prefix.get -> string!
 Varve.Management.Model.ShippingTargetDeclaration.Prefix.init -> void
-Varve.Management.Model.ShippingTargetDeclaration.Provider.get -> string?
+Varve.Management.Model.ShippingTargetDeclaration.Provider.get -> string!
 Varve.Management.Model.ShippingTargetDeclaration.Provider.init -> void
 Varve.Management.Model.ShippingTargetDeclaration.ShippedOn.get -> string?
 Varve.Management.Model.ShippingTargetDeclaration.ShippedOn.init -> void
 Varve.Management.Model.ShippingTargetDeclaration.ShippingTargetDeclaration(Varve.Rdf.RdfTerm! Node) -> void
-Varve.Management.Model.ShippingTargetDeclaration.Store.get -> string?
+Varve.Management.Model.ShippingTargetDeclaration.Store.get -> string!
 Varve.Management.Model.ShippingTargetDeclaration.Store.init -> void
 override Varve.Management.Model.ShippingTargetDeclaration.Equals(object? obj) -> bool
 override Varve.Management.Model.ShippingTargetDeclaration.GetHashCode() -> int

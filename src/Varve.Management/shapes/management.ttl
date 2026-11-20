@@ -18,7 +18,7 @@
 # - a graph template's syntax;
 # - every rule of a shipping target (ADR 0184): varve:shipsTo and
 #   varve:ShippingTarget name each other, a target is a store with its
-#   prefix and provider or a directory, an address carries no credential,
+#   prefix and provider, an address carries no credential,
 #   two targets do not name one place, and only a dataset on
 #   varve:ObjectStorage has one. No shape here states any of it.
 # Each needs the graph's name, a count across the graph, or a parser. The

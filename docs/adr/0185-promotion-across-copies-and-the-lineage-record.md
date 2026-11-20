@@ -57,8 +57,7 @@ copies can become the dataset. Three things stand in the way.
 replica on its own: no timer, no probe, no standby race.
 
 **2. The lineage record says what a copy is.** The object `lineage`,
-beside `writer`, format 1. On a directory target it is the file `lineage`
-beside `log/`, written by rename.
+beside `writer`, format 1.
 - **`state`:** `replica` or `promoted`.
 - **`source`:** the source's store address, prefix and dataset id, and the
   id of the source's fleet.

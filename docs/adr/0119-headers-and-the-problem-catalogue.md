@@ -287,20 +287,30 @@ The catalogue gains:
 
 Each has its page in `docs/problems/` when it is catalogued.
 
-## Amendment, 2026-11-20 — `store-unverified` and `dataset-is-replica`
+## Amendment, 2026-11-20 — `dataset-is-replica`, and a notice header
 
-Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted until the
-maintainer accepts it (ADR 0066).
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md)
+and [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md),
+unaccepted until the maintainer accepts it (ADR 0066).
 
-Two problem types join the catalogue, each with its page:
+**One problem type joins the catalogue,** with its page:
 
 | Type | Status | Members | Answered by |
 |---|---|---|---|
-| `store-unverified` | 409 | `dataset`, `provider`, `state` | an apply whose shipping target names a provider the compatibility page does not list as verified (ADR 0184 decision 9) |
 | `dataset-is-replica` | 409 | `reason` | a write sent to a replica, or to a copy whose promotion did not finish (ADR 0185 decision 3) |
 
 A promotion's refusals are `takeover-refused`, with the reasons
 `not-a-replica`, `source-mismatch` and `position-mismatch` beside the
 takeover's own.
+
+**One response header joins the others:** `Varve-Notice`, on a successful
+apply. It says something the caller should know that is no refusal. Its
+one use is `shipping-provider-untested; dataset=…; provider=…; state=…`,
+once per shipping target whose provider the compatibility page does not
+list as verified (ADR 0184 decision 9). A client that does not know a
+notice ignores it.
+
+**`store-unverified` is not a problem type.** No request is answered with
+it. It is a state on readiness.
 
 **The ledger.** No ruling changes.

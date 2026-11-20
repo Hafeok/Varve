@@ -120,7 +120,6 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm Store = Term("store");
     internal static readonly RdfTerm PrefixProperty = Term("prefix");
     internal static readonly RdfTerm Provider = Term("provider");
-    internal static readonly RdfTerm Directory = Term("directory");
     internal static readonly RdfTerm ShippedOn = Term("shippedOn");
 
     // Individuals.
@@ -188,7 +187,7 @@ public static class ManagementVocabulary
         "ClassifierBinding", "SubjectTemplate", "SubjectLink", "subject", "subjectPrefix", "subjectTemplate", "subjectClass", "subjectLink",
         "linkPredicate", "linkTarget", "createUnder", "CallerAgent",
         "profile", "defaultEntailment", "Rewriting",
-        "ShippingTarget", "shipsTo", "store", "prefix", "provider", "directory", "shippedOn",
+        "ShippingTarget", "shipsTo", "store", "prefix", "provider", "shippedOn",
     }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>The terms reserved for later milestones, refused with the reason.</summary>

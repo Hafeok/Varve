@@ -632,23 +632,6 @@ internal static class ManagementEndpoints
             return;
         }
 
-        // ADR 0184 decision 9: a shipping target's provider is one the compatibility page lists as verified.
-        if (plane.CheckShippingTargets(Proposed(desired)) is { } unverified)
-        {
-            await HttpProblems.WriteAsync(
-                context,
-                ProblemType.StoreUnverified,
-                "Dataset " + unverified.Dataset + " declares a shipping target of provider '" + unverified.Provider + "', which the compatibility page of this build lists as " + unverified.State
-                + ". A log is shipped only to a store the contract suite has passed against (docs/operator/object-stores.md).",
-                members =>
-                {
-                    members.String("dataset", unverified.Dataset);
-                    members.String("provider", unverified.Provider);
-                    members.String("state", unverified.State);
-                }).ConfigureAwait(false);
-            return;
-        }
-
         CommitRequestBuilder request;
 
         using (DatasetView view = system.Pin())
@@ -692,6 +675,16 @@ internal static class ManagementEndpoints
             // The writer applies its own write before it answers: the next
             // request here is decided by it, and its datasets converge to it.
             await management.AdvanceAsync(context.RequestAborted).ConfigureAwait(false);
+        }
+
+        if (result.Outcome == CommitOutcome.Committed)
+        {
+            // ADR 0184 decision 9: the compatibility page is a notice, not a refusal. The declaration is applied,
+            // and the answer says, per target, that the project has not tested its provider.
+            foreach (UntestedTarget untested in plane.UntestedTargets(Proposed(desired)))
+            {
+                context.Response.Headers.Append(UntestedTarget.Header, untested.HeaderValue);
+            }
         }
 
         await Writes.AnswerAsync(exchange, result, result.Outcome == CommitOutcome.Committed ? created : StatusCodes.Status204NoContent, evidence: new ConflictEvidence(request.ExpectedPosition!.Value, request.ExpectedGraphs)).ConfigureAwait(false);

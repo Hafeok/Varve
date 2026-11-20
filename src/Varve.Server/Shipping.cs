@@ -46,12 +46,10 @@ internal static class ShippingState
     /// <summary>The target was promoted (ADR 0185). The shipper has stopped for it.</summary>
     internal const string Promoted = "replica-promoted";
 
-    /// <summary>A directory target, which this build does not ship to yet.</summary>
-    internal const string DirectoryNotShipped = "directory-not-shipped";
 }
 
 /// <summary>One target's shipping, for readiness (ADR 0184 decision 11).</summary>
-/// <param name="Target">The target: its store and prefix, or its directory.</param>
+/// <param name="Target">The target: its store and prefix.</param>
 /// <param name="State">One of <see cref="ShippingState"/>.</param>
 /// <param name="ShippedThrough">The source position the target's log holds at least, or none where it is not known.</param>
 /// <param name="CatalogPosition">The position of the catalog the target holds, or none while it has no catalog.</param>
@@ -266,9 +264,9 @@ internal sealed partial class Shipping : IAsyncDisposable
         json.WriteEndObject();
     }
 
-    /// <summary>A target as readiness and the logs name it: its store and prefix, or its directory. An address carries no credential (ADR 0037).</summary>
+    /// <summary>A target as readiness and the logs name it: its store and prefix. An address carries no credential (ADR 0037).</summary>
     internal static string NameOf(ShippingTargetDeclaration target) =>
-        target.Directory ?? target.Store!.TrimEnd('/') + "/" + target.Prefix;
+        target.Store.TrimEnd('/') + "/" + target.Prefix;
 
     // The last part of the shipper's reader id (ADR 0184 decision 7): a short digest of the target's store and prefix.
     private static string DigestOf(string target) =>
@@ -425,12 +423,6 @@ internal sealed partial class Shipping : IAsyncDisposable
 
         private async Task RunAsync(CancellationToken stopping)
         {
-            if (Target.Directory is not null)
-            {
-                Report(ShippingState.DirectoryNotShipped, null, null, "This build does not ship to a directory yet.");
-                return;
-            }
-
             LogShipper? shipper = null;
             (long Head, long Catalog)? shipped = null;
 
@@ -502,15 +494,8 @@ internal sealed partial class Shipping : IAsyncDisposable
 
         private ShippingOptions Options()
         {
-            // The provider is one the compatibility page of this build lists as verified (ADR 0184 decision 9).
-            if (CompatibilityPage.StateOf(Target.Provider!) is var state && state != CompatibilityPage.Verified)
-            {
-                throw new StoreUnverifiedException("The shipping target's provider '" + Target.Provider + "' is " + state
-                    + " on the compatibility page of this build (docs/operator/object-stores.md). Nothing was written to it.");
-            }
-
             ObjectStores objects = _owner._objects!;
-            FleetCopy fleet = _owner.FleetCopyOf(Target.Store!);
+            FleetCopy fleet = _owner.FleetCopyOf(Target.Store);
             string digest = DigestOf(Key);
             string staging = objects.StagingOf(_dataset, digest);
             Directory.CreateDirectory(staging);
@@ -519,7 +504,7 @@ internal sealed partial class Shipping : IAsyncDisposable
             {
                 Source = objects.Store,
                 SourcePrefix = ObjectStores.PrefixOf(_dataset),
-                Target = objects.OpenTarget(Target.Store!, _owner._settings),
+                Target = objects.OpenTarget(Target.Store, _owner._settings),
                 TargetPrefix = new ObjectName(Target.Prefix + "/"),
                 Lineage = new LineageSource(new StoreAddress(objects.Address), ObjectStores.PrefixOf(_dataset), Dataset.Id, _owner._system().Id),
                 BeforeLogWrite = stopping => fleet.ShipAsync(Writes, stopping),

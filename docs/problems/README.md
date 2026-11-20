@@ -64,7 +64,6 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`writer-stepped-down`](writer-stepped-down.md) | 503 | `reason` | The writer released the dataset and commits nothing more. |
 | [`takeover-refused`](takeover-refused.md) | 409 | `reason`, `epoch` | This instance refuses to take the dataset over. |
 | [`dataset-is-replica`](dataset-is-replica.md) | 409 | `reason` | The dataset is a replica and takes no write. |
-| [`store-unverified`](store-unverified.md) | 409 | `dataset`, `provider`, `state` | A shipping target's store is not a verified one. |
 | [`reader-forgotten`](reader-forgotten.md) | 503 |  | This instance's reader record was forgotten; it attaches again. |
 | [`read-unannounced-extent-gone`](read-unannounced-extent-gone.md) | 503 |  | An unannounced read found an extent gone. |
 | [`load-spill-damaged`](load-spill-damaged.md) | 503 |  | A bulk load's spill was damaged; nothing was committed. |
