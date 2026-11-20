@@ -143,6 +143,28 @@ to enforce conditional writes and is refused.
 [Object stores](object-stores.md) lists every store with the evidence for
 it, and `varve storage verify` runs the suite against yours (ADR 0183).
 
+## Shipping to a second store — `Replication` (ADR 0184)
+
+Where a dataset is shipped is a declaration, `varve:shipsTo`
+([vocabulary](../vocabulary.md)), and never a setting. These settings say
+how soon a round runs, and how this instance reaches a target whose address
+does not say.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Replication:ShipInterval` | `00:00:01` | how soon a shipping round runs after the one before it. On a dataset's writer a round runs only when the dataset's head or its catalog has moved. It never decides whether what a round writes is correct |
+| `Replication:Stores:{n}:Address` | none | an S3-compatible target store as a declaration's `varve:store` names it: `s3://{bucket}` |
+| `Replication:Stores:{n}:Endpoint` | none | that store's endpoint |
+| `Replication:Stores:{n}:Region` | none | that store's region |
+| `Replication:Stores:{n}:StsEndpoint` | the provider's | the STS endpoint the instance's web identity is exchanged at |
+
+- **An Azure target needs no entry.** Its `https://…` address is the
+  container, reached as the instance's identity.
+- **No key is ever set here** (ADR 0037). The instance authenticates to a
+  target as it does to its own store.
+- A target declared as `s3://…` with no entry here is reported on readiness
+  as `target-unconfigured`, and nothing is written to it.
+
 ## Authentication — `Auth`
 
 | Setting | Default | Meaning |

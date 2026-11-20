@@ -94,7 +94,11 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
         Classifications = new RowClassifications(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
         Entailment = new EntailmentBindingsOfTheFleet(this);
+        Shipping = new Shipping(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, objects, settings.Replication, () => IsFleetOfOne ? null : _system.Id, clock, logger);
     }
+
+    /// <summary>The shippers of the datasets this instance ships (ADR 0184).</summary>
+    internal Shipping Shipping { get; }
 
     /// <summary>The datasets' TBox bindings as a query reads them, and their schema caches (ADRs 0193, 0194).</summary>
     internal EntailmentBindingsOfTheFleet Entailment { get; }
@@ -648,6 +652,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         {
             Projections.Reconcile(entry.Name);
             Classifications.Reconcile(entry.Name);
+            Shipping.Reconcile(entry.Name);
         }
     }
 
@@ -1016,6 +1021,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
     public async ValueTask DisposeAsync()
     {
+        await Shipping.DisposeAsync().ConfigureAwait(false);
         await Projections.DisposeAsync().ConfigureAwait(false);
         await Classifications.DisposeAsync().ConfigureAwait(false);
         await Datasets.DisposeAsync().ConfigureAwait(false);

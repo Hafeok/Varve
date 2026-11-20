@@ -94,6 +94,15 @@ n:replica a varve:ShippingTarget ;
   wait (ADR 0244): the shipper is not a step of maintenance.
 - With `varve:shippedOn`, the named instance ships instead, tailing as a
   standby does on `Varve:Replication:ShipInterval`.
+- **How an instance reaches an S3-compatible target is its own
+  configuration:** `Varve:Replication:Stores` gives the endpoint, the
+  region and the STS endpoint for an `s3://{bucket}` address, which a
+  bucket's name does not carry. It holds no key (ADR 0037). An Azure
+  target needs no entry.
+- **On the writer a round runs only when the dataset's head or its catalog
+  has moved** since the last complete round, so an idle dataset costs a
+  shipper no request of either store. A segment the source consolidates
+  while idle, and a retired set, reach the target with the next commit.
 - **No timer decides anything.** The interval sets how soon a round runs,
   never whether what it writes is correct.
 - **Two shippers at once are harmless.** Every write below is a create of

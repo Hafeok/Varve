@@ -30,6 +30,9 @@ internal sealed class ServerSettings
     /// <summary>The fleet this server is one of (ADRs 0163, 0164, 0168).</summary>
     public FleetSettings Fleet { get; set; } = new();
 
+    /// <summary>Shipping to a second store (ADR 0184).</summary>
+    public ReplicationSettings Replication { get; set; } = new();
+
     /// <summary>The management plane (ADR 0163): its bootstrap operators and its optional listener.</summary>
     public ManageSettings Manage { get; set; } = new();
 
@@ -347,6 +350,40 @@ internal sealed class FleetSettings
 
     /// <summary>How many system positions this instance may be behind the system tail and be ready (ADR 0163 point 13).</summary>
     public long AllowedLag { get; set; } = 100;
+}
+
+/// <summary>
+/// Shipping (ADR 0184): how soon a shipping round runs, and how this instance
+/// reaches a target store whose address alone does not say. Where a dataset
+/// is shipped is a declaration (<c>varve:shipsTo</c>), never a setting.
+/// </summary>
+internal sealed class ReplicationSettings
+{
+    /// <summary>How soon a round runs after the one before it. It never decides whether what a round writes is correct.</summary>
+    public TimeSpan ShipInterval { get; set; } = TimeSpan.FromSeconds(1);
+
+    /// <summary>The S3-compatible target stores this instance can reach, by the address a declaration names.</summary>
+    public List<ReplicationStoreSettings> Stores { get; set; } = [];
+}
+
+/// <summary>
+/// How this instance reaches one S3-compatible target store (ADR 0184): the
+/// endpoint, the region and the STS endpoint a bucket's name does not carry.
+/// No key: the instance authenticates by its web identity (ADR 0137).
+/// </summary>
+internal sealed class ReplicationStoreSettings
+{
+    /// <summary>The address a <c>varve:store</c> names: <c>s3://{bucket}</c>.</summary>
+    public string? Address { get; set; }
+
+    /// <summary>The store's endpoint.</summary>
+    public string? Endpoint { get; set; }
+
+    /// <summary>The store's region.</summary>
+    public string? Region { get; set; }
+
+    /// <summary>The STS endpoint, where it is not the provider's default.</summary>
+    public string? StsEndpoint { get; set; }
 }
 
 /// <summary>The management plane (ADR 0163).</summary>
