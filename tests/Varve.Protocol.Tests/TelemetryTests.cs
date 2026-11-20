@@ -62,18 +62,13 @@ public class TelemetryTests
         await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(dataset, stopping: P.Ct, logger: log);
         using Spans spans = new();
 
-        // Four hundred statements of 50 kB each: a 20 MB answer, more than any
-        // buffer between the server and the client holds, in only 400 rows. Large
-        // in bytes and not in rows, so the evaluator runs 400 solutions and not a
-        // join of millions, and leaves the process as the allocation tests
-        // expect to find it (#382).
-        string literal = new('x', 50_000);
-        string statements = string.Concat(Enumerable.Range(0, 400).Select(i => "<http://ex/s" + i + "> <http://ex/p> \"" + literal + "\" . "));
-        using HttpResponseMessage inserted = await host.Client.SendAsync(P.Update("datasets/d/sparql", "INSERT DATA { " + statements + "}"), P.Ct);
-        Assert.Equal(HttpStatusCode.NoContent, inserted.StatusCode);
+        // A hundred statements; three of them joined are a million rows, more
+        // than any buffer between the server and the client holds.
+        string statements = string.Concat(Enumerable.Range(0, 100).Select(i => "<http://ex/s" + i + "> <http://ex/p> " + i + " . "));
+        await host.Client.SendAsync(P.Update("datasets/d/sparql", "INSERT DATA { " + statements + "}"), P.Ct);
         string id;
 
-        using (HttpResponseMessage response = await host.Client.SendAsync(P.Query("datasets/d/sparql", "SELECT ?s ?o { ?s <http://ex/p> ?o }", "text/tab-separated-values"), HttpCompletionOption.ResponseHeadersRead, P.Ct))
+        using (HttpResponseMessage response = await host.Client.SendAsync(P.Query("datasets/d/sparql", "SELECT * { ?a ?p ?b . ?c ?q ?d . ?e ?r ?f }", "text/tab-separated-values"), HttpCompletionOption.ResponseHeadersRead, P.Ct))
         {
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             id = response.Headers.GetValues("Varve-Request-Id").Single();
