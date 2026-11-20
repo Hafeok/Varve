@@ -20,7 +20,7 @@ maintainer's answers to its delta plan, recorded on #166 on 2026-11-16.
   rewrites;
 - [ADR 0113](0113-health-and-readiness.md) and
   [ADR 0119](0119-headers-and-the-problem-catalogue.md):
-  readiness gains `shipping`, and the catalogue three problem types.
+  readiness gains `shipping`, and the catalogue `store-unverified`.
 
 Records decision set [`log-shipping`](../decisions/log-shipping.md).
 

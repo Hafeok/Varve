@@ -121,3 +121,19 @@ validation report.
   attaches it.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-20 — a recorded position belongs to the fleet that wrote the commit
+
+Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+- **Every commit at or below a promoted copy's promoted position records a
+  position in another fleet's system dataset.**
+- **The write watermark is never seeded from one.** A promoted copy's
+  watermark starts from the commits this fleet wrote, or from nothing.
+- **Not built: answering events and audit of such a commit** from the
+  source fleet's shipped system dataset. Until it is, they are resolved in
+  the serving fleet's system dataset, which is the wrong one.
+
+**The ledger.** No ruling changes. The ruling is
+`AManagementPositionBelongsToItsFleet`, in ADR 0185's set.

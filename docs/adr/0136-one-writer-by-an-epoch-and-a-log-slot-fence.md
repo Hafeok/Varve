@@ -317,7 +317,28 @@ refused before the claim:
   more request at each open for write and each claim in place.
 
 The trigger and the release reason `promotion`, and the epoch a promotion
-claims, are amended with the code that builds them.
+claims, are in the amendment of 2026-11-20 below.
 
 **The ledger.** No ruling changes. The ruling is
 `AReplicaIsNeverOpenedForWrite`, in ADR 0185's set.
+
+## Amendment, 2026-11-20 — the trigger and the release reason `promotion`
+
+Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+- **A promotion claims with the trigger `promotion`,** at one above the
+  highest of the writer record's epoch, the highest epoch in any chunk the
+  promoting follower adopted, and the epoch in the catalog's wrapper. A
+  copy's own record never showed the source writer's epochs, and its log
+  and catalog carry them.
+- **A promotion that won the record and then failed releases with the
+  reason `promotion`.** No member races for that release. Only promoting
+  again claims after it.
+- **A lineage of `promoted` with no fenced `promotion` claim at or above
+  its epoch refuses an open for write,** as a replica does, and says the
+  promotion did not finish.
+
+**The ledger.** No ruling of this ADR changes. The rulings are
+`PromotionIsAnsweredByAWarmMemberOfTheTargetFleet` and
+`AnIncompletePromotionIsCompletedOnlyByPromoting`, in ADR 0185's set.

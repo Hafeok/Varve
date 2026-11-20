@@ -265,3 +265,18 @@ changes, and no problem type is added.
 transport: a refused connection, and one that takes the request and closes.
 The fleet suite sends a move through an instance whose system writer's
 address refuses, and one whose address takes the request and never answers.
+
+## Amendment, 2026-11-20 — the events of a commit another fleet wrote
+
+Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+A commit of a promoted copy at or below its promoted position was written
+under the source fleet. Its moved event declarations are in that fleet's
+system dataset, which is shipped to `fleets/<source-fleet-id>/` on the
+copy's store (ADR 0185 decision 8).
+
+**Not built.** Rendering such a commit's events from that copy is decided
+by ADR 0185 and not implemented by the change that files this amendment.
+
+**The ledger.** No ruling changes.

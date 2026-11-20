@@ -212,3 +212,18 @@ is written down, and a fixture holds it.
    doing so.
 
 Records decision `ProofIsReserved`.
+
+## Amendment, 2026-11-20 — the lineage record
+
+Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted until the
+maintainer accepts it (ADR 0066).
+
+The lineage record `lineage` joins the inventory at format 1 (storage
+format §8.3): coordination, read conservatively (ADR 0217). Its fixture is
+added with the release that first writes it, as the inventory's row says.
+
+The writer record's format is unchanged. Its `trigger` and `released`
+gain the value `promotion`, which an older build reads as unknown and
+keeps as written.
+
+**The ledger.** No ruling changes.
