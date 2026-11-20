@@ -26,7 +26,9 @@ summary: |
   - **The Query screen** (`datasets/{name}/query`).
     - **The editor** (ADR 0250): a textarea over a layer coloured by the
       parser's own lexer. It shows the parser's first error in the server's
-      words before anything is sent.
+      words before anything is sent, and takes the answer's form from the
+      parsed query. Over 25,000 characters it neither colours nor checks as
+      it is typed; Run checks the text once.
     - **The choices:** the regime, from those the service description lists;
       and where to read, at the head, a position or a time. A position too
       far below the head is refused before sending.
@@ -57,10 +59,12 @@ summary: |
       route, with `Varve.Sparql` and `Varve.Sparql.Results`;
     - the host `Varve.WebUi` is at layer 8.
   - **The size gate's two rows** (ADR 0205, amended): the first screen at
-    1,902.9 kB against 1,920.0 kB, and the explorer's lazy set at 96.9 kB
+    1,903.0 kB against 1,920.0 kB, and the explorer's lazy set at 98.9 kB
     against 100.0 kB.
   - **The graph view** (ADR 0251): a deterministic radial layout in SVG,
-    with a node budget of 50 from its spike. It is on no screen yet.
+    with a node budget of 50 from its spike, and what a regime added marked
+    from two whole reads at one position (ADR 0254). It is on no screen yet.
+    The size gate refuses a publish that holds its spike.
   - **Every procedure in the operator's guide names what runs it**
     (ADR 0248, from #129), first shipped here.
 

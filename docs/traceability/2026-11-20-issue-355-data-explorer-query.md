@@ -399,6 +399,82 @@ For the data explorer session (#387).
    and the #382 comparison when the head runs are done.
 ````
 
+### The one reword, and the tokenizer's statement (2026-11-20)
+
+````text
+For the data explorer session (#387).
+
+1. One waiver of the no-force-push rule, for commit 3bfeb900 only.
+   - Reword its message so no closing keyword stands in prose. Change
+     nothing else: same tree, same parent.
+   - Push with
+     --force-with-lease=<branch>:3bfeb9000f1ad9baba4efb2a60d117244d74f687
+   - On the pull request, give the old and new hashes and show that the
+     two trees are identical. Say that the #382 runs on the old head
+     stand for the new one.
+   - Re-run `eng/issue-refs.cs` before pushing.
+   The waiver ends with that push.
+
+2. That commit carries `Signed-off-by: Emil Okkels Klein`. Say on the
+   pull request how it got there. If you added it, leave it out of the
+   reworded message and say whether any other commit on the branch has
+   it.
+
+3. In a normal commit after that: `TokenPositionsInTheInputsUnits` says
+   "start and length"; the ADR and the API say start and end. Make the
+   statement match.
+
+4. Then report the full head hash. The maintainer reads ADR 0253 and the
+   delegate accepts its four rulings, so the server and browser tests
+   can run. ADRs 0250–0252 and 0254 stay unaccepted until the architect
+   has reviewed them. Take the SBOM digests after that acceptance, as
+   ruled.
+````
+
+### The architect's review of ADRs 0250–0252 and 0254 (2026-11-20)
+
+````text
+For the data explorer session (#387).
+
+#382: agreed, an existing flake; nothing more here. On #382, check the
+table's first row: a failure at 55 bytes against a bound of 56 needs a
+word on which assertion failed.
+
+Still owed from before: how `Signed-off-by: Emil Okkels Klein` got onto
+the revert commit, and whether other commits carry it.
+
+The architect's review of ADRs 0250–0252 and 0254 at 7e52d7d2. Answer
+each on #355 and change the ADRs where it says so.
+
+ADR 0254, before it can be accepted:
+1. Ruling 3 and blank nodes: say what makes a blank node's label the
+   same in read A and read B at one position. If nothing does, say how
+   statements with blank nodes are marked. Add the test.
+2. Ruling 3 and a cut read: marks are shown only when both reads ran to
+   their end. If either stopped at the ceiling or broke, no statement is
+   marked and the view says why. Write it into the ruling's statement.
+3. Put the `Varve.Protocol.Client` baseline diff in the description.
+
+ADR 0250:
+4. Point 5: take the answer's form from the parser's result, not from
+   the first keyword token.
+5. Say what the editor does with a very large text: the size above
+   which colouring and checking stop, what the page shows then, and the
+   measurement behind the number.
+
+ADR 0251:
+6. Say what is drawn when the twelfth widening still leaves a label
+   that does not fit.
+7. Confirm the spike page is not in the published image, and name the
+   test or gate that holds that.
+
+ADR 0252:
+8. ADRs 0250–0252 have no decision set. Say which sets carry the
+   rulings of ADR 0252 (the layers 6 to 8, VARVE0005 and VARVE0006) and
+   of the amendments to ADRs 0060, 0205 and 0206. If none does, add a
+   set for ADR 0252, filed unaccepted, cited from the analyzers.
+````
+
 ## The report
 
 What was decided, measured and found is the pull request's body, and each step
@@ -410,9 +486,10 @@ was reported on #355 as it landed. In short:
   the node budget of 50) and 0252 (three private assemblies at layers 6, 7
   and 8, revised twice in place by the maintainer's rulings).
   - **Amendments:** 0060, 0112 (abort telemetry), 0200, 0203, 0205 and 0206.
-- **Measured:** the first screen is 1,902.9 kB against 1,920 kB, and the lazy
-  set 96.9 kB against the 100 kB set by the ruling of 2026-11-20. The spike's
-  table and its machine are in ADR 0251.
+- **Measured:** the first screen is 1,903.0 kB against 1,920 kB, and the lazy
+  set 98.9 kB against the 100 kB set by the ruling of 2026-11-20, at
+  `f2fc63d3`. The spike's table and its machine are in ADR 0251; the
+  editor's 25,000-character limit and its measurement are in ADR 0250.
 - **Found:**
   - DD0001 has no host exemption. The session's early report of one came
     from its own truncated output.
@@ -422,7 +499,12 @@ was reported on #355 as it landed. In short:
   - A triple term drew an empty chip (#377).
   - The Query controls stretched (#383).
   - A cancelled read left no trace on the server, which D6 fixes.
-  - An allocation test failed once in 14 full runs (#382).
+  - An allocation test failed once in 14 full runs (#382). Forty runs each
+    showed it fails on `main` too: an existing flake, left open.
+  - Nothing held the graph view's spike out of the release; the size gate
+    now does.
+  - The architect's review revised ADRs 0250, 0251, 0252 and 0254 in place
+    (#355).
 - **Not done by the session:**
   - the browser tests that need mock-oauth2-server, Zitadel or a running
     image, and the full `Varve.Server.Tests`, which run in hosted CI;
