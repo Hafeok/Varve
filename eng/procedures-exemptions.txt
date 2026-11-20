@@ -1,0 +1,3 @@
+# Pages of the operator's guide whose procedures another open pull request
+# marks (ADR 0248): a line is the page and that pull request. An exemption
+# for a page with no unmarked procedure fails, so none outlives its reason.

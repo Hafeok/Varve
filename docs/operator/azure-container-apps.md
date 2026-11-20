@@ -2,17 +2,22 @@
 
 A Varve server on Azure Container Apps with its datasets in Blob Storage
 (ADRs 0134–0139, 0142): the log, the checkpoints' extents and the catalog in a
-container, the replica's disk only a cache. No key, SAS token or connection
-string exists anywhere in it.
+container, the replica's disk only a cache. The server and the store use no
+key, SAS token or connection string: every identity is managed. One key is
+read: the template passes the Log Analytics workspace's shared key to the
+Container Apps environment for its logs (`main.bicep`, #304).
 
 ## Deploy
 
 `deploy/azure/container-apps/main.bicep` creates, in one resource group, a
 Log Analytics workspace, a storage account that refuses shared-key access, a
-private container `datasets`, a Container Apps environment, and the app with
-a system-assigned identity granted **Storage Blob Data Contributor** on that
-container alone.
+private container `datasets`, a Container Apps environment, and two apps,
+each with a system-assigned identity on that container alone:
+`varve-writer`, granted **Storage Blob Data Contributor**, and `varve`, the
+public app, granted the same role under an ABAC condition that lets it write
+only `readers/` records (below).
 
+<!-- ci: none — it needs an Azure subscription; azure-objects.yml deploys the template only on dispatch, and checks nothing after -->
 ```sh
 az group create --name varve --location westeurope
 az deployment group create --resource-group varve \
@@ -61,14 +66,21 @@ two apps on one container (ADRs 0163, 0168):
   identity reads the container, and **writes only under the `readers/`
   prefix**, where a reader announces the oldest catalog version it holds for
   extent maintenance (#110): on Azure an ABAC condition on the role
-  assignment, on S3 a prefix-scoped policy. Whichever of #110 and #105 lands
-  second reconciles this grant with the reader contract.
+  assignment, on S3 a prefix-scoped policy. The template grants it so: Storage Blob
+  Data Contributor with the condition below, on any blob path containing
+  `readers/`.
 
 **Its recovery is a restart.** When `varve-writer`'s replica fails,
 Container Apps restarts it, and writes are refused with `503` until it is
 back. Measured from the stop to the first write forwarded again, that is
 2.0–3.2 s plus the platform's own restart, where a warm standby's takeover
 is 0.3–0.9 s ([Restart or handover](fleet.md#restart-or-handover-choosing-the-layout)).
+
+**For a warm standby instead**, the second template,
+[`deploy/azure/container-apps-handover/`](../../deploy/azure/container-apps-handover/),
+deploys N single-replica apps sharing a writer set with automatic handover,
+and a takeover job per app that runs `varve manage takeover … --managed-identity`
+when an app stops answering (ADR 0181); its README has the parameters.
 
 Clients reach `varve`; a write costs one extra hop inside the environment.
 The internal address carries the caller's token, so it stays inside the
@@ -84,6 +96,7 @@ applied, and answers writes
 [`503 commit-outcome-unknown`](../problems/commit-outcome-unknown.md), since
 it cannot tell whether a write it forwarded arrived (ADR 0214). Every claim is in the writer record:
 
+<!-- ci: ci.yml storage-services — ObjectStorageServerTests, against Azurite -->
 ```sh
 varve lease https://{account}.blob.core.windows.net/datasets/people
 ```
@@ -154,11 +167,14 @@ the epoch, and `varve info` or `query` over the store's address.
 - **Give each replica its own `Varve:ObjectStorage:ReaderId`**, stable across
   its restarts: a container's cache does not survive one, and without a
   configured id every restart leaves its previous record behind, holding
-  sets back until an operator forgets it.
+  sets back until an operator forgets it. The template sets none, and
+  Container Apps replicas have no stable name to derive one from (#303).
 - **A follower's identity needs write access to `readers/` only.** On Azure,
-  Storage Blob Data Reader on the container, and Storage Blob Data
-  Contributor with a condition on the blob path:
+  Storage Blob Data Contributor with a condition on the blob path. The
+  template's condition matches `StringLike '*readers/*'`, any dataset's
+  readers; scoping it to one dataset's prefix is tighter:
 
+  <!-- ci: none — a role assignment needs a real storage account; bicep builds and lints the template's own condition only -->
   ```text
   (
    (
@@ -224,3 +240,9 @@ points and leases to Varve.
    only by an explicit act: a scheduled task outside Varve may issue it, and
    nothing in Varve moves because time passed (ADR 0140, N3).
 
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Deploy.** It needs an Azure subscription; azure-objects.yml deploys the template only on dispatch, and checks nothing after.
+- **Readers, and what the store keeps for them.** A role assignment needs a real storage account; bicep builds and lints the template's own condition only.

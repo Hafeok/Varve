@@ -77,7 +77,13 @@ internal sealed class SimulatedFileSystem : IFileSystem
     private readonly HashSet<string> _locks = new(StringComparer.Ordinal);
     private readonly List<MetadataOp> _journal = [];
     private readonly Lock _gate = new();
+    private readonly List<(int Operation, int Length, string Path)> _writes = [];
     private int _durableJournal;
+
+    // Counted under the lock, with the operation they count (#214).
+    private int _operations;
+    private int _allocations;
+    private bool _crashed;
 
     // The write a crash stopped: its file, where it began and all it would
     // have written, so that one crash builds the image of every cut of it.
@@ -106,18 +112,54 @@ internal sealed class SimulatedFileSystem : IFileSystem
     public Func<string, IOException>? RefusalError { get; set; }
 
     /// <summary>How many allocating operations have been attempted.</summary>
-    public int Allocations { get; private set; }
+    public int Allocations
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _allocations;
+            }
+        }
+    }
 
     /// <summary>The exception a full disk throws: <c>ERROR_DISK_FULL</c> on Windows, <c>ENOSPC</c> elsewhere, as an <see cref="IOException"/>.</summary>
     public static IOException DiskFull(string path) => new("No space left on device: '" + path + "'.", unchecked((int)0x80070070));
 
     /// <summary>How many mutating operations have been performed.</summary>
-    public int Operations { get; private set; }
+    public int Operations
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _operations;
+            }
+        }
+    }
 
-    /// <summary>Every write so far: its operation number and length, for choosing where to crash.</summary>
-    public List<(int Operation, int Length, string Path)> Writes { get; } = [];
+    /// <summary>Every write so far, as a copy taken under the lock: its operation number and length, for choosing where to crash.</summary>
+    public List<(int Operation, int Length, string Path)> Writes
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _writes];
+            }
+        }
+    }
 
-    public bool Crashed { get; private set; }
+    public bool Crashed
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _crashed;
+            }
+        }
+    }
 
     public bool DirectoryExists(string path)
     {
@@ -487,7 +529,7 @@ internal sealed class SimulatedFileSystem : IFileSystem
 
     private void Live()
     {
-        if (Crashed)
+        if (_crashed)
         {
             throw new SimulatedCrash("The process has crashed.");
         }
@@ -497,75 +539,80 @@ internal sealed class SimulatedFileSystem : IFileSystem
     // returning how much of a write to keep. Null means carry on.
     private int? Step(Operation operation)
     {
-        Operations++;
-        int? keep = Injector?.Invoke(operation with { Number = Operations });
+        _operations++;
+        int? keep = Injector?.Invoke(operation with { Number = _operations });
 
         if (keep is not null && operation.Kind != OperationKind.Write)
         {
-            Crashed = true;
+            _crashed = true;
             throw new SimulatedCrash("Crashed before " + operation.Kind + " of " + operation.Path + ".");
         }
 
         // A full disk refuses the allocation before any of it happens, and
         // the operation is not counted as done.
-        if (keep is null && operation.Allocates && Refuser?.Invoke(++Allocations) == true)
+        if (keep is null && operation.Allocates && Refuser?.Invoke(++_allocations) == true)
         {
-            Operations--;
+            _operations--;
             throw DiskFull(operation.Path);
         }
 
         return keep;
     }
 
-    private void Write(Inode inode, long offset, ReadOnlySpan<byte> bytes, string path)
+    // The path is resolved under the lock with the write itself, so that the
+    // operation names the file as it is named when the write happens, and so
+    // that no other writer changes the path table while it is read (#214).
+    private void Write(Inode inode, long offset, ReadOnlySpan<byte> bytes)
     {
         lock (_gate)
         {
             Live();
+            string path = PathOf(inode);
             Operation operation = new(OperationKind.Write, path, bytes.Length) { Allocates = offset + bytes.Length > inode.Bytes.Count };
             int? keep = Step(operation);
 
-            if (keep is null && Refusal?.Invoke(operation with { Number = Operations }) is int kept)
+            if (keep is null && Refusal?.Invoke(operation with { Number = _operations }) is int kept)
             {
                 kept = Math.Clamp(kept, 0, bytes.Length);
 
                 if (kept == 0)
                 {
-                    Operations--;
+                    _operations--;
                 }
                 else
                 {
-                    Writes.Add((Operations, kept, path));
+                    _writes.Add((_operations, kept, path));
                     inode.Write(offset, bytes[..kept]);
                 }
 
                 throw RefusalError?.Invoke(path) ?? DiskFull(path);
             }
 
-            Writes.Add((Operations, bytes.Length, path));
+            _writes.Add((_operations, bytes.Length, path));
             ReadOnlySpan<byte> written = keep is int k ? bytes[..Math.Min(k, bytes.Length)] : bytes;
             inode.Write(offset, written);
 
             if (keep is not null)
             {
                 _inFlight = (inode, offset, bytes.ToArray());
-                Crashed = true;
+                _crashed = true;
                 throw new SimulatedCrash("Crashed after " + written.Length + " of " + bytes.Length + " bytes to " + path + ".");
             }
         }
     }
 
-    private void Flush(Inode inode, string path)
+    private void Flush(Inode inode)
     {
         lock (_gate)
         {
             Live();
+            string path = PathOf(inode);
             Operation operation = new(OperationKind.Flush, path, 0);
             Step(operation);
 
-            if (Refusal?.Invoke(operation with { Number = Operations }) is not null)
+            if (Refusal?.Invoke(operation with { Number = _operations }) is not null)
             {
-                Operations--;
+                _operations--;
                 throw RefusalError?.Invoke(path) ?? DiskFull(path);
             }
 
@@ -574,6 +621,8 @@ internal sealed class SimulatedFileSystem : IFileSystem
         }
     }
 
+    // Under the lock: it reads the path table, which every create, rename and
+    // delete changes (#214).
     private string PathOf(Inode inode)
     {
         foreach ((string path, Inode candidate) in _files)
@@ -754,7 +803,7 @@ internal sealed class SimulatedFileSystem : IFileSystem
                 throw new UnauthorizedAccessException("The handle is read-only.");
             }
 
-            owner.Write(inode, offset, bytes.Span, owner.PathOf(inode));
+            owner.Write(inode, offset, bytes.Span);
             return ValueTask.CompletedTask;
         }
 
@@ -774,7 +823,7 @@ internal sealed class SimulatedFileSystem : IFileSystem
             }
         }
 
-        public void Flush() => owner.Flush(inode, owner.PathOf(inode));
+        public void Flush() => owner.Flush(inode);
 
         public void Dispose()
         {

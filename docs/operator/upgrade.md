@@ -2,28 +2,47 @@
 
 ## What a new build reads
 
+Every format a release writes that another reads is in the
+[format inventory](../formats/README.md) (ADR 0216), with its version, the
+release that introduced it, its rule — *read forever*, *rebuilt*,
+*versioned* or *reserved* — and the fixture that release wrote, which every
+build's tests read. The log and the coordination records are read forever;
+everything under `derived/` is rebuilt.
+
 - **`log/` is format version 1 and is read for ever** from the first
   prerelease tag that wrote it (`v0.1.0-preview.1`, ADR 0029). A later
-  Varve opens any dataset an earlier one wrote.
+  Varve opens any dataset an earlier one wrote. Each build is checked
+  against the previous release this way: the `upgrade (previous release)`
+  job installs the newest tagged release's `Varve.Server` tool from
+  nuget.org, writes a dataset with it, and opens it with the build, in place
+  and from its `log/` alone, at every position (`eng/upgrade.cs`). Older
+  releases are covered by their fixtures. **Derived format 6 has no fixture
+  written by the release that shipped it** (`v0.1.0-preview.16`): its
+  fixture, `store-next`, was written from the branch, and no object-store
+  fixture carries it yet (#302).
 - **`derived/` carries its own version and is a cache.** Each build states
   the derived versions it reads; a file of another version is a cache miss
   and is rebuilt from the log (ADR 0072). This build writes extents in
   **derived format 5** (ADR 0177: a read inside a set seeks it), runs,
   dictionaries, commit indexes and projections' envelopes in **derived
   format 6** (ADR 0213: every block checked before it is used), and the
-  small files whose whole directory is hashed in format 4. It reads 2 to 4,
-  5 for an extent and 6 for a checked kind. A run, a checkpoint or a local
-  commit index this machine wrote in format 4 is a miss under this build
-  and is rebuilt once, from the log or from the sets. A
+  small files whose whole directory is hashed in format 4. It reads 2 to 4
+  for the kinds that are not checked (state, graphs, catalog) and for an
+  extent set's shared blobs, 5 for an extent and only 6 for a checked kind.
+  A run, a checkpoint, a dictionary or a local commit index this machine
+  wrote in any format below 6 (2, 3 or 4, by any earlier release) is a miss
+  under this build and is rebuilt once, from the log or from the sets. A
   dataset whose sets an earlier build wrote in format 4 opens as it was:
   reads inside those sets narrow them, as before, until maintenance rewrites
   each, oldest first, when no merge is due and no reader of an earlier build
   is present (ADR 0178, below). There is no step for the operator; with
   `Store:ExtentMerges:Enabled` false nothing is rewritten.
-- **An older build does not read a newer derived format**: a downgrade sees
-  the format-5 extents as cache misses, so its chain ends at the first such
-  set and it reads the log from there. Nothing is lost; the first open after
-  a downgrade replays.
+- **An older build does not read a newer derived format**: a downgrade to
+  `v0.1.0-preview.15` or earlier sees the format-6 runs, dictionaries and
+  commit indexes as misses, and one before format 5 sees the extents as
+  misses too, so its chain ends at the first such set and it reads the log
+  from there (ADR 0213 point 7). The log is never rewritten, so nothing is
+  lost. No CI job runs a downgrade.
 
 ### Instances on one object store
 
@@ -75,13 +94,23 @@ that happens by design.
    tail, not the log.
 3. Replace the executable: `dotnet tool update --global Varve.Server`, or the
    new single file.
-4. Start it. Watch `GET /ready`: `200` once every dataset is open and
+4. Start it. Watch `GET /health/ready`: `200` once every dataset is open and
    projected to its head; `503` lists the datasets still opening or failed,
    each with a reason.
 
+Between steps 3 and 4, with no server holding the directory, the new build
+can show that it reads a dataset before it serves it: the same id and head
+the old build reported, and the past as it was.
+
+<!-- ci: ci.yml upgrade — eng/upgrade.cs: the previous release's tool writes the dataset, this build's info, export --as-of at every position and query read it -->
+```sh
+varve info /var/lib/varve/people
+varve export /var/lib/varve/people --as-of position:41 > /tmp/people-41.nq
+```
+
 Two processes never hold one dataset: the lease (ADR 0075) refuses the
 second, so a new process started while the old one still drains waits on
-`/ready` rather than corrupting anything. A rolling upgrade behind a load
+`/health/ready` rather than corrupting anything. A rolling upgrade behind a load
 balancer is therefore one instance at a time, each with its own datasets;
 two instances serving one directory is not a supported configuration.
 
@@ -99,3 +128,19 @@ error named. Read the changelog's section for the release before upgrading:
 a renamed setting is listed there, and `varve serve --print-config` with the
 new build and the old configuration shows every effective value and its
 source, and lists what the build refuses, before anything serves.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Upgrading one instance, as a server.** The `upgrade (previous release)`
+  job (ci.yml `upgrade`) writes with the previous release's command line and
+  reads with this build's; it runs no server of either, so the stop,
+  `dotnet tool update` and start sequence, and a server's projection state
+  written by the old build and read by the new, are not run. It reaches
+  nuget.org, so it is not a required check.
+- **A rolling upgrade of a fleet.** Old and new builds side by side on one
+  store are simulated through reader records only (`ObjectFormatUpgradeTests`
+  and `UncheckedSetTests`, ci.yml `build`); no job runs a real older
+  instance, so a rolling upgrade is untested until #318.
+- **A downgrade.** No job runs one, and none can from this build.

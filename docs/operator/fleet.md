@@ -46,7 +46,8 @@ elsewhere is not served there.
 
 An instance that starts claims its placement whatever the record says,
 fencing any predecessor: a restart is the recovery from a writer that died
-without releasing. `varve lease <container>/<dataset>` shows every claim and
+without releasing. `varve lease https://{account}.blob.core.windows.net/{container}/{dataset}`
+(or `s3://{bucket}/{dataset}`) shows every claim and
 release, `placement` included.
 
 ### Standbys: a writer set
@@ -96,6 +97,7 @@ A writer that crashes or hangs releases nothing, and Varve never judges
 liveness itself. The orchestrator's probe does, and automation turns its
 failure into a takeover request (ADRs 0179, 0181):
 
+<!-- ci: ci.yml fleet-services — FleetTests runs varve manage takeover --from --server, twice, without a token; the --client-assertion sign-in is ApplyTests' (ci.yml build) -->
 ```sh
 varve manage takeover --from a --server https://b.internal --server https://c.internal \
   --authority https://login.microsoftonline.com/{tenant}/v2.0 --client-id {operatorClientId} \
@@ -121,7 +123,18 @@ varve manage takeover --from a --server https://b.internal --server https://c.in
   recovery. Exit code 0 means every dataset is handled; 1 means some
   dataset was refused by every server, and standard error says why.
 - **The token is the operator role's** on the management audience. Prefer a
-  workload identity's federated token to a secret.
+  workload identity's federated token (`--client-assertion <file>`, or
+  `github` in GitHub Actions) or, on Container Apps, the app's managed
+  identity (`--managed-identity`, for the audience `--scope` names) to a
+  secret.
+- **The triggers it is driven by:** on Kubernetes,
+  `varve manage watch-kubernetes` watches the pods and runs it when a ready
+  pod turns not ready ([Kubernetes](kubernetes.md)); on Container Apps, a
+  takeover job per app (`deploy/azure/container-apps-handover/`). An
+  operator can also send the takeover request itself:
+  `PUT /manage/datasets/{name}/state` with `{"takeover":{"epoch":n}}` to the
+  instance that should take it, which answers it or refuses it
+  [`409 takeover-refused`](../problems/takeover-refused.md).
 
 ## Where a write goes: forwarding
 
@@ -130,12 +143,17 @@ Any instance accepts a write (ADR 0168). One that does not write the dataset
 writer's address in the writer record, `Varve:Fleet:InternalUrl`:
 
 - **The forwarding instance authenticates first.** An anonymous request is
-  refused there; authorisation, attribution and evaluation are the writer's.
+  refused there, unless the host runs in anonymous mode; authorisation,
+  attribution and evaluation are the writer's.
 - **The body is read whole, then sent once**, with the caller's token and the
   headers a write's meaning depends on. SPARQL Update is forwarded whole, so
   its `WHERE` is evaluated at the writer.
 - **The answer comes back unchanged**: status, `Varve-Position`, `ETag`, the
-  writer's `Varve-Request-Id`, any problem.
+  writer's `Varve-Request-Id`, any problem; except that a writer which
+  stepped down or was superseded before committing (`503 writer-stepped-down`
+  or `writer-superseded`) comes back as `503 writer-moved`, with the newest
+  epoch and its `reason`: nothing was committed, so send it again (ADR 0179
+  point 12).
 - **The hop rule.** A forwarded request carries `Varve-Forwarded`. An
   instance that receives one and does not write the dataset answers
   [`503 writer-moved`](../problems/writer-moved.md), with the epoch, and never
@@ -298,7 +316,8 @@ never makes the instance unready ([Moving event schemas](moving-event-schemas.md
 
 **A mistaken second system writer** — two instances with `Writer` `true` —
 shows as a superseded instance in readiness, and as a run of `restart`
-claims in `varve lease <container>/_fleet`.
+claims in `varve lease https://{account}.blob.core.windows.net/{container}/_fleet`
+(an address that is not an `https://` or `s3://` URL is read as a directory).
 
 **Without a system writer**, management writes are unavailable. The data
 plane keeps serving under the grants at the last applied position: data
@@ -332,14 +351,20 @@ it.
 
 The code is the same everywhere; only the address differs.
 
-- **Kubernetes**: one StatefulSet with `Writer: varve-0` and a headless
-  service ([Kubernetes](kubernetes.md)).
+- **Kubernetes**: one StatefulSet with a headless service. The shipped
+  manifests (`deploy/kubernetes/`) give the system dataset the writer set
+  `varve-0,varve-1,varve-2` with automatic handover, and
+  `varve manage watch-kubernetes` triggers takeovers; a single writer,
+  `Writer: varve-0`, is the simpler layout ([Kubernetes](kubernetes.md)).
 - **Azure Container Apps**: two apps, `varve-writer` (one replica, `Writer`
   `true`) and `varve` (N replicas, `Writer` `false`); the `varve` app's
   identity reads the container and writes only under `readers/`
   ([Azure Container Apps](azure-container-apps.md)).
-- **Handover by hand**: N single-replica apps behind a front door, each with
-  its own instance name, and placement changed by declaration.
+- **Automatic handover**: N single-replica apps behind a front door, each
+  with its own instance name, sharing the writer set `a,b,c` with automatic
+  handover, and a takeover job per app that runs `varve manage takeover …
+  --managed-identity` (`deploy/azure/container-apps-handover/`, ADR 0181).
+  Without the writer set, placement changes only by declaration.
 
 ### Restart or handover: choosing the layout
 
@@ -387,11 +412,21 @@ never two writers on one dataset** (#97 point 9, ADR 0180). Give each
 dataset the writer set of the region, or the group of instances, it lives
 in:
 
-```turtle
-<urn:fleet:orders> varve:placedOn "r1a" ; varve:standbyOn "r1b" ;
-    varve:automaticHandover true .
-<urn:fleet:invoices> varve:placedOn "r2a" ; varve:standbyOn "r2b" ;
-    varve:automaticHandover true .
+<!-- ci: ci.yml fleet-services — the two-region active-active property declares writer sets so (FleetTests) -->
+```trig
+@prefix varve: <https://w3id.org/varve/ns#> .
+
+<https://w3id.org/varve/ns#manage/dataset/orders> {
+  <urn:fleet:orders> a varve:Dataset ; varve:datasetName "orders" ;
+    varve:storage varve:ObjectStorage ;
+    varve:placedOn "r1a" ; varve:standbyOn "r1b" ; varve:automaticHandover true .
+}
+
+<https://w3id.org/varve/ns#manage/dataset/invoices> {
+  <urn:fleet:invoices> a varve:Dataset ; varve:datasetName "invoices" ;
+    varve:storage varve:ObjectStorage ;
+    varve:placedOn "r2a" ; varve:standbyOn "r2b" ; varve:automaticHandover true .
+}
 ```
 
 - **Every instance serves every dataset.** It reads what it follows, and
@@ -427,4 +462,18 @@ renders a moved dataset's events from its own follower of the system dataset,
 at the management position each commit records. An instance that has not
 applied that position yet answers the events request `503
 management-behind`. A writer that also writes the system dataset finishes a
-stopped move by itself; any other instance finishes it on the next request.
+stopped move by itself on its next interval; otherwise, send the move again
+([Moving event schemas](moving-event-schemas.md#when-a-move-stops)).
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Taking over from a failed writer.** `varve manage takeover
+  --managed-identity` needs Container Apps' `IDENTITY_ENDPOINT`, so it runs
+  only on Azure; the command itself runs in ci.yml `fleet-services`, without
+  a token.
+- **Deployment.** Neither layout is deployed by a job: ci.yml
+  `kubernetes-sample` validates `deploy/kubernetes/` with kubeconform, and
+  ci.yml `bicep` builds and lints `deploy/azure/`; a Kubernetes deployment in
+  `kind` is pull request D of #129.

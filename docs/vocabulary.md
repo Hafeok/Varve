@@ -69,7 +69,7 @@ Each an `xsd:integer`, the server's effective value.
 
 | Term | Meaning | Where |
 |---|---|---|
-| `varve:resultSizeCap` | the most bytes one read answers before it is cut (`result-too-large`): `Varve:Limits:ResultSizeCap` | on the service |
+| `varve:resultSizeCap` | the most bytes one read answers before it is cut ([`read-limit-exceeded`](problems/read-limit-exceeded.md)): `Varve:Limits:ResultSizeCap` | on the service |
 | `varve:maxAsOfDistance` | how many positions below the head a `Varve-As-Of` read may go when no checkpoint is at or below the position (`as-of-distance-exceeded`): `Varve:Limits:MaxAsOfDistance` | on the service |
 | `varve:commitsPageSize` | how many commits a `GET …/commits` range answers before a `Link rel="next"`: `Varve:Limits:CommitsPageSize` | on the service |
 

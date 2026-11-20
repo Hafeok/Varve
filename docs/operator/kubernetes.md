@@ -27,6 +27,7 @@ the model.
 
 ## A sketch
 
+<!-- ci: none — a sketch, not the shipped files: kubernetes-sample validates deploy/kubernetes/ with kubeconform, and deploying it is pull request D of #129 -->
 ```yaml
 apiVersion: v1
 kind: Service
@@ -124,4 +125,17 @@ kubeconform, strict, against Kubernetes 1.34.
     watch that fails is opened again after two seconds.
 
 Replace each `{…}`: the image digest, the storage account, the tenant, and
-the client ids of the store's and the operator's identities.
+the client ids of the store's and the operator's identities. Leave `{pod}`
+in `handover.yaml`'s `--address` as it is: the controller fills it in with
+each pod's name at run time.
+
+Neither file sets `Varve:ObjectStorage:ReaderId`, and the cache is an
+`emptyDir`, so a pod that restarts uncleanly announces a new reader and the
+old record holds extent sets back until `varve storage readers forget`
+removes it (ADR 0160, #303).
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **A sketch.** A sketch, not the shipped files: kubernetes-sample validates deploy/kubernetes/ with kubeconform, and deploying it is pull request D of #129.
