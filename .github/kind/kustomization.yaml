@@ -1,0 +1,11 @@
+# The sample in deploy/kubernetes/, patched for kind. deploy.sh copies both
+# sample files beside this one before rendering, so the sample is read as it
+# is checked in and kustomize needs no relaxed load restrictor.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - fleet.yaml
+  - handover.yaml
+patches:
+  - path: fleet-patch.yaml
+  - path: handover-patch.yaml

@@ -1,0 +1,52 @@
+# The fleet's shared object store in kind: Azurite, from this repository's
+# mirror at the digest .github/ci-images.yaml pins (#118). Not part of the
+# sample: on a real cluster the store is Azure Blob Storage reached by
+# workload identity (ADR 0137), which kind cannot give. The varve pods reach
+# this service through a loopback forwarder of their own (fleet-patch.yaml),
+# because the server signs with Azurite's published development key only on a
+# loopback address (ADR 0137, LoopbackDevelopmentKey).
+#
+# Applied before the fleet by deploy.sh, which then makes the container.
+apiVersion: v1
+kind: Service
+metadata:
+  name: azurite
+  namespace: varve
+spec:
+  selector:
+    app.kubernetes.io/name: azurite
+  ports:
+    - name: blob
+      port: 10000
+      targetPort: 10000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azurite
+  namespace: varve
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: azurite
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: azurite
+    spec:
+      # The mirror is private: a pull secret holding the job's own
+      # GITHUB_TOKEN, which deploy.sh makes and which goes with the cluster.
+      imagePullSecrets:
+        - name: ghcr
+      containers:
+        - name: azurite
+          image: ghcr.io/hafeok/varve-ci/azurite:3.37.0@sha256:830430c1da1a2d537e08f3e6764dd1f5ae00cf0346bcaf625b968ec3f0971fd5
+          command: ["azurite-blob", "--blobHost", "0.0.0.0", "--blobPort", "10000"]
+          ports:
+            - name: blob
+              containerPort: 10000
+          readinessProbe:
+            tcpSocket:
+              port: 10000
+            periodSeconds: 2

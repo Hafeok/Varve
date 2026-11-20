@@ -1,0 +1,70 @@
+# deploy/kubernetes/fleet.yaml as kind runs it: a strategic merge patch, so
+# everything not named here is the sample's own (the StatefulSet, both
+# services, the writer set, automatic handover, the internal addresses, the
+# probes, the cache). What changes, and why:
+#
+# - The image is the one this run built and loaded into the cluster.
+# - The store is Azurite (azurite.yaml), at a loopback address each pod
+#   forwards to the shared service, in place of Azure Blob Storage by
+#   workload identity, which kind cannot give (ADR 0137).
+# - Anonymous mode, not production, in place of Entra: no identity provider
+#   is reachable from the cluster. The sample's OIDC settings stay; anonymous
+#   mode reads none of them.
+# - No Web UI: the image is built without the bundle.
+# - A quarter of a CPU and 512 MiB requested per pod, not one CPU and 2 GiB,
+#   so that three pods fit on one runner.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: varve
+  namespace: varve
+spec:
+  template:
+    spec:
+      imagePullSecrets:
+        - name: ghcr
+      initContainers:
+        # A native sidecar (restartPolicy: Always): started, and answering on
+        # 127.0.0.1:10000, before the server starts, and running beside it.
+        # Azurite's own image, for its Node.js, so that no other image is
+        # pulled; it runs this forwarder and not Azurite.
+        - name: store-loopback
+          image: ghcr.io/hafeok/varve-ci/azurite:3.37.0@sha256:830430c1da1a2d537e08f3e6764dd1f5ae00cf0346bcaf625b968ec3f0971fd5
+          restartPolicy: Always
+          command:
+            - node
+            - -e
+            - |
+              const net = require('net');
+              net.createServer(client => {
+                const store = net.connect(10000, 'azurite.varve.svc.cluster.local');
+                const end = () => { client.destroy(); store.destroy(); };
+                client.on('error', end); store.on('error', end);
+                client.on('close', end); store.on('close', end);
+                client.pipe(store).pipe(client);
+              }).listen(10000, '127.0.0.1');
+          startupProbe:
+            exec:
+              command:
+                - node
+                - -e
+                - "require('net').connect(10000, '127.0.0.1').on('connect', () => process.exit(0)).on('error', () => process.exit(1))"
+            periodSeconds: 1
+            failureThreshold: 30
+      containers:
+        - name: varve
+          image: ghcr.io/hafeok/varve:kind
+          imagePullPolicy: Never
+          env:
+            - name: VARVE__OBJECTSTORAGE__CONTAINERURL
+              value: "http://127.0.0.1:10000/devstoreaccount1/datasets"
+            - name: VARVE__AUTH__MODE
+              value: Anonymous
+            - name: VARVE__AUTH__PRODUCTION
+              value: "false"
+            - name: VARVE__WEBUI__ENABLED
+              value: "false"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi

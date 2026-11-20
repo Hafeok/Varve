@@ -1,0 +1,27 @@
+# deploy/kubernetes/handover.yaml as kind runs it: a strategic merge patch,
+# so the service account, its Role and RoleBinding (get, list and watch pods,
+# nothing else), the one replica and the security context are the sample's
+# own. What changes: the image is this run's, and the arguments drop the
+# operator's sign-in (--authority, --client-id, --client-assertion, --scope),
+# because the fleet here is anonymous and kind has no workload identity to
+# federate. The watch itself, its selector and its {pod} address are the
+# sample's, and it reaches the API server with its service account's token.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: varve-handover
+  namespace: varve
+spec:
+  template:
+    spec:
+      containers:
+        - name: watch
+          image: ghcr.io/hafeok/varve:kind
+          imagePullPolicy: Never
+          args:
+            - manage
+            - watch-kubernetes
+            - --selector
+            - app.kubernetes.io/name=varve
+            - --address
+            - "http://{pod}.varve-headless.varve.svc.cluster.local:8080"
