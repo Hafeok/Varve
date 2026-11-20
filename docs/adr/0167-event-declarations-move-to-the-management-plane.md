@@ -21,7 +21,8 @@ dataset's graph), each by a dated block (ADR 0068).
 by what happened (point 3; see the end, "the move's forward answers by what
 happened"; [#216](https://github.com/Hafeok/Varve/issues/216)).
 
-**Amended 2026-11-19, filed unaccepted:** a cancel stays cancelled (points 3
+**Amended 2026-11-19, filed unaccepted and accepted by the maintainer on
+2026-11-20:** a cancel stays cancelled (points 3
 and 4; see the end, "a cancel stays cancelled";
 [#254](https://github.com/Hafeok/Varve/issues/254)).
 
@@ -277,8 +278,8 @@ Ruled by the maintainer on [#254](https://github.com/Hafeok/Varve/issues/254),
 server says the move is cancelled, a write must not then be refused as
 moved." The plan posted there was accepted, with fixes (a), (b) and (c) and
 the answer to its question A. Filed unaccepted by a cloud session for #254
-on 2026-11-19 (ADR 0066); the maintainer's acceptance is written in the
-decision set by him or his delegate (ADR 0239).
+on 2026-11-19 (ADR 0066), and accepted by the maintainer on 2026-11-20,
+written in the decision set by his delegate (ADR 0239).
 
 **What was wrong.** Point 3 says the writer "resumes a `Moving` dataset by
 itself". The code's resume ran the move's whole driver with no caller, and
