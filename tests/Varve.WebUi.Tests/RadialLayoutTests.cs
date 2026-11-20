@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using Bunit;
 using CsCheck;
 using Varve.WebUi.Explorer.Organisms;
 using Xunit;
@@ -108,6 +109,57 @@ public class RadialLayoutTests
                 }
             }
         }, iter: 300);
+
+    [Fact]
+    public void a_label_that_fits_nowhere_after_the_last_widening_is_left_out_and_said()
+    {
+        // Thirty neighbours, each with a predicate of its own and a label of 40
+        // characters. A ring's radius leaves room for its longest label, so
+        // this fits at the first size; laid out from a fifth of that size with
+        // no widening left, the labels across the steep spokes meet, and one
+        // label per predicate is all a sector already has.
+        RingNeighbour[] ring = [.. Enumerable.Range(0, 30).Select(i =>
+            new RingNeighbour(Spec("ex:n" + i, "iri"), "ex:p" + i, "ex:p" + i.ToString("D2", System.Globalization.CultureInfo.InvariantCulture) + new string('x', 35)))];
+
+        GraphLayout widened = RadialLayout.Lay(Spec(Centre, "iri"), ring);
+        GraphLayout last = RadialLayout.Lay(Spec(Centre, "iri"), ring, widenings: 0, scale: 0.2);
+
+        Assert.True(widened.Unlabelled is null or { Count: 0 });
+        Assert.Equal(ring.Length, widened.Labels.Count);
+
+        Assert.NotNull(last.Unlabelled);
+        Assert.NotEmpty(last.Unlabelled);
+        Assert.Equal(ring.Length, last.Edges.Count);
+        Assert.Equal(ring.Length, last.Labels.Count + last.Unlabelled.Count);
+        Assert.Empty(last.Labels.Select(l => l.Text).Intersect(last.Unlabelled));
+
+        var labels = last.Labels.Select(RadialLayout.LabelBox).ToList();
+        var obstacles = last.Nodes.Select(RadialLayout.NodeBox).ToList();
+
+        for (int i = 0; i < labels.Count; i++)
+        {
+            Assert.DoesNotContain(obstacles, o => RadialLayout.Meet(labels[i], o, pad: 0));
+
+            for (int j = i + 1; j < labels.Count; j++)
+            {
+                Assert.False(RadialLayout.Meet(labels[i], labels[j], pad: 0));
+            }
+        }
+
+        using BunitContext context = new();
+        IRenderedComponent<GraphView> view = context.Render<GraphView>(parameters => parameters
+            .Add(p => p.Id, "g")
+            .Add(p => p.Title, "Neighbourhood of notes:42")
+            .Add(p => p.Layout, last));
+        string note = view.Find("p.vw-budget").TextContent;
+
+        Assert.All(last.Unlabelled, label => Assert.Contains(label, note, StringComparison.Ordinal));
+        Assert.Contains("drawn without", note, StringComparison.Ordinal);
+        Assert.Empty(context.Render<GraphView>(parameters => parameters
+            .Add(p => p.Id, "g")
+            .Add(p => p.Title, "Neighbourhood of notes:42")
+            .Add(p => p.Layout, widened)).FindAll("p.vw-budget"));
+    }
 
     private static readonly string[] Predicates = ["dct:creator", "dct:title", "dct:subject", "schema:about", "dct:references", "rdfs:seeAlso"];
 

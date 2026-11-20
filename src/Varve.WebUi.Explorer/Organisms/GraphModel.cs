@@ -20,7 +20,12 @@ namespace Varve.WebUi.Explorer.Organisms;
 /// <param name="Nodes">The nodes, the centre first, then in ring order.</param>
 /// <param name="Edges">The edges, in the nodes' order.</param>
 /// <param name="Labels">The edge labels placed; a crowded sector keeps one per predicate.</param>
-public sealed record GraphLayout(double MinX, double MinY, int Width, int Height, IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges, IReadOnlyList<GraphLabel> Labels);
+/// <param name="Unlabelled">
+/// The labels left out because they fit nowhere, even after the last widening;
+/// their edges are drawn without them. Null or empty in every drawing but that
+/// one.
+/// </param>
+public sealed record GraphLayout(double MinX, double MinY, int Width, int Height, IReadOnlyList<GraphNode> Nodes, IReadOnlyList<GraphEdge> Edges, IReadOnlyList<GraphLabel> Labels, IReadOnlyList<string>? Unlabelled = null);
 
 /// <summary>One node: a term's chip at its centre point.</summary>
 /// <param name="X">The chip's centre.</param>

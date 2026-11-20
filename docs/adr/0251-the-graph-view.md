@@ -56,6 +56,20 @@ library; neither fits.
    function of the rows. The bounds are the drawing's size in pixels, and
    the view scrolls when it outgrows its container. Property tests hold all
    of this over random neighbourhoods.
+
+   **After the twelfth widening**, the layout is drawn at that size, and a
+   label that still fits nowhere is left out, never drawn over a node, a
+   target or another label, and never scaled. Its edges are drawn without
+   it, and under the drawing the view says so in one status line naming
+   every label left out: "The label ex:p fits nowhere at this size, so its
+   edges are drawn without it.", followed by "Show the table" when the view
+   has the table's link. The table still lists every edge with its predicate.
+   No neighbourhood found needs even one widening, since a ring's radius
+   already leaves room for its longest label: neither the property tests'
+   random rings nor a probe of 1 to 40 neighbours, labels up to 500
+   characters and up to 49 children in one sector. The rule is held by a
+   test that lays out from a fifth of the drawing's size with no widening
+   left.
 4. **A diff lays out the union of both positions,** so an unchanged node is
    where it was; added and removed edges and nodes take the change tokens.
    Inferred edges are dashed in `edge-inferred` and labelled "inferred".
@@ -77,6 +91,14 @@ library; neither fits.
    It is measured again once the explorer is lazy, on the perf environment
    (#376), and the budget is raised only from that measurement, by the same
    rule.
+8. **The spike is never shipped.** Its page and script live under
+   `tests/Varve.WebUi.Spike/` and are built in only with
+   `-p:VarveGraphSpike=true`, for a measurement. `eng/browser-size.cs`, which
+   runs on the publish the release zip and the image carry (in CI's `browser
+   wasm` job and the publish workflow's `web ui bundle, attested`), fails when any
+   file of that publish holds the spike's script, its page's type name or its
+   route. Checked on 2026-11-20: a default publish passes; one with the
+   switch fails on `js/spike.js` and the explorer's assembly.
 
 ### The spike's numbers
 

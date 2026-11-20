@@ -29,7 +29,14 @@
 // Measure a publish into an empty folder: a publish over an earlier one
 // leaves its fingerprinted files beside the new ones, and they count.
 //
-// Exit codes: 0 within budget, 1 over it, 2 could not run.
+// It also fails when the publish holds the graph view's spike (ADR 0251
+// point 8): its page and script are built in only with
+// -p:VarveGraphSpike=true, for a measurement, and this is the publish the
+// release zip and the image carry. Every file under the wwwroot, its .br and
+// .gz siblings skipped, is searched for the spike's script name, its page's
+// type name and its route.
+//
+// Exit codes: 0 within budget, 1 over it or holding the spike, 2 could not run.
 
 using System.Globalization;
 using System.IO.Compression;
@@ -142,6 +149,36 @@ foreach ((string name, long bytes, bool isLazy) in files.OrderByDescending(file 
 }
 
 int result = 0;
+
+// The spike is never shipped (ADR 0251 point 8).
+byte[][] spikeMarks = [.. new[] { "spike.js", "GraphSpike", "_spike/graphs/spike" }.Select(System.Text.Encoding.UTF8.GetBytes)];
+List<string> spiked = [];
+
+foreach (string file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+{
+    if (file.EndsWith(".br", StringComparison.Ordinal) || file.EndsWith(".gz", StringComparison.Ordinal))
+    {
+        continue;
+    }
+
+    byte[] content = File.ReadAllBytes(file);
+
+    if (Path.GetFileName(file) == "spike.js" || spikeMarks.Any(mark => content.AsSpan().IndexOf(mark) >= 0))
+    {
+        spiked.Add(Path.GetRelativePath(root, file));
+    }
+}
+
+if (spiked.Count > 0)
+{
+    Console.WriteLine("FAIL: the publish holds the graph view's spike, which only -p:VarveGraphSpike=true builds in: "
+        + string.Join(", ", spiked) + ". Publish without it (ADR 0251 point 8).");
+    result = 1;
+}
+else
+{
+    Console.WriteLine("ok  no file of the graph view's spike in the publish");
+}
 
 foreach ((string row, long measured, long budget) in new[] { ("webui", first, firstBudget), ("webui-explorer", deferred, lazyBudget) })
 {

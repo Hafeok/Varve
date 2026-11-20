@@ -17,7 +17,9 @@
     double ty = ry - RadialLayout.Target / 2;
 <g class="vw-node__expand" role="button" tabindex="-1" aria-label="@($"{node.Expand} {node.Label}")"><rect class="vw-node__hit" x="@F(tx)" y="@F(ty)" width="@Int((int)RadialLayout.Target)" height="@Int((int)RadialLayout.Target)" /><circle cx="@F(tx + RadialLayout.Target / 2)" cy="@F(ty + RadialLayout.Target / 2)" r="8" />@SvgText(null, tx + RadialLayout.Target / 2, ty + RadialLayout.Target / 2 + 4, node.Expand == "Collapse" ? "−" : "+", hidden: true)</g>
 }
-}</svg>@if (Empty is not null)
+}</svg>@if (Layout.Unlabelled is { Count: > 0 } unlabelled)
+{<p class="vw-budget" role="status">@Unlabelled(unlabelled)@if (Budget is not null)
+{<text> </text><a href="@Budget.TableHref">Show the table</a>}</p>}@if (Empty is not null)
 {<p class="vw-graph__empty">@Empty</p>}</div>
 
 @code {
@@ -58,6 +60,11 @@
         builder.AddContent(6, content);
         builder.CloseElement();
     };
+
+    // The note for labels left out after the last widening (ADR 0251 point 3).
+    private static string Unlabelled(IReadOnlyList<string> labels) => labels.Count == 1
+        ? "The label " + labels[0] + " fits nowhere at this size, so its edges are drawn without it."
+        : "The labels " + string.Join(", ", labels) + " fit nowhere at this size, so their edges are drawn without them.";
 
     private static string F(double value) => value.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
 

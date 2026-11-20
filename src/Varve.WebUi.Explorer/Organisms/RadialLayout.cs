@@ -55,7 +55,7 @@ public static class RadialLayout
     /// <summary>The padding around the drawing.</summary>
     public const double Margin = 16;
 
-    /// <summary>How many times the rings widen, by a quarter each, before a label that fits nowhere is an error.</summary>
+    /// <summary>How many times the rings widen, by a quarter each, before a label that fits nowhere is left out.</summary>
     public const int Widenings = 12;
 
     /// <summary>
@@ -64,25 +64,36 @@ public static class RadialLayout
     /// the layout is made again: the first fit wins, so the same
     /// neighbourhood always gives the same picture.
     /// </summary>
-    /// <exception cref="InvalidOperationException">A label still fits nowhere after <see cref="Widenings"/> widenings.</exception>
-    public static GraphLayout Lay(NodeSpec centre, IReadOnlyList<RingNeighbour> ring)
+    /// <remarks>
+    /// After the last widening the layout is drawn at that size, and a label
+    /// that still fits nowhere is left out rather than drawn over anything:
+    /// its edge is drawn unlabelled, and <see cref="GraphLayout.Unlabelled"/>
+    /// names it, for the view to say (ADR 0251 point 3).
+    /// </remarks>
+    public static GraphLayout Lay(NodeSpec centre, IReadOnlyList<RingNeighbour> ring) => Lay(centre, ring, Widenings, scale: 1);
+
+    // The same, from a given scale and number of widenings. Every ring's
+    // radius already leaves room for its longest label, so no neighbourhood
+    // found needs even one widening; the tests reach the last widening's rule
+    // by starting below the size the drawing would take.
+    internal static GraphLayout Lay(NodeSpec centre, IReadOnlyList<RingNeighbour> ring, int widenings, double scale)
     {
         ArgumentNullException.ThrowIfNull(centre);
         ArgumentNullException.ThrowIfNull(ring);
-        string? unplaced = null;
 
-        for (int widening = 0; widening <= Widenings; widening++)
+        for (int widening = 0; widening < widenings; widening++)
         {
-            if (TryLay(centre, ring, Math.Pow(1.25, widening), out GraphLayout? layout, out unplaced))
+            if (TryLay(centre, ring, scale * Math.Pow(1.25, widening), leaveOut: false, out GraphLayout? layout))
             {
                 return layout;
             }
         }
 
-        throw new InvalidOperationException($"The label {unplaced} fits nowhere, even at one label per predicate and rings widened {Widenings} times.");
+        TryLay(centre, ring, scale * Math.Pow(1.25, widenings), leaveOut: true, out GraphLayout? last);
+        return last!;
     }
 
-    private static bool TryLay(NodeSpec centre, IReadOnlyList<RingNeighbour> ring, double widen, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out GraphLayout? layout, out string? unplaced)
+    private static bool TryLay(NodeSpec centre, IReadOnlyList<RingNeighbour> ring, double widen, bool leaveOut, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out GraphLayout? layout)
     {
         layout = null;
 
@@ -126,7 +137,9 @@ public static class RadialLayout
             }
         }
 
-        if (PlaceLabels(nodes, edges, out unplaced) is not { } labels)
+        List<string> unlabelled = [];
+
+        if (PlaceLabels(nodes, edges, leaveOut, unlabelled) is not { } labels)
         {
             return false;
         }
@@ -146,7 +159,8 @@ public static class RadialLayout
             (int)Math.Ceiling(y1 - y0),
             [.. nodes.Select(n => new GraphNode(n.X, n.Y, n.H, n.Spec.Label, Shorten(n.Spec.Label), n.Spec.Kind, n.Centre, n.Spec.Type, n.Spec.Diff, n.Expand, n.Spec.Name, n.Spec.Href))],
             [.. edges.Select(e => new GraphEdge(e.From.X, e.From.Y, e.To.X, e.To.Y, e.Kind))],
-            [.. labels.OrderBy(l => l.Key).Select(l => new GraphLabel(l.Value.X + l.Value.W / 2, l.Value.Y + LabelHeight / 2, edges[l.Key].Label, LabelKind(edges[l.Key].Kind)))]);
+            [.. labels.OrderBy(l => l.Key).Select(l => new GraphLabel(l.Value.X + l.Value.W / 2, l.Value.Y + LabelHeight / 2, edges[l.Key].Label, LabelKind(edges[l.Key].Kind)))],
+            unlabelled);
         return true;
     }
 
@@ -176,9 +190,11 @@ public static class RadialLayout
     public static bool Meet((double X, double Y, double W, double H) a, (double X, double Y, double W, double H) b, double pad = 2) =>
         a.X < b.X + b.W + pad && b.X < a.X + a.W + pad && a.Y < b.Y + b.H + pad && b.Y < a.Y + a.H + pad;
 
-    private static Dictionary<int, Box>? PlaceLabels(List<Placed> nodes, List<Edge> edges, out string? unplaced)
+    // The labels' spots, by edge, or null when one fits nowhere. With
+    // leaveOut, a label that fits nowhere even at one per predicate is left
+    // out instead, and its text added to unlabelled, once.
+    private static Dictionary<int, Box>? PlaceLabels(List<Placed> nodes, List<Edge> edges, bool leaveOut, List<string> unlabelled)
     {
-        unplaced = null;
         List<Box> blocked = [.. nodes.Select(n => n.Box)];
         blocked.AddRange(nodes.Where(n => n.Hit is not null).Select(n => n.Hit!.Value));
         HashSet<int> chosen = [.. Enumerable.Range(0, edges.Count)];
@@ -210,8 +226,17 @@ public static class RadialLayout
 
             if (keep.SetEquals(chosen))
             {
-                unplaced = edges[failed].Label;
-                return null;
+                if (!leaveOut)
+                {
+                    return null;
+                }
+
+                keep.Remove(failed);
+
+                if (!unlabelled.Contains(edges[failed].Label))
+                {
+                    unlabelled.Add(edges[failed].Label);
+                }
             }
 
             chosen = keep;
