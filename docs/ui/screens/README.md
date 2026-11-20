@@ -1,6 +1,6 @@
 # Console screens
 
-Reference screens for Web UI part 1 (#167): one page per screen and state, built only from the markup of the contract cases under `../components/*/cases/` over `../tokens.css` and `../bundle.css`. Open a page from a checkout; it renders as the app does, in the light theme.
+Reference screens for Web UI part 1 (#167) and the data explorer (#96): one page per screen and state, built only from the markup of the contract cases under `../components/*/cases/` over `../tokens.css` and `../bundle.css`. Open a page from a checkout; it renders as the app does, in the light theme.
 
 They are the picture of what the pages compose, not a second contract: the cases pin each component's markup, and the pages under `src/Varve.WebUi/Pages` decide what is composed. When a page and a screen disagree, the page is checked against the cases, and the screen is regenerated.
 
@@ -14,4 +14,5 @@ They are the picture of what the pages compose, not a second contract: the cases
 | Fleet | [System writer](fleet--writer.html), [System follower](fleet--follower.html), [403](fleet--forbidden.html) |
 | Commits | [Live](commits--live.html), [A commit's delta](commits--delta.html), [Paused](commits--paused.html), [Empty](commits--empty.html) |
 | Grants | [Table](declarations--grants.html), [Source](declarations--source.html), [As of](declarations--asof.html), [403](declarations--forbidden.html) |
+| Query: notes | [SELECT](query--select.html), [CONSTRUCT](query--construct.html), [ASK](query--ask.html), [Syntax error](query--error.html), [Stopped at the ceiling](query--stopped.html), [Streaming](query--streaming.html), [Cut](query--cut.html), [403](query--forbidden.html), [As of a position](query--asof.html): the explorer's first screen (#355). These were captured from the running page against a real server, so their positions are small. Streaming, Cut and 403 are the select page with `ResultsTable`'s and `ProblemPanel`'s cases in place of the answer. Its two rows of `vw-actions` wait on a form row (#383) |
 | Sign-in | [Not configured](signin--notconfigured.html): the server has OIDC and no client for the Web UI (ADR 0245); it replaces every screen |

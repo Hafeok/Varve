@@ -27,7 +27,11 @@ else if (_head is FeedPosition head)
 }
 
 <QueryEditor Id="query-text" Label="SPARQL query" Text="@_text" Runs="_runs" Error="_error" Match="_match" Help="Tab inserts two spaces. Press Escape, then Tab, to leave the editor." />
-<div class="vw-actions"><RegimeSelect Id="query-regime" Description="_description" Selected="_regime" SelectedChanged="regime => _regime = regime" /><AsOfControl Id="query-asof" Selector="_handedAsOf" SelectorChanged="selector => _asOf = selector" Head="_head" MaxDistance="_description?.MaxAsOfDistance" Resolved="_read" ResolvedCommitted="_committed" /><Button Kind="ButtonKind.Primary" Disabled="@(WhyNot() is not null)" DisabledReason="@WhyNot()" OnClick="RunAsync">Run</Button>@if (Mine().Count > 0)
+@* Two rows of the existing vw-actions: the choices, then the acts, so a
+   button is never stretched to a field's height (#383 asks the design side
+   for a form row). *@
+<div class="vw-actions"><RegimeSelect Id="query-regime" Description="_description" Selected="_regime" SelectedChanged="regime => _regime = regime" /><AsOfControl Id="query-asof" Selector="_handedAsOf" SelectorChanged="selector => _asOf = selector" Head="_head" MaxDistance="_description?.MaxAsOfDistance" Resolved="_read" ResolvedCommitted="_committed" /></div>
+<div class="vw-actions"><Button Kind="ButtonKind.Primary" Disabled="@(WhyNot() is not null)" DisabledReason="@WhyNot()" OnClick="RunAsync">Run</Button>@if (Mine().Count > 0)
 {<Menu Id="query-history" Label="History" Small="true" Items="HistoryItems()" Open="_historyOpen" OpenChanged="open => _historyOpen = open" OnChoose="RecallAsync" /><Button Small="true" OnClick="ClearHistoryAsync">Clear history</Button>}</div>
 
 @if (_problem is Problem problem)
