@@ -68,6 +68,7 @@ public sealed class LogShipper
     /// and the manifest of a new target, and reads how far an existing one
     /// got from its own log. Null when the source holds no dataset yet.
     /// </summary>
+    /// <exception cref="StoreUnverifiedException">The target's store has no verification record this build accepts.</exception>
     /// <exception cref="ShippingTargetNotEmptyException">The target's prefix holds something that is not a replica of this source.</exception>
     /// <exception cref="ReplicaPromotedException">The target was promoted.</exception>
     /// <exception cref="ShippingDivergedException">The target's tail is not the source's.</exception>
@@ -82,6 +83,15 @@ public sealed class LogShipper
         if (options.SourcePrefix is { IsPrefix: false } || options.TargetPrefix is { IsPrefix: false })
         {
             throw new ArgumentException("A prefix ends in '/'.", nameof(options));
+        }
+
+        // A target is a verified store (ADR 0184 decision 9), checked before
+        // anything is written to it or staged for it.
+        VerificationRecord? verified = await ObjectStoreVerification.ReadRecordAsync(options.Target, cancellationToken).ConfigureAwait(false);
+
+        if (verified?.Verifies(ObjectStoreVerification.MinimumSuite) != true)
+        {
+            throw new StoreUnverifiedException(verified, ObjectStoreVerification.MinimumSuite);
         }
 
         LogShipper shipper = new(options);

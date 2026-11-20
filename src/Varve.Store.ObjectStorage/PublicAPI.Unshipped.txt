@@ -586,3 +586,10 @@ override Varve.Store.ObjectStorage.Model.ShippedRound.GetHashCode() -> int
 override Varve.Store.ObjectStorage.Model.ShippedRound.ToString() -> string!
 static Varve.Store.ObjectStorage.Model.ShippedRound.operator !=(Varve.Store.ObjectStorage.Model.ShippedRound? left, Varve.Store.ObjectStorage.Model.ShippedRound? right) -> bool
 static Varve.Store.ObjectStorage.Model.ShippedRound.operator ==(Varve.Store.ObjectStorage.Model.ShippedRound? left, Varve.Store.ObjectStorage.Model.ShippedRound? right) -> bool
+Varve.Store.ObjectStorage.StoreUnverifiedException
+Varve.Store.ObjectStorage.StoreUnverifiedException.Found.get -> Varve.Store.ObjectStorage.Model.VerificationRecord?
+Varve.Store.ObjectStorage.StoreUnverifiedException.Minimum.get -> Varve.Store.ObjectStorage.Model.VerificationSuite
+Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException() -> void
+Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException(Varve.Store.ObjectStorage.Model.VerificationRecord? found, Varve.Store.ObjectStorage.Model.VerificationSuite minimum) -> void
+Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException(string! message) -> void
+Varve.Store.ObjectStorage.StoreUnverifiedException.StoreUnverifiedException(string! message, System.Exception! innerException) -> void

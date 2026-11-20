@@ -260,7 +260,7 @@ public sealed class LogShipperTests
     {
         await using Pair empty = new();
         Assert.Null(await empty.StartAsync());
-        Assert.Empty(empty.Target.Store.Names());
+        Assert.Equal([ObjectStoreVerification.RecordName.Value], empty.Target.Store.Names());
 
         await using Pair pair = new();
         await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), T.Options());
@@ -427,6 +427,38 @@ public sealed class LogShipperTests
     }
 
     /// <summary>
+    /// ADR 0184 decision 9: a target whose store has no verification record,
+    /// one this build does not read, or none at all, is refused before
+    /// anything is written to it.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("{\"format\": 99}")]
+    [InlineData("not a record")]
+    public async Task a_target_whose_store_is_not_verified_is_refused_with_nothing_written(string? record)
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), Small());
+        await CommitAsync(writer, 0, 2);
+        pair.Target.Store.Remove(ObjectStoreVerification.RecordName.Value);
+
+        if (record is not null)
+        {
+            pair.Target.Store.Put(ObjectStoreVerification.RecordName.Value, System.Text.Encoding.UTF8.GetBytes(record));
+        }
+
+        string[] before = [.. pair.Target.Store.Names()];
+        pair.Target.Store.ResetCounts();
+
+        StoreUnverifiedException refused = await Assert.ThrowsAsync<StoreUnverifiedException>(async () => await pair.StartAsync());
+
+        Assert.Contains("varve storage verify", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(record is null, refused.Found is null);
+        Assert.Equal(before, pair.Target.Store.Names());
+        Assert.Equal(0, pair.Target.Store.Count(ObjectOperation.Create) + pair.Target.Store.Count(ObjectOperation.Replace) + pair.Target.Store.Count(ObjectOperation.Delete));
+    }
+
+    /// <summary>
     /// The failure-injection gate (#166): the shipper is stopped at every
     /// write and delete it makes on the target, once before the store sees
     /// the request and once after the store applied it. Whatever it left, the
@@ -541,7 +573,19 @@ public sealed class LogShipperTests
 
         public ObjectHarness Source { get; } = new();
 
-        public ObjectHarness Target { get; } = new();
+        public ObjectHarness Target { get; } = Verified(new ObjectHarness());
+
+        // A target is a verified store (ADR 0184 decision 9): the record a passing run of the suite leaves at its root.
+        private static ObjectHarness Verified(ObjectHarness harness)
+        {
+            harness.Store.Put(ObjectStoreVerification.RecordName.Value, VerificationRecordFormat.Write(new VerificationRecord
+            {
+                Understood = true,
+                Suite = ObjectStoreVerification.Suite,
+                VerifiedAt = new VerificationTime(DateTimeOffset.UnixEpoch),
+            }));
+            return harness;
+        }
 
         public ValueTask<LogShipper?> StartAsync(StoreAddress? store = null)
         {

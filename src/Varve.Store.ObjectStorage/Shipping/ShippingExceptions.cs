@@ -104,3 +104,48 @@ public sealed class ReplicaPromotedException : Exception
     /// <summary>The target's lineage record, where one was read.</summary>
     public LineageRecord? Lineage { get; }
 }
+
+/// <summary>
+/// The target's store has no verification record this build accepts (ADR
+/// 0184 decision 9, ADR 0183): none at its root, one of a format this build
+/// does not read, or one of an older suite. Nothing was written to it.
+/// </summary>
+public sealed class StoreUnverifiedException : Exception
+{
+    /// <summary>The store is unverified.</summary>
+    public StoreUnverifiedException()
+    {
+    }
+
+    /// <summary>The store is unverified, as the message says.</summary>
+    public StoreUnverifiedException(string message)
+        : base(message)
+    {
+    }
+
+    /// <summary>The store is unverified, as the message says, and the cause.</summary>
+    public StoreUnverifiedException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+
+    /// <summary>The store holds <paramref name="found"/> where a verification by <paramref name="minimum"/> or a newer suite was due.</summary>
+    public StoreUnverifiedException(VerificationRecord? found, VerificationSuite minimum)
+        : base(found switch
+        {
+            null => "The shipping target's store has no verification record.",
+            { Understood: false } => "The shipping target's store has a verification record of a format this build does not read.",
+            _ => "The shipping target's store was verified by suite " + found.Suite + ", and this build needs suite " + minimum + " or newer.",
+        }
+        + " Nothing was written to it. Run 'varve storage verify' against the store with this build (ADR 0183), then start shipping again.")
+    {
+        Found = found;
+        Minimum = minimum;
+    }
+
+    /// <summary>The record the store holds, or none.</summary>
+    public VerificationRecord? Found { get; }
+
+    /// <summary>The oldest suite this build accepts.</summary>
+    public VerificationSuite Minimum { get; }
+}

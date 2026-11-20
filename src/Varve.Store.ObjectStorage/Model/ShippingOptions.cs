@@ -19,7 +19,11 @@ public sealed record ShippingOptions
     /// <summary>The dataset's prefix in the source, ending in <c>/</c>, or none.</summary>
     public ObjectName? SourcePrefix { get; init; }
 
-    /// <summary>The target's store.</summary>
+    /// <summary>
+    /// The target's store, at its root: the container or the bucket. Its
+    /// verification record is read there (ADR 0183), and the dataset is under
+    /// <see cref="TargetPrefix"/>.
+    /// </summary>
     public required IObjectStore Target { get; init; }
 
     /// <summary>The copy's prefix in the target, ending in <c>/</c>, or none.</summary>
