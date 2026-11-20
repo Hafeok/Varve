@@ -14,7 +14,8 @@ disk or the store under the load damaged it. A spill is the load's own
 input, so the log cannot rebuild it, and the load ended before its commit:
 nothing of it is in the dataset, which is at the position it held before.
 Submitting the same input again is right. Damage that recurs is the storage
-under the load failing; see the operator's guide on derived-data damage.
+under the load failing; see
+[Damaged data](../operator/backup-and-restore.md#damaged-data).
 
 `varve load` names this type on its error line and exits with `1`; it is
 the type of `BulkLoadSpillDamagedException`. No endpoint loads in bulk yet.
@@ -23,7 +24,7 @@ the type of `BulkLoadSpillDamagedException`. No endpoint loads in bulk yet.
 
 - Run the same `varve load` again: nothing of the first one was committed.
 - If it recurs, check the disk under the load before loading again
-  ([Run](../operator/run.md#the-command-line-against-a-running-server)).
+  ([Damaged data](../operator/backup-and-restore.md#damaged-data)).
 
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,

@@ -1,0 +1,5 @@
+jobs:
+  build:
+    name: build
+    steps:
+      - run: echo
