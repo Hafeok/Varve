@@ -63,6 +63,33 @@ public sealed record TBoxBindingDeclaration(RdfTerm Node, IReadOnlyList<RdfTerm>
     public RdfTerm? DefaultEntailment { get; init; }
 }
 
+/// <summary>
+/// A shipping target as declared (ADR 0184): a second store and a prefix in
+/// it, or a directory, to which the dataset's log, sets and catalog are
+/// copied. Either <see cref="Store"/>, <see cref="Prefix"/> and
+/// <see cref="Provider"/> are stated, or <see cref="Directory"/> is.
+/// </summary>
+/// <param name="Node">The target's node.</param>
+[DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
+[Contract(typeof(LogShipping.AShippingTargetIsADeclaration), Role = "a shipping target as read")]
+public sealed record ShippingTargetDeclaration(RdfTerm Node)
+{
+    /// <summary>The target store's address, a container or a bucket: <c>https://…</c> or <c>s3://…</c>. None for a directory.</summary>
+    public string? Store { get; init; }
+
+    /// <summary>The dataset's prefix in the store, without a trailing slash. None for a directory.</summary>
+    public string? Prefix { get; init; }
+
+    /// <summary>The store's provider, an id on the compatibility page (ADR 0183). None for a directory.</summary>
+    public string? Provider { get; init; }
+
+    /// <summary>The directory shipped to, on the shipping instance. None for a store.</summary>
+    public string? Directory { get; init; }
+
+    /// <summary>The instance that ships, or none for the dataset's writer.</summary>
+    public string? ShippedOn { get; init; }
+}
+
 /// <summary>One dataset's declarations (ADR 0163).</summary>
 [DesignDecision(typeof(VarveManagementAndTheVocabulary.ManagementSurfaceCarriesDeclaredValues), Scope = ExceptionScope.Boundary)]
 public sealed class DatasetDeclaration
@@ -102,6 +129,9 @@ public sealed class DatasetDeclaration
 
     /// <summary>The dataset's TBox bindings (ADR 0194), whose graph sets do not overlap.</summary>
     public IReadOnlyList<TBoxBindingDeclaration> TBoxBindings { get; init; } = [];
+
+    /// <summary>Where the dataset is shipped (ADR 0184). Empty for a dataset that is not.</summary>
+    public IReadOnlyList<ShippingTargetDeclaration> ShippingTargets { get; init; } = [];
 
     /// <summary>The dataset's default regime (ADR 0194 point 3): the IRI its TBox bindings state, or none.</summary>
     public RdfTerm? DefaultEntailment { get; init; }

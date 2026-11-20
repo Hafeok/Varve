@@ -61,12 +61,22 @@ What the object-storage backend gives a shipper to work with:
 dataset may say where it is shipped:
 
 ```turtle
-<…/datasets/orders> varve:shipsTo [ a varve:ShippingTarget ;
+n:orders a varve:Dataset ; varve:datasetName "orders" ;
+    varve:storage varve:ObjectStorage ;
+    varve:shipsTo n:replica .
+
+n:replica a varve:ShippingTarget ;
     varve:store "https://acct2.blob.core.windows.net/replicas" ;
     varve:prefix "orders" ;
     varve:provider "azure-blob" ;      # an id on the compatibility page
-    varve:shippedOn "varve-2" ] .      # optional
+    varve:shippedOn "varve-2" .        # optional
 ```
+
+- **A target is a named node of the dataset's graph.** A management graph
+  holds no blank node (ADR 0175), so the target is not written inline.
+- **An address carries no credential** (ADR 0037): `https://…` or
+  `s3://…`, with no user info, no query and no fragment. A SAS token in an
+  address is refused when the declaration is read.
 
 - A target is a store and a prefix, or `varve:directory` with a path.
 - **The source is always an object store.** A dataset on the file backend
