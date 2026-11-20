@@ -10,6 +10,8 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Varve.Management;
@@ -32,6 +34,7 @@ namespace Varve.Server;
 /// a write where to go. The system dataset is advanced on the interval; a
 /// data follower only when a read arrives (ADR 0164).
 /// </summary>
+[Contract(typeof(EventDeclarationsMoveToTheManagementPlane.ResumeOnlyFinishesAMove), Role = "the interval loop, which resumes a move a request started and never starts one")]
 internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, IDatasetFollowing, IWriterDirectory, IAsyncDisposable
 {
     /// <summary>The system dataset's name in the store and under the root: no dataset name can take it (ADR 0093).</summary>
@@ -83,7 +86,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         _role = role;
         _placeholder = placeholder;
         _snapshot = new Snapshot(GrantTable.Empty(_bootstrap), BootstrapState.Absent);
-        Datasets = new OpenDatasets(settings, objects, _order, Keys, clock, logger, Moved);
+        Datasets = new OpenDatasets(settings, objects, _order, Keys, clock, logger, CatalogueOf);
 
         // The system dataset's writer warms its keys from the start (ADR 0246).
         if (role == ManagementRole.Writer)
@@ -94,6 +97,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
         Classifications = new RowClassifications(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
         Entailment = new EntailmentBindingsOfTheFleet(this);
+        Validator = new SystemValidator(this);
     }
 
     /// <summary>The datasets' TBox bindings as a query reads them, and their schema caches (ADRs 0193, 0194).</summary>
@@ -108,10 +112,28 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     /// <summary>The classification projections of the datasets held here (ADR 0233).</summary>
     internal RowClassifications Classifications { get; }
 
-    // Whether a dataset's event declarations are moving or moved at the applied position (ADR 0167).
-    private bool Moved(string dataset) =>
+    // Whether a dataset's catalogue graphs take writes at the applied position
+    // (ADR 0167). Moving is unconfirmed while this instance follows the system
+    // dataset and its last advance failed: a cancel may be in force that it
+    // has not seen (ADR 0167, amended for #254).
+    private EventCatalogueState CatalogueOf(string dataset) =>
         Volatile.Read(ref _snapshot).Table.Declarations.Datasets.TryGetValue(dataset, out DatasetDeclaration? declared)
-        && declared.EventDeclarations != EventDeclarationState.InDataset;
+            ? declared.EventDeclarations switch
+            {
+                EventDeclarationState.Moved => EventCatalogueState.Frozen,
+                EventDeclarationState.Moving => System.IsFollower && Volatile.Read(ref _systemAdvanceFailed) ? EventCatalogueState.Unconfirmed : EventCatalogueState.Frozen,
+                _ => EventCatalogueState.Open,
+            }
+            : EventCatalogueState.Open;
+
+    /// <summary>
+    /// Whether <paramref name="dataset"/>'s event declarations are moving at the
+    /// applied position: a write to it advances the system follower once
+    /// before its grants are pinned (ADR 0167, amended for #254).
+    /// </summary>
+    internal bool IsMoving(DatasetName dataset) =>
+        Volatile.Read(ref _snapshot).Table.Declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared)
+        && declared.EventDeclarations == EventDeclarationState.Moving;
 
     /// <summary>Whether the fleet is this instance alone: no object store, so no follower and no forwarding.</summary>
     internal bool IsFleetOfOne { get; }
@@ -372,7 +394,88 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     public GrantTable Table => Pinned().Table;
 
     /// <summary>The validator of commits to the system dataset (ADR 0166).</summary>
-    public ICommitValidator Validator { get; } = new ManagementValidator();
+    public ICommitValidator Validator { get; }
+
+    // The runs of each dataset's event move here, one at a time (#254).
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _moveRuns = new(StringComparer.Ordinal);
+
+    /// <inheritdoc />
+    public IDisposable? TryEnterMove(DatasetName dataset)
+    {
+        SemaphoreSlim run = _moveRuns.GetOrAdd(dataset.Value, static _ => new SemaphoreSlim(1, 1));
+        return run.Wait(0) ? new MoveRun(run) : null;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IDisposable> EnterMoveAsync(DatasetName dataset, CancellationToken cancellationToken)
+    {
+        SemaphoreSlim run = _moveRuns.GetOrAdd(dataset.Value, static _ => new SemaphoreSlim(1, 1));
+
+        while (!run.Wait(0, CancellationToken.None))
+        {
+            if (Advancing is { } advancing)
+            {
+                // A test orders the wait against the run it waits for: it is
+                // held here, and tries again when it is let go.
+                await advancing(FleetPause.MoveRunWait, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            await run.WaitAsync(cancellationToken).ConfigureAwait(false);
+            break;
+        }
+
+        return new MoveRun(run);
+    }
+
+    private sealed class MoveRun(SemaphoreSlim run) : IDisposable
+    {
+        private int _ended;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _ended, 1) == 0)
+            {
+                run.Release();
+            }
+        }
+    }
+
+    /// <summary>
+    /// A test's seam, null in production: awaited at the start of every
+    /// advance, before the advance takes its turn, and while a move request
+    /// waits for a run of its dataset's move in progress. An event move's run
+    /// advances at each of its steps, so a test holds a run between two steps
+    /// here and orders other requests between them (#254).
+    /// </summary>
+    internal Func<FleetPause, CancellationToken, ValueTask>? Advancing { get; set; }
+
+    /// <summary>Where <see cref="Advancing"/> holds a flow.</summary>
+    internal enum FleetPause
+    {
+        /// <summary>At the start of an advance.</summary>
+        Advance,
+
+        /// <summary>A move request, waiting for a run of its dataset's move in progress.</summary>
+        MoveRunWait,
+    }
+
+    /// <summary>
+    /// A test's seam, null in production: when it answers true, the system
+    /// dataset's validator refuses the write, as it refuses a declaration it
+    /// does not accept, and nothing is committed (#254).
+    /// </summary>
+    internal Func<bool>? RefusingManagementWrites { get; set; }
+
+    // The system dataset's validator, refusing as a test asks.
+    private sealed class SystemValidator(Fleet fleet) : ICommitValidator
+    {
+        private readonly RdfTerm[] _refusal = [RdfTerm.Iri("urn:x-varve:management-write-refused"u8)];
+        private readonly ManagementValidator _declarations = new();
+
+        public ValidationVerdict Validate(IQuadSource proposed, QuadDelta delta) =>
+            fleet.RefusingManagementWrites?.Invoke() == true ? ValidationVerdict.Reject(_refusal) : _declarations.Validate(proposed, delta);
+    }
 
     public ManagementStatus Status
     {
@@ -413,7 +516,9 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         ICommitValidator validator = _order.Validator(dataset, authorised);
         Declarations declarations = Pinned().Table.Declarations;
 
-        if (declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared) && declared.EventDeclarations != EventDeclarationState.InDataset)
+        // Unconfirmed is the dataset's own validator's to refuse, as management-behind (#254).
+        if (declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared) && declared.EventDeclarations != EventDeclarationState.InDataset
+            && CatalogueOf(dataset.Value) != EventCatalogueState.Unconfirmed)
         {
             validator = new OrderAndShapes(validator, new EventCatalogueFreeze(dataset));
         }
@@ -607,6 +712,11 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     /// </summary>
     public async ValueTask<ManagementPosition> AdvanceAsync(CancellationToken cancellationToken)
     {
+        if (Advancing is { } advancing)
+        {
+            await advancing(FleetPause.Advance, cancellationToken).ConfigureAwait(false);
+        }
+
         await _advance.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
@@ -837,8 +947,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             try
             {
                 await Task.Delay(_settings.Fleet.FollowInterval, _clock, stopping).ConfigureAwait(false);
-                await AdvanceAsync(stopping).ConfigureAwait(false);
-                await ResumeMovesAsync(stopping).ConfigureAwait(false);
+                await TickAsync(stopping).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (stopping.IsCancellationRequested)
             {
@@ -849,6 +958,18 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
                 FleetLog.AdvanceFailed(_logger, SystemName, error.Message);
             }
         }
+    }
+
+    /// <summary>
+    /// One round of the interval loop, without its wait: the system dataset is
+    /// advanced and the datasets converged, then the event moves this instance
+    /// can finish alone are resumed. A test drives it to order a round against
+    /// requests (#254).
+    /// </summary>
+    internal async Task TickAsync(CancellationToken cancellationToken)
+    {
+        await AdvanceAsync(cancellationToken).ConfigureAwait(false);
+        await ResumeMovesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -43,8 +43,21 @@ decisions:
     statement: "Moved event declarations are checked on every system commit by EventDeclarationCheck over their catalogue-graph translation, as before the move"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-26T00:00:00Z
+  - key: ResumeOnlyFinishesAMove
+    statement: "One run of a dataset's move at a time on the instance that runs it, a request waiting for a run in progress and the resume never; a run with no request never freezes the catalogue, and a run that has seen Moving, by its own freeze or by reading it, commits nothing more when it then finds varve:InDataset; a request's run then answers 409 event-move-cancelled, which a client does not retry; amended 2026-11-19"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
+  - key: CancelIsAnsweredOnlyWhenInForce
+    statement: "A cancel is answered cancelled only when it was committed and this instance has applied it, and a management write answered with no change is applied before it is answered; amended 2026-11-19"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
+  - key: MovingWriteAdvancesFirst
+    statement: "A write to a dataset whose event declarations are Moving at the applied position advances the system follower once before its grants are pinned; when that advance fails, a catalogue write to it is refused 503 management-behind, never 409 event-catalogue-moved; amended 2026-11-19"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
 ---
 
 The rulings of [ADR 0167](../adr/0167-event-declarations-move-to-the-management-plane.md), one line each. The ADR is the
 narrative; this is what code cites. Filed unaccepted by milestone Management plane, part 2, of #105
-(ADR 0066); every citation is `CS0618` until the maintainer accepts them.
+(ADR 0066), and accepted by the
+maintainer on 2026-11-20, written by his delegate (ADR 0239).

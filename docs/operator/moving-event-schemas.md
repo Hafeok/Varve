@@ -86,6 +86,20 @@ A move is idempotent: sending it again resumes it where it stopped.
   Catalogue writes authorised at m₃ or later are accepted again, and the
   event bytes of every commit are unchanged. A dataset in `InDataset` may
   move again later. `varve:Moved` is final, and cannot be cancelled.
+- **A cancel stays cancelled** (ADR 0167, amended 2026-11-19):
+  - the instance never starts a move by itself. Its resume only finishes a
+    move that is `Moving`, and a cancel it finds stands;
+  - a cancel is answered only once it is in force on the instance that
+    answers, and a write to the dataset sent after that answer is accepted,
+    on whichever instance writes the dataset. That instance reads the
+    management plane again before it decides a write while the dataset is
+    `Moving`; when it cannot, a catalogue write is
+    [`503 management-behind`](../problems/management-behind.md), which
+    clients send again;
+  - a move request whose move is cancelled under it, by another request,
+    answers [`409 event-move-cancelled`](../problems/event-move-cancelled.md)
+    and commits nothing more. Send the move again if it should still
+    happen.
 
 ## After the move
 
