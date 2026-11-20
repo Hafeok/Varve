@@ -335,6 +335,66 @@ public sealed class ShippingRoleTests
     }
 
     /// <summary>
+    /// ADR 0185 decision 5: where no fleet serves the copy, it is promoted on
+    /// the store itself and released with the reason promotion. The member
+    /// placed on it afterwards starts as on any released dataset, and takes
+    /// one epoch more.
+    /// </summary>
+    [Fact]
+    public async Task a_copy_no_fleet_serves_is_promoted_on_the_store_and_the_next_writer_takes_one_epoch_more()
+    {
+        await using Scene scene = await Scene.StartAsync(verified: true);
+        Dataset source = await scene.DeclareAsync();
+        await CommitAsync(source, 0, 5);
+        await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == source.Head.Value);
+        long tail = source.Head.Value;
+        ObjectName prefix = new("orders/");
+        string cache = Directory.CreateTempSubdirectory("varve-embedded-").FullName;
+        using StringWriter output = new();
+        using StringWriter error = new();
+        Varve.Server.Commands.Io io = new(output, error, Stream.Null);
+
+        try
+        {
+            // What the operator expects is checked here too, and a wrong position changes nothing.
+            Assert.False(await Varve.Server.Commands.Promote.EmbeddedAsync(scene.Target, prefix, Path.Combine(cache, "1"), "https://fleet.invalid/source", tail - 1, io, Ct));
+            Assert.Contains("position-mismatch: its last position is " + tail, error.ToString(), StringComparison.Ordinal);
+            Assert.True((await Backend.ReadLineageAsync(scene.Target, prefix, Ct))!.IsReplica);
+            Assert.DoesNotContain("orders/writer", scene.Target.Names());
+
+            Assert.True(await Varve.Server.Commands.Promote.EmbeddedAsync(scene.Target, prefix, Path.Combine(cache, "2"), "https://fleet.invalid/source", tail, io, Ct));
+            Assert.Contains("released for the writer that starts next", output.ToString(), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(cache, recursive: true);
+        }
+
+        // Promoted, fenced, and released for promotion: it opens for write as any dataset, and is no replica.
+        WriterRecord record = (await Backend.ReadWriterAsync(scene.Target, prefix, Ct))!;
+        Assert.Equal(ReleaseReason.Promotion, record.Released);
+        Assert.Equal(ClaimTrigger.Promotion, record.History[^1].Trigger);
+        Assert.NotNull(record.History[^1].Fence);
+        Assert.Equal(ReplicaState.None, await Backend.ReplicaStateAsync(scene.Target, prefix, Ct));
+        Assert.Equal(tail, (await Backend.ReadLineageAsync(scene.Target, prefix, Ct))!.Promoted!.Position.Value);
+
+        // A fleet started over the store afterwards: its placed member claims one epoch more, and writes on.
+        await using Fleet target = await scene.StartTargetFleetAsync();
+        await RunningServer.DeclareAsync(target,
+            "@prefix varve: <" + ManagementVocabulary.Namespace + "> .\n"
+            + "<" + ManagementVocabulary.DatasetGraphPrefix + "orders> {\n"
+            + "  <urn:copy:orders> a varve:Dataset ; varve:datasetName \"orders\" ; varve:storage varve:ObjectStorage ; varve:placedOn \"t\" .\n"
+            + "}\n");
+        DatasetName orders = new("orders");
+        await Scene.UntilAsync(() => target.Datasets.RoleOf(orders) == DatasetRole.Writer && target.Datasets.TryResolve(orders, out _), "the placed member did not open the promoted copy for write");
+        Assert.True(target.Datasets.TryResolve(orders, out Dataset? promoted));
+        Assert.Equal(tail, promoted.Head.Value);
+        Assert.Equal(record.Epoch.Value + 1, (await Backend.ReadWriterAsync(scene.Target, prefix, Ct))!.Epoch.Value);
+        await CommitAsync(promoted, 5, 7);
+        Assert.Equal(tail + 2, promoted.Head.Value);
+    }
+
+    /// <summary>
     /// The maintainer's ruling of 2026-11-20 on #166: a dataset declared a
     /// copy of a source is never created by the fleet that serves it. Both
     /// sides are declared in one apply. Until the first shipping round the

@@ -5,6 +5,7 @@
 using System;
 using System.CommandLine;
 using System.Globalization;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -14,6 +15,10 @@ using System.Threading.Tasks;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Protocol.Client;
+using Varve.Store;
+using Varve.Store.Log;
+using Varve.Store.ObjectStorage.Model;
+using Backend = Varve.Store.ObjectStorage.ObjectStorage;
 
 namespace Varve.Server.Commands;
 
@@ -35,7 +40,11 @@ internal static class Promote
     internal static Command Command(Io io)
     {
         Argument<string> dataset = new("dataset") { Description = "The replica to promote, by its name in the fleet that serves it." };
-        Option<string> server = new("--server") { Description = "The instance to ask, by its address: the one the dataset is placed on. The request is never forwarded.", Required = true };
+        Option<string?> server = new("--server") { Description = "The instance to ask, by its address: the one the dataset is placed on. The request is never forwarded." };
+        Option<bool> embedded = new("--embedded") { Description = "Where no fleet serves the copy: promote it on the store itself, and release it for the writer that starts next. The dataset is then its store address." };
+        Option<string?> endpoint = new("--endpoint") { Description = "--embedded, s3://: the S3-compatible service's endpoint." };
+        Option<string?> region = new("--region") { Description = "--embedded, s3://: the region the signature is for." };
+        Option<string?> sts = new("--sts-endpoint") { Description = "--embedded, s3://: the STS endpoint web identity is exchanged at; Amazon's when absent." };
         Option<string> source = new("--source") { Description = "The store address of the dataset this is a copy of, as its lineage names it. A copy of another source is not promoted.", Required = true };
         Option<long> position = new("--position") { Description = "The last position of the copy you mean to keep. A copy whose tail is elsewhere is not promoted, and the answer says where it is.", Required = true };
         Command promote = new("promote", "Promote a replica: make a shipped copy of a dataset the one that is written (ADR 0185). An operator's act; nothing does it by itself.");
@@ -43,16 +52,120 @@ internal static class Promote
         promote.Options.Add(server);
         promote.Options.Add(source);
         promote.Options.Add(position);
+        promote.Options.Add(embedded);
+        promote.Options.Add(endpoint);
+        promote.Options.Add(region);
+        promote.Options.Add(sts);
         Manage.OperatorToken credentials = new(promote);
 
         promote.SetAction((parsed, cancellationToken) => Cli.GuardAsync(async () =>
         {
+            if (parsed.GetValue(embedded))
+            {
+                if (parsed.GetValue(server) is not null)
+                {
+                    throw new Cli.CommandException("--embedded acts on the store itself and --server asks an instance: give one. Where a fleet serves the copy, ask its instance.");
+                }
+
+                (IObjectStore store, ObjectName prefix) = ObjectLease.Open(parsed.GetValue(dataset)!, parsed.GetValue(endpoint), parsed.GetValue(region), parsed.GetValue(sts));
+
+                using (store as IDisposable)
+                {
+                    string cache = Directory.CreateTempSubdirectory("varve-promote-").FullName;
+
+                    try
+                    {
+                        return await EmbeddedAsync(store, prefix, cache, parsed.GetValue(source)!, parsed.GetValue(position), io, cancellationToken).ConfigureAwait(false) ? 0 : 1;
+                    }
+                    finally
+                    {
+                        Directory.Delete(cache, recursive: true);
+                    }
+                }
+            }
+
             using HttpClient http = OutboundHttp.CreateClient();
             string? bearer = await credentials.TokenAsync(parsed, http, cancellationToken).ConfigureAwait(false);
-            return await AskAsync(http, bearer, parsed.GetValue(server)!.TrimEnd('/'), parsed.GetValue(dataset)!, parsed.GetValue(source)!, parsed.GetValue(position), io, cancellationToken).ConfigureAwait(false) ? 0 : 1;
+            return await AskAsync(http, bearer, (parsed.GetValue(server) ?? throw new Cli.CommandException("give --server, the instance to ask, or --embedded where no fleet serves the copy.")).TrimEnd('/'), parsed.GetValue(dataset)!, parsed.GetValue(source)!, parsed.GetValue(position), io, cancellationToken).ConfigureAwait(false) ? 0 : 1;
         }, parsed.InvocationConfiguration.Error));
 
         return promote;
+    }
+
+    /// <summary>
+    /// Promotes a copy that no fleet serves, on the store itself (ADR 0185
+    /// decision 5): it opens the copy read-only, replays and verifies its
+    /// log, promotes it in place as a member of a fleet would, and then
+    /// releases the epoch with the reason <c>promotion</c>, so that the
+    /// writer that starts next claims one epoch more. Whether it was promoted.
+    /// </summary>
+    internal static async Task<bool> EmbeddedAsync(IObjectStore store, ObjectName prefix, string cache, string source, long position, Io io, CancellationToken cancellationToken)
+    {
+        if (position < 0)
+        {
+            throw new Cli.CommandException("--position is a position of the copy's log, zero or more.");
+        }
+
+        PromotionOutcome outcome;
+        long epoch = 0;
+        Position tail;
+
+        await using (Backend storage = await Backend.OpenAsync(
+            new ObjectStorageOptions
+            {
+                Store = store,
+                Prefix = prefix,
+                Cache = new CacheDirectory(cache),
+                Access = ObjectStorageAccess.ReadOnly,
+                Clock = TimeProvider.System,
+                ProbeRandomness = SystemProbeRandomness.Instance,
+            },
+            cancellationToken).ConfigureAwait(false))
+        await using (Dataset replica = await Dataset.OpenFollowerAsync(storage, new DatasetOptions { Clock = TimeProvider.System }, cancellationToken).ConfigureAwait(false))
+        {
+            tail = replica.Head;
+            CommitHeaderHash hash = new(Convert.ToHexStringLower((await replica.HeaderHashAsync(tail, cancellationToken).ConfigureAwait(false)).Span));
+            outcome = PromotionOutcome.Lost;
+            bool won = await replica.TakeWriteAsync(
+                async claim => (outcome = await storage.PromoteInPlaceAsync(
+                    new PromotionRequest
+                    {
+                        Instance = new WriterInstance("varve promote on " + Environment.MachineName),
+                        Source = new StoreAddress(source),
+                        Expected = new Position(position),
+                        Verified = tail,
+                        Hash = hash,
+                        Randomness = SystemProbeRandomness.Instance,
+                    },
+                    claim).ConfigureAwait(false)) == PromotionOutcome.Promoted,
+                cancellationToken).ConfigureAwait(false);
+
+            if (won)
+            {
+                epoch = storage.Writer?.Epoch.Value ?? 0;
+
+                // Released for promotion, not shutdown: the promotion is finished, and no standby races for it.
+                storage.ReleaseOnClose = ReleaseReason.Promotion;
+            }
+        }
+
+        if (outcome == PromotionOutcome.Promoted)
+        {
+            await io.Out.WriteLineAsync(
+                "promoted at epoch " + epoch.ToString(CultureInfo.InvariantCulture) + ", at position " + tail.Value.ToString(CultureInfo.InvariantCulture)
+                + ", and released for the writer that starts next, which claims one epoch more. It is a replica no longer.").ConfigureAwait(false);
+            return true;
+        }
+
+        await io.Error.WriteLineAsync("not promoted. " + outcome switch
+        {
+            PromotionOutcome.NotAReplica => "not-a-replica: it has no lineage record, or one this version does not read. Nothing was changed.",
+            PromotionOutcome.SourceMismatch => "source-mismatch: its lineage record names another source than " + source + ". Nothing was changed.",
+            PromotionOutcome.PositionMismatch => "position-mismatch: its last position is " + tail.Value.ToString(CultureInfo.InvariantCulture) + ", not the " + position.ToString(CultureInfo.InvariantCulture)
+                + " asked for. Nothing was changed; ask again with the position you mean to keep.",
+            _ => "epoch-moved: another promotion or another claim came first. Read its lease, and promote again only if it is still a replica.",
+        }).ConfigureAwait(false);
+        return false;
     }
 
     /// <summary>Sends the promotion request and writes its answer; whether the replica was promoted.</summary>
@@ -63,7 +176,7 @@ internal static class Promote
             throw new Cli.CommandException("--position is a position of the copy's log, zero or more.");
         }
 
-        using System.IO.MemoryStream body = new();
+        using MemoryStream body = new();
 
         using (Utf8JsonWriter json = new(body))
         {
