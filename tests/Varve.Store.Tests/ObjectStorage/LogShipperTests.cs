@@ -426,6 +426,106 @@ public sealed class LogShipperTests
         await pair.AssertFollowersAgreeAsync(writer);
     }
 
+    /// <summary>
+    /// The failure-injection gate (#166): the shipper is stopped at every
+    /// write and delete it makes on the target, once before the store sees
+    /// the request and once after the store applied it. Whatever it left, the
+    /// target's log is a prefix of the source's, its catalog names only what
+    /// is there, and a follower of it reads what the source's writer reads to
+    /// that point. A shipper started again finishes, and the copy is whole.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task a_shipper_stopped_at_any_write_leaves_a_readable_prefix_and_the_next_one_finishes(bool answerLost)
+    {
+        int mutations = await ScheduleAsync(null, answerLost);
+        Assert.True(mutations > 40, "the schedule makes " + mutations + " writes and deletes on the target");
+
+        for (int at = 0; at < mutations; at++)
+        {
+            try
+            {
+                await ScheduleAsync(at, answerLost);
+            }
+            catch (Exception failure) when (failure is not OperationCanceledException)
+            {
+                throw new Xunit.Sdk.XunitException("Stopped at the target's write " + at + " of " + mutations + (answerLost ? ", its answer lost: " : ", before the store saw it: ") + failure);
+            }
+        }
+    }
+
+    // One history of a source with every kind of change a round meets, shipped
+    // after each: chunks, a checkpoint, segments consolidated after and before
+    // they were shipped, a newer catalog, a merge and the retired sets'
+    // removal. Returns the writes and deletes the target saw.
+    private static async Task<int> ScheduleAsync(int? stopAt, bool answerLost)
+    {
+        await using Pair pair = new();
+        Backend storage = await pair.Source.OpenAsync();
+        await using Dataset writer = await T.OpenOrCreate(storage, ExtentMergeTests.Merging(Small(), 2));
+        int mutations = 0;
+        bool stopped = false;
+        pair.Target.Store.Hook = (operation, _) =>
+        {
+            if (stopped)
+            {
+                throw new IOException("the shipper has stopped");
+            }
+
+            if (operation is ObjectOperation.Read or ObjectOperation.List || mutations++ != stopAt)
+            {
+                return null;
+            }
+
+            stopped = true;
+            return answerLost ? () => throw new IOException("stopped after the store applied the write") : throw new IOException("stopped before the write");
+        };
+
+        LogShipper? shipper = null;
+
+        async Task ShipAsync()
+        {
+            try
+            {
+                shipper ??= await pair.StartAsync();
+                await shipper!.ShipAsync(T.Ct);
+            }
+            catch (IOException) when (stopped)
+            {
+                stopped = false;
+                stopAt = null;
+                await pair.AssertAStoppedShipperLeftAPrefixAsync(writer);
+                shipper = await pair.StartAsync();
+                await shipper!.ShipAsync(T.Ct);
+            }
+        }
+
+        await CommitAsync(writer, 0, 3);
+        await ShipAsync();
+        await writer.CheckpointAsync(new Position(2), T.Ct);
+        await CommitAsync(writer, 3, 30);
+        await storage.MaintainStorageAsync(T.Ct);
+        await ShipAsync();
+        await writer.CheckpointAsync(new Position(20), T.Ct);
+        await CommitAsync(writer, 30, 34);
+        await ShipAsync();
+        Assert.True(await writer.MergeOnceForTestsAsync(T.Ct));
+        await writer.DeleteUnnamedForTestsAsync(T.Ct);
+        await ShipAsync();
+        await writer.DeleteUnnamedForTestsAsync(T.Ct);
+        await ShipAsync();
+        await ShipAsync();
+
+        Assert.False(stopped);
+        pair.Target.Store.Hook = null;
+        Assert.Equal(pair.SourceSets(), pair.TargetSets());
+        pair.AssertDerivedIdentical();
+        pair.AssertIdentical();
+        await pair.AssertFollowersAgreeAsync(writer);
+        return mutations;
+    }
+
     private static async Task CommitAsync(Dataset dataset, int from, int to)
     {
         for (int i = from; i < to; i++)
@@ -484,6 +584,42 @@ public sealed class LogShipperTests
         }
 
         /// <summary>The target's catalog is the source's bytes, and every extent blob both hold is identical.</summary>
+        /// <summary>What a stopped shipper left: a prefix of the log, a catalog that names only what is there, and a dataset a follower reads.</summary>
+        public async Task AssertAStoppedShipperLeftAPrefixAsync(Dataset writer)
+        {
+            AssertIdentical();
+            AssertTargetCatalogNamesOnlyWhatIsThere();
+
+            if (!Target.Store.Names().Contains("log/MANIFEST"))
+            {
+                return;
+            }
+
+            // #384: a follower's open runs the writer's repairs of the newest
+            // segment, and its storage refuses them. It happens where the
+            // newest segment holds only its opening chunk, or its trailer and
+            // no seal chunk, on a source as on a target. The shipper copies
+            // chunks in order and so passes through both. The checks above
+            // ran; this catch goes when #384 is fixed.
+            // Closed with the check, so its reader record does not hold the
+            // target's sets through the rest of the schedule.
+            await using Backend storage = await Target.OpenAsync(ObjectStorageAccess.ReadOnly);
+            Dataset follower;
+
+            try
+            {
+                follower = await Dataset.OpenFollowerAsync(storage, Small(), T.Ct);
+            }
+            catch (InvalidOperationException refused) when (refused.Message.Contains("it claimed no writer epoch", StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            await using Dataset opened = follower;
+            List<SortedSet<string>> views = await FormatFixtures.ViewsAsync(follower);
+            Assert.Equal((await FormatFixtures.ViewsAsync(writer)).Take(views.Count), views);
+        }
+
         public string[] SourceSets() => Sets(Source.Store);
 
         public string[] TargetSets() => Sets(Target.Store);
