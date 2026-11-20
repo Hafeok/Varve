@@ -314,6 +314,7 @@ static class ObjectStoresPage
 
         ## Verify your own store
 
+        <!-- ci: ci.yml storage-services — the steps that run varve storage verify against Azurite and against RustFS, by web identity -->
         ```
         varve storage verify https://{account}.blob.core.windows.net/{container}
         varve storage verify s3://{bucket} --endpoint https://s3.example.org --region eu-central-1
