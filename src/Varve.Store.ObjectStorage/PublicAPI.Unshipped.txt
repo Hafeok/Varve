@@ -566,3 +566,23 @@ static Varve.Store.ObjectStorage.Model.ShippedLog.operator !=(Varve.Store.Object
 static Varve.Store.ObjectStorage.Model.ShippedLog.operator ==(Varve.Store.ObjectStorage.Model.ShippedLog? left, Varve.Store.ObjectStorage.Model.ShippedLog? right) -> bool
 static Varve.Store.ObjectStorage.Model.ShippingOptions.operator !=(Varve.Store.ObjectStorage.Model.ShippingOptions? left, Varve.Store.ObjectStorage.Model.ShippingOptions? right) -> bool
 static Varve.Store.ObjectStorage.Model.ShippingOptions.operator ==(Varve.Store.ObjectStorage.Model.ShippingOptions? left, Varve.Store.ObjectStorage.Model.ShippingOptions? right) -> bool
+Varve.Store.ObjectStorage.LogShipper.ShipAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.ShippedRound!>
+Varve.Store.ObjectStorage.Model.ShippedRound
+Varve.Store.ObjectStorage.Model.ShippedRound.<Clone>$() -> Varve.Store.ObjectStorage.Model.ShippedRound!
+Varve.Store.ObjectStorage.Model.ShippedRound.Catalog.get -> Varve.Store.CatalogSummary?
+Varve.Store.ObjectStorage.Model.ShippedRound.Catalog.init -> void
+Varve.Store.ObjectStorage.Model.ShippedRound.Equals(Varve.Store.ObjectStorage.Model.ShippedRound? other) -> bool
+Varve.Store.ObjectStorage.Model.ShippedRound.Log.get -> Varve.Store.ObjectStorage.Model.ShippedLog!
+Varve.Store.ObjectStorage.Model.ShippedRound.Log.init -> void
+Varve.Store.ObjectStorage.Model.ShippedRound.Moved.get -> bool
+Varve.Store.ObjectStorage.Model.ShippedRound.Moved.init -> void
+Varve.Store.ObjectStorage.Model.ShippedRound.ShippedRound() -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.Holder.get -> Varve.Store.ObjectStorage.Model.WriterInstance?
+Varve.Store.ObjectStorage.Model.ShippingOptions.Holder.init -> void
+Varve.Store.ObjectStorage.Model.ShippingOptions.Reader.get -> Varve.Store.Log.ReaderId
+Varve.Store.ObjectStorage.Model.ShippingOptions.Reader.init -> void
+override Varve.Store.ObjectStorage.Model.ShippedRound.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.ShippedRound.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.ShippedRound.ToString() -> string!
+static Varve.Store.ObjectStorage.Model.ShippedRound.operator !=(Varve.Store.ObjectStorage.Model.ShippedRound? left, Varve.Store.ObjectStorage.Model.ShippedRound? right) -> bool
+static Varve.Store.ObjectStorage.Model.ShippedRound.operator ==(Varve.Store.ObjectStorage.Model.ShippedRound? left, Varve.Store.ObjectStorage.Model.ShippedRound? right) -> bool

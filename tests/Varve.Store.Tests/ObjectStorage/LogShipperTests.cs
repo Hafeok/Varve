@@ -290,6 +290,91 @@ public sealed class LogShipperTests
         await Assert.ThrowsAsync<ReplicaPromotedException>(async () => await pair.StartAsync());
     }
 
+    /// <summary>
+    /// A whole round ships the sets and the catalog too (ADR 0184 decision 4):
+    /// the target's catalog is the source's bytes, every blob of every set it
+    /// names is there and identical, the shipper's reader record on the source
+    /// announces the version shipped, and a follower of the target opens from
+    /// the shipped catalog.
+    /// </summary>
+    [Fact]
+    public async Task a_whole_round_ships_the_sets_and_the_catalog_last_and_announces_what_it_copies()
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), Small());
+        LogShipper shipper = (await pair.StartAsync())!;
+
+        // No checkpoint yet: the log alone, and no catalog on the target.
+        await CommitAsync(writer, 0, 6);
+        ShippedRound first = await shipper.ShipAsync(T.Ct);
+        Assert.True(first.Moved);
+        Assert.Null(first.Catalog);
+        Assert.DoesNotContain(pair.Target.Store.Names(), name => name.StartsWith("derived/", StringComparison.Ordinal));
+
+        await writer.CheckpointAsync(new Position(5), T.Ct);
+        await CommitAsync(writer, 6, 10);
+        ShippedRound second = await shipper.ShipAsync(T.Ct);
+
+        Assert.True(second.Moved);
+        Assert.Equal(new Position(5), second.Catalog!.Position);
+        pair.AssertDerivedIdentical();
+        pair.AssertIdentical();
+        Assert.Contains("\"catalogOldest\": " + second.Catalog.Version.Value + ",", System.Text.Encoding.UTF8.GetString(pair.Source.Store.Get("readers/shipper-ship-target")!), StringComparison.Ordinal);
+        Assert.DoesNotContain(pair.Target.Store.Names(), name => name.StartsWith("readers/", StringComparison.Ordinal));
+
+        // A newer catalog replaces the target's, and a round with nothing new writes nothing.
+        await writer.CheckpointAsync(new Position(9), T.Ct);
+        ShippedRound third = await shipper.ShipAsync(T.Ct);
+        Assert.Equal(new Position(9), third.Catalog!.Position);
+        Assert.True(third.Catalog.Version.Value > second.Catalog.Version.Value);
+        pair.AssertDerivedIdentical();
+        pair.Target.Store.ResetCounts();
+        Assert.False((await shipper.ShipAsync(T.Ct)).Moved);
+        Assert.Equal(0, pair.Target.Store.Count(ObjectOperation.Create) + pair.Target.Store.Count(ObjectOperation.Replace) + pair.Target.Store.Count(ObjectOperation.Delete));
+
+        await pair.AssertFollowersAgreeAsync(writer);
+    }
+
+    /// <summary>
+    /// The catalog is last: a shipper stopped while it copies a set leaves the
+    /// target's catalog as it was, so it never names a set the target lacks.
+    /// </summary>
+    [Fact]
+    public async Task a_shipper_stopped_while_it_copies_a_set_leaves_the_targets_catalog_naming_only_what_is_there()
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), Small());
+        LogShipper shipper = (await pair.StartAsync())!;
+        await CommitAsync(writer, 0, 6);
+        await writer.CheckpointAsync(new Position(5), T.Ct);
+        await shipper.ShipAsync(T.Ct);
+        byte[] before = pair.Target.Store.Get("derived/catalog")!;
+
+        await CommitAsync(writer, 6, 12);
+        await writer.CheckpointAsync(new Position(11), T.Ct);
+        // Every attempt at one blob of the new set fails, so the store's own retries do not get past it.
+        pair.Target.Store.Hook = (operation, name) => operation == ObjectOperation.Create && name.Value.StartsWith("derived/extents/", StringComparison.Ordinal) && name.Value.EndsWith("/order3", StringComparison.Ordinal)
+            ? throw new IOException("stopped while copying a set")
+            : null;
+
+        await Assert.ThrowsAsync<IOException>(async () => await shipper.ShipAsync(T.Ct));
+
+        pair.Target.Store.Hook = null;
+        Assert.Equal(before, pair.Target.Store.Get("derived/catalog"));
+        pair.AssertTargetCatalogNamesOnlyWhatIsThere();
+        await using (Dataset follower = await Dataset.OpenFollowerAsync(await pair.Target.OpenAsync(ObjectStorageAccess.ReadOnly), Small(), T.Ct))
+        {
+            Assert.Equal(writer.Head, follower.Head);
+        }
+
+        // Started again, it finishes: two shippers at once, as after a handover.
+        LogShipper again = (await pair.StartAsync())!;
+        await Task.WhenAll(shipper.ShipAsync(T.Ct).AsTask(), again.ShipAsync(T.Ct).AsTask());
+        Assert.Equal(pair.Source.Store.Get("derived/catalog"), pair.Target.Store.Get("derived/catalog"));
+        pair.AssertDerivedIdentical();
+        await pair.AssertFollowersAgreeAsync(writer);
+    }
+
     private static async Task CommitAsync(Dataset dataset, int from, int to)
     {
         for (int i = from; i < to; i++)
@@ -317,8 +402,10 @@ public sealed class LogShipperTests
                     Source = Source.Store,
                     Target = Target.Store,
                     Lineage = new LineageSource(store ?? new StoreAddress("memory://source"), null, T.Id, null),
+                    Reader = new ReaderId("shipper-ship-target"),
+                    Holder = new WriterInstance("shipper"),
                     Staging = new CacheDirectory(staging),
-                    Clock = Source.Clock,
+                    Clock = new InstantClock(DateTimeOffset.UnixEpoch),
                 },
                 T.Ct);
         }
@@ -343,6 +430,39 @@ public sealed class LogShipperTests
             byte[] ours = LogOf(Target.Store);
             Assert.True(ours.Length <= theirs.Length, "The target's log is longer than the source's.");
             Assert.True(theirs.AsSpan(0, ours.Length).SequenceEqual(ours), "The log read from the target is not the source's.");
+        }
+
+        /// <summary>The target's catalog is the source's bytes, and every extent blob both hold is identical.</summary>
+        public void AssertDerivedIdentical()
+        {
+            Assert.Equal(Source.Store.Get("derived/catalog"), Target.Store.Get("derived/catalog"));
+
+            foreach (string name in Target.Store.Names().Where(name => name.StartsWith("derived/extents/", StringComparison.Ordinal)))
+            {
+                Assert.True(Source.Store.Get(name) is { } source && source.AsSpan().SequenceEqual(Target.Store.Get(name)), name + " is not the source's.");
+            }
+
+            AssertTargetCatalogNamesOnlyWhatIsThere();
+        }
+
+        /// <summary>Every set the target's catalog names has its six order extents and its dictionary on the target.</summary>
+        public void AssertTargetCatalogNamesOnlyWhatIsThere()
+        {
+            if (Target.Store.Get("derived/catalog") is not { Length: > 12 } wrapped)
+            {
+                return;
+            }
+
+            CatalogSummary catalog = CatalogSummary.TryRead(wrapped.AsMemory(12)) ?? throw new Xunit.Sdk.XunitException("The target's catalog does not read.");
+            HashSet<string> names = [.. Target.Store.Names()];
+
+            foreach (CatalogSet set in catalog.Sets)
+            {
+                foreach (string part in new[] { "order0", "order1", "order2", "order3", "order4", "order5", "terms" })
+                {
+                    Assert.Contains("derived/" + set.Name.Value + part, names);
+                }
+            }
         }
 
         /// <summary>A follower of the target and one of the source read the same at every position, to the writer's head.</summary>

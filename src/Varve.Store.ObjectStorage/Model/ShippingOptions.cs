@@ -28,11 +28,33 @@ public sealed record ShippingOptions
     /// <summary>What the copy's lineage record names as its source (ADR 0185).</summary>
     public required LineageSource Lineage { get; init; }
 
+    /// <summary>
+    /// The id of the shipper's reader record on the source (ADR 0160): one per
+    /// target, so that two targets of one dataset never share an interval.
+    /// </summary>
+    public required ReaderId Reader { get; init; }
+
+    /// <summary>The name the shipping instance gives itself, for the operator who reads the record.</summary>
+    public WriterInstance? Holder { get; init; }
+
     /// <summary>A directory of this machine in which a consolidated segment is staged on its way; the shipper empties what it puts there.</summary>
     public required CacheDirectory Staging { get; init; }
 
     /// <summary>The host's clock: what a retry of a lost answer waits on (ADR 0136).</summary>
     public required TimeProvider Clock { get; init; }
+}
+
+/// <summary>What one round of shipping did (ADR 0184): how far the target's log and its catalog got.</summary>
+public sealed record ShippedRound
+{
+    /// <summary>The target's log after the round.</summary>
+    public required ShippedLog Log { get; init; }
+
+    /// <summary>The catalog the target holds after the round, or none while the source has no checkpoint.</summary>
+    public CatalogSummary? Catalog { get; init; }
+
+    /// <summary>Whether the round wrote anything to the target, its log or its sets or its catalog.</summary>
+    public required bool Moved { get; init; }
 }
 
 /// <summary>How far a target's log has been shipped (ADR 0184): the next slot the shipper will write.</summary>

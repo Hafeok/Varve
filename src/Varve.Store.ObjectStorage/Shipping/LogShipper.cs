@@ -40,6 +40,10 @@ public sealed class LogShipper
 {
     private const int ReadWindow = 4 << 20;
 
+    // The catalog's name under derived/, and the bytes of its wrapper, "VRVK" and the fencing epoch (ADR 0139).
+    private const string CatalogBlob = "catalog";
+    private const int CatalogWrapper = 12;
+
     private readonly ShippingOptions _options;
     private readonly ObjectNames _source;
     private readonly ObjectNames _target;
@@ -47,6 +51,9 @@ public sealed class LogShipper
     // The target's segments that have chunks and no consolidated object yet, in order.
     private readonly List<Held> _pending = [];
     private int _nextSegment;
+
+    // The catalog version the shipper's reader record on the source announces.
+    private CatalogVersion? _announced;
 
     private LogShipper(ShippingOptions options)
     {
@@ -168,6 +175,196 @@ public sealed class LogShipper
             await ShipConsolidatedAsync(open, cancellationToken).ConfigureAwait(false);
             moved = true;
         }
+    }
+
+    /// <summary>
+    /// One whole round (ADR 0184 decision 4): the log, then the extent sets
+    /// the source's catalog names, then the catalog, last. The catalog is read
+    /// and announced before the log is shipped, so every slot its cursor names
+    /// is on the target before it is, and every set it names is there too.
+    /// </summary>
+    /// <exception cref="ReplicaPromotedException">The target was promoted.</exception>
+    /// <exception cref="ShippingDivergedException">The target holds other bytes at a name the source's were due.</exception>
+    public async ValueTask<ShippedRound> ShipAsync(CancellationToken cancellationToken = default)
+    {
+        (byte[] Bytes, CatalogSummary Summary)? catalog = await HoldCatalogAsync(cancellationToken).ConfigureAwait(false);
+        ShippedLog log = await ShipLogAsync(cancellationToken).ConfigureAwait(false);
+
+        if (catalog is not { } held)
+        {
+            return new ShippedRound { Log = log, Catalog = await TargetCatalogAsync(cancellationToken).ConfigureAwait(false), Moved = log.Moved };
+        }
+
+        bool moved = log.Moved;
+
+        foreach (CatalogSet set in held.Summary.Sets)
+        {
+            foreach (BlobName blob in set.Blobs)
+            {
+                moved |= await ShipBlobAsync(blob, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        moved |= await PublishCatalogAsync(held.Bytes, held.Summary, cancellationToken).ConfigureAwait(false);
+        return new ShippedRound { Log = log, Catalog = await TargetCatalogAsync(cancellationToken).ConfigureAwait(false), Moved = moved };
+    }
+
+    // The source's catalog, held: the shipper announces the version in its
+    // reader record and reads the catalog again, until what it announced is
+    // what the catalog is (ADR 0160, announce then confirm). Null when the
+    // source has no catalog yet.
+    private async ValueTask<(byte[] Bytes, CatalogSummary Summary)?> HoldCatalogAsync(CancellationToken cancellationToken)
+    {
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            if (await ReadCatalogAsync(_options.Source, _source, cancellationToken).ConfigureAwait(false) is not { } read)
+            {
+                return null;
+            }
+
+            await AnnounceAsync(read.Summary.Version, cancellationToken).ConfigureAwait(false);
+
+            if (await ReadCatalogAsync(_options.Source, _source, cancellationToken).ConfigureAwait(false) is { } again && again.Summary.Version == read.Summary.Version)
+            {
+                return read;
+            }
+        }
+
+        throw new IOException("The source's catalog changed under eight attempts to announce the version being shipped.");
+    }
+
+    private static async ValueTask<(byte[] Bytes, CatalogSummary Summary)?> ReadCatalogAsync(IObjectStore store, ObjectNames names, CancellationToken cancellationToken)
+    {
+        if (await ConditionalWrites.ReadWholeAsync(store, names.Derived(CatalogBlob), cancellationToken).ConfigureAwait(false) is not { } read || read.Bytes.Length <= CatalogWrapper)
+        {
+            return null;
+        }
+
+        byte[] bytes = read.Bytes.ToArray();
+        return CatalogSummary.TryRead(bytes.AsMemory(CatalogWrapper)) is { } summary ? (bytes, summary) : null;
+    }
+
+    private async ValueTask<CatalogSummary?> TargetCatalogAsync(CancellationToken cancellationToken) =>
+        (await ReadCatalogAsync(_options.Target, _target, cancellationToken).ConfigureAwait(false))?.Summary;
+
+    // The shipper's reader record on the source: created over whatever a
+    // previous run of the same id left, and replaced against the version read.
+    private async ValueTask AnnounceAsync(CatalogVersion version, CancellationToken cancellationToken)
+    {
+        if (_announced == version)
+        {
+            return;
+        }
+
+        ObjectName name = _source.Reader(_options.Reader);
+        byte[] bytes = ReaderRecordFormat.Write(new ReaderRecord
+        {
+            Reader = _options.Reader,
+            Holder = _options.Holder,
+            Oldest = version,
+            Newest = version,
+            AnnouncedAt = new ClaimTime(_options.Clock.GetUtcNow()),
+            MaxDerived = DerivedVersion.ThisBuildReads,
+        });
+
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            ObjectRead? current = await ConditionalWrites.ReadWholeAsync(_options.Source, name, cancellationToken).ConfigureAwait(false);
+            bool written = current is { } found
+                ? await ConditionalWrites.ReplaceAsync(_options.Source, name, found.Version, bytes, _options.Clock, cancellationToken).ConfigureAwait(false) is not null
+                : (await ConditionalWrites.CreateAsync(_options.Source, name, bytes, _options.Clock, cancellationToken).ConfigureAwait(false)).Outcome == CreateOutcome.Ours;
+
+            if (written)
+            {
+                _announced = version;
+                return;
+            }
+        }
+
+        throw new IOException("The shipper's reader record '" + name + "' changed under every attempt to write it: another shipper announces under the reader id '" + _options.Reader + "'. Give each target its own.");
+    }
+
+    // One blob of a set, when the source has it and the target does not: the
+    // source's bytes, by create-if-absent. Optional blobs a set lacks are skipped.
+    private async ValueTask<bool> ShipBlobAsync(BlobName blob, CancellationToken cancellationToken)
+    {
+        ObjectName from = _source.Derived(blob.Value);
+        ObjectName to = _target.Derived(blob.Value);
+
+        if (await _options.Source.ReadAsync(from, new ByteOffset(0), new ByteCount(1), cancellationToken).ConfigureAwait(false) is not { } theirs)
+        {
+            return false;
+        }
+
+        if (await _options.Target.ReadAsync(to, new ByteOffset(0), new ByteCount(1), cancellationToken).ConfigureAwait(false) is { } ours)
+        {
+            // A set is never rewritten under its name (ADR 0158), so a blob of
+            // the same name and another length is not the source's.
+            return ours.Length == theirs.Length
+                ? false
+                : throw new ShippingDivergedException("The shipping target's '" + to + "' is not the length of the source's. Nothing was overwritten (ADR 0184); ship to a fresh prefix.");
+        }
+
+        string staged = Path.Combine(_options.Staging.Value, "blob");
+
+        try
+        {
+            await DownloadAsync(from, staged, cancellationToken).ConfigureAwait(false);
+
+            if (await ConditionalWrites.CreateAsync(_options.Target, to, new ObjectContent(new FileInfo(staged)), _options.Clock, cancellationToken).ConfigureAwait(false) == CreateOutcome.Taken)
+            {
+                throw new ShippingDivergedException("The shipping target's '" + to + "' holds other bytes than the source's. Nothing was overwritten (ADR 0184); ship to a fresh prefix.");
+            }
+
+            return true;
+        }
+        finally
+        {
+            File.Delete(staged);
+        }
+    }
+
+    // The catalog, last: the source's bytes, wrapper included, over an older
+    // catalog of the target's or none. Never over a newer one, and never
+    // while another shipper has moved it meanwhile.
+    private async ValueTask<bool> PublishCatalogAsync(byte[] bytes, CatalogSummary summary, CancellationToken cancellationToken)
+    {
+        ObjectName name = _target.Derived(CatalogBlob);
+
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            ObjectRead? current = await ConditionalWrites.ReadWholeAsync(_options.Target, name, cancellationToken).ConfigureAwait(false);
+
+            if (current is null)
+            {
+                if ((await ConditionalWrites.CreateAsync(_options.Target, name, bytes, _options.Clock, cancellationToken).ConfigureAwait(false)).Outcome == CreateOutcome.Ours)
+                {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (current.Bytes.Span.SequenceEqual(bytes))
+            {
+                return false;
+            }
+
+            if (current.Bytes.Length > CatalogWrapper && CatalogSummary.TryRead(current.Bytes[CatalogWrapper..]) is { } theirs && theirs.Version.Value >= summary.Version.Value)
+            {
+                // Another shipper put a newer one there, or the same version in other bytes.
+                return theirs.Version.Value > summary.Version.Value
+                    ? false
+                    : throw new ShippingDivergedException("The shipping target's catalog is version " + theirs.Version + " as the source's is, in other bytes. Nothing was overwritten (ADR 0184); ship to a fresh prefix.");
+            }
+
+            if (await ConditionalWrites.ReplaceAsync(_options.Target, name, current.Version, bytes, _options.Clock, cancellationToken).ConfigureAwait(false) is not null)
+            {
+                return true;
+            }
+        }
+
+        throw new IOException("The shipping target's catalog changed under four attempts to replace it.");
     }
 
     // A new target gets its lineage record before anything else; one that has
