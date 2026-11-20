@@ -259,6 +259,18 @@ public sealed class ShippingRoleTests
         await using Scene scene = await Scene.StartAsync(verified: true);
         Dataset source = await scene.DeclareAsync(grant: true);
         await CommitAsync(source, 0, 5);
+
+        // The copy's last commit records position 500 of the source fleet's system dataset (ADR 0165).
+        Assert.Equal(CommitOutcome.Committed, (await source.CommitAsync(
+            new CommitRequestBuilder
+            {
+                Metadata = new CommitMetadata
+                {
+                    Agent = Varve.Rdf.RdfTerm.Iri("urn:test:writer"u8),
+                    Attachments = [Varve.Rdf.RdfTerm.Literal("500"u8, Varve.Rdf.RdfTerm.Iri(Encoding.UTF8.GetBytes(Varve.Protocol.ManagementOrder.PositionDatatype)))],
+                },
+            }.Assert(Varve.Rdf.RdfTerm.Iri("https://example.org/last"u8), Varve.Rdf.RdfTerm.Iri("https://example.org/p"u8), Varve.Rdf.RdfTerm.Iri("https://example.org/o"u8)),
+            Ct)).Outcome);
         await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == source.Head.Value);
         DatasetName orders = new("orders");
 
@@ -304,6 +316,10 @@ public sealed class ShippingRoleTests
         Assert.Equal(promoted.Epoch.Value, lineage.Promoted.Epoch.Value);
 
         Assert.Equal(WriterRouteKind.Local, (await target.RouteAsync(new WriterTarget(orders), Ct)).Kind);
+
+        // Decision 8: the copy's commits recorded positions of another fleet. The target's write watermark is
+        // not raised by them, or every write here would wait for a management position 500 of this fleet.
+        Assert.Equal(0, target.Recorded(orders).Value);
 
         // It writes on, at once, on the same open dataset.
         await CommitAsync(replica, 5, 7);

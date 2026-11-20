@@ -806,6 +806,14 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
             return;
         }
 
+        // ADR 0185 decision 8: a commit at or below a promoted copy's promoted position records a position in
+        // another fleet's system dataset. The watermark is never seeded from one, or every write here would
+        // wait for a management position this fleet may never reach.
+        if (_objects is not null && await IsForeignAsync(name, dataset.Head, cancellationToken).ConfigureAwait(false))
+        {
+            return;
+        }
+
         // The head commit's header alone (#310): the delta is never read.
         CommitHeaderTerms head = await dataset.ReadMetadataAsync(dataset.Head, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<Varve.Rdf.RdfTerm> attachments = head.Attachments;
@@ -814,6 +822,26 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         {
             _order.Observe(name, recorded);
         }
+    }
+
+    // Whether the commit at a position was written under the fleet a promoted copy was shipped from. The
+    // lineage is read once per open of a dataset this instance writes.
+    [DesignDecision(typeof(PromotionAcrossCopies.AManagementPositionBelongsToItsFleet), Scope = ExceptionScope.Boundary)]
+    private async Task<bool> IsForeignAsync(DatasetName name, Position position, CancellationToken cancellationToken)
+    {
+        Entry? entry;
+
+        lock (_gate)
+        {
+            entry = _entries.TryGetValue(name.Value, out Entry? held) ? held : null;
+        }
+
+        if (entry is not { Storage: DatasetStorage.ObjectStorage })
+        {
+            return false;
+        }
+
+        return await _objects!.PromotedAtAsync(name.Value, cancellationToken).ConfigureAwait(false) is { } promoted && position.Value <= promoted.Value;
     }
 
     private async Task DeleteStorageAsync(string name, DatasetStorage storage, CancellationToken cancellationToken)

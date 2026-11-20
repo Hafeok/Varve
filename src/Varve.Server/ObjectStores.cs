@@ -140,6 +140,15 @@ internal sealed class ObjectStores : IDisposable
     internal async Task<ReplicaState> ReplicaStateAsync(string name, CancellationToken cancellationToken) =>
         await Backend.ReplicaStateAsync(Store, PrefixOf(name), cancellationToken).ConfigureAwait(false);
 
+    /// <summary>
+    /// The position a copy was promoted at, or none for a dataset that is no
+    /// promoted copy (ADR 0185 decision 8): every commit at or below it was
+    /// written under another fleet, whose management positions mean nothing
+    /// here.
+    /// </summary>
+    internal async Task<Position?> PromotedAtAsync(string name, CancellationToken cancellationToken) =>
+        (await Backend.ReadLineageAsync(Store, PrefixOf(name), cancellationToken).ConfigureAwait(false))?.Promoted?.Position;
+
     /// <summary>Whether the store holds a dataset of this name: its manifest.</summary>
     internal async Task<bool> ExistsAsync(string name, CancellationToken cancellationToken) =>
         await Store.ReadAsync(new ObjectName(name + Manifest), new ByteOffset(0), new ByteCount(1), cancellationToken).ConfigureAwait(false) is not null;
