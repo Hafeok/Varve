@@ -20,8 +20,8 @@ public static class TermValues
 {
     /// <summary>
     /// <paramref name="term"/> as a chip's parameters. A triple term is its
-    /// three terms written out, as a chip of its own kind, which TermChip does
-    /// not yet show from a value (#377).
+    /// three terms written out, as a chip of its own kind: TermChip shows
+    /// that text in its frame when it is given no child chips.
     /// </summary>
     public static TermValue Of(RdfTerm term)
     {

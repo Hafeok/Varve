@@ -208,6 +208,21 @@ public class ExplorerPartsTests
         Assert.Equal("false", menu.Find("button").GetAttribute("aria-expanded"));
     }
 
+    // #377: a triple term in a results table is its three terms, written
+    // out in the triple's frame, never an empty chip.
+    [Fact]
+    public void a_triple_term_value_is_written_out_in_its_frame()
+    {
+        using BunitContext context = new();
+        RdfTerm triple = RdfTerm.TripleTerm(Iri("http://purl.org/dc/terms/creator"), Iri("http://purl.org/dc/terms/title"), RdfTerm.Literal(Encoding.UTF8.GetBytes("x")));
+        Varve.WebUi.Explorer.Atoms.TermValue value = TermValues.Of(triple);
+        IRenderedComponent<Varve.WebUi.Components.Atoms.TermChip> chip = context.Render<Varve.WebUi.Components.Atoms.TermChip>(p => p
+            .Add(c => c.Kind, value.Kind)
+            .Add(c => c.Text, value.Text));
+
+        Assert.Equal("<< dct:creator dct:title x >>", chip.Find(".vw-term").TextContent);
+    }
+
     private static string[] Values(IRenderedComponent<RegimeSelect> select) =>
         [.. select.FindAll("option").Select(option => option.GetAttribute("value")!)];
 
