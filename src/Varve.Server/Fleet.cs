@@ -572,6 +572,40 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         }
     }
 
+    /// <inheritdoc />
+    public async ValueTask<PromotionAnswer?> PromoteAsync(DatasetName dataset, PromotionAsk ask, CancellationToken cancellationToken)
+    {
+        if (_objects is null)
+        {
+            return null;
+        }
+
+        // Inside the advance, as a takeover is: no round switches the dataset's storage under the claim.
+        await _advance.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            if (!Volatile.Read(ref _snapshot).Table.Declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared))
+            {
+                return new PromotionAnswer(PromotionRefusal.NotAReplica, new TakeoverEpoch(0), new Position(0));
+            }
+
+            Placement placement = new(_instance, _mayClaim, _role == ManagementRole.Writer, IsFleetOfOne);
+            PromotionAnswer answer = await Datasets.PromoteAsync(dataset.Value, ask, declared, placement, cancellationToken).ConfigureAwait(false);
+
+            if (answer.Refusal == PromotionRefusal.None)
+            {
+                _routes.TryRemove(dataset.Value, out _);
+            }
+
+            return answer;
+        }
+        finally
+        {
+            _advance.Release();
+        }
+    }
+
     // The system dataset's takeover (ADR 0179 point 13), by the same rules.
     private async Task<TakeoverOutcome> TakeOverSystemAsync(TakeoverEpoch from, CancellationToken cancellationToken)
     {

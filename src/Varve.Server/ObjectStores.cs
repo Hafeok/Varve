@@ -136,6 +136,10 @@ internal sealed class ObjectStores : IDisposable
     internal async Task<WriterRecord?> ReadWriterAsync(string name, CancellationToken cancellationToken) =>
         await Backend.ReadWriterAsync(Store, new ObjectName(name + "/"), cancellationToken).ConfigureAwait(false);
 
+    /// <summary>Whether a dataset is a replica, or a copy whose promotion did not finish (ADR 0185): read before this instance claims it.</summary>
+    internal async Task<ReplicaState> ReplicaStateAsync(string name, CancellationToken cancellationToken) =>
+        await Backend.ReplicaStateAsync(Store, PrefixOf(name), cancellationToken).ConfigureAwait(false);
+
     /// <summary>Whether the store holds a dataset of this name: its manifest.</summary>
     internal async Task<bool> ExistsAsync(string name, CancellationToken cancellationToken) =>
         await Store.ReadAsync(new ObjectName(name + Manifest), new ByteOffset(0), new ByteCount(1), cancellationToken).ConfigureAwait(false) is not null;

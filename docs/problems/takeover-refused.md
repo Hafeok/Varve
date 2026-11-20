@@ -25,9 +25,38 @@ dataset over reads as the no-op it is. `epoch` is the writer epoch the
 record shows now. Nothing was claimed. A
 trigger that fires late or twice for the same failure meets `epoch-moved`.
 
+**A promotion is refused the same way.** A promotion request,
+`PUT /manage/datasets/{d}/state` with
+`{"promote": {"source": "<address>", "position": p}}`, asked this instance
+to promote the replica `d` (ADR 0185). Nothing was changed, and `reason`
+says why:
+- `not-in-writer-set`: as above;
+- `cold`: this instance does not follow the replica warm yet;
+- `not-a-replica`: the dataset has no lineage record, or one this version
+  does not read, or was already promoted, or this instance has no object
+  store;
+- `source-mismatch`: the copy's lineage record names another source than
+  the one asked for;
+- `position-mismatch`: the copy's last position is not the one asked for.
+  `detail` gives both;
+- `epoch-moved`: another promotion or another claim came first.
+
 ## What to do
 
-An operator, by `reason`:
+For a promotion, by `reason`:
+- `not-in-writer-set`, `cold`: ask the instance the dataset is placed on,
+  once its readiness shows it warm;
+- `not-a-replica`: read the dataset's state. If it was promoted already,
+  there is nothing to do;
+- `source-mismatch`: check which copy you mean to promote. The lineage
+  names the source it was shipped from;
+- `position-mismatch`: the copy holds less, or more, than you expected.
+  Decide whether that is what you mean to keep, and ask again with that
+  position. Commits the source acknowledged past it are not on this copy;
+- `epoch-moved`: read the dataset's state, and promote again only if it is
+  still a replica.
+
+For a takeover, by `reason`:
 - `handover-off`: declare `varve:automaticHandover true` on the dataset, with
   an object store;
 - `not-in-writer-set`: name the instance in `varve:standbyOn`, or ask a member;

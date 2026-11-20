@@ -152,4 +152,12 @@ public interface IManagementPlane
     /// no object store, so no epoch to take. None by default.
     /// </summary>
     ValueTask<TakeoverOutcome?> TakeoverAsync(DatasetName? dataset, TakeoverEpoch epoch, CancellationToken cancellationToken) => default;
+
+    /// <summary>
+    /// Promotes the replica <paramref name="dataset"/> on this instance (ADR
+    /// 0185 decision 4): answered here and never forwarded, since it acts on
+    /// the store and not on a declaration. Null where this instance has no
+    /// object store. None by default.
+    /// </summary>
+    ValueTask<PromotionAnswer?> PromoteAsync(DatasetName dataset, PromotionAsk ask, CancellationToken cancellationToken) => default;
 }

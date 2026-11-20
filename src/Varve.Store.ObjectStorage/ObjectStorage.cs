@@ -337,34 +337,57 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
         return read is { } found ? LineageRecordFormat.Read(found.Bytes.Span) : null;
     }
 
-    // An open for write, and a claim in place, of a dataset whose lineage
-    // record says it is a replica: refused, with nothing written (ADR 0185).
-    private static async ValueTask RefuseAReplicaAsync(IObjectStore store, ObjectNames names, CancellationToken cancellationToken)
+    /// <summary>
+    /// Whether the dataset under <paramref name="prefix"/> may be opened for
+    /// write (ADR 0185 decisions 3 and 6), read from the store without
+    /// opening it. A host asks before it claims, so that a replica is
+    /// followed and never counted as a store that failed.
+    /// </summary>
+    public static async ValueTask<ReplicaState> ReplicaStateAsync(IObjectStore store, ObjectName? prefix, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        return (await ReplicaAsync(store, new ObjectNames(prefix), cancellationToken).ConfigureAwait(false)).State;
+    }
+
+    private static async ValueTask<(ReplicaState State, LineageRecord? Lineage)> ReplicaAsync(IObjectStore store, ObjectNames names, CancellationToken cancellationToken)
     {
         if (await ConditionalWrites.ReadWholeAsync(store, names.Lineage, cancellationToken).ConfigureAwait(false) is not { } read)
         {
-            return;
+            return (ReplicaState.None, null);
         }
 
         LineageRecord lineage = LineageRecordFormat.Read(read.Bytes.Span);
 
         if (lineage.IsReplica)
         {
-            throw new DatasetIsReplicaException(lineage);
+            return (ReplicaState.Replica, lineage);
         }
 
-        // Promoted, and no promotion claim was fenced: a promotion that failed part way (decision 6).
+        // Promoted: finished only when a promotion claim at or above its epoch fenced the log (decision 6).
         WriterRecord? record = await ReadWriterAsync(store, names, cancellationToken).ConfigureAwait(false);
-        bool fenced = false;
 
         foreach (EpochClaim claim in record?.History ?? [])
         {
-            fenced |= claim.Trigger == ClaimTrigger.Promotion && claim.Fence is not null && claim.Epoch.Value >= lineage.Promoted!.Epoch.Value;
+            if (claim.Trigger == ClaimTrigger.Promotion && claim.Fence is not null && claim.Epoch.Value >= lineage.Promoted!.Epoch.Value)
+            {
+                return (ReplicaState.None, lineage);
+            }
         }
 
-        if (!fenced)
+        return (ReplicaState.PromotionIncomplete, lineage);
+    }
+
+    // An open for write, and a claim in place, of a dataset whose lineage
+    // record says it is a replica, or whose promotion did not finish:
+    // refused, with nothing written (ADR 0185).
+    private static async ValueTask RefuseAReplicaAsync(IObjectStore store, ObjectNames names, CancellationToken cancellationToken)
+    {
+        switch (await ReplicaAsync(store, names, cancellationToken).ConfigureAwait(false))
         {
-            throw DatasetIsReplicaException.PromotionIncomplete(lineage);
+            case (ReplicaState.Replica, { } lineage):
+                throw new DatasetIsReplicaException(lineage);
+            case (ReplicaState.PromotionIncomplete, { } lineage):
+                throw DatasetIsReplicaException.PromotionIncomplete(lineage);
         }
     }
 

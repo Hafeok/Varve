@@ -573,3 +573,42 @@ override Varve.Protocol.Model.UnverifiedTarget.ToString() -> string!
 static Varve.Protocol.Model.ProblemType.StoreUnverified.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.UnverifiedTarget.operator !=(Varve.Protocol.Model.UnverifiedTarget? left, Varve.Protocol.Model.UnverifiedTarget? right) -> bool
 static Varve.Protocol.Model.UnverifiedTarget.operator ==(Varve.Protocol.Model.UnverifiedTarget? left, Varve.Protocol.Model.UnverifiedTarget? right) -> bool
+Varve.Protocol.IManagementPlane.PromoteAsync(Varve.Protocol.Model.DatasetName dataset, Varve.Protocol.Model.PromotionAsk! ask, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.PromotionAnswer?>
+Varve.Protocol.Model.PromotionAnswer
+Varve.Protocol.Model.PromotionAnswer.Deconstruct(out Varve.Protocol.Model.PromotionRefusal Refusal, out Varve.Protocol.Model.TakeoverEpoch Epoch, out Varve.Store.Log.Position Position) -> void
+Varve.Protocol.Model.PromotionAnswer.Epoch.get -> Varve.Protocol.Model.TakeoverEpoch
+Varve.Protocol.Model.PromotionAnswer.Epoch.init -> void
+Varve.Protocol.Model.PromotionAnswer.Equals(Varve.Protocol.Model.PromotionAnswer other) -> bool
+Varve.Protocol.Model.PromotionAnswer.Position.get -> Varve.Store.Log.Position
+Varve.Protocol.Model.PromotionAnswer.Position.init -> void
+Varve.Protocol.Model.PromotionAnswer.PromotionAnswer() -> void
+Varve.Protocol.Model.PromotionAnswer.PromotionAnswer(Varve.Protocol.Model.PromotionRefusal Refusal, Varve.Protocol.Model.TakeoverEpoch Epoch, Varve.Store.Log.Position Position) -> void
+Varve.Protocol.Model.PromotionAnswer.Refusal.get -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionAnswer.Refusal.init -> void
+Varve.Protocol.Model.PromotionAsk
+Varve.Protocol.Model.PromotionAsk.<Clone>$() -> Varve.Protocol.Model.PromotionAsk!
+Varve.Protocol.Model.PromotionAsk.Deconstruct(out string! Source, out Varve.Store.Log.Position Position) -> void
+Varve.Protocol.Model.PromotionAsk.Equals(Varve.Protocol.Model.PromotionAsk? other) -> bool
+Varve.Protocol.Model.PromotionAsk.Position.get -> Varve.Store.Log.Position
+Varve.Protocol.Model.PromotionAsk.Position.init -> void
+Varve.Protocol.Model.PromotionAsk.PromotionAsk(string! Source, Varve.Store.Log.Position Position) -> void
+Varve.Protocol.Model.PromotionAsk.Source.get -> string!
+Varve.Protocol.Model.PromotionAsk.Source.init -> void
+Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.Cold = 2 -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.EpochMoved = 6 -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.None = 0 -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.NotAReplica = 3 -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.NotInWriterSet = 1 -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.PositionMismatch = 5 -> Varve.Protocol.Model.PromotionRefusal
+Varve.Protocol.Model.PromotionRefusal.SourceMismatch = 4 -> Varve.Protocol.Model.PromotionRefusal
+override Varve.Protocol.Model.PromotionAnswer.GetHashCode() -> int
+override Varve.Protocol.Model.PromotionAsk.Equals(object? obj) -> bool
+override Varve.Protocol.Model.PromotionAsk.GetHashCode() -> int
+override Varve.Protocol.Model.PromotionAsk.ToString() -> string!
+static Varve.Protocol.Model.PromotionAnswer.operator !=(Varve.Protocol.Model.PromotionAnswer left, Varve.Protocol.Model.PromotionAnswer right) -> bool
+static Varve.Protocol.Model.PromotionAnswer.operator ==(Varve.Protocol.Model.PromotionAnswer left, Varve.Protocol.Model.PromotionAnswer right) -> bool
+static Varve.Protocol.Model.PromotionAsk.operator !=(Varve.Protocol.Model.PromotionAsk? left, Varve.Protocol.Model.PromotionAsk? right) -> bool
+static Varve.Protocol.Model.PromotionAsk.operator ==(Varve.Protocol.Model.PromotionAsk? left, Varve.Protocol.Model.PromotionAsk? right) -> bool
+~override Varve.Protocol.Model.PromotionAnswer.Equals(object obj) -> bool
+~override Varve.Protocol.Model.PromotionAnswer.ToString() -> string

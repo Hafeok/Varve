@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Varve.Management;
+using Varve.Management.Model;
 using Varve.Protocol.Model;
 using Varve.Store;
 using Varve.Store.Log;
@@ -245,6 +246,74 @@ public sealed class ShippingRoleTests
     }
 
     /// <summary>
+    /// ADR 0185 decisions 3, 4, 7 and 8: a member of the fleet that serves
+    /// the target follows the replica and never claims it; a grant present
+    /// only in the source fleet's shipped system dataset grants nothing
+    /// there (the maintainer's answer D3 on #166); an operator promotes it,
+    /// stating the source and the position; and the old source's shipper
+    /// stops.
+    /// </summary>
+    [Fact]
+    public async Task a_member_of_the_target_fleet_follows_the_replica_and_an_operator_promotes_it()
+    {
+        await using Scene scene = await Scene.StartAsync(verified: true);
+        Dataset source = await scene.DeclareAsync(grant: true);
+        await CommitAsync(source, 0, 5);
+        await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == source.Head.Value);
+        DatasetName orders = new("orders");
+
+        // Another fleet, over the target store, declares the dataset placed on its one instance.
+        await using Fleet target = await scene.StartTargetFleetAsync();
+        await RunningServer.DeclareAsync(target,
+            "@prefix varve: <" + ManagementVocabulary.Namespace + "> .\n"
+            + "<" + ManagementVocabulary.DatasetGraphPrefix + "orders> {\n"
+            + "  <urn:copy:orders> a varve:Dataset ; varve:datasetName \"orders\" ; varve:storage varve:ObjectStorage ; varve:placedOn \"t\" .\n"
+            + "}\n");
+
+        // It follows, warm, and claimed nothing: no writer record, no probe, and it is not a failure.
+        await Scene.UntilAsync(() => target.Datasets.StandbyOf(orders).Warm, "the target's member is not a warm standby of the replica");
+        Assert.Equal(DatasetRole.Standby, target.Datasets.RoleOf(orders));
+        Assert.DoesNotContain(scene.Target.Names(), name => name == "orders/writer" || name.StartsWith("orders/probe/", StringComparison.Ordinal));
+        Assert.True(target.Datasets.TryResolve(orders, out Dataset? replica));
+        Assert.Equal(source.Head, replica.Head);
+
+        // D3: the source fleet grants alice the dataset. Its system dataset is on the target's store, and grants nothing there.
+        Caller alice = new("https://login.example/v2.0#alice", "alice", new Dictionary<string, IReadOnlyList<string>>(), "roles");
+        Assert.True(scene.Fleet.Table.Reaches(alice, "orders"));
+        Assert.Contains("fleets/" + scene.Fleet.System.Id.Value.ToString("D") + "/log/MANIFEST", scene.Target.Names());
+        Assert.False(target.Table.Reaches(alice, "orders"));
+        Assert.False(target.Table.Writes(alice, "orders"));
+
+        // The operator says what they expect. A wrong position, or a wrong source, changes nothing.
+        long tail = replica.Head.Value;
+        Assert.Equal(PromotionRefusal.PositionMismatch, (await target.PromoteAsync(orders, new PromotionAsk("https://fleet.invalid/source", new Position(tail - 1)), Ct))!.Value.Refusal);
+        Assert.Equal(PromotionRefusal.SourceMismatch, (await target.PromoteAsync(orders, new PromotionAsk("https://elsewhere.invalid/source", new Position(tail)), Ct))!.Value.Refusal);
+        Assert.True((await Backend.ReadLineageAsync(scene.Target, new ObjectName("orders/"), Ct))!.IsReplica);
+        Assert.DoesNotContain("orders/writer", scene.Target.Names());
+
+        PromotionAnswer promoted = (await target.PromoteAsync(orders, new PromotionAsk("https://fleet.invalid/source", new Position(tail)), Ct))!.Value;
+        Assert.Equal(PromotionRefusal.None, promoted.Refusal);
+        Assert.Equal(tail, promoted.Position.Value);
+        Assert.Equal(DatasetRole.Writer, target.Datasets.RoleOf(orders));
+        LineageRecord lineage = (await Backend.ReadLineageAsync(scene.Target, new ObjectName("orders/"), Ct))!;
+        Assert.False(lineage.IsReplica);
+        Assert.Equal("t", lineage.Promoted!.By.Value);
+        Assert.Equal(promoted.Epoch.Value, lineage.Promoted.Epoch.Value);
+
+        // It writes on, at once, on the same open dataset.
+        await CommitAsync(replica, 5, 7);
+        Assert.Equal(tail + 2, replica.Head.Value);
+
+        // Promoting again is refused: it is no replica now.
+        Assert.Equal(PromotionRefusal.NotAReplica, (await target.PromoteAsync(orders, new PromotionAsk("https://fleet.invalid/source", new Position(tail)), Ct))!.Value.Refusal);
+
+        // The returning primary: its shipper stops, and the source still commits.
+        await CommitAsync(source, 5, 6);
+        ShippingStatus stopped = await scene.WaitForAsync(s => s.State == ShippingState.Promoted);
+        Assert.Contains("promoted", stopped.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Decision 9: a target's provider is one the compatibility page of the
     /// build lists as verified. A declaration that reached the system
     /// dataset by another road is still refused by the shipper, with nothing
@@ -308,7 +377,7 @@ public sealed class ShippingRoleTests
     {
         private readonly CancellationTokenSource _stopping = CancellationTokenSource.CreateLinkedTokenSource(Ct);
         private readonly string _caches = Directory.CreateTempSubdirectory("varve-shipping-role-").FullName;
-        private Task _loop = Task.CompletedTask;
+        private readonly List<Task> _loops = [];
 
         public MemoryObjectStore Source { get; } = new();
 
@@ -337,7 +406,7 @@ public sealed class ShippingRoleTests
             ObjectStores objects = ObjectStores.Over(scene.Source, settings.ObjectStorage, TimeProvider.System);
             objects.TargetsForTests = address => address == TargetAddress ? scene.Target : null;
             scene.Fleet = await Fleet.StartAsync(settings, objects, recordBootstrap: false, TimeProvider.System, NullLogger.Instance, new HttpContextAccessor(), Ct);
-            scene._loop = scene.Fleet.RunAsync(scene._stopping.Token);
+            scene._loops.Add(scene.Fleet.RunAsync(scene._stopping.Token));
             return scene;
         }
 
@@ -350,16 +419,44 @@ public sealed class ShippingRoleTests
         }
 
         /// <summary>Declares the dataset <c>orders</c>, placed on this instance and shipped to the target, and returns it open.</summary>
-        public async Task<Dataset> DeclareAsync(string provider = "azurite")
+        public async Task<Dataset> DeclareAsync(string provider = "azurite", bool grant = false)
         {
             await RunningServer.DeclareAsync(Fleet,
                 "@prefix varve: <" + ManagementVocabulary.Namespace + "> .\n"
                 + "<" + ManagementVocabulary.DatasetGraphPrefix + "orders> {\n"
                 + "  <urn:ship:orders> a varve:Dataset ; varve:datasetName \"orders\" ; varve:storage varve:ObjectStorage ; varve:placedOn \"a\" ; varve:shipsTo <urn:ship:replica> .\n"
                 + "  <urn:ship:replica> a varve:ShippingTarget ; varve:store \"" + TargetAddress + "\" ; varve:prefix \"orders\" ; varve:provider \"" + provider + "\" .\n"
+                + (grant ? "  <urn:ship:alice> a varve:Grant ; varve:grantee <https://login.example/v2.0#alice> ; varve:permission varve:write ; varve:allGraphs true .\n" : string.Empty)
                 + "}\n");
             Assert.True(Fleet.Datasets.TryResolve(new DatasetName("orders"), out Dataset? dataset));
             return dataset;
+        }
+
+        /// <summary>A second fleet, of one instance <c>t</c>, over the target store: the fleet that serves the copy.</summary>
+        public async Task<Fleet> StartTargetFleetAsync()
+        {
+            ServerSettings settings = new();
+            settings.Auth.Mode = "Anonymous";
+            settings.ObjectStorage.Provider = "Azure";
+            settings.ObjectStorage.ContainerUrl = TargetAddress;
+            settings.ObjectStorage.CachePath = Path.Combine(_caches, "t");
+            settings.ObjectStorage.Instance = "t";
+            settings.Fleet.Writer = "t";
+            settings.Fleet.FollowInterval = Interval;
+            Fleet fleet = await Fleet.StartAsync(settings, ObjectStores.Over(Target, settings.ObjectStorage, TimeProvider.System), recordBootstrap: false, TimeProvider.System, NullLogger.Instance, new HttpContextAccessor(), Ct);
+            _loops.Add(fleet.RunAsync(_stopping.Token));
+            return fleet;
+        }
+
+        public static async Task UntilAsync(Func<bool> reached, string otherwise)
+        {
+            Stopwatch watch = Stopwatch.StartNew();
+
+            while (!reached())
+            {
+                Assert.True(watch.Elapsed < TimeSpan.FromSeconds(60), otherwise);
+                await Task.Delay(Interval, Ct);
+            }
         }
 
         public ShippingStatus Status() => Assert.Single(Fleet.Shipping.StatusOf(new DatasetName("orders")));
@@ -388,12 +485,15 @@ public sealed class ShippingRoleTests
         {
             await _stopping.CancelAsync();
 
-            try
+            foreach (Task loop in _loops)
             {
-                await _loop;
-            }
-            catch (OperationCanceledException)
-            {
+                try
+                {
+                    await loop;
+                }
+                catch (OperationCanceledException)
+                {
+                }
             }
 
             await Fleet.DisposeAsync();

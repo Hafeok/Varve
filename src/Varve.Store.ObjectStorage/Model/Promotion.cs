@@ -53,3 +53,16 @@ public enum PromotionOutcome
     /// <summary>Another promotion or another claim came first. Promote again.</summary>
     Lost,
 }
+
+/// <summary>Whether a dataset in an object store may be opened for write, as its lineage record and its writer record say (ADR 0185 decisions 3 and 6).</summary>
+public enum ReplicaState
+{
+    /// <summary>Not a copy, or a promoted one whose promotion finished: it is opened for write as any dataset.</summary>
+    None,
+
+    /// <summary>A replica: log shipping writes it, and it is followed, never claimed.</summary>
+    Replica,
+
+    /// <summary>Its lineage says promoted and no promotion claim fenced its log: only promoting again completes it.</summary>
+    PromotionIncomplete,
+}

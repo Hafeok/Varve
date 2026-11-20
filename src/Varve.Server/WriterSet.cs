@@ -5,9 +5,12 @@
 using System.Threading.Tasks;
 using System.Threading;
 using System;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.Extensions.Logging;
 using Varve.Management.Model;
 using Varve.Protocol.Model;
+using Varve.Store.Log;
 using Varve.Store.ObjectStorage.Model;
 using Varve.Store;
 
@@ -349,8 +352,119 @@ internal sealed partial class OpenDatasets
         return new TakeoverOutcome(won ? TakeoverRefusal.None : TakeoverRefusal.EpochMoved, new TakeoverEpoch(now));
     }
 
+    /// <summary>
+    /// A promotion of a replica (ADR 0185 decision 4): refused unless this
+    /// instance would write the dataset and follows the replica warm; then
+    /// promoted in place, with the trigger <c>promotion</c>. The operator's
+    /// source and position are checked against the lineage and the tail this
+    /// instance replayed. It is answered whatever the hold-off.
+    /// </summary>
+    [DesignDecision(typeof(PromotionAcrossCopies.PromotionIsAnsweredByAWarmMemberOfTheTargetFleet), Scope = ExceptionScope.Boundary)]
+    internal async Task<PromotionAnswer> PromoteAsync(string name, PromotionAsk ask, DatasetDeclaration declared, Placement placement, CancellationToken cancellationToken)
+    {
+        long epoch = (await _objects!.ReadWriterAsync(name, cancellationToken).ConfigureAwait(false))?.Epoch.Value ?? 0;
+        PromotionAnswer Refused(PromotionRefusal why, long position = 0) => new(why, new TakeoverEpoch(epoch), new Position(position));
+
+        if (declared.Storage != StorageKind.ObjectStorage)
+        {
+            return Refused(PromotionRefusal.NotAReplica);
+        }
+
+        bool member = placement.HasWriterSet(declared, DatasetStorage.ObjectStorage) ? placement.IsMember(declared) : placement.RoleOf(declared, DatasetStorage.ObjectStorage) == DatasetRole.Writer;
+
+        if (!member)
+        {
+            return Refused(PromotionRefusal.NotInWriterSet);
+        }
+
+        Entry? entry;
+
+        lock (_gate)
+        {
+            entry = _entries.TryGetValue(name, out Entry? held) ? held : null;
+        }
+
+        if (entry is null || entry.Replica == ReplicaState.None)
+        {
+            return Refused(PromotionRefusal.NotAReplica);
+        }
+
+        if (entry is not { Warm: true, Dataset: { } dataset, Objects: { } storage })
+        {
+            return Refused(PromotionRefusal.Cold);
+        }
+
+        // The tail as this instance replayed it: every commit verified against the chain (ADR 0184 decision 6).
+        await TailAsync(name, entry, cancellationToken).ConfigureAwait(false);
+        Position tail = dataset.Head;
+        PromotionOutcome outcome = PromotionOutcome.Lost;
+        bool won;
+
+        try
+        {
+            won = await dataset.TakeWriteAsync(
+                async claim => (outcome = await storage.PromoteInPlaceAsync(
+                    new PromotionRequest
+                    {
+                        Instance = placement.Instance,
+                        Address = _address,
+                        Source = new StoreAddress(ask.Source),
+                        Expected = ask.Position,
+                        Verified = tail,
+                        Hash = new CommitHeaderHash(Convert.ToHexStringLower(dataset.HeaderHash(tail).Span)),
+                        Randomness = SystemProbeRandomness.Instance,
+                    },
+                    claim).ConfigureAwait(false)) == PromotionOutcome.Promoted,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            // The storage released for promotion where it had won the record (decision 6): no standby race
+            // follows, and only promoting again completes it. This member follows again from a fresh open.
+            ReconcileLog.PromotionFailed(_logger, name, error.Message);
+            entry.Replica = ReplicaState.PromotionIncomplete;
+            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
+            throw;
+        }
+
+        epoch = (await _objects.ReadWriterAsync(name, cancellationToken).ConfigureAwait(false))?.Epoch.Value ?? epoch;
+
+        if (!won)
+        {
+            if (outcome == PromotionOutcome.Lost)
+            {
+                // Its storage may no longer refresh: opened again, as a standby that lost a claim is.
+                await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
+            }
+
+            return Refused(
+                outcome switch
+                {
+                    PromotionOutcome.NotAReplica => PromotionRefusal.NotAReplica,
+                    PromotionOutcome.SourceMismatch => PromotionRefusal.SourceMismatch,
+                    PromotionOutcome.PositionMismatch => PromotionRefusal.PositionMismatch,
+                    _ => PromotionRefusal.EpochMoved,
+                },
+                tail.Value);
+        }
+
+        entry.Replica = ReplicaState.None;
+        entry.Placed(DatasetRole.Writer);
+        entry.Claimed(opened: true);
+        await SeedOrderAsync(new DatasetName(name), dataset, cancellationToken).ConfigureAwait(false);
+        WarmKeys(name, dataset);
+        ReconcileLog.Promoted(_logger, name, epoch, tail.Value);
+        return new PromotionAnswer(PromotionRefusal.None, new TakeoverEpoch(epoch), tail);
+    }
+
     private static partial class ReconcileLog
     {
+        [LoggerMessage(EventId = 30, Level = LogLevel.Information, Message = "This instance promoted the replica '{Name}' at epoch {Epoch}, and writes on from position {Position} (ADR 0185).")]
+        internal static partial void Promoted(ILogger logger, string name, long epoch, long position);
+
+        [LoggerMessage(EventId = 31, Level = LogLevel.Error, Message = "The promotion of '{Name}' did not finish: {Reason}. It is completed only by promoting again (ADR 0185).")]
+        internal static partial void PromotionFailed(ILogger logger, string name, string reason);
+
         [LoggerMessage(EventId = 8, Level = LogLevel.Information, Message = "This standby claimed '{Name}' in place at epoch {Epoch}, on {Reason} (ADR 0180).")]
         internal static partial void Claimed(ILogger logger, string name, long epoch, string reason);
 

@@ -629,3 +629,8 @@ override Varve.Store.ObjectStorage.Model.PromotionRequest.ToString() -> string!
 static Varve.Store.ObjectStorage.DatasetIsReplicaException.PromotionIncomplete(Varve.Store.ObjectStorage.Model.LineageRecord! lineage) -> Varve.Store.ObjectStorage.DatasetIsReplicaException!
 static Varve.Store.ObjectStorage.Model.PromotionRequest.operator !=(Varve.Store.ObjectStorage.Model.PromotionRequest? left, Varve.Store.ObjectStorage.Model.PromotionRequest? right) -> bool
 static Varve.Store.ObjectStorage.Model.PromotionRequest.operator ==(Varve.Store.ObjectStorage.Model.PromotionRequest? left, Varve.Store.ObjectStorage.Model.PromotionRequest? right) -> bool
+Varve.Store.ObjectStorage.Model.ReplicaState
+Varve.Store.ObjectStorage.Model.ReplicaState.None = 0 -> Varve.Store.ObjectStorage.Model.ReplicaState
+Varve.Store.ObjectStorage.Model.ReplicaState.PromotionIncomplete = 2 -> Varve.Store.ObjectStorage.Model.ReplicaState
+Varve.Store.ObjectStorage.Model.ReplicaState.Replica = 1 -> Varve.Store.ObjectStorage.Model.ReplicaState
+static Varve.Store.ObjectStorage.ObjectStorage.ReplicaStateAsync(Varve.Store.IObjectStore! store, Varve.Store.Log.ObjectName? prefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.ReplicaState>
