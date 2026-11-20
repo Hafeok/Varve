@@ -10,9 +10,14 @@ not the maintainer's delegate (ADR 0239). The prompts are in the
 |---|---|---|---|
 | [#379](https://github.com/Hafeok/Varve/pull/379) | [#368](https://github.com/Hafeok/Varve/issues/368), under #129 | #368 | ADR 0247 amended 2026-11-19, `SiteStyledFromDesignSource`, filed unaccepted |
 
-The pull request is red on `CS0618` for the unaccepted ruling, and on
-nothing else. Its hosted results, and the audit's CI result after the
-acceptance, are reported on #379.
+The pull request was red on `CS0618` for the unaccepted ruling, and on
+nothing else, until the maintainer's delegate accepted
+`SiteStyledFromDesignSource` on 2026-11-20 (`cc235495`, ADR 0239). `main`
+at `bd5eedd` was then merged in (`ed23b7eb`), cleanly.
+
+One slip, caught by CI and fixed: an unused `using` (`IDE0005`) in
+`OutputCheckTests.cs`. My local runs had turned warnings-as-errors off on
+the command line, which hid it.
 
 ## What was built
 
@@ -44,15 +49,20 @@ acceptance, are reported on #379.
 
 The site uses about 1.3 KB of `bundle.css` (`vw-state` and its tones), about 5% (#373).
 
-**The audit:** axe-core at WCAG 2.2 AA, in this session against Chrome from Playwright. "None" means no violation.
+**The audit:** axe-core at WCAG 2.2 AA, in CI for the first time after the
+acceptance: [run 44709366630](https://github.com/Hafeok/Varve/actions/runs/44709366630),
+head `ed23b7eb`, with `axe.md` in its `docs-site-review` artifact. The
+session's local runs gave the same result. "None" means no violation; the
+number is the rules that passed.
 
 | Page | Light, 1440 | Dark, 1440 | Light, 390 | Dark, 390 |
 |---|---|---|---|---|
-| `index.html` | none | none | none | none |
-| `adr/0247-the-docs-site.html` | none | none | none | none |
-| `operator/configure.html` | none | none | none | none |
+| `index.html` | none (21) | none (21) | none (21) | none (21) |
+| `adr/0247-the-docs-site.html` | none (27) | none (27) | none (28) | none (28) |
+| `operator/configure.html` | none (25) | none (25) | none (25) | none (25) |
 
-**Tests:** `tests/Varve.Site.Tests` has 67 tests, and all pass.
+**Tests:** `tests/Varve.Site.Tests` has 67 tests. All 67 pass, both locally
+and in CI's `docs site` job.
 
 **Badges on the branch:** 213 Accepted, 7 Superseded, and 1 "Accepted · 1 pending" (ADR 0247).
 
