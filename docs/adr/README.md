@@ -526,9 +526,17 @@ Filed by the session for [#317](https://github.com/Hafeok/Varve/issues/317), und
 |---:|---|---|
 | [0247](0247-the-docs-site.md) | The docs site: a generator in eng/ on Markdig, Mermaid drawn at build time, no script | Filed unaccepted (#317) |
 
+## Every procedure names what runs it (#129)
+
+Filed by the session for [#129](https://github.com/Hafeok/Varve/issues/129)'s operator-guide deliverable, recording the maintainer's answer of 2026-11-16, unaccepted until he accepts it (ADR 0066).
+
+| # | Title | Status |
+|---:|---|---|
+| [0248](0248-every-procedure-names-what-runs-it.md) | Every procedure in the operator's guide names what runs it | Filed unaccepted (#129) |
+
 ## The learning track (#94)
 
-Filed by the session for [#364](https://github.com/Hafeok/Varve/issues/364), part (a) of [#94](https://github.com/Hafeok/Varve/issues/94), recording the plan the maintainer accepted on #94 on 2026-11-19, unaccepted until he accepts it (ADR 0066). Numbered 0249: 0248 is taken by #345, whose marker grammar it extends.
+Filed by the session for [#364](https://github.com/Hafeok/Varve/issues/364), part (a) of [#94](https://github.com/Hafeok/Varve/issues/94), recording the plan the maintainer accepted on #94 on 2026-11-19, unaccepted until he accepts it (ADR 0066). Numbered 0249, after 0248, whose marker grammar it extends.
 
 | # | Title | Status |
 |---:|---|---|

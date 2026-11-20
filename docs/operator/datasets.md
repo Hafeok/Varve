@@ -51,6 +51,7 @@ closes what is declared closed, and the writer deletes what is no longer
 declared. A file kept in the application's repository is the source of
 truth; `varve apply` makes the server so.
 
+<!-- ci: ci.yml build — ApplyTests, with equivalent declarations; ci.yml container — the dataset declared by varve apply -->
 ```trig
 @prefix varve: <https://w3id.org/varve/ns#> .
 @prefix n: <https://notes.example/manage/> .
@@ -93,6 +94,7 @@ declaration-invalid`, naming the graph, the node and the property.
 
 ### `varve apply`
 
+<!-- ci: ci.yml build — ApplyTests: --plan, --exit-code, --out, --from-plan and a plain apply -->
 ```sh
 varve apply notes.trig --server https://varve.example --plan --exit-code   # drift check: exit 2 on a diff
 varve apply notes.trig --server https://varve.example --plan --out plan.json
@@ -121,19 +123,22 @@ The same graphs, one resource at a time, under the management plane's token:
 
 | Resource | Methods |
 |---|---|
-| `/manage/datasets` | `GET`: the datasets the caller administers, each with its state, storage and this instance's role (`writer`, `follower` or `elsewhere`) |
+| `/manage/datasets` | `GET`: the datasets the caller administers, each with its state, storage and this instance's role (`writer`, `standby`, `follower` or `elsewhere`) |
 | `/manage/datasets/{name}` | `GET` the declaration as TriG, its graph's version as `ETag`; `PUT` replaces it, `PATCH` replaces the values of each subject and property the body states; `DELETE` removes it, and only a dataset declared closed |
 | `…/settings` | `GET` the declared settings as JSON; `PUT` and `PATCH` take TriG stating the dataset node's settings |
-| `…/state` | `GET` this instance's state and role, with the declaration's graph version as `ETag`, the same tag the declaration sends; `PUT {"state": "open"}` or `{"state": "closed"}` declares it, and every instance converges |
+| `…/state` | `GET` this instance's state and role, with the declaration's graph version as `ETag`, the same tag the declaration sends; `PUT {"state": "open"}` or `{"state": "closed"}` declares it, and every instance converges; `PUT {"takeover": {"epoch": n}}` asks this instance to take the dataset over from epoch `n` ([The fleet](fleet.md), ADR 0179) |
 | `…/status`, `…/checkpoints` | the dataset's status, and a checkpoint, taken by its writer |
 | `…/grants` | `GET` the grants as JSON, as of `Varve-As-Of`: who could read which graphs, then |
+| `…/events`, `…/events/move` | `GET` where the dataset's event declarations are (`in-dataset`, `moving`, `moved`); `POST …/move` moves them to the management plane ([Moving event schemas](moving-event-schemas.md), ADR 0167) |
+| `…/bindings/{binding}` | `GET` one shapes, classifier or TBox binding as the applied position has it, with what this instance knows of it ([Shapes](shapes.md), [Inference](inference.md)) |
 | `/manage/fleet` | the fleet graph, as the dataset resource; an operator's |
 | `/manage/graphs` | `GET` every management graph as TriG, with `Varve-Graph-Versions` |
 | `/manage/apply` | `POST`, as above |
 | `/manage/sparql` | SPARQL over the system dataset, for an operator; an update runs the code validator |
-| `/manage/system` | `GET` this instance's name (`instance`, as placement and request ids name it), its role in the system dataset, epoch, positions, bootstrap state and writer; never forwarded, so each instance answers for itself |
+| `/manage/system` | `GET` this instance's name (`instance`, as placement and request ids name it), its role in the system dataset (`writer`, `follower` or `superseded`), epoch, `position`, `tail`, `lag`, bootstrap state and writer; never forwarded, so each instance answers for itself |
 
-`PUT`, `PATCH` and `DELETE` take `If-Match` with the graph's version. A
+`PUT`, `PATCH` and `DELETE` take `If-Match` with the graph's version; it is
+optional, and without it, or with `*`, the write is not conditional. A
 management write to an instance that does not write the system dataset is
 forwarded to the one that does ([The fleet](fleet.md)).
 
@@ -194,6 +199,7 @@ an application cannot grant itself any, and grants are declarations
 
 ### In an application: `AddVarve`
 
+<!-- ci: ci.yml build — SetupTests; ci.yml samples — the on-behalf-of sample's AddVarve -->
 ```csharp
 builder.Services.AddVarve(options =>
 {
@@ -210,6 +216,7 @@ the start**, with the step, the status and the problem body (ADR 0131).
 
 ### From a pipeline: `varve setup apply`
 
+<!-- ci: none — SetupApplyTests runs varve setup apply with --token; this sign-in by client secret is run by no job -->
 ```sh
 varve setup apply varve/orders.yaml https://varve.example/ --authority https://login.example/ --client-id deployer --client-secret "$SECRET"
 ```
@@ -221,6 +228,7 @@ outside the subset below, with its line and column.
 
 ### In an Aspire AppHost: `WithDataset(…, setup:)`
 
+<!-- ci: ci.yml aspire — the sample AppHost's WithDataset -->
 ```csharp
 builder.AddVarve("varve")
     .WithOidc(authority, "api://varve")
@@ -242,6 +250,7 @@ A setup file is YAML, **of a strict subset**, read without a YAML package.
 **Anything outside the subset is refused with its line and column**, never
 accepted silently.
 
+<!-- ci: ci.yml build — SetupFileTests -->
 ```yaml
 # The shop's orders dataset.
 dataset: orders                  # required: the dataset's name, declared in the management plane
@@ -287,3 +296,9 @@ migrations:                      # optional, in order, each once
 
 A file's encoding is UTF-8. A baseline file may start with a byte order mark,
 which is dropped before it is read or sent.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **From a pipeline: `varve setup apply`.** SetupApplyTests runs varve setup apply with --token; this sign-in by client secret is run by no job.
