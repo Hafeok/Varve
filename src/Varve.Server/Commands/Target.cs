@@ -168,7 +168,7 @@ internal sealed class Target
 
         try
         {
-            DatasetOptions options = new() { Clock = clock, Validators = [new EventCatalogueValidator(), new ReportGraphGuard()] };
+            DatasetOptions options = new() { Clock = clock, Validators = [new EventCatalogueValidator(), new ReportGraphGuard(), new InferenceGraphGuard()] };
             Dataset dataset = exists
                 ? await Varve.Store.Dataset.OpenAsync(files, options, cancellationToken).ConfigureAwait(false)
                 : await Varve.Store.Dataset.CreateAsync(files, new DatasetId(Guid.NewGuid()), options, cancellationToken).ConfigureAwait(false);
@@ -207,7 +207,7 @@ internal sealed class Target
                 ProbeRandomness = SystemProbeRandomness.Instance,
                 Clock = clock,
             }, cancellationToken).ConfigureAwait(false);
-            DatasetOptions options = new() { Clock = clock, Validators = [new EventCatalogueValidator(), new ReportGraphGuard()], Maintenance = MaintenanceMode.Off, ExtentMerges = ExtentMergePolicy.Off };
+            DatasetOptions options = new() { Clock = clock, Validators = [new EventCatalogueValidator(), new ReportGraphGuard(), new InferenceGraphGuard()], Maintenance = MaintenanceMode.Off, ExtentMerges = ExtentMergePolicy.Off };
             Dataset dataset = await Varve.Store.Dataset.OpenAsync(storage, options, cancellationToken).ConfigureAwait(false);
             return new Local(dataset, new OwnedStore(storage, store), OutboundOf(parsed), cache);
         }

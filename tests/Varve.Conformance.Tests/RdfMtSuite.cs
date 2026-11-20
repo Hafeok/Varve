@@ -17,7 +17,8 @@ namespace Varve.Conformance.Tests;
 /// (<c>mf:entailmentRegime</c>: <c>simple</c>, <c>RDF</c> or <c>RDFS</c>)
 /// with the datatypes it recognises. A case whose result is <c>false</c> asks
 /// whether the action is inconsistent, which the rewriting does not check (§4
-/// lets it answer regardless): those wait for the closure's clash rules, #171.
+/// lets it answer regardless): those run on the closure's clash rules
+/// (<see cref="RdfMtClosureTests"/>, #171).
 /// </summary>
 internal static class RdfMtSuite
 {
@@ -77,7 +78,7 @@ internal static class RdfMtSuite
 
     /// <summary>Why a case does not run on the rewriting, or null when it runs.</summary>
     internal static string? NotRun(RdfMtEntry entry) =>
-        entry.Result is null ? "pending: whether the action is inconsistent, the closure's clash rules, #171" : null;
+        entry.Result is null ? "on the closure: whether the action is inconsistent, its clash rules (RdfMtClosureTests), #171" : null;
 }
 
 /// <summary>One case of <c>rdf-mt</c>: does the action entail the result, under the regime, recognising the datatypes.</summary>

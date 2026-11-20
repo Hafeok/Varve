@@ -1,0 +1,17 @@
+# NOT PART OF REALESTATECORE AS PUBLISHED.
+#
+# A benchmark axiom set for Varve's measurement of cross-graph premise sets
+# (ADR 0195 point 3; ADR 0141, amended 2026-11-18). REC 4.1 and its Brick
+# state nothing that joins two data facts of different graphs, so REC with
+# links between buildings gives no cross-graph premise set. This file holds the transitive property of rec-links.ttl alone, to
+# measure that rule apart from the chain (#354). The two axioms of
+# rec-links.ttl make the links join: loaded as an ontology graph of their own, beside REC's,
+# by Varve.Benchmarks --inference-premise-sets ... axioms=links, under OWL 2 RL
+# only, in the nightly's premise-sets job or by hand. Nothing else reads them,
+# and REC M and its pinned hashes do not depend on them.
+
+@prefix rec: <https://w3id.org/rec#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+
+# What feeds what feeds is fed by the first (OWL 2 RL prp-trp).
+rec:feeds a owl:TransitiveProperty .

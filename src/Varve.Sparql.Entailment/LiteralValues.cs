@@ -109,6 +109,64 @@ public static class LiteralValues
         }
     }
 
+    /// <summary>
+    /// Whether a literal is well typed among the datatypes of Varve.Xsd's map:
+    /// a literal of one of them in its lexical space, or of any other
+    /// datatype, which nothing here can call ill typed (RDF 1.1 Semantics §7).
+    /// </summary>
+    public static bool IsWellTyped(RdfTerm literal)
+    {
+        ArgumentNullException.ThrowIfNull(literal);
+        return literal.Kind != RdfTermKind.Literal || literal.Datatype is null || XsdDatatypes.FromIri(literal.DatatypeIri) == XsdDatatype.None || Valid(literal);
+    }
+
+    /// <summary>
+    /// Whether every value of <paramref name="datatype"/> is a value of
+    /// <paramref name="super"/>, among the datatypes of Varve.Xsd's map: the
+    /// same datatype, an integer type within another or within decimal, a
+    /// string type within string, dateTimeStamp within dateTime, a duration
+    /// type within duration. False for any pair it does not know to nest.
+    /// </summary>
+    public static bool ValueSpaceWithin(RdfTerm datatype, RdfTerm super)
+    {
+        ArgumentNullException.ThrowIfNull(datatype);
+        ArgumentNullException.ThrowIfNull(super);
+        if (datatype.Lexical.SequenceEqual(super.Lexical))
+        {
+            return true;
+        }
+
+        XsdDatatype inner = XsdDatatypes.FromIri(datatype.Lexical), outer = XsdDatatypes.FromIri(super.Lexical);
+        if (inner == XsdDatatype.None || outer == XsdDatatype.None)
+        {
+            return false;
+        }
+
+        if (XsdDatatypes.IsIntegerType(inner))
+        {
+            if (outer is XsdDatatype.Decimal or XsdDatatype.Integer)
+            {
+                return true;
+            }
+
+            if (!XsdDatatypes.IsIntegerType(outer))
+            {
+                return false;
+            }
+
+            (long innerMinimum, long innerMaximum) = XsdInteger.Range(inner);
+            (long outerMinimum, long outerMaximum) = XsdInteger.Range(outer);
+            return innerMinimum >= outerMinimum && innerMaximum <= outerMaximum;
+        }
+
+        return (inner, outer) switch
+        {
+            (XsdDatatype.DateTimeStamp, XsdDatatype.DateTime) => true,
+            (XsdDatatype.YearMonthDuration or XsdDatatype.DayTimeDuration, XsdDatatype.Duration) => true,
+            _ => false,
+        };
+    }
+
     // A literal in its datatype's lexical space: its canonical form is computed.
     private static bool Valid(RdfTerm literal) => !ReferenceEquals(Canonical(literal), literal) || XsdDatatypes.FromIri(literal.DatatypeIri) == XsdDatatype.String;
 

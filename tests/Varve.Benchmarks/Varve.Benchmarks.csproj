@@ -40,6 +40,7 @@
     <ProjectReference Include="../../src/Varve.Store.Azure/Varve.Store.Azure.csproj" />
     <ProjectReference Include="../../src/Varve.Store.S3/Varve.Store.S3.csproj" />
     <ProjectReference Include="../../src/Varve.Classification/Varve.Classification.csproj" />
+    <ProjectReference Include="../../src/Varve.Inference.Store/Varve.Inference.Store.csproj" />
     <!-- The idempotency index's rebuild (ADR 0246, #132). -->
     <ProjectReference Include="../../src/Varve.Protocol/Varve.Protocol.csproj" />
   </ItemGroup>
