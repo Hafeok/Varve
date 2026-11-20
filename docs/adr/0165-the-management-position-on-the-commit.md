@@ -131,9 +131,17 @@ maintainer accepts it (ADR 0066).
   position in another fleet's system dataset.**
 - **The write watermark is never seeded from one.** A promoted copy's
   watermark starts from the commits this fleet wrote, or from nothing.
-- **Not built: answering events and audit of such a commit** from the
-  source fleet's shipped system dataset. Until it is, they are resolved in
-  the serving fleet's system dataset, which is the wrong one.
+- **What such a position meant is read in the source fleet's system
+  dataset,** shipped beside the copy under `fleets/<source-fleet-id>/` and
+  followed read-only, under the name the dataset had there. The serving
+  fleet's system dataset is not consulted for it.
+- **Where that copy is not on the store, or cannot be opened,** what the
+  position meant cannot be said, and the answer is the one for a position
+  not yet applied.
+- **Never for authorisation.** The shipped system dataset is asked only
+  what a past commit's declarations were.
+- **The lineage is read once per dataset,** the first time one of its
+  commits is asked about, and again only after a promotion.
 
 **The ledger.** No ruling changes. The ruling is
 `AManagementPositionBelongsToItsFleet`, in ADR 0185's set.

@@ -299,6 +299,21 @@ public sealed class ShippingRoleTests
         Assert.False(target.Table.Reaches(alice, "orders"));
         Assert.False(target.Table.Writes(alice, "orders"));
 
+        // Decision 8: every commit of a replica was written under the source fleet. Its system dataset, shipped
+        // beside the copy, is what a recorded position is read in, under the name the dataset has there.
+        ForeignFleet asReplica = (await target.ForeignFleetAsync(orders, replica.Head, Ct))!;
+        Assert.Equal(scene.Fleet.System.Id, asReplica.System!.Id);
+        Assert.NotSame(target.System, asReplica.System);
+        Assert.Equal("orders", asReplica.Dataset.Value);
+        Assert.Equal(scene.Fleet.System.Head, await asReplica.System.AdvanceAsync(Ct));
+        using (DatasetView theirs = asReplica.System.Pin())
+        {
+            Assert.Contains(DeclarationReader.Read(theirs).Datasets["orders"].Grants, grant => grant.Access == GrantAccess.Write);
+        }
+
+        // The source's own dataset is no copy: every commit of it is its own fleet's.
+        Assert.Null(await scene.Fleet.ForeignFleetAsync(orders, source.Head, Ct));
+
         // The operator says what they expect. A wrong position, or a wrong source, changes nothing.
         long tail = replica.Head.Value;
         Assert.Equal(PromotionRefusal.PositionMismatch, (await target.PromoteAsync(orders, new PromotionAsk("https://fleet.invalid/source", new Position(tail - 1)), Ct))!.Value.Refusal);
@@ -320,6 +335,10 @@ public sealed class ShippingRoleTests
         // Decision 8: the copy's commits recorded positions of another fleet. The target's write watermark is
         // not raised by them, or every write here would wait for a management position 500 of this fleet.
         Assert.Equal(0, target.Recorded(orders).Value);
+
+        // After the promotion: a commit at or below the promoted position is the source fleet's, and one above it is this fleet's.
+        Assert.NotNull(await target.ForeignFleetAsync(orders, new Position(tail), Ct));
+        Assert.Null(await target.ForeignFleetAsync(orders, new Position(tail + 1), Ct));
 
         // It writes on, at once, on the same open dataset.
         await CommitAsync(replica, 5, 7);

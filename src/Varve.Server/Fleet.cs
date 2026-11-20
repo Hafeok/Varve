@@ -97,6 +97,21 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         Shipping = new Shipping(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, objects, settings.Replication, () => System, clock, logger);
     }
 
+    // The source fleets' system datasets beside the copies this fleet serves (ADR 0185 decision 8); none in a fleet of one.
+    private ShippedFleets? _shippedFleets;
+
+    /// <inheritdoc />
+    public ValueTask<ForeignFleet?> ForeignFleetAsync(DatasetName dataset, Position position, CancellationToken cancellationToken)
+    {
+        if (_objects is null)
+        {
+            return default;
+        }
+
+        ShippedFleets shipped = LazyInitializer.EnsureInitialized(ref _shippedFleets, () => new ShippedFleets(_objects, Datasets));
+        return shipped.OfAsync(dataset, position, cancellationToken);
+    }
+
     /// <summary>The shippers of the datasets this instance ships (ADR 0184).</summary>
     internal Shipping Shipping { get; }
 
@@ -596,6 +611,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             if (answer.Refusal == PromotionRefusal.None)
             {
                 _routes.TryRemove(dataset.Value, out _);
+                Volatile.Read(ref _shippedFleets)?.Forget(dataset);
             }
 
             return answer;
@@ -1068,6 +1084,11 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     public async ValueTask DisposeAsync()
     {
         await Shipping.DisposeAsync().ConfigureAwait(false);
+
+        if (Volatile.Read(ref _shippedFleets) is { } shippedFleets)
+        {
+            await shippedFleets.DisposeAsync().ConfigureAwait(false);
+        }
         await Projections.DisposeAsync().ConfigureAwait(false);
         await Classifications.DisposeAsync().ConfigureAwait(false);
         await Datasets.DisposeAsync().ConfigureAwait(false);

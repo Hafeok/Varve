@@ -31,7 +31,6 @@ internal sealed class ObjectStores : IDisposable
     private const string Manifest = "/log/MANIFEST";
 
     private readonly ObjectStorageSettings _settings;
-    private readonly TimeProvider _clock;
     private readonly Lock _targetsLock = new();
     private readonly Dictionary<string, IObjectStore> _targets = new(StringComparer.Ordinal);
 
@@ -39,7 +38,7 @@ internal sealed class ObjectStores : IDisposable
     {
         Store = store;
         _settings = settings;
-        _clock = clock;
+        Clock = clock;
     }
 
     /// <summary>The server's store, or null when no provider is configured.</summary>
@@ -99,7 +98,7 @@ internal sealed class ObjectStores : IDisposable
                 return open;
             }
 
-            IObjectStore store = TargetsForTests?.Invoke(address) ?? Create(address, replication, _clock);
+            IObjectStore store = TargetsForTests?.Invoke(address) ?? Create(address, replication, Clock);
             _targets[address] = store;
             return store;
         }
@@ -149,6 +148,44 @@ internal sealed class ObjectStores : IDisposable
     internal async Task<Position?> PromotedAtAsync(string name, CancellationToken cancellationToken) =>
         (await Backend.ReadLineageAsync(Store, PrefixOf(name), cancellationToken).ConfigureAwait(false))?.Promoted?.Position;
 
+    /// <summary>A dataset's lineage record, or none for a dataset that is no copy (ADR 0185).</summary>
+    internal async Task<LineageRecord?> LineageAsync(string name, CancellationToken cancellationToken) =>
+        await Backend.ReadLineageAsync(Store, PrefixOf(name), cancellationToken).ConfigureAwait(false);
+
+    /// <summary>The clock this instance's storages wait on.</summary>
+    internal TimeProvider Clock { get; }
+
+    /// <summary>
+    /// The system dataset of another fleet as its shipper wrote it beside the
+    /// copies this fleet serves (ADR 0185 decision 8), under
+    /// <c>fleets/{fleet id}/</c>, opened read-only; none where the store
+    /// holds no such copy.
+    /// </summary>
+    internal async Task<Backend?> OpenShippedFleetAsync(DatasetId fleet, CancellationToken cancellationToken)
+    {
+        string name = "fleets/" + fleet.Value.ToString("D");
+
+        if (!await ExistsAsync(name, cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        string cache = Path.Combine(_settings.CachePath!, "_fleets", fleet.Value.ToString("D"));
+        Directory.CreateDirectory(cache);
+
+        return await Backend.OpenAsync(new ObjectStorageOptions
+        {
+            Store = Store,
+            Prefix = new ObjectName(name + "/"),
+            Cache = new CacheDirectory(cache),
+            Access = ObjectStorageAccess.ReadOnly,
+            CacheBytes = new ByteCount(_settings.CacheBytes),
+            MaxObjectBytes = _settings.Provider == "Azure" ? AzureBlobStore.MaxSingleUploadBytes : S3ObjectStore.MaxSingleUploadBytes,
+            Clock = Clock,
+            ProbeRandomness = SystemProbeRandomness.Instance,
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Whether the store holds a dataset of this name: its manifest.</summary>
     internal async Task<bool> ExistsAsync(string name, CancellationToken cancellationToken) =>
         await Store.ReadAsync(new ObjectName(name + Manifest), new ByteOffset(0), new ByteCount(1), cancellationToken).ConfigureAwait(false) is not null;
@@ -176,7 +213,7 @@ internal sealed class ObjectStores : IDisposable
             CacheBytes = new ByteCount(_settings.CacheBytes),
             Reader = ReaderOf(access),
             MaxObjectBytes = _settings.Provider == "Azure" ? AzureBlobStore.MaxSingleUploadBytes : S3ObjectStore.MaxSingleUploadBytes,
-            Clock = _clock,
+            Clock = Clock,
             ProbeRandomness = SystemProbeRandomness.Instance,
         }, cancellationToken).ConfigureAwait(false);
     }

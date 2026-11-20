@@ -152,6 +152,16 @@ public interface IManagementPlane
     ValueTask<TakeoverOutcome?> TakeoverAsync(DatasetName? dataset, TakeoverEpoch epoch, CancellationToken cancellationToken) => default;
 
     /// <summary>
+    /// The fleet that wrote the commit of <paramref name="dataset"/> at
+    /// <paramref name="position"/>, where it is not this one (ADR 0185
+    /// decision 8): every commit of a replica, and every commit at or below
+    /// a promoted copy's promoted position. Null for a commit this fleet
+    /// wrote. It is asked only for what a foreign commit's recorded position
+    /// meant, events and audit, and never for authorisation. None by default.
+    /// </summary>
+    ValueTask<ForeignFleet?> ForeignFleetAsync(DatasetName dataset, Position position, CancellationToken cancellationToken) => default;
+
+    /// <summary>
     /// Promotes the replica <paramref name="dataset"/> on this instance (ADR
     /// 0185 decision 4): answered here and never forwarded, since it acts on
     /// the store and not on a declaration. Null where this instance has no

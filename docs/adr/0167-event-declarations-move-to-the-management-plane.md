@@ -276,7 +276,13 @@ under the source fleet. Its moved event declarations are in that fleet's
 system dataset, which is shipped to `fleets/<source-fleet-id>/` on the
 copy's store (ADR 0185 decision 8).
 
-**Not built.** Rendering such a commit's events from that copy is decided
-by ADR 0185 and not implemented by the change that files this amendment.
+- **Such a commit's events are rendered by the declarations in that
+  copy,** at the position the commit records, under the name the dataset
+  had in the source fleet. A dataset's two fleets are replayed apart, so a
+  promoted copy's old commits and its new ones each take their own.
+- **An as-of view of the catalogue** at such a commit reads the same copy.
+- **Tested** at the catalogue's resolution, with two system datasets, and
+  at the server, which names the fleet that wrote a commit. Not tested over
+  HTTP between two stores: that is the `shipping (services)` job's.
 
 **The ledger.** No ruling changes.

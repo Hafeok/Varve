@@ -616,3 +616,18 @@ override Varve.Protocol.Model.UntestedTarget.GetHashCode() -> int
 override Varve.Protocol.Model.UntestedTarget.ToString() -> string!
 static Varve.Protocol.Model.UntestedTarget.operator !=(Varve.Protocol.Model.UntestedTarget? left, Varve.Protocol.Model.UntestedTarget? right) -> bool
 static Varve.Protocol.Model.UntestedTarget.operator ==(Varve.Protocol.Model.UntestedTarget? left, Varve.Protocol.Model.UntestedTarget? right) -> bool
+Varve.Protocol.IManagementPlane.ForeignFleetAsync(Varve.Protocol.Model.DatasetName dataset, Varve.Store.Log.Position position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.ForeignFleet?>
+Varve.Protocol.Model.ForeignFleet
+Varve.Protocol.Model.ForeignFleet.<Clone>$() -> Varve.Protocol.Model.ForeignFleet!
+Varve.Protocol.Model.ForeignFleet.Dataset.get -> Varve.Protocol.Model.DatasetName
+Varve.Protocol.Model.ForeignFleet.Dataset.init -> void
+Varve.Protocol.Model.ForeignFleet.Deconstruct(out Varve.Store.Dataset? System, out Varve.Protocol.Model.DatasetName Dataset) -> void
+Varve.Protocol.Model.ForeignFleet.Equals(Varve.Protocol.Model.ForeignFleet? other) -> bool
+Varve.Protocol.Model.ForeignFleet.ForeignFleet(Varve.Store.Dataset? System, Varve.Protocol.Model.DatasetName Dataset) -> void
+Varve.Protocol.Model.ForeignFleet.System.get -> Varve.Store.Dataset?
+Varve.Protocol.Model.ForeignFleet.System.init -> void
+override Varve.Protocol.Model.ForeignFleet.Equals(object? obj) -> bool
+override Varve.Protocol.Model.ForeignFleet.GetHashCode() -> int
+override Varve.Protocol.Model.ForeignFleet.ToString() -> string!
+static Varve.Protocol.Model.ForeignFleet.operator !=(Varve.Protocol.Model.ForeignFleet? left, Varve.Protocol.Model.ForeignFleet? right) -> bool
+static Varve.Protocol.Model.ForeignFleet.operator ==(Varve.Protocol.Model.ForeignFleet? left, Varve.Protocol.Model.ForeignFleet? right) -> bool
