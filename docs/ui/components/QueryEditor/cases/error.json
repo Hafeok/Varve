@@ -1,0 +1,114 @@
+{
+  "parameters": {
+    "Id": "q",
+    "Label": "Query",
+    "Text": "PREFIX dct: <http://purl.org/dc/terms/>\nSELECT ?note ?title WHERE {\n  ?note dct:title ?title\n  FILTER (LANG(?title) = \"en\"\n}",
+    "Runs": [
+      {
+        "Start": 0,
+        "End": 6,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 7,
+        "End": 11,
+        "Kind": "iri"
+      },
+      {
+        "Start": 12,
+        "End": 39,
+        "Kind": "iri"
+      },
+      {
+        "Start": 40,
+        "End": 46,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 47,
+        "End": 52,
+        "Kind": "variable"
+      },
+      {
+        "Start": 53,
+        "End": 59,
+        "Kind": "variable"
+      },
+      {
+        "Start": 60,
+        "End": 65,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 66,
+        "End": 67,
+        "Kind": "punct"
+      },
+      {
+        "Start": 70,
+        "End": 75,
+        "Kind": "variable"
+      },
+      {
+        "Start": 76,
+        "End": 85,
+        "Kind": "iri"
+      },
+      {
+        "Start": 86,
+        "End": 92,
+        "Kind": "variable"
+      },
+      {
+        "Start": 95,
+        "End": 101,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 102,
+        "End": 103,
+        "Kind": "punct"
+      },
+      {
+        "Start": 103,
+        "End": 107,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 107,
+        "End": 108,
+        "Kind": "punct"
+      },
+      {
+        "Start": 108,
+        "End": 114,
+        "Kind": "variable"
+      },
+      {
+        "Start": 114,
+        "End": 115,
+        "Kind": "punct"
+      },
+      {
+        "Start": 116,
+        "End": 117,
+        "Kind": "punct"
+      },
+      {
+        "Start": 118,
+        "End": 122,
+        "Kind": "literal"
+      },
+      {
+        "Start": 123,
+        "End": 124,
+        "Kind": "punct"
+      }
+    ],
+    "Error": {
+      "Offset": 123,
+      "Message": "5:1: Expected ')', found '}'."
+    },
+    "Help": "Tab inserts two spaces. Press Escape, then Tab, to leave the editor."
+  }
+}

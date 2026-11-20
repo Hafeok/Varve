@@ -14,6 +14,8 @@ using Varve.Protocol.Client;
 using Varve.WebUi.App;
 using Xunit;
 
+using Varve.WebUi.Components;
+
 namespace Varve.WebUi.Tests;
 
 /// <summary>

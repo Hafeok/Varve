@@ -1,0 +1,84 @@
+{
+  "parameters": {
+    "Id": "q",
+    "Label": "Query",
+    "Text": "SELECT ?note WHERE {\n  FILTER (LANG(?title) = \"en\")\n}",
+    "Runs": [
+      {
+        "Start": 0,
+        "End": 6,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 7,
+        "End": 12,
+        "Kind": "variable"
+      },
+      {
+        "Start": 13,
+        "End": 18,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 19,
+        "End": 20,
+        "Kind": "punct"
+      },
+      {
+        "Start": 23,
+        "End": 29,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 30,
+        "End": 31,
+        "Kind": "punct"
+      },
+      {
+        "Start": 31,
+        "End": 35,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 35,
+        "End": 36,
+        "Kind": "punct"
+      },
+      {
+        "Start": 36,
+        "End": 42,
+        "Kind": "variable"
+      },
+      {
+        "Start": 42,
+        "End": 43,
+        "Kind": "punct"
+      },
+      {
+        "Start": 44,
+        "End": 45,
+        "Kind": "punct"
+      },
+      {
+        "Start": 46,
+        "End": 50,
+        "Kind": "literal"
+      },
+      {
+        "Start": 50,
+        "End": 51,
+        "Kind": "punct"
+      },
+      {
+        "Start": 52,
+        "End": 53,
+        "Kind": "punct"
+      }
+    ],
+    "Match": [
+      30,
+      50
+    ],
+    "Help": "Tab inserts two spaces. Press Escape, then Tab, to leave the editor."
+  }
+}

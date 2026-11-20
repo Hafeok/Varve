@@ -1,0 +1,104 @@
+@page "/datasets/_spike/graphs/spike"
+@namespace Varve.WebUi.Explorer.Pages
+@inject NavigationManager Navigation
+@inject Microsoft.JSInterop.IJSRuntime Js
+@* The graph view's spike (#355, ruling 4 of 2026-11-02): RadialLayout and
+   GraphView at n nodes in the published, interpreted, trimmed bundle. Built
+   into the Web UI only with -p:VarveGraphSpike=true, never shipped. Times,
+   in milliseconds: the layout, Blazor's render of the SVG, and the browser's
+   next frame after it. The first run of a page load is cold; then ten warm
+   runs, each on a fresh neighbourhood of the same size. *@
+<PageTitle>Graph spike · Varve</PageTitle>
+<h1>Graph spike, @_n nodes</h1>
+@if (_layout is not null)
+{
+    <GraphView Id="spike" Title="@($"Spike neighbourhood of {_n} nodes")" Layout="_layout" />
+}
+<pre id="spike-result" data-done="@(_done ? "true" : "false")">@_report</pre>
+
+@code {
+    private int _n = 150;
+    private int _run;
+    private bool _done;
+    private string _report = "";
+    private Organisms.GraphLayout? _layout;
+    private readonly System.Diagnostics.Stopwatch _clock = new();
+    private double _layoutMs;
+    private readonly List<string> _lines = [];
+    private Microsoft.JSInterop.IJSObjectReference? _module;
+
+    protected override void OnInitialized()
+    {
+        string query = new Uri(Navigation.Uri).Query;
+        if (System.Web.HttpUtility.ParseQueryString(query)["n"] is string n && int.TryParse(n, out int value))
+        {
+            _n = value;
+        }
+
+        Lay();
+    }
+
+    private void Lay()
+    {
+        _clock.Restart();
+        _layout = Organisms.RadialLayout.Lay(new Organisms.NodeSpec("ex:centre", "iri", "the centre", "#", "ex:Thing"), Ring(_n, _run));
+        _layoutMs = _clock.Elapsed.TotalMilliseconds;
+        _clock.Restart();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_done || _layout is null || _clock.ElapsedTicks == 0)
+        {
+            return;
+        }
+
+        double renderMs = _clock.Elapsed.TotalMilliseconds;
+        // The script is imported once, outside every measured span.
+        _module ??= await Js.InvokeAsync<Microsoft.JSInterop.IJSObjectReference>("import", "./js/spike.js");
+        double frameMs = await _module.InvokeAsync<double>("nextFrame");
+        double paintMs = renderMs + frameMs;
+        _lines.Add(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"{(_run == 0 ? "cold" : "warm")}\t{_layout.Nodes.Count}\t{_layoutMs:F2}\t{renderMs:F2}\t{paintMs:F2}\t{_layoutMs + paintMs:F2}"));
+        _clock.Reset();
+
+        if (++_run <= 10)
+        {
+            Lay();
+        }
+        else
+        {
+            _done = true;
+            _report = "kind\tnodes\tlayout_ms\trender_ms\tframe_ms\ttotal_ms\n" + string.Join("\n", _lines);
+        }
+
+        StateHasChanged();
+    }
+
+    // n nodes in all: a ring over 12 predicates, every seventh edge inferred,
+    // and one neighbour expanded with a fifth of the nodes, at most 30.
+    private static List<Organisms.RingNeighbour> Ring(int n, int seed)
+    {
+        int kids = Math.Min(30, n / 5);
+        int ring = n - 1 - kids;
+        List<Organisms.RingNeighbour> neighbours = [];
+
+        for (int i = 0; i < ring; i++)
+        {
+            string predicate = "ex:p" + ((i + seed) % 12);
+            bool inferred = i % 7 == 3;
+            string term = "ex:n" + seed + "-" + i;
+            List<Organisms.RingNeighbour>? children = i == 0
+                ? [.. Enumerable.Range(0, kids).Select(k => new Organisms.RingNeighbour(new Organisms.NodeSpec("ex:k" + seed + "-" + k, "iri", "ex:k" + k, "#"), "ex:q" + (k % 3), "ex:q" + (k % 3)))]
+                : null;
+            neighbours.Add(new Organisms.RingNeighbour(
+                new Organisms.NodeSpec(term, i % 9 == 4 ? "literal" : "iri", predicate + " → " + term, "#"),
+                predicate,
+                predicate + (inferred ? " · inferred" : ""),
+                inferred ? "inferred" : null,
+                children));
+        }
+
+        return neighbours;
+    }
+}

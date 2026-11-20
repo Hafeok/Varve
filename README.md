@@ -43,14 +43,18 @@ where Varve is the wrong tool: [`docs/why.md`](docs/why.md).
 
 ## Status
 
-**`v0.1.0-preview.22` is the latest release, and the container image now
-ships the Web UI and serves it by default
-([#296](https://github.com/Hafeok/Varve/issues/296))**: `docker run
-ghcr.io/hafeok/varve:v0.1.0-preview.22 serve --anonymous` and a browser at
-`/ui/` is the whole first run. The server answers the console's settings
-from its own configuration, so nobody edits a file in the image, and a
-server with OIDC and no client for the console says sign-in is not
-configured rather than anonymous (ADR 0245).
+**`v0.1.0-preview.23` is the latest release, and the Web UI now has its
+data explorer's first screen, Query
+([#355](https://github.com/Hafeok/Varve/issues/355), part 2 of
+[#96](https://github.com/Hafeok/Varve/issues/96))**: a SPARQL editor
+coloured and checked by the server's own parser, read under a regime and at
+a position you choose, streamed to a 5,000-row ceiling, and downloadable in
+every format the server writes. The explorer loads on its first route, so
+the console's first screen stays within its budget. `docker run
+ghcr.io/hafeok/varve:v0.1.0-preview.23 serve --anonymous` and a browser at
+`/ui/` is still the whole first run.
+`v0.1.0-preview.22` before it shipped the Web UI in the container image and
+served it by default ([#296](https://github.com/Hafeok/Varve/issues/296)).
 `v0.1.0-preview.21` before it moved `Varve.Aspire` to
 the patched `Aspire.Hosting`
 ([#285](https://github.com/Hafeok/Varve/issues/285)): `Aspire.Hosting` below
@@ -409,7 +413,7 @@ the container image, which is the binary and the Web UI's bundle
 ```bash
 brew install hafeok/varve/varve
 dotnet tool install --global Varve.Server --prerelease
-docker pull ghcr.io/hafeok/varve:v0.1.0-preview.22
+docker pull ghcr.io/hafeok/varve:v0.1.0-preview.23
 ```
 
 Serve one dataset on your machine. `--anonymous` is for development only: a
@@ -420,7 +424,7 @@ The quickest first run is the image. It serves the operator console at
 ([the Web UI](docs/operator/web-ui.md), ADR 0245):
 
 ```bash
-docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.22 serve --anonymous
+docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.23 serve --anonymous
 # or the .NET tool on the same port, which serves no console unless Varve:WebUi:Path is set:
 varve serve --anonymous --datasets-root "$PWD/data" --urls http://localhost:8080
 

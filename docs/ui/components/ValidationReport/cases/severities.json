@@ -1,0 +1,60 @@
+{
+  "parameters": {
+    "Id": "g",
+    "Conforms": false,
+    "Count": "3 results",
+    "PositionLabel": "notes position",
+    "Position": 18417,
+    "Groups": [
+      {
+        "Title": {
+          "Kind": "Iri",
+          "Text": "shapes:NoteShape"
+        },
+        "Count": "3 results",
+        "Caption": "Results of shapes:NoteShape",
+        "Rows": [
+          {
+            "Tone": "Critical",
+            "Severity": "violation",
+            "Focus": {
+              "Kind": "Iri",
+              "Text": "notes:42"
+            },
+            "Path": "dct:title",
+            "Value": null,
+            "Message": "Each note has exactly one title."
+          },
+          {
+            "Tone": "Warn",
+            "Severity": "warning",
+            "Focus": {
+              "Kind": "Iri",
+              "Text": "notes:43"
+            },
+            "Path": "dct:creator/foaf:mbox",
+            "Value": {
+              "Kind": "Literal",
+              "Text": "owner@example"
+            },
+            "Message": "A creator's mailbox is a mailto: IRI."
+          },
+          {
+            "Tone": "Neutral",
+            "Severity": "info",
+            "Focus": {
+              "Kind": "Iri",
+              "Text": "notes:51"
+            },
+            "Path": "^dct:references",
+            "Value": {
+              "Kind": "Iri",
+              "Text": "notes:7"
+            },
+            "Message": "Referenced from a note that is closed."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -25,17 +25,28 @@ namespace Varve.Analyzers;
 /// Three rules, for a compilation whose name starts <c>Varve.</c>:
 /// </para>
 /// <list type="number">
-///   <item>It declares <c>ArchLayer</c>, an integer from 0 to 6, unless it is a
+///   <item>It declares <c>ArchLayer</c>, an integer from 0 to 8, unless it is a
 ///   test assembly or <c>Varve.Analyzers</c>, which declare none. A packable
 ///   assembly declares one whatever it is called.</item>
-///   <item>An executable declares 6, and only an executable declares 6. A test
-///   assembly is an executable under Microsoft.Testing.Platform and declares
-///   none, as before.</item>
+///   <item>An executable declares 6 or above, and a library declares 6 or
+///   above only when it is a host's private assembly and names its host in
+///   <c>VarveHostPartOf</c>: the Web UI's shared components at 6 and its
+///   lazy explorer at 7, below their host at 8 (ADR 0252). A test assembly is
+///   an executable under Microsoft.Testing.Platform and declares none, as
+///   before.</item>
 ///   <item><c>ArchCompositionRoot</c> is true exactly when <c>ArchLayer</c> is
-///   6. ADR 0060 rejected a second declaration because it can disagree with the
+///   6 or above. ADR 0060 rejected a second declaration because it can disagree with the
 ///   first; the package needs the property, so this makes disagreement an
 ///   error instead.</item>
 /// </list>
+/// <para>
+/// The rulings it holds, by key, since an analyzer assembly takes no
+/// reference to the decision ledger and so cannot carry <c>[Contract]</c>:
+/// <c>HostsAtLayer6TheCompositionRoot.ExecutablesAreLayer6</c>,
+/// <c>.HostLayersSixToEight</c> and <c>.PrivateAssembliesOfAHost</c> (ADR 0060,
+/// amended 2026-11-19 by ADR 0252 points 2 and 3); the last two are filed
+/// unaccepted.
+/// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
@@ -43,7 +54,7 @@ public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
     internal const string MustDeclare = "declares no layer";
 
     internal const string MustDeclareDecide =
-        "set ArchLayer in its project file to the layer ADR 0060's table gives it, an integer from 0 to 6 | if it is "
+        "set ArchLayer in its project file to the layer ADR 0060's table gives it, an integer from 0 to 8 | if it is "
         + "a test assembly, name it *.Tests";
 
     internal const string PackableMustDeclare = "is packable and declares no layer";
@@ -62,30 +73,32 @@ public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
     internal const string MalformedFormat = "declares ArchLayer '{0}', which is not a layer";
 
     internal const string MalformedDecide =
-        "declare an integer from 0 to 6 inclusive | if it has no layer, it is a test assembly: name it *.Tests";
+        "declare an integer from 0 to 8 inclusive | if it has no layer, it is a test assembly: name it *.Tests";
 
     internal const string ExecutableBelowHostFormat = "is an executable and declares layer {0}";
 
     internal const string ExecutableBelowHostDecide =
-        "declare ArchLayer 6, since an executable is a composition root and ADR 0060 reserves those to layer 6 | "
+        "declare ArchLayer 6, or above it when the host stacks private assemblies below itself, since an executable "
+        + "is a composition root and ADR 0060 reserves those to layer 6 and up | "
         + "build it as a library";
 
-    internal const string HostNotExecutable = "declares layer 6 and is not an executable";
+    internal const string HostNotExecutableFormat = "declares layer {0} and is neither an executable nor a host's private assembly";
 
     internal const string HostNotExecutableDecide =
-        "build it as an executable, since nothing may reference layer 6 and a library there is unreachable | give it "
-        + "the layer of what it is: an integration is layer 5";
+        "build it as an executable, since only a host's own assemblies sit at layer 6 and up | give it the layer of "
+        + "what it is: an integration is layer 5 | if it is a host's private assembly, name its host in "
+        + "VarveHostPartOf, below the host's layer (ADR 0252)";
 
     internal const string RootWithoutHostFormat = "sets ArchCompositionRoot but declares layer {0}";
 
     internal const string RootWithoutHostDecide =
-        "remove ArchCompositionRoot, which is true only at layer 6 | if it is the composition root, it is an "
-        + "executable at layer 6: declare that";
+        "remove ArchCompositionRoot, which is true only at layer 6 and up | if it is the composition root, it is an "
+        + "executable at layer 6 or above: declare that";
 
-    internal const string HostWithoutRoot = "declares layer 6 and does not set ArchCompositionRoot";
+    internal const string HostWithoutRootFormat = "declares layer {0} and does not set ArchCompositionRoot";
 
     internal const string HostWithoutRootDecide =
-        "set ArchCompositionRoot to true, since layer 6 is the composition root (ADR 0060) | if it is not a host, "
+        "set ArchCompositionRoot to true, since layers 6 and up are the composition root (ADR 0060, ADR 0252) | if it is not a host, "
         + "give it the layer of what it is";
 
     /// <inheritdoc />
@@ -150,24 +163,28 @@ public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // ADR 0060: an executable and layer 6 are the same thing, both ways.
-        if (executable && layer != LayerDeclaration.HostLayer)
+        bool host = layer >= LayerDeclaration.HostLayer;
+
+        // ADR 0060: an executable is at a host layer, and a library is there
+        // only as a host's private assembly, naming its host (ADR 0252).
+        if (executable && !host)
         {
             Report(context, name, Format(ExecutableBelowHostFormat, layer), ExecutableBelowHostDecide);
         }
-        else if (!executable && layer == LayerDeclaration.HostLayer)
+        else if (!executable && host
+            && !LayerDeclaration.IsVarveAssembly(LayerDeclaration.Read(options, LayerDeclaration.HostPartOfKey)))
         {
-            Report(context, name, HostNotExecutable, HostNotExecutableDecide);
+            Report(context, name, Format(HostNotExecutableFormat, layer), HostNotExecutableDecide);
         }
 
-        // And the composition root is layer 6, both ways.
-        if (root && layer != LayerDeclaration.HostLayer)
+        // And the composition root is the host layers, both ways.
+        if (root && !host)
         {
             Report(context, name, Format(RootWithoutHostFormat, layer), RootWithoutHostDecide);
         }
-        else if (!root && layer == LayerDeclaration.HostLayer)
+        else if (!root && host)
         {
-            Report(context, name, HostWithoutRoot, HostWithoutRootDecide);
+            Report(context, name, Format(HostWithoutRootFormat, layer), HostWithoutRootDecide);
         }
     }
 

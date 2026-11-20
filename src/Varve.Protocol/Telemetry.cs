@@ -96,6 +96,23 @@ internal static class Tracing
     /// <summary>The position the response describes: the view's for a read, the committed one for a write.</summary>
     internal static void Position(Position position) => Current()?.SetTag("varve.position", position.Value);
 
+    /// <summary>
+    /// A read the client ended before the server finished it (ADR 0112,
+    /// amended 2026-11-20, ruling <c>AReadTheClientEndedIsTaggedAndLogged</c>):
+    /// <c>varve.request.aborted</c> on the span, and one
+    /// line in the host's log with the request id. Nothing else changes: the
+    /// read stops, and its pin is released with the response.
+    /// </summary>
+    internal static void EndedByTheClient(HttpContext context, ProtocolOptions options)
+    {
+        Current()?.SetTag("varve.request.aborted", true);
+
+        if (options.Logger.IsEnabled(LogLevel.Information))
+        {
+            ProtocolLog.EndedByTheClient(options.Logger, context.Request.Method, context.Request.Path.Value ?? "", context.TraceIdentifier);
+        }
+    }
+
     /// <summary>How many solutions a result carried, counted as they were written.</summary>
     internal static void ReturnedRows(long rows) => Current()?.SetTag("db.response.returned_rows", rows);
 

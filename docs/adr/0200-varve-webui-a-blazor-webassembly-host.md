@@ -202,3 +202,15 @@ holds it from growing unseen.
     (the register) and 0133 (scopes). No conflict.
   - Layer ownership: `Varve.WebUi` (6).
   - Analyzer rule: none new.
+
+## Amendment, 2026-11-19 — the host at layer 8, with two private assemblies
+
+Filed by the session for Web UI part 2 (#355, under #96), unaccepted until
+the maintainer accepts it (ADR 0066), with [ADR 0252](0252-the-web-uis-private-assemblies.md).
+
+The Web UI is three assemblies: the host `Varve.WebUi` at layer 8, the lazy
+`Varve.WebUi.Explorer` at 7 and the eager `Varve.WebUi.Components` at 6. The
+host is still never a library: nothing references it, and the two below it
+are its private assemblies, referenced only by it and, for the components,
+by the explorer. Blazor stays scoped to the three and their tests in the
+register. The ruling is `HostAboveItsPrivateAssemblies`.

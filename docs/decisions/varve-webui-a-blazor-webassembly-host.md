@@ -35,6 +35,8 @@ decisions:
     statement: "WasmSmoke stays on wasm-experimental for its own claim, that Varve runs in a browser, and its comment points to ADR 0200 for the Web UI's"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-28T00:00:00Z
+  - key: HostAboveItsPrivateAssemblies
+    statement: "The Web UI's host Varve.WebUi is at layer 8, above its private assemblies Varve.WebUi.Explorer at 7 and Varve.WebUi.Components at 6, and Blazor is scoped to the three and their tests"
 ---
 
 The rulings of [ADR 0200](../adr/0200-varve-webui-a-blazor-webassembly-host.md), one line each.

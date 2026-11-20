@@ -29,9 +29,9 @@ Components are organised by atomic level, and the levels are a dependency rule: 
 | Level | Components | Uses |
 |---|---|---|
 | Tokens | `tokens.json` | nothing |
-| Atoms | `Button`, `Field`, `StateBadge`, `PositionStamp`, `TermChip` | tokens |
-| Molecules | `KeyValue`, `LagMeter`, `Notice`, `ViewHead`, `Triple`, `AsOfBanner`, `CopyButton`, `Tabs` | atoms |
-| Organisms | `ResourceTable`, `CommitList`, `ProblemPanel`, `SourceBlock`, `ConfirmDialog`, `Panel` | molecules, atoms |
+| Atoms | `Button`, `Field`, `Select`, `StateBadge`, `PositionStamp`, `TermChip` | tokens |
+| Molecules | `KeyValue`, `LagMeter`, `Notice`, `ViewHead`, `Triple`, `AsOfBanner`, `CopyButton`, `Tabs`, `Menu`, `AskAnswer`, `NodeBudget` | atoms |
+| Organisms | `ResourceTable`, `CommitList`, `ProblemPanel`, `SourceBlock`, `ConfirmDialog`, `Panel`, `QueryEditor`, `ResultsTable`, `GraphGroup`, `GraphView`, `ValidationReport` | molecules, atoms |
 | Templates | `Shell` and the screen layouts | organisms and below; no data |
 | Parts | domain-aware pieces that are not routed: the problem view, the read stamps, the drift note | templates and below; the client's model types and the tone mapping; Varve's wording |
 | Pages | the routed screens, and the services they use (`Pages.Services`) | parts and below; the client's services |

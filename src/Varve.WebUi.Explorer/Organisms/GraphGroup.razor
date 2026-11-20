@@ -1,0 +1,27 @@
+@* GraphGroup (docs/ui/components/GraphGroup): a delta or a diff grouped by
+   graph, the default graph first. Each group's body is the page's slot, so
+   it uses no organism. The summary counts what was returned to the caller,
+   and never says a graph is hidden. *@
+<div class="vw-groups"><p class="vw-groups__summary">@Summary</p>@for (int i = 0; i < Sections.Count; i++)
+{
+    GraphSection section = Sections[i];
+    string id = Id + "-" + (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+<section class="vw-group" aria-labelledby="@id"><h2 class="vw-group__title" id="@id">@if (section.Graph is null)
+{<text>Default graph</text>}
+else
+{<TermChip Kind="section.Graph.Kind" Text="@section.Graph.Text" Full="@section.Graph.Full" Href="@section.Graph.Href" />}<span class="vw-group__count">@section.Count</span></h2>@section.Body</section>
+}</div>
+
+@code {
+    /// <summary>A prefix for the headings' ids, unique on the page.</summary>
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    /// <summary>The summary: "3 graphs returned to you · 4 changes".</summary>
+    [Parameter, EditorRequired]
+    public string Summary { get; set; } = "";
+
+    /// <summary>The groups, the default graph first, then by graph IRI.</summary>
+    [Parameter]
+    public IReadOnlyList<GraphSection> Sections { get; set; } = [];
+}

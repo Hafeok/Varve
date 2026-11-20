@@ -601,7 +601,25 @@
         "type": "Project",
         "dependencies": {
           "Microsoft.AspNetCore.Components.WebAssembly": "[10.0.12, )",
+          "Varve.Protocol.Client": "[1.0.0, )",
+          "Varve.WebUi.Components": "[1.0.0, )",
+          "Varve.WebUi.Explorer": "[1.0.0, )"
+        }
+      },
+      "varve.webui.components": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.AspNetCore.Components.WebAssembly": "[10.0.12, )",
           "Varve.Protocol.Client": "[1.0.0, )"
+        }
+      },
+      "varve.webui.explorer": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.AspNetCore.Components.WebAssembly": "[10.0.12, )",
+          "Varve.Protocol.Client": "[1.0.0, )",
+          "Varve.Sparql": "[1.0.0, )",
+          "Varve.WebUi.Components": "[1.0.0, )"
         }
       },
       "varve.xsd": {

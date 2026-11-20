@@ -1,0 +1,248 @@
+{
+  "parameters": {
+    "Id": "gv",
+    "Title": "Neighbourhood of notes:42 at position 18417",
+    "Layout": {
+      "MinX": -376.1632431515937,
+      "MinY": -342.1632431515937,
+      "Width": 765,
+      "Height": 667,
+      "Nodes": [
+        {
+          "X": 0,
+          "Y": 0,
+          "Height": 40,
+          "Label": "notes:42",
+          "Shown": "notes:42",
+          "Kind": "iri",
+          "Centre": true,
+          "Type": "schema:Note",
+          "Diff": null,
+          "Expand": null,
+          "Name": "notes:42, the resource at the centre",
+          "Href": "#"
+        },
+        {
+          "X": 121.84640486504459,
+          "Y": -294.1632431515937,
+          "Height": 40,
+          "Label": "users:alice",
+          "Shown": "users:alice",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": "schema:Person",
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:creator → users:alice, outgoing",
+          "Href": "#"
+        },
+        {
+          "X": 294.1632431515937,
+          "Y": -121.84640486504458,
+          "Height": 28,
+          "Label": "\"2026-10-27\"",
+          "Shown": "\"2026-10-27\"",
+          "Kind": "literal",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": null,
+          "Name": "dct:created → \"2026-10-27\", outgoing",
+          "Href": "#"
+        },
+        {
+          "X": 294.1632431515937,
+          "Y": 121.84640486504458,
+          "Height": 28,
+          "Label": "topics:planning",
+          "Shown": "topics:planning",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:subject → topics:planning, outgoing",
+          "Href": "#"
+        },
+        {
+          "X": 121.84640486504459,
+          "Y": 294.1632431515937,
+          "Height": 28,
+          "Label": "topics:sync",
+          "Shown": "topics:sync",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": "added",
+          "Expand": "Expand",
+          "Name": "dct:subject → topics:sync, outgoing, added",
+          "Href": "#"
+        },
+        {
+          "X": -121.84640486504456,
+          "Y": 294.1632431515937,
+          "Height": 28,
+          "Label": "\"Weekly sync\"@en",
+          "Shown": "\"Weekly sync\"@en",
+          "Kind": "literal",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": null,
+          "Name": "dct:title → \"Weekly sync\"@en, outgoing",
+          "Href": "#"
+        },
+        {
+          "X": -294.1632431515937,
+          "Y": 121.84640486504462,
+          "Height": 28,
+          "Label": "_:b7",
+          "Shown": "_:b7",
+          "Kind": "bnode",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "schema:about → _:b7, outgoing",
+          "Href": "#"
+        },
+        {
+          "X": -294.1632431515937,
+          "Y": -121.84640486504455,
+          "Height": 28,
+          "Label": "notes:7",
+          "Shown": "notes:7",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": "removed",
+          "Expand": "Expand",
+          "Name": "dct:references ← notes:7, incoming, removed",
+          "Href": "#"
+        },
+        {
+          "X": -121.84640486504449,
+          "Y": -294.1632431515937,
+          "Height": 28,
+          "Label": "notes:9",
+          "Shown": "notes:9",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:references ← notes:9, incoming",
+          "Href": "#"
+        }
+      ],
+      "Edges": [
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": 121.84640486504459,
+          "Y2": -294.1632431515937,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": 294.1632431515937,
+          "Y2": -121.84640486504458,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": 294.1632431515937,
+          "Y2": 121.84640486504458,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": 121.84640486504459,
+          "Y2": 294.1632431515937,
+          "Kind": "added"
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -121.84640486504456,
+          "Y2": 294.1632431515937,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -294.1632431515937,
+          "Y2": 121.84640486504462,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -294.1632431515937,
+          "Y2": -121.84640486504455,
+          "Kind": "removed"
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -121.84640486504449,
+          "Y2": -294.1632431515937,
+          "Kind": null
+        }
+      ],
+      "Labels": [
+        {
+          "X": 103.94762101369179,
+          "Y": -250.95175642767325,
+          "Text": "dct:creator",
+          "Kind": null
+        },
+        {
+          "X": 221.50276655444992,
+          "Y": -91.74945001001475,
+          "Text": "dct:created",
+          "Kind": null
+        },
+        {
+          "X": 221.50276655444992,
+          "Y": 91.74945001001475,
+          "Text": "dct:subject",
+          "Kind": null
+        },
+        {
+          "X": 102.56671189959279,
+          "Y": 247.61794691601082,
+          "Text": "dct:subject · added",
+          "Kind": "added"
+        },
+        {
+          "X": -107.39945001001473,
+          "Y": 259.28520880558887,
+          "Text": "dct:title",
+          "Kind": null
+        },
+        {
+          "X": -207.59948597535669,
+          "Y": 85.99052263267589,
+          "Text": "schema:about",
+          "Kind": null
+        },
+        {
+          "X": -184.88532609799847,
+          "Y": -76.58200955356328,
+          "Text": "dct:references · removed",
+          "Kind": "removed"
+        },
+        {
+          "X": -104.9830809548037,
+          "Y": -253.45157786079983,
+          "Text": "dct:references",
+          "Kind": null
+        }
+      ]
+    }
+  }
+}

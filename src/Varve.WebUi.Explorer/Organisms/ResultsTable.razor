@@ -1,0 +1,61 @@
+@* ResultsTable (docs/ui/components/ResultsTable): a SELECT answer, one column
+   per variable, each cell a TermChip and an unbound cell named "unbound".
+   Rows are never marked inferred: the caption names the regime that
+   answered. The foot is a live status and the page's actions; an empty
+   answer has its row in the body and no foot. *@
+<div class="vw-results"><div class="vw-table-wrap"><table class="vw-table"><caption class="vw-results__caption">@Caption</caption><thead><tr>@foreach (string variable in Variables)
+{<th scope="col"><code>?@variable</code></th>}</tr></thead><tbody>@if (Rows.Count == 0)
+{
+<tr class="vw-table__empty"><td colspan="@Variables.Count">@EmptyText</td></tr>
+}
+else
+{
+@foreach (IReadOnlyList<TermValue?> row in Rows)
+{
+<tr>@foreach (TermValue? cell in row)
+{
+@if (cell is null)
+{<td class="vw-results__unbound"><span class="vw-visually-hidden">unbound</span></td>}
+else
+{<td><TermChip Kind="cell.Kind" Text="@cell.Text" Type="@cell.Type" Full="@cell.Full" Href="@cell.Href" /></td>}
+}</tr>
+}
+}</tbody></table></div>@if (Status is not null)
+{
+<div class="vw-results__foot"><p class="@(Cut ? "vw-results__status vw-results__status--cut" : "vw-results__status")" role="status">@Status@if (RequestId is not null)
+{<text> Request <code>@RequestId</code>.</text>}</p>@Actions</div>
+}</div>
+
+@code {
+    /// <summary>The caption: how many rows, and the regime that answered.</summary>
+    [Parameter, EditorRequired]
+    public string Caption { get; set; } = "";
+
+    /// <summary>The variables, without their <c>?</c>, in the answer's order.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<string> Variables { get; set; } = [];
+
+    /// <summary>The rows shown, each a cell per variable; null is unbound.</summary>
+    [Parameter]
+    public IReadOnlyList<IReadOnlyList<TermValue?>> Rows { get; set; } = [];
+
+    /// <summary>What an empty answer says, in its row: what was returned to the caller, never that nothing exists.</summary>
+    [Parameter]
+    public string? EmptyText { get; set; }
+
+    /// <summary>The live status under the table; none for an empty answer.</summary>
+    [Parameter]
+    public string? Status { get; set; }
+
+    /// <summary>The response ended before the server finished it.</summary>
+    [Parameter]
+    public bool Cut { get; set; }
+
+    /// <summary>The request id a cut names.</summary>
+    [Parameter]
+    public string? RequestId { get; set; }
+
+    /// <summary>The page's actions: cancel, show more, download, run again.</summary>
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
+}

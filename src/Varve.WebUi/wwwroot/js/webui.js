@@ -6,8 +6,9 @@
 // CSP needs no 'unsafe-inline' (ADR 0202). It sets data-theme before the
 // first paint (docs/ui/README.md, Implementing): from the viewer's stored
 // choice, or else prefers-color-scheme, following the media query while no
-// choice is stored. And it holds the three calls the components make that
-// .NET cannot: copy to the clipboard, and open and close a modal dialog.
+// choice is stored. And it holds the calls the components and pages make that
+// .NET cannot: the clipboard, a modal dialog, the query editor's keys and
+// frames (ADR 0250), a download saved as a file, and the tab's storage.
 (function () {
     'use strict';
     var key = 'varve.theme';
@@ -65,7 +66,151 @@
         }
     }, true);
 
+
+    // An open Menu (docs/ui/components/Menu): Escape closes it and returns
+    // focus to its button. The button's own click closes it, so .NET keeps
+    // the state.
+    document.addEventListener('keydown', function (event) {
+        var menu = event.key === 'Escape' && event.target instanceof Element ? event.target.closest('.vw-menu') : null;
+        var button = menu ? menu.querySelector(':scope > button[aria-expanded="true"]') : null;
+
+        if (button) {
+            button.click();
+            button.focus();
+        }
+    });
+
+    // The query editor (ADR 0250): the browser edits; this reports the text
+    // and the caret to the page at most once a frame, so a burst of typing is
+    // coloured once. Tab inserts two spaces and Shift+Tab removes up to two at
+    // the line's start; Escape, then Tab, leaves the editor (WCAG 2.1.2).
+    function editor(id, page) {
+        var textarea = document.getElementById(id);
+        var frame = 0;
+        var leaving = false;
+
+        function report() {
+            if (!frame) {
+                frame = window.requestAnimationFrame(function () {
+                    frame = 0;
+                    page.invokeMethodAsync('Edited', textarea.value, textarea.selectionStart);
+                });
+            }
+        }
+
+        function edited() {
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        function keydown(event) {
+            if (event.key === 'Escape') {
+                leaving = true;
+                return;
+            }
+
+            if (event.key !== 'Tab' || leaving || textarea.readOnly) {
+                leaving = event.key === 'Tab' ? false : leaving && event.key === 'Shift';
+                return;
+            }
+
+            event.preventDefault();
+            var start = textarea.selectionStart;
+            var end = textarea.selectionEnd;
+
+            if (!event.shiftKey) {
+                textarea.setRangeText('  ', start, end, 'end');
+                edited();
+                return;
+            }
+
+            var line = textarea.value.lastIndexOf('\n', start - 1) + 1;
+            var spaces = textarea.value.slice(line, line + 2).match(/^ {0,2}/)[0].length;
+
+            if (spaces > 0) {
+                textarea.setRangeText('', line, line + spaces, 'preserve');
+                textarea.setSelectionRange(Math.max(line, start - spaces), Math.max(line, end - spaces));
+                edited();
+            }
+        }
+
+        function caret() {
+            if (document.activeElement === textarea) {
+                report();
+            }
+        }
+
+        textarea.addEventListener('input', report);
+        textarea.addEventListener('keydown', keydown);
+        document.addEventListener('selectionchange', caret);
+        return {
+            set: function (text) {
+                textarea.value = text;
+                textarea.setSelectionRange(text.length, text.length);
+                report();
+            },
+            dispose: function () {
+                window.cancelAnimationFrame(frame);
+                textarea.removeEventListener('input', report);
+                textarea.removeEventListener('keydown', keydown);
+                document.removeEventListener('selectionchange', caret);
+            },
+        };
+    }
+
+    // A download (ADR 0254 point 5): .NET hands over the body a chunk at a
+    // time as it arrives, and never holds it whole; the chunks become one
+    // Blob, saved under the name given.
+    var downloads = {};
+    var nextDownload = 0;
+    var historyKey = 'varve.query-history';
+
     window.varveWebUi = {
+        editor: editor,
+        downloadBegin: function () {
+            nextDownload += 1;
+            downloads[nextDownload] = [];
+            return nextDownload;
+        },
+        downloadAppend: function (id, bytes) {
+            downloads[id].push(new Blob([bytes]));
+        },
+        downloadSave: function (id, name, type) {
+            var url = URL.createObjectURL(new Blob(downloads[id], { type: type }));
+            var link = document.createElement('a');
+            delete downloads[id];
+            link.href = url;
+            link.download = name;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.setTimeout(function () { URL.revokeObjectURL(url); }, 0);
+        },
+        downloadDrop: function (id) {
+            delete downloads[id];
+        },
+        // The query history (ADR 0254 point 7): this tab only, and cleared at
+        // sign-out. No result, token, position read or request id is in it.
+        historyRead: function () {
+            try {
+                return window.sessionStorage.getItem(historyKey);
+            } catch (e) {
+                return null;
+            }
+        },
+        historyWrite: function (json) {
+            try {
+                window.sessionStorage.setItem(historyKey, json);
+            } catch (e) {
+                // Without storage, the history is this page's only.
+            }
+        },
+        historyClear: function () {
+            try {
+                window.sessionStorage.removeItem(historyKey);
+            } catch (e) {
+                // Nothing was stored.
+            }
+        },
         copy: function (text) {
             return navigator.clipboard.writeText(text);
         },

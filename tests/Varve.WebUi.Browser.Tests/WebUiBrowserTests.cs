@@ -58,6 +58,7 @@ public sealed class WebUiBrowserTests
         ("datasets/notes/agents", "text=Who the grants name"),
         ("datasets/notes/templates", "text=Graphs expanded for each caller"),
         ("datasets/notes/shapes", ".vw-source"),
+        ("datasets/notes/query", ".vw-editor__code .vw-tok--keyword"),
     ];
 
     [Fact]
@@ -449,7 +450,7 @@ public sealed class WebUiBrowserTests
         Assert.Equal(HttpStatusCode.Unauthorized, await StatusAsync(http, "datasets/notes/sparql?query=ASK%7B%7D", dual));
     }
 
-    private static async Task<WebUiServer> AnonymousAsync(string bundle)
+    internal static async Task<WebUiServer> AnonymousAsync(string bundle)
     {
         WebUiServer server = await WebUiServer.StartAsync(bundle, new Dictionary<string, string> { ["Varve:Auth:Mode"] = "Anonymous" }, new JsonObject { ["Mode"] = "Anonymous" });
         await server.DeclareAsync(Declarations);

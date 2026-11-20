@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- ADR 0252: the explorer (7) referencing its host (8). Upward, and
+       therefore DD0001. This project is meant to fail to build; that failure
+       is the assertion. -->
+  <PropertyGroup>
+    <ArchLayer>7</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
+    <VarveHostPartOf>Varve.Fixture.Host</VarveHostPartOf>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Fixture.Host/Varve.Fixture.Host.csproj" />
+  </ItemGroup>
+</Project>

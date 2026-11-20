@@ -24,6 +24,9 @@ internal static class LayerDeclaration
     internal const string CompositionRootKey = "build_property.ArchCompositionRoot";
     internal const string OutputTypeKey = "build_property.OutputType";
 
+    // A layer-6 library that is a host's private assembly names its host (ADR 0252).
+    internal const string HostPartOfKey = "build_property.VarveHostPartOf";
+
     /// <summary>
     /// Whether an assembly is published is the question layering turns on, and
     /// the one an assembly name can only approximate.
@@ -36,8 +39,19 @@ internal static class LayerDeclaration
     /// <summary>The analyzer assembly, which has no layer.</summary>
     internal const string AnalyzerAssemblyName = "Varve.Analyzers";
 
-    /// <summary>The host layer: the composition root, and only executables (ADR 0060).</summary>
+    /// <summary>
+    /// The lowest host layer: the composition root, executables and a host's
+    /// private assemblies, from here up (ADR 0060; ADR 0252 adds 7 and 8).
+    /// </summary>
     internal const int HostLayer = 6;
+
+    /// <summary>
+    /// The highest layer: a host that has private assemblies stacks them
+    /// below itself, each at its own layer, so DD0001 holds them strictly
+    /// downward (ADR 0252): the Web UI's shared components at 6, its explorer
+    /// at 7, the host at 8.
+    /// </summary>
+    internal const int HighestLayer = 8;
 
     private const int LowestLayer = 0;
 
@@ -56,13 +70,13 @@ internal static class LayerDeclaration
         assemblyName.EndsWith(".Tests", System.StringComparison.Ordinal)
         || string.Equals(assemblyName, AnalyzerAssemblyName, System.StringComparison.Ordinal);
 
-    /// <summary>A layer is an integer from 0 to 6 inclusive, and nothing else.</summary>
+    /// <summary>A layer is an integer from 0 to 8 inclusive, and nothing else.</summary>
     internal static bool TryParseLayer(string raw, out int layer)
     {
         layer = -1;
 
         if (!int.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out int parsed)
-            || parsed is < LowestLayer or > HostLayer)
+            || parsed is < LowestLayer or > HighestLayer)
         {
             return false;
         }

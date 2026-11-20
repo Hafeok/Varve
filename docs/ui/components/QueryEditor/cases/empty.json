@@ -1,0 +1,9 @@
+{
+  "parameters": {
+    "Id": "q",
+    "Label": "Query",
+    "Text": "",
+    "Runs": [],
+    "Help": "Tab inserts two spaces. Press Escape, then Tab, to leave the editor."
+  }
+}
