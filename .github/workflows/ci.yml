@@ -389,6 +389,22 @@ jobs:
           --report-trx
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Entailment.Tests
 
+      - name: Test Varve.Inference
+        run: >
+          dotnet test
+          --project tests/Varve.Inference.Tests/Varve.Inference.Tests.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Inference.Tests
+
+      - name: Test Varve.Inference.Store
+        run: >
+          dotnet test
+          --project tests/Varve.Inference.Store.Tests/Varve.Inference.Store.Tests.csproj
+          --configuration Release
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Inference.Store.Tests
+
       - name: Test Varve.Events
         run: >
           dotnet test

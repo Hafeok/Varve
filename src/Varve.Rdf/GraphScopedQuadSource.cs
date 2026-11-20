@@ -53,7 +53,7 @@ public sealed class GraphScopedQuadSource : IQuadSource, IDistinctTermSource, IG
         {
             // A governed graph is decided by its governor, never by its own
             // grant, so it is not among the explicit handles.
-            if (scope.Governor is not null && scope.Governor(graph, out _))
+            if (scope.IsGoverned(graph))
             {
                 continue;
             }
@@ -64,7 +64,7 @@ public sealed class GraphScopedQuadSource : IQuadSource, IDistinctTermSource, IG
             }
         }
 
-        _byPrefix = scope.HasPrefixes || scope.Governor is not null;
+        _byPrefix = scope.HasPrefixes || scope.HasGovernors;
         _decided = _byPrefix ? new ConcurrentDictionary<TermHandle, bool>(inner.TermComparer) : null;
     }
 
@@ -212,7 +212,7 @@ public sealed class GraphScopedQuadSource : IQuadSource, IDistinctTermSource, IG
     // having been answered already.
     private bool Decide(TermHandle graph) =>
         _inner.TryExternalise(graph, out RdfTerm? term) && term.Kind == RdfTermKind.Iri
-        && (Scope.Governor is not null && Scope.Governor(term, out _) ? Scope.Allows(term) : Scope.AllowsByPrefix(term.Lexical));
+        && (Scope.IsGoverned(term) ? Scope.Allows(term) : Scope.AllowsByPrefix(term.Lexical));
 
     private sealed class Cursor(IQuadCursor inner, GraphScopedQuadSource owner) : IQuadCursor
     {

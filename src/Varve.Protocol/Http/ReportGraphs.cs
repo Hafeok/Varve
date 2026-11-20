@@ -77,6 +77,26 @@ internal sealed class ReportGraphs : IQuadSource
     }
 
     /// <summary>
+    /// <paramref name="scoped"/>, the caller's view over
+    /// <paramref name="staging"/> through <paramref name="readable"/>, with
+    /// the report graphs of <paramref name="graphs"/> it covers, staged on
+    /// the same view as the other reserved graphs of the read.
+    /// </summary>
+    internal static IQuadSource ComposeOver(IQuadSource scoped, StagingView staging, GraphScope readable, IReadOnlyList<IValidationReportGraph> graphs)
+    {
+        List<IValidationReportGraph> visible = [];
+        foreach (IValidationReportGraph graph in graphs)
+        {
+            if (Covers(readable, graph.Validates))
+            {
+                visible.Add(graph);
+            }
+        }
+
+        return visible.Count == 0 ? scoped : new ReportGraphs(scoped, staging, visible);
+    }
+
+    /// <summary>
     /// Whether <paramref name="readable"/> holds every graph of
     /// <paramref name="validates"/> (ADR 0107, amended): every graph, the
     /// default graph, each named graph, and each prefix under one of its own.

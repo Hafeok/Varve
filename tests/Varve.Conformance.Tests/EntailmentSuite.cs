@@ -7,6 +7,7 @@ using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Text;
 using Varve.Rdf;
 using Varve.Sparql;
 using Varve.Sparql.Entailment.Model;
@@ -18,10 +19,12 @@ namespace Varve.Conformance.Tests;
 /// its 70 query evaluation cases, each tagged with the regimes it holds under
 /// (<c>sd:entailmentRegime</c>, one IRI or a list) and the profiles
 /// (<c>sd:EntailmentProfile</c>, the class name the manifest uses as a
-/// property). A case runs under each of RDF, RDFS and D it lists. A case
-/// with none of them waits for #171 when it holds under OWL 2 RDF-Based in
-/// the RL profile, for #95's last part when it holds under OWL 2 Direct in
-/// the QL profile, and is otherwise out of scope — RIF, and OWL 2 DL or Full
+/// property). A case runs under each of RDF, RDFS and D it lists, and on
+/// the closure when it holds under OWL 2 RDF-Based in the RL profile
+/// (<see cref="EntailmentClosureTests"/>), unless its data names
+/// <c>owl:sameAs</c>, which waits for part 3. A case with none of these
+/// waits for #95's last part when it holds under OWL 2 Direct in the QL
+/// profile, and is otherwise out of scope — RIF, and OWL 2 DL or Full
 /// beyond both profiles, which #15 excludes: blocked by name, in
 /// <c>baseline/blocked.txt</c>.
 /// </summary>
@@ -107,7 +110,28 @@ internal static class EntailmentSuite
         return iris.ToFrozenSet(StringComparer.Ordinal);
     }
 
-    /// <summary>Why a case does not run in this part, or null when it runs.</summary>
+    /// <summary>Whether a case holds under OWL 2 RDF-Based semantics in the RL profile: it runs on the closure, <c>@rl</c>.</summary>
+    internal static bool UnderRl(EntailmentEntry entry) =>
+        entry.Regimes.Contains(Ent + "OWL-RDF-Based") && entry.Profiles.Contains(Profile + "RL");
+
+    /// <summary>Why an RL case waits for part 3, its data naming <c>owl:sameAs</c> (ADR 0197 point 4), or null.</summary>
+    internal static string? WaitsForSameAs(EntailmentEntry entry)
+    {
+        foreach (string iri in entry.Evaluation.Data)
+        {
+            foreach (DataQuad quad in EvaluationData.Quads(iri))
+            {
+                if (quad.Predicate.Kind == RdfTermKind.Iri && Encoding.UTF8.GetString(quad.Predicate.Lexical) == "http://www.w3.org/2002/07/owl#sameAs")
+                {
+                    return "pending: owl:sameAs, part 3's sameAs classes (ADR 0197 point 4)";
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Why a case does not run under a tier-1 regime: on the closure (<c>run: </c>), waiting for a later part, or blocked; null when it runs under one.</summary>
     internal static string? NotRun(EntailmentEntry entry)
     {
         if (entry.Regimes.Overlaps(Tier1.Select(t => t.Iri)))
@@ -115,9 +139,9 @@ internal static class EntailmentSuite
             return null;
         }
 
-        if (entry.Regimes.Contains(Ent + "OWL-RDF-Based") && entry.Profiles.Contains(Profile + "RL"))
+        if (UnderRl(entry))
         {
-            return "pending: OWL 2 RL by the closure, #171";
+            return WaitsForSameAs(entry) ?? "run: OWL 2 RL by the closure, @rl";
         }
 
         if (entry.Regimes.Contains(Ent + "OWL-Direct") && entry.Profiles.Contains(Profile + "QL"))

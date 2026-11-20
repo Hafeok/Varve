@@ -413,3 +413,9 @@ static Varve.Rdf.GraphVersion.operator ==(Varve.Rdf.GraphVersion left, Varve.Rdf
 ~override Varve.Rdf.GraphVersion.Equals(object obj) -> bool
 ~override Varve.Rdf.GraphVersion.ToString() -> string
 Varve.Rdf.GraphScopedQuadSource.TryGetGraphVersion(Varve.Rdf.GraphPattern graph, out Varve.Rdf.GraphVersion version) -> bool
+Varve.Rdf.GraphGovernors
+Varve.Rdf.GraphScope.Governors.get -> Varve.Rdf.GraphGovernors?
+Varve.Rdf.GraphScope.HasGovernors.get -> bool
+Varve.Rdf.GraphScope.IsGoverned(Varve.Rdf.RdfTerm! graph) -> bool
+Varve.Rdf.GraphScope.WithGovernors(Varve.Rdf.GraphGovernors! governors) -> Varve.Rdf.GraphScope!
+virtual Varve.Rdf.GraphGovernors.Invoke(Varve.Rdf.RdfTerm! graph, out System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>? governors) -> bool

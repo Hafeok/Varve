@@ -64,14 +64,16 @@ public class ProblemCatalogueTests
     /// and a takeover refused, ADR 0179), <c>ReportGraphTests</c> (a
     /// validation projection behind, ADR 0174), and <c>RowScopeTests</c> (a
     /// row-restricted write refused, and a classification projection behind,
-    /// ADRs 0233 and 0236), and <c>IdempotencyKeyTests</c> (a key reused with
-    /// another request, a key in flight, and a key past its window, ADR 0246).
+    /// ADRs 0233 and 0236), <c>InferenceSurfaceTests</c> (a closure's
+    /// projection behind, and a binding stopped by its memory limit, ADR 0195),
+    /// and <c>IdempotencyKeyTests</c> (a key reused with another request, a key
+    /// in flight, and a key past its window, ADR 0246).
     /// </summary>
     private static readonly ImmutableArray<ProblemType> TestedElsewhere =
     [
         ProblemType.TooManyLiveTails, ProblemType.ServerBusy, ProblemType.WriterSuperseded, ProblemType.EventNotRendered,
         ProblemType.ManagementBehind, ProblemType.DatasetBehind, ProblemType.ValidationBehind, ProblemType.TakeoverRefused,
-        ProblemType.RowNotWritable, ProblemType.ClassificationBehind,
+        ProblemType.RowNotWritable, ProblemType.ClassificationBehind, ProblemType.InferenceBehind, ProblemType.InferenceUnavailable, ProblemType.EntailmentNotAvailable,
         ProblemType.IdempotencyKeyReused, ProblemType.IdempotencyKeyInFlight, ProblemType.IdempotencyKeyExpired,
     ];
 

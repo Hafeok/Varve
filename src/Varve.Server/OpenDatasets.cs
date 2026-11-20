@@ -585,7 +585,7 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
         // The bounds are a durable backend's; the memory backend has no flush
         // for a batch to share, and writes each request alone (ADR 0124).
         // The event catalogue's check gates every write path (ADR 0145).
-        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, MemtableLimit = _memtableLimit, SeekDirectoryCache = _seekDirectoryCache, Validators = [new EventCatalogueValidator(new DatasetName(name), () => _moved(name)), new ReportGraphGuard()] };
+        DatasetOptions options = new() { Clock = _clock, Name = name, GroupCommit = entry.Storage == DatasetStorage.Memory ? null : _groupCommit, ExtentMerges = _merges, MemtableLimit = _memtableLimit, SeekDirectoryCache = _seekDirectoryCache, Validators = [new EventCatalogueValidator(new DatasetName(name), () => _moved(name)), new ReportGraphGuard(), new InferenceGraphGuard()] };
 
         try
         {

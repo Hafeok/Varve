@@ -88,6 +88,63 @@ internal static class Program
             return;
         }
 
+        if (args.Length == 4 && args[0] == "--closure-budget")
+        {
+            InferenceBench.RunClosureBudget(args[1], args[2], args[3] == "cross");
+            return;
+        }
+
+        // --inference-premise-sets <size> <profile> [held] [links=<per mille>] [axioms=<name>] [graphs=<most>] [nosets]
+        if (args.Length is >= 3 and <= 8 && args[0] == "--inference-premise-sets")
+        {
+            int links = 0;
+            int most = int.MaxValue;
+            bool sets = true;
+            int held = 0;
+            string? axioms = null;
+            foreach (string extra in args[3..])
+            {
+                if (extra.StartsWith("links=", StringComparison.Ordinal))
+                {
+                    links = int.Parse(extra["links=".Length..], CultureInfo.InvariantCulture);
+                }
+                else if (extra.StartsWith("axioms=", StringComparison.Ordinal))
+                {
+                    axioms = extra["axioms=".Length..];
+                }
+                else if (extra == "nosets")
+                {
+                    sets = false;
+                }
+                else if (extra.StartsWith("graphs=", StringComparison.Ordinal))
+                {
+                    most = int.Parse(extra["graphs=".Length..], CultureInfo.InvariantCulture);
+                }
+                else
+                {
+                    held = int.Parse(extra, CultureInfo.InvariantCulture);
+                }
+            }
+
+            if (held > 0)
+            {
+                InferenceBench.RunPremiseSetCommits(args[1], args[2], held, links);
+            }
+            else
+            {
+                InferenceBench.RunPremiseSets(args[1], args[2], links, axioms, most, sets);
+            }
+
+            return;
+        }
+
+        // --inference-closure <size> <profile> [held commits] [budget minutes a candidate]
+        if (args.Length is >= 3 and <= 5 && args[0] == "--inference-closure")
+        {
+            InferenceBench.Run(args[1], args[2], args.Length >= 4 ? int.Parse(args[3], CultureInfo.InvariantCulture) : 0, args.Length == 5 ? int.Parse(args[4], CultureInfo.InvariantCulture) : 20);
+            return;
+        }
+
         if (args.Length == 1 && args[0] == "--graph-index")
         {
             GraphIndexBench.RunAsync().GetAwaiter().GetResult();
@@ -133,6 +190,13 @@ internal static class Program
         if (args.Length is >= 2 and <= 4 && args[0] == "--import-memory")
         {
             Environment.ExitCode = ImportMemory.RunAsync(args[1], args.Length >= 3 ? int.Parse(args[2], CultureInfo.InvariantCulture) : 3000, args.Length == 4 ? args[3] : null).GetAwaiter().GetResult();
+            return;
+        }
+
+        // --server-reserve <Varve.Server binary> [quads] [seconds]
+        if (args.Length is >= 2 and <= 4 && args[0] == "--server-reserve")
+        {
+            Environment.ExitCode = ServerReserve.RunAsync(args[1], args.Length >= 3 ? int.Parse(args[2], CultureInfo.InvariantCulture) : 1_000_000, args.Length == 4 ? int.Parse(args[3], CultureInfo.InvariantCulture) : 120).GetAwaiter().GetResult();
             return;
         }
 
