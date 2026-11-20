@@ -82,11 +82,11 @@ different from the row.
 ```mermaid
 flowchart LR
   room[":room-2-01"] -- "a" --> Room["rec:Room"]
-  room -- "rdfs:label" --> label(["&quot;2.01 Fjord&quot;"])
+  room -- "rdfs:label" --> label["&quot;2.01 Fjord&quot;"]
   room -- "rec:area" --> area[":room-2-01-area"]
   room -- "rec:capacity" --> capacity[":room-2-01-capacity"]
-  area -- "rec:netArea" --> net(["24.5"])
-  capacity -- "rec:seatingCapacity" --> seats(["10"])
+  area -- "rec:netArea" --> net["24.5"]
+  capacity -- "rec:seatingCapacity" --> seats["10"]
 ```
 
 ## A dataset, and one commit
