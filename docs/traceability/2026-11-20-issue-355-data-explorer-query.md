@@ -15,7 +15,9 @@
 
 ## The prompts
 
-The maintainer's messages to the session, in order and verbatim. A design
+The maintainer's messages to the session, in order and verbatim. They name
+the tokenizer ADR 0248 and the explorer's reads ADR 0249, the numbers those
+ADRs had then; they are 0253 and 0254 now. A design
 archive attached to the third (`queryeditor-design.zip`) is not reproduced: its
 cases and tokens are in `docs/ui/` as committed.
 
@@ -295,7 +297,7 @@ Error cases: add the prefix, and make both cases things the parser really produc
 The remaining order on #355 is approved as listed.
 ````
 
-### `coloured`, the converse rule, and ADR 0248 (2026-11-19)
+### `coloured`, the converse rule, and ADR 0248, now 0253 (2026-11-19)
 
 ````text
 `coloured`: add `PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>` and regenerate. Add the converse rule to the README and `QueryColouringTests`: a case that draws no error parses, unless its text is blank. Every case is then held to the parser in both directions.
@@ -378,8 +380,9 @@ Close-out: the traceability record and the descriptor. Drop the CS0618 workaroun
 What was decided, measured and found is the pull request's body, and each step
 was reported on #355 as it landed. In short:
 
-- **Decided, all filed unaccepted:** ADRs 0248 (the public tokenizer), 0249
-  (the explorer's reads), 0250 (the query editor), 0251 (the graph view, with
+- **Decided, all filed unaccepted:** ADRs 0253 (the public tokenizer) and 0254
+  (the explorer's reads), filed as 0248 and 0249 and renumbered by the
+  maintainer's ruling on #387, and 0250 (the query editor), 0251 (the graph view, with
   the node budget of 50) and 0252 (three private assemblies at layers 6, 7
   and 8, revised twice in place by the maintainer's rulings).
   - **Amendments:** 0060, 0112 (abort telemetry), 0200, 0203, 0205 and 0206.

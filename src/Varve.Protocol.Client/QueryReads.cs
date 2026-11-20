@@ -27,7 +27,7 @@ public sealed partial class SparqlHttpClient
     private const string ReportGraphPrefix = "https://w3id.org/varve/ns#validation/";
 
     /// <summary>
-    /// A SELECT or a graph query, streamed (ADRs 0203 and 0249): the answer's
+    /// A SELECT or a graph query, streamed (ADRs 0203 and 0254): the answer's
     /// head now, its solutions or statements as they arrive. SELECT is asked
     /// for as SPARQL 1.1 TSV and a graph as N-Triples. A problem before the
     /// body is the result's problem; dispose the answer to end the request.
@@ -89,7 +89,7 @@ public sealed partial class SparqlHttpClient
     /// <summary>
     /// A query's whole answer in <paramref name="accept"/>, copied to
     /// <paramref name="destination"/> as it arrives and never held whole: the
-    /// download a reader pins to the position its view read (ADR 0249).
+    /// download a reader pins to the position its view read (ADR 0254).
     /// </summary>
     /// <exception cref="HttpRequestException">No answer within the limits' timeout.</exception>
     public async Task<VarveResult<Download>> DownloadAsync(string query, string accept, QueryReadOptions options, Stream destination, CancellationToken cancellationToken)

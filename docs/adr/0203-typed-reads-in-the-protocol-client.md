@@ -227,7 +227,7 @@ Nothing is removed (`NothingIsRemoved`).
 ## Amendment, 2026-11-19 — the data explorer's reads
 
 Filed by the session for Web UI part 2 (#355, under #96), unaccepted until
-the maintainer accepts it (ADR 0066). The reads follow ADR 0249.
+the maintainer accepts it (ADR 0066). The reads follow ADR 0254.
 
 1. **A streamed answer.** `StartQueryAsync(query, form, options, …)` answers
    a `QueryAnswer`: the head (facts, the echoed regime as an `Entailment`,

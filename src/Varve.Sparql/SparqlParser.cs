@@ -184,7 +184,7 @@ public static class SparqlParser
     /// <summary>
     /// The UTF-8 form of <paramref name="text"/>, or, at a lone surrogate, the
     /// form of the text before it with the error there: the tokenizer colours
-    /// up to the bad character (ADR 0248).
+    /// up to the bad character (ADR 0253).
     /// </summary>
     internal static ReadOnlySpan<byte> TranscodePrefix(ReadOnlySpan<char> text, ref byte[]? rented, out SparqlParseError error)
     {

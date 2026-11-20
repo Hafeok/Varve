@@ -6,7 +6,7 @@
 @using System.Globalization
 @using System.Net.Http
 @using Varve.Rdf
-@* Query (#96, ADRs 0249 and 0250): a SPARQL query against one dataset, read
+@* Query (#96, ADRs 0254 and 0250): a SPARQL query against one dataset, read
    under a regime at a position the reader picks. The editor colours with the
    parser's own lexer and shows the parser's first error, in the server's own
    words, before anything is sent. A run is one view at one position: its
@@ -56,7 +56,7 @@ else if (_form == QueryForm.Graph && _ran)
 }
 
 @code {
-    /// <summary>How many rows or statements the browser reads before closing the answer (ADR 0249 point 5).</summary>
+    /// <summary>How many rows or statements the browser reads before closing the answer (ADR 0254 point 5).</summary>
     private const int Ceiling = 5_000;
 
     /// <summary>How many more each Show more shows.</summary>
@@ -170,7 +170,7 @@ else if (_form == QueryForm.Graph && _ran)
         _asOf is AsOfSelector selector && WhyNot() is null ? ReadAsync(_text, _regime, selector) : Task.CompletedTask;
 
     // A new view: the selector resolved by its first answer, and every later
-    // read of the view pinned to that position (ADR 0249 point 2).
+    // read of the view pinned to that position (ADR 0254 point 2).
     private async Task ReadAsync(string text, Entailment? regime, AsOfSelector selector)
     {
         await StopAsync();
@@ -318,7 +318,7 @@ else if (_form == QueryForm.Graph && _ran)
     private void ShowMore() => _shown += Step;
 
     // A download is a fresh read pinned to the view's position, copied to the
-    // browser's file as it arrives (ADR 0249 point 5).
+    // browser's file as it arrives (ADR 0254 point 5).
     private async Task DownloadAsync(DownloadFormat format)
     {
         if (_read is not FeedPosition read || _downloading is not null)

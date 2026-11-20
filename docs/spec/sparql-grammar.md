@@ -634,7 +634,7 @@ sharper one in §8: it allocates the tree and nothing else.
    translation — is handled by the algebra specification not applying that
    rewrite at all (`sparql-algebra.md` §4.4).
 
-## 10. The tokenizer (ADR 0248)
+## 10. The tokenizer (ADR 0253)
 
 The lexer of §3 is reachable as public API, so a query editor colours a query
 with the same terminals the parser reads, and the two cannot disagree about

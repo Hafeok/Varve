@@ -14,7 +14,7 @@ using Varve.WebUi.Explorer.Organisms;
 namespace Varve.WebUi.Explorer.Parts;
 
 /// <summary>
-/// The query editor's runs from ADR 0248's tokenizer, over the very text the
+/// The query editor's runs from ADR 0253's tokenizer, over the very text the
 /// textarea holds (docs/ui/components/QueryEditor/README.md): one run per
 /// token, its kind mapped to a <c>vw-tok--</c> class. Whitespace is no token,
 /// so it stays plain text.

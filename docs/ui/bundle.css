@@ -455,7 +455,7 @@ body.vw-root { margin: 0; }
 .vw-editor__input::selection { background: var(--tok-selection); color: transparent; }
 .vw-editor__input::placeholder { color: var(--ink-muted); }
 
-/* Token classes: one per kind of ADR 0248's tokenizer. Never colour alone:
+/* Token classes: one per kind of ADR 0253's tokenizer. Never colour alone:
    keywords are bold, comments italic, the error is underlined and named in the field's error slot. */
 .vw-tok--keyword { color: var(--tok-keyword); font-weight: 700; }
 .vw-tok--iri { color: var(--tok-iri); }

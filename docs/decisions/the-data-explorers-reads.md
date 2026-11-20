@@ -1,7 +1,7 @@
 ---
 set: the-data-explorers-reads
 namespace: varve
-adr: 0249
+adr: 0254
 decisions:
   - key: EveryAnswerFromTheServer
     statement: "The explorer evaluates nothing: every answer is the server's, under the caller's grants, rows, regime and position, and an empty one is what was returned to the caller, never that a thing does not exist"
@@ -19,5 +19,5 @@ decisions:
     statement: "Query history is the last 20 query texts with their dataset, regime and selector, in sessionStorage, cleared at sign-out; no result, token, position read or request id is stored"
 ---
 
-The rulings of [ADR 0249](../adr/0249-the-data-explorers-reads.md), filed
+The rulings of [ADR 0254](../adr/0254-the-data-explorers-reads.md), filed
 unaccepted by the session for #355 (ADR 0066).

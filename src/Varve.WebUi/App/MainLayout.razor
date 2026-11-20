@@ -141,7 +141,7 @@
         }
     }
 
-    // The tab's query history goes with the sign-in (ADR 0249 point 7).
+    // The tab's query history goes with the sign-in (ADR 0254 point 7).
     private async Task SignOutAsync()
     {
         await Js.InvokeVoidAsync("varveWebUi.historyClear");

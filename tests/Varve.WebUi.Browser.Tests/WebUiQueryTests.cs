@@ -18,7 +18,7 @@ using Xunit;
 namespace Varve.WebUi.Browser.Tests;
 
 /// <summary>
-/// The Query screen against the real server (#355; ADRs 0249 and 0250): the
+/// The Query screen against the real server (#355; ADRs 0254 and 0250): the
 /// editor colours and refuses what the parser refuses before sending; a
 /// SELECT, an ASK and a CONSTRUCT each answer with the position they were
 /// read at; a long answer is read to the ceiling, closed, and shown 500 at a

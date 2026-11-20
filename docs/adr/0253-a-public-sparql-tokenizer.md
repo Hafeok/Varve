@@ -1,4 +1,4 @@
-# 0248 — A public SPARQL tokenizer: the parser's lexer, reachable
+# 0253 — A public SPARQL tokenizer: the parser's lexer, reachable
 
 ## Status
 
@@ -6,8 +6,9 @@
 #96), 2026-11-18** (ADR 0066). Acceptance is the maintainer's act on the pull
 request. The plan was approved on
 [#96](https://github.com/Hafeok/Varve/issues/96#issuecomment-6979264625), with
-the rulings of 2026-11-18. Numbered 0248: 0245 is taken on an open branch, and
-0247 is the last on `main`.
+the rulings of 2026-11-18. Filed as 0248, it became 0253 on 2026-11-20 by the
+maintainer's ruling on #387: 0248 is #129's on `main`, and its acceptance there
+is that ADR's, not this one's.
 
 It records the decision set
 [`a-public-sparql-tokenizer`](../decisions/a-public-sparql-tokenizer.md), and

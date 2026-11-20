@@ -30,7 +30,7 @@ namespace Varve.Protocol.Client;
 /// SELECT is read as SPARQL 1.1 TSV and a graph as N-Triples, both line
 /// formats: a line is a solution or a statement, because both escape a line
 /// feed inside a term, so the body is cut into whole lines and each batch
-/// parsed alone (ADR 0249).
+/// parsed alone (ADR 0254).
 /// </remarks>
 [Contract(typeof(TypedReadsInTheProtocolClient.StreamedAnswer), Role = "a streamed query answer")]
 public sealed class QueryAnswer : IAsyncDisposable

@@ -93,7 +93,7 @@ internal enum TokenKind : byte
     /// <summary><c>|}</c></summary>
     AnnotationClose,
 
-    /// <summary><c># …</c> to the end of its line: only from a lexer made with comments (ADR 0248); the parser never sees one.</summary>
+    /// <summary><c># …</c> to the end of its line: only from a lexer made with comments (ADR 0253); the parser never sees one.</summary>
     Comment,
 }
 

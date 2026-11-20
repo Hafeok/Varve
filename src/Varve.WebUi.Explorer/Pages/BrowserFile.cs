@@ -13,7 +13,7 @@ using Microsoft.JSInterop;
 namespace Varve.WebUi.Explorer.Pages;
 
 /// <summary>
-/// A download on its way to a file in the browser (ADR 0249 point 5): each
+/// A download on its way to a file in the browser (ADR 0254 point 5): each
 /// chunk the client copies is handed to <c>webui.js</c> as it arrives, so the
 /// .NET heap never holds the body whole; the browser saves the chunks as one
 /// file when the copy ends.

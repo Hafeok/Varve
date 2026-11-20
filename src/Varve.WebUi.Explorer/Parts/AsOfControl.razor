@@ -2,7 +2,7 @@
 @using DecisionDriven
 @using DecisionDriven.Ledger.Varve
 @attribute [Contract(typeof(TheWebUiDesignSource.DomainChoicesArePartsOverGenericComponents), Role = "the position a view is read at")]
-@* Where a view reads (ADR 0249; ADR 0206 ruling D8): the head, a position,
+@* Where a view reads (ADR 0254; ADR 0206 ruling D8): the head, a position,
    or a time, composed of the Select atom, the Field molecule and a Button.
    A time is converted to UTC and the line under it says so. A position more
    than the server's as-of distance below the head is refused here, before

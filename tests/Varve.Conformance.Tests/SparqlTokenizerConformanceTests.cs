@@ -14,7 +14,7 @@ namespace Varve.Conformance.Tests;
 
 /// <summary>
 /// The tokenizer's three guarantees (<c>docs/spec/sparql-grammar.md</c> §10,
-/// ADR 0248) over every case of every wired SPARQL syntax suite, positive and
+/// ADR 0253) over every case of every wired SPARQL syntax suite, positive and
 /// negative: the tokens and the gaps between them are the input; where the
 /// tokens stop on an error, the parser fails there or earlier; and UTF-8 and
 /// UTF-16 give the same tokens.

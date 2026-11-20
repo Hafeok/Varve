@@ -157,7 +157,7 @@
         };
     }
 
-    // A download (ADR 0249 point 5): .NET hands over the body a chunk at a
+    // A download (ADR 0254 point 5): .NET hands over the body a chunk at a
     // time as it arrives, and never holds it whole; the chunks become one
     // Blob, saved under the name given.
     var downloads = {};
@@ -188,7 +188,7 @@
         downloadDrop: function (id) {
             delete downloads[id];
         },
-        // The query history (ADR 0249 point 7): this tab only, and cleared at
+        // The query history (ADR 0254 point 7): this tab only, and cleared at
         // sign-out. No result, token, position read or request id is in it.
         historyRead: function () {
             try {

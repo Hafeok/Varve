@@ -29,7 +29,7 @@ internal ref struct Lexer
     /// <summary>
     /// A lexer that, when <paramref name="comments"/> is set, returns each
     /// comment as a <see cref="TokenKind.Comment"/> instead of skipping it.
-    /// Only the public tokenizer sets it (ADR 0248); the parser never does.
+    /// Only the public tokenizer sets it (ADR 0253); the parser never does.
     /// </summary>
     internal Lexer(ReadOnlySpan<byte> text, bool comments)
     {

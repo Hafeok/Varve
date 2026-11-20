@@ -14,7 +14,7 @@ namespace Varve.WebUi.Tests;
 /// <summary>
 /// What the Query page decides without the server: the answer's form from the
 /// first query keyword (ADR 0250), the bracket pair at the caret, and the
-/// tab's history (ADR 0249 point 7).
+/// tab's history (ADR 0254 point 7).
 /// </summary>
 public class QueryPageLogicTests
 {

@@ -15,7 +15,7 @@ using Xunit;
 namespace Varve.WebUi.Tests;
 
 /// <summary>
-/// The query editor colours with ADR 0248's tokenizer: every <c>QueryEditor</c>
+/// The query editor colours with ADR 0253's tokenizer: every <c>QueryEditor</c>
 /// case's runs are exactly what <see cref="QueryColouring"/> gives for its
 /// text, so a case can't draw a colouring the editor would never produce.
 /// </summary>

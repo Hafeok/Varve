@@ -24,7 +24,7 @@ namespace Varve.WebUi.Explorer.Parts;
 public sealed record HistoryEntry(string Query, string Dataset, string Regime, string AsOf);
 
 /// <summary>
-/// The tab's query history (ADR 0249 point 7): the last 20 queries run,
+/// The tab's query history (ADR 0254 point 7): the last 20 queries run,
 /// newest first, each once. It holds the query texts and what they ran with,
 /// and no result, token, position read or request id. The page keeps it in
 /// <c>sessionStorage</c>, as JSON written here without reflection, so the

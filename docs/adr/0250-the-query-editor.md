@@ -27,7 +27,7 @@ The Query screen needs a SPARQL editor. It has to:
 An editor library (a script editor, or a component suite) would bring its own
 DOM, its own accessibility and its own package to the Web UI's bundle, CSP
 and size gate (ADRs 0200 and 0205). The parser and its lexer are already in
-the explorer's lazy set (ADR 0248).
+the explorer's lazy set (ADR 0253).
 
 ## Decision
 
@@ -38,7 +38,7 @@ the explorer's lazy set (ADR 0248).
    technology sees a labelled text field. The alignment is CSS only, with no
    measuring script. In forced colours, the layer is hidden and the
    textarea's own text shows.
-2. **Coloured by ADR 0248's tokenizer, and checked by the parser.**
+2. **Coloured by ADR 0253's tokenizer, and checked by the parser.**
    - `QueryColouring` makes the runs from `SparqlTokenizer` over the very
      text the textarea holds: one span per token, its kind mapped to a
      `vw-tok--` class.
@@ -87,7 +87,7 @@ the explorer's lazy set (ADR 0248).
 - The editor's colours are the `tok-*` tokens, used nowhere else.
 - **Checks:**
   - Against the accepted ADRs: 0200 (no inline style; the layer's spans are
-    classes), 0205 (no new package), 0206 (the levels and the cases), 0248
+    classes), 0205 (no new package), 0206 (the levels and the cases), 0253
     (the tokenizer). No conflict.
   - Layer ownership: `Varve.WebUi.Explorer` (7), ADR 0252.
   - Analyzer rule: none new.

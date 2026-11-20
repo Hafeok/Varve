@@ -10,7 +10,7 @@ using Xunit;
 
 namespace Varve.Sparql.Tests;
 
-/// <summary>The tokenizer's kinds, positions and errors (<c>docs/spec/sparql-grammar.md</c> §10, ADR 0248).</summary>
+/// <summary>The tokenizer's kinds, positions and errors (<c>docs/spec/sparql-grammar.md</c> §10, ADR 0253).</summary>
 public class TokenizerTests
 {
     private static SparqlTokenKind[] Kinds(string text) =>

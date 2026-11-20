@@ -19,7 +19,7 @@ using Xunit;
 namespace Varve.Protocol.Client.Tests;
 
 /// <summary>
-/// The explorer's reads (ADRs 0203 and 0249): a streamed SELECT and graph
+/// The explorer's reads (ADRs 0203 and 0254): a streamed SELECT and graph
 /// answer, an ASK, a download, the diff and the service description, against
 /// a real protocol host; and the line batching that streaming rests on, held
 /// to the chunk-boundary oracle (docs/testing.md §2).

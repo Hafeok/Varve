@@ -148,7 +148,7 @@ the maintainer accepts it (ADR 0066). Decided by the maintainer as D6 on the
 part 2 plan, 2026-11-18.
 
 **The gap.** The explorer cancels a query mid-stream: Cancel, leaving the
-screen, running another query, or reaching its 5,000-row ceiling (ADR 0249
+screen, running another query, or reaching its 5,000-row ceiling (ADR 0254
 point 5). The browser aborts the `fetch`, and the server stops the read
 (ADR 0095). Before this amendment the server recorded nothing: the span's
 status code stayed 200, and there was no log line and no tag. So an

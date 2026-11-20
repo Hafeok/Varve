@@ -444,7 +444,7 @@ public class SignInTests
         Assert.Equal("https://varve.example/ui/signedout", Query(left)["post_logout_redirect_uri"]);
     }
 
-    // ADR 0249 point 7: the tab's query history goes with the sign-in. The
+    // ADR 0254 point 7: the tab's query history goes with the sign-in. The
     // shell's Sign out clears it, before the tab leaves for the issuer.
     [Fact]
     public async Task Signing_out_of_the_shell_clears_the_tabs_query_history_before_leaving()

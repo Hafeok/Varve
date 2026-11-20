@@ -1,4 +1,4 @@
-# 0249 — The data explorer's reads: one position per view, streamed lines, a read-ahead to a ceiling
+# 0254 — The data explorer's reads: one position per view, streamed lines, a read-ahead to a ceiling
 
 ## Status
 
@@ -7,6 +7,9 @@
 request. The plan was approved on
 [#96](https://github.com/Hafeok/Varve/issues/96#issuecomment-6979264625) with
 the maintainer's rulings of 2026-11-18 (D2, D4, D5, D7), recorded there.
+
+Filed as 0249, it became 0254 on 2026-11-20 by the maintainer's ruling on #387:
+0249 is taken on #385's branch.
 
 It records the decision set
 [`the-data-explorers-reads`](../decisions/the-data-explorers-reads.md), and
