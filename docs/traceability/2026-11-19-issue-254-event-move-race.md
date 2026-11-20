@@ -11,7 +11,7 @@
 | **Pull request** | [#374](https://github.com/Hafeok/Varve/pull/374) |
 | **Date** | 2026-11-19 |
 | **Tool** | Claude Code, a cloud session (claude.ai/code), not the maintainer's delegate (ADR 0239) |
-| **Model** | not written by the tool: its environment does not put a model identifier in a file pushed to a repository. The session gave it in its chat reply, and the maintainer fills it in here |
+| **Model** | `claude-opus-5-5`, as the session stated in its chat reply. The tool's environment does not put a model identifier in a file pushed to a repository, so the session could not write it; the maintainer's delegate (ADR 0239) added it on 2026-11-20, on the session's statement as the maintainer relayed it, and did not read it from the session's metadata |
 | **Session identifier** | `session_01NbWSYShh3XyxMHBQtApVnR` |
 | **Branch** | `claude/event-move-race-254`, from `main` at c754bcba |
 | **ADRs** | [0167](../adr/0167-event-declarations-move-to-the-management-plane.md) amended 2026-11-19, filed unaccepted |
