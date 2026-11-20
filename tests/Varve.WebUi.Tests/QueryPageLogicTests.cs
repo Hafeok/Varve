@@ -23,16 +23,34 @@ public class QueryPageLogicTests
     [InlineData("prefix ex: <http://ex/> # a comment\nselect ?s { ?s ex:p ?o }", QueryForm.Solutions)]
     [InlineData("ASK { ?s ?p ?o }", QueryForm.Boolean)]
     [InlineData("CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }", QueryForm.Graph)]
+    [InlineData("CONSTRUCT WHERE { ?s ?p ?o }", QueryForm.Graph)]
     [InlineData("DESCRIBE <http://ex/s>", QueryForm.Graph)]
-    public void the_form_is_the_first_query_keyword(string query, QueryForm form) =>
+    // A sub-SELECT inside a CONSTRUCT or an ASK: the parsed query's form, not a keyword's.
+    [InlineData("CONSTRUCT { ?s ?p ?o } WHERE { { SELECT ?s ?p ?o { ?s ?p ?o } } }", QueryForm.Graph)]
+    [InlineData("ASK { { SELECT ?s { ?s ?p ?o } } }", QueryForm.Boolean)]
+    public void the_form_is_the_parsed_querys(string query, QueryForm form)
+    {
+        QueryCheck check = QueryColouring.Check(query);
+
+        Assert.Null(check.Error);
+        Assert.Equal(form, check.Form);
         Assert.Equal(form, QueryColouring.Form(query));
+    }
 
     [Theory]
     [InlineData("")]
     [InlineData("PREFIX ex: <http://ex/>")]
     [InlineData("# SELECT in a comment")]
-    public void before_a_query_keyword_there_is_no_form(string query) =>
-        Assert.Null(QueryColouring.Form(query));
+    // The first keyword is SELECT, and the parser refuses the text: no form, its error instead.
+    [InlineData("SELECT * WHERE {")]
+    [InlineData("SELECT ASK { }")]
+    public void a_text_the_parser_refuses_or_that_is_blank_has_no_form(string query)
+    {
+        QueryCheck check = QueryColouring.Check(query);
+
+        Assert.Null(check.Form);
+        Assert.Equal(string.IsNullOrWhiteSpace(query), check.Error is null);
+    }
 
     [Theory]
     // The caret after an opening brace, and before its closing one.

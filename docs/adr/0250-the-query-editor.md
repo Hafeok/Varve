@@ -60,10 +60,45 @@ the explorer's lazy set (ADR 0253).
    the line's start. Escape, then Tab, leaves the editor (WCAG 2.1.2), and
    the help line says so. The bracket at the caret and its partner are
    outlined, not only filled.
-5. **The page knows the answer's form before sending.** The first query
-   keyword gives the form: SELECT asks for solutions, ASK for a boolean, and
-   CONSTRUCT or DESCRIBE for a graph. So the page sends the right `Accept`
-   and draws the right view.
+5. **The page knows the answer's form before sending, from the parser.** The
+   form is the parsed query's: a `SelectQuery` asks for solutions, an
+   `AskQuery` for a boolean, and a `ConstructQuery` or `DescribeQuery` for a
+   graph. So the page sends the right `Accept` and draws the right view, and
+   the form is that of the very query sent. The check of point 2 and the form
+   come from one parse per edit (`QueryColouring.Check`); a text the parser
+   refuses has its error and no form, and is never sent. Revised in place on
+   2026-11-20, before acceptance, by the architect's review: the first draft
+   read the form from the first keyword token.
+6. **Up to 25,000 characters the editor colours and checks as it is typed;
+   above that it does neither.** The length is the text's in UTF-16 code
+   units (`QueryColouring.CheckedLength`).
+   - **Above it**, the coloured layer shows the text plain, with no token
+     spans and no bracket match, and nothing is tokenized or parsed per edit.
+     The help line says why, for example "This query is 30,042 characters,
+     over 25,000: it is not coloured or checked as you type. Run checks it
+     once before sending it.", followed by the keys.
+   - **Run** is not refused for want of a check: it parses the text once.
+     What the parser refuses is shown as any error is, at its line and column,
+     and not sent; what it accepts is read as usual.
+   - **The measurement.** Measured on 2026-11-20 in the published bundle
+     against the server, in Chromium on the session's container (4 cores):
+     a SELECT of the given length, set into the textarea, then one character
+     typed at its end seven times; a keystroke is timed from the input event
+     to the coloured layer holding the new text.
+
+     | Characters | Paste, ms | Keystroke, median of 7, ms (two runs) |
+     |---:|---:|---|
+     | 1,000 | 17–21 | 16.0, 16.0 |
+     | 10,000 | 74–108 | 37.0, 37.2 |
+     | **25,000** | 121–165 | **51.6, 56.3** |
+     | 50,000 | 228–241 | 104.0, 104.6 |
+     | 100,000 | 393–435 | 210.3, 212.4 |
+     | 200,000 | 811–860 | 530.3, 613.2 |
+
+     The rule, the graph's (ADR 0251 point 6): the largest size on the grid
+     whose keystroke re-renders, median, in under 100 ms. 50,000 is over it in
+     both runs, so the limit is 25,000. It is raised only from a
+     re-measurement on the perf environment, by the same rule.
 
 ## Alternatives considered
 

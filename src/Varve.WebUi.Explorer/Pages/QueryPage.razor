@@ -26,7 +26,7 @@ else if (_head is FeedPosition head)
     <Unreachable Server="@Settings.Server.AbsoluteUri" Failure="@_failure" LastRead="null" OnReadAgain="RunAsync" />
 }
 
-<QueryEditor Id="query-text" Label="SPARQL query" Text="@_text" Runs="_runs" Error="_error" Match="_match" Help="Tab inserts two spaces. Press Escape, then Tab, to leave the editor." />
+<QueryEditor Id="query-text" Label="SPARQL query" Text="@_text" Runs="_runs" Error="_error" Match="_match" Help="@Help()" />
 @* Two rows of the existing vw-actions: the choices, then the acts, so a
    button is never stretched to a field's height (#383 asks the design side
    for a form row). *@
@@ -67,6 +67,7 @@ else if (_form == QueryForm.Graph && _ran)
     private string _text = Start;
     private IReadOnlyList<EditorRun> _runs = QueryColouring.Runs(Start);
     private EditorError? _error;
+    private QueryForm? _checkedForm = QueryColouring.Form(Start);
     private IReadOnlyList<int> _match = [];
 
     private DatasetDescription? _description;
@@ -150,8 +151,23 @@ else if (_form == QueryForm.Graph && _ran)
         if (text != _text)
         {
             _text = text;
-            _runs = QueryColouring.Runs(text);
-            _error = QueryColouring.Error(text);
+
+            // Over the length the editor checks, it neither colours nor
+            // checks as the person types: the text shows plain, and Run
+            // checks it once (ADR 0250 point 6).
+            if (text.Length > QueryColouring.CheckedLength)
+            {
+                _runs = [];
+                _error = null;
+                _checkedForm = null;
+            }
+            else
+            {
+                _runs = QueryColouring.Runs(text);
+                QueryCheck check = QueryColouring.Check(text);
+                _error = check.Error;
+                _checkedForm = check.Form;
+            }
         }
 
         _match = QueryColouring.Match(text, _runs, caret);
@@ -162,12 +178,36 @@ else if (_form == QueryForm.Graph && _ran)
     private string? WhyNot() =>
         string.IsNullOrWhiteSpace(_text) ? "Write a query to run."
         : _error is not null ? "The query has a syntax error."
-        : QueryColouring.Form(_text) is null ? "Write SELECT, ASK, CONSTRUCT or DESCRIBE."
+        : _checkedForm is null && !Unchecked ? "Write SELECT, ASK, CONSTRUCT or DESCRIBE."
         : _asOf is null ? "Choose where to read."
         : null;
 
-    private Task RunAsync() =>
-        _asOf is AsOfSelector selector && WhyNot() is null ? ReadAsync(_text, _regime, selector) : Task.CompletedTask;
+    // Whether the text is over the length the editor checks as it is typed.
+    private bool Unchecked => _text.Length > QueryColouring.CheckedLength;
+
+    // The editor's help line: the keys, and, over the checked length, why
+    // the text is plain and when it is checked.
+    private string Help() => Unchecked
+        ? "This query is " + Number(_text.Length) + " characters, over " + Number(QueryColouring.CheckedLength) + ": it is not coloured or checked as you type. Run checks it once before sending it. Tab inserts two spaces. Press Escape, then Tab, to leave the editor."
+        : "Tab inserts two spaces. Press Escape, then Tab, to leave the editor.";
+
+    private Task RunAsync()
+    {
+        if (_asOf is not AsOfSelector selector || WhyNot() is not null)
+        {
+            return Task.CompletedTask;
+        }
+
+        // Over the checked length, the parser runs once, here; what it
+        // refuses is shown as any error is, and not sent.
+        if (Unchecked && QueryColouring.Check(_text).Error is EditorError error)
+        {
+            _error = error;
+            return Task.CompletedTask;
+        }
+
+        return ReadAsync(_text, _regime, selector);
+    }
 
     // A new view: the selector resolved by its first answer, and every later
     // read of the view pinned to that position (ADR 0254 point 2).

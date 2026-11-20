@@ -141,6 +141,57 @@ public sealed class WebUiQueryTests
         await context.CloseAsync();
     }
 
+    [Fact]
+    public async Task Over_the_checked_length_the_editor_is_plain_and_run_checks_the_query_once()
+    {
+        (string bundle, string chrome) = WebUiServer.Required();
+        await using WebUiServer server = await WebUiBrowserTests.AnonymousAsync(bundle);
+        using IPlaywright playwright = await Playwright.CreateAsync();
+        await using IBrowser browser = await playwright.Chromium.LaunchAsync(new() { ExecutablePath = chrome });
+        IBrowserContext context = await browser.NewContextAsync();
+        IPage page = await context.NewPageAsync();
+        List<string> violations = WebUiBrowserTests.Watch(page);
+        List<string> requests = [];
+        page.Request += (_, request) =>
+        {
+            if (request.Url.Contains("/sparql", StringComparison.Ordinal))
+            {
+                requests.Add(request.Url);
+            }
+        };
+
+        await page.GotoAsync(server.Ui + "datasets/notes/query");
+        await page.WaitForSelectorAsync(".vw-editor__code .vw-tok--keyword", new() { Timeout = 60_000 });
+
+        // 30,000 characters, over the 25,000 the editor checks as it is
+        // typed (ADR 0250 point 6): shown plain, with no syntax error, Run
+        // allowed, and the help line saying why.
+        string comment = "\n# " + new string('x', 30_000);
+        string broken = "SELECT ?title WHERE { <https://notes.example/42> " + Title + " ?title" + comment;
+        await page.FillAsync("#query-text", broken);
+        await page.WaitForSelectorAsync("#query-text-help:has-text('not coloured or checked as you type')");
+        Assert.Contains("over 25,000", await page.InnerTextAsync("#query-text-help"));
+        Assert.Equal(0, await page.Locator(".vw-editor__code .vw-tok").CountAsync());
+        Assert.Equal(0, await page.Locator("#query-text-err").CountAsync());
+        Assert.False(await page.IsDisabledAsync("button.vw-button--primary"));
+
+        // Run checks it once: the parser's error, and nothing sent.
+        await page.ClickAsync("button.vw-button--primary");
+        await page.WaitForSelectorAsync("#query-text-err");
+        Assert.StartsWith("2:30003: ", await page.InnerTextAsync("#query-text-err"));
+        Assert.Empty(requests);
+
+        // The same query closed: Run checks it and reads it.
+        await page.FillAsync("#query-text", "SELECT ?title WHERE { <https://notes.example/42> " + Title + " ?title }" + comment);
+        await page.ClickAsync("button.vw-button--primary");
+        await page.WaitForSelectorAsync(".vw-results__status:has-text('All 1 row returned to you.')");
+        Assert.Contains("Weekly sync", await page.InnerTextAsync(".vw-results tbody"));
+        Assert.Single(requests);
+
+        Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+        await context.CloseAsync();
+    }
+
     private static async Task RunAsync(IPage page, string query)
     {
         await page.FillAsync("#query-text", query);
