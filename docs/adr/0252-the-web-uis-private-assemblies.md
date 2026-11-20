@@ -16,6 +16,27 @@ It records the decision set
 and amends [0060](0060-hosts-at-layer-6-the-composition-root.md),
 [0200](0200-varve-webui-a-blazor-webassembly-host.md) and
 [0206](0206-the-web-ui-design-source.md) by dated amendments in their files.
+Where each ruling is recorded, all filed unaccepted:
+
+| Ruling | Set | Key |
+|---|---|---|
+| Point 1, the three assemblies at 6, 7 and 8 | `the-web-uis-private-assemblies` | `ThreeAssembliesThreeLayers` |
+| Point 2, host layers 6 and up, a layer 0 to 8 (VARVE0005) | `hosts-at-layer-6-the-composition-root` (0060, amended) | `HostLayersSixToEight` |
+| Point 3, a host's private assembly (VARVE0005) | `hosts-at-layer-6-the-composition-root` (0060, amended) | `PrivateAssembliesOfAHost` |
+| Point 4, namespaces | `the-web-uis-private-assemblies` | `NamespacesCarryAssemblyAndLevel` |
+| Point 4, the levels across the three (VARVE0006) | `the-web-ui-design-source` (0206, amended) | `LevelsAcrossThreeAssemblies` |
+| Point 5, VARVE0006 holds the three apart | `the-web-uis-private-assemblies` | `VarveSixHoldsTheThreeApart` |
+| Point 6, the explorer lazy-loaded | `the-web-uis-private-assemblies` | `ExplorerLoadedByItsRoutes` |
+| Point 7, eager only when a console page uses it | `the-web-uis-private-assemblies` | `EagerOnlyWhenAConsolePageUses` |
+| The host above its private assemblies; Blazor scoped to the three | `varve-webui-a-blazor-webassembly-host` (0200, amended) | `HostAboveItsPrivateAssemblies` |
+
+Points 2 and 3 change ADR 0060's layer table, so their rulings are in 0060's
+set and not repeated here. ADR 0205's amendment of the same day, the size
+gate's two rows, records `TwoRowsFirstScreenAndLazySet`, `TheLazySetIsNamed`
+and `ExplorerBudgetMeasured` in `the-web-uis-size-budget-and-no-aot`.
+VARVE0005 and VARVE0006 cite their rulings by key in their remarks: an
+analyzer cannot carry `[Contract]`, which would need a reference to the
+decision ledger from a `netstandard2.0` analyzer assembly.
 
 ## Context
 

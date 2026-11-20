@@ -52,6 +52,17 @@ namespace Varve.Analyzers;
 ///   itself.</item>
 /// </list>
 /// <para>
+/// The rulings it holds, by key, since an analyzer assembly takes no
+/// reference to the decision ledger and so cannot carry <c>[Contract]</c>:
+/// <c>TheWebUiDesignSource.AtomicLevelsAreADependencyRule</c>,
+/// <c>.OnlyPagesCallTheApi</c>, <c>.TheAppIsTheTopLevel</c> and
+/// <c>.NoTypeOutsideTheLevelsHoldsAService</c> (ADR 0206);
+/// <c>TheWebUiDesignSource.LevelsAcrossThreeAssemblies</c> (ADR 0206, amended
+/// by ADR 0252 point 4); and
+/// <c>TheWebUisPrivateAssemblies.VarveSixHoldsTheThreeApart</c> (ADR 0252
+/// point 5). The last two are filed unaccepted.
+/// </para>
+/// <para>
 /// Razor compiles a component to C# through a source generator, and that is
 /// generated code, which an analyzer neither analyses nor reports in unless it
 /// opts in. This rule opts in, and only this rule: the opt-in is per analyzer,

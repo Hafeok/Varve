@@ -39,6 +39,14 @@ namespace Varve.Analyzers;
 ///   first; the package needs the property, so this makes disagreement an
 ///   error instead.</item>
 /// </list>
+/// <para>
+/// The rulings it holds, by key, since an analyzer assembly takes no
+/// reference to the decision ledger and so cannot carry <c>[Contract]</c>:
+/// <c>HostsAtLayer6TheCompositionRoot.ExecutablesAreLayer6</c>,
+/// <c>.HostLayersSixToEight</c> and <c>.PrivateAssembliesOfAHost</c> (ADR 0060,
+/// amended 2026-11-19 by ADR 0252 points 2 and 3); the last two are filed
+/// unaccepted.
+/// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class LayerDeclarationAnalyzer : DiagnosticAnalyzer

@@ -5,10 +5,6 @@ adr: 0252
 decisions:
   - key: ThreeAssembliesThreeLayers
     statement: "The Web UI is Varve.WebUi.Components at layer 6, eager, holding what a console page uses; Varve.WebUi.Explorer at layer 7, lazy, holding the explorer's pages and parts and the components only they use; and the host Varve.WebUi at layer 8; every reference among them points strictly down"
-  - key: HostLayersAreSixAndUp
-    statement: "A host that has private assemblies stacks them below itself at their own layers, every other host stays at 6, and a layer is an integer from 0 to 8"
-  - key: HostPartsNameTheirHost
-    statement: "A host's private assembly is a library at a host layer, never packed, that names its host in VarveHostPartOf and is part of its composition root"
   - key: NamespacesCarryAssemblyAndLevel
     statement: "A Web UI type's namespace is Varve.WebUi.<Level> in the host and Varve.WebUi.Components.<Level> or Varve.WebUi.Explorer.<Level> in the other two"
   - key: VarveSixHoldsTheThreeApart

@@ -142,7 +142,9 @@ own stated budget, with both numbers measured.
    The explorer's 60 kB was a placeholder, set from a lazy set with no page
    in it, not a measurement. The maintainer's ruling of 2026-11-20 on #355
    replaces it under point 3's rule, which does not weaken the gate:
-   91,087 B plus 5% is 95,641 B, rounded up to 10 kB, 100,000 B.
+   91,087 B plus 5% is 95,641 B, rounded up to 10 kB, 100,000 B. The
+   ruling `ExplorerBudgetMeasured` states these numbers; its first statement,
+   60,000 bytes for two assemblies, was replaced before acceptance.
 
 5. **With the explorer-only components moved** (ADR 0252 point 7,
    2026-11-20): the components only explorer pages use, and those designed
