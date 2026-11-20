@@ -549,7 +549,7 @@ static int RunSamples(string root, bool write, string? trimmed, string? packages
         else
         {
             string published = Path.Combine(Path.GetTempPath(), "varve-learn-" + name + "-" + trimmed);
-            if (Process("dotnet", ["publish", project, "-c", "Release", "-r", trimmed, "-o", published, "-nologo", "-p:TreatWarningsAsErrors=true", .. from], root, out string built) != 0
+            if (Process("dotnet", ["publish", project, "-c", "Release", "-p:VarveTrimFor=" + trimmed, "-o", published, "-nologo", "-p:TreatWarningsAsErrors=true", .. from], root, out string built) != 0
                 || built.Contains("warning", StringComparison.OrdinalIgnoreCase))
             {
                 Console.Error.WriteLine(built);

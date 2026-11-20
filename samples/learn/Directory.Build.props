@@ -27,6 +27,11 @@
          give no warning. Set here, not by -p, so it does not flow into the
          referenced projects. One lockfile serves every runner (ADR 0226). -->
     <PublishTrimmed>true</PublishTrimmed>
+    <!-- The runtime a trimmed publish is for, set here from VarveTrimFor
+         rather than by `-r`: a global RuntimeIdentifier flows into every
+         project under src/, whose lockfiles name no runtime, and a locked
+         restore refuses it (NU1004). -->
+    <RuntimeIdentifier Condition="'$(VarveTrimFor)' != ''">$(VarveTrimFor)</RuntimeIdentifier>
     <RuntimeIdentifiers>$(VarveNativeRuntimeIdentifiers)</RuntimeIdentifiers>
   </PropertyGroup>
 
