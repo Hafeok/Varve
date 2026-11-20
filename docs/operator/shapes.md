@@ -18,6 +18,7 @@ SHACL-SPARQL (ADRs 0148–0157).
 A binding is a node in the dataset's management graph,
 `varve:manage/dataset/{name}`, beside the dataset's own declaration:
 
+<!-- ci: ci.yml build — ShapesBindingTests -->
 ```trig
 @prefix varve: <https://w3id.org/varve/ns#> .
 
@@ -93,6 +94,7 @@ Each binding's report is served as the graph
 `enc` percent-encodes every byte outside RFC 3986's unreserved set. Query it,
 or `GET` it from the Graph Store:
 
+<!-- ci: ci.yml build — ShapesBindingTests -->
 ```sparql
 PREFIX sh: <http://www.w3.org/ns/shacl#>
 SELECT ?focus ?path ?message WHERE {

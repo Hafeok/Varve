@@ -240,6 +240,16 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("site-script-fixture", "the docs site build refuses a page that holds a script",
         () => Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "build", "--root", "tests/fixtures/site/script", "--out", "artifacts/site-script-fixture", "--commit", "0000000000000000000000000000000000000000"]) == 1 ? 0 : 1),
 
+    // ADR 0248 (#129): every procedure in the operator's guide names the
+    // job that runs it, or why none can; --report lists the second kind.
+    ("procedures", "every procedure in the operator's guide names a job that exists, or says why no job runs it",
+        () => Run("dotnet", ["run", "eng/procedures.cs", "--", "--report"])),
+
+    // Both of its paths (tests/fixtures/procedures/README.md).
+    ("procedures-fixtures", "the procedure marker gate fails its failing fixture and passes its passing one",
+        () => Run("dotnet", ["run", "eng/procedures.cs", "--", "--root", "tests/fixtures/procedures/failing"]) == 1
+            && Run("dotnet", ["run", "eng/procedures.cs", "--", "--root", "tests/fixtures/procedures/passing"]) == 0 ? 0 : 1),
+
     ("lockfiles", "every lockfile was written with global.json's SDK, before a locked restore says so less clearly",
         () => Run("dotnet", ["run", "eng/lockfiles.cs", "--", "--check"])),
 

@@ -40,10 +40,11 @@ You need a test tenant, and in it the right to create app registrations
 admin consent.
 
 `deploy/azure/entra/main.bicep` already creates *Varve's API* (`api://varve`,
-v2 tokens, the app roles) and a *calling application* that holds `Varve.Write`
-as an application permission. You can reuse both: give the calling
-application the federated credential of step 3 too, and skip steps 1, 2 and
-4. Otherwise, by hand:
+v2 tokens, the app roles) and the provider leg's client: it holds `Varve.Write`
+as an application permission, and its only credential is the federated
+credential of step 3 (`githubProviderEnvironment`, default `auth-providers`).
+Deployed, it replaces steps 1 to 3: `VARVE_ENTRA_CLIENT_ID` is its
+`providerLegClientId` output. Otherwise, by hand:
 
 1. **The API's registration.** *Entra ID → App registrations → New
    registration*, single tenant, named for example `varve-api-test`.
@@ -76,6 +77,7 @@ application the federated credential of step 3 too, and skip steps 1, 2 and
 
    With the Azure CLI:
 
+   <!-- ci: none — the test tenant is not provisioned yet (ADR 0223); the maintainer runs it once -->
    ```bash
    az ad app federated-credential create --id <client-app-id> --parameters '{
      "name": "github-auth-providers",
@@ -108,6 +110,7 @@ and Security Token Service APIs enabled, and the right to create workload
 identity pools and service accounts in it (Workload Identity Pool Admin,
 Service Account Admin, and Project IAM Admin or the project's owner).
 
+<!-- ci: none — the Google test project is not provisioned yet (ADR 0223); the maintainer runs it once -->
 ```bash
 PROJECT_ID=<project-id>
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
@@ -116,6 +119,7 @@ gcloud services enable iam.googleapis.com iamcredentials.googleapis.com sts.goog
 
 1. **The workload identity pool**:
 
+   <!-- ci: none — the Google test project is not provisioned yet (ADR 0223); the maintainer runs it once -->
    ```bash
    gcloud iam workload-identity-pools create github \
      --project "$PROJECT_ID" --location global --display-name "GitHub Actions"
@@ -124,6 +128,7 @@ gcloud services enable iam.googleapis.com iamcredentials.googleapis.com sts.goog
    condition is what admits only this repository's `auth-providers`
    environment. Without it, any repository on GitHub could present a token.
 
+   <!-- ci: none — the Google test project is not provisioned yet (ADR 0223); the maintainer runs it once -->
    ```bash
    gcloud iam workload-identity-pools providers create-oidc varve \
      --project "$PROJECT_ID" --location global --workload-identity-pool github \
@@ -137,6 +142,7 @@ gcloud services enable iam.googleapis.com iamcredentials.googleapis.com sts.goog
    and that's the audience the test asks GitHub for.
 3. **The service account.** It needs no role on the project and **no key**:
 
+   <!-- ci: none — the Google test project is not provisioned yet (ADR 0223); the maintainer runs it once -->
    ```bash
    gcloud iam service-accounts create varve-auth-providers \
      --project "$PROJECT_ID" --display-name "Varve auth (providers)"
@@ -144,6 +150,7 @@ gcloud services enable iam.googleapis.com iamcredentials.googleapis.com sts.goog
 4. **The binding.** The pool's principals for this repository may mint the
    service account's ID tokens, and nothing else:
 
+   <!-- ci: none — the Google test project is not provisioned yet (ADR 0223); the maintainer runs it once -->
    ```bash
    gcloud iam service-accounts add-iam-policy-binding \
      "varve-auth-providers@$PROJECT_ID.iam.gserviceaccount.com" \
@@ -176,6 +183,7 @@ The job runs on every push to `main`. To run it without a change, re-run the
 
 **Before any setup**, both tests skip:
 
+<!-- ci: ci.yml auth-providers — what its test step prints before any setup -->
 ```
 skipped Varve.Server.Tests.ProviderTests.Entra_federated_client_credentials_token_writes
   The entra leg needs VARVE_ENTRA_TENANT, VARVE_ENTRA_CLIENT_ID, VARVE_ENTRA_AUDIENCE (ADR 0100, ADR 0223; docs/auth-providers.md).
@@ -217,3 +225,14 @@ job instead of quietly skipping it.
 **repo-standard** reports the five names as "declared and not present" until
 they're added. That is expected, and it is setup, not drift. Once they're
 added, the weekly check is clean.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Entra ID.** The test tenant is not provisioned yet (ADR 0223); the maintainer runs it once.
+- **Google.** The Google test project is not provisioned yet (ADR 0223); the maintainer runs it once.
+- **Google.** The Google test project is not provisioned yet (ADR 0223); the maintainer runs it once.
+- **Google.** The Google test project is not provisioned yet (ADR 0223); the maintainer runs it once.
+- **Google.** The Google test project is not provisioned yet (ADR 0223); the maintainer runs it once.
+- **Google.** The Google test project is not provisioned yet (ADR 0223); the maintainer runs it once.

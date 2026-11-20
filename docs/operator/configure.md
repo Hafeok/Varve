@@ -8,38 +8,45 @@ are absolute. A `TimeSpan` is `hh:mm:ss`; a byte count is a number of bytes.
 
 Settings come from, later sources winning:
 
-1. `appsettings.json` in the working directory, when there is one;
+1. `appsettings.json` in the working directory, when there is one, then
+   `appsettings.{Environment}.json` for the host's environment
+   (`DOTNET_ENVIRONMENT`, `Production` when unset);
 2. the files `--config <path>` names, in order;
 3. the environment: `VARVE__AUTH__MODE=Oidc`, two underscores for each colon;
 4. the command line: `--Varve:Auth:Mode=Oidc`, or `--set Auth:Mode=Oidc`, or
    the typed options of `varve serve` (`--auth-mode Oidc`, `--authority`,
-   `--audience`, `--datasets-root`, `--anonymous`, `--urls`), which map onto
-   the same keys. `--record-bootstrap` is no key: it asks the system writer
+   `--audience`, `--datasets-root`, `--anonymous`), which map onto the same
+   keys. `--urls` is the host's listener list (ASP.NET Core's `--urls`), not
+   a `Varve:` key. `--record-bootstrap` is no key: it asks the system writer
    to record the configured bootstrap operators (below).
 
 **A key the server does not know refuses to start**, naming it: a misspelt
 `Varve:Limit:QueryTimeout` is an error, never a default silently taken. A
 value that does not validate refuses to start too, with every error listed.
 
-`varve serve --print-config …` prints every effective value as JSON with the
-source it came from (`command line`, `environment`, `file <path>`,
-`default`), secrets redacted, validates, and exits without serving: run it
-before a change goes live, and keep its output with the change.
+`varve serve --print-config …` prints, as JSON, every key that some source
+sets, flat by its path under `Varve`, each with its value and the source it
+came from (`command line`, `environment`, `file <path>`), secrets redacted;
+validates; and exits without serving. Run it before a change goes live, and
+keep its output with the change. A key left at its default is not printed:
+the defaults are the tables below (#299).
 
+<!-- ci: ci.yml build — HostTests: --print-config with --config and --set -->
 ```sh
 varve serve --print-config --config /etc/varve/varve.json --set Limits:QueryTimeout=00:00:10
 ```
 
+With `/etc/varve/varve.json` setting `DatasetsRoot` and `Auth`, it prints:
+
+<!-- ci: ci.yml build — HostTests asserts this shape, value and source -->
 ```json
 {
   "Varve": {
-    "DatasetsRoot": "/var/lib/varve",
-    "Manage": { "BootstrapOperators": [ "Varve.Operator" ] },
-    "Auth": { "Mode": "Oidc", "Authority": "https://login.example/", "Audiences": [ "api://varve" ] },
-    "Limits": { "QueryTimeout": "00:00:30" },
-    "Federation": { "AllowedEndpoints": [ "https://query.wikidata.org/" ] },
-    "Load": { "AllowedSources": [ "https://data.example/" ] },
-    "ForwardedHeaders": { "Enabled": true, "KnownProxies": [ "10.0.0.2" ] }
+    "DatasetsRoot": { "value": "/var/lib/varve", "from": "file /etc/varve/varve.json" },
+    "Auth:Mode": { "value": "Oidc", "from": "file /etc/varve/varve.json" },
+    "Auth:Authority": { "value": "https://login.example/", "from": "file /etc/varve/varve.json" },
+    "Auth:Audiences:0": { "value": "api://varve", "from": "file /etc/varve/varve.json" },
+    "Limits:QueryTimeout": { "value": "00:00:10", "from": "command line" }
   }
 }
 ```
@@ -75,7 +82,7 @@ model and its request costs.
 |---|---|---|
 | `Fleet:Writer` | `true` | `true`, `false`, or an instance name compared with `ObjectStorage:Instance`: whether this instance writes the system dataset; any value but `false` lets it claim the datasets placed on it. A fleet of one is its own writer whatever this says. With `Fleet:AutomaticHandover`, the system dataset's writer set instead: instance names separated by commas, no spaces, the preferred writer first |
 | `Fleet:AutomaticHandover` | `false` | whether the system dataset hands over to a warm standby (ADR 0179 point 13): `Fleet:Writer` is then its writer set, under the same start rule and race as a dataset's ([Standbys](fleet.md#standbys-a-writer-set)) |
-| `Fleet:InternalUrl` | none | the address other instances forward writes to, recorded in the writer record at claim; required on an instance that may claim in an object-store fleet; `https`, or `http` inside a private network only, since a caller's token crosses it |
+| `Fleet:InternalUrl` | none | the address other instances forward writes to, recorded in the writer record at claim; required on an instance that may claim in an object-store fleet; use `https`, or `http` only inside a private network, since a caller's token crosses it. The server does not check this: any absolute `http` or `https` address is accepted (#307) |
 | `Fleet:FollowInterval` | `00:00:01` | how old a follower's last advance may be before a read advances it, and how often the system dataset is advanced; at most a minute (ADR 0164) |
 | `Fleet:AllowedLag` | 100 | how many system positions this instance may be behind the system tail and be ready |
 | `Manage:BootstrapOperators` | `[]` | agent IRIs (`<issuer>#<subject>`) or role values that are always operators; the first system writer records them; at least one under `Oidc` (ADR 0163 point 7) |
@@ -151,8 +158,9 @@ to enforce conditional writes and is refused.
 | `SubjectClaim` | `sub` | the claim that names the caller as a commit's agent: `oid` for Entra |
 | `ApplicationClaim` | `azp` | the claim that names the application acting for the caller, recorded on the request span as `varve.azp` and never in the log; `appid` for an Entra v1 token (ADR 0127) |
 | `RoleClaimType` | `roles` | the claim whose values are mapped to permissions |
-| `RequireHttpsMetadata` | `true` | refuse an authority whose metadata is not served over HTTPS; off only for a loopback issuer in a test |
+| `RequireHttpsMetadata` | `true` | refuse an authority whose metadata is not served over HTTPS; with it on, `Authority` must be `https`. Set it to `false` only for a test issuer on plain `http`; the server does not check that the issuer is local |
 | `Production` | `false` | refuse anonymous mode |
+
 Grants are not configuration: they are declared with each dataset (ADR
 0166). [Authenticate](authenticate.md) explains the model and shows provider
 examples.
@@ -161,21 +169,25 @@ examples.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `QueryTimeout` | `00:00:30` | a read is cut after this, with an error trailer where the format allows (ADR 0095); `request-timeout` |
-| `ResultSizeCap` | 1 GiB | a read is cut after this many bytes; `result-too-large` |
+| `QueryTimeout` | `00:00:30` | a read is cut after this, with an error trailer where the format allows (ADR 0095); [`read-limit-exceeded`](../problems/read-limit-exceeded.md) |
+| `ResultSizeCap` | 1 GiB | a read is cut after this many bytes; [`read-limit-exceeded`](../problems/read-limit-exceeded.md) |
 | `MaxRequestBody` | 100 MiB | a request body above this is `413 request-too-large` |
 | `PinnedReadLifetime` | `00:02:00` | the longest a response may hold its pin |
 | `FeedHeartbeat` | `00:00:15` | a live tail writes a heartbeat line at this interval |
 | `MaxConcurrentReads` | 64 | reads evaluated at once; a read beyond this waits in the queue |
 | `ReadQueueLength` | 256 | reads waiting; one more is `503 server-busy` with `Retry-After` (ADR 0114) |
 | `MaxQueryMemory` | 256 MiB | what one query's joins, sorts, groups and `DISTINCT` may hold, counted by rows; over it is `422 memory-limit-exceeded`, before the first byte or as a trailer (ADR 0114) |
-| `MaxAsOfDistance` | 10,000 | how many positions below the head a `Varve-As-Of` read may go; further is `422 as-of-distance-exceeded`; a checkpoint at or below the position makes any distance cheap (ADR 0114) |
+| `MaxAsOfDistance` | 10,000 | how many commits from the log a `Varve-As-Of` read may replay: those above the nearest checkpoint at or below its position (or above position 0); a position at or below the newest extent set's end replays none, however far below the head it is (ADR 0114, ADR 0138); further is `422 as-of-distance-exceeded` |
 | `MaxLiveTailsPerClient` | 16 | live tails of `/commits` open per caller (per subject, or per address anonymous); one more is `429 too-many-live-tails` |
 | `CommitsPageSize` | 1,000 | commits a `GET /commits` range answers before a `Link rel="next"` |
 | `IdempotencyWindow` | 100,000 | how many of a dataset's last commits a client's `Idempotency-Key` is honoured for; a retry of an older write is `422 idempotency-key-expired`. Counted in commits, never time; the writer reads this many commit headers before its first keyed write (ADR 0246) |
 
-Every duration is positive and every count at least one, or the server does
-not start. Each limit's problem type is in `docs/problems/`, with its
+Every duration and size is positive, and every count at least one except
+`ReadQueueLength` and `MaxAsOfDistance`, which may be `0`, or the server
+does not start. With `ReadQueueLength` `0` a read beyond `MaxConcurrentReads`
+is refused at once; with `MaxAsOfDistance` `0` an as-of read replays nothing
+from the log, so it is served only where a checkpoint or an extent set
+answers it. Each limit's problem type is in `docs/problems/`, with its
 members: what the limit was and what the request asked for. The service
 description states `varve:resultSizeCap`, `varve:maxAsOfDistance` and
 `varve:commitsPageSize`, so a client can read them.
@@ -224,7 +236,7 @@ into an empty result as the evaluator decides (ADR 0055).
 | Setting | Default | Meaning |
 |---|---|---|
 | `Enabled` | `false` | honour `X-Forwarded-For`, `-Proto` and `-Host` |
-| `KnownProxies` | `[]` | the addresses the headers are honoured from; with none listed, from none |
+| `KnownProxies` | `[]` | the IP addresses the headers are honoured from; `Enabled` with none listed refuses to start |
 
 ## Browsers from another origin — `Cors` (ADR 0132)
 
@@ -233,6 +245,7 @@ into an empty result as the evaluator decides (ADR 0055).
 | `AllowedOrigins` | `[]` | the origins a browser application may call from, each `scheme://host[:port]` with no path, or `*` for any; **empty adds no CORS at all**: no response carries an `Access-Control-*` header |
 | `MaxAge` | `00:10:00` | how long a browser may cache a preflight (`Access-Control-Max-Age`) |
 
+<!-- ci: ci.yml build — CorsTests -->
 ```json
 { "Varve": { "Cors": { "AllowedOrigins": [ "https://console.example.org" ] } } }
 ```
@@ -244,9 +257,13 @@ other client, so credentials mode is never allowed:
 - **Allowed methods:** `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`.
 - **Allowed request headers:** `Authorization`, `Content-Type`, `Accept`,
   `If-Match`, `If-None-Match`, `Varve-If-Graphs-Match` (ADR 0126),
-  `Last-Event-ID`, `Varve-As-Of`, `traceparent`, `tracestate`.
-- **Exposed response headers:** `Varve-Position`, `ETag`,
-  `Varve-Request-Id`, `Link`, `Location`, `Retry-After`,
+  `Last-Event-ID`, `Varve-As-Of`, `Varve-Min-Position`,
+  `Varve-Min-Management-Position`, `Varve-Entailment`, `traceparent`,
+  `tracestate`. `Idempotency-Key` is not among them, so a browser on another
+  origin cannot send one (#342).
+- **Exposed response headers:** `Varve-Position`,
+  `Varve-Management-Position`, `Varve-Graph-Versions`, `Varve-Entailment`,
+  `ETag`, `Varve-Request-Id`, `Link`, `Location`, `Retry-After`,
   `WWW-Authenticate`.
 
 A preflight is answered before authentication and before the read limit, so
@@ -370,9 +387,10 @@ default would be the server collector, which keeps committed memory
 proportional to what every core allocated; the server's live heap is small
 and allocates in bursts, which the workstation collector fits, and
 `ConserveMemory` compacts the large object heap that the 6c soak found
-fragmenting. The soak gate is judged under this configuration, with its
-drift measured against minutes 30–40, after the collector has reached its
-working size (ADR 0082, amended and superseded in part by ADR 0110). Every
+fragmenting. The soak gate is judged under this configuration, by the slope
+of process memory against commits from minute 30, once the collector has
+reached its working size: at most 60 bytes a commit (ADR 0082, amended and
+superseded in part by ADR 0110; ADR 0215, amended 2026-11-03). Every
 release from 1.0.0 runs that soak for four hours on Linux and judges it by
 script, and is refused unless the weekly Windows soak passed within eight
 days and while a red or invalid soak's issue is open. A preview is informed
@@ -381,5 +399,5 @@ what they were (ADR 0215, amended 2026-11-03).
 
 `DOTNET_GCHeapHardLimit`, `DOTNET_gcServer` and the rest still apply as to
 any .NET process and override what ships: in a container the runtime bounds
-the heap to the cgroup limit by itself, and no hard limit of Varve's own is
+the heap at 75% of the cgroup memory limit by itself, and no hard limit of Varve's own is
 set.

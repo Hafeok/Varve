@@ -1806,6 +1806,50 @@ jobs:
       - name: Measure
         run: dotnet run eng/durability.cs
 
+  # A dataset the previous release wrote, opened by this build
+  # (docs/operator/upgrade.md, #129): the previous release's Varve.Server tool
+  # from nuget.org, at the version of the newest descriptor in releases/ that
+  # is also a tag, writes a file dataset with the command line; this build
+  # reads it in place and from its log/ alone, at every position, and writes
+  # after it. Not a required check: it reaches nuget.org.
+  upgrade:
+    name: upgrade (previous release)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+          # The tags, which say which descriptors are released.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Resolve the previous release
+        id: previous
+        # An assignment, so a resolve that fails fails the step.
+        run: |
+          version=$(dotnet run eng/upgrade.cs -- --resolve)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install the previous release's tool
+        run: >
+          dotnet tool install Varve.Server
+          --version ${{ steps.previous.outputs.version }}
+          --tool-path ${{ runner.temp }}/previous
+
+      - name: Build this server
+        run: dotnet build src/Varve.Server/Varve.Server.csproj --configuration Release
+
+      - name: Write with the previous release, read with this build
+        run: >
+          dotnet run eng/upgrade.cs --
+          --previous ${{ runner.temp }}/previous/varve
+          --current src/Varve.Server/bin/Release/net10.0/Varve.Server.dll
+
   # The samples that are not the Aspire AppHost's (ADRs 0127, 0133): built
   # with warnings as errors and their tests run, which skip a leg whose
   # provider is not configured, so a sample never rots between releases.

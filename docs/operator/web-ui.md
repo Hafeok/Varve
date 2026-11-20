@@ -22,6 +22,7 @@ simplest: it carries the Web UI and serves it by default (ADR 0245).
 `ghcr.io/hafeok/varve` holds the Web UI at `/app/webui` and serves it at
 `/ui/`. Nothing else needs to be set:
 
+<!-- ci: ci.yml container — the image started anonymous serves the Web UI at /ui/, with its headers and settings, and WebUiImageTests drives it in Chromium -->
 ```sh
 docker run --rm -p 8080:8080 ghcr.io/hafeok/varve:v0.1.0-preview.N serve --anonymous
 ```
@@ -38,6 +39,7 @@ Then open `http://localhost:8080/ui/`.
   - On an OIDC server, give the Web UI's public client to the server, and
     the console signs in with the server's own issuer (`Varve:Auth:Authority`):
 
+    <!-- ci: none — the image signing in against Entra needs a tenant, and the test tenant is not provisioned (ADR 0223); ci.yml container starts it with these variables against mock-oauth2 -->
     ```sh
     docker run --rm -p 8080:8080 \
       -e VARVE__AUTH__MODE=Oidc \
@@ -66,6 +68,7 @@ asset attested with its build provenance and its SBOM, for the two other ways.
 The zip is the published `wwwroot`: `index.html`, `appsettings.json`,
 `_framework/` and the styles. Check it before you unpack it:
 
+<!-- ci: publish.yml verify — the Web UI's zip verified with its attestations -->
 ```sh
 gh attestation verify varve-webui-0.1.0-preview.N.zip --owner hafeok
 ```
@@ -78,6 +81,7 @@ verify each attestation.
 
 Unpack the zip, and point `Varve:WebUi:Path` at the directory:
 
+<!-- ci: ci.yml webui-browser — the browser tests' server serves an unpacked bundle by Varve:WebUi:Path -->
 ```json
 { "Varve": { "WebUi": { "Path": "/opt/varve/webui" } } }
 ```
@@ -134,6 +138,7 @@ Copy the zip's contents to the host, then:
 Every `/ui/` response from the server carries this policy, problems and
 redirects included. A static host must send the same policy:
 
+<!-- ci: ci.yml container — the policy the image's /ui/ answers, checked header by header; a static host sending it is run by no job -->
 ```
 default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self';
 img-src 'self'; font-src 'self'; connect-src 'self' <issuer origin>;
@@ -177,6 +182,7 @@ server's own, and the client's settings are the server's
 | `DataAudience` | with `exchange`, the `audience` the data exchange names, where the issuer wants one (Zitadel: the data project's id) |
 | `RoleClaimType` | the claim whose roles the shell shows beside who is signed in: the server's `Auth:RoleClaimType`, `roles` by default. Display only; the server decides |
 
+<!-- ci: none — signing in with Entra needs a tenant, and the test tenant is not provisioned (ADR 0223) -->
 ```json
 {
   "Varve": {
@@ -273,3 +279,14 @@ server's anonymous mode is.
   `eng/browser-size.cs`, and its budget is 1,920,000 bytes (ADR 0205).
 - **Not AOT-compiled:** that would make the download 4.1 MB and saved no
   load time when measured.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **The image's console, against Entra.** The image signing in with an Entra
+  issuer needs a tenant, and the test tenant is not provisioned (ADR 0223);
+  ci.yml `container` runs the same variables against mock-oauth2.
+- **Settings for Entra.** Signing in with Entra needs the same tenant.
+- **A static host.** No job serves the bundle from a host of its own with
+  the policy it must send; ci.yml `container` checks the image's own.
