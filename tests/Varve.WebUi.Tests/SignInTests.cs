@@ -13,12 +13,17 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Bunit;
 using CsCheck;
+using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 using Varve.Delta.Model;
 using Varve.Protocol.Client;
 using Varve.Protocol.Client.Model;
+using Varve.WebUi.App;
 using Varve.WebUi.Components;
 using Varve.WebUi.Components.Pages.Services;
+using Varve.WebUi.Explorer.Parts;
 using Varve.WebUi.Pages.Services;
 using Varve.WebUi.SignIn;
 using Xunit;
@@ -439,6 +444,49 @@ public class SignInTests
         Assert.Equal("https://varve.example/ui/signedout", Query(left)["post_logout_redirect_uri"]);
     }
 
+    // ADR 0249 point 7: the tab's query history goes with the sign-in. The
+    // shell's Sign out clears it, before the tab leaves for the issuer.
+    [Fact]
+    public async Task Signing_out_of_the_shell_clears_the_tabs_query_history_before_leaving()
+    {
+        Issuer issuer = new();
+        Harness harness = new(issuer);
+        await harness.Session.StartAsync("/", silent: false, CancellationToken.None);
+        await harness.CallbackAsync(harness.Store.Pending!.State);
+
+        using BunitContext context = new();
+        context.JSInterop.Mode = JSRuntimeMode.Loose;
+        Dictionary<string, string> tab = new() { ["varve.query-history"] = "[{\"query\":\"SELECT * {}\",\"dataset\":\"notes\",\"regime\":\"\",\"asOf\":\"head\"}]" };
+        context.JSInterop.SetupVoid("varveWebUi.historyClear").SetVoidResult();
+        context.Services.AddSingleton(WebUiSettings.From(new Uri("https://varve.example/"), "Oidc", []));
+        context.Services.AddSingleton(new ShellFacts(new VarveManagementClient(new HttpClient(new Network()), new Uri("https://varve.example/"), ClientLimits.Default, null, null)));
+        context.Services.AddSingleton(harness.Session);
+
+        // What the tab's storage holds when the tab leaves: webui.js's
+        // historyClear removes the key, so each call the shell made has.
+        string? leftWith = null;
+        harness.Browser.Leaving = () =>
+        {
+            if (context.JSInterop.Invocations["varveWebUi.historyClear"].Count > 0)
+            {
+                tab.Remove("varve.query-history");
+            }
+
+            leftWith = tab.GetValueOrDefault("varve.query-history");
+        };
+
+        IRenderedComponent<MainLayout> layout = context.Render<MainLayout>(parameters => parameters.Add(p => p.Body, (RenderFragment)(builder => builder.AddContent(0, "a screen"))));
+        Assert.NotNull(QueryHistory.Read(tab["varve.query-history"]).Entries.SingleOrDefault());
+
+        int leftBefore = harness.Browser.Left.Count;
+        await layout.Find("button:contains('Sign out')").ClickAsync(new());
+
+        Assert.Equal(leftBefore + 1, harness.Browser.Left.Count);
+        Assert.Single(context.JSInterop.Invocations["varveWebUi.historyClear"]);
+        Assert.Empty(QueryHistory.Read(leftWith).Entries);
+        Assert.False(harness.Session.DataSignedIn);
+    }
+
     private static Dictionary<string, string> Query(Uri address) =>
         address.Query.TrimStart('?').Split('&').Select(pair => pair.Split('=', 2)).ToDictionary(pair => Uri.UnescapeDataString(pair[0]), pair => Uri.UnescapeDataString(pair[1]));
 
@@ -503,7 +551,14 @@ public class SignInTests
     {
         internal List<Uri> Left { get; } = [];
 
-        public void Leave(Uri address) => Left.Add(address);
+        // Called as the tab leaves, so a test can see what was done before.
+        internal Action? Leaving { get; set; }
+
+        public void Leave(Uri address)
+        {
+            Leaving?.Invoke();
+            Left.Add(address);
+        }
     }
 
     private sealed class Clock : TimeProvider
