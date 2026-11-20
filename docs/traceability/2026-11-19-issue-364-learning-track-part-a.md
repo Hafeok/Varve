@@ -226,3 +226,16 @@ The answer to the plan:
     positions, the packages) moved into one section, "In Varve", at the
     end of each chapter.
   - The chapter list is unchanged.
+- **Chapters 1 and 2 approved.** On 2026-11-20 the session's user wrote,
+  of the chapters as they stand at `38b33426`:
+
+  > Great all chapters are approved
+
+  No further changes were asked for. The first reading's change is the one
+  above: RDF and SPARQL first, with Varve in its own section.
+- **Hosted result at `38b33426897e54edec571a17e4bcaa679d5c66d7`.** Of 46
+  check runs, 44 passed and `auth (providers)` was skipped by its own
+  condition. The one failure was `agent review`, waiting for the
+  maintainer's approval of that head. The `learn` job took 1 min 14 s on
+  Ubuntu, 2 min 14 s on Windows and 2 min 36 s on macOS, and
+  `learn (trimmed)` took 1 min 26 s.
