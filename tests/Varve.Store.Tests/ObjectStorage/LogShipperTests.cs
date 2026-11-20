@@ -375,6 +375,57 @@ public sealed class LogShipperTests
         await pair.AssertFollowersAgreeAsync(writer);
     }
 
+    /// <summary>
+    /// ADR 0184 decision 4, step 6: a set the target's catalog stopped naming
+    /// is deleted there only when the source has deleted it and no reader
+    /// record of the target holds a version that could name it.
+    /// </summary>
+    [Fact]
+    public async Task a_retired_set_leaves_the_target_only_after_the_source_and_the_targets_readers_let_it_go()
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), ExtentMaintenanceCases.Merging());
+        LogShipper shipper = (await pair.StartAsync())!;
+        await ObjectExtentTests.CommitHistoryAsync(writer, 10);
+        await writer.CheckpointAsync(new Position(3), T.Ct);
+        await writer.CheckpointAsync(new Position(6), T.Ct);
+        await shipper.ShipAsync(T.Ct);
+        string[] first = pair.TargetSets();
+        Assert.Equal(2, first.Length);
+
+        // A reader of the target attaches to the catalog that names both sets.
+        ReaderId reader = new("target-reader");
+        Backend attached = await Backend.OpenAsync(pair.Target.Options(ObjectStorageAccess.ReadOnly, reader: reader), T.Ct);
+        Dataset held = await Dataset.OpenAsync(attached, T.Options(), T.Ct);
+
+        // The source merges. Its writer cannot delete the two sets yet: the
+        // shipper's record holds the version the target's catalog is.
+        Assert.True(await writer.MergeOnceForTestsAsync(T.Ct));
+        await writer.DeleteUnnamedForTestsAsync(T.Ct);
+        Assert.All(first, set => Assert.Contains(set, pair.SourceSets()));
+
+        // The round ships the merged set and the catalog. The two sets are
+        // still on the source, so they stay on the target.
+        Assert.True((await shipper.ShipAsync(T.Ct)).Moved);
+        pair.AssertDerivedIdentical();
+        Assert.All(first, set => Assert.Contains(set, pair.TargetSets()));
+
+        // The source lets them go, and the target's reader still holds them.
+        await writer.DeleteUnnamedForTestsAsync(T.Ct);
+        Assert.All(first, set => Assert.DoesNotContain(set, pair.SourceSets()));
+        Assert.False((await shipper.ShipAsync(T.Ct)).Moved);
+        Assert.All(first, set => Assert.Contains(set, pair.TargetSets()));
+
+        // The reader closes: nothing holds them, and they go.
+        await held.DisposeAsync();
+        await attached.DisposeAsync();
+        Assert.True((await shipper.ShipAsync(T.Ct)).Moved);
+        Assert.Equal(pair.SourceSets(), pair.TargetSets());
+        pair.AssertDerivedIdentical();
+        Assert.False((await shipper.ShipAsync(T.Ct)).Moved);
+        await pair.AssertFollowersAgreeAsync(writer);
+    }
+
     private static async Task CommitAsync(Dataset dataset, int from, int to)
     {
         for (int i = from; i < to; i++)
@@ -433,6 +484,13 @@ public sealed class LogShipperTests
         }
 
         /// <summary>The target's catalog is the source's bytes, and every extent blob both hold is identical.</summary>
+        public string[] SourceSets() => Sets(Source.Store);
+
+        public string[] TargetSets() => Sets(Target.Store);
+
+        private static string[] Sets(MemoryObjectStore store) =>
+            [.. store.Names().Where(name => name.StartsWith("derived/extents/", StringComparison.Ordinal)).Select(name => name[..(name.IndexOf('/', "derived/extents/".Length) + 1)]).Distinct().Order(StringComparer.Ordinal)];
+
         public void AssertDerivedIdentical()
         {
             Assert.Equal(Source.Store.Get("derived/catalog"), Target.Store.Get("derived/catalog"));

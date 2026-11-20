@@ -142,8 +142,22 @@ stops for that target and changes nothing.
    Only when every set it names is on the target and its cursor is at or
    below the shipped log tail. So a target's catalog never names a set or
    a slot the target does not have.
-6. **Retired sets on the target are deleted** by ADR 0160's rule against
-   the target's own reader records.
+6. **Retired sets on the target are deleted,** after the catalog. A set
+   goes only when all of these hold:
+   - the target is still a replica (ADR 0185);
+   - the target's catalog does not name it, and its sequence is below that
+     catalog's version;
+   - no reader record of the target holds a version that could name it
+     (ADR 0160). The shipper does not know at which version the set was
+     removed, so it takes the target's catalog's own version, which is
+     never too early;
+   - **the source has deleted it.** A shipper that holds a catalog naming
+     the set keeps it on the source by its reader record (decision 7). So
+     a set that another shipper of this target is still copying is never
+     removed under it.
+
+   The target therefore keeps a retired set at least as long as the source
+   does.
 
 **Not shipped:** `writer`, `readers/` and `probe/`. They are the target's
 own coordination state.

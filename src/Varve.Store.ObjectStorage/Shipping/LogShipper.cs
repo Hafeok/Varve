@@ -53,7 +53,8 @@ public sealed class LogShipper
     private int _nextSegment;
 
     // The catalog version the shipper's reader record on the source announces.
-    private CatalogVersion? _announced;
+    private (CatalogVersion Oldest, CatalogVersion Newest)? _announced;
+    private CatalogVersion? _published;
 
     private LogShipper(ShippingOptions options)
     {
@@ -206,7 +207,107 @@ public sealed class LogShipper
         }
 
         moved |= await PublishCatalogAsync(held.Bytes, held.Summary, cancellationToken).ConfigureAwait(false);
+
+        // The target's catalog is the version held, or a newer one another
+        // shipper put there: the interval moves forward to it.
+        _published = held.Summary.Version;
+        await AnnounceAsync(held.Summary.Version, held.Summary.Version, cancellationToken).ConfigureAwait(false);
+        moved |= await DeleteRetiredAsync(cancellationToken).ConfigureAwait(false);
         return new ShippedRound { Log = log, Catalog = await TargetCatalogAsync(cancellationToken).ConfigureAwait(false), Moved = moved };
+    }
+
+    // The target's retired sets (ADR 0184 decision 4, step 6). A set is
+    // deleted only when all of these hold, read in this order after the
+    // catalog was published:
+    //  - the target is still a replica;
+    //  - the target's catalog does not name it, and the set's sequence is
+    //    below that catalog's version, so no later catalog of a writer that
+    //    continues it can be about to;
+    //  - no reader record of the target holds a version that could name it
+    //    (ADR 0160), taking the catalog's own version as the one that
+    //    stopped naming it, which is never too early;
+    //  - the source no longer has any blob of it. While a shipper holds a
+    //    catalog that names the set, its reader record keeps the set on the
+    //    source, so a set another shipper is still copying is never removed.
+    private async ValueTask<bool> DeleteRetiredAsync(CancellationToken cancellationToken)
+    {
+        if (await ObjectStorage.ReadLineageAsync(_options.Target, _options.TargetPrefix, cancellationToken).ConfigureAwait(false) is not { Understood: true, IsReplica: true }
+            || await ReadCatalogAsync(_options.Target, _target, cancellationToken).ConfigureAwait(false) is not { } catalog)
+        {
+            return false;
+        }
+
+        HashSet<string> named = new(StringComparer.Ordinal);
+
+        foreach (CatalogSet set in catalog.Summary.Sets)
+        {
+            named.Add(set.Name.Value);
+        }
+
+        Dictionary<string, List<ObjectName>> unnamed = new(StringComparer.Ordinal);
+
+        foreach (ObjectEntry entry in await _options.Target.ListAsync(_target.Extents, cancellationToken).ConfigureAwait(false))
+        {
+            if (SetOf(_target, entry.Name) is { } set && !named.Contains(set)
+                && CatalogSet.SequenceOf(new BlobName(set)) is { } sequence && sequence.Value < catalog.Summary.Version.Value)
+            {
+                (unnamed.TryGetValue(set, out List<ObjectName>? blobs) ? blobs : unnamed[set] = []).Add(entry.Name);
+            }
+        }
+
+        if (unnamed.Count == 0)
+        {
+            return false;
+        }
+
+        IReadOnlyList<ReaderRecord> readers = await ObjectStorage.ReadReadersAsync(_options.Target, _options.TargetPrefix, cancellationToken).ConfigureAwait(false);
+        HashSet<string> onSource = new(StringComparer.Ordinal);
+
+        foreach (ObjectEntry entry in await _options.Source.ListAsync(_source.Extents, cancellationToken).ConfigureAwait(false))
+        {
+            if (SetOf(_source, entry.Name) is { } set)
+            {
+                onSource.Add(set);
+            }
+        }
+
+        bool deleted = false;
+
+        foreach (KeyValuePair<string, List<ObjectName>> set in unnamed)
+        {
+            if (onSource.Contains(set.Key) || HeldBy(readers, CatalogSet.SequenceOf(new BlobName(set.Key))!.Value, catalog.Summary.Version))
+            {
+                continue;
+            }
+
+            foreach (ObjectName blob in set.Value)
+            {
+                deleted |= await _options.Target.DeleteAsync(blob, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return deleted;
+    }
+
+    private static bool HeldBy(IReadOnlyList<ReaderRecord> readers, CatalogVersion createdAfter, CatalogVersion removedAt)
+    {
+        foreach (ReaderRecord record in readers)
+        {
+            if ((record.State == ReaderRecordState.Announced || !record.Understood) && record.Announcement.Holds(createdAfter, removedAt))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // The set a blob under derived/extents/ belongs to, as a catalog names it: "extents/<set>/".
+    private static string? SetOf(ObjectNames names, ObjectName blob)
+    {
+        string relative = blob.Value[names.Derived(string.Empty).Value.Length..];
+        int slash = relative.IndexOf('/', "extents/".Length);
+        return slash < 0 ? null : relative[..(slash + 1)];
     }
 
     // The source's catalog, held: the shipper announces the version in its
@@ -222,7 +323,12 @@ public sealed class LogShipper
                 return null;
             }
 
-            await AnnounceAsync(read.Summary.Version, cancellationToken).ConfigureAwait(false);
+            // The interval starts at what the target's catalog is, so the
+            // source keeps the sets that one names until it is replaced
+            // (ADR 0184 decision 7).
+            _published ??= (await TargetCatalogAsync(cancellationToken).ConfigureAwait(false))?.Version;
+            CatalogVersion oldest = _published is { } published && published.Value < read.Summary.Version.Value ? published : read.Summary.Version;
+            await AnnounceAsync(oldest, read.Summary.Version, cancellationToken).ConfigureAwait(false);
 
             if (await ReadCatalogAsync(_options.Source, _source, cancellationToken).ConfigureAwait(false) is { } again && again.Summary.Version == read.Summary.Version)
             {
@@ -249,9 +355,9 @@ public sealed class LogShipper
 
     // The shipper's reader record on the source: created over whatever a
     // previous run of the same id left, and replaced against the version read.
-    private async ValueTask AnnounceAsync(CatalogVersion version, CancellationToken cancellationToken)
+    private async ValueTask AnnounceAsync(CatalogVersion oldest, CatalogVersion newest, CancellationToken cancellationToken)
     {
-        if (_announced == version)
+        if (_announced == (oldest, newest))
         {
             return;
         }
@@ -261,8 +367,8 @@ public sealed class LogShipper
         {
             Reader = _options.Reader,
             Holder = _options.Holder,
-            Oldest = version,
-            Newest = version,
+            Oldest = oldest,
+            Newest = newest,
             AnnouncedAt = new ClaimTime(_options.Clock.GetUtcNow()),
             MaxDerived = DerivedVersion.ThisBuildReads,
         });
@@ -276,7 +382,7 @@ public sealed class LogShipper
 
             if (written)
             {
-                _announced = version;
+                _announced = (oldest, newest);
                 return;
             }
         }
