@@ -25,6 +25,7 @@ change by a byte.
 
 ## Moving
 
+<!-- ci: none — no test invokes varve manage move-events (#344); its route runs in ci.yml build (EventMoveTests) and fleet-services (FleetTests) -->
 ```bash
 varve manage move-events notes --server https://varve.example.org \
   --authority https://login.example.org/v2.0 --client-id … --client-assertion github
@@ -57,11 +58,12 @@ A move is idempotent: sending it again resumes it where it stopped.
 - **A stop before the copy** leaves the dataset `moving`. The catalogue stays
   frozen, and nothing is lost: the copy reads the catalogue the freeze made
   final.
-- **Seeing it.** The dataset's status (`GET /manage/datasets/notes/status`), the
-  instance's readiness (`GET /health/ready`) and
-  `GET /manage/datasets/notes/events` all report
+- **Seeing it.** The dataset's status (`GET /manage/datasets/notes/status`)
+  and the instance's readiness (`GET /health/ready`) report
   `"events": {"state": "moving", "since": m₁}`, m₁ being the system
-  position of the freeze. It is information only: readiness stays `200`,
+  position of the freeze; `GET /manage/datasets/notes/events` answers the
+  same at its top level, `{"state": "moving", "since": m₁, …}`, beside the
+  position and the types. It is information only: readiness stays `200`,
   and reads and data writes go on.
 - **The resume.**
   - The writer of a fleet of one, and any instance that writes both the
@@ -123,3 +125,9 @@ header. A follower of the dataset reads the moved declarations from its own
 follower of the system dataset. It renders a commit only once it has applied
 the position that commit records. Until then the events request answers
 `503 management-behind`, and asking again shortly is enough.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Moving.** No test invokes varve manage move-events (#344); its route runs in ci.yml build (EventMoveTests) and fleet-services (FleetTests).

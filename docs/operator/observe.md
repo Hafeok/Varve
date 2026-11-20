@@ -29,6 +29,7 @@ governed like the dataset.
 
 A collector without a backend, to see what arrives:
 
+<!-- ci: none — the collector image is Docker Hub's, which CI does not pull (#118); TelemetryTests (ci.yml build) runs the exporter against an in-process OTLP receiver -->
 ```yaml
 # otel-collector.yaml — the debug exporter prints every signal to stdout.
 receivers:
@@ -46,6 +47,7 @@ service:
     logs:    { receivers: [otlp], exporters: [debug] }
 ```
 
+<!-- ci: none — the collector image is Docker Hub's, which CI does not pull (#118); TelemetryTests (ci.yml build) sets these variables against an in-process receiver -->
 ```sh
 docker run --rm -p 4318:4318 -v "$PWD/otel-collector.yaml:/etc/otelcol/config.yaml" otel/opentelemetry-collector:latest
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf \
@@ -66,8 +68,10 @@ where they do not.
 | `UPDATE` | an update |
 | `GET graph`, `HEAD graph`, `PUT graph`, `POST graph`, `DELETE graph` | the Graph Store Protocol |
 | `commits`, `commit` | the commits resource, a range or one position |
-| `diff`, `service description` | the dataset's other resources |
-| `datasets`, `dataset declaration`, `settings`, `state`, `status`, `checkpoints`, `grants`, `fleet declaration`, `management graphs`, `apply`, `system` | the management plane (ADR 0163) |
+| `diff`, `service description`, `access` | the dataset's other resources |
+| `events`, `event types`, `event schema`, `asyncapi` | a dataset's domain events (ADRs 0143–0145) |
+| `server event types` | `GET /events/types`, every dataset's event types |
+| `datasets`, `dataset declaration`, `settings`, `state`, `status`, `checkpoints`, `grants`, `binding`, `event declarations`, `event declarations move`, `fleet declaration`, `management graphs`, `apply`, `system` | the management plane (ADR 0163) |
 | `sparql`, `graph` | the name before the operation was known: a request refused before parsing |
 
 | Attribute | Value |
@@ -85,8 +89,11 @@ where they do not.
 | `http.response.status_code` | the status; the span's status is an error at `5xx` |
 
 W3C Trace Context is honoured: a `traceparent` on the request makes the span
-part of the caller's trace, and the server's own outbound requests
-(`SERVICE`, `LOAD`) carry it on. The trace id is never written into the log:
+part of the caller's trace. A write forwarded to its writer (ADR 0168) and an
+event move's call to the dataset's writer carry `traceparent` and
+`tracestate` on explicitly. `SERVICE` and `LOAD` go through .NET's
+`HttpClient`, whose default propagator carries the current trace; no test
+covers that. The trace id is never written into the log:
 a commit's `cause` is the request id, which the server mints, and the join
 between a trace and the commits it caused is `varve.request_id` and
 `varve.position` on the span (ADR 0094, amended).
@@ -129,10 +136,37 @@ it when the exporter is on. The protocol logs three events, category
 - a refusal: `{Method} {Path} answered {Status} for request {RequestId}`;
 - a read the client ended: `{Method} {Path} ended by the client before its response did, for request {RequestId}`.
 
-ASP.NET Core's hosting scope puts `RequestId` and `RequestPath` on every
-line a request writes. The server's own category, `Varve.Server`, logs the
-anonymous-mode warning at start, a lease it is waiting for (ADR 0116), and a
-dataset it could not open.
+ASP.NET Core's hosting scope carries `RequestId` and `RequestPath` for each
+line a request writes, but neither the console formatter nor the OTLP log
+exporter writes scopes by default; for the console,
+`Logging:Console:FormatterOptions:IncludeScopes` turns them on.
+
+The server's own category, `Varve.Server`, logs these events, by id:
+
+| Id | Level | What |
+|---|---|---|
+| 1 | Warning | the server starts in anonymous mode |
+| 2 | Warning | a dataset is leased elsewhere, and the server waits for it (ADR 0116) |
+| 3 | Information | a dataset is placed on another instance, and this one released its epoch |
+| 4 | Warning | a dataset is no longer declared, and its writer deleted its storage |
+| 5, 6 | Warning | a dataset did not take its declared settings, or did not open in its new role; tried again |
+| 7 | Information | a follower reopens, having applied more than its memtable limit |
+| 8, 9 | Information | a standby claimed a dataset in place, or another member claimed it first (ADR 0180) |
+| 10 | Warning | neither `DatasetsRoot` nor `ObjectStorage` is set: the system dataset is in memory |
+| 11 | Information | bootstrap operators recorded |
+| 12 | Error | this instance is superseded as the system dataset's writer |
+| 13 | Warning | advancing a dataset failed; it serves what it applied |
+| 14 | Information | an event move resumed |
+| 15 | Warning | the system dataset's newer writer holds it, and this instance rejoins as a standby; **also** a dataset's standby did not claim it in place (#300) |
+| 16 | Information / Warning | a standby claimed the system dataset in place; **also** a dataset's standby did not advance (#300) |
+| 17 | Warning | a newer writer holds a dataset, and this instance rejoins its writer set |
+| 18 | Warning | a batch failed against the store, and the writer released its epoch (`storage-error`) |
+| 19 | Error | a memtable's spills to the local disk fail (`local-disk-error`) |
+| 20, 21 | Warning, Debug | a dataset did not open as its writer, and is tried again |
+| 22 | Warning | a dataset's idempotency keys were not read ahead (ADR 0246) |
+
+Ids 15 and 16 each name two events until #300 is fixed: tell them apart by
+the message.
 
 ## What it costs
 
@@ -142,3 +176,10 @@ as it would; a `Meter` instrument with no listener is a flag test per
 commit. With a listener a request allocates its span and its attributes,
 once, and nothing per solution: the allocation test's traced reading is the
 same 56 bytes a solution as the untraced one.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **Turning the exporter on.** The collector image is Docker Hub's, which CI does not pull (#118); TelemetryTests (ci.yml build) runs the exporter against an in-process OTLP receiver.
+- **Turning the exporter on.** The collector image is Docker Hub's, which CI does not pull (#118); TelemetryTests (ci.yml build) sets these variables against an in-process receiver.

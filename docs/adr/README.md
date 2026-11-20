@@ -526,17 +526,25 @@ Filed by the session for [#317](https://github.com/Hafeok/Varve/issues/317), und
 |---:|---|---|
 | [0247](0247-the-docs-site.md) | The docs site: a generator in eng/ on Markdig, Mermaid drawn at build time, no script | Filed unaccepted (#317) |
 
-## Web UI part 2, the data explorer (#96)
+## Every procedure names what runs it (#129)
 
-Filed by the session for Web UI part 2 ([#96](https://github.com/Hafeok/Varve/issues/96); PR (a) is [#355](https://github.com/Hafeok/Varve/issues/355)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0248: 0245 is taken on an open branch, and 0247 is the last on `main`. The plan, approved with the rulings of 2026-11-18, holds 0248–0252.
+Filed by the session for [#129](https://github.com/Hafeok/Varve/issues/129)'s operator-guide deliverable, recording the maintainer's answer of 2026-11-16, unaccepted until he accepts it (ADR 0066).
 
 | # | Title | Status |
 |---:|---|---|
-| [0248](0248-a-public-sparql-tokenizer.md) | A public SPARQL tokenizer: the parser's lexer, reachable, with comments and classified words, in the input's units | Filed unaccepted (#355) |
-| [0249](0249-the-data-explorers-reads.md) | The data explorer's reads: one position per view, streamed lines, a read-ahead to a ceiling, history per tab | Filed unaccepted (#355); amends 0203 |
+| [0248](0248-every-procedure-names-what-runs-it.md) | Every procedure in the operator's guide names what runs it | Filed unaccepted (#129) |
+
+## Web UI part 2, the data explorer (#96)
+
+Filed by the session for Web UI part 2 ([#96](https://github.com/Hafeok/Varve/issues/96); PR (a) is [#355](https://github.com/Hafeok/Varve/issues/355)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). The plan, approved with the rulings of 2026-11-18, numbered them 0248–0252; 0248 was then taken on `main` by #129 and 0249 on an open branch, so on 2026-11-20 the tokenizer became 0253 and the explorer's reads 0254, by the maintainer's ruling on #387, and 0250–0252 kept theirs.
+
+| # | Title | Status |
+|---:|---|---|
 | [0250](0250-the-query-editor.md) | The query editor: a textarea over a coloured layer, coloured and checked by the parser, once a frame | Filed unaccepted (#355) |
 | [0251](0251-the-graph-view.md) | The graph view: SVG through Razor, a deterministic radial layout, a node budget of 50 from the spike | Filed unaccepted (#355) |
 | [0252](0252-the-web-uis-private-assemblies.md) | The Web UI's private assemblies: the components at layer 6, the lazy explorer at 7, the host at 8 | Filed unaccepted (#355); amends 0060, 0200, 0206 |
+| [0253](0253-a-public-sparql-tokenizer.md) | A public SPARQL tokenizer: the parser's lexer, reachable, with comments and classified words, in the input's units | Filed unaccepted (#355) |
+| [0254](0254-the-data-explorers-reads.md) | The data explorer's reads: one position per view, streamed lines, a read-ahead to a ceiling, history per tab | Filed unaccepted (#355); amends 0203 |
 
 ## Conformance — differential testing against Oxigraph
 
