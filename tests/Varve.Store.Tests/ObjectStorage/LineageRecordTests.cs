@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Varve.Store.Log;
@@ -96,6 +97,64 @@ public sealed class LineageRecordTests
     /// promotion are not understood, and a record that is not understood is a
     /// replica.
     /// </summary>
+    /// <summary>
+    /// ADR 0185 decision 2 (the architect's point C) and decision 4: the
+    /// record carries the chain of earlier sources and the fence slot of a
+    /// finished promotion. The bytes are what storage format §8.3 says, they
+    /// read back, and the record alone says which fleet wrote a position.
+    /// </summary>
+    [Fact]
+    public void a_record_with_a_chain_and_a_fence_is_what_the_format_says_and_names_the_fleet_of_a_position()
+    {
+        DatasetId first = new(Guid.Parse("11111111-1111-1111-1111-111111111111"));
+        LineageSource origin = new(new StoreAddress("s3://origin"), null, SourceDataset, first);
+        LineagePromotion earlier = Promoted().Promoted! with { Epoch = new WriterEpoch(3), Position = new Position(40), Fence = new LogSlot("00000002.chunks/00000007") };
+        LineageRecord record = Promoted() with
+        {
+            Promoted = Promoted().Promoted! with { Position = new Position(90), Fence = new LogSlot("00000005.chunks/00000001") },
+            Earlier = [new LineageLink(origin, earlier)],
+        };
+
+        string text = Encoding.UTF8.GetString(LineageRecordFormat.Write(record));
+        Assert.Contains("\"fence\": \"00000005.chunks/00000001\"", text, StringComparison.Ordinal);
+        Assert.Contains(
+            """
+              "earlier": [
+                {
+                  "source": {
+                    "store": "s3://origin",
+                    "dataset": "
+            """.Trim('\n'),
+            text.ReplaceLineEndings("\n"),
+            StringComparison.Ordinal);
+
+        LineageRecord read = LineageRecordFormat.Read(Encoding.UTF8.GetBytes(text));
+        Assert.True(read.Understood);
+        Assert.Equal(record.Promoted, read.Promoted);
+        LineageLink link = Assert.Single(read.Earlier);
+        Assert.Equal(origin, link.Source);
+        Assert.Equal(earlier, link.Promoted);
+
+        // Positions 1 to 40 are the first fleet's, 41 to 90 the source's, and 91 on the serving fleet's own.
+        Assert.Equal(origin, read.WriterOf(new Position(1)));
+        Assert.Equal(origin, read.WriterOf(new Position(40)));
+        Assert.Equal(record.Source, read.WriterOf(new Position(41)));
+        Assert.Equal(record.Source, read.WriterOf(new Position(90)));
+        Assert.Null(read.WriterOf(new Position(91)));
+
+        // A copy shipped from this one carries both links, and a replica of it says its source wrote the rest.
+        Assert.Equal([origin, record.Source!], read.ChainForACopy().Select(each => each.Source));
+
+        // A chain out of position order is not a record this build understands: a replica, never written on.
+        LineageRecord disordered = record with { Earlier = [new LineageLink(origin, earlier with { Position = new Position(95) })] };
+        LineageRecord refused = LineageRecordFormat.Read(LineageRecordFormat.Write(disordered));
+        Assert.False(refused.Understood);
+        Assert.True(refused.IsReplica);
+
+        // A promotion with no fence has not finished: the record reads, and says so by the absence.
+        Assert.Null(LineageRecordFormat.Read(LineageRecordFormat.Write(Promoted())).Promoted!.Fence);
+    }
+
     [Theory]
     [InlineData("{\"format\": 2, \"state\": \"promoted\"}")]
     [InlineData("{\"state\": \"replica\"}")]

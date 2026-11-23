@@ -517,14 +517,22 @@ maintainer accepts it (ADR 0066).
 - **A set is copied as bytes, and never rewritten on a target.** A rewrite
   for an older reader, and a repair, are the source writer's. Their result
   reaches the target as a new set under a fresh name.
-- **Open: the check before the copy.** ADR 0184 decision 5 says the
-  shipper checks each blob as this ADR does before it copies it. The
-  shipper as built does not: this ADR's check is internal to `Varve.Store`
-  and the shipper is in `Varve.Store.ObjectStorage`. A damaged blob is
-  therefore copied, and is refused by the reader on the target as it is on
-  the source. The question is with the maintainer on #166. Until it is
-  answered, ADR 0184's decision 5 and the code disagree, and this
-  amendment says which way.
+- **A blob is verified whole before it is copied** (the architect's
+  review of 2026-11-23, ADR 0184 decision 5). This ADR verifies a blob
+  read by range one block at a time, as each is read. A shipper reads no
+  block, so `ExtentBlobCheck.Verifies` reads them all: the header, the
+  directory under its hash, every key block, column block, row within and
+  seek directory of an order extent, every page of a dictionary, every
+  block of a commit index, and the whole of a graph-version index. It is
+  public in `Varve.Store`, since the shipper is in
+  `Varve.Store.ObjectStorage`.
+- **One part of an order extent is under no check,** and the test that
+  changes each byte in turn found it: the 72 bytes of its empty term
+  section, below the version whose term pages are checked. They are an
+  offset of zero and a filter of no bits, so the check requires every one
+  to be zero.
+- **A blob of a version from before the checks passes when every block
+  decodes.** Point 7's rewrite is still the source writer's.
 
-**The ledger.** No ruling changes. `ASetIsVerifiedThenCopiedAsItIs`, in
-ADR 0184's set, is not met by the code yet.
+**The ledger.** No ruling changes. The ruling is
+`ASetIsVerifiedThenCopiedAsItIs`, in ADR 0184's set.

@@ -136,6 +136,21 @@ takeover is (ADR 0179).
     bytes** and it stops with `shipping-diverged`, having overwritten
     nothing. At its next round it reads the lineage and stops as
     `replica-promoted` (decision 7).
+  - **A shipper never puts a consolidated segment where the fence is.**
+    A target advances only through its next chunk slot (ADR 0184 decision
+    4): a shipper seals a segment through that slot before it creates the
+    segment's `.seg`. So either the fence holds the slot and the shipper
+    stops there, or the shipper's sealing chunk does and the promoter
+    adopts a sealed segment, whole, and fences in the next.
+  - **A fence that is not at the end of the log does not finish the
+    promotion.** The shipper deletes its sealing chunk once the `.seg` is
+    created. A promoter that listed the log before that and fences after
+    it creates its fence in the slot the chunk left. Step 4 finds the
+    segment's `.seg`, which is always created before the chunk is deleted,
+    and refuses: nothing was written after the fence, the promotion has
+    not finished (decision 6), and promoting again lists the log afresh
+    and fences at its end. The same order between two writers of one
+    store is #396.
   - **A commit of the old source that was not on the target before the
     fence is in no copy.** Decision 9 says what a client's key does then.
 - **A second promote request** is answered from the lineage:
@@ -395,7 +410,11 @@ says, at the step where the operator runs it and not in a note elsewhere:
     by nothing else.
   - A shipper that wins a slot before the fence has its commits kept and
     recorded as the source's; its next create stops it, and a second
-    promote request is `not-a-replica`.
+    promote request is `not-a-replica`. In five orders: before the
+    promoter reads the tail; at the fence slot; a consolidated segment
+    before the fence, which leaves the promotion unfinished until it is
+    promoted again; the fence before the consolidated segment; and the
+    fence between the shipper's sealing chunk and its `.seg`.
   - A copy of a promoted copy carries the chain; after two promotions each
     position names the fleet that wrote it, and that fleet's system
     dataset is on the store.

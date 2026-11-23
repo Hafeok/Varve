@@ -781,6 +781,7 @@ against the version read.
 | `state` | string | `replica`: log shipping writes this copy, and nothing else does. `promoted`: an operator made it the dataset |
 | `source` | object | the dataset it was shipped from |
 | `promoted` | object, when `state` is `promoted` | the promotion |
+| `earlier` | array, optional | the chain: for a copy of a promoted copy, every earlier source with that copy's promotion, oldest first. Each item is `{"source": …, "promoted": …}` as below. Absent or empty for a copy of a dataset that was never a copy |
 
 `source`:
 
@@ -796,14 +797,22 @@ against the version read.
 | Member | Type | Meaning |
 |---|---|---|
 | `epoch` | number | the epoch the promotion claimed, above every epoch that was shipped |
-| `position` | number | the last position shipped, which the promoted copy continues from |
+| `position` | number | the last position the source's fleet wrote: the position at the promotion's fence, which the promoted copy continues from. Until `fence` is written it is the position the promotion first verified |
 | `hash` | string | the header hash of the commit at that position, 64 hexadecimal digits |
+| `fence` | string, optional | the log slot of the promotion's fence, `NNNNNNNN.chunks/CCCCCCCC`. It is written last, with `position` and `hash` as they are at the fence. **A promotion with no `fence` has not finished** |
 | `at` | string | when, an `xsd:dateTime` in UTC to the second, for the operator; nothing decides by it |
 | `by` | string | the instance that promoted it |
 
+**Which fleet wrote a position** is read from the record alone. Positions
+up to the first item of `earlier`'s promoted position were written by that
+item's source fleet, the next range by the next item's, and so on.
+Positions after those and up to `promoted.position`, or every other
+position of a `replica`, were written by `source`'s fleet. Positions above
+`promoted.position` were written by the fleet that serves the copy.
+
 **It is read conservatively** (ADR 0217). A record of another `format`, one
-that does not parse, and a `promoted` one with no `promoted` member are not
-understood: the dataset is treated as a replica, and the record is never
+that does not parse, a `promoted` one with no `promoted` member, and one
+whose `earlier` is not in rising order of position are not understood: the dataset is treated as a replica, and the record is never
 written on. A `state` this version does not know is held as written and is
 a replica. A reader ignores members it does not know.
 

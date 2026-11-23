@@ -118,6 +118,12 @@ internal static class LineageRecordFormat
                     below = ended.Position.Value;
                     earlier.Add(new LineageLink(ReadSource(link.GetProperty("source")), ended));
                 }
+
+                // And this copy's own promotion ends at or above the last of them.
+                if (promotion is not null && promotion.Position.Value < below)
+                {
+                    return new LineageRecord { Understood = false };
+                }
             }
 
             return new LineageRecord

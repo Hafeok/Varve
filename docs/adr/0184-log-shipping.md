@@ -132,6 +132,30 @@ stops for that target and changes nothing.
    - Where the source consolidated a segment before the shipper had copied
      its chunks, the target gets the `.seg` and the fence chunks, which the
      source keeps for ever.
+   - **A target advances only through its next chunk slot.** That slot is
+     the one create a shipper and a promotion's fence can both want (ADR
+     0185 decision 4), so the store decides between them, as it decides
+     between two writers (ADR 0136 decision 3). A `.seg` is therefore
+     created only for a segment the target holds sealed in chunks:
+     - a segment whose sealing chunk was shipped is sealed already;
+     - **for a segment the source consolidated before its end was
+       shipped,** the sealing chunk is gone from the source. The shipper
+       then creates, at the target's next slot of that segment, first the
+       source's kept fence chunks while they are that slot, and then **one
+       chunk it composes: the rest of the segment's bytes, sealing it.**
+       Its header is the shipper's, with the highest epoch the target's log
+       shows; its bytes are the source's. A reader verifies it as any
+       chunk. Then the `.seg` is created, and the chunk is deleted with the
+       segment's other data chunks.
+     - **If that create finds a promotion's fence,** the shipper stops as
+       `shipping-diverged`, having created neither the chunk nor the
+       `.seg`. If it finds another shipper's chunk of the same bytes, it
+       carries on.
+     - **What it costs:** the bytes of a segment the source consolidated
+       before it was shipped are uploaded twice, once in that chunk and
+       once as the `.seg`. That is every segment of a target that is being
+       seeded or has fallen a segment behind, and none of one that keeps
+       up.
 
    **What a target holds of one segment** is therefore one of three
    things, each of which the source itself held at some moment, and each of
@@ -141,7 +165,7 @@ stops for that target and changes nothing.
    |---|---|---|
    | not yet | the chunks shipped so far | the chunks |
    | **after its chunks were shipped** | first the chunks; then the chunks and the `.seg`; then the `.seg` and the fence chunks | the chunks until the `.seg` exists, then the `.seg` |
-   | before its chunks were shipped | the `.seg` and the fence chunks | the `.seg` |
+   | before its end was shipped | the chunks shipped so far; then those and the chunk that seals it; then the `.seg` and the fence chunks | the chunks until the `.seg` exists, then the `.seg` |
 
    - **In the middle case the shipper never deletes a chunk before the
      `.seg` is on the target,** so there is no moment at which a byte of
@@ -192,11 +216,26 @@ and the extents the catalog names. Whether a copy carries `proof/` is
 #292's to decide.
 
 **5. A set is verified before it is copied, and never rewritten.**
-- The shipper checks each blob as ADR 0213 does before its create. A
-  damaged blob is not shipped.
+- **The shipper checks each blob whole before its create,** as a reader
+  of the set checks the blocks it reads (ADR 0213): the header, the
+  directory under the header's hash, and then every block that carries a
+  check. `ExtentBlobCheck.Verifies` in `Varve.Store` is that check, and it
+  is tested over every blob of a set with each byte changed in turn.
+- **A damaged blob is not shipped,** and the catalog that names its set is
+  not published on the target that round. The log is shipped as before:
+  a round ships the log first.
 - That catalog version waits until the source's writer has rewritten the
   set under a fresh name, and readiness says
-  `shipping: waiting-on-damaged-set`.
+  `shipping: waiting-on-damaged-set`, with the blob and the position the
+  log has reached. It has
+  [a page](../operator/shipping/waiting-on-damaged-set.md). The shipper
+  reads the blob again each round.
+- **A blob from before the checks** (ADR 0213 point 7) has none below its
+  directory. It is read whole all the same, and passes when every block
+  decodes, which is all a reader of it knows.
+- **What it costs:** one pass over each blob, on the shipping instance,
+  once per blob per target. The blob is already on local disk for the
+  copy.
 - A rewrite for an older reader (ADR 0213 point 7) is the source writer's.
   Its result reaches the target as a new set.
 
@@ -207,11 +246,26 @@ failure, the shipper lists the target's `log/` once.
   chunk of the target that does not verify or does not follow is
   `shipping-diverged`: it says something about the target, never about
   the source's log.
+- **The shipper checks each source chunk before its create:** the
+  header's own hash and the hash of its bytes, and that it follows the
+  chunk before it. A chunk that fails is not shipped, and nothing is
+  written for it. Readiness says `shipping: source-chunk-damaged`, with
+  the slot, and has
+  [a page](../operator/shipping/source-chunk-damaged.md). The shipper
+  reads the chunk again each round, since a read can be damaged where the
+  object is not.
 - **It compares the target's tail with the source at the same slot:** the
-  source's chunk if it still has it. If the source has consolidated that
-  segment, the target's chunks are checked against the `.seg`, range by
-  range against the content hash in each header, before the target's
-  `.seg` is created.
+  source's chunk if it still has it and the two are equal. If the source
+  has consolidated that segment, the target's chunks are checked against
+  the `.seg`, range by range against the content hash in each header,
+  before the target's `.seg` is created. The target's last chunk may then
+  be the one a shipper composed to seal the segment (decision 4).
+- **The source always has every slot.** No release truncates a log: a
+  log keeps every commit from position 1, as a segment's chunks or as its
+  `.seg` (`Dataset.HeaderHashAsync` relies on the same). So "the source
+  no longer has it" has one meaning here, a consolidation, and the bytes
+  are in the `.seg`. **When a release can remove log history, this
+  decision is wrong as written, and #292 owns the question.**
 - **Across a segment boundary the chunk chain says nothing, and the
   shipper does not read commits.** What holds there is two things:
   - every object on the target was created equal to the source's object
@@ -302,6 +356,17 @@ attachments: the management position (ADR 0165) and the idempotency key
 that refer to it** (the maintainer's answer D3, ADR 0185). In a round, the
 `_fleet` target is brought to the source's head before any dataset commit
 that records a later management position is shipped.
+- **Where the dataset is a promoted copy,** each earlier fleet's system
+  dataset goes the same way, from `fleets/<id>/` on the shipping fleet's
+  store (ADR 0185 decision 8).
+- **A fleet that ships always has its system dataset on object storage.**
+  A shipping target is declared on a dataset of `varve:ObjectStorage`
+  (decision 1), and an instance serves such a dataset only when it is
+  configured with an object store. That instance's fleet keeps its system
+  dataset on the same store, under `_fleet/`. The system dataset is on the
+  file backend only in a fleet of one with no object store, and such a
+  fleet has no dataset a target can be declared on and runs no shipper.
+  So this decision never meets a system dataset on the file backend.
 
 **14. What governs a read of a copy is the fleet that serves it.**
 Grants, classifier bindings, TBox bindings and shapes bindings are

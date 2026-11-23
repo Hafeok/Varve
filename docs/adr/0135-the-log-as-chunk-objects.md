@@ -188,8 +188,13 @@ chunks. A replica has no writer. On a shipping target:
 - **A shipper stopped between the create and the deletes leaves both,**
   which is a state decision 4 already passes through. The next shipper
   finishes the deletes.
-- A segment the source consolidated before it was shipped reaches the
-  target as the `.seg` and the fence chunks the source kept.
+- A segment the source consolidated before its end was shipped is first
+  sealed on the target through its next chunk slot: the source's kept
+  fence chunks while they are that slot, then one chunk the shipper
+  composes from the rest of the segment's bytes. Only then is the `.seg`
+  created (ADR 0184 decision 4). The `.seg` of a target is therefore only
+  ever created for a segment the target holds sealed in chunks, as a
+  writer's is.
 
 **The ledger.** No ruling changes. The rulings are
 `NothingOnATargetIsOverwritten` and `ShippedInOrderTheCatalogLast`, in

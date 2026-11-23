@@ -86,6 +86,33 @@ pull request acts on, follows.
 >      and link it from #166.
 >    - `shipping (services)` runs between Azurite and RustFS only.
 
+**The rulings and the architect's review of 2026-11-23,** verbatim:
+
+> #393: do not merge `main`. It goes on the next train as it is.
+>
+> Rulings on your questions of 2026-11-20:
+>
+> 1. `varve status --server`: accepted as built.
+> 2. `awaiting-shipping`: accepted as built.
+> 3. Embedded promotion and a writer set: a finished promotion (lineage `promoted`, claim fenced) releases so that the set starts as after any ordinary release. Only a promotion that failed part way releases with `promotion`, which no standby races for. Write it into ADR 0185 decisions 5 and 6, with a test over a writer set.
+> 4. The copy declaration: neither of your two options.
+>    - `varve apply` refuses `varve:copyOf` on a dataset the answering instance can see is written in this fleet and has no lineage naming that source.
+>    - Where apply cannot see it, the running writer keeps writing and readiness reports the contradiction at once, with a page.
+>    - The refusal at a start stays.
+> 5. Tick #166's boxes for what #322 landed, and no others.
+>
+> The architect's review of ADRs 0184 and 0185, which did not reach you on 2026-11-20. Answer each on #166 and change the ADRs and sets:
+>
+> A. ADR 0184 decision 5 stands as written: a set's blobs are verified as ADR 0213 does before they are created on a target. If the code copies without the check, build it, with a test that a damaged blob is not shipped and readiness says `waiting-on-damaged-set`.
+> B. ADR 0184 decision 6 stands. Add: the shipper checks each source chunk's header and content hash before its create; a chunk that fails is not shipped, and readiness says so.
+> C. ADR 0185 decision 2: the lineage carries the chain, not one source. After a promoted copy is shipped onward and promoted again, which fleet wrote which range of positions must be readable from the lineage, and each earlier fleet's system dataset must reach the new copy. `ForeignFleetAsync` already answers per position; say what it answers after two promotions. Format 1 has not shipped, so change it now.
+> D. ADR 0185 decisions 4, 6 and 8: a promotion that races a shipper mid-round, where the shipper creates chunks above the position the lineage has just recorded, including at the fence slot. Say what the promoter does with those commits, which fleet their management positions belong to, and what a second promote request answers. Add the test where the shipper wins the slot.
+> E. ADR 0184: write in what you said of `HeaderHashAsync`: no release truncates a log, so the source always has every slot. Name #292 as the owner of the question when that changes.
+> F. Is a fleet's system dataset always on object storage? If not, say what ADR 0184 decision 13 does for a fleet whose system dataset is on the file backend.
+> G. For pull request 3: the promotion page says, where the operator promotes, that the old primary keeps accepting writes, that its later commits are in no copy, and that there is no planned switchover.
+>
+> Then call the ADRs stable again with the full head hash. The architect re-reads both and the maintainer accepts; the `shipping (services)` job follows. Do not start pull request 3 before that.
+
 ## The report
 
 **What it does.** A dataset in an object store is kept as a byte-identical
@@ -165,8 +192,46 @@ copy in a second store, and an operator can make that copy the dataset.
   ADRs are unaccepted every hosted build stops on `CS0618`, and this
   session has no container runtime, so the job could not have been run
   anywhere before review.
-- ADR 0184 decision 5's check of a set blob before it is copied. The code
-  copies bytes; the question is with the architect.
+
+**What the review of 2026-11-23 changed.**
+- **A set's blobs are verified whole before they are shipped** (A), by
+  `ExtentBlobCheck.Verifies`, new in `Varve.Store`. Its test changes every
+  byte of every blob of a set in turn, and found 72 bytes of an order
+  extent under no check: its empty term section. The check now requires
+  them to be zero.
+- **A source chunk that does not verify is not shipped** (B). Two
+  readiness states, `waiting-on-damaged-set` and `source-chunk-damaged`,
+  each with a page.
+- **The lineage carries the chain** (C), in format 1. A promoted copy
+  shipped onward takes each earlier fleet's system dataset with it. Tested
+  over three stores and two promotions.
+- **A promotion finishes by a last write** (D): the position and hash at
+  the fence, and the fence slot. Chunks a shipper created before the fence
+  are kept and are the source fleet's.
+- **A finished promotion on the store releases as any writer that
+  closes** (ruling 3), tested over a writer set.
+- **An apply that declares a written dataset a copy is refused** (ruling
+  4) as `declaration-invalid`, and readiness reports
+  `copy-declared-on-a-written-dataset` where it was applied all the same.
+
+**What the review's point D found beyond what it asked.** The test where
+the shipper wins the fence slot failed in one order, and the failure was
+the code's. A shipper put a consolidated segment on a target without
+creating the chunk slot the fence relies on. Where the source had sealed
+and consolidated a segment before its end was shipped, a promoter could
+fence inside that segment while the shipper replaced it. The promoted
+writer's commits would then have been behind the segment's object, where
+no reader looks.
+- **The fix:** a target advances only through its next chunk slot. The
+  shipper seals such a segment through that slot before it creates the
+  segment's object, and a promotion whose fence is not at the end of the
+  log does not finish. Five orders are tested.
+- **What it costs:** the bytes of a segment the source consolidated
+  before it was shipped are uploaded twice. That is every segment while a
+  target is seeded. It is not measured against a real store.
+- **The same order between two writers of one store** is in the handover
+  part 1 shipped. It is reproduced and filed as #396, and is not fixed
+  here.
 
 **How it was verified.** On the session's Linux container, with `CS0618`
 not an error on that machine only and never committed: the whole pipeline,

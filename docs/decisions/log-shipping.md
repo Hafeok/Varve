@@ -8,11 +8,11 @@ decisions:
   - key: TheShipperRunsOffTheSequencer
     statement: "The shipper is a role on the epoch holder, or on the instance varve:shippedOn names, over a read-only open of the source of its own; no commit waits for a target, no timer decides anything, and two shippers at once are harmless"
   - key: NothingOnATargetIsOverwritten
-    statement: "Every log object is written to a target by create-if-absent of bytes identical to the source's; a name taken by other bytes is shipping-diverged, naming the slot, and the shipper stops for that target"
+    statement: "Every log object is written to a target by create-if-absent of bytes identical to the source's; a name taken by other bytes is shipping-diverged, naming the slot, and the shipper stops for that target; a source chunk whose header or content hash fails is not shipped, and readiness says source-chunk-damaged"
   - key: ShippedInOrderTheCatalogLast
-    statement: "A round ships the lineage record, the manifest, log objects in slot order with the target's consolidation after its .seg, the extent sets the catalog names, and the catalog last, only when every set it names is on the target and its cursor is at or below the shipped tail; the writer record, reader records and probes are not shipped"
+    statement: "A round ships the lineage record, the manifest, log objects in slot order with the target's consolidation after its .seg, the extent sets the catalog names, and the catalog last, only when every set it names is on the target and its cursor is at or below the shipped tail; a target advances only through its next chunk slot, so a segment the source consolidated before its end was shipped is first sealed there by the source's kept fence chunks and one chunk of the rest of its bytes, and its .seg is created only then; the writer record, reader records and probes are not shipped"
   - key: ASetIsVerifiedThenCopiedAsItIs
-    statement: "The shipper checks a set's blobs before it creates them, ships no damaged blob, and never rewrites a set on a target: a rewrite is the source writer's and reaches the target as a new set"
+    statement: "The shipper verifies each blob of a set whole before it creates it, as a reader verifies the blocks it reads, ships no damaged blob and does not publish the catalog that names its set, with readiness saying waiting-on-damaged-set while the log is shipped as before; it never rewrites a set on a target: a rewrite is the source writer's and reaches the target as a new set"
   - key: ResumeIsByTheTargetsTail
     statement: "The shipper keeps no state: it lists the target's log once, verifies each segment the target still holds as chunks, and compares the tail with the source at the same slot; a match continues and anything else is shipping-diverged, a broken chunk of the target included; across a segment boundary the commit header chain is the log reader's check, run by every follower of the target and by a promotion"
   - key: TheShipperIsAReaderAndAMaintenanceWriter
@@ -22,7 +22,7 @@ decisions:
   - key: ATargetsFailureIsNeverTheSources
     statement: "A target that fails makes the shipper back off for that target alone: it never abdicates, releases or touches the source's writer record, never makes the source checkpoint, and readiness reports the shipped log position and the shipped catalog's position without turning unready"
   - key: ACopyIsGovernedWhereItIsServed
-    statement: "Shipping copies bytes, so every commit keeps its agent and attachments; what governs a read of a copy is the declarations of the fleet that serves it, none of which is shipped as governing access; a source fleet's system dataset is shipped ahead of the dataset commits that refer to it"
+    statement: "Shipping copies bytes, so every commit keeps its agent and attachments; what governs a read of a copy is the declarations of the fleet that serves it, none of which is shipped as governing access; a source fleet's system dataset, and each earlier fleet's where the dataset is a promoted copy, is shipped ahead of the dataset commits that refer to it; a fleet that ships has its system dataset on object storage"
   - key: ErasureAcrossCopiesIsOpen
     statement: "Before erasure mode and a shipping target may be combined, milestone 9 part 2 must either have the copies share the key store's destruction or refuse the target; a key store per copy meets neither, and the choice is #203's"
 ---

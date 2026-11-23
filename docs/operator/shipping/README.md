@@ -18,12 +18,21 @@ state's detail.
 | `shipping-diverged` | has stopped: the target holds bytes that are not the source's | [shipping-diverged](shipping-diverged.md) |
 | `shipping-target-not-empty` | has stopped: the target's prefix holds something that is not this source's copy | [shipping-target-not-empty](shipping-target-not-empty.md) |
 | `replica-promoted` | has stopped: the copy was promoted | [replica-promoted](replica-promoted.md) |
+| `source-chunk-damaged` | ships nothing past a chunk of the source's log that does not verify, and reads it again each round | [source-chunk-damaged](source-chunk-damaged.md) |
+| `waiting-on-damaged-set` | ships the log, and holds the catalog back: a blob of a set on the source does not verify | [waiting-on-damaged-set](waiting-on-damaged-set.md) |
 
 A dataset's own state can also be:
 
 | State | Means | Page |
 |---|---|---|
 | `awaiting-shipping` | the dataset is declared a copy, and its first shipping round has not written it yet | [awaiting-shipping](awaiting-shipping.md) |
+
+And a dataset that is served and written as usual can carry one more
+member:
+
+| `declaration` | Means | Page |
+|---|---|---|
+| `copy-declared-on-a-written-dataset` | the dataset is declared a copy while this instance writes it; the writer keeps writing | [copy-declared-on-a-written-dataset](copy-declared-on-a-written-dataset.md) |
 
 ## The three that need no page
 
