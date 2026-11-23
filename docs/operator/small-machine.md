@@ -70,7 +70,8 @@ Garage the open fails: *the object store at … does not enforce conditional
 writes*. Use the file backend on the Pi's NVMe SSD, which is the supported
 small-machine setup; Garage, or any store, can still hold its backups as
 copied files. Any S3-compatible store but RustFS is untested for the
-object-storage backend: the probe catches a store that ignores conditional
+object-storage backend ([Object stores](object-stores.md) has the list, and
+`varve storage verify` tests the one you have): the probe catches a store that ignores conditional
 writes, not one that enforces them only one request at a time
 ([Configure](configure.md)).
 

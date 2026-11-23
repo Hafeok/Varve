@@ -26,6 +26,9 @@ a release writes the same bytes on every run. `derived/` is kept as
 `derived.v<N>` so that no `.gitignore` hides it. `store-next` is built with a
 project reference to this branch's `src/Varve.Store`, since no release has
 written derived format 6 yet; the release that ships it is its writer.
+`verification-next` is this branch's in the same way, and has no program:
+its `generator/README.md` says which code wrote each file and which tests
+hold current code to it.
 
 `proof-reserved` is the exception: no release writes `proof/`, which is
 reserved (`docs/spec/storage-format.md` §2.1). Its generator references no
@@ -51,6 +54,7 @@ bytes, kept.
 | `events-preview.7` | v0.1.0-preview.7 | `schemas/`, `cloudevents/` | `Varve.Events.Tests` `FormatFixtureTests` |
 | `events-preview.13` | v0.1.0-preview.13 | `schemas/` with management revisions, `cloudevents/` | `Varve.Events.Tests` `FormatFixtureTests` |
 | `plan-preview.10` | v0.1.0-preview.10 | `format-1.plan.json`, the plan | `Varve.Management.Tests` `FormatFixtureTests` |
+| `verification-next` | this branch | `varve-verification`, a passing and a failing result record | `Varve.Store.Tests` `Formats.VerificationRecordFormatTests`, `Varve.Server.Tests` `StorageVerifyTests` |
 | `proof-reserved` | none: written by `generator/generate.cs`, no Varve package | `proof/`: objects under the reserved name that no build of format 1 knows | `Formats.ReservedProofTests`, beside `store-preview.1` and `objects-preview.15` |
 
 The expectations are the generator's own: the operations the store workload

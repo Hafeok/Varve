@@ -32,6 +32,7 @@ internal sealed class MemoryObjectStore : IObjectStore
     private readonly Lock _gate = new();
     private readonly SortedDictionary<string, (byte[] Bytes, long Version)> _objects = new(StringComparer.Ordinal);
     private readonly Dictionary<ObjectOperation, int> _counts = [];
+    private readonly Dictionary<string, TaskCompletionSource> _racing = new(StringComparer.Ordinal);
     private long _versions;
 
     /// <summary>
@@ -47,6 +48,18 @@ internal sealed class MemoryObjectStore : IObjectStore
     /// replace succeeds against any version.
     /// </summary>
     public bool IgnoresConditions { get; set; }
+
+    /// <summary>
+    /// Whether the store enforces each condition one request at a time and
+    /// not under concurrency: it checks, lets go, and then writes without
+    /// checking again. Two creates that race both win, where a create after a
+    /// create is refused. The open's probe cannot see it (ADR 0134); only the
+    /// race property does (ADR 0183).
+    /// </summary>
+    public bool LosesRaces { get; set; }
+
+    /// <summary>With <see cref="LosesRaces"/>: whether creates hold all the same, so that only replaces race.</summary>
+    public bool CreatesHold { get; set; }
 
     public int Count(ObjectOperation operation)
     {
@@ -110,7 +123,7 @@ internal sealed class MemoryObjectStore : IObjectStore
     }
 
     public ValueTask<ObjectVersion?> CreateIfAbsentAsync(ObjectName name, ReadOnlyMemory<byte> content, CancellationToken cancellationToken) =>
-        Run(ObjectOperation.Create, name, () =>
+        LosesRaces && !CreatesHold ? Racing(ObjectOperation.Create, name, () => !_objects.ContainsKey(name.Value), content) : Run(ObjectOperation.Create, name, () =>
         {
             if (_objects.ContainsKey(name.Value) && !IgnoresConditions)
             {
@@ -122,7 +135,7 @@ internal sealed class MemoryObjectStore : IObjectStore
         });
 
     public ValueTask<ObjectVersion?> ReplaceIfUnchangedAsync(ObjectName name, ObjectVersion expected, ReadOnlyMemory<byte> content, CancellationToken cancellationToken) =>
-        Run(ObjectOperation.Replace, name, () =>
+        LosesRaces ? Racing(ObjectOperation.Replace, name, () => _objects.TryGetValue(name.Value, out var found) && Version(found.Version) == expected, content) : Run(ObjectOperation.Replace, name, () =>
         {
             if (!_objects.TryGetValue(name.Value, out var found) || (Version(found.Version) != expected && !IgnoresConditions))
             {
@@ -169,6 +182,56 @@ internal sealed class MemoryObjectStore : IObjectStore
     public override string ToString() => "memory://objects";
 
     private static ObjectVersion Version(long version) => new("v" + version.ToString(CultureInfo.InvariantCulture));
+
+    // The condition is checked, and the write made afterwards without
+    // checking again. A request that passed its check holds its write until
+    // another request for the same name has passed its own, so two that race
+    // both write, whatever the machine's load; alone, it writes after a
+    // moment, which is what a request at a time looks like.
+    private async ValueTask<ObjectVersion?> Racing(ObjectOperation operation, ObjectName name, Func<bool> condition, ReadOnlyMemory<byte> content)
+    {
+        TaskCompletionSource? mine = null;
+        TaskCompletionSource? theirs = null;
+
+        bool passed = await Run(operation, name, () =>
+        {
+            if (!condition())
+            {
+                return false;
+            }
+
+            if (!_racing.Remove(name.Value, out theirs))
+            {
+                mine = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _racing[name.Value] = mine;
+            }
+
+            return true;
+        });
+
+        if (!passed)
+        {
+            return null;
+        }
+
+        theirs?.TrySetResult();
+
+        if (mine is not null)
+        {
+            await Task.WhenAny(mine.Task, Task.Delay(TimeSpan.FromMilliseconds(250)));
+        }
+
+        lock (_gate)
+        {
+            if (mine is not null && _racing.TryGetValue(name.Value, out TaskCompletionSource? waiting) && ReferenceEquals(waiting, mine))
+            {
+                _racing.Remove(name.Value);
+            }
+
+            _objects[name.Value] = (content.ToArray(), ++_versions);
+            return Version(_versions);
+        }
+    }
 
     private ValueTask<TResult> Run<TResult>(ObjectOperation operation, ObjectName name, Func<TResult> apply)
     {

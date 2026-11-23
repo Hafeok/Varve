@@ -1,7 +1,7 @@
 # Operating Varve
 
 The operator's guide to `Varve.Server`: one executable that is the server and
-the `varve` command line (ADR 0105). Nineteen pages, each a task:
+the `varve` command line (ADR 0105). Twenty pages, each a task:
 
 | Page | What it covers |
 |---|---|
@@ -21,6 +21,7 @@ the `varve` command line (ADR 0105). Nineteen pages, each a task:
 | [Back up and restore](backup-and-restore.md) | what the files are, taking a copy, checkpoints, restoring, and the change feed as an incremental copy |
 | [Upgrade](upgrade.md) | what a new build reads, what it rewrites, and the order of a rolling upgrade |
 | [A small machine](small-machine.md) | a Raspberry Pi 5: the file backend on NVMe, an object store on a NAS only by identity, the runtime limits for 8 GB |
+| [Object stores](object-stores.md) | which object stores keep the contract a log rests on, with the evidence for each; `varve storage verify` against your own store, and the record it leaves there |
 | [Azure Container Apps](azure-container-apps.md) | datasets in Blob Storage, the template, the writer app and the reader app, cold start, costs |
 | [Kubernetes](kubernetes.md) | a fleet as one StatefulSet with a headless service and a writer set, `varve manage watch-kubernetes`, workload identity for the store |
 | [The Web UI](web-ui.md) | the operator console in a browser: served by the server or a static host, its Content Security Policy, signing in per issuer, anonymous mode |
@@ -39,6 +40,7 @@ and `LOAD` over HTTP), 0111 (the container image), 0112 (telemetry),
 legs), 0128 and 0129 (the feed's format and following it), 0130 and 0131
 (setup), 0132 (CORS), 0143–0146 (domain events), 0179–0181 (handover and
 standbys), 0190–0194 (inference), 0213 (verified derived data), 0216 (the
-format inventory), 0246 (idempotency keys) and 0200–0206 (the Web UI). The protocol a
+format inventory), 0183 (object store verification), 0246 (idempotency
+keys) and 0200–0206 (the Web UI). The protocol a
 client speaks is in `src/Varve.Protocol/README.md` and
 `docs/spec/change-feed.md`.
