@@ -756,7 +756,7 @@ internal static class CommitIndexFormat
     }
 
     [DesignDecision(typeof(VerifiedDerivedData.VerifiedBeforeFirstUse), Scope = ExceptionScope.Boundary)]
-    private static CommitSegment? TryLoad(IReadableBlob blob, BlobName name, DatasetId dataset, bool shared)
+    internal static CommitSegment? TryLoad(IReadableBlob blob, BlobName name, DatasetId dataset, bool shared)
     {
         if (!DerivedFormat.TryReadHeader(blob, dataset, DerivedFormat.KindCommits, out DerivedHeader header)
             || (header.Version < DerivedFormat.CheckedVersion && !shared))

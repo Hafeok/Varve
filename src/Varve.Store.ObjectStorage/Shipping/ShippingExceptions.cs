@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using Varve.Store.Log;
 using Varve.Store.ObjectStorage.Model;
 
 namespace Varve.Store.ObjectStorage;
@@ -148,4 +149,49 @@ public sealed class StoreUnverifiedException : Exception
 
     /// <summary>The oldest suite this build accepts.</summary>
     public VerificationSuite Minimum { get; }
+}
+
+/// <summary>
+/// The source holds a chunk or a blob of an extent set that does not verify
+/// (ADR 0184 decisions 5 and 6). It was not shipped, and nothing was written
+/// to the target for it. The shipper tries again each round: a chunk that
+/// reads whole next time is shipped then, and a damaged set is shipped once
+/// the source's writer has rewritten it under a fresh name (ADR 0213).
+/// </summary>
+public sealed class SourceDamagedException : Exception
+{
+    /// <summary>The source is damaged.</summary>
+    public SourceDamagedException()
+    {
+    }
+
+    /// <summary>The source is damaged, as the message says.</summary>
+    public SourceDamagedException(string message)
+        : base(message)
+    {
+    }
+
+    /// <summary>The source is damaged, as the message says, and the cause.</summary>
+    public SourceDamagedException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+
+    /// <summary>The source's chunk at <paramref name="slot"/> does not verify.</summary>
+    public SourceDamagedException(LogSlot slot)
+        : base("The source's chunk at log slot " + slot + " does not verify: its header or its content hash is not what its bytes give. It was not shipped, and nothing was written to the target for it (ADR 0184). "
+            + "The shipper reads it again at its next round. If it stays so, the source's log is damaged at that slot: see docs/operator/shipping/source-chunk-damaged.md.") =>
+        Slot = slot;
+
+    /// <summary>The source's blob <paramref name="blob"/> of an extent set does not verify.</summary>
+    public SourceDamagedException(BlobName blob)
+        : base("The source's '" + blob + "' does not verify (ADR 0213). It was not shipped, and the catalog that names its set was not published on the target (ADR 0184). "
+            + "The log is shipped as before. The set is shipped once the source's writer has rewritten it under a fresh name: see docs/operator/shipping/waiting-on-damaged-set.md.") =>
+        Blob = blob;
+
+    /// <summary>The slot of the chunk that does not verify, where it is a chunk.</summary>
+    public LogSlot? Slot { get; }
+
+    /// <summary>The blob that does not verify, where it is a blob of a set.</summary>
+    public BlobName? Blob { get; }
 }

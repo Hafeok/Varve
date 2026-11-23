@@ -175,7 +175,16 @@ public sealed class LogShipper
                     _nextSegment = segment + 1;
                 }
 
+                // Its header and its content hash are checked before its create (decision 6): a chunk that
+                // does not verify is not shipped.
                 byte[] bytes = read.Bytes.ToArray();
+                LogSlot at = new(ObjectNames.Slot(segment, chunk));
+
+                if (!ChunkHeader.TryRead(bytes, out _, out _))
+                {
+                    throw new SourceDamagedException(at);
+                }
+
                 Follow(open, bytes);
                 await BarrierAsync(cancellationToken).ConfigureAwait(false);
                 await CreateAsync(_target.Chunk(segment, chunk), bytes, new LogSlot(ObjectNames.Slot(segment, chunk)), cancellationToken).ConfigureAwait(false);
@@ -225,7 +234,7 @@ public sealed class LogShipper
         {
             foreach (BlobName blob in set.Blobs)
             {
-                moved |= await ShipBlobAsync(blob, cancellationToken).ConfigureAwait(false);
+                moved |= await ShipBlobAsync(blob, held.Summary.Dataset, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -415,7 +424,7 @@ public sealed class LogShipper
 
     // One blob of a set, when the source has it and the target does not: the
     // source's bytes, by create-if-absent. Optional blobs a set lacks are skipped.
-    private async ValueTask<bool> ShipBlobAsync(BlobName blob, CancellationToken cancellationToken)
+    private async ValueTask<bool> ShipBlobAsync(BlobName blob, DatasetId dataset, CancellationToken cancellationToken)
     {
         ObjectName from = _source.Derived(blob.Value);
         ObjectName to = _target.Derived(blob.Value);
@@ -439,6 +448,13 @@ public sealed class LogShipper
         try
         {
             await DownloadAsync(from, staged, cancellationToken).ConfigureAwait(false);
+
+            // Verified before its create, whole, as a reader verifies the blocks it reads (decision 5, ADR 0213):
+            // a damaged blob is not shipped, and the catalog that names its set is not published this round.
+            if (!await Task.Run(() => ExtentBlobCheck.Verifies(blob, dataset, new FileInfo(staged), cancellationToken), cancellationToken).ConfigureAwait(false))
+            {
+                throw new SourceDamagedException(blob);
+            }
 
             if (await ConditionalWrites.CreateAsync(_options.Target, to, new ObjectContent(new FileInfo(staged)), _options.Clock, cancellationToken).ConfigureAwait(false) == CreateOutcome.Taken)
             {
@@ -699,7 +715,7 @@ public sealed class LogShipper
 
                 if (!ChunkHeader.TryRead(bytes, out ChunkHeader header, out _))
                 {
-                    throw new LogVerificationException("The source's chunk at log slot " + slot + " does not verify.");
+                    throw new SourceDamagedException(slot);
                 }
 
                 if ((header.Flags & ChunkFlags.Fence) == 0)

@@ -655,3 +655,11 @@ override Varve.Store.ObjectStorage.Model.LineageLink.ToString() -> string!
 static Varve.Store.ObjectStorage.Model.LineageLink.operator !=(Varve.Store.ObjectStorage.Model.LineageLink? left, Varve.Store.ObjectStorage.Model.LineageLink? right) -> bool
 static Varve.Store.ObjectStorage.Model.LineageLink.operator ==(Varve.Store.ObjectStorage.Model.LineageLink? left, Varve.Store.ObjectStorage.Model.LineageLink? right) -> bool
 Varve.Store.ObjectStorage.ObjectStorage.CompletePromotionAsync(Varve.Store.Log.Position tail, Varve.Store.ObjectStorage.Model.CommitHeaderHash hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask
+Varve.Store.ObjectStorage.SourceDamagedException
+Varve.Store.ObjectStorage.SourceDamagedException.Blob.get -> Varve.Store.Log.BlobName?
+Varve.Store.ObjectStorage.SourceDamagedException.Slot.get -> Varve.Store.ObjectStorage.Model.LogSlot?
+Varve.Store.ObjectStorage.SourceDamagedException.SourceDamagedException() -> void
+Varve.Store.ObjectStorage.SourceDamagedException.SourceDamagedException(Varve.Store.Log.BlobName blob) -> void
+Varve.Store.ObjectStorage.SourceDamagedException.SourceDamagedException(Varve.Store.ObjectStorage.Model.LogSlot slot) -> void
+Varve.Store.ObjectStorage.SourceDamagedException.SourceDamagedException(string! message) -> void
+Varve.Store.ObjectStorage.SourceDamagedException.SourceDamagedException(string! message, System.Exception! innerException) -> void

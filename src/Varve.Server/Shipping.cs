@@ -46,6 +46,16 @@ internal static class ShippingState
     /// <summary>The target was promoted (ADR 0185). The shipper has stopped for it.</summary>
     internal const string Promoted = "replica-promoted";
 
+    /// <summary>A chunk of the source's log does not verify, and was not shipped (ADR 0184 decision 6). Read again each round.</summary>
+    internal const string SourceChunkDamaged = "source-chunk-damaged";
+
+    /// <summary>
+    /// A blob of an extent set of the source does not verify, and was not
+    /// shipped (ADR 0184 decision 5). The log is shipped; the catalog waits
+    /// for the source's writer to rewrite the set. Read again each round.
+    /// </summary>
+    internal const string WaitingOnDamagedSet = "waiting-on-damaged-set";
+
 }
 
 /// <summary>One target's shipping, for readiness (ADR 0184 decision 11).</summary>
@@ -428,10 +438,11 @@ internal sealed partial class Shipping : IAsyncDisposable
 
             while (!stopping.IsCancellationRequested)
             {
+                // Sampled before the round: what the source's store held then, the target holds after it.
+                (long Head, long Catalog) now = (Dataset.Head.Value, Dataset.CatalogVersion.Value);
+
                 try
                 {
-                    // Sampled before the round: what the source's store held then, the target holds after it.
-                    (long Head, long Catalog) now = (Dataset.Head.Value, Dataset.CatalogVersion.Value);
 
                     if (!_holdOff.Round() && (shipper is null || !Writes || shipped != now))
                     {
@@ -463,17 +474,21 @@ internal sealed partial class Shipping : IAsyncDisposable
                     ShippingLog.Stopped(_owner._logger, _dataset, Key, state, stop.Message);
                     return;
                 }
-                catch (Exception failure) when (failure is IOException or HttpRequestException or TimeoutException or StoreUnverifiedException or InvalidOperationException or LogVerificationException or UnauthorizedAccessException)
+                catch (Exception failure) when (failure is IOException or HttpRequestException or TimeoutException or StoreUnverifiedException or InvalidOperationException or LogVerificationException or UnauthorizedAccessException or SourceDamagedException)
                 {
                     shipper = null;
                     _holdOff.Failed();
                     string state = failure switch
                     {
                         StoreUnverifiedException => ShippingState.StoreUnverified,
+                        SourceDamagedException { Blob: not null } => ShippingState.WaitingOnDamagedSet,
+                        SourceDamagedException => ShippingState.SourceChunkDamaged,
                         InvalidOperationException => ShippingState.TargetUnreachable,
                         _ => ShippingState.Retrying,
                     };
-                    Report(state, null, null, failure.Message);
+
+                    // A round ships the log before any set, so a round that stopped at a damaged set shipped the log.
+                    Report(state, state == ShippingState.WaitingOnDamagedSet && Writes ? now.Head : null, null, failure.Message);
 
                     if (_holdOff.Failures == 1)
                     {

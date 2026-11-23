@@ -95,6 +95,59 @@ public sealed class ShippingRoleTests
         Assert.Equal(0, shipped.Failures);
     }
 
+    /// <summary>
+    /// ADR 0184 decisions 5 and 6, the architect's points A and B: what does
+    /// not verify on the source is not shipped, and readiness says which. A
+    /// damaged chunk is <c>source-chunk-damaged</c>; a damaged blob of a set
+    /// is <c>waiting-on-damaged-set</c>, with the log shipped. Both are read
+    /// again each round, and shipping carries on once the source reads whole.
+    /// </summary>
+    [Fact]
+    public async Task readiness_names_a_damaged_chunk_and_a_damaged_set_and_shipping_carries_on_after()
+    {
+        await using Scene scene = await Scene.StartAsync(verified: true);
+        Dataset dataset = await scene.DeclareAsync();
+        await CommitAsync(dataset, 0, 2);
+        await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == dataset.Head.Value);
+
+        // The target refuses writes while the source is damaged, so the shipper meets the damage and not a race with it.
+        scene.Target.Hook = (operation, _) => operation is ObjectOperation.Create or ObjectOperation.Replace ? () => throw new IOException("the target is held back") : null;
+        HashSet<string> had = [.. scene.Source.Names()];
+        await CommitAsync(dataset, 2, 3);
+        string chunk = scene.Source.Names().First(name => !had.Contains(name) && name.Contains(".chunks/", StringComparison.Ordinal));
+        byte[] whole = scene.Source.Get(chunk)!;
+        byte[] damaged = [.. whole];
+        damaged[^1] ^= 0x01;
+        scene.Source.Put(chunk, damaged);
+        scene.Target.Hook = null;
+
+        ShippingStatus status = await scene.WaitForAsync(s => s.State == ShippingState.SourceChunkDamaged);
+        Assert.Contains("does not verify", status.Detail, StringComparison.Ordinal);
+        Assert.DoesNotContain(chunk, scene.Target.Names());
+        scene.Source.Put(chunk, whole);
+        await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == dataset.Head.Value);
+
+        // A set, damaged before it is copied.
+        scene.Target.Hook = (operation, _) => operation is ObjectOperation.Create or ObjectOperation.Replace ? () => throw new IOException("the target is held back") : null;
+        await dataset.CheckpointAsync(dataset.Head, Ct);
+        string blob = scene.Source.Names().First(name => name.StartsWith("orders/derived/extents/", StringComparison.Ordinal) && name.EndsWith("/terms", StringComparison.Ordinal));
+        whole = scene.Source.Get(blob)!;
+        damaged = [.. whole];
+        damaged[damaged.Length / 2] ^= 0x01;
+        scene.Source.Put(blob, damaged);
+        scene.Target.Hook = null;
+
+        status = await scene.WaitForAsync(s => s.State == ShippingState.WaitingOnDamagedSet);
+        Assert.Contains(blob["orders/derived/".Length..], status.Detail, StringComparison.Ordinal);
+        Assert.Equal(dataset.Head.Value, status.ShippedThrough);
+        Assert.DoesNotContain(blob, scene.Target.Names());
+        Assert.DoesNotContain("orders/derived/catalog", scene.Target.Names());
+
+        scene.Source.Put(blob, whole);
+        await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.CatalogPosition == dataset.Head.Value);
+        Assert.Equal(whole, scene.Target.Get(blob));
+    }
+
     [Fact]
     public async Task a_commit_waits_for_no_target_while_the_target_is_stalled()
     {

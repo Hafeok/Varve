@@ -635,6 +635,149 @@ public sealed class LogShipperTests
     }
 
     /// <summary>
+    /// ADR 0184 decision 5, the architect's point A: a set's blobs are
+    /// verified as ADR 0213 does before they are created on a target. A
+    /// damaged blob is not shipped, the catalog that names its set is not
+    /// published, and the log is shipped all the same. Once the source's
+    /// writer has written the set anew, the round ships it.
+    /// </summary>
+    [Fact]
+    public async Task a_damaged_blob_of_a_set_is_not_shipped_and_the_catalog_waits_for_it()
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), Small());
+        LogShipper shipper = (await pair.StartAsync())!;
+        await CommitAsync(writer, 0, 6);
+        await writer.CheckpointAsync(new Position(5), T.Ct);
+
+        string name = pair.Source.Store.Names().First(blob => blob.StartsWith("derived/extents/", StringComparison.Ordinal) && blob.EndsWith("/order2", StringComparison.Ordinal));
+        byte[] whole = pair.Source.Store.Get(name)!;
+        byte[] damaged = [.. whole];
+        damaged[0] ^= 0x01;
+        pair.Source.Store.Put(name, damaged);
+
+        SourceDamagedException refused = await Assert.ThrowsAsync<SourceDamagedException>(async () => await shipper.ShipAsync(T.Ct));
+        Assert.Equal(name["derived/".Length..], refused.Blob!.Value.Value);
+        Assert.Null(refused.Slot);
+
+        // The log is there, whole. The damaged blob and the catalog are not; nothing on the target names what it lacks.
+        pair.AssertIdentical();
+        Assert.DoesNotContain(name, pair.Target.Store.Names());
+        Assert.DoesNotContain("derived/catalog", pair.Target.Store.Names());
+
+        // And again at the next round, while it stays damaged.
+        await Assert.ThrowsAsync<SourceDamagedException>(async () => await shipper.ShipAsync(T.Ct));
+        Assert.DoesNotContain("derived/catalog", pair.Target.Store.Names());
+
+        // The source holds the set whole again: the round ships it, and the catalog after it.
+        pair.Source.Store.Put(name, whole);
+        ShippedRound round = await shipper.ShipAsync(T.Ct);
+        Assert.Equal(new Position(5), round.Catalog!.Position);
+        pair.AssertDerivedIdentical();
+    }
+
+    /// <summary>
+    /// What the shipper's check is (ADR 0213, ADR 0184 decision 5): every
+    /// blob of a set a writer wrote verifies, and with any one byte changed
+    /// it does not.
+    /// </summary>
+    [Fact]
+    public async Task every_blob_of_a_set_verifies_and_no_byte_of_one_can_change_unseen()
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), Small());
+        await CommitAsync(writer, 0, 6);
+        await writer.CheckpointAsync(new Position(5), T.Ct);
+        DatasetId dataset = CatalogSummary.TryRead(pair.Source.Store.Get("derived/catalog")!.AsMemory(12))!.Dataset;
+        string[] blobs = [.. pair.Source.Store.Names().Where(blob => blob.StartsWith("derived/extents/", StringComparison.Ordinal))];
+        Assert.Equal(9, blobs.Length);
+        string directory = Directory.CreateTempSubdirectory("varve-blob-check-").FullName;
+        FileInfo file = new(Path.Combine(directory, "blob"));
+
+        try
+        {
+            foreach (string blob in blobs)
+            {
+                BlobName name = new(blob["derived/".Length..]);
+                byte[] whole = pair.Source.Store.Get(blob)!;
+                await File.WriteAllBytesAsync(file.FullName, whole, T.Ct);
+                Assert.True(ExtentBlobCheck.Verifies(name, dataset, file, T.Ct), blob);
+                Assert.False(ExtentBlobCheck.Verifies(name, new DatasetId(Guid.NewGuid()), file, T.Ct), blob + " as another dataset's");
+                List<int> unseen = [];
+
+                for (int at = 0; at < whole.Length; at++)
+                {
+                    byte[] changed = [.. whole];
+                    changed[at] ^= 0x10;
+                    await File.WriteAllBytesAsync(file.FullName, changed, T.Ct);
+
+                    if (ExtentBlobCheck.Verifies(name, dataset, file, T.Ct))
+                    {
+                        unseen.Add(at);
+                    }
+                }
+
+                Assert.True(unseen.Count == 0, blob + " of " + whole.Length + " bytes verifies with a byte changed at " + string.Join(", ", unseen));
+
+                // And cut short, or with a byte more.
+                await File.WriteAllBytesAsync(file.FullName, whole.AsMemory(0, whole.Length - 1), T.Ct);
+                Assert.False(ExtentBlobCheck.Verifies(name, dataset, file, T.Ct), blob + " cut short");
+                await File.WriteAllBytesAsync(file.FullName, (byte[])[.. whole, 0], T.Ct);
+                Assert.False(ExtentBlobCheck.Verifies(name, dataset, file, T.Ct), blob + " with a byte more");
+            }
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// ADR 0184 decision 6, the architect's point B: the shipper checks each
+    /// source chunk's header and its content hash before its create. A chunk
+    /// that fails either is not shipped, the shipper says which slot, and it
+    /// ships on once the source reads whole.
+    /// </summary>
+    [Theory]
+    [InlineData(40)]
+    [InlineData(-1)]
+    public async Task a_source_chunk_that_does_not_verify_is_not_shipped(int flip)
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), T.Options());
+        await CommitAsync(writer, 0, 2);
+        LogShipper shipper = (await pair.StartAsync())!;
+        await shipper.ShipLogAsync(T.Ct);
+
+        // One more commit, in one more chunk, damaged where it lies: in its header's content hash, or in its last byte.
+        HashSet<string> had = [.. pair.Source.Store.Names()];
+        await CommitAsync(writer, 2, 3);
+        string name = Assert.Single(pair.Source.Store.Names(), added => !had.Contains(added) && added.Contains(".chunks/", StringComparison.Ordinal));
+        byte[] whole = pair.Source.Store.Get(name)!;
+        byte[] damaged = [.. whole];
+        damaged[flip < 0 ? damaged.Length - 1 : flip] ^= 0x01;
+        pair.Source.Store.Put(name, damaged);
+
+        Dictionary<string, byte[]> before = pair.Target.Snapshot();
+        SourceDamagedException refused = await Assert.ThrowsAsync<SourceDamagedException>(async () => await shipper.ShipLogAsync(T.Ct));
+        Assert.NotNull(refused.Slot);
+        Assert.Null(refused.Blob);
+        Assert.Contains("does not verify", refused.Message, StringComparison.Ordinal);
+        Assert.Equal(before.Keys.Order(StringComparer.Ordinal), pair.Target.Store.Names().Order(StringComparer.Ordinal));
+        Assert.DoesNotContain(name, pair.Target.Store.Names());
+
+        // Again at the next round, by a shipper started afresh as the role starts one after a failure.
+        LogShipper again = (await pair.StartAsync())!;
+        await Assert.ThrowsAsync<SourceDamagedException>(async () => await again.ShipLogAsync(T.Ct));
+        Assert.DoesNotContain(name, pair.Target.Store.Names());
+
+        // The source reads whole again: the chunk is shipped, and the copy is the source.
+        pair.Source.Store.Put(name, whole);
+        Assert.True((await again.ShipLogAsync(T.Ct)).Moved);
+        pair.AssertIdentical();
+    }
+
+    /// <summary>
     /// ADR 0185 decisions 4, 6 and 8, the race the architect's review named:
     /// a shipper that is mid-round when the lineage is replaced creates a
     /// chunk above the position the lineage has just recorded, before the
