@@ -483,9 +483,15 @@ public sealed class LogShipperTests
         Assert.True(await replica.TakeWriteAsync(async claim => (outcome = await storage.PromoteInPlaceAsync((await Pair.PromotionAsync(replica, tail)), claim)) == PromotionOutcome.Promoted, T.Ct));
         Assert.Equal(PromotionOutcome.Promoted, outcome);
 
+        // Fenced, and not finished until the lineage says where: the promotion's last write.
+        Assert.Equal(ReplicaState.PromotionIncomplete, await Backend.ReplicaStateAsync(pair.Target.Store, null, T.Ct));
+        await Pair.CompleteAsync(storage, replica);
+        Assert.Equal(ReplicaState.None, await Backend.ReplicaStateAsync(pair.Target.Store, null, T.Ct));
+
         LineageRecord lineage = (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!;
         Assert.False(lineage.IsReplica);
         Assert.Equal(tail, lineage.Promoted!.Position);
+        Assert.NotNull(lineage.Promoted.Fence);
         Assert.Equal(Convert.ToHexStringLower((await replica.HeaderHashAsync(tail, T.Ct)).Span), lineage.Promoted.Hash.Value);
         Assert.Equal("promoter", lineage.Promoted.By.Value);
 
@@ -495,7 +501,7 @@ public sealed class LogShipperTests
         Assert.Equal(source.Epoch.Value + 1, record.Epoch.Value);
         Assert.Equal(record.Epoch, lineage.Promoted.Epoch);
         Assert.Equal(ClaimTrigger.Promotion, record.History[^1].Trigger);
-        Assert.NotNull(record.History[^1].Fence);
+        Assert.Equal(lineage.Promoted.Fence, record.History[^1].Fence);
 
         // It writes on, from the tail.
         await CommitAsync(replica, 6, 9);
@@ -503,10 +509,10 @@ public sealed class LogShipperTests
 
         // The returning primary: its shipper is refused, and writes nothing.
         await CommitAsync(writer, 6, 8);
-        string[] before = [.. pair.Target.Store.Names()];
+        Dictionary<string, byte[]> before = pair.Target.Snapshot();
         ReplicaPromotedException refused = await Assert.ThrowsAsync<ReplicaPromotedException>(async () => await shipper.ShipAsync(T.Ct));
         Assert.Equal(tail, refused.Lineage!.Promoted!.Position);
-        Assert.Equal(before, pair.Target.Store.Names());
+        await AssertNothingOfTheSourceArrivedAsync(pair, before, replica);
     }
 
     /// <summary>
@@ -613,8 +619,12 @@ public sealed class LogShipperTests
         Backend again = await pair.Target.OpenAsync(ObjectStorageAccess.ReadOnly);
         await using Dataset second = await Dataset.OpenFollowerAsync(again, Small(), T.Ct);
         LineagePromotion first = (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!.Promoted!;
+        Assert.Null(first.Fence);
         Assert.True(await second.TakeWriteAsync(async claim => await again.PromoteInPlaceAsync((await Pair.PromotionAsync(second, tail)), claim) == PromotionOutcome.Promoted, T.Ct));
-        Assert.Equal(first, (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!.Promoted);
+        await Pair.CompleteAsync(again, second);
+        LineagePromotion finished = (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!.Promoted!;
+        Assert.Equal(first with { Fence = finished.Fence }, finished);
+        Assert.NotNull(finished.Fence);
         await CommitAsync(second, 4, 6);
         await second.DisposeAsync();
         await again.DisposeAsync();
@@ -622,6 +632,137 @@ public sealed class LogShipperTests
         // Closed and opened for write, as any dataset.
         await using Dataset reopened = await T.OpenOrCreate(await pair.Target.OpenAsync(), Small());
         Assert.Equal(tail.Value + 2, reopened.Head.Value);
+    }
+
+    /// <summary>
+    /// ADR 0185 decisions 4, 6 and 8, the race the architect's review named:
+    /// a shipper that is mid-round when the lineage is replaced creates a
+    /// chunk above the position the lineage has just recorded, before the
+    /// fence. The promoter keeps those commits, the lineage records the
+    /// position at the fence, and they are the source fleet's. The shipper's
+    /// next create, at the fence slot, finds other bytes and stops.
+    /// </summary>
+    [Fact]
+    public async Task a_shipper_that_wins_a_slot_before_the_fence_has_its_commits_kept_and_recorded_as_the_sources()
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), Small());
+        await CommitAsync(writer, 0, 3);
+        LogShipper shipper = (await pair.StartAsync())!;
+        await shipper.ShipAsync(T.Ct);
+
+        Backend storage = await pair.Target.OpenAsync(ObjectStorageAccess.ReadOnly);
+        await using Dataset replica = await Dataset.OpenFollowerAsync(storage, Small(), T.Ct);
+        Position recorded = replica.Head;
+
+        // The source commits once more. Its shipper has read the lineage for this round already, and creates the
+        // commit's chunk on the target just after the promoter replaces the lineage and before the promoter fences.
+        await CommitAsync(writer, 3, 4);
+        bool won = false;
+        pair.Target.Store.Hook = (operation, name) => operation == ObjectOperation.Replace && name.Value == "lineage" && !won
+            ? () =>
+            {
+                // The shipper itself, past its read of the lineage, so that what arrives is what a shipper creates:
+                // in order, a rolled segment's seal before the next segment's first chunk.
+                won = true;
+                shipper.ShipLogAsyncPastTheLineageForTests(T.Ct).AsTask().GetAwaiter().GetResult();
+            }
+            : null;
+
+        Assert.True(await replica.TakeWriteAsync(async claim => await storage.PromoteInPlaceAsync(await Pair.PromotionAsync(replica, recorded), claim) == PromotionOutcome.Promoted, T.Ct));
+        pair.Target.Store.Hook = null;
+        Assert.True(won);
+
+        // The fence adopted the chunk: the copy holds the commit the source acknowledged, one above what was first recorded.
+        Assert.Equal(recorded.Value + 1, replica.Head.Value);
+        Assert.Equal(writer.Head, replica.Head);
+        Assert.Equal(recorded, (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!.Promoted!.Position);
+
+        // The last write records the position at the fence, so that commit is the source fleet's and the next one is not.
+        await Pair.CompleteAsync(storage, replica);
+        LineageRecord lineage = (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!;
+        Assert.Equal(replica.Head, lineage.Promoted!.Position);
+        Assert.Equal(Convert.ToHexStringLower((await writer.HeaderHashAsync(writer.Head, T.Ct)).Span), lineage.Promoted.Hash.Value);
+        Assert.Equal(lineage.Source, lineage.WriterOf(replica.Head));
+        Assert.Null(lineage.WriterOf(new Position(replica.Head.Value + 1)));
+
+        // A second promote request finds nothing to promote, whichever position it names.
+        await using (Backend other = await pair.Target.OpenAsync(ObjectStorageAccess.ReadOnly))
+        await using (Dataset follower = await Dataset.OpenFollowerAsync(other, Small(), T.Ct))
+        {
+            Assert.Equal(PromotionOutcome.NotAReplica, await other.PromoteInPlaceAsync(await Pair.PromotionAsync(follower, follower.Head), T.Ct));
+            Assert.Equal(PromotionOutcome.PositionMismatch, await other.PromoteInPlaceAsync(await Pair.PromotionAsync(follower, recorded), T.Ct));
+        }
+
+        // The promoted copy writes on. The old source's shipper, still in its round, meets the fence slot and stops there.
+        await CommitAsync(replica, 10, 12);
+        await CommitAsync(writer, 4, 6);
+        Dictionary<string, byte[]> before = pair.Target.Snapshot();
+        Exception stopped = await Assert.ThrowsAnyAsync<Exception>(async () => await shipper.ShipLogAsyncPastTheLineageForTests(T.Ct));
+        Assert.IsType<ShippingDivergedException>(stopped);
+        await AssertNothingOfTheSourceArrivedAsync(pair, before, replica);
+
+        // And at its next round it reads the lineage, and is refused as promoted.
+        await Assert.ThrowsAsync<ReplicaPromotedException>(async () => await shipper.ShipAsync(T.Ct));
+    }
+
+    /// <summary>
+    /// ADR 0185 decision 2, the architect's point C: the lineage carries the
+    /// chain. A promoted copy shipped onward and promoted again says which
+    /// fleet wrote which range of positions.
+    /// </summary>
+    [Fact]
+    public async Task a_copy_of_a_promoted_copy_carries_the_chain_and_names_the_fleet_of_every_position()
+    {
+        DatasetId firstFleet = new(Guid.Parse("11111111-1111-1111-1111-111111111111"));
+        DatasetId secondFleet = new(Guid.Parse("22222222-2222-2222-2222-222222222222"));
+        await using ObjectHarness origin = new();
+        await using ObjectHarness middle = Pair.Verified(new ObjectHarness());
+        await using ObjectHarness last = Pair.Verified(new ObjectHarness());
+        await using Dataset writer = await T.OpenOrCreate(await origin.OpenAsync(), Small());
+        await CommitAsync(writer, 0, 3);
+
+        // origin, written under the first fleet, is shipped to middle, which is promoted at p1 and written under the second.
+        LineageSource fromOrigin = new(new StoreAddress("memory://origin"), null, T.Id, firstFleet);
+        await (await Pair.StartAsync(origin, middle, fromOrigin))!.ShipAsync(T.Ct);
+        Backend promoting = await middle.OpenAsync(ObjectStorageAccess.ReadOnly);
+        await using Dataset second = await Dataset.OpenFollowerAsync(promoting, Small(), T.Ct);
+        Position p1 = second.Head;
+        Assert.True(await second.TakeWriteAsync(async claim => await promoting.PromoteInPlaceAsync(await Pair.PromotionAsync(second, p1, "memory://origin"), claim) == PromotionOutcome.Promoted, T.Ct));
+        await Pair.CompleteAsync(promoting, second);
+        await CommitAsync(second, 3, 6);
+
+        // middle is shipped on to last, which is promoted at p2.
+        LineageSource fromMiddle = new(new StoreAddress("memory://middle"), null, T.Id, secondFleet);
+        await (await Pair.StartAsync(middle, last, fromMiddle))!.ShipAsync(T.Ct);
+        LineageRecord replica = (await Backend.ReadLineageAsync(last.Store, null, T.Ct))!;
+        Assert.True(replica.IsReplica);
+        Assert.Equal(fromMiddle, replica.Source);
+        LineageLink link = Assert.Single(replica.Earlier);
+        Assert.Equal(fromOrigin, link.Source);
+        Assert.Equal(p1, link.Promoted.Position);
+
+        // Every commit of the replica has a writer that is not the serving fleet: the first fleet to p1, the second after.
+        Assert.Equal(fromOrigin, replica.WriterOf(new Position(1)));
+        Assert.Equal(fromOrigin, replica.WriterOf(p1));
+        Assert.Equal(fromMiddle, replica.WriterOf(new Position(p1.Value + 1)));
+        Assert.Equal(fromMiddle, replica.WriterOf(new Position(p1.Value + 1000)));
+
+        Backend promotingLast = await last.OpenAsync(ObjectStorageAccess.ReadOnly);
+        await using Dataset third = await Dataset.OpenFollowerAsync(promotingLast, Small(), T.Ct);
+        Position p2 = third.Head;
+        Assert.Equal(p1.Value + 3, p2.Value);
+        Assert.True(await third.TakeWriteAsync(async claim => await promotingLast.PromoteInPlaceAsync(await Pair.PromotionAsync(third, p2, "memory://middle"), claim) == PromotionOutcome.Promoted, T.Ct));
+        await Pair.CompleteAsync(promotingLast, third);
+
+        // After two promotions: three ranges, read from the lineage alone, and it reads back the same from its bytes.
+        LineageRecord twice = (await Backend.ReadLineageAsync(last.Store, null, T.Ct))!;
+        Assert.Equal(fromOrigin, twice.WriterOf(p1));
+        Assert.Equal(fromMiddle, twice.WriterOf(new Position(p1.Value + 1)));
+        Assert.Equal(fromMiddle, twice.WriterOf(p2));
+        Assert.Null(twice.WriterOf(new Position(p2.Value + 1)));
+        Assert.Equal(twice.Earlier, LineageRecordFormat.Read(LineageRecordFormat.Write(twice)).Earlier);
+        Assert.Equal(2, twice.ChainForACopy().Count);
     }
 
     /// <summary>
@@ -724,6 +865,27 @@ public sealed class LogShipperTests
         return mutations;
     }
 
+    /// <summary>
+    /// A refused or stopped shipper overwrote nothing, and the promoted
+    /// copy's log is still the promoted writer's. The names are not compared:
+    /// the promoted writer consolidates its own segments in the background.
+    /// </summary>
+    private static async Task AssertNothingOfTheSourceArrivedAsync(Pair pair, Dictionary<string, byte[]> before, Dataset promoted)
+    {
+        foreach (string name in pair.Target.Store.Names())
+        {
+            if (before.TryGetValue(name, out byte[]? bytes) && pair.Target.Store.Get(name) is { } now)
+            {
+                Assert.Equal(bytes, now);
+            }
+        }
+
+        await using Backend storage = await pair.Target.OpenAsync(ObjectStorageAccess.ReadOnly);
+        await using Dataset follower = await Dataset.OpenFollowerAsync(storage, Small(), T.Ct);
+        Assert.Equal(promoted.Head, follower.Head);
+        Assert.Equal((await promoted.HeaderHashAsync(promoted.Head, T.Ct)).ToArray(), (await follower.HeaderHashAsync(follower.Head, T.Ct)).ToArray());
+    }
+
     private static async Task CommitAsync(Dataset dataset, int from, int to)
     {
         for (int i = from; i < to; i++)
@@ -742,7 +904,7 @@ public sealed class LogShipperTests
         public ObjectHarness Target { get; } = Verified(new ObjectHarness());
 
         // A target is a verified store (ADR 0184 decision 9): the record a passing run of the suite leaves at its root.
-        private static ObjectHarness Verified(ObjectHarness harness)
+        public static ObjectHarness Verified(ObjectHarness harness)
         {
             harness.Store.Put(ObjectStoreVerification.RecordName.Value, VerificationRecordFormat.Write(new VerificationRecord
             {
@@ -830,16 +992,35 @@ public sealed class LogShipperTests
             Assert.Equal((await FormatFixtures.ViewsAsync(writer)).Take(views.Count), views);
         }
 
+        /// <summary>The promotion's last write: the lineage records the head and its hash as they are at the fence.</summary>
+        public static async Task CompleteAsync(Backend storage, Dataset promoted) =>
+            await storage.CompletePromotionAsync(promoted.Head, new CommitHeaderHash(Convert.ToHexStringLower((await promoted.HeaderHashAsync(promoted.Head, T.Ct)).Span)), T.Ct);
+
         /// <summary>A promotion of the target by the instance "promoter", as an operator who expects <paramref name="expected"/> asks for it.</summary>
-        public static async Task<PromotionRequest> PromotionAsync(Dataset replica, Position expected) => new()
+        public static async Task<PromotionRequest> PromotionAsync(Dataset replica, Position expected, string source = "memory://source") => new()
         {
             Instance = new WriterInstance("promoter"),
-            Source = new StoreAddress("memory://source"),
+            Source = new StoreAddress(source),
             Expected = expected,
             Verified = replica.Head,
             Hash = new CommitHeaderHash(Convert.ToHexStringLower((await replica.HeaderHashAsync(replica.Head, T.Ct)).Span)),
             Randomness = TestRandomness.Instance,
         };
+
+        /// <summary>A shipper from one harness to another, under the lineage given.</summary>
+        public static ValueTask<LogShipper?> StartAsync(ObjectHarness source, ObjectHarness target, LineageSource lineage) =>
+            LogShipper.StartAsync(
+                new ShippingOptions
+                {
+                    Source = source.Store,
+                    Target = target.Store,
+                    Lineage = lineage,
+                    Reader = new ReaderId("shipper-ship-" + lineage.Store.Value[^6..]),
+                    Holder = new WriterInstance("shipper"),
+                    Staging = new CacheDirectory(Directory.CreateTempSubdirectory("varve-ship-").FullName),
+                    Clock = new InstantClock(DateTimeOffset.UnixEpoch),
+                },
+                T.Ct);
 
         public string[] SourceSets() => Sets(Source.Store);
 

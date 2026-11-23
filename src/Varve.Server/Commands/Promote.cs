@@ -144,8 +144,17 @@ internal static class Promote
             {
                 epoch = storage.Writer?.Epoch.Value ?? 0;
 
-                // Released for promotion, not shutdown: the promotion is finished, and no standby races for it.
+                // Until the lineage records the fence the promotion has not finished: a failure before it
+                // releases for promotion, which no standby races for (decision 6).
                 storage.ReleaseOnClose = ReleaseReason.Promotion;
+
+                // The last write: the position and hash at the fence. A shipper mid-round may have added chunks.
+                tail = replica.Head;
+                await storage.CompletePromotionAsync(tail, new CommitHeaderHash(Convert.ToHexStringLower((await replica.HeaderHashAsync(tail, cancellationToken).ConfigureAwait(false)).Span)), cancellationToken).ConfigureAwait(false);
+
+                // Finished (ADR 0185 decision 5): released as any writer that closes, so the dataset's placed
+                // member, or its writer set, starts as after any ordinary release.
+                storage.ReleaseOnClose = ReleaseReason.Shutdown;
             }
         }
 

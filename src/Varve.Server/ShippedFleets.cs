@@ -55,13 +55,14 @@ internal sealed class ShippedFleets(ObjectStores objects, OpenDatasets datasets)
             _lineages[dataset.Value] = lineage;
         }
 
-        if (lineage is not { Understood: true, Source: { } source })
+        if (lineage is not { Understood: true })
         {
             return null;
         }
 
-        // Every commit of a replica, and every commit at or below a promoted copy's promoted position.
-        if (lineage.Promoted is { } promoted && position.Value > promoted.Position.Value)
+        // The lineage carries the chain (ADR 0185 decision 2): each earlier copy's source wrote up to that copy's
+        // promotion, and this copy's source wrote from there to this copy's own. Above that, this fleet did.
+        if (lineage.WriterOf(position) is not { } source)
         {
             return null;
         }

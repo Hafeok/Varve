@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
 using Varve.Store.Log;
 
 namespace Varve.Store.ObjectStorage.Model;
@@ -29,6 +30,39 @@ public sealed record LineageRecord
 
     /// <summary>The promotion, once the copy has been promoted.</summary>
     public LineagePromotion? Promoted { get; init; }
+
+    /// <summary>
+    /// The copies this one descends from, oldest first (ADR 0185 decision
+    /// 2): for each, the source it was shipped from and the promotion that
+    /// ended that source's writing. Empty for a copy of a dataset that was
+    /// itself no copy. A copy shipped from a promoted copy carries that
+    /// copy's whole chain, so which fleet wrote which positions is read here
+    /// and nowhere else.
+    /// </summary>
+    public IReadOnlyList<LineageLink> Earlier { get; init; } = [];
+
+    /// <summary>
+    /// The source whose fleet wrote the commit at <paramref name="position"/>
+    /// (ADR 0185 decision 8), or none for a commit the fleet that serves
+    /// this copy wrote: one above the promoted position. Every commit of a
+    /// replica was written under a source.
+    /// </summary>
+    public LineageSource? WriterOf(Position position)
+    {
+        foreach (LineageLink link in Earlier)
+        {
+            if (position.Value <= link.Promoted.Position.Value)
+            {
+                return link.Source;
+            }
+        }
+
+        return Promoted is { } promoted && position.Value > promoted.Position.Value ? null : Source;
+    }
+
+    /// <summary>The chain a copy shipped from this one carries: this record's own, and then this record's source with its promotion.</summary>
+    public IReadOnlyList<LineageLink> ChainForACopy() =>
+        Source is { } source && Promoted is { } promoted ? [.. Earlier, new LineageLink(source, promoted)] : Earlier;
 
     /// <summary>
     /// Whether the dataset may not be opened for write: every state but
@@ -78,7 +112,21 @@ public sealed record LineagePromotion
 
     /// <summary>Which instance promoted it.</summary>
     public required WriterInstance By { get; init; }
+
+    /// <summary>
+    /// The slot the promotion fenced the log at, or none while it has not
+    /// (ADR 0185 decisions 4 and 6). It is written last, with the position
+    /// and the hash as they are at the fence, which may be above what the
+    /// promotion first recorded: a shipper that was mid-round may have
+    /// created chunks in between. A promotion with no fence did not finish.
+    /// </summary>
+    public LogSlot? Fence { get; init; }
 }
+
+/// <summary>One step of a copy's descent (ADR 0185 decision 2): a source, and the promotion that ended its writing of the log.</summary>
+/// <param name="Source">The store, prefix, dataset and fleet the copy was shipped from.</param>
+/// <param name="Promoted">The promotion of that copy: every position at or below its position, and above the link before it, was written under <paramref name="Source"/>'s fleet.</param>
+public sealed record LineageLink(LineageSource Source, LineagePromotion Promoted);
 
 /// <summary>
 /// A store's address as a lineage record names it: what the operator

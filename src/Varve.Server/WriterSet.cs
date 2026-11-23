@@ -449,13 +449,33 @@ internal sealed partial class OpenDatasets
                 tail.Value);
         }
 
+        // The promotion's last write: the position and the hash as they are at the fence. A shipper that was
+        // mid-round may have created chunks before it, and the fence adopted them: the copy keeps those commits,
+        // which the source acknowledged and its fleet wrote, so the position recorded is the head now.
+        Position kept = dataset.Head;
+
+        try
+        {
+            CommitHeaderHash at = new(Convert.ToHexStringLower((await dataset.HeaderHashAsync(kept, cancellationToken).ConfigureAwait(false)).Span));
+            await storage.CompletePromotionAsync(kept, at, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            // Fenced, and the lineage does not say so: not finished. Released for promotion, and completed only by promoting again.
+            ReconcileLog.PromotionFailed(_logger, name, error.Message);
+            entry.Replica = ReplicaState.PromotionIncomplete;
+            storage.ReleaseOnClose = ReleaseReason.Promotion;
+            await SwitchAsync(name, entry, DatasetRole.Standby, wait: false, abdicate: null, cancellationToken).ConfigureAwait(false);
+            throw;
+        }
+
         entry.Replica = ReplicaState.None;
         entry.Placed(DatasetRole.Writer);
         entry.Claimed(opened: true);
         await SeedOrderAsync(new DatasetName(name), dataset, cancellationToken).ConfigureAwait(false);
         WarmKeys(name, dataset);
-        ReconcileLog.Promoted(_logger, name, epoch, tail.Value);
-        return new PromotionAnswer(PromotionRefusal.None, new TakeoverEpoch(epoch), tail);
+        ReconcileLog.Promoted(_logger, name, epoch, kept.Value);
+        return new PromotionAnswer(PromotionRefusal.None, new TakeoverEpoch(epoch), kept);
     }
 
     private static partial class ReconcileLog

@@ -355,9 +355,9 @@ public sealed class ShippingRoleTests
 
     /// <summary>
     /// ADR 0185 decision 5: where no fleet serves the copy, it is promoted on
-    /// the store itself and released with the reason promotion. The member
-    /// placed on it afterwards starts as on any released dataset, and takes
-    /// one epoch more.
+    /// the store itself. A finished promotion releases as any writer that
+    /// closes, so the member placed on it afterwards starts as on any released
+    /// dataset, and takes one epoch more.
     /// </summary>
     [Fact]
     public async Task a_copy_no_fleet_serves_is_promoted_on_the_store_and_the_next_writer_takes_one_epoch_more()
@@ -389,9 +389,9 @@ public sealed class ShippingRoleTests
             Directory.Delete(cache, recursive: true);
         }
 
-        // Promoted, fenced, and released for promotion: it opens for write as any dataset, and is no replica.
+        // Promoted, fenced, finished, and released as any writer that closes: it opens for write as any dataset, and is no replica.
         WriterRecord record = (await Backend.ReadWriterAsync(scene.Target, prefix, Ct))!;
-        Assert.Equal(ReleaseReason.Promotion, record.Released);
+        Assert.Equal(ReleaseReason.Shutdown, record.Released);
         Assert.Equal(ClaimTrigger.Promotion, record.History[^1].Trigger);
         Assert.NotNull(record.History[^1].Fence);
         Assert.Equal(ReplicaState.None, await Backend.ReplicaStateAsync(scene.Target, prefix, Ct));
@@ -409,6 +409,60 @@ public sealed class ShippingRoleTests
         Assert.True(target.Datasets.TryResolve(orders, out Dataset? promoted));
         Assert.Equal(tail, promoted.Head.Value);
         Assert.Equal(record.Epoch.Value + 1, (await Backend.ReadWriterAsync(scene.Target, prefix, Ct))!.Epoch.Value);
+        await CommitAsync(promoted, 5, 7);
+        Assert.Equal(tail + 2, promoted.Head.Value);
+    }
+
+    /// <summary>
+    /// The maintainer's ruling of 2026-11-23 on #166 (ADR 0185 decisions 5
+    /// and 6): a finished promotion on the store releases so that a writer set
+    /// starts as after any ordinary release. The placed member takes the
+    /// write, its standby stands by, and the standby takes over when the
+    /// writer goes: nothing of the promotion is left for the set to know.
+    /// </summary>
+    [Fact]
+    public async Task a_copy_promoted_on_the_store_is_taken_by_a_writer_set_as_after_any_ordinary_release()
+    {
+        await using Scene scene = await Scene.StartAsync(verified: true);
+        Dataset source = await scene.DeclareAsync();
+        await CommitAsync(source, 0, 5);
+        await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == source.Head.Value);
+        long tail = source.Head.Value;
+        ObjectName prefix = new("orders/");
+        string cache = Directory.CreateTempSubdirectory("varve-embedded-").FullName;
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        try
+        {
+            Assert.True(await Varve.Server.Commands.Promote.EmbeddedAsync(scene.Target, prefix, cache, "https://fleet.invalid/source", tail, new Varve.Server.Commands.Io(output, error, Stream.Null), Ct), error.ToString());
+        }
+        finally
+        {
+            Directory.Delete(cache, recursive: true);
+        }
+
+        WriterRecord released = (await Backend.ReadWriterAsync(scene.Target, prefix, Ct))!;
+        Assert.Equal(ReleaseReason.Shutdown, released.Released);
+
+        await using Fleet placed = await scene.StartTargetFleetAsync("t");
+        await using Fleet standby = await scene.StartTargetFleetAsync("u");
+        await RunningServer.DeclareAsync(placed,
+            "@prefix varve: <" + ManagementVocabulary.Namespace + "> .\n"
+            + "<" + ManagementVocabulary.DatasetGraphPrefix + "orders> {\n"
+            + "  <urn:copy:orders> a varve:Dataset ; varve:datasetName \"orders\" ; varve:storage varve:ObjectStorage ;\n"
+            + "    varve:placedOn \"t\" ; varve:standbyOn \"u\" ; varve:automaticHandover true .\n"
+            + "}\n");
+        DatasetName orders = new("orders");
+        await Scene.UntilAsync(() => placed.Datasets.RoleOf(orders) == DatasetRole.Writer && placed.Datasets.TryResolve(orders, out _), "the placed member did not take the promoted copy");
+        await Scene.UntilAsync(() => standby.Datasets.RoleOf(orders) == DatasetRole.Standby, "the standby did not stand by");
+
+        // One epoch above the promotion's, by an ordinary start: the record's last claim is not a promotion.
+        WriterRecord claimed = (await Backend.ReadWriterAsync(scene.Target, prefix, Ct))!;
+        Assert.Equal(released.Epoch.Value + 1, claimed.Epoch.Value);
+        Assert.Equal("t", claimed.Holder.Value);
+        Assert.NotEqual(ClaimTrigger.Promotion, claimed.History[^1].Trigger);
+        Assert.True(placed.Datasets.TryResolve(orders, out Dataset? promoted));
         await CommitAsync(promoted, 5, 7);
         Assert.Equal(tail + 2, promoted.Head.Value);
     }
@@ -626,14 +680,14 @@ public sealed class ShippingRoleTests
         }
 
         /// <summary>A second fleet, of one instance <c>t</c>, over the target store: the fleet that serves the copy.</summary>
-        public async Task<Fleet> StartTargetFleetAsync()
+        public async Task<Fleet> StartTargetFleetAsync(string instance = "t")
         {
             ServerSettings settings = new();
             settings.Auth.Mode = "Anonymous";
             settings.ObjectStorage.Provider = "Azure";
             settings.ObjectStorage.ContainerUrl = TargetAddress;
-            settings.ObjectStorage.CachePath = Path.Combine(_caches, "t");
-            settings.ObjectStorage.Instance = "t";
+            settings.ObjectStorage.CachePath = Path.Combine(_caches, instance);
+            settings.ObjectStorage.Instance = instance;
             settings.Fleet.Writer = "t";
             settings.Fleet.FollowInterval = Interval;
             Fleet fleet = await Fleet.StartAsync(settings, ObjectStores.Over(Target, settings.ObjectStorage, TimeProvider.System), recordBootstrap: false, TimeProvider.System, NullLogger.Instance, new HttpContextAccessor(), Ct);

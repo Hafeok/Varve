@@ -43,32 +43,31 @@ internal static class LineageRecordFormat
                 LineageState.Promoted => "promoted",
                 _ => record.StateText ?? throw new ArgumentException("An unknown state is written only as it was read.", nameof(record)),
             });
-            json.WriteStartObject("source");
-            json.WriteString("store", source.Store.Value);
-
-            if (source.Prefix is { } prefix)
-            {
-                json.WriteString("prefix", prefix.Value);
-            }
-
-            json.WriteString("dataset", source.Dataset.ToString());
-
-            if (source.Fleet is { } fleet)
-            {
-                json.WriteString("fleet", fleet.ToString());
-            }
-
-            json.WriteEndObject();
+            json.WritePropertyName("source");
+            WriteSource(json, source);
 
             if (record.Promoted is { } promoted)
             {
-                json.WriteStartObject("promoted");
-                json.WriteNumber("epoch", promoted.Epoch.Value);
-                json.WriteNumber("position", promoted.Position.Value);
-                json.WriteString("hash", promoted.Hash.Value);
-                json.WriteString("at", promoted.At.Value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture));
-                json.WriteString("by", promoted.By.Value);
-                json.WriteEndObject();
+                json.WritePropertyName("promoted");
+                WritePromotion(json, promoted);
+            }
+
+            // The copies this one descends from, oldest first: absent for a copy of a dataset that was no copy.
+            if (record.Earlier.Count > 0)
+            {
+                json.WriteStartArray("earlier");
+
+                foreach (LineageLink link in record.Earlier)
+                {
+                    json.WriteStartObject();
+                    json.WritePropertyName("source");
+                    WriteSource(json, link.Source);
+                    json.WritePropertyName("promoted");
+                    WritePromotion(json, link.Promoted);
+                    json.WriteEndObject();
+                }
+
+                json.WriteEndArray();
             }
 
             json.WriteEndObject();
@@ -91,21 +90,7 @@ internal static class LineageRecordFormat
             }
 
             string state = root.GetProperty("state").GetString() ?? throw new FormatException("The lineage record names no state.");
-            JsonElement source = root.GetProperty("source");
-            LineagePromotion? promotion = null;
-
-            if (root.TryGetProperty("promoted", out JsonElement promoted))
-            {
-                promotion = new LineagePromotion
-                {
-                    Epoch = new WriterEpoch(promoted.GetProperty("epoch").GetInt64()),
-                    Position = new Position(promoted.GetProperty("position").GetInt64()),
-                    Hash = new CommitHeaderHash(promoted.GetProperty("hash").GetString()!),
-                    At = new ClaimTime(DateTimeOffset.Parse(promoted.GetProperty("at").GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind)),
-                    By = new WriterInstance(promoted.GetProperty("by").GetString()!),
-                };
-            }
-
+            LineagePromotion? promotion = root.TryGetProperty("promoted", out JsonElement promoted) ? ReadPromotion(promoted) : null;
             LineageState read = state switch { "replica" => LineageState.Replica, "promoted" => LineageState.Promoted, _ => LineageState.Unknown };
 
             // A promoted record with no promotion says less than it claims: it is not one this build reads.
@@ -114,17 +99,35 @@ internal static class LineageRecordFormat
                 return new LineageRecord { Understood = false };
             }
 
+            List<LineageLink> earlier = [];
+
+            if (root.TryGetProperty("earlier", out JsonElement links))
+            {
+                long below = -1;
+
+                foreach (JsonElement link in links.EnumerateArray())
+                {
+                    LineagePromotion ended = ReadPromotion(link.GetProperty("promoted"));
+
+                    // Oldest first, each ending above the one before it: a chain that is not is not one this build reads.
+                    if (ended.Position.Value < below)
+                    {
+                        return new LineageRecord { Understood = false };
+                    }
+
+                    below = ended.Position.Value;
+                    earlier.Add(new LineageLink(ReadSource(link.GetProperty("source")), ended));
+                }
+            }
+
             return new LineageRecord
             {
                 Understood = true,
                 State = read,
                 StateText = state,
-                Source = new LineageSource(
-                    new StoreAddress(source.GetProperty("store").GetString()!),
-                    source.TryGetProperty("prefix", out JsonElement prefix) ? new ObjectName(prefix.GetString()!) : null,
-                    new DatasetId(Guid.ParseExact(source.GetProperty("dataset").GetString()!, "D")),
-                    source.TryGetProperty("fleet", out JsonElement fleet) ? new DatasetId(Guid.ParseExact(fleet.GetString()!, "D")) : null),
+                Source = ReadSource(root.GetProperty("source")),
                 Promoted = promotion,
+                Earlier = earlier,
             };
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException or FormatException or ArgumentException or KeyNotFoundException)
@@ -132,4 +135,57 @@ internal static class LineageRecordFormat
             return new LineageRecord { Understood = false };
         }
     }
+
+    private static void WriteSource(Utf8JsonWriter json, LineageSource source)
+    {
+        json.WriteStartObject();
+        json.WriteString("store", source.Store.Value);
+
+        if (source.Prefix is { } prefix)
+        {
+            json.WriteString("prefix", prefix.Value);
+        }
+
+        json.WriteString("dataset", source.Dataset.ToString());
+
+        if (source.Fleet is { } fleet)
+        {
+            json.WriteString("fleet", fleet.ToString());
+        }
+
+        json.WriteEndObject();
+    }
+
+    private static void WritePromotion(Utf8JsonWriter json, LineagePromotion promoted)
+    {
+        json.WriteStartObject();
+        json.WriteNumber("epoch", promoted.Epoch.Value);
+        json.WriteNumber("position", promoted.Position.Value);
+        json.WriteString("hash", promoted.Hash.Value);
+
+        if (promoted.Fence is { } fence)
+        {
+            json.WriteString("fence", fence.Value);
+        }
+
+        json.WriteString("at", promoted.At.Value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture));
+        json.WriteString("by", promoted.By.Value);
+        json.WriteEndObject();
+    }
+
+    private static LineageSource ReadSource(JsonElement source) => new(
+        new StoreAddress(source.GetProperty("store").GetString()!),
+        source.TryGetProperty("prefix", out JsonElement prefix) ? new ObjectName(prefix.GetString()!) : null,
+        new DatasetId(Guid.ParseExact(source.GetProperty("dataset").GetString()!, "D")),
+        source.TryGetProperty("fleet", out JsonElement fleet) ? new DatasetId(Guid.ParseExact(fleet.GetString()!, "D")) : null);
+
+    private static LineagePromotion ReadPromotion(JsonElement promoted) => new()
+    {
+        Epoch = new WriterEpoch(promoted.GetProperty("epoch").GetInt64()),
+        Position = new Position(promoted.GetProperty("position").GetInt64()),
+        Hash = new CommitHeaderHash(promoted.GetProperty("hash").GetString()!),
+        Fence = promoted.TryGetProperty("fence", out JsonElement fence) ? new LogSlot(fence.GetString()!) : null,
+        At = new ClaimTime(DateTimeOffset.Parse(promoted.GetProperty("at").GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind)),
+        By = new WriterInstance(promoted.GetProperty("by").GetString()!),
+    };
 }

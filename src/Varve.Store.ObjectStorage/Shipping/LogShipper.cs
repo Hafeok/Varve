@@ -132,6 +132,18 @@ public sealed class LogShipper
             throw new ReplicaPromotedException(promoted);
         }
 
+        return await ShipLogPastTheLineageAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The round's log after its read of the lineage: where a shipper is when
+    /// a promotion replaces the lineage under it (ADR 0185 decision 7). A test
+    /// calls it to stand in that moment.
+    /// </summary>
+    internal ValueTask<ShippedLog> ShipLogAsyncPastTheLineageForTests(CancellationToken cancellationToken) => ShipLogPastTheLineageAsync(cancellationToken);
+
+    private async ValueTask<ShippedLog> ShipLogPastTheLineageAsync(CancellationToken cancellationToken)
+    {
         bool moved = false;
 
         while (true)
@@ -488,7 +500,26 @@ public sealed class LogShipper
     // a record must be a replica of this source.
     private async ValueTask ClaimTargetAsync(bool hasLog, CancellationToken cancellationToken)
     {
-        LineageRecord ours = new() { Understood = true, State = LineageState.Replica, Source = _options.Lineage };
+        // A copy of a copy carries the chain (ADR 0185 decision 2): which fleet wrote which positions is read from
+        // the lineage alone, so the source's own descent goes with it.
+        IReadOnlyList<LineageLink> chain = [];
+
+        if (await ObjectStorage.ReadLineageAsync(_options.Source, _options.SourcePrefix, cancellationToken).ConfigureAwait(false) is { } descent)
+        {
+            if (!descent.Understood)
+            {
+                throw new DatasetIsReplicaException(descent);
+            }
+
+            if (descent.Promoted is { Fence: null })
+            {
+                throw DatasetIsReplicaException.PromotionIncomplete(descent);
+            }
+
+            chain = descent.ChainForACopy();
+        }
+
+        LineageRecord ours = new() { Understood = true, State = LineageState.Replica, Source = _options.Lineage, Earlier = chain };
 
         if (await ObjectStorage.ReadLineageAsync(_options.Target, _options.TargetPrefix, cancellationToken).ConfigureAwait(false) is not { } lineage)
         {

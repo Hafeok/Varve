@@ -634,3 +634,24 @@ Varve.Store.ObjectStorage.Model.ReplicaState.None = 0 -> Varve.Store.ObjectStora
 Varve.Store.ObjectStorage.Model.ReplicaState.PromotionIncomplete = 2 -> Varve.Store.ObjectStorage.Model.ReplicaState
 Varve.Store.ObjectStorage.Model.ReplicaState.Replica = 1 -> Varve.Store.ObjectStorage.Model.ReplicaState
 static Varve.Store.ObjectStorage.ObjectStorage.ReplicaStateAsync(Varve.Store.IObjectStore! store, Varve.Store.Log.ObjectName? prefix, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.ReplicaState>
+Varve.Store.ObjectStorage.Model.LineageLink
+Varve.Store.ObjectStorage.Model.LineageLink.<Clone>$() -> Varve.Store.ObjectStorage.Model.LineageLink!
+Varve.Store.ObjectStorage.Model.LineageLink.Deconstruct(out Varve.Store.ObjectStorage.Model.LineageSource! Source, out Varve.Store.ObjectStorage.Model.LineagePromotion! Promoted) -> void
+Varve.Store.ObjectStorage.Model.LineageLink.Equals(Varve.Store.ObjectStorage.Model.LineageLink? other) -> bool
+Varve.Store.ObjectStorage.Model.LineageLink.LineageLink(Varve.Store.ObjectStorage.Model.LineageSource! Source, Varve.Store.ObjectStorage.Model.LineagePromotion! Promoted) -> void
+Varve.Store.ObjectStorage.Model.LineageLink.Promoted.get -> Varve.Store.ObjectStorage.Model.LineagePromotion!
+Varve.Store.ObjectStorage.Model.LineageLink.Promoted.init -> void
+Varve.Store.ObjectStorage.Model.LineageLink.Source.get -> Varve.Store.ObjectStorage.Model.LineageSource!
+Varve.Store.ObjectStorage.Model.LineageLink.Source.init -> void
+Varve.Store.ObjectStorage.Model.LineagePromotion.Fence.get -> Varve.Store.ObjectStorage.Model.LogSlot?
+Varve.Store.ObjectStorage.Model.LineagePromotion.Fence.init -> void
+Varve.Store.ObjectStorage.Model.LineageRecord.ChainForACopy() -> System.Collections.Generic.IReadOnlyList<Varve.Store.ObjectStorage.Model.LineageLink!>!
+Varve.Store.ObjectStorage.Model.LineageRecord.Earlier.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.ObjectStorage.Model.LineageLink!>!
+Varve.Store.ObjectStorage.Model.LineageRecord.Earlier.init -> void
+Varve.Store.ObjectStorage.Model.LineageRecord.WriterOf(Varve.Store.Log.Position position) -> Varve.Store.ObjectStorage.Model.LineageSource?
+override Varve.Store.ObjectStorage.Model.LineageLink.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.LineageLink.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.LineageLink.ToString() -> string!
+static Varve.Store.ObjectStorage.Model.LineageLink.operator !=(Varve.Store.ObjectStorage.Model.LineageLink? left, Varve.Store.ObjectStorage.Model.LineageLink? right) -> bool
+static Varve.Store.ObjectStorage.Model.LineageLink.operator ==(Varve.Store.ObjectStorage.Model.LineageLink? left, Varve.Store.ObjectStorage.Model.LineageLink? right) -> bool
+Varve.Store.ObjectStorage.ObjectStorage.CompletePromotionAsync(Varve.Store.Log.Position tail, Varve.Store.ObjectStorage.Model.CommitHeaderHash hash, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask

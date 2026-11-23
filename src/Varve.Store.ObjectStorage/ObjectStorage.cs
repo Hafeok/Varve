@@ -226,14 +226,24 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
     /// writer record is claimed with the trigger <c>promotion</c>, at one
     /// above the highest of the record's epoch, the highest epoch in any
     /// adopted chunk, and the epoch in the catalog's wrapper; the log and
-    /// the catalog are fenced.
+    /// the catalog are fenced. The host then applies what the fence adopted
+    /// and calls <see cref="CompletePromotionAsync"/>, which is the
+    /// promotion's last write.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Promoting again is idempotent on the same lineage (decision 6): a
-    /// lineage already <c>promoted</c> at the expected position is kept as
-    /// it is, and the claim and the fence are made. A promotion that wins the
-    /// record and then fails releases with the reason <c>promotion</c>,
-    /// which starts no standby race.
+    /// lineage <c>promoted</c> with no fence, at the position the request
+    /// names, is kept as it is, and the claim and the fence are made. A
+    /// promotion that wins the record and then fails releases with the
+    /// reason <c>promotion</c>, which starts no standby race.
+    /// </para>
+    /// <para>
+    /// A shipper that was mid-round when the lineage was replaced may create
+    /// chunks before the fence is written. The fence adopts them. A chunk it
+    /// tries to create at the fence slot or after finds other bytes there,
+    /// and it stops as diverged.
+    /// </para>
     /// </remarks>
     /// <exception cref="InvalidOperationException">This storage was opened for write.</exception>
     /// <exception cref="ConditionalWritesNotEnforcedException">The store does not enforce conditional writes.</exception>
@@ -259,9 +269,17 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
             return PromotionOutcome.SourceMismatch;
         }
 
-        if (request.Expected != request.Verified || (lineage.Promoted is { } earlier && earlier.Position != request.Expected))
+        // A first promotion keeps what the operator states, checked against the tail this instance replayed. One
+        // that completes an earlier attempt is the same request again: the position that attempt recorded.
+        if (lineage.Promoted is { } attempted ? attempted.Position != request.Expected : request.Expected != request.Verified)
         {
             return PromotionOutcome.PositionMismatch;
+        }
+
+        if (lineage.Promoted is { Fence: not null })
+        {
+            // Promoted and finished: there is nothing to promote.
+            return PromotionOutcome.NotAReplica;
         }
 
         await ProbeAsync(_store, _names, request.Randomness, _clock, cancellationToken).ConfigureAwait(false);
@@ -316,6 +334,41 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
         return IsSuperseded ? PromotionOutcome.Lost : PromotionOutcome.Promoted;
     }
 
+    /// <summary>
+    /// The last write of a promotion (ADR 0185 decisions 4 and 6): the
+    /// lineage records the position and the header hash as they are at the
+    /// fence, and the fence slot. Until it is written the promotion has not
+    /// finished. The position may be above the one the promotion first
+    /// recorded: a shipper that was mid-round may have created chunks before
+    /// the fence, and the promoted copy keeps those commits, which the source
+    /// had acknowledged and its fleet wrote.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">This storage did not promote: it holds no epoch, or its log has no fence.</exception>
+    /// <exception cref="IOException">The lineage record changed under the write.</exception>
+    [DesignDecision(typeof(PromotionAcrossCopies.AnIncompletePromotionIsCompletedOnlyByPromoting), Scope = ExceptionScope.Boundary)]
+    public async ValueTask CompletePromotionAsync(Position tail, CommitHeaderHash hash, CancellationToken cancellationToken = default)
+    {
+        if (!_log.Writes || _log.Fence is not { } fence)
+        {
+            throw new InvalidOperationException("Only the storage that promoted completes the promotion, once its log is fenced.");
+        }
+
+        ObjectRead read = await ConditionalWrites.ReadWholeAsync(_store, _names.Lineage, cancellationToken).ConfigureAwait(false)
+            ?? throw new IOException("The lineage record of the copy being promoted is gone.");
+
+        if (LineageRecordFormat.Read(read.Bytes.Span) is not { Understood: true, Promoted: { } promoted } lineage)
+        {
+            throw new IOException("The lineage record of the copy being promoted no longer says promoted.");
+        }
+
+        LineageRecord finished = lineage with { Promoted = promoted with { Position = tail, Hash = hash, Fence = fence } };
+
+        if (await ConditionalWrites.ReplaceAsync(_store, _names.Lineage, read.Version, LineageRecordFormat.Write(finished), _clock, cancellationToken).ConfigureAwait(false) is null)
+        {
+            throw new IOException("The lineage record of the copy being promoted changed under the promotion's last write.");
+        }
+    }
+
     /// <summary>Reads a dataset's writer record, or none when no writer has claimed it. Changes nothing.</summary>
     public static async ValueTask<WriterRecord?> ReadWriterAsync(IObjectStore store, ObjectName? prefix, CancellationToken cancellationToken = default)
     {
@@ -363,15 +416,10 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
             return (ReplicaState.Replica, lineage);
         }
 
-        // Promoted: finished only when a promotion claim at or above its epoch fenced the log (decision 6).
-        WriterRecord? record = await ReadWriterAsync(store, names, cancellationToken).ConfigureAwait(false);
-
-        foreach (EpochClaim claim in record?.History ?? [])
+        // Promoted: finished once the lineage records the fence, which the promotion writes last (decision 6).
+        if (lineage.Promoted is { Fence: not null })
         {
-            if (claim.Trigger == ClaimTrigger.Promotion && claim.Fence is not null && claim.Epoch.Value >= lineage.Promoted!.Epoch.Value)
-            {
-                return (ReplicaState.None, lineage);
-            }
+            return (ReplicaState.None, lineage);
         }
 
         return (ReplicaState.PromotionIncomplete, lineage);
