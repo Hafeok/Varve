@@ -224,8 +224,12 @@ public class ContractTests(BuiltSite site)
 
         if (bt is not null && rt is not null)
         {
+            // Its frame is the reference's. Which levels it lists is the
+            // page's text (a guide gains an h3, and "On this page" gains an
+            // entry), so each entry need only be of a kind the design draws.
             Assert.Equal(rt.Name(), bt.Name());
-            Assert.Equal(rt.All("li").Select(static li => li.Shape()).Distinct().Order(StringComparer.Ordinal), bt.All("li").Select(static li => li.Shape()).Distinct().Order(StringComparer.Ordinal));
+            Assert.Equal(Frame(rt), Frame(bt));
+            Assert.All(bt.All("li"), static li => Assert.Contains(li.Shape(), Vocabulary.Value.TocEntries));
         }
     }
 
@@ -243,7 +247,10 @@ public class ContractTests(BuiltSite site)
 
         static IEnumerable<string> Wrappers(Element prose) => prose.All("div", "vd-table").Select(static d => string.Join(" ", d.Classes.Order(StringComparer.Ordinal))).Distinct().Order(StringComparer.Ordinal);
 
-        Assert.Equal(Wrappers(rp), Wrappers(bp));
+        // Every wrapper is of a kind the design draws. Which kinds a page
+        // holds is its text: a guide that gains a key-value table gains a
+        // vd-table--kv, so the page's own reference does not fix the set.
+        Assert.All(Wrappers(bp), static w => Assert.Contains(w, Vocabulary.Value.Wrappers));
         Assert.All(bp.All("table"), static t => Assert.True(t.Parent!.Has("vd-table"), "Every table is in a div.vd-table."));
         Anchors(bp);
         Anchors(rp);
@@ -263,6 +270,31 @@ public class ContractTests(BuiltSite site)
             Assert.EndsWith(".svg", img["src"]!, StringComparison.Ordinal);
         }
     }
+
+    /// <summary>
+    /// The design's vocabulary: every kind of entry in "On this page", and
+    /// every kind of table wrapper, that any page under
+    /// <c>docs/ui/site/reference/</c> shows. A built page may use these and
+    /// no others; which of them it uses is decided by its text.
+    /// </summary>
+    private static readonly Lazy<(HashSet<string> TocEntries, HashSet<string> Wrappers)> Vocabulary = new(static () =>
+    {
+        HashSet<string> toc = new(StringComparer.Ordinal);
+        HashSet<string> wrappers = new(StringComparer.Ordinal);
+
+        foreach (string file in Directory.EnumerateFiles(Paths.Reference(""), "*.html", SearchOption.AllDirectories))
+        {
+            Element page = Markup.Parse(File.ReadAllText(file));
+            toc.UnionWith(page.All("aside", "vd-toc").SelectMany(static a => a.All("li")).Select(static li => li.Shape()));
+            wrappers.UnionWith(page.All("div", "vd-table").Select(static d => string.Join(" ", d.Classes.Order(StringComparer.Ordinal))));
+        }
+
+        return (toc, wrappers);
+    });
+
+    /// <summary>The frame of "On this page": the aside, its div, and the div's heading and list, without the list's entries.</summary>
+    private static string Frame(Element toc) =>
+        toc.Name() + "(" + string.Join(",", toc.Children.Select(static d => d.Name() + "(" + string.Join(",", d.Children.Select(static c => c.Name())) + ")")) + ")";
 
     private static void Anchors(Element prose)
     {
