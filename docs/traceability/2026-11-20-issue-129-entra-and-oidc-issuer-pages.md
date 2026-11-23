@@ -54,3 +54,31 @@
   - Every anchor other pages link to is kept.
 - **Links** moved from the old sections, in `deploy/azure/entra/README.md`, `azure-container-apps.md` and `web-ui.md`. The guide's index counts nineteen pages.
 - **Checked:** the `procedures` gate passes (21 pages, 90 blocks, 0 findings), and so does `site-links`.
+
+## The maintainer's review, 2026-11-23
+
+> #390 is not approved yet. Each of the four gaps you listed on #129 is
+> closed on the page, where the reader meets it:
+>
+> 1. `entra.md`, the `az` token: say it expires within the hour, that a
+>    long-running job must fetch a new one, and that #301 removes the
+>    stopgap.
+> 2. `oidc-issuer.md`, device code: say CI runs the flow over HTTP, not
+>    through `varve query`, and that the local seed has no login page.
+>    Then either give the three API calls as a marked procedure, or drop
+>    the device-code steps for the local seed. Say which you chose.
+> 3. Other issuers: one sentence that Entra is the only issuer tested
+>    with `--client-assertion`; Keycloak, Auth0 and Okta are untested.
+> 4. `entra.md` as a whole: mark every procedure as run by no job yet
+>    (ADR 0248), naming `auth (providers)` as the job that will once the
+>    maintainer has deployed the template and set the environment. Do not
+>    word any step as verified.
+>
+> Then merge `main` (the conflict is in `docs/operator/README.md`), and
+> report the full head hash with the hosted result.
+
+- **1.** Done where the stopgap is shown, in the block's comment and in the paragraph after it.
+- **2. The three calls, as a marked procedure.** That was the choice, because `ProviderTests` already makes exactly those calls, so the block has a job that runs its equivalent. Dropping the step would have left the local seed with no person's flow at all. The step opens by saying CI runs the flow over HTTP and that the local seed has no login page.
+- **3. One correction to the ruling.** Entra is not yet tested with `--client-assertion` either: its tenant isn't provisioned, and today only mock-oauth2-server runs it. The sentence says Entra is the only real issuer it is meant to be tested against, by `auth (providers)` once the tenant exists, and that Keycloak, Auth0 and Okta are untested.
+- **4.** Every marker on `entra.md` is now "not run by any job yet", naming `auth (providers)`. On-behalf-of's marker also names `entra-obo.yml`, because that job, not `auth (providers)`, runs it. The page opens by saying no step has been run or verified, and every "To check" says what you should see.
+- **The merge of `main`.** `docs/operator/README.md` now counts twenty pages: `main`'s eighteen plus these two.
