@@ -344,13 +344,26 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
     /// had acknowledged and its fleet wrote.
     /// </summary>
     /// <exception cref="InvalidOperationException">This storage did not promote: it holds no epoch, or its log has no fence.</exception>
-    /// <exception cref="IOException">The lineage record changed under the write.</exception>
+    /// <exception cref="IOException">The lineage record changed under the write, or the fence is not at the end of the log: a shipper consolidated its segment meanwhile. The promotion has not finished.</exception>
     [DesignDecision(typeof(PromotionAcrossCopies.AnIncompletePromotionIsCompletedOnlyByPromoting), Scope = ExceptionScope.Boundary)]
     public async ValueTask CompletePromotionAsync(Position tail, CommitHeaderHash hash, CancellationToken cancellationToken = default)
     {
         if (!_log.Writes || _log.Fence is not { } fence)
         {
             throw new InvalidOperationException("Only the storage that promoted completes the promotion, once its log is fenced.");
+        }
+
+        // The fence must be the end of the log. A shipper that was mid-round may have consolidated the fence's
+        // segment since this storage listed it: it creates the segment's object before it deletes the chunk that
+        // sealed it, so a fence that landed in the slot that chunk left finds the object here. The segment is then
+        // sealed, the log goes on after it, and this storage's view of it is stale. The promotion has not finished
+        // (decision 6): promoting again lists the log afresh and fences at its end.
+        int segment = int.Parse(fence.Value.AsSpan(0, 8), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture);
+
+        if (await _store.ReadAsync(_names.Segment(segment), new ByteOffset(0), new ByteCount(1), cancellationToken).ConfigureAwait(false) is not null)
+        {
+            throw new IOException("The promotion's fence at log slot " + fence + " is in a segment that a shipper consolidated while the copy was being promoted, so it is not at the end of the log. "
+                + "Nothing was written after it, and the promotion has not finished (ADR 0185). Promote again, naming the same source and position.");
         }
 
         ObjectRead read = await ConditionalWrites.ReadWholeAsync(_store, _names.Lineage, cancellationToken).ConfigureAwait(false)

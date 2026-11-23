@@ -651,17 +651,19 @@ public sealed class LogShipper
             ObjectRead? theirs = await ConditionalWrites.ReadWholeAsync(_options.Source, _source.Chunk(tail.Segment, last), cancellationToken).ConfigureAwait(false);
             ObjectRead? ours = await ConditionalWrites.ReadWholeAsync(_options.Target, _target.Chunk(tail.Segment, last), cancellationToken).ConfigureAwait(false);
 
-            if (theirs is { } source)
+            if (theirs is { } source && ours is not null && source.Bytes.Span.SequenceEqual(ours.Bytes.Span))
             {
-                if (ours is null || !source.Bytes.Span.SequenceEqual(ours.Bytes.Span))
-                {
-                    throw new ShippingDivergedException(slot, "the target's last chunk is not the source's");
-                }
+                // The source's chunk, byte for byte.
             }
             else if (!await ExistsAsync(_options.Source, _source.Segment(tail.Segment), cancellationToken).ConfigureAwait(false))
             {
-                throw new ShippingDivergedException(slot, "the target has a chunk the source has neither as a chunk nor in a consolidated segment");
+                throw new ShippingDivergedException(slot, theirs is null
+                    ? "the target has a chunk the source has neither as a chunk nor in a consolidated segment"
+                    : "the target's last chunk is not the source's");
             }
+
+            // Otherwise the source consolidated the segment: the target's last chunk may be the one a shipper made
+            // to seal it, and every chunk is checked against the consolidated segment before the target's is created.
         }
     }
 
@@ -694,10 +696,19 @@ public sealed class LogShipper
             // The segment's bytes are read: what they refer to goes first (decision 13).
             await BarrierAsync(cancellationToken).ConfigureAwait(false);
 
+            IReadOnlyList<ObjectEntry> listed = await _options.Source.ListAsync(_source.Chunks(held.Segment), cancellationToken).ConfigureAwait(false);
+
+            // The target has not sealed this segment in chunks, so its next slot is where a promotion would
+            // fence (ADR 0185 decision 4). The segment's end goes through that slot first.
+            if (!held.Sealed && !held.Partial)
+            {
+                await SealThroughTheNextSlotAsync(held, listed, staged, cancellationToken).ConfigureAwait(false);
+            }
+
             // The fence chunks the source kept, which the target does not have yet.
             HashSet<int> have = [.. held.Chunks.Select(chunk => chunk.Chunk)];
 
-            foreach (ObjectEntry entry in await _options.Source.ListAsync(_source.Chunks(held.Segment), cancellationToken).ConfigureAwait(false))
+            foreach (ObjectEntry entry in listed)
             {
                 if (!_source.TryParse(entry.Name, out int segment, out int chunk) || segment != held.Segment || chunk < 0 || have.Contains(chunk))
                 {
@@ -739,6 +750,76 @@ public sealed class LogShipper
         {
             File.Delete(staged);
         }
+    }
+
+    // A target advances only through its next chunk slot (ADR 0184 decision 4): that slot is the one create a
+    // promotion's fence and a shipper can both want, so the store decides between them. A segment the source
+    // consolidated before its seal was shipped has no chunk left to put there, so the shipper makes one: the
+    // source's kept fence chunks while they are the next slot, and then one chunk that holds the rest of the
+    // segment's bytes and seals it. Only then is the consolidated segment created. A promoter that fences first
+    // holds the slot, and this stops as diverged; one that comes after adopts a sealed segment, whole.
+    private async ValueTask SealThroughTheNextSlotAsync(Held held, IReadOnlyList<ObjectEntry> kept, string staged, CancellationToken cancellationToken)
+    {
+        while (kept.Any(entry => _source.TryParse(entry.Name, out int segment, out int chunk) && segment == held.Segment && chunk == held.NextChunk)
+            && await ConditionalWrites.ReadWholeAsync(_options.Source, _source.Chunk(held.Segment, held.NextChunk), cancellationToken).ConfigureAwait(false) is { } fence)
+        {
+            byte[] theirs = fence.Bytes.ToArray();
+            LogSlot at = new(ObjectNames.Slot(held.Segment, held.NextChunk));
+
+            if (!ChunkHeader.TryRead(theirs, out ChunkHeader header, out _))
+            {
+                throw new SourceDamagedException(at);
+            }
+
+            if ((header.Flags & ChunkFlags.Fence) == 0)
+            {
+                // A data chunk the source is still deleting: the consolidated segment holds its bytes.
+                break;
+            }
+
+            ObjectName name = _target.Chunk(held.Segment, held.NextChunk);
+            Follow(held, theirs);
+            await CreateAsync(name, theirs, at, cancellationToken).ConfigureAwait(false);
+        }
+
+        LogSlot slot = new(ObjectNames.Slot(held.Segment, held.NextChunk));
+        byte[] rest;
+
+        using (FileStream file = new(staged, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.SequentialScan))
+        {
+            if (file.Length < held.Length)
+            {
+                throw new ShippingDivergedException(slot, "the target holds more of the segment than the source's consolidated segment has");
+            }
+
+            rest = new byte[file.Length - held.Length];
+            file.Position = held.Length;
+            await file.ReadExactlyAsync(rest, cancellationToken).ConfigureAwait(false);
+        }
+
+        // The epoch is the highest the target's log shows: no lower than the chunk before, which is all a reader asks.
+        byte[] seal = ChunkHeader.Compose(ChunkFlags.Seal, Math.Max(1, Math.Max(held.Epoch, _pending.Count == 0 ? 0 : _pending.Max(other => other.Epoch))), held.Segment, held.NextChunk, held.Length, rest, held.Previous, out _);
+        (CreateOutcome outcome, ReadOnlyMemory<byte> existing) = await ConditionalWrites.CreateAsync(_options.Target, _target.Chunk(held.Segment, held.NextChunk), seal, _options.Clock, cancellationToken).ConfigureAwait(false);
+
+        if (outcome == CreateOutcome.Taken)
+        {
+            // Another shipper of this source made the same chunk, perhaps under another epoch. Anything else
+            // holds the slot against this shipper: a promotion's fence.
+            byte[] theirs = existing.ToArray();
+
+            if (!ChunkHeader.TryRead(theirs, out ChunkHeader there, out _)
+                || there.Flags != ChunkFlags.Seal
+                || there.Offset != held.Length
+                || !there.Previous.AsSpan().SequenceEqual(held.Previous)
+                || !there.PayloadHash.AsSpan().SequenceEqual(System.Security.Cryptography.SHA256.HashData(rest)))
+            {
+                throw new ShippingDivergedException(slot, "the target holds other bytes there than the rest of the source's segment");
+            }
+
+            seal = theirs;
+        }
+
+        Follow(held, seal);
     }
 
     // The target's chunks a consolidated segment replaced, except its fence chunks, which are kept for ever (ADR 0136).
@@ -831,6 +912,7 @@ public sealed class LogShipper
         }
 
         held.Chunks.Add(new Shipped(header.Chunk, (header.Flags & ChunkFlags.Fence) != 0, header.Offset, header.Length, header.PayloadHash, slot));
+        held.Epoch = Math.Max(held.Epoch, header.Epoch);
         held.NextChunk = header.Chunk + 1;
         held.Length = header.Offset + header.Length;
         held.Previous = hash;
@@ -854,6 +936,9 @@ public sealed class LogShipper
 
         public bool Sealed { get; set; }
 
+        // The highest epoch in any chunk of it the target holds.
+        public long Epoch { get; set; }
+
         // The target has chunks of it that do not start at its first: the fence
         // chunks of a segment the source consolidated before it was shipped.
         public bool Partial { get; set; }
@@ -867,6 +952,7 @@ public sealed class LogShipper
             }
 
             Chunks.Add(new Shipped(header.Chunk, (header.Flags & ChunkFlags.Fence) != 0, header.Offset, header.Length, header.PayloadHash, slot));
+            Epoch = Math.Max(Epoch, header.Epoch);
         }
     }
 }

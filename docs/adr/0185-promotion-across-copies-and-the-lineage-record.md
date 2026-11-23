@@ -61,8 +61,24 @@ beside `writer`, format 1.
 - **`state`:** `replica` or `promoted`.
 - **`source`:** the source's store address, prefix and dataset id, and the
   id of the source's fleet.
-- **`promoted`,** once it is: the epoch, the last position shipped with
-  its header hash, the fence slot, when, and by whom.
+- **`promoted`,** once it is: the epoch, the position the source's fleet
+  wrote up to with its header hash, the fence slot, when, and by whom.
+- **`earlier`: the chain.** A copy of a promoted copy carries, oldest
+  first, every earlier source with that copy's `promoted`. So which fleet
+  wrote which range of positions is read from the lineage alone:
+  - positions up to the first link's promoted position were written by the
+    first link's source fleet, the next range by the next link's, and so
+    on;
+  - positions up to this copy's own promoted position, or every other
+    position while it is a replica, by `source`'s fleet;
+  - positions above this copy's promoted position by the fleet that serves
+    it.
+
+  A shipper writes the chain when it creates the lineage: its source's own
+  `earlier`, and then its source's `source` and `promoted` where the
+  source is a promoted copy. A chain that is not in position order is a
+  record this build does not understand. Format 1 has not shipped, so the
+  chain is in format 1.
 - The shipper creates it as `replica` by create-if-absent, before the
   first object.
 - **It is read conservatively** (ADR 0217). A format this build does not
@@ -92,11 +108,42 @@ takeover is (ADR 0179).
   to it.
 - **The instance** must be in the dataset's writer set and following the
   replica. It then:
-  1. replaces the lineage with `promoted`, recording the tail it verified;
+  1. replaces the lineage with `promoted`, recording the tail it verified
+     and no fence;
   2. claims in place with trigger `promotion`, at **one above the highest
      of the record's epoch, the highest epoch in any adopted chunk, and
      the epoch in the catalog's wrapper**;
-  3. fences, and becomes the writer, with its projection warm.
+  3. fences, and becomes the writer, with its projection warm;
+  4. **replaces the lineage once more, its last write:** the position and
+     the header hash as they are at the fence, and the fence slot. A
+     promotion is finished when its lineage names a fence, and not before.
+- **A shipper that is mid-round** read the lineage as `replica` before
+  step 1, and may create chunks after it. What happens to them is decided
+  by the fence slot alone:
+  - **Chunks it created before the fence are kept.** The fence adopts
+    every chunk below its slot, as any claim in place does (ADR 0136). They
+    are commits the source acknowledged, so the copy holds them and step 4
+    records the position after them: one or more above what step 1
+    recorded.
+  - **They are the source fleet's.** Their management positions are read
+    in the source fleet's system dataset, which was shipped ahead of them
+    (ADR 0184 decision 13). Decision 8's boundary is the position step 4
+    records.
+  - **If the shipper's create lands on the fence slot first,** the
+    promoter's fence takes the next slot, as a fence does when it loses a
+    slot. The chunk is below the fence and is kept, as above.
+  - **The shipper's next create, at or above the fence slot, finds other
+    bytes** and it stops with `shipping-diverged`, having overwritten
+    nothing. At its next round it reads the lineage and stops as
+    `replica-promoted` (decision 7).
+  - **A commit of the old source that was not on the target before the
+    fence is in no copy.** Decision 9 says what a client's key does then.
+- **A second promote request** is answered from the lineage:
+  - a finished promotion answers `not-a-replica`, whichever position the
+    request names;
+  - a promotion that has not finished (decision 6) is completed by a
+    request that names the position step 1 recorded, and a request that
+    names another is refused `position-mismatch`, with the recorded one.
 - **`source` and `position` are what the operator expects,** and the
   request is refused when the lineage or the verified tail says otherwise.
   The operator states how much they mean to keep.
@@ -107,19 +154,32 @@ takeover is (ADR 0179).
 - **It is answered whatever the hold-off,** as a takeover is.
 
 **5. Where no fleet serves the target,** `varve promote --embedded
-<target>` acts on the store itself, and then **releases with the reason
-`promotion`**. The target's placed member then starts by the start rule's
-"the record is released", and takes one epoch more.
+<target>` acts on the store itself, through all four steps, and then
+**releases as any writer that closes** (the maintainer's ruling of
+2026-11-23).
+- A finished promotion leaves nothing for the next writer to know: the
+  lineage says `promoted` with its fence, and the claim is fenced.
+- The target's placed member, or its writer set, then starts as after any
+  ordinary release: by the start rule's "the record is released", taking
+  one epoch more. A standby stands by, and takes over as it would from
+  any writer.
+- The reason `promotion` is only for a promotion that did not finish
+  (decision 6).
 
 **6. A promotion that fails part way is completed only by promoting
 again.**
-- A promotion that wins the record and then fails releases with
-  `promotion`, never `storage-error`. A `storage-error` release starts a
-  standby race, and a standby would then finish a promotion by itself.
-- A lineage of `promoted` with no fenced `promotion` claim refuses a
-  write-open with `409 dataset-is-replica`, reason
-  `promotion-incomplete`.
-- Promoting again is idempotent on the same lineage.
+- **Only a promotion that failed part way releases with `promotion`,**
+  never `storage-error` and never as an ordinary release. No standby races
+  for a `promotion` release, so no standby finishes a promotion by itself.
+  This holds for a member of a fleet and for `--embedded` alike.
+- **Not finished is: the lineage says `promoted` and names no fence.**
+  That is so from step 1 until step 4 of decision 4, wherever between them
+  it stopped. Such a copy refuses a write-open with
+  `409 dataset-is-replica`, reason `promotion-incomplete`.
+- **Promoting again is idempotent on the same lineage.** It names the
+  position step 1 recorded, claims above whatever epoch the first attempt
+  reached, fences again, and writes step 4. Chunks a shipper created
+  before the new fence are kept, as in decision 4.
 
 **7. The returning primary is refused twice.**
 - Its shipper reads the lineage every round and stops in the state
@@ -136,7 +196,13 @@ again.**
 commit.**
 - **Which positions are foreign.** Every commit of a replica, and every
   commit at or below a promoted copy's promoted position, was written
-  under the fleet the lineage names.
+  under a fleet the lineage names: the source's, or for a position in an
+  earlier range of the chain (decision 2), that link's.
+- **After two promotions** the answer is per position. Take a dataset
+  written by fleet A, shipped to fleet B and promoted there at 40, written
+  on by B, shipped to fleet C and promoted there at 90. In C: positions 1
+  to 40 are A's, 41 to 90 are B's, and 91 on are C's own. The name the
+  dataset had in each fleet is the prefix that link's source names.
 - **Authorisation never reads a foreign position.** The watermark, the
   write path and what a commit is checked against use only positions above
   the promoted one.
@@ -144,6 +210,17 @@ commit.**
   answer D3), as one more shipping target, to
   `fleets/<source-fleet-id>/` on the target's store. It is followed
   read-only.
+  - **Every earlier fleet's goes onward with the copy.** A fleet that
+    ships a promoted copy also ships, from `fleets/<id>/` on its own
+    store to the same place on the target, the system dataset of each
+    fleet in the copy's chain, before the commits that refer to it. The
+    copy there says what the one it was read from says: a replica of that
+    fleet's system dataset. What the old commits refer to was on the
+    shipping fleet's store before the copy was promoted, so it is shipped
+    until a round finds nothing new.
+  - **Where a store holds no copy of an earlier fleet's system dataset,**
+    a position of that fleet cannot be read there, and is answered as a
+    position not yet applied. Nothing is refused for it.
   - **It is never consulted for authorisation.** A grant present only in
     it grants nothing on the target.
   - **It is shipped ahead of the dataset commits that refer to it** (ADR
@@ -184,8 +261,24 @@ n:primary a varve:ShippingSource ;
 - **A store that holds a dataset with no lineage under that name** is not a
   copy, and is not written. Readiness says so, and that a retry cannot
   help.
-- **A dataset an instance already writes stays its own** when it is then
-  declared a copy. A copy is found before a claim, never under one.
+- **A dataset written in this fleet is not declared a copy** (the
+  maintainer's ruling of 2026-11-23).
+  - **`varve apply` refuses it** where the answering instance can see it:
+    its store holds a dataset under that name whose lineage does not name
+    the declared source, or that has no lineage. The answer is
+    `422 declaration-invalid` with one finding, at the dataset's graph and
+    `varve:copyOf`. Nothing is committed.
+  - **Where the apply cannot see it,** the store unread that moment, the
+    declaration is applied. A running writer keeps writing: a copy is
+    found before a claim, never under one. Readiness reports the
+    contradiction at once, on the dataset, as
+    `"declaration": "copy-declared-on-a-written-dataset"` with the
+    reason, and the instance stays ready. It has
+    [a page](../operator/shipping/copy-declared-on-a-written-dataset.md).
+  - **At a start, with the dataset not open,** the member does not open
+    it for write: the bullet above this one.
+  - A copy that is not there yet, and a promoted copy whose lineage names
+    the declared source, are not refused.
 - **A copy is not shipped on.** `varve:copyOf` and `varve:shipsTo` on one
   dataset are refused: a replica has no writer for a shipper to run on.
   After a promotion the operator removes `varve:copyOf` before declaring a
@@ -221,7 +314,20 @@ called everywhere it shows:
 
 It is distinct from `replica` because what an operator does differs:
 promote again, with the same source and position. Promoting again keeps
-the first promotion's lineage as it was written.
+what the first promotion's lineage recorded until its own last write.
+
+**14. What the promotion page tells the operator, where they promote**
+(the architect's review, for pull request 3). The page for `varve promote`
+says, at the step where the operator runs it and not in a note elsewhere:
+- **the old primary keeps accepting writes.** Promotion acts on the copy
+  only. Nothing tells the old primary, and nothing stops it;
+- **its later commits are in no copy.** Every commit it acknowledges after
+  the position promoted, and every one not yet shipped at that moment, is
+  on the old primary alone;
+- **there is no planned switchover.** Varve has no operation that stops
+  writes on a primary, ships the rest and promotes. An operator who wants
+  one stops the writers themselves, waits until readiness reports the
+  position shipped, and promotes at that position.
 
 ## Alternatives considered
 
@@ -287,6 +393,17 @@ the first promotion's lineage as it was written.
     and never holds off.
   - A promotion stopped at each step is completed by promoting again, and
     by nothing else.
+  - A shipper that wins a slot before the fence has its commits kept and
+    recorded as the source's; its next create stops it, and a second
+    promote request is `not-a-replica`.
+  - A copy of a promoted copy carries the chain; after two promotions each
+    position names the fleet that wrote it, and that fleet's system
+    dataset is on the store.
+  - A copy promoted on the store is taken by a writer set as after any
+    ordinary release.
+  - An apply that declares a written dataset a copy is refused, and a
+    writer that meets the declaration keeps writing while readiness says
+    so.
   - A claim below the catalog's wrapper epoch is never made.
   - A grant present only in the shipped `_fleet` grants nothing.
   - A write after a promotion is authorised at the target fleet's
