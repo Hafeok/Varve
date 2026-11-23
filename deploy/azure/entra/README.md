@@ -1,8 +1,9 @@
 # Entra registrations
 
 `main.bicep` creates the registrations of the on-behalf-of chain
-(ADR 0127; [Authenticate](../../../docs/operator/authenticate.md), "An
-application acting for its users"), and of the management plane (ADR 0163):
+(ADR 0127), and of the management plane (ADR 0163).
+[Microsoft Entra ID](../../../docs/operator/entra.md) is the procedure that
+deploys it and uses each registration:
 
 - **Varve's API.** Application ID URI `api://varve`, v2 tokens, the app roles
   `Varve.Read`, `Varve.Write` and `Varve.Admin`, and the delegated scope
