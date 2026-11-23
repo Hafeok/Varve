@@ -12,9 +12,14 @@ and no certificate is created anywhere, and none is needed:
   with their own MFA.
 
 The concepts behind each step (the two planes, grants, the agent a commit
-records) are in [Authenticate](authenticate.md). Every step here needs a
-tenant, and CI's test tenant is not provisioned (ADR 0223), so no CI job runs
-this page; it is listed under [Not run in CI](#not-run-in-ci).
+records) are in [Authenticate](authenticate.md).
+
+**No step on this page has been run by CI or verified against a tenant yet**
+(ADR 0248). Each is written from the template, Microsoft's documentation and
+Varve's code. `auth (providers)` is the job that will run them, once the
+maintainer has deployed the template and set the `auth-providers` environment
+(ADR 0223). Until then, treat each "To check" as what you should see, not as
+something CI has seen.
 
 **What you need:**
 - a tenant, and in it the right to create app registrations and grant admin
@@ -39,7 +44,7 @@ needs `Application.ReadWrite.All` and `DelegatedPermissionGrant.ReadWrite.All`.
 | The sign-in client | the public client the on-behalf-of leg's user signs in through | none: a public client |
 | CI's provider leg | the client `docs/auth-providers.md`'s Entra leg runs as | a federated credential for the GitHub environment `auth-providers` |
 
-<!-- ci: none — it needs an Entra tenant, and the test tenant is not provisioned (ADR 0223); the bicep job builds and lints the template on every pull request -->
+<!-- ci: none — not run by any job yet (ADR 0248); auth (providers) will run it once the maintainer has deployed the template and set the auth-providers environment (ADR 0223) -->
 ```sh
 az deployment tenant create --name varve-entra --location westeurope \
   --template-file deploy/azure/entra/main.bicep \
@@ -47,9 +52,9 @@ az deployment tenant create --name varve-entra --location westeurope \
     webUiRedirectUris='["https://varve.example/ui/"]'
 ```
 
-**Check:** the deployment's outputs name every client id this page uses.
+**To check:** the deployment's outputs should name every client id this page uses.
 
-<!-- ci: none — it needs an Entra tenant, and the test tenant is not provisioned (ADR 0223) -->
+<!-- ci: none — not run by any job yet (ADR 0248); auth (providers) will run it once the maintainer has deployed the template and set the auth-providers environment (ADR 0223) -->
 ```sh
 az deployment tenant show --name varve-entra --query properties.outputs
 ```
@@ -80,7 +85,7 @@ claim, and grants refer to them by value (step 5).
   identity's service principal object id. The template has already done this
   for the deployer, the calling application and CI's provider leg.
 
-<!-- ci: none — it needs an Entra tenant, and the test tenant is not provisioned (ADR 0223) -->
+<!-- ci: none — not run by any job yet (ADR 0248); auth (providers) will run it once the maintainer has deployed the template and set the auth-providers environment (ADR 0223) -->
 ```sh
 api=$(az ad sp show --id api://varve --query id -o tsv)
 role=$(az ad sp show --id api://varve --query "appRoles[?value=='Varve.Write'].id" -o tsv)
@@ -89,9 +94,9 @@ az rest --method POST \
   --body "{\"principalId\":\"<identity-object-id>\",\"resourceId\":\"$api\",\"appRoleId\":\"$role\"}"
 ```
 
-**Check:** each assignment is listed on the API's service principal.
+**To check:** each assignment should be listed on the API's service principal.
 
-<!-- ci: none — it needs an Entra tenant, and the test tenant is not provisioned (ADR 0223) -->
+<!-- ci: none — not run by any job yet (ADR 0248); auth (providers) will run it once the maintainer has deployed the template and set the auth-providers environment (ADR 0223) -->
 ```sh
 az rest --method GET \
   --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$api/appRoleAssignedTo" \
@@ -105,7 +110,7 @@ The registrations issue v2 tokens, so the issuer is
 service principal's stable id across every client application, so it is the
 subject, and a commit's agent is `https://login.microsoftonline.com/{tenant}/v2.0#{oid}`.
 
-<!-- ci: none — it needs an Entra tenant; auth (providers) runs these settings and skips until the tenant exists (ADR 0223) -->
+<!-- ci: none — not run by any job yet (ADR 0248); auth (providers) will run it once the maintainer has deployed the template and set the auth-providers environment (ADR 0223) -->
 ```json
 "Varve": {
   "Auth": {
@@ -124,9 +129,9 @@ subject, and a commit's agent is `https://login.microsoftonline.com/{tenant}/v2.
 `BootstrapOperators` names the role, so anyone holding `Varve.Operator`, the
 deployer included, is an operator from the first start.
 
-**Check:** a request with no token is refused, and names the scheme.
+**To check:** a request with no token should be refused, naming the scheme.
 
-<!-- ci: none — it needs an Entra tenant and a server configured for it, and the test tenant is not provisioned (ADR 0223) -->
+<!-- ci: none — not run by any job yet (ADR 0248); auth (providers) will run it once the maintainer has deployed the template and set the auth-providers environment (ADR 0223) -->
 ```sh
 curl -si https://varve.example/manage/system | head -n 3
 # HTTP/1.1 401 Unauthorized
@@ -146,7 +151,7 @@ Restrict the `varve-deploy` environment to `main` (*Settings → Environments �
 Deployment branches*): the federated credential trusts any job that runs in
 that environment.
 
-<!-- ci: none — it needs an Entra tenant (ADR 0223); ci.yml container runs the same varve apply --client-assertion github against mock-oauth2 -->
+<!-- ci: none — not run by any job yet (ADR 0248); auth (providers) will run it once the maintainer has deployed the template and set the auth-providers environment (ADR 0223) -->
 ```yaml
 jobs:
   declare:
@@ -177,8 +182,8 @@ Both values are identifiers, kept as environment variables, not secrets.
   managed identity with `--managed-identity --scope api://varve-manage`
   ([Azure Container Apps](azure-container-apps.md)).
 
-**Check:** the job's log ends with the position the declarations were applied
-at. Every later response names a position at least as far, in
+**To check:** the job's log should end with `Applied at system position N.`,
+and every later response should name a position at least as far, in
 `Varve-Management-Position`.
 
 ## 5. Grant the roles
@@ -186,15 +191,16 @@ at. Every later response names a position at least as far, in
 Grants are declarations, applied in step 4. A grant whose grantee is a role
 names the role's value:
 
-<!-- ci: ci.yml build — Varve.Server.Tests: role grants declared as these are (not this file); Entra's values need a tenant -->
+<!-- ci: none — not run by any job yet (ADR 0248); auth (providers) will run it once the maintainer has deployed the template and set the auth-providers environment (ADR 0223) -->
 ```trig
 <https://example.org/manage/readers> a varve:Role ; varve:claimValue "Varve.Read" .
 <https://example.org/manage/read> a varve:Grant ; varve:grantee <https://example.org/manage/readers> ;
   varve:permission varve:read ; varve:allGraphs true .
 ```
 
-[Datasets](datasets.md) has a complete declaration. **Check:** the step 6
-sign-in reads with `Varve.Read` and is refused a write with `403 forbidden`.
+[Datasets](datasets.md) has a complete declaration. **To check:** the step 6
+sign-in should read with `Varve.Read` and be refused a write with
+`403 forbidden`.
 
 ## 6. People: the Web UI and the command line
 
@@ -202,7 +208,7 @@ sign-in reads with `Varve.Read` and is refused a write with `403 forbidden`.
 client, and asks for one token per plane. Give the server the Web UI's client
 and the two scopes ([The Web UI](web-ui.md#signing-in)):
 
-<!-- ci: none — signing in with Entra needs a tenant, and the test tenant is not provisioned (ADR 0223) -->
+<!-- ci: none — not run by any job yet (ADR 0248); auth (providers) will run it once the maintainer has deployed the template and set the auth-providers environment (ADR 0223) -->
 ```json
 "Varve": {
   "WebUi": {
@@ -222,14 +228,14 @@ each ending in `/ui/`.
 line's public client. It prints a URL and a code; approve the code in a
 browser, and the command continues ([The command line](authenticate.md#the-command-line)):
 
-<!-- ci: none — a device code sign-in against Entra needs a tenant and a person to approve it (ADR 0223) -->
+<!-- ci: none — not run by any job yet (ADR 0248); auth (providers) will run it once the maintainer has deployed the template and set the auth-providers environment (ADR 0223) -->
 ```sh
 varve query https://varve.example/datasets/orders/ -q 'ASK {}' \
   --authority https://login.microsoftonline.com/{tenant}/v2.0 \
   --client-id <cliClientId> --scope api://varve/access_as_user
 ```
 
-**Check:** the query answers. The commit a write of yours makes names your
+**To check:** the query should answer, and a commit you write should name your
 `oid` as its agent.
 
 ## Automation on the data plane
@@ -241,12 +247,18 @@ secret, or a person's device code. Only `varve apply` and `varve manage` take
 gets its token from the platform and passes it in `VARVE_TOKEN`, which keeps
 it keyless:
 
-<!-- ci: none — it needs an Entra tenant and an identity in it (ADR 0223) -->
+<!-- ci: none — not run by any job yet (ADR 0248); auth (providers) will run it once the maintainer has deployed the template and set the auth-providers environment (ADR 0223) -->
 ```sh
-# a managed identity, or any az login that is federated rather than secret
+# a managed identity, or any az login that is federated rather than secret;
+# the token expires within the hour: fetch a new one before each run
 export VARVE_TOKEN=$(az account get-access-token --resource api://varve --query accessToken -o tsv)
 varve update https://varve.example/datasets/orders/ -u 'INSERT DATA { <urn:a> <urn:b> <urn:c> }'
 ```
+
+**The token expires within the hour.** A job that runs longer must fetch a
+new one and set `VARVE_TOKEN` again before the old one expires, since
+`VARVE_TOKEN` is never refreshed. #301 removes this stopgap: with it, the
+data-plane commands take `--client-assertion` and obtain their own tokens.
 
 An application written in .NET passes a token provider to
 `SparqlHttpClient` instead. Azure.Identity's `DefaultAzureCredential` takes
@@ -279,7 +291,7 @@ The template creates both halves:
 the tenant's token endpoint. Its own credential is again a client assertion,
 its platform's token:
 
-<!-- ci: none — on-behalf-of against Entra runs only in entra-obo.yml, by hand with the maintainer's MFA sign-in (ADR 0127), and the tenant is not provisioned -->
+<!-- ci: none — not run by any job yet (ADR 0248); auth (providers) will run it once the maintainer has deployed the template and set the auth-providers environment (ADR 0223), and entra-obo.yml runs on-behalf-of by hand with the maintainer's MFA sign-in (ADR 0127) -->
 ```http
 POST https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
 Content-Type: application/x-www-form-urlencoded
@@ -308,21 +320,26 @@ passes the result to the client's token provider.
 `scp` (`access_as_user`) is Entra's evidence of the delegation. Varve grants
 by `roles` alone.
 
-**Check:** a write the application makes for a user names the user's `oid` as
-its agent. A write it makes on its own account, with its client credentials
-token, names its service principal: [the attribution
+**To check:** a write the application makes for a user should name the user's
+`oid` as its agent. A write it makes on its own account, with its client
+credentials token, should name its service principal: [the attribution
 rule](authenticate.md#the-attribution-rule).
 
 ## Not run in CI
 
 What on this page no CI job runs, and why (ADR 0248):
 
-- **Every step.** Each needs an Entra tenant, and the test tenant is not
-  provisioned (ADR 0223).
-  - The `bicep` job builds and lints the template on every pull request.
-  - `auth (providers)` runs step 3's settings on `main` once the tenant exists.
-  - `ci.yml`'s `container` job runs step 4's `varve apply --client-assertion github` against mock-oauth2-server.
-- **On-behalf-of** runs only in `entra-obo.yml`, dispatched by hand with the
-  maintainer's MFA sign-in (ADR 0127).
+- **Every step, 1 to 7, and the data plane's automation.** No job runs them
+  yet, and none has been verified against a tenant.
+  - `auth (providers)` is the job that will run them, once the maintainer has
+    deployed the template and set the `auth-providers` environment
+    (ADR 0223).
+  - Until then, the nearest runs are of something else:
+    - the `bicep` job builds and lints the template on every pull request,
+      without deploying it;
+    - `ci.yml`'s `container` job runs `varve apply --client-assertion github`
+      against mock-oauth2-server, not Entra.
+- **On-behalf-of** is run by hand in `entra-obo.yml`, with the maintainer's
+  MFA sign-in (ADR 0127), once the tenant exists.
 - **The command line's device code** against Entra needs a person to approve
   it.

@@ -67,6 +67,12 @@ platform's issuer and subject.
 - **Entra does,** through federated identity credentials ([Entra](entra.md#4-declare-the-fleet-from-ci-keyless)).
 - **CI runs the flow against mock-oauth2-server,** in `ci.yml`'s `container`
   job, with the job's own GitHub token.
+
+**Entra is the only real issuer `--client-assertion` is written and meant to
+be tested against.** It isn't tested there yet: `auth (providers)` will test
+it once the tenant exists (ADR 0223). Today only mock-oauth2-server, a test
+issuer, runs it. **Keycloak, Auth0 and Okta are untested.**
+
 - **Before relying on any other issuer, check that it does.** An issuer that
   doesn't leaves two choices:
   - a token obtained some other way, passed as `--token` or `VARVE_TOKEN`;
@@ -207,11 +213,17 @@ The command line does the same with `--authority http://localhost:8081
 
 ### 5. A person: the device code
 
-The command line's device code flow, through `varve-cli`. The person signs
-in, enters the code, and the command receives a token whose `read` role reads
-and may not write:
+**CI runs this flow over HTTP, not through `varve query`.**
+`ProviderTests.Zitadel_device_code_token_reads_and_may_not_write` starts it,
+approves it and polls for the token itself. **The local seed has no login
+page:** the compose file starts Zitadel's API only, so no browser page takes
+the code. You approve it here instead, with the same three API calls a custom
+login UI makes, and the test makes.
 
-<!-- ci: ci.yml auth-zitadel; ci.yml container — ProviderTests.Zitadel_device_code_token_reads_and_may_not_write runs this flow over HTTP, not through varve query, approving the code through the API a login UI uses -->
+First, start the command line's device code flow, through `varve-cli`. It
+prints a URL and a user code, and waits:
+
+<!-- ci: ci.yml auth-zitadel; ci.yml container — ProviderTests.Zitadel_device_code_token_reads_and_may_not_write runs this flow over HTTP, not through varve query -->
 ```sh
 seed=artifacts/zitadel-seed.json
 varve query http://localhost:8090/datasets/d/ -q 'ASK {}' \
@@ -220,18 +232,34 @@ varve query http://localhost:8090/datasets/d/ -q 'ASK {}' \
   --scope "$(jq -r .scope "$seed")" --no-store
 ```
 
-The compose file starts no login UI, so there is no page to enter the code
-on. CI approves the code the way a custom login UI does, with the login
-client's token and three calls to Zitadel's API:
-1. it creates a session for `varve-reader` with the seed's password;
-2. it looks up the device authorization by its user code;
-3. it approves the authorization with that session.
+Then, in a second terminal, approve the code as `varve-reader`. The calls use
+the login client's token, which Zitadel's setup wrote and the seed copied into
+its file:
+1. create a session for `varve-reader`, with the seed's password;
+2. look up the device authorization by the user code `varve query` printed;
+3. approve that authorization with the session.
 
-`ProviderTests` shows the three calls. A local trial makes the same calls, or
-adds Zitadel's login UI to the compose file.
+<!-- ci: ci.yml auth-zitadel; ci.yml container — ProviderTests.Zitadel_device_code_token_reads_and_may_not_write makes these three calls -->
+```sh
+seed=artifacts/zitadel-seed.json
+code=<the user code varve query printed>
+login=(-H "Authorization: Bearer $(jq -r .loginClientToken "$seed")" -H 'Content-Type: application/json')
 
-**Check:** the query answers. An update with the same token is
-`403 forbidden`.
+session=$(curl -s "${login[@]}" http://localhost:8081/v2/sessions -d "$(jq -n \
+  --arg name "$(jq -r .reader.loginName "$seed")" --arg password "$(jq -r .reader.password "$seed")" \
+  '{checks: {user: {loginName: $name}, password: {password: $password}}}')")
+
+request=$(curl -s "${login[@]}" "http://localhost:8081/v2/oidc/device_authorization/$code" \
+  | jq -r .deviceAuthorizationRequest.id)
+
+curl -s "${login[@]}" "http://localhost:8081/v2/oidc/device_authorization/$request" \
+  -d "$(jq -n --argjson s "$session" '{session: {sessionId: $s.sessionId, sessionToken: $s.sessionToken}}')"
+```
+
+`varve query` then receives a token whose `read` role reads and may not write.
+
+**To check:** the query should answer `true`, and an update with the same
+token should be `403 forbidden`.
 
 ### 6. Run what CI runs
 
