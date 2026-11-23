@@ -631,3 +631,30 @@ override Varve.Protocol.Model.ForeignFleet.GetHashCode() -> int
 override Varve.Protocol.Model.ForeignFleet.ToString() -> string!
 static Varve.Protocol.Model.ForeignFleet.operator !=(Varve.Protocol.Model.ForeignFleet? left, Varve.Protocol.Model.ForeignFleet? right) -> bool
 static Varve.Protocol.Model.ForeignFleet.operator ==(Varve.Protocol.Model.ForeignFleet? left, Varve.Protocol.Model.ForeignFleet? right) -> bool
+Varve.Protocol.IManagementPlane.CheckCopiesAsync(Varve.Management.Model.Declarations! proposed, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Protocol.Model.CopyRefusal?>
+Varve.Protocol.Model.CopyRefusal
+Varve.Protocol.Model.CopyRefusal.CopyRefusal() -> void
+Varve.Protocol.Model.CopyRefusal.Dataset.get -> Varve.Protocol.Model.DatasetName
+Varve.Protocol.Model.CopyRefusal.Dataset.init -> void
+Varve.Protocol.Model.CopyRefusal.Detail.init -> void
+Varve.Protocol.Model.CopyRefusal.Equals(Varve.Protocol.Model.CopyRefusal other) -> bool
+override Varve.Protocol.Model.CopyRefusal.GetHashCode() -> int
+static Varve.Protocol.Model.CopyRefusal.operator !=(Varve.Protocol.Model.CopyRefusal left, Varve.Protocol.Model.CopyRefusal right) -> bool
+static Varve.Protocol.Model.CopyRefusal.operator ==(Varve.Protocol.Model.CopyRefusal left, Varve.Protocol.Model.CopyRefusal right) -> bool
+~override Varve.Protocol.Model.CopyRefusal.Equals(object obj) -> bool
+~override Varve.Protocol.Model.CopyRefusal.ToString() -> string
+Varve.Protocol.Model.CopyRefusal.CopyRefusal(Varve.Protocol.Model.DatasetName Dataset, Varve.Protocol.Model.RefusalDetail Detail) -> void
+Varve.Protocol.Model.CopyRefusal.Deconstruct(out Varve.Protocol.Model.DatasetName Dataset, out Varve.Protocol.Model.RefusalDetail Detail) -> void
+Varve.Protocol.Model.CopyRefusal.Detail.get -> Varve.Protocol.Model.RefusalDetail
+Varve.Protocol.Model.RefusalDetail
+Varve.Protocol.Model.RefusalDetail.Deconstruct(out string! Value) -> void
+Varve.Protocol.Model.RefusalDetail.Equals(Varve.Protocol.Model.RefusalDetail other) -> bool
+Varve.Protocol.Model.RefusalDetail.RefusalDetail() -> void
+Varve.Protocol.Model.RefusalDetail.RefusalDetail(string! Value) -> void
+Varve.Protocol.Model.RefusalDetail.Value.get -> string!
+Varve.Protocol.Model.RefusalDetail.Value.init -> void
+override Varve.Protocol.Model.RefusalDetail.GetHashCode() -> int
+static Varve.Protocol.Model.RefusalDetail.operator !=(Varve.Protocol.Model.RefusalDetail left, Varve.Protocol.Model.RefusalDetail right) -> bool
+static Varve.Protocol.Model.RefusalDetail.operator ==(Varve.Protocol.Model.RefusalDetail left, Varve.Protocol.Model.RefusalDetail right) -> bool
+~override Varve.Protocol.Model.RefusalDetail.Equals(object obj) -> bool
+~override Varve.Protocol.Model.RefusalDetail.ToString() -> string

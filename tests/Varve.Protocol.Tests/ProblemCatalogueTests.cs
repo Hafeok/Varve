@@ -393,6 +393,45 @@ public class ProblemCatalogueTests
         }
     }
 
+    /// <summary>
+    /// ADR 0185 decision 10 (the maintainer's ruling of 2026-11-23): an apply
+    /// that declares a copy of a dataset the answering instance can see is
+    /// written in this fleet is refused before anything is committed, and
+    /// says which dataset and what to do. One the instance sees nothing
+    /// against is applied.
+    /// </summary>
+    [Fact]
+    public async Task an_apply_that_declares_a_written_dataset_a_copy_is_refused_and_commits_nothing()
+    {
+        Dataset system = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+        TestPlane plane = new(system) { WrittenHere = "taken" };
+
+        await using (system)
+        await using (ProtocolTestHost host = await ProtocolTestHost.StartAsync(new ProtocolTestHost.Datasets(), map: (app, o) => app.MapVarveManagement(o, plane), stopping: P.Ct))
+        {
+            const string Ns = "https://w3id.org/varve/ns#";
+
+            static string Copy(string name) =>
+                "<urn:" + name + "> a <" + Ns + "Dataset> ; <" + Ns + "datasetName> \"" + name + "\" ; <" + Ns + "storage> <" + Ns + "ObjectStorage> ; <" + Ns + "copyOf> <urn:" + name + ":source> . "
+                + "<urn:" + name + ":source> a <" + Ns + "ShippingSource> ; <" + Ns + "store> \"https://primary.invalid/c\" ; <" + Ns + "prefix> \"" + name + "\" .";
+
+            HttpResponseMessage refused = await host.Client.SendAsync(Put("manage/datasets/taken", Copy("taken"), "application/trig"), P.Ct);
+            Assert.Equal((System.Net.HttpStatusCode)422, refused.StatusCode);
+            using JsonDocument problem = JsonDocument.Parse(await refused.Content.ReadAsStringAsync(P.Ct));
+            Assert.EndsWith("/declaration-invalid", problem.RootElement.GetProperty("type").GetString(), StringComparison.Ordinal);
+            JsonElement finding = Assert.Single(problem.RootElement.GetProperty("findings").EnumerateArray());
+            Assert.Equal(Ns + "manage/dataset/taken", finding.GetProperty("graph").GetString());
+            Assert.Equal(Ns + "copyOf", finding.GetProperty("path").GetString());
+            Assert.Contains("Remove varve:copyOf", finding.GetProperty("message").GetString(), StringComparison.Ordinal);
+            Assert.Equal(0L, system.Head.Value);
+
+            HttpResponseMessage applied = await host.Client.SendAsync(Put("manage/datasets/fresh", Copy("fresh"), "application/trig"), P.Ct);
+            Assert.Equal(System.Net.HttpStatusCode.Created, applied.StatusCode);
+            using DatasetView view = system.Pin();
+            Assert.NotNull(DeclarationReader.Read(view).Datasets["fresh"].CopyOf);
+        }
+    }
+
     private static HttpRequestMessage Put(string path, string body, string mediaType) =>
         new(HttpMethod.Put, new Uri(path, UriKind.Relative)) { Content = new StringContent(body, Encoding.UTF8, mediaType) };
 
@@ -523,6 +562,14 @@ public class ProblemCatalogueTests
         public ManagementStatus Status => new(ManagementRole.Writer, 0, new ManagementPosition(system.Head.Value), new ManagementPosition(system.Head.Value), BootstrapState.Absent, null);
 
         public ICommitValidator Validator { get; } = new ManagementValidator();
+
+        /// <summary>A dataset this plane sees is written in its fleet, with no lineage: declaring it a copy is refused.</summary>
+        public string? WrittenHere { get; init; }
+
+        public ValueTask<CopyRefusal?> CheckCopiesAsync(Declarations proposed, CancellationToken cancellationToken) =>
+            ValueTask.FromResult<CopyRefusal?>(proposed.Datasets.Values.FirstOrDefault(dataset => dataset.CopyOf is not null && dataset.Name == WrittenHere) is { } declared
+                ? new CopyRefusal(new DatasetName(declared.Name), new RefusalDetail("Dataset '" + declared.Name + "' is written in this fleet. Remove varve:copyOf, or declare the copy under another name."))
+                : null);
 
         // As a server does against its compiled page: here every provider is untested.
         public IReadOnlyList<UntestedTarget> UntestedTargets(Declarations proposed) =>

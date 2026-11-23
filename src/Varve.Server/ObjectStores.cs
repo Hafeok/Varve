@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Varve.Management.Model;
 using Varve.Store;
 using Varve.Store.Azure;
 using Varve.Store.Azure.Model;
@@ -151,6 +152,36 @@ internal sealed class ObjectStores : IDisposable
     /// <summary>A dataset's lineage record, or none for a dataset that is no copy (ADR 0185).</summary>
     internal async Task<LineageRecord?> LineageAsync(string name, CancellationToken cancellationToken) =>
         await Backend.ReadLineageAsync(Store, PrefixOf(name), cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// What contradicts declaring the dataset <paramref name="name"/> a copy
+    /// of <paramref name="copy"/> (ADR 0185 decision 10), as the store shows
+    /// it: the store holds a dataset under the name, and its lineage does not
+    /// name that source. Null where there is no dataset yet, where its
+    /// lineage names the source, or where the lineage is one this build does
+    /// not read.
+    /// </summary>
+    internal async Task<string?> CopyContradictionAsync(string name, CopySourceDeclaration copy, CancellationToken cancellationToken)
+    {
+        LineageRecord? lineage = await LineageAsync(name, cancellationToken).ConfigureAwait(false);
+
+        if (lineage is { Understood: false }
+            || (lineage is { Source: { } source }
+                && string.Equals(source.Store.Value, copy.Store, StringComparison.Ordinal)
+                && string.Equals((source.Prefix?.Value ?? string.Empty).TrimEnd('/'), copy.Prefix.TrimEnd('/'), StringComparison.Ordinal)))
+        {
+            return null;
+        }
+
+        if (lineage is null && !await ExistsAsync(name, cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return "Dataset '" + name + "' is declared a copy of the dataset under '" + copy.Prefix + "' at " + copy.Store + ", and the store holds it "
+            + (lineage?.Source is { } other ? "as a copy of the dataset under '" + other.Prefix + "' at " + other.Store : "with no lineage record: it is a dataset written in this fleet")
+            + ". A copy is made only by its source's shipper, under an empty prefix (ADR 0185). Remove varve:copyOf, or declare the copy under another name.";
+    }
 
     /// <summary>The clock this instance's storages wait on.</summary>
     internal TimeProvider Clock { get; }

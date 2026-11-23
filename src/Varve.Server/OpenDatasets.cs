@@ -105,6 +105,15 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     }
 
     /// <summary>This instance's role in a dataset; none when it does not know the dataset.</summary>
+    /// <summary>What contradicts the dataset's declaration as a copy while this instance writes it (ADR 0185 decision 10), or none.</summary>
+    internal string? CopyContradictionOf(DatasetName name)
+    {
+        lock (_gate)
+        {
+            return _entries.TryGetValue(name.Value, out Entry? entry) ? entry.CopyContradiction : null;
+        }
+    }
+
     /// <summary>Whether the dataset is declared a copy and waits for its first shipping round (ADR 0185 decision 10): not open, and not a failure.</summary>
     internal bool AwaitsShipping(DatasetName name)
     {
@@ -287,6 +296,26 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
     {
         entry.AwaitsShipping = false;
         bool holding = entry.State == DatasetState.Open && entry.Role == DatasetRole.Writer;
+
+        // Declared a copy while this instance writes it (decision 10): the writer keeps writing, and readiness says
+        // at once that the declaration and the store disagree. Read once per declaration, and again after a failure.
+        if (declared.CopyOf is null || !holding || _objects is null || storage != DatasetStorage.ObjectStorage)
+        {
+            entry.CopyContradiction = null;
+            entry.CopyChecked = null;
+        }
+        else if (entry.CopyChecked != declared.CopyOf)
+        {
+            try
+            {
+                entry.CopyContradiction = await _objects.CopyContradictionAsync(name, declared.CopyOf, cancellationToken).ConfigureAwait(false);
+                entry.CopyChecked = declared.CopyOf;
+            }
+            catch (Exception error) when (error is System.IO.IOException or System.Net.Http.HttpRequestException or TimeoutException or System.IO.InvalidDataException)
+            {
+                // Not read this round: asked again at the next.
+            }
+        }
 
         if (storage != DatasetStorage.ObjectStorage || _objects is null || declared.Closed || holding || (entry.ReplicaRead && entry.Replica == ReplicaState.None))
         {
@@ -999,6 +1028,12 @@ internal sealed partial class OpenDatasets : IDatasetResolver, IDatasetAdministr
 
         /// <summary>Whether the dataset is declared a copy that its first shipping round has not written yet.</summary>
         internal bool AwaitsShipping { get; set; }
+
+        /// <summary>What contradicts this dataset's declaration as a copy while this instance writes it (ADR 0185 decision 10), or none.</summary>
+        internal string? CopyContradiction { get; set; }
+
+        /// <summary>The copy declaration <see cref="CopyContradiction"/> was read for.</summary>
+        internal CopySourceDeclaration? CopyChecked { get; set; }
 
         /// <summary>Whether the lineage has been read since this entry was made.</summary>
         internal bool ReplicaRead { get; set; }

@@ -448,6 +448,37 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
     public IReadOnlyList<UntestedTarget> UntestedTargets(Declarations proposed) => CompatibilityPage.Untested(proposed);
 
     /// <inheritdoc />
+    public async ValueTask<CopyRefusal?> CheckCopiesAsync(Declarations proposed, CancellationToken cancellationToken)
+    {
+        if (_objects is null)
+        {
+            return null;
+        }
+
+        foreach ((string name, DatasetDeclaration declared) in proposed.Datasets)
+        {
+            if (declared.CopyOf is not { } copy)
+            {
+                continue;
+            }
+
+            try
+            {
+                if (await _objects.CopyContradictionAsync(name, copy, cancellationToken).ConfigureAwait(false) is { } detail)
+                {
+                    return new CopyRefusal(new DatasetName(name), new RefusalDetail(detail));
+                }
+            }
+            catch (Exception error) when (error is IOException or global::System.Net.Http.HttpRequestException or TimeoutException or InvalidDataException)
+            {
+                // The store was not read, so this instance cannot see it. Readiness reports a contradiction once applied.
+            }
+        }
+
+        return null;
+    }
+
+    /// <inheritdoc />
     public BindingDescription? DescribeBinding(DatasetName dataset, RdfTerm binding)
     {
         GrantTable table = Pinned().Table;

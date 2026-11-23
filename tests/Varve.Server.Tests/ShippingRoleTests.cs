@@ -407,6 +407,88 @@ public sealed class ShippingRoleTests
     }
 
     /// <summary>
+    /// ADR 0185 decisions 2 and 8, the architect's point C: a promoted copy
+    /// shipped onward and promoted again. The second copy's lineage carries
+    /// the chain, each earlier fleet's system dataset reaches the second
+    /// copy's store, and the fleet that wrote a commit is answered per
+    /// position: the first fleet up to the first promotion, the second up to
+    /// the second, and no other fleet above it.
+    /// </summary>
+    [Fact]
+    public async Task after_two_promotions_every_position_names_the_fleet_that_wrote_it_and_its_system_dataset_is_there()
+    {
+        await using Scene scene = await Scene.StartAsync(verified: true);
+        Dataset first = await scene.DeclareAsync();
+        await CommitAsync(first, 0, 4);
+        await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == first.Head.Value);
+        long one = first.Head.Value;
+        DatasetName orders = new("orders");
+        DatasetId firstFleet = scene.Fleet.System.Id;
+
+        // The second fleet serves the copy, promotes it, and ships it on to a third store.
+        MemoryObjectStore third = new();
+        await scene.VerifyAsync(third);
+        const string thirdAddress = "https://fleet.invalid/third";
+        await using Fleet second = await scene.StartFleetOverAsync(scene.Target, TargetAddress, "t", "t", address => address == thirdAddress ? third : null);
+        await RunningServer.DeclareAsync(second,
+            "@prefix varve: <" + ManagementVocabulary.Namespace + "> .\n"
+            + "<" + ManagementVocabulary.DatasetGraphPrefix + "orders> {\n"
+            + "  <urn:copy:orders> a varve:Dataset ; varve:datasetName \"orders\" ; varve:storage varve:ObjectStorage ; varve:placedOn \"t\" ; varve:shipsTo <urn:copy:onward> .\n"
+            + "  <urn:copy:onward> a varve:ShippingTarget ; varve:store \"" + thirdAddress + "\" ; varve:prefix \"orders\" ; varve:provider \"azurite\" .\n"
+            + "}\n");
+        await Scene.UntilAsync(() => second.Datasets.StandbyOf(orders).Warm, "the second fleet's member is not a warm standby of the replica");
+        Assert.Equal(PromotionRefusal.None, (await second.PromoteAsync(orders, new PromotionAsk("https://fleet.invalid/source", new Position(one)), Ct))!.Value.Refusal);
+        Assert.True(second.Datasets.TryResolve(orders, out Dataset? promoted));
+        await CommitAsync(promoted, 4, 7);
+        long two = promoted.Head.Value;
+        DatasetId secondFleet = second.System.Id;
+
+        // The third store gets the copy, its lineage with the chain, and both earlier fleets' system datasets.
+        await Scene.UntilAsync(() => second.Shipping.StatusOf(orders) is [{ State: ShippingState.Shipping } status] && status.ShippedThrough == two, "the second fleet did not ship the promoted copy on");
+        LineageRecord lineage = (await Backend.ReadLineageAsync(third, new ObjectName("orders/"), Ct))!;
+        Assert.True(lineage.IsReplica);
+        Assert.Equal(secondFleet, lineage.Source!.Fleet);
+        LineageLink link = Assert.Single(lineage.Earlier);
+        Assert.Equal(firstFleet, link.Source.Fleet);
+        Assert.Equal(one, link.Promoted.Position.Value);
+        Assert.Contains("fleets/" + firstFleet.Value.ToString("D") + "/log/MANIFEST", third.Names());
+        Assert.Contains("fleets/" + secondFleet.Value.ToString("D") + "/log/MANIFEST", third.Names());
+
+        // The first fleet's, on the third store, says what it said on the second: a replica of the first fleet's own.
+        LineageRecord forwarded = (await Backend.ReadLineageAsync(third, new ObjectName("fleets/" + firstFleet.Value.ToString("D") + "/"), Ct))!;
+        Assert.Equal(scene.Target.Get("fleets/" + firstFleet.Value.ToString("D") + "/lineage"), third.Get("fleets/" + firstFleet.Value.ToString("D") + "/lineage"));
+        Assert.Equal(firstFleet, forwarded.Source!.Dataset);
+
+        // The third fleet serves that copy and promotes it.
+        await using Fleet last = await scene.StartFleetOverAsync(third, thirdAddress, "c", "c", null);
+        await RunningServer.DeclareAsync(last,
+            "@prefix varve: <" + ManagementVocabulary.Namespace + "> .\n"
+            + "<" + ManagementVocabulary.DatasetGraphPrefix + "orders> {\n"
+            + "  <urn:last:orders> a varve:Dataset ; varve:datasetName \"orders\" ; varve:storage varve:ObjectStorage ; varve:placedOn \"c\" .\n"
+            + "}\n");
+        await Scene.UntilAsync(() => last.Datasets.StandbyOf(orders).Warm, "the third fleet's member is not a warm standby of the replica");
+        Assert.Equal(PromotionRefusal.None, (await last.PromoteAsync(orders, new PromotionAsk(TargetAddress, new Position(two)), Ct))!.Value.Refusal);
+        Assert.True(last.Datasets.TryResolve(orders, out Dataset? final));
+        await CommitAsync(final, 7, 9);
+
+        // Per position: the first fleet's system dataset, then the second's, then none.
+        foreach (long position in new[] { 1, one })
+        {
+            ForeignFleet? wrote = await last.ForeignFleetAsync(orders, new Position(position), Ct);
+            Assert.Equal(firstFleet, wrote!.System!.Id);
+        }
+
+        foreach (long position in new[] { one + 1, two })
+        {
+            ForeignFleet? wrote = await last.ForeignFleetAsync(orders, new Position(position), Ct);
+            Assert.Equal(secondFleet, wrote!.System!.Id);
+        }
+
+        Assert.Null(await last.ForeignFleetAsync(orders, new Position(two + 1), Ct));
+        Assert.Null(await last.ForeignFleetAsync(orders, final.Head, Ct));
+    }
+
+    /// <summary>
     /// ADR 0185 decision 5: where no fleet serves the copy, it is promoted on
     /// the store itself. A finished promotion releases as any writer that
     /// closes, so the member placed on it afterwards starts as on any released
@@ -583,32 +665,76 @@ public sealed class ShippingRoleTests
     }
 
     /// <summary>
-    /// A dataset this instance already writes is not taken from it by declaring it a copy: a copy is found before a
-    /// claim, never under one. The same declaration met at a start, with the dataset not open, is refused instead,
-    /// and nothing is written (reported on #166 as an asymmetry for the maintainer).
+    /// The maintainer's ruling of 2026-11-23 on #166 (ADR 0185 decision 10).
+    /// An apply that declares a copy is refused where the answering instance
+    /// can see the dataset is written in this fleet with no lineage naming
+    /// that source. Where the declaration is applied all the same, the
+    /// running writer keeps writing and readiness says at once that the
+    /// declaration is wrong. A declaration of a copy that is not there yet,
+    /// and one whose lineage names the source, are not refused.
     /// </summary>
     [Fact]
-    public async Task a_dataset_this_instance_already_writes_stays_its_own_when_it_is_declared_a_copy()
+    public async Task a_dataset_written_here_is_not_declared_a_copy_and_a_writer_that_meets_the_declaration_keeps_writing()
     {
         await using Scene scene = await Scene.StartAsync(verified: true);
+        DatasetName name = new("own");
 
-        // An ordinary dataset first, then the same name declared a copy.
+        // An ordinary dataset first.
         await RunningServer.DeclareAsync(scene.Fleet, Declared(string.Empty));
-        Assert.True(scene.Fleet.Datasets.TryResolve(new DatasetName("own"), out Dataset? own));
+        Assert.True(scene.Fleet.Datasets.TryResolve(name, out Dataset? own));
         await CommitAsync(own, 0, 2);
-        string[] before = [.. scene.Source.Names().Where(name => name.StartsWith("own/log/", StringComparison.Ordinal))];
+        string[] before = [.. scene.Source.Names().Where(written => written.StartsWith("own/log/", StringComparison.Ordinal))];
+        string copy = Declared(" ; varve:copyOf <urn:own:source>").Replace("}\n", "  <urn:own:source> a varve:ShippingSource ; varve:store \"https://elsewhere.invalid/primary\" ; varve:prefix \"own\" .\n}\n", StringComparison.Ordinal);
 
-        await RunningServer.DeclareAsync(scene.Fleet, Declared(" ; varve:copyOf <urn:own:source>") .Replace("}\n", "  <urn:own:source> a varve:ShippingSource ; varve:store \"https://elsewhere.invalid/primary\" ; varve:prefix \"own\" .\n}\n", StringComparison.Ordinal));
+        // The apply is refused: this instance sees the dataset on its store, with no lineage.
+        CopyRefusal refusal = (await scene.Fleet.CheckCopiesAsync(Proposed(copy), Ct))!.Value;
+        Assert.Equal(name, refusal.Dataset);
+        Assert.Contains("with no lineage record: it is a dataset written in this fleet", refusal.Detail.Value, StringComparison.Ordinal);
+        Assert.Contains("Remove varve:copyOf", refusal.Detail.Value, StringComparison.Ordinal);
+        Assert.Null(scene.Fleet.Datasets.CopyContradictionOf(name));
 
-        // It was this instance's own dataset, open for write: it stays so. A copy is found before a claim, never under one.
-        Assert.Equal(DatasetRole.Writer, scene.Fleet.Datasets.RoleOf(new DatasetName("own")));
-        Assert.Equal(before, scene.Source.Names().Where(name => name.StartsWith("own/log/", StringComparison.Ordinal)));
+        // A copy that is not there yet is not refused, nor is the same dataset declared without varve:copyOf.
+        Assert.Null(await scene.Fleet.CheckCopiesAsync(Proposed(copy.Replace("own", "other", StringComparison.Ordinal)), Ct));
+        Assert.Null(await scene.Fleet.CheckCopiesAsync(Proposed(Declared(string.Empty)), Ct));
+
+        // Applied where the apply could not see it, as by an instance that could not read the store: the writer
+        // keeps writing, and readiness reports the contradiction as soon as the declaration is applied.
+        await RunningServer.DeclareAsync(scene.Fleet, copy);
+        await Scene.UntilAsync(() => scene.Fleet.Datasets.CopyContradictionOf(name) is not null, "readiness did not report the contradiction");
+        Assert.Contains("it is a dataset written in this fleet", scene.Fleet.Datasets.CopyContradictionOf(name), StringComparison.Ordinal);
+        Assert.Equal(DatasetRole.Writer, scene.Fleet.Datasets.RoleOf(name));
+        await CommitAsync(own, 2, 4);
+        Assert.Equal(4, own.Head.Value);
+        Assert.Equal(before, scene.Source.Names().Where(written => written.StartsWith("own/log/", StringComparison.Ordinal) && before.Contains(written)));
+        Assert.DoesNotContain("own/lineage", scene.Source.Names());
+
+        // The declaration put right: nothing is reported.
+        Varve.Rdf.RdfTerm graph = Varve.Rdf.RdfTerm.Iri(Encoding.UTF8.GetBytes(ManagementVocabulary.DatasetGraphPrefix + "own"));
+        Assert.Equal(CommitOutcome.Committed, (await scene.Fleet.System.CommitAsync(
+            new CommitRequestBuilder { ExpectedPosition = scene.Fleet.System.Head, Validators = [scene.Fleet.Validator] }.Retract(
+                Varve.Rdf.RdfTerm.Iri("urn:own:d"u8),
+                Term("copyOf"),
+                Varve.Rdf.RdfTerm.Iri("urn:own:source"u8),
+                graph)
+            .Retract(Varve.Rdf.RdfTerm.Iri("urn:own:source"u8), Varve.Rdf.RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"u8), Term("ShippingSource"), graph)
+            .Retract(Varve.Rdf.RdfTerm.Iri("urn:own:source"u8), Term("store"), Varve.Rdf.RdfTerm.Literal("https://elsewhere.invalid/primary"u8), graph)
+            .Retract(Varve.Rdf.RdfTerm.Iri("urn:own:source"u8), Term("prefix"), Varve.Rdf.RdfTerm.Literal("own"u8), graph),
+            Ct)).Outcome);
+        await Scene.UntilAsync(() => scene.Fleet.Datasets.CopyContradictionOf(name) is null, "the contradiction was still reported after varve:copyOf was removed");
 
         static string Declared(string more) =>
             "@prefix varve: <" + ManagementVocabulary.Namespace + "> .\n"
             + "<" + ManagementVocabulary.DatasetGraphPrefix + "own> {\n"
             + "  <urn:own:d> a varve:Dataset ; varve:datasetName \"own\" ; varve:storage varve:ObjectStorage ; varve:placedOn \"a\"" + more + " .\n"
             + "}\n";
+
+        static Varve.Rdf.RdfTerm Term(string local) => Varve.Rdf.RdfTerm.Iri(Encoding.UTF8.GetBytes(ManagementVocabulary.Namespace + local));
+
+        static Declarations Proposed(string trig)
+        {
+            Varve.Rdf.InMemoryDataset desired = ManagementTrig.TryParse(Encoding.UTF8.GetBytes(trig), null, out string? error) ?? throw new InvalidOperationException(error);
+            return DeclarationReader.Read(desired);
+        }
     }
 
     /// <summary>
@@ -733,17 +859,23 @@ public sealed class ShippingRoleTests
         }
 
         /// <summary>A second fleet, of one instance <c>t</c>, over the target store: the fleet that serves the copy.</summary>
-        public async Task<Fleet> StartTargetFleetAsync(string instance = "t")
+        public Task<Fleet> StartTargetFleetAsync(string instance = "t") => StartFleetOverAsync(Target, TargetAddress, instance, "t", null);
+
+        /// <summary>A fleet over a store of the test's, which may ship on to others.</summary>
+        public async Task<Fleet> StartFleetOverAsync(MemoryObjectStore store, string address, string instance, string writer, Func<string, IObjectStore?>? targets)
         {
             ServerSettings settings = new();
             settings.Auth.Mode = "Anonymous";
             settings.ObjectStorage.Provider = "Azure";
-            settings.ObjectStorage.ContainerUrl = TargetAddress;
+            settings.ObjectStorage.ContainerUrl = address;
             settings.ObjectStorage.CachePath = Path.Combine(_caches, instance);
             settings.ObjectStorage.Instance = instance;
-            settings.Fleet.Writer = "t";
+            settings.Fleet.Writer = writer;
             settings.Fleet.FollowInterval = Interval;
-            Fleet fleet = await Fleet.StartAsync(settings, ObjectStores.Over(Target, settings.ObjectStorage, TimeProvider.System), recordBootstrap: false, TimeProvider.System, NullLogger.Instance, new HttpContextAccessor(), Ct);
+            settings.Replication.ShipInterval = Interval;
+            ObjectStores objects = ObjectStores.Over(store, settings.ObjectStorage, TimeProvider.System);
+            objects.TargetsForTests = targets;
+            Fleet fleet = await Fleet.StartAsync(settings, objects, recordBootstrap: false, TimeProvider.System, NullLogger.Instance, new HttpContextAccessor(), Ct);
             _loops.Add(fleet.RunAsync(_stopping.Token));
             return fleet;
         }

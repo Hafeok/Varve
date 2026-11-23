@@ -632,6 +632,23 @@ internal static class ManagementEndpoints
             return;
         }
 
+        // ADR 0185 decision 10: a dataset this instance can see is written in this fleet is not declared a copy.
+        if (await plane.CheckCopiesAsync(Proposed(desired), context.RequestAborted).ConfigureAwait(false) is { } contradicted)
+        {
+            await HttpProblems.WriteAsync(context, ProblemType.DeclarationInvalid, contradicted.Detail.Value, members =>
+            {
+                Utf8JsonWriter json = members.Raw("findings");
+                json.WriteStartArray("findings");
+                json.WriteStartObject();
+                json.WriteString("graph", ManagementVocabulary.DatasetGraphPrefix + contradicted.Dataset.Value);
+                json.WriteString("path", ManagementVocabulary.Namespace + "copyOf");
+                json.WriteString("message", contradicted.Detail.Value);
+                json.WriteEndObject();
+                json.WriteEndArray();
+            }).ConfigureAwait(false);
+            return;
+        }
+
         CommitRequestBuilder request;
 
         using (DatasetView view = system.Pin())

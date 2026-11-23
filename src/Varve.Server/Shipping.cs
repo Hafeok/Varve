@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -96,6 +97,7 @@ internal sealed partial class Shipping : IAsyncDisposable
     private readonly ReplicationSettings _settings;
     private readonly Func<Dataset> _system;
     private readonly Dictionary<string, FleetCopy> _fleets = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ForwardedFleet> _forwarded = new(StringComparer.Ordinal);
     private readonly TimeProvider _clock;
     private readonly ILogger _logger;
     private readonly Lock _lock = new();
@@ -219,6 +221,13 @@ internal sealed partial class Shipping : IAsyncDisposable
             }
 
             _fleets.Clear();
+
+            foreach (ForwardedFleet copy in _forwarded.Values)
+            {
+                copy.Dispose();
+            }
+
+            _forwarded.Clear();
         }
     }
 
@@ -288,6 +297,100 @@ internal sealed partial class Shipping : IAsyncDisposable
         lock (_lock)
         {
             return _fleets.TryGetValue(store, out FleetCopy? copy) ? copy : _fleets[store] = new FleetCopy(this, store);
+        }
+    }
+
+    // An earlier fleet's system dataset on one target store, shared by every dataset shipped there.
+    private ForwardedFleet ForwardedFleetOf(string store, DatasetId fleet)
+    {
+        lock (_lock)
+        {
+            string key = store + "|" + fleet.Value.ToString("D");
+            return _forwarded.TryGetValue(key, out ForwardedFleet? copy) ? copy : _forwarded[key] = new ForwardedFleet(this, store, fleet);
+        }
+    }
+
+    /// <summary>
+    /// An earlier fleet's system dataset, as this store holds it under
+    /// <c>fleets/{fleet id}/</c>, shipped on to the same place on a target
+    /// store (ADR 0185 decisions 2 and 8). A promoted copy's old commits
+    /// record that fleet's management positions, and a copy of the promoted
+    /// copy holds the same commits.
+    /// </summary>
+    /// <remarks>
+    /// What those commits refer to was on this store before the copy was
+    /// promoted (ADR 0184 decision 13), so it is shipped until a round finds
+    /// nothing new, and not again by this process. The copy on the target
+    /// says what this store's says: a replica of that fleet's system dataset.
+    /// Where this store holds no such copy there is nothing to ship, and a
+    /// position of that fleet stays one that cannot be read (decision 8).
+    /// </remarks>
+    private sealed class ForwardedFleet(Shipping owner, string store, DatasetId fleet) : IDisposable
+    {
+        private readonly SemaphoreSlim _gate = new(1, 1);
+        private LogShipper? _shipper;
+        private bool _whole;
+
+        public void Dispose() => _gate.Dispose();
+
+        internal async ValueTask ShipAsync(CancellationToken cancellationToken)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                if (_whole)
+                {
+                    return;
+                }
+
+                ObjectStores objects = owner._objects!;
+                string id = fleet.Value.ToString("D");
+                ObjectName prefix = new("fleets/" + id + "/");
+
+                if (await Varve.Store.ObjectStorage.ObjectStorage.ReadLineageAsync(objects.Store, prefix, cancellationToken).ConfigureAwait(false) is not { Understood: true, Source: { } source })
+                {
+                    return;
+                }
+
+                try
+                {
+                    if (_shipper is null)
+                    {
+                        string digest = DigestOf(store + "/fleets/" + id);
+                        string staging = objects.StagingOf("_fleets-" + id, digest);
+                        Directory.CreateDirectory(staging);
+                        _shipper = await LogShipper.StartAsync(
+                            new ShippingOptions
+                            {
+                                Source = objects.Store,
+                                SourcePrefix = prefix,
+                                Target = objects.OpenTarget(store, owner._settings),
+                                TargetPrefix = prefix,
+                                Lineage = source,
+                                Reader = new ReaderId((objects.ConfiguredReader ?? objects.Instance.Value) + "-ship-" + digest),
+                                Holder = objects.Instance,
+                                Staging = new CacheDirectory(staging),
+                                Clock = owner._clock,
+                            },
+                            cancellationToken).ConfigureAwait(false);
+                    }
+
+                    if (_shipper is not null)
+                    {
+                        _whole = !(await _shipper.ShipAsync(cancellationToken).ConfigureAwait(false)).Moved;
+                    }
+                }
+                catch
+                {
+                    _shipper = null;
+                    throw;
+                }
+            }
+            finally
+            {
+                _gate.Release();
+            }
         }
     }
 
@@ -384,6 +487,8 @@ internal sealed partial class Shipping : IAsyncDisposable
         private readonly ClaimHoldOff _holdOff;
         private Task _run = Task.CompletedTask;
         private ShippingStatus _status;
+        private DatasetId[] _descent = [];
+        private bool _descentRead;
 
         internal Entry(Shipping owner, string dataset, string key, ShippingTargetDeclaration target, Dataset held, bool writes)
         {
@@ -522,12 +627,36 @@ internal sealed partial class Shipping : IAsyncDisposable
                 Target = objects.OpenTarget(Target.Store, _owner._settings),
                 TargetPrefix = new ObjectName(Target.Prefix + "/"),
                 Lineage = new LineageSource(new StoreAddress(objects.Address), ObjectStores.PrefixOf(_dataset), Dataset.Id, _owner._system().Id),
-                BeforeLogWrite = stopping => fleet.ShipAsync(Writes, stopping),
+                BeforeLogWrite = async stopping =>
+                {
+                    await fleet.ShipAsync(Writes, stopping).ConfigureAwait(false);
+                    await ForwardEarlierFleetsAsync(stopping).ConfigureAwait(false);
+                },
                 Reader = new ReaderId((objects.ConfiguredReader ?? objects.Instance.Value) + "-ship-" + digest),
                 Holder = objects.Instance,
                 Staging = new CacheDirectory(staging),
                 Clock = _owner._clock,
             };
+        }
+        // A promoted copy shipped onward (ADR 0185 decisions 2 and 8): its commits up to each promotion in its
+        // lineage record management positions of an earlier fleet, so each of those fleets' system datasets, as
+        // this store holds it under fleets/{fleet id}/, goes to the target before the commits do.
+        private async ValueTask ForwardEarlierFleetsAsync(CancellationToken cancellationToken)
+        {
+            if (!_descentRead)
+            {
+                LineageRecord? lineage = await _owner._objects!.LineageAsync(_dataset, cancellationToken).ConfigureAwait(false);
+                DatasetId own = _owner._system().Id;
+                _descent = lineage is { Understood: true }
+                    ? [.. lineage.ChainForACopy().Select(link => link.Source.Fleet).OfType<DatasetId>().Where(fleet => fleet != own).Distinct()]
+                    : [];
+                _descentRead = true;
+            }
+
+            foreach (DatasetId earlier in _descent)
+            {
+                await _owner.ForwardedFleetOf(Target.Store, earlier).ShipAsync(cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 

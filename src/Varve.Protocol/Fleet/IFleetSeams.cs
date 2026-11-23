@@ -120,6 +120,17 @@ public interface IManagementPlane
     /// </summary>
     IReadOnlyList<UntestedTarget> UntestedTargets(Declarations proposed) => [];
 
+    /// <summary>
+    /// The first dataset <paramref name="proposed"/> declares a copy
+    /// (<c>varve:copyOf</c>) that this instance can see is written in this
+    /// fleet with no lineage naming that source (ADR 0185 decision 10), or
+    /// null. The apply is refused for it before anything is committed. Where
+    /// the instance cannot see it, the store unread or the dataset another
+    /// instance's, the answer is null and readiness reports the
+    /// contradiction once the declaration is applied. None by default.
+    /// </summary>
+    ValueTask<CopyRefusal?> CheckCopiesAsync(Declarations proposed, CancellationToken cancellationToken) => default;
+
     /// <summary>A shapes binding of <paramref name="dataset"/> at the applied position, with its classification where this instance holds the dataset; null when there is no such binding. None by default.</summary>
     BindingDescription? DescribeBinding(DatasetName dataset, RdfTerm binding) => null;
 

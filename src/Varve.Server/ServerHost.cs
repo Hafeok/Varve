@@ -717,7 +717,8 @@ internal static partial class ServerHost
                 cache,
                 open && dataset!.StorageFull,
                 datasets.DegradedOf(entry.Name),
-                datasets.AwaitsShipping(entry.Name)));
+                datasets.AwaitsShipping(entry.Name),
+                datasets.CopyContradictionOf(entry.Name)));
         }
 
         ManagementStatus management = fleet.Status;
@@ -890,6 +891,15 @@ internal static partial class ServerHost
                     {
                         json.WriteString("reason", awaits);
                     }
+
+                    // Declared a copy while it is written here (ADR 0185 decision 10): the writer keeps writing, and
+                    // the instance stays ready. The declaration is what is wrong.
+                    if (state.CopyContradiction is { } contradiction)
+                    {
+                        json.WriteString("declaration", "copy-declared-on-a-written-dataset");
+                        json.WriteString("reason", contradiction);
+                    }
+
                     Moving(json, state.Name);
 
                     if (state.Position is long position)
