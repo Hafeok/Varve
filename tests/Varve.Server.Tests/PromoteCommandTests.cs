@@ -39,7 +39,30 @@ public sealed class PromoteCommandTests
         Assert.Equal("https://varve-2.example/manage/datasets/orders/state", handler.Address);
         Assert.Equal("Bearer a-token", handler.Authorization);
         Assert.Equal("""{"promote":{"source":"https://acct.blob.core.windows.net/primary","position":120}}""", handler.Body);
-        Assert.Contains("orders: promoted at epoch 4. It is written from position 120 on", output.ToString(), StringComparison.Ordinal);
+        Assert.Contains("orders: promoted at epoch 4. The promotion finished at position 120. It is written from there on", output.ToString(), StringComparison.Ordinal);
+        Assert.Equal(string.Empty, error.ToString());
+    }
+
+    /// <summary>
+    /// ADR 0185 decision 4: a promotion that finished above the position
+    /// named says so. A shipper mid-round created chunks before the fence.
+    /// </summary>
+    [Fact]
+    public async Task promote_says_where_the_promotion_finished_when_that_is_above_the_position_named()
+    {
+        Answering handler = new(HttpStatusCode.OK, """{"epoch":4,"position":123,"asked":120,"keptAboveAsked":3}""");
+        using HttpClient http = new(handler);
+        using StringWriter output = new();
+        using StringWriter error = new();
+
+        bool promoted = await Promote.AskAsync(http, null, "https://varve-2.example", "orders", "s3://primary", 120, new Io(output, error, Stream.Null), Ct);
+
+        Assert.True(promoted);
+        Assert.Contains(
+            "orders: promoted at epoch 4. The promotion finished at position 123, 3 above the 120 you named: a shipper created those commits on the copy before the fence. "
+            + "The source acknowledged them, and the copy keeps them. It is written from there on",
+            output.ToString(),
+            StringComparison.Ordinal);
         Assert.Equal(string.Empty, error.ToString());
     }
 

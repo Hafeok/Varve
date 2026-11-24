@@ -949,7 +949,16 @@ internal static class ManagementEndpoints
             await WriteJsonAsync(context, StatusCodes.Status200OK, json =>
             {
                 json.WriteNumber("epoch", answer.Epoch.Value);
+
+                // Where the promotion finished, and what was asked. A shipper mid-round may have created chunks
+                // before the fence, and the copy keeps them: the answer says so when that happened (ADR 0185 decision 4).
                 json.WriteNumber("position", answer.Position.Value);
+                json.WriteNumber("asked", ask.Position.Value);
+
+                if (answer.Position.Value > ask.Position.Value)
+                {
+                    json.WriteNumber("keptAboveAsked", answer.Position.Value - ask.Position.Value);
+                }
             }).ConfigureAwait(false);
             return;
         }

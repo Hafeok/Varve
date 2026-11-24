@@ -156,6 +156,17 @@ stops for that target and changes nothing.
        once as the `.seg`. That is every segment of a target that is being
        seeded or has fallen a segment behind, and none of one that keeps
        up.
+     - **Why the `.seg` is not created directly.** ADR 0185 decision 4
+       refuses a promotion whose fence is not at the end of the log, but
+       that check runs once, as the promotion's last write. A shipper that
+       had listed the target before the promotion could create the `.seg`
+       after it: the name is free, so nothing refuses the create. The
+       object would then hold commits of the source that were not on the
+       target before the fence, at positions the promoted writer has
+       written. Run with the composed chunk turned off, that is what
+       happens. So the chunk stays, and the cost with it. Removing the
+       second upload needs another way to take the slot, and is #403,
+       after 1.0.
 
    **What a target holds of one segment** is therefore one of three
    things, each of which the source itself held at some moment, and each of

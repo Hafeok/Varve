@@ -153,6 +153,19 @@ takeover is (ADR 0179).
     store is #396.
   - **A commit of the old source that was not on the target before the
     fence is in no copy.** Decision 9 says what a client's key does then.
+- **The answer states where the promotion finished.** It is `200` with
+  `epoch`, `position` and `asked`:
+  - `position` is the position step 4 recorded, where the copy is written
+    on from;
+  - `asked` is the position the request named;
+  - `keptAboveAsked` is present when `position` is above `asked`, and is
+    the number of commits between them: those a shipper created before the
+    fence. It is absent otherwise.
+
+  `varve promote` prints the position the promotion finished at, and when
+  it is above the one named it says by how many, and that the source
+  acknowledged those commits and the copy keeps them. `--embedded` prints
+  the same.
 - **A second promote request** is answered from the lineage:
   - a finished promotion answers `not-a-replica`, whichever position the
     request names;

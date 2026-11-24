@@ -161,8 +161,8 @@ internal static class Promote
         if (outcome == PromotionOutcome.Promoted)
         {
             await io.Out.WriteLineAsync(
-                "promoted at epoch " + epoch.ToString(CultureInfo.InvariantCulture) + ", at position " + tail.Value.ToString(CultureInfo.InvariantCulture)
-                + ", and released for the writer that starts next, which claims one epoch more. It is a replica no longer.").ConfigureAwait(false);
+                "promoted at epoch " + epoch.ToString(CultureInfo.InvariantCulture) + ". The promotion finished at position " + tail.Value.ToString(CultureInfo.InvariantCulture) + Above(tail.Value, position)
+                + " It is released for the writer that starts next, which claims one epoch more. It is a replica no longer.").ConfigureAwait(false);
             return true;
         }
 
@@ -176,6 +176,13 @@ internal static class Promote
         }).ConfigureAwait(false);
         return false;
     }
+
+    // What follows the position a promotion finished at (ADR 0185 decision 4): a full stop, or that it is above
+    // the position asked for, and why.
+    private static string Above(long finished, long asked) => finished > asked
+        ? ", " + (finished - asked).ToString(CultureInfo.InvariantCulture) + " above the " + asked.ToString(CultureInfo.InvariantCulture)
+            + " you named: a shipper created those commits on the copy before the fence. The source acknowledged them, and the copy keeps them."
+        : ".";
 
     /// <summary>Sends the promotion request and writes its answer; whether the replica was promoted.</summary>
     internal static async Task<bool> AskAsync(HttpClient http, string? bearer, string server, string dataset, string source, long position, Io io, CancellationToken cancellationToken)
@@ -213,9 +220,11 @@ internal static class Promote
         if (response.IsSuccessStatusCode)
         {
             using JsonDocument promoted = JsonDocument.Parse(answer);
+            long finished = promoted.RootElement.GetProperty("position").GetInt64();
             await io.Out.WriteLineAsync(
                 dataset + ": promoted at epoch " + promoted.RootElement.GetProperty("epoch").GetInt64().ToString(CultureInfo.InvariantCulture)
-                + ". It is written from position " + promoted.RootElement.GetProperty("position").GetInt64().ToString(CultureInfo.InvariantCulture) + " on, by the instance at " + server + ".").ConfigureAwait(false);
+                + ". The promotion finished at position " + finished.ToString(CultureInfo.InvariantCulture) + Above(finished, position)
+                + " It is written from there on, by the instance at " + server + ".").ConfigureAwait(false);
             return true;
         }
 

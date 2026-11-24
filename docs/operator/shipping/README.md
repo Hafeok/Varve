@@ -34,6 +34,25 @@ member:
 |---|---|---|
 | `copy-declared-on-a-written-dataset` | the dataset is declared a copy while this instance writes it; the writer keeps writing | [copy-declared-on-a-written-dataset](copy-declared-on-a-written-dataset.md) |
 
+## What seeding a target costs
+
+A shipper uploads the bytes of a segment **twice** when the source had
+consolidated that segment before its end was shipped: once in a chunk that
+seals the segment on the target, and once as the segment's object. The
+chunk is deleted when the object exists, so nothing is stored twice.
+
+- **A new target pays this for every segment the source has consolidated.**
+  Expect a first copy to transfer about twice the size of the log.
+- **So does a target that has fallen more than a segment behind,** for the
+  segments it missed.
+- **A target that keeps up pays nothing.** Its segments arrive as chunks
+  and are consolidated on the target without a second upload.
+
+The first upload is what lets the store decide between a shipper and an
+operator who promotes the copy at the same moment (ADR 0184 decision 4).
+The cost has not been measured against a real store. Removing it is #403,
+after 1.0.
+
 ## The three that need no page
 
 - **`shipping`.** `shippedThrough` is the source position the target's log

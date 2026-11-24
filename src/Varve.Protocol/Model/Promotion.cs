@@ -45,5 +45,5 @@ public enum PromotionRefusal : byte
 /// <summary>A promotion's answer (ADR 0185 decision 4).</summary>
 /// <param name="Refusal">Why it was refused, or <see cref="PromotionRefusal.None"/>.</param>
 /// <param name="Epoch">The writer record's epoch after it.</param>
-/// <param name="Position">The copy's tail as this instance verified it: where it writes on from, or what did not match.</param>
+/// <param name="Position">For a promotion, the position it finished at: the copy's last position at the fence, which is above the one asked for when a shipper created chunks before the fence. For a refusal, the copy's tail as this instance verified it.</param>
 public readonly record struct PromotionAnswer(PromotionRefusal Refusal, TakeoverEpoch Epoch, Position Position);

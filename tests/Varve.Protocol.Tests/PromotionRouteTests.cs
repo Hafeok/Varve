@@ -45,6 +45,19 @@ public sealed class PromotionRouteTests
             {
                 Assert.Equal(4, body.RootElement.GetProperty("epoch").GetInt64());
                 Assert.Equal(120, body.RootElement.GetProperty("position").GetInt64());
+                Assert.Equal(120, body.RootElement.GetProperty("asked").GetInt64());
+                Assert.False(body.RootElement.TryGetProperty("keptAboveAsked", out _));
+            }
+
+            // Finished above the position named: a shipper created chunks before the fence. The answer says so.
+            plane.Answer = new PromotionAnswer(PromotionRefusal.None, new TakeoverEpoch(4), new Position(123));
+            HttpResponseMessage above = await host.Client.SendAsync(Promote("orders", """{"promote":{"source":"https://acct.blob.core.windows.net/primary","position":120}}"""), P.Ct);
+
+            using (JsonDocument body = JsonDocument.Parse(await above.Content.ReadAsStringAsync(P.Ct)))
+            {
+                Assert.Equal(123, body.RootElement.GetProperty("position").GetInt64());
+                Assert.Equal(120, body.RootElement.GetProperty("asked").GetInt64());
+                Assert.Equal(3, body.RootElement.GetProperty("keptAboveAsked").GetInt64());
             }
 
             Assert.Equal((new DatasetName("orders"), new PromotionAsk("https://acct.blob.core.windows.net/primary", new Position(120))), plane.Asked);
