@@ -1,11 +1,12 @@
 <!-- What the trimmer keeps of the lazy explorer (ADR 0252): its pages, which
-     the router finds by reflection once the assembly is loaded, and its
-     parts. The host names no type of it (VARVE0006), so without this the
-     trimmer would drop it whole. Not the whole assembly: that would keep the
-     decision ledger every assembly carries as generated types. -->
+     the router finds by reflection once the assembly is loaded. The host
+     names no type of it (VARVE0006), so without this the trimmer would drop
+     it whole. A part or a component is kept when a page names it, so one no
+     page uses yet stays out of the lazy set (#355, 2026-11-24). Not the
+     whole assembly: that would keep the decision ledger every assembly
+     carries as generated types. -->
 <linker>
   <assembly fullname="Varve.WebUi.Explorer">
     <namespace fullname="Varve.WebUi.Explorer.Pages" />
-    <namespace fullname="Varve.WebUi.Explorer.Parts" />
   </assembly>
 </linker>

@@ -113,9 +113,10 @@
     <BlazorWebAssemblyLazyLoad Include="Varve.Sparql.wasm" />
     <BlazorWebAssemblyLazyLoad Include="Varve.Sparql.Results.wasm" />
     <!-- The host names no type of the explorer (VARVE0006), so the trimmer
-         would drop it whole: ExplorerRoots.xml keeps its pages and parts,
-         which the router finds once it is loaded, and what they use of
-         Varve.Sparql is trimmed from there. -->
+         would drop it whole: ExplorerRoots.xml keeps its pages, which the
+         router finds once it is loaded; the parts and components they name
+         are kept through them, and what they use of Varve.Sparql is trimmed
+         from there. -->
     <TrimmerRootDescriptor Include="ExplorerRoots.xml" />
   </ItemGroup>
 

@@ -1,11 +1,17 @@
 format: 2
 version: v0.1.0-preview.23
 title: Web UI, part 2 (a) — the data explorer's Query screen
-date: 2026-11-20
+date: 2026-11-24
 basis:
   - issue: 355
   - storage-format: 1
   - delta-format: 1
+  - adr: "0183"
+  - adr: "0195"
+  - adr: "0196"
+  - adr: "0197"
+  - adr: "0198"
+  - adr: "0199"
   - adr: "0248"
   - adr: "0250"
   - adr: "0251"
@@ -59,7 +65,7 @@ summary: |
       route, with `Varve.Sparql` and `Varve.Sparql.Results`;
     - the host `Varve.WebUi` is at layer 8.
   - **The size gate's two rows** (ADR 0205, amended): the first screen at
-    1,903.0 kB against 1,920.0 kB, and the explorer's lazy set at 98.9 kB
+    1,905.1 kB against 1,920.0 kB, and the explorer's lazy set at 96.4 kB
     against 100.0 kB.
   - **The graph view** (ADR 0251): a deterministic radial layout in SVG,
     with a node budget of 50 from its spike, and what a regime added marked
@@ -68,9 +74,20 @@ summary: |
   - **Every procedure in the operator's guide names what runs it**
     (ADR 0248, from #129), first shipped here.
 
+  #### Also first shipped here, from `main`
+
+  - **Inference, part 2** (#341; ADRs 0195 to 0199): materialised closures
+    under a byte budget, the explicit and implicit views with the reserved
+    graphs of the closure, OWL 2 RL and RDFS as rules, retraction decided
+    by measurement, and explain.
+  - **Object store verification** (#322; ADR 0183): `varve storage verify`,
+    its result records, and a generated compatibility page.
+  - **A follower opens at the last whole record and never appends** (#393).
+
   #### Not yet
 
   - **A design-side form row** for the Query screen's controls (#383), and
     a results-table case for a triple term (#377).
   - **The decision ledger in the host's first screen** (#375).
   - **The graph view's budget**, re-measured on the perf environment (#376).
+accepted-by: mailto:emil@okkels-klein.dk
