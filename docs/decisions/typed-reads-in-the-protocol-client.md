@@ -53,8 +53,12 @@ decisions:
     accepted-at: 2026-10-30T00:00:00Z
   - key: StreamedAnswer
     statement: "StartQueryAsync answers a QueryAnswer whose head is read at once and whose solutions or statements arrive in batches; a problem before the body is the result's problem, and disposing the answer closes the response"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-24T00:00:00Z
   - key: ExplorerReads
     statement: "The client reads an ASK's answer, a download copied as it arrives, the diff between two selectors and the service description's graphs, regimes, as-of limit and report graphs, every value on the surface named"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-24T00:00:00Z
 ---
 
 The rulings of [ADR 0203](../adr/0203-typed-reads-in-the-protocol-client.md), one line each. Filed

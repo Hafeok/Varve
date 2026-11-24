@@ -45,8 +45,12 @@ decisions:
     accepted-at: 2026-10-28T00:00:00Z
   - key: LevelsAcrossThreeAssemblies
     statement: "The levels are the namespaces Varve.WebUi.<Level>, Varve.WebUi.Components.<Level> and Varve.WebUi.Explorer.<Level>, one dependency rule across the three assemblies, which VARVE0006 also holds apart"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-24T00:00:00Z
   - key: DomainChoicesArePartsOverGenericComponents
     statement: "A control that knows the domain, such as the regimes a description lists, the as-of selector or the download formats, is a part composed of generic atoms and molecules; the generic components carry the cases, and the part's behaviour is a bUnit test on the part"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-24T00:00:00Z
 ---
 
 The rulings of [ADR 0206](../adr/0206-the-web-ui-design-source.md),

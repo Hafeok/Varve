@@ -163,8 +163,7 @@ The ruling is `BrowserApplicationHost`.
 
 ## Amendment, 2026-11-19 — host layers 6 to 8, and a host's private assemblies
 
-Filed by the session for Web UI part 2 (#355, under #96), unaccepted until
-the maintainer accepts it (ADR 0066), with [ADR 0252](0252-the-web-uis-private-assemblies.md).
+Filed by the session for Web UI part 2 (#355, under #96), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24, with [ADR 0252](0252-the-web-uis-private-assemblies.md).
 
 1. **The host layers are 6 and up, and a layer is 0 to 8.** A host that has
    private assemblies stacks them below itself, each at its own layer, so

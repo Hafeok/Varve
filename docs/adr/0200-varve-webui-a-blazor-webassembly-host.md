@@ -205,8 +205,7 @@ holds it from growing unseen.
 
 ## Amendment, 2026-11-19 — the host at layer 8, with two private assemblies
 
-Filed by the session for Web UI part 2 (#355, under #96), unaccepted until
-the maintainer accepts it (ADR 0066), with [ADR 0252](0252-the-web-uis-private-assemblies.md).
+Filed by the session for Web UI part 2 (#355, under #96), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24, with [ADR 0252](0252-the-web-uis-private-assemblies.md).
 
 The Web UI is three assemblies: the host `Varve.WebUi` at layer 8, the lazy
 `Varve.WebUi.Explorer` at 7 and the eager `Varve.WebUi.Components` at 6. The

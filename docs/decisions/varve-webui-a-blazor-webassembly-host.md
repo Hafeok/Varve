@@ -37,6 +37,8 @@ decisions:
     accepted-at: 2026-10-28T00:00:00Z
   - key: HostAboveItsPrivateAssemblies
     statement: "The Web UI's host Varve.WebUi is at layer 8, above its private assemblies Varve.WebUi.Explorer at 7 and Varve.WebUi.Components at 6, and Blazor is scoped to the three and their tests"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-24T00:00:00Z
 ---
 
 The rulings of [ADR 0200](../adr/0200-varve-webui-a-blazor-webassembly-host.md), one line each.

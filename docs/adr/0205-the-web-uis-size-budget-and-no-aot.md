@@ -91,8 +91,7 @@ adding more without anyone deciding to.
 
 ## Amendment, 2026-11-19 — two rows: the first screen, and the explorer's lazy set
 
-Filed by the session for Web UI part 2 (#355, under #96), unaccepted until
-the maintainer accepts it (ADR 0066). Decided by the maintainer's ruling 5 of
+Filed by the session for Web UI part 2 (#355, under #96), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24. Decided by the maintainer's ruling 5 of
 2026-11-02 and D1 of 2026-11-18: the explorer's assemblies are lazy-loaded,
 the console's first screen keeps this ADR's budget, and the explorer gets its
 own stated budget, with both numbers measured.

@@ -143,8 +143,7 @@ it.
 
 ## Amendment, 2026-11-20 — a read the client ended
 
-Filed by the session for Web UI part 2 (#355, under #96), unaccepted until
-the maintainer accepts it (ADR 0066). Decided by the maintainer as D6 on the
+Filed by the session for Web UI part 2 (#355, under #96), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24. Decided by the maintainer as D6 on the
 part 2 plan, 2026-11-18.
 
 **The gap.** The explorer cancels a query mid-stream: Cancel, leaving the
@@ -170,6 +169,5 @@ finished.
   trailer it was (ADR 0095).
 
 **The ledger.** The rulings of this ADR stand. The ruling of this block is
-`AReadTheClientEndedIsTaggedAndLogged`, unaccepted until the maintainer
-accepts it. `Varve.Protocol`'s tests hold it.
+`AReadTheClientEndedIsTaggedAndLogged`, filed unaccepted and accepted by the maintainer on 2026-11-24. `Varve.Protocol`'s tests hold it.
 

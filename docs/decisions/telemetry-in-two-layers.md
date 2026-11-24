@@ -33,6 +33,8 @@ decisions:
     accepted-at: 2026-10-15T00:00:00Z
   - key: AReadTheClientEndedIsTaggedAndLogged
     statement: "A read the client ends before the server finished it carries varve.request.aborted = true on its span and writes one information line with the method, the path and the request id; nothing else about the request changes"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-24T00:00:00Z
 ---
 
 The rulings of [ADR 0112](../adr/0112-telemetry-in-two-layers.md), filed unaccepted by milestone Operability of #12
