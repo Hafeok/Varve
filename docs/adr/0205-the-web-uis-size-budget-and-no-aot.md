@@ -161,6 +161,21 @@ own stated budget, with both numbers measured.
    on no page, so the trimmer drops them from either row. The first screen
    drops 4.8 kB, and is 17.1 kB under its budget.
 
+6. **The explorer's parts kept through its pages** (2026-11-24, the size
+   review on #355). The descriptor `ExplorerRoots.xml` now keeps only the
+   explorer's pages, which the router finds by reflection. A part or a
+   component is kept through the pages that use it, so one no page uses
+   stays out of the lazy set. The descriptor of point 3 kept the pages and
+   the parts whole. `RegimeComparison`, which no page uses yet, left the
+   lazy set. Measured from a clean publish at the accepted rulings:
+
+   | Row | Parts rooted whole | Parts kept through the pages | Budget |
+   |---|---|---|---|
+   | `webui`, the first screen | 1,905,119 B | **1,905,076 B** | 1,920.0 kB (unchanged) |
+   | `webui-explorer` | 98,783 B | **96,385 B** (`Varve.Sparql` 45,380, `Varve.WebUi.Explorer` 31,665, `Varve.Sparql.Results` 19,340) | 100.0 kB (unchanged) |
+
+   The first screen's 43 bytes are the boot manifest's file names.
+
 Both failure paths were run, before the split: the set naming
 `Varve.Sparql.Results`, which is not lazy, fails with the difference; a
 40,000-byte budget fails 5.4 kB over. After the split, the first measurement's
