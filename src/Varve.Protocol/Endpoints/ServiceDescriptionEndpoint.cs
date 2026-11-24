@@ -5,6 +5,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -37,7 +38,7 @@ internal static class ServiceDescriptionEndpoint
     private const string Rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
     private const string Rdfs = "http://www.w3.org/2000/01/rdf-schema#";
 
-    private static readonly Query NamedGraphs = SparqlParser.ParseQuery("SELECT DISTINCT ?g WHERE { GRAPH ?g { } }".AsSpan());
+    internal static readonly Query NamedGraphs = SparqlParser.ParseQuery("SELECT DISTINCT ?g WHERE { GRAPH ?g { } }".AsSpan());
 
     /// <summary><c>GET /</c> and <c>HEAD /</c>.</summary>
     internal static async Task HandleAsync(HttpContext context, ProtocolOptions options)
@@ -118,6 +119,8 @@ internal static class ServiceDescriptionEndpoint
             }
 
             RdfTerm dataset = RdfTerm.BlankNode("dataset"u8);
+            IReadOnlyList<IInferenceClosure> closures = exchange.Options.InferenceClosures?.Of(exchange.Name) ?? [];
+            Owl2Rl(written, RdfTerm.BlankNode("default"u8), null, closures);
             int index = 0;
             using QueryResults graphs = evaluator.Evaluate(NamedGraphs, source, cancellationToken);
             SolutionResults solutions = (SolutionResults)graphs;
@@ -140,6 +143,9 @@ internal static class ServiceDescriptionEndpoint
                             written.Write(graph, Iri(Sd + "entailmentRegime"), EntailmentRegimes.Iri(regime));
                         }
                     }
+
+                    // A graph an OWL2RL binding covers: what it is answered under, never wider (ADR 0197, the ruling of 2026-11-19).
+                    Owl2Rl(written, graph, name!, closures);
 
                     // A catalogue graph the caller reads is linked as one (ADR 0144).
                     if (EventCatalogue.TryGetSourceGraph(name!, out _))
@@ -175,6 +181,42 @@ internal static class ServiceDescriptionEndpoint
     {
         int at = prefix.LastIndexOf("/datasets/", StringComparison.Ordinal);
         return at >= 0 ? prefix[..at] + "/manage" + prefix[at..] : prefix + "manage/datasets/" + Model.DatasetName.Default.Value + "/";
+    }
+
+    /// <summary>
+    /// The profile Varve names for OWL 2 RL/RDF without the equality rules
+    /// (ADR 0197, the ruling of 2026-11-19): every rule of OWL 2 Profiles
+    /// §4.3 but <c>eq-ref</c>, <c>eq-sym</c>, <c>eq-trans</c> and
+    /// <c>eq-rep-s</c>/<c>-p</c>/<c>-o</c>, which a binding with
+    /// <c>varve:sameAs varve:SameAsOff</c> does not apply.
+    /// </summary>
+    internal const string Owl2RlWithoutEquality = Varve + "OWL2RLWithoutEquality";
+
+    /// <summary>
+    /// What <paramref name="description"/>, the graph <paramref name="name"/>
+    /// or the default graph when null, is answered under <c>owl2-rl</c>, when
+    /// an OWL2RL binding covers it: <c>sd:entailmentRegime
+    /// ent:OWL-RDF-Based</c>, whose answers its closure's are sound for;
+    /// <c>sd:supportedEntailmentProfile varve:OWL2RLWithoutEquality</c>, the
+    /// rules it applies; and the binding's <c>varve:sameAs</c>. Never
+    /// <c>pr:RL</c>: that is claimed only where the equality rules are in
+    /// effect, which no binding of this part has (ADR 0197 point 4).
+    /// </summary>
+    private static void Owl2Rl(GraphOutput written, RdfTerm description, RdfTerm? name, IReadOnlyList<IInferenceClosure> closures)
+    {
+        foreach (IInferenceClosure closure in closures)
+        {
+            if (closure.Profile != global::Varve.Inference.Model.InferenceProfile.Owl2Rl
+                || (name is null ? !closure.DataGraphs.IncludesDefault : !closure.DataGraphs.Allows(name) || closure.TBoxGraphs.Contains(name)))
+            {
+                continue;
+            }
+
+            written.Write(description, Iri(Sd + "entailmentRegime"), Iri("http://www.w3.org/ns/entailment/OWL-RDF-Based"));
+            written.Write(description, Iri(Sd + "supportedEntailmentProfile"), Iri(Owl2RlWithoutEquality));
+            written.Write(description, Iri(Varve + "sameAs"), Iri(Varve + "SameAsOff"));
+            return;
+        }
     }
 
     private static bool Covered(EntailmentBindings bindings, RdfTerm graph)

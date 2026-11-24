@@ -57,6 +57,13 @@
           "Varve.Xsd": "[1.0.0, )"
         }
       },
+      "varve.inference": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Derivation": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )"
+        }
+      },
       "varve.iri": {
         "type": "Project"
       },

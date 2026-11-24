@@ -1,0 +1,26 @@
+---
+set: explain
+namespace: varve
+adr: 0199
+decisions:
+  - key: ExplainRoute
+    statement: "GET /datasets/{name}/explain?quad= answers a quad's status at the read's position, explicit, implicit with a proof, or absent, as JSON"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
+  - key: WellFoundedProof
+    statement: "An implicit quad's proof names its rule and its premises, each explicit with its graph or implicit with a proof that never uses a quad on its path, found by backward search under the read's work limit"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
+  - key: ExplainUnderGrants
+    statement: "Explain answers only for a quad the caller sees, so every premise is in a graph it reads or a TBox or rules graph, and an unseen quad is absent"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
+  - key: ExplainNamesTheClash
+    statement: "An explain whose quad or any premise of its proof is in a graph with a clash the caller may see carries inconsistent and clashes, each the check that fired and a proof of each premise it matched"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-20T00:00:00Z
+---
+
+The rulings of [ADR 0199](../adr/0199-explain.md), one line each. The ADR is the
+narrative; this is what code cites. Filed unaccepted by Inference, part 2 (#171) (ADR 0066), and accepted by the
+maintainer on 2026-11-20, written by his delegate (ADR 0239).

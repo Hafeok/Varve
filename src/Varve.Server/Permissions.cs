@@ -42,6 +42,8 @@ internal sealed class FleetHandle
     internal Fleet? Fleet { get; set; }
 
     internal GrantTable Table => Fleet?.Table ?? throw new InvalidOperationException("The fleet has not started.");
+
+    internal InferenceProjections Inference => Fleet?.Inference ?? throw new InvalidOperationException("The fleet has not started.");
 }
 
 /// <summary>
@@ -94,9 +96,17 @@ internal sealed class ManagedScopes(FleetHandle fleet, AuthSettings settings, IH
     {
         CallerScope scope = fleet.Table.ScopesOf(Callers.Of(caller, settings, accessor.HttpContext), dataset.Value);
 
-        return scope.IsAdmin
-            ? scope
-            : new CallerScope(scope.Readable.WithGovernor(EventCatalogue.TryGetSourceGraph), scope.Writable.WithGovernor(EventCatalogue.TryGetSourceGraph), AdminAccess.None);
+        if (scope.IsAdmin)
+        {
+            return scope;
+        }
+
+        // An event catalogue graph is governed by its source graph; a premise-set graph by every graph of its set (ADR 0190 point 6).
+        GraphGovernors premiseSets = (RdfTerm graph, out IReadOnlyList<RdfTerm?>? governors) => fleet.Inference.TryGetPremiseSet(dataset, graph, out governors);
+        return new CallerScope(
+            scope.Readable.WithGovernor(EventCatalogue.TryGetSourceGraph).WithGovernors(premiseSets),
+            scope.Writable.WithGovernor(EventCatalogue.TryGetSourceGraph).WithGovernors(premiseSets),
+            AdminAccess.None);
     }
 }
 

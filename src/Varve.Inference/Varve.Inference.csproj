@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Layer 4 (ADR 0191): the rule engine over store handles, the RDFS and
+         OWL 2 RL/RDF profiles as rules, and retraction (ADRs 0196, 0197).
+         Usable over any IQuadSource; the projection is Varve.Inference.Store,
+         one layer up. -->
+    <ArchLayer>4</ArchLayer>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Description>The closure of an RDF graph under the RDFS and OWL 2 RL/RDF rules, over the handles of any IQuadSource, maintained incrementally under insertion and retraction.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Rdf/Varve.Rdf.csproj" />
+    <ProjectReference Include="../Varve.Derivation/Varve.Derivation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Varve.Inference.Tests" />
+    <InternalsVisibleTo Include="Varve.Benchmarks" />
+  </ItemGroup>
+
+</Project>

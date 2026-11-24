@@ -26,6 +26,51 @@ internal static class EntailmentHeader
     /// <summary>The tokens this server serves, in the table's order.</summary>
     internal static readonly ImmutableArray<string> Supported = ["simple", "rdf", "rdfs", "d"];
 
+    /// <summary>
+    /// <c>Varve-Equality: not-applied</c>: an answer under <c>owl2-rl</c> by
+    /// a binding with <c>varve:sameAs varve:SameAsOff</c>, which applies no
+    /// equality rule (ADR 0197, the ruling of 2026-11-19). Every OWL2RL
+    /// binding of this part is one.
+    /// </summary>
+    internal const string EqualityName = "Varve-Equality";
+
+    /// <summary>The value of <see cref="EqualityName"/>: the eq-* rules were not applied.</summary>
+    internal const string EqualityNotApplied = "not-applied";
+
+    /// <summary>
+    /// <c>Varve-Closure: per-graph</c>: an answer under <c>owl2-rl</c> whose
+    /// default graph merges two or more graphs, answered by the union of
+    /// each graph's closure, not the closure of their merge (ADR 0197, the
+    /// ruling of 2026-11-19).
+    /// </summary>
+    internal const string ClosureName = "Varve-Closure";
+
+    /// <summary>The value of <see cref="ClosureName"/>: each graph's closure, merged.</summary>
+    internal const string ClosurePerGraph = "per-graph";
+
+    /// <summary>
+    /// <c>Varve-Without-Closure</c>: an answer under <c>owl2-rl</c>, or over a
+    /// view, whose <c>GRAPH ?g</c> could read named graphs no binding gives a
+    /// closure, read with their explicit quads only; the value names them,
+    /// twenty at most, then how many more (ADR 0197 point 6).
+    /// </summary>
+    internal const string WithoutClosureName = "Varve-Without-Closure";
+
+    /// <summary>The token of the OWL 2 RL regime, which a closure answers (ADR 0197 point 6).</summary>
+    internal const string Owl2RlToken = "owl2-rl";
+
+    /// <summary>Whether a header names the OWL 2 RL regime: <c>owl2-rl</c>, or <c>ent:OWL-RDF-Based</c> in angle brackets.</summary>
+    internal static bool IsOwl2Rl(StringValues header)
+    {
+        if (header.Count != 1 || header[0] is not { } value)
+        {
+            return false;
+        }
+
+        value = value.Trim();
+        return value == Owl2RlToken || value == "<http://www.w3.org/ns/entailment/OWL-RDF-Based>";
+    }
+
     /// <summary>The regime a header names; false for anything else, more than one value among it.</summary>
     internal static bool TryRead(StringValues header, out EntailmentRegime regime)
     {

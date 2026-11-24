@@ -20,6 +20,8 @@
     <Project Path="src/Varve.Server/Varve.Server.csproj" />
     <Project Path="src/Varve.Shacl/Varve.Shacl.csproj" />
     <Project Path="src/Varve.Sparql.Entailment/Varve.Sparql.Entailment.csproj" />
+    <Project Path="src/Varve.Inference/Varve.Inference.csproj" />
+    <Project Path="src/Varve.Inference.Store/Varve.Inference.Store.csproj" />
     <Project Path="src/Varve.Shacl.Sparql/Varve.Shacl.Sparql.csproj" />
     <Project Path="src/Varve.Shacl.Store/Varve.Shacl.Store.csproj" />
     <Project Path="src/Varve.Classification/Varve.Classification.csproj" />
@@ -58,6 +60,8 @@
     <Project Path="tests/Varve.Classification.Tests/Varve.Classification.Tests.csproj" />
     <Project Path="tests/Varve.Shacl.Tests/Varve.Shacl.Tests.csproj" />
     <Project Path="tests/Varve.Sparql.Entailment.Tests/Varve.Sparql.Entailment.Tests.csproj" />
+    <Project Path="tests/Varve.Inference.Tests/Varve.Inference.Tests.csproj" />
+    <Project Path="tests/Varve.Inference.Store.Tests/Varve.Inference.Store.Tests.csproj" />
     <Project Path="tests/Varve.Sparql.Tests/Varve.Sparql.Tests.csproj" />
     <Project Path="tests/Varve.Store.Tests/Varve.Store.Tests.csproj" />
     <Project Path="tests/Varve.Learn.Tests/Varve.Learn.Tests.csproj" />
