@@ -172,8 +172,7 @@ and the projection catalog move into the store (ADR 0139).
 
 ## Amendment, 2026-11-18 — a shipping target's consolidation is done by its shipper
 
-Filed by Replication part 2 (#166) with ADR 0184, unaccepted until the
-maintainer accepts it (ADR 0066).
+Filed by Replication part 2 (#166) with ADR 0184, unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 Decision 4 has the writer consolidate a sealed segment and delete its
 chunks. A replica has no writer. On a shipping target:

@@ -531,8 +531,7 @@ The issue offered two places. Readiness is chosen.
 
 ## Amendment, 2026-11-20 — a replica is followed, and a promotion is answered
 
-Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted until the
-maintainer accepts it (ADR 0066).
+Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 - **A member placed on a replica follows it.** It reads the lineage before
   it decides, and the start rule does not run while the lineage says

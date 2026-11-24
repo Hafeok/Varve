@@ -220,8 +220,7 @@ around it, and the rule itself does not:
 
 ## Amendment, 2026-11-20 — a follower of a replica
 
-Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted until the
-maintainer accepts it (ADR 0066).
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 - **A replica is followed as any dataset is.** Its log, its sets and its
   catalog are the source's objects, byte for byte, so a follower opens it

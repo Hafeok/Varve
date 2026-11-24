@@ -293,7 +293,7 @@ Each has its page in `docs/problems/` when it is catalogued.
 
 Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md)
 and [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md),
-unaccepted until the maintainer accepts it (ADR 0066).
+unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 **One problem type joins the catalogue,** with its page:
 

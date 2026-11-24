@@ -308,7 +308,7 @@ and apply that plan. Format 1, as v0.1.0-preview.10 wrote it, is the fixture
 ## Amendment, 2026-11-20 — a shipping target's terms
 
 Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md),
-unaccepted until the maintainer accepts it (ADR 0066).
+unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 A dataset's graph may say where the dataset is shipped. The terms:
 

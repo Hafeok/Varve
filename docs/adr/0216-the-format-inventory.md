@@ -215,8 +215,7 @@ Records decision `ProofIsReserved`.
 
 ## Amendment, 2026-11-20 — the lineage record
 
-Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted until the
-maintainer accepts it (ADR 0066).
+Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 The lineage record `lineage` joins the inventory at format 1 (storage
 format §8.3): coordination, read conservatively (ADR 0217). Its fixture is

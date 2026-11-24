@@ -300,8 +300,7 @@ a release reason it does not know, under a format it does read, is held as
 
 ## Amendment, 2026-11-18 — a replica is never claimed
 
-Filed by Replication part 2 (#166) with ADR 0185, unaccepted until the
-maintainer accepts it (ADR 0066).
+Filed by Replication part 2 (#166) with ADR 0185, unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 Decision 2 has every open for write claim the next epoch. One case is now
 refused before the claim:
@@ -324,8 +323,7 @@ claims, are in the amendment of 2026-11-20 below.
 
 ## Amendment, 2026-11-20 — the trigger and the release reason `promotion`
 
-Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted until the
-maintainer accepts it (ADR 0066).
+Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 - **A promotion claims with the trigger `promotion`,** at one above the
   highest of the writer record's epoch, the highest epoch in any chunk the

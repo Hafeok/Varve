@@ -102,8 +102,7 @@ superseded.
 
 ## Amendment, 2026-11-20 — readiness reports shipping
 
-Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted until the
-maintainer accepts it (ADR 0066).
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 A dataset this instance ships has a `shipping` member on `/health/ready`:
 one member per declared target, with `state`, `shippedThrough`, `lag`,

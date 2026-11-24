@@ -204,8 +204,7 @@ accepted by the maintainer on 2026-11-18.
 
 ## Amendment, 2026-11-20 — a write to a replica
 
-Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted until the
-maintainer accepts it (ADR 0066).
+Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 A replica has no writer to forward to. A write sent to one is answered
 `409 dataset-is-replica` and not `503`: nothing claims a replica by

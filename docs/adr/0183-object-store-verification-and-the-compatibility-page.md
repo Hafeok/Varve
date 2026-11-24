@@ -217,7 +217,7 @@ counterexample against both broken stores.
 ## Amendment, 2026-11-20 — the page is a notice, and the record is the gate
 
 Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md),
-unaccepted until the maintainer accepts it (ADR 0066).
+unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 Decision 3 says replication needs a verification record at a shipping
 target. Decision 6 says the compatibility page lists what the project has

@@ -511,8 +511,7 @@ sides' medians, 20,000 resamples of the pairs.
 
 ## Amendment, 2026-11-20 — a shipper copies a set as it is
 
-Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted until the
-maintainer accepts it (ADR 0066).
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 - **A set is copied as bytes, and never rewritten on a target.** A rewrite
   for an older reader, and a repair, are the source writer's. Their result

@@ -371,8 +371,7 @@ in [ADR 0178](0178-the-format-5-upgrade-and-the-set-cap.md).
 
 ## Amendment, 2026-11-20 — a shipper is a reader of the source, and deletes on its target
 
-Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted until the
-maintainer accepts it (ADR 0066).
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
 
 - **A shipper announces on the source** as any reader does: one record per
   target, `readers/<reader>-ship-<digest>`, by announce then confirm. Its
