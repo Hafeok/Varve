@@ -145,6 +145,15 @@ public static class ManagementVocabulary
     internal static readonly RdfTerm Moved = Term("Moved");
     internal static readonly RdfTerm CallerAgent = Term("CallerAgent");
     internal static readonly RdfTerm Rewriting = Term("Rewriting");
+    internal static readonly RdfTerm Rdfs = Term("RDFS");
+    internal static readonly RdfTerm Owl2Rl = Term("OWL2RL");
+    internal static readonly RdfTerm CrossGraph = Term("crossGraph");
+    internal static readonly RdfTerm SameAs = Term("sameAs");
+    internal static readonly RdfTerm SameAsOff = Term("SameAsOff");
+    internal static readonly RdfTerm SameAsClasses = Term("SameAsClasses");
+
+    /// <summary><c>ent:OWL-RDF-Based</c>: a default regime only an <c>OWL2RL</c> binding may state (ADR 0194, amended 2026-11-06).</summary>
+    internal static readonly RdfTerm OwlRdfBased = RdfTerm.Iri(Encoding.UTF8.GetBytes(EntailmentNamespace + "OWL-RDF-Based"));
 
     // Outside varve:.
     internal static readonly RdfTerm Type = RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"u8);
@@ -188,7 +197,7 @@ public static class ManagementVocabulary
         "eventDeclarations", "InDataset", "Moving", "Moved",
         "ClassifierBinding", "SubjectTemplate", "SubjectLink", "subject", "subjectPrefix", "subjectTemplate", "subjectClass", "subjectLink",
         "linkPredicate", "linkTarget", "createUnder", "CallerAgent",
-        "profile", "defaultEntailment", "Rewriting",
+        "profile", "defaultEntailment", "Rewriting", "RDFS", "OWL2RL", "crossGraph", "sameAs", "SameAsOff",
         "ShippingTarget", "shipsTo", "store", "prefix", "provider", "shippedOn", "ShippingSource", "copyOf",
     }.ToFrozenSet(StringComparer.Ordinal);
 
@@ -199,13 +208,8 @@ public static class ManagementVocabulary
         ["KeyStoreBinding"] = "varve:KeyStoreBinding is reserved for erasure mode (#203)",
         ["erasureMode"] = "varve:erasureMode is reserved for erasure mode (#203)",
         ["privacy"] = "varve:privacy is reserved for erasure mode (#203)",
-        ["RDFS"] = "varve:RDFS is a materialising profile, reserved for the inference projection (#171); varve:Rewriting is the profile in effect",
-        ["OWL2RL"] = "varve:OWL2RL is a materialising profile, reserved for the inference projection (#171); varve:Rewriting is the profile in effect",
-        ["RulesOnly"] = "varve:RulesOnly is a materialising profile, reserved for the inference projection (#171); varve:Rewriting is the profile in effect",
-        ["rulesGraph"] = "varve:rulesGraph is reserved for the inference projection (#171)",
-        ["crossGraph"] = "varve:crossGraph is reserved for the inference projection (#171)",
-        ["sameAs"] = "varve:sameAs is reserved for owl:sameAs handling, in Inference's last part (#95)",
-        ["SameAsOff"] = "varve:SameAsOff is reserved for owl:sameAs handling, in Inference's last part (#95)",
+        ["RulesOnly"] = "varve:RulesOnly is reserved for custom rules, in Inference's last part (#95); varve:Rewriting, varve:RDFS and varve:OWL2RL are the profiles in effect",
+        ["rulesGraph"] = "varve:rulesGraph is reserved for custom rules, in Inference's last part (#95)",
         ["SameAsClasses"] = "varve:SameAsClasses is reserved for owl:sameAs handling, in Inference's last part (#95)",
         ["inconsistencyMode"] = "varve:inconsistencyMode is reserved for the tier-3 validator, in Inference's last part (#95)",
     }.ToFrozenDictionary(StringComparer.Ordinal);

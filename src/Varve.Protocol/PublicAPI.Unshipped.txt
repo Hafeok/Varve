@@ -518,6 +518,40 @@ Varve.Protocol.Model.TakeoverRefusal.EpochMoved = 4 -> Varve.Protocol.Model.Take
 static Varve.Protocol.Model.ProblemType.StorageFull.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.CommitOutcomeUnknown.get -> Varve.Protocol.Model.ProblemType
 static Varve.Protocol.Model.ProblemType.LoadSpillDamaged.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.IInferenceClosure
+Varve.Protocol.IInferenceClosure.Binding.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.IInferenceClosure.Clashes() -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>!
+Varve.Protocol.IInferenceClosure.DataGraphs.get -> Varve.Rdf.GraphScope!
+Varve.Protocol.IInferenceClosure.Profile.get -> Varve.Inference.Model.InferenceProfile
+Varve.Protocol.IInferenceClosure.RowsAt(Varve.Store.Log.Position position) -> Varve.Inference.Model.InferredRows!
+Varve.Protocol.IInferenceClosure.TBoxConclusions.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.IInferenceClosure.TBoxGraphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Protocol.IInferenceClosures
+Varve.Protocol.IInferenceClosures.Of(Varve.Protocol.Model.DatasetName dataset) -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.IInferenceClosure!>!
+Varve.Protocol.InferenceBehindException
+Varve.Protocol.InferenceBehindException.Binding.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.InferenceBehindException.InferenceBehindException() -> void
+Varve.Protocol.InferenceBehindException.InferenceBehindException(Varve.Rdf.RdfTerm! binding, Varve.Store.Log.Position position, Varve.Store.Log.Position projected) -> void
+Varve.Protocol.InferenceBehindException.InferenceBehindException(string! message) -> void
+Varve.Protocol.InferenceBehindException.InferenceBehindException(string! message, System.Exception! innerException) -> void
+Varve.Protocol.InferenceBehindException.Position.get -> Varve.Store.Log.Position
+Varve.Protocol.InferenceBehindException.Projected.get -> Varve.Store.Log.Position
+Varve.Protocol.InferenceUnavailableException
+Varve.Protocol.InferenceUnavailableException.Binding.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.InferenceUnavailableException.InferenceUnavailableException() -> void
+Varve.Protocol.InferenceUnavailableException.InferenceUnavailableException(Varve.Rdf.RdfTerm! binding, Varve.Store.Log.ByteCount limit, Varve.Store.Log.ByteCount reached) -> void
+Varve.Protocol.InferenceUnavailableException.InferenceUnavailableException(string! message) -> void
+Varve.Protocol.InferenceUnavailableException.InferenceUnavailableException(string! message, System.Exception! innerException) -> void
+Varve.Protocol.InferenceUnavailableException.Limit.get -> Varve.Store.Log.ByteCount
+Varve.Protocol.InferenceUnavailableException.Reached.get -> Varve.Store.Log.ByteCount
+static Varve.Protocol.Model.ProblemType.InferenceBehind.get -> Varve.Protocol.Model.ProblemType
+static Varve.Protocol.Model.ProblemType.InferenceUnavailable.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.InferenceGraphGuard
+Varve.Protocol.InferenceGraphGuard.InferenceGraphGuard() -> void
+Varve.Protocol.InferenceGraphGuard.Validate(Varve.Rdf.IQuadSource! proposed, Varve.Rdf.QuadDelta delta) -> Varve.Store.Log.ValidationVerdict
+static Varve.Protocol.InferenceGraphGuard.IsClosureGraph(Varve.Rdf.RdfTerm! graph) -> bool
+Varve.Protocol.ProtocolOptions.InferenceClosures.get -> Varve.Protocol.IInferenceClosures?
+Varve.Protocol.ProtocolOptions.InferenceClosures.init -> void
 Varve.Protocol.Model.WriterHolder
 Varve.Protocol.Model.WriterHolder.Deconstruct(out string! Instance, out long Epoch) -> void
 Varve.Protocol.Model.WriterHolder.Epoch.get -> long
@@ -532,8 +566,18 @@ static Varve.Protocol.Model.WriterHolder.operator !=(Varve.Protocol.Model.Writer
 static Varve.Protocol.Model.WriterHolder.operator ==(Varve.Protocol.Model.WriterHolder left, Varve.Protocol.Model.WriterHolder right) -> bool
 ~override Varve.Protocol.Model.WriterHolder.Equals(object obj) -> bool
 ~override Varve.Protocol.Model.WriterHolder.ToString() -> string
+Varve.Protocol.EntailmentNotAvailableException
+Varve.Protocol.EntailmentNotAvailableException.EntailmentNotAvailableException() -> void
+Varve.Protocol.EntailmentNotAvailableException.EntailmentNotAvailableException(string! message) -> void
+Varve.Protocol.EntailmentNotAvailableException.EntailmentNotAvailableException(string! message, System.Exception! innerException) -> void
+static Varve.Protocol.Model.ProblemType.EntailmentNotAvailable.get -> Varve.Protocol.Model.ProblemType
+Varve.Protocol.IInferenceClosure.Explain(Varve.Store.Log.Position position, Varve.Rdf.RdfTerm? graph, Varve.Rdf.RdfTerm! subject, Varve.Rdf.RdfTerm! predicate, Varve.Rdf.RdfTerm! object) -> Varve.Inference.Model.Explanation!
+static Varve.Protocol.VarveEndpoints.MapExplain(this Microsoft.AspNetCore.Routing.IEndpointRouteBuilder! routes, string! pattern, Varve.Protocol.ProtocolOptions! options) -> Microsoft.AspNetCore.Builder.IEndpointConventionBuilder!
+Varve.Protocol.IInferenceClosure.PremiseSetOf(Varve.Rdf.RdfTerm! graph) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
 Varve.Protocol.ProtocolOptions.AfterCheckpoint.get -> System.Func<Varve.Store.Dataset!, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
 Varve.Protocol.ProtocolOptions.AfterCheckpoint.init -> void
+Varve.Protocol.InferenceUnavailableException.Failure.get -> System.Exception?
+Varve.Protocol.InferenceUnavailableException.InferenceUnavailableException(Varve.Rdf.RdfTerm! binding, System.Exception! failure) -> void
 Varve.Protocol.IdempotencyKeys
 Varve.Protocol.IdempotencyKeys.IdempotencyKeys() -> void
 Varve.Protocol.IdempotencyKeys.IdempotencyKeys(Varve.Protocol.Model.CommitWindow window) -> void
@@ -658,3 +702,22 @@ static Varve.Protocol.Model.RefusalDetail.operator !=(Varve.Protocol.Model.Refus
 static Varve.Protocol.Model.RefusalDetail.operator ==(Varve.Protocol.Model.RefusalDetail left, Varve.Protocol.Model.RefusalDetail right) -> bool
 ~override Varve.Protocol.Model.RefusalDetail.Equals(object obj) -> bool
 ~override Varve.Protocol.Model.RefusalDetail.ToString() -> string
+Varve.Protocol.InferenceUnavailableException.InferenceUnavailableException(Varve.Rdf.RdfTerm! binding, Varve.Protocol.NoClosureMemory! memory) -> void
+Varve.Protocol.InferenceUnavailableException.NoMemory.get -> Varve.Protocol.NoClosureMemory?
+Varve.Protocol.NoClosureMemory
+Varve.Protocol.NoClosureMemory.HeapLimit.get -> Varve.Store.Log.ByteCount
+Varve.Protocol.NoClosureMemory.HeapLimit.init -> void
+Varve.Protocol.NoClosureMemory.MemtableWorst.get -> Varve.Store.Log.ByteCount
+Varve.Protocol.NoClosureMemory.MemtableWorst.init -> void
+Varve.Protocol.NoClosureMemory.NoClosureMemory(Varve.Store.Log.ByteCount HeapLimit, Varve.Store.Log.ByteCount MemtableWorst, Varve.Store.Log.ByteCount Reserve) -> void
+Varve.Protocol.NoClosureMemory.Reserve.get -> Varve.Store.Log.ByteCount
+Varve.Protocol.NoClosureMemory.Reserve.init -> void
+Varve.Protocol.NoClosureMemory.<Clone>$() -> Varve.Protocol.NoClosureMemory!
+Varve.Protocol.NoClosureMemory.Deconstruct(out Varve.Store.Log.ByteCount HeapLimit, out Varve.Store.Log.ByteCount MemtableWorst, out Varve.Store.Log.ByteCount Reserve) -> void
+Varve.Protocol.NoClosureMemory.Equals(Varve.Protocol.NoClosureMemory? other) -> bool
+override Varve.Protocol.NoClosureMemory.Equals(object? obj) -> bool
+override Varve.Protocol.NoClosureMemory.GetHashCode() -> int
+override Varve.Protocol.NoClosureMemory.ToString() -> string!
+static Varve.Protocol.NoClosureMemory.operator !=(Varve.Protocol.NoClosureMemory? left, Varve.Protocol.NoClosureMemory? right) -> bool
+static Varve.Protocol.NoClosureMemory.operator ==(Varve.Protocol.NoClosureMemory? left, Varve.Protocol.NoClosureMemory? right) -> bool
+Varve.Protocol.IInferenceClosure.PremiseSetGraphs() -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?

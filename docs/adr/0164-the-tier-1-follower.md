@@ -231,8 +231,58 @@ maintainer accepts it (ADR 0066).
   replays the log.
 - **A member that would write the dataset follows a replica as a standby,**
   tailing on the interval, so that it is warm when an operator promotes.
-- **It does not open at two moments a shipper passes through:** the newest
+- **It opens at the two moments a shipper passes through:** the newest
   segment holding only its opening chunk, or its trailer and no seal
-  chunk. That is #384, which is this ADR's to fix and is not fixed here.
+  chunk. That was #384, and the amendment below is its fix.
 
 **The ledger.** No ruling changes.
+
+## Amendment, 2026-11-20 — a follower opens at the last whole record and never appends
+
+Filed for #384, unaccepted until the maintainer accepts it (ADR 0066).
+
+**What was wrong.** A follower's open ran the writer's open of the log.
+Where the newest segment was not whole, that open repairs it: it appends an
+abandoned trailer, or seals the segment. A follower's storage refuses both,
+so the follower did not open:
+
+```
+InvalidOperationException: The dataset is open read-only; it claimed no writer epoch.
+```
+
+**When the newest segment is not whole.** The writer opens a segment in two
+creates, and closes one in two:
+
+| State | Between which two creates |
+|---|---|
+| the newest segment holds only its opening chunk | the opening chunk, and the chunk with the segment header |
+| the newest segment has its trailer and no seal chunk | the chunk with the trailer, and the seal chunk |
+
+A follower met either when its writer stopped there, for as long as no
+writer opened the dataset again, and for an instant under a live writer. A
+shipping target (ADR 0184) is in the first state at every segment roll,
+because its shipper copies the source's chunks in order.
+
+**The rule.**
+- **A follower opens at the last whole record.** What follows it in the
+  newest segment is left as it is: an opening chunk with nothing after it,
+  a torn tail, a trailer with no seal.
+- **A follower never appends, flushes or seals.** Its open reads the log
+  and writes nothing to it. That was already this ADR's rule for every
+  write after the open; it now holds for the open too.
+- **The repair is the writer's alone.** A writer that opens the dataset
+  makes it, as before. A follower that takes the writing over (ADR 0179
+  point 8) opens the log again as a writer, after its claim, and makes it
+  then.
+- **A follower reads on across the repair.** An abandoned trailer and a
+  seal are what an advance already reads past.
+
+**The ledger.** No ruling changes. `FollowerIsAnOrdinaryDataset` says every
+write is refused, and the open now keeps it.
+
+**Tests.** `FollowerTornTailTests`, one per state: the writer is stopped
+between the two creates; a follower opens at the last commit that was
+acknowledged, reads every position, and creates, replaces and deletes
+nothing under `log/`; a writer that opens afterwards repairs the segment
+and commits, and the follower's advance reaches its head. Both fail before
+the change with the exception above.

@@ -500,9 +500,11 @@ varve:SubjectLinkShape
 # ---- TBox bindings (ADR 0194) -------------------------------------------
 #
 # The residual check states what Core cannot: two bindings whose graph sets
-# overlap, two that state different defaults, and the reserved terms and
-# profiles (varve:RDFS, varve:OWL2RL, varve:RulesOnly), which this shape
-# admits so that the code names the part that gives them effect.
+# overlap, two that state different defaults, the reserved profile
+# varve:RulesOnly, which this shape admits so that the code names the part
+# that gives it effect, and what depends on the profile: varve:crossGraph and
+# varve:sameAs only on a materialising one, ent:OWL-RDF-Based only on
+# varve:OWL2RL (ADR 0197).
 
 varve:TBoxBindingShape
     a sh:NodeShape ;
@@ -544,8 +546,20 @@ varve:TBoxBindingShape
     ] ;
     sh:property [
         sh:path varve:defaultEntailment ;
-        sh:in ( <http://www.w3.org/ns/entailment/Simple> <http://www.w3.org/ns/entailment/RDF> <http://www.w3.org/ns/entailment/RDFS> <http://www.w3.org/ns/entailment/D> ) ;
-        sh:message "varve:defaultEntailment is ent:Simple, ent:RDF, ent:RDFS or ent:D; the OWL regimes are reserved for Inference's later parts (#95)" ;
+        sh:in ( <http://www.w3.org/ns/entailment/Simple> <http://www.w3.org/ns/entailment/RDF> <http://www.w3.org/ns/entailment/RDFS> <http://www.w3.org/ns/entailment/D> <http://www.w3.org/ns/entailment/OWL-RDF-Based> ) ;
+        sh:message "varve:defaultEntailment is ent:Simple, ent:RDF, ent:RDFS, ent:D, or ent:OWL-RDF-Based on a varve:OWL2RL binding; the other OWL regimes are reserved for Inference's last part (#95)" ;
+    ] ;
+    sh:property [
+        sh:path varve:crossGraph ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:boolean ;
+        sh:message "this property's value is an xsd:boolean" ;
+    ] ;
+    sh:property [
+        sh:path varve:sameAs ;
+        sh:maxCount 1 ;
+        sh:in ( varve:SameAsOff varve:SameAsClasses ) ;
+        sh:message "varve:sameAs is stated at most once, as varve:SameAsOff, the only value in effect; varve:SameAsClasses is reserved for Inference's last part (#95)" ;
     ] .
 
 varve:TBoxBindingGraphsShape

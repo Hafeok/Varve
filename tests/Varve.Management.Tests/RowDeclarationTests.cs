@@ -84,11 +84,30 @@ public class RowDeclarationTests
     [InlineData("n:b a varve:ClassifierBinding ; varve:boundGraph <https://x/s2> .", "names its graphs")]
     [InlineData("n:b a varve:ClassifierBinding ; varve:boundGraph <https://x/s2> ; varve:graph <https://x/s2> .", "own shapes graph")]
     [InlineData("n:x varve:privacy n:y .", "#203")]
+    [InlineData("n:t a varve:TBoxBinding ; varve:boundGraph <https://x/tbox> ; varve:profile varve:OWL2RL ; varve:crossGraph true ; varve:graphPrefix \"https://x/people/\" . n:g a varve:Grant ; varve:grantee <https://i#a> ; varve:permission varve:read ; varve:graphPrefix \"https://x/people/\" ; varve:subject <https://x/a> .", "ADR 0238 point 3")]
     public void a_row_declaration_that_breaks_a_rule_is_named(string body, string expected)
     {
         Declarations declarations = T.Read(Graph + " { " + Dataset + Binding + body + " }");
 
         Assert.Contains(declarations.Findings, finding => finding.Message.Contains(expected, StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// ADR 0238 point 3's refusal needs all three: a cross-graph binding, a
+    /// classified graph it meets, and a read grant with subject terms there.
+    /// Without the grant, or with a binding that is not cross-graph, the
+    /// declarations stand.
+    /// </summary>
+    [Theory]
+    [InlineData("varve:profile varve:OWL2RL ; varve:crossGraph true", "")]
+    [InlineData("varve:profile varve:OWL2RL", "n:g a varve:Grant ; varve:grantee <https://i#a> ; varve:permission varve:read ; varve:graphPrefix \"https://x/people/\" ; varve:subject <https://x/a> .")]
+    [InlineData("varve:profile varve:RDFS ; varve:crossGraph true", "n:g a varve:Grant ; varve:grantee <https://i#a> ; varve:permission varve:read ; varve:graphPrefix \"https://x/people/\" .")]
+    public void a_cross_graph_binding_over_classified_graphs_stands_without_a_row_restricted_reader(string profile, string grant)
+    {
+        Declarations declarations = T.Read(Graph + " { " + Dataset + Binding
+            + "n:t a varve:TBoxBinding ; varve:boundGraph <https://x/tbox> ; " + profile + " ; varve:graphPrefix \"https://x/people/\" . " + grant + " }");
+
+        Assert.Empty(declarations.Findings);
     }
 
     [Fact]

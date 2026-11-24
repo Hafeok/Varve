@@ -21,6 +21,8 @@ point 4 (the cache headers).
 problem types `storage-full` and `commit-outcome-unknown`, and the `not-ready` member `writesRefused`; see
 the end.
 
+**Amended 2026-11-06** (ADR 0068), by Inference, part 2 (#171) under ADRs 0195–0199: `inference-behind` joins the catalogue; see the end. Filed unaccepted, and accepted by the maintainer on 2026-11-20.
+
 ## Context
 
 ADR 0096 gave every dataset response `ETag` and `Varve-Position` and a
@@ -314,3 +316,62 @@ notice ignores it.
 it. It is a state on readiness.
 
 **The ledger.** No ruling changes.
+
+## Amendment, 2026-11-06 — `inference-behind`, `inference-unavailable`, and the inference guard's `graph-not-writable`
+
+Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20.
+
+- **`inference-behind`** (`503`, members `binding`, `position`,
+  `projectedPosition`; `Retry-After: 1`): a read that needs a binding's
+  closure at a position its projection has not reached after the server's
+  two-second wait (ADR [0195](0195-the-inference-projection.md) point 6). A
+  query that streams has its cut after the first byte as a `Varve-Error`
+  trailer (ADR 0095).
+- **`inference-unavailable`** (`503`, **no `Retry-After`**; members
+  `binding`, `reason`, `failure`, and for `reason` `memory-limit` also
+  `limit` and `reached`, in bytes): a tier-2 read of a binding that is
+  stopped, answered at once (ADR [0195](0195-the-inference-projection.md)
+  point 6). `reason` is `memory-limit`, its materialisation refused at
+  `Varve:Inference:ClosureBytes` or the pool, with `failure`
+  `configuration`; or `failed`, its projection failed, with `failure`
+  `defect` (ADR [0242](0242-problems-that-say-what-to-do.md) ruling 2, amended
+  2026-11-19). No retry helps either. Added on the maintainer's answer C of 2026-11-16 (#171), with the
+  shape proposed there (comment 6916253220).
+- **`entailment-not-available`** carries no `binding` (ADR 0238, amended
+  2026-11-16), which replaces that member in the amendment of 2026-10-30
+  above.
+- **`graph-not-writable`** is also `InferenceGraphGuard`'s, for a quad in
+  `varve:explicit`, `varve:implicit` or under `varve:inferred/`
+  (ADR [0198](0198-the-views-and-the-reserved-graphs.md) point 4).
+- **`Varve-Inconsistent: true`** is a response header of a query answered
+  under `owl2-rl` over a graph that holds a clash
+  (ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md) point 5).
+
+**The ledger.** The rulings are ADR 0195's `InferenceBehind` and
+`ClosureMemoryLimit`, ADR 0197's `ClashReportedNotServed`, and ADR 0238's
+`EntailmentNotAvailableNamesNoBinding`.
+
+## Amendment, 2026-11-19 — `Varve-Equality`, `Varve-Closure` and `Varve-Without-Closure`
+
+Filed by Inference, part 2 (#171), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20, under the maintainer's ruling of 2026-11-19 that an answer
+narrower than its request suggests says so in-band
+(ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md) points 4, 6 and 9).
+Three response headers join `Varve-Inconsistent`. The first two are on a query
+answered under `Varve-Entailment: owl2-rl`, and absent under any other regime:
+
+- **`Varve-Equality: not-applied`**: the binding answering it has
+  `varve:sameAs varve:SameAsOff` and applied none of the equality rules.
+- **`Varve-Closure: per-graph`**: the query's default graph merged two or
+  more graphs and was answered by the union of each graph's closure, not by
+  the closure of their merge. A merge one cross-graph binding covers is the
+  closure of the merge and carries none.
+- **`Varve-Without-Closure`**: under `owl2-rl`, or with a view, a `GRAPH ?g`
+  ranged over named graphs no binding gives a closure. Its value lists them,
+  IRIs in angle brackets separated by `, `, at most twenty, then `+N more`;
+  only graphs the caller reads.
+
+`SparqlHttpClient.EntailedAnswerOf` reads all three, and `Varve-Inconsistent`.
+
+**The ledger.** ADR 0197's `EqualityNotAppliedSaidInBand`,
+`PerGraphClosureSaidInBand` and `UncoveredGraphRefusedOrSaid`.
+

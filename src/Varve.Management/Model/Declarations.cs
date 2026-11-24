@@ -61,6 +61,10 @@ public sealed record TBoxBindingDeclaration(RdfTerm Node, IReadOnlyList<RdfTerm>
 {
     /// <summary>The regime IRI of <c>varve:defaultEntailment</c>, or none when it is not stated.</summary>
     public RdfTerm? DefaultEntailment { get; init; }
+
+    /// <summary><c>varve:crossGraph true</c>: the closure is of the data graphs' merge, its cross-graph conclusions placed by premise set (ADRs 0190 point 6, 0197 point 7). Only on a materialising profile.</summary>
+    [DesignDecision(typeof(TheTboxBindingVocabulary.TBoxBindingTerms), Scope = ExceptionScope.Boundary)]
+    public bool CrossGraph { get; init; }
 }
 
 /// <summary>

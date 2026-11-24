@@ -93,6 +93,10 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         Instance = new WriterName(_instance.Value);
         Projections = new ValidationProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
         Classifications = new RowClassifications(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, logger);
+        Inference = new InferenceProjections(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, ReportWait, InferenceProjections.Options(settings), logger)
+        {
+            WithoutMemory = InferenceProjections.NoMemory(settings),
+        };
         Entailment = new EntailmentBindingsOfTheFleet(this);
         Shipping = new Shipping(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, objects, settings.Replication, () => System, clock, logger);
     }
@@ -126,6 +130,9 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
     /// <summary>The classification projections of the datasets held here (ADR 0233).</summary>
     internal RowClassifications Classifications { get; }
+
+    /// <summary>The inference projections of the datasets held here, the seam of tier 2 (ADR 0195).</summary>
+    internal InferenceProjections Inference { get; }
 
     // Whether a dataset's event declarations are moving or moved at the applied position (ADR 0167).
     private bool Moved(string dataset) =>
@@ -1122,6 +1129,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         }
         await Projections.DisposeAsync().ConfigureAwait(false);
         await Classifications.DisposeAsync().ConfigureAwait(false);
+        await Inference.DisposeAsync().ConfigureAwait(false);
         await Datasets.DisposeAsync().ConfigureAwait(false);
         await _system.DisposeAsync().ConfigureAwait(false);
 

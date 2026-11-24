@@ -51,9 +51,9 @@ public sealed class TBoxBindingTests
     }
 
     [Theory]
-    [InlineData("varve:profile varve:Rewriting", "varve:profile varve:RDFS", "#171")]
-    [InlineData("varve:profile varve:Rewriting ;", "varve:profile varve:Rewriting ; varve:crossGraph true ;", "#171")]
-    [InlineData("varve:profile varve:Rewriting ;", "varve:profile varve:Rewriting ; varve:sameAs varve:SameAsOff ;", "#95")]
+    [InlineData("varve:profile varve:Rewriting", "varve:profile varve:RulesOnly", "#95")]
+    [InlineData("varve:profile varve:Rewriting ;", "varve:profile varve:Rewriting ; varve:rulesGraph <https://notes.example/rules> ;", "#95")]
+    [InlineData("varve:profile varve:Rewriting ;", "varve:profile varve:OWL2RL ; varve:sameAs varve:SameAsClasses ;", "#95")]
     [InlineData("varve:profile varve:Rewriting ;", "varve:profile varve:Rewriting ; varve:inconsistencyMode varve:Reject ;", "#95")]
     public void A_reserved_term_is_refused_naming_the_part_that_gives_it_effect(string from, string to, string part)
     {
@@ -62,6 +62,47 @@ public sealed class TBoxBindingTests
         Assert.NotEmpty(declarations.Findings);
         Assert.All(declarations.Findings, finding => Assert.Contains(part, finding.Message, System.StringComparison.Ordinal));
         Assert.Empty(declarations.Datasets);
+    }
+
+    /// <summary>
+    /// The materialising profiles and their terms are in effect (ADR 0197
+    /// point 7): <c>varve:RDFS</c> and <c>varve:OWL2RL</c>, <c>varve:crossGraph</c>
+    /// and <c>varve:sameAs varve:SameAsOff</c> on them, and
+    /// <c>ent:OWL-RDF-Based</c> as the default of an <c>OWL2RL</c> binding.
+    /// </summary>
+    [Theory]
+    [InlineData("varve:profile varve:RDFS ;", TBoxProfile.Rdfs, false)]
+    [InlineData("varve:profile varve:OWL2RL ; varve:crossGraph true ; varve:sameAs varve:SameAsOff ;", TBoxProfile.Owl2Rl, true)]
+    public void A_materialising_profile_reads_with_its_terms(string profile, TBoxProfile expected, bool crossGraph)
+    {
+        string text = Notes.Replace("varve:profile varve:Rewriting ;", profile, System.StringComparison.Ordinal);
+        if (expected == TBoxProfile.Owl2Rl)
+        {
+            text = text.Replace("entailment/RDFS>", "entailment/OWL-RDF-Based>", System.StringComparison.Ordinal);
+        }
+
+        Declarations declarations = T.Read(text);
+
+        Assert.Empty(declarations.Findings);
+        TBoxBindingDeclaration binding = Assert.Single(declarations.Datasets["notes"].TBoxBindings);
+        Assert.Equal(expected, binding.Profile);
+        Assert.Equal(crossGraph, binding.CrossGraph);
+    }
+
+    [Theory]
+    [InlineData("varve:profile varve:Rewriting ; varve:crossGraph true ;", "RDFS", "varve:crossGraph places a materialised closure")]
+    [InlineData("varve:profile varve:Rewriting ; varve:sameAs varve:SameAsOff ;", "RDFS", "varve:sameAs governs a materialised closure")]
+    [InlineData("varve:profile varve:RDFS ;", "OWL-RDF-Based", "only a varve:OWL2RL binding states it")]
+    public void A_term_of_a_materialising_profile_is_refused_on_another(string profile, string regime, string message)
+    {
+        string text = Notes.Replace("varve:profile varve:Rewriting ;", profile, System.StringComparison.Ordinal)
+            .Replace("entailment/RDFS>", "entailment/" + regime + ">", System.StringComparison.Ordinal);
+        Declarations declarations = T.Read(text);
+
+        Assert.True(
+            declarations.Findings.Any(finding => finding.Message.Contains(message, System.StringComparison.Ordinal)),
+            string.Join("\n", declarations.Findings.Select(finding => finding.Message)));
+        Assert.All(declarations.Datasets.Values, dataset => Assert.Empty(dataset.TBoxBindings));
     }
 
     /// <summary>

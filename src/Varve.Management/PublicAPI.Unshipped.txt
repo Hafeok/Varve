@@ -390,3 +390,7 @@ override Varve.Management.Model.CopySourceDeclaration.GetHashCode() -> int
 override Varve.Management.Model.CopySourceDeclaration.ToString() -> string!
 static Varve.Management.Model.CopySourceDeclaration.operator !=(Varve.Management.Model.CopySourceDeclaration? left, Varve.Management.Model.CopySourceDeclaration? right) -> bool
 static Varve.Management.Model.CopySourceDeclaration.operator ==(Varve.Management.Model.CopySourceDeclaration? left, Varve.Management.Model.CopySourceDeclaration? right) -> bool
+Varve.Management.Model.TBoxBindingDeclaration.CrossGraph.get -> bool
+Varve.Management.Model.TBoxBindingDeclaration.CrossGraph.init -> void
+Varve.Management.Model.TBoxProfile.Owl2Rl = 2 -> Varve.Management.Model.TBoxProfile
+Varve.Management.Model.TBoxProfile.Rdfs = 1 -> Varve.Management.Model.TBoxProfile

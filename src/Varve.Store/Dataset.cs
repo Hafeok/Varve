@@ -462,7 +462,12 @@ public sealed partial class Dataset : IAsyncDisposable
             throw new InvalidOperationException("The commit index was not brought to the head.");
         }
 
-        LogWriter writer = await LogWriter.OpenAsync(storage.Log, id, scan, options.SegmentBytes.Value, (int)options.MaxRecordBytes.Value, cancellationToken).ConfigureAwait(false);
+        // A follower opens at the last whole record and never appends (ADR 0164, amended 2026-11-20, #384).
+        // The repair of the newest segment, an abandoned trailer or a seal, is the writer's alone: a follower
+        // that takes the writing over opens the log again as a writer, and makes it then.
+        LogWriter writer = follower
+            ? LogWriter.Following(storage.Log, id, options.SegmentBytes.Value, (int)options.MaxRecordBytes.Value, scan.Head)
+            : await LogWriter.OpenAsync(storage.Log, id, scan, options.SegmentBytes.Value, (int)options.MaxRecordBytes.Value, cancellationToken).ConfigureAwait(false);
         TermDictionary dictionary = new();
         State partial = new(head, commits, IndexVersion.Empty, [], null);
         Dataset dataset = new(storage, id, options, dictionary, writer, partial);

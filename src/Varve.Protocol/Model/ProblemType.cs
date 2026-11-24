@@ -142,6 +142,15 @@ public readonly record struct ProblemType
     /// <summary><c>503</c>: a row-restricted read at a position the classification projection has not reached, after one bounded wait (ADR 0233).</summary>
     public static ProblemType ClassificationBehind { get; } = new("classification-behind");
 
+    /// <summary><c>503</c>: a read of a binding's closure at a position its inference projection has not reached, after one bounded wait (ADR 0195).</summary>
+    public static ProblemType InferenceBehind { get; } = new("inference-behind");
+
+    /// <summary><c>503</c>, with no <c>Retry-After</c>: a binding's closure stopped by its memory limit; a retry does not help (ADR 0195, ADR 0242 ruling 2).</summary>
+    public static ProblemType InferenceUnavailable { get; } = new("inference-unavailable");
+
+    /// <summary><c>403</c>: a tier-2 read by a caller whose grant restricts rows over a binding's graphs; it carries no member (ADR 0238, amended 2026-11-16).</summary>
+    public static ProblemType EntailmentNotAvailable { get; } = new("entailment-not-available");
+
     /// <summary><c>422</c>: a retry whose key is not found, made more than the window before the head: whether its original committed cannot be determined (ADR 0246).</summary>
     public static ProblemType IdempotencyKeyExpired { get; } = new("idempotency-key-expired");
 
