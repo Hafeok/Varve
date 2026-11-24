@@ -15,8 +15,8 @@
 // under release, so a release never ships a README that describes another one.
 //
 // --fixtures runs every case under the directory: each must fail, and say what
-// its expect.txt says. A case overrides README.md, roadmap.md, passing.txt or
-// releases/ with its own; the projects are the repository's.
+// its expect.txt says. A case overrides README.md, roadmap.md, passing.txt,
+// object-stores.md or releases/ with its own; the projects are the repository's.
 //
 // Exit codes: 0 current, 1 findings, 2 could not run.
 //
@@ -26,6 +26,7 @@
 // CA2266 is off for this file only, for the reason eng/dco.cs gives (ADR 0087).
 #:include lib/Releases.cs
 #:include lib/Status.cs
+#:include lib/ObjectStores.cs
 #:property NoWarn=$(NoWarn);CA2266
 
 using System.Diagnostics;
@@ -143,7 +144,8 @@ static int Fixtures(string root, string directory)
             roadmapPath: Own("roadmap.md", StatusTree.RoadmapPath),
             passingPath: Own("passing.txt", StatusTree.PassingPath),
             releasesPath: Directory.Exists(Path.Combine(path, "releases")) ? $"{relative}/releases" : ReleaseFormat.Directory,
-            blockedPath: Own("blocked.txt", StatusTree.BlockedPath));
+            blockedPath: Own("blocked.txt", StatusTree.BlockedPath),
+            objectStoresPath: Own("object-stores.md", ObjectStoresPage.PagePath));
 
         string said = string.Join('\n', problems);
         string[] expected = [.. File.ReadAllLines(Path.Combine(path, "expect.txt")).Where(line => line.Trim().Length > 0 && !line.StartsWith('#'))];

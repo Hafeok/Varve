@@ -29,7 +29,7 @@ public static class VarveEndpoints
     /// <summary>
     /// Maps every data-plane endpoint of a dataset under fixed names:
     /// <c>/</c>, <c>/sparql</c>, <c>/graphs</c>, <c>/commits</c>, <c>/diff</c>,
-    /// <c>/events</c> and <c>/access</c>.
+    /// <c>/events</c>, <c>/access</c> and <c>/explain</c>.
     /// </summary>
     public static IEndpointRouteBuilder MapVarveDataset(this IEndpointRouteBuilder routes, ProtocolOptions options)
     {
@@ -42,6 +42,7 @@ public static class VarveEndpoints
         routes.MapDiff("/diff", options);
         routes.MapEvents("/events", options);
         routes.MapAccess("/access", options);
+        routes.MapExplain("/explain", options);
         return routes;
     }
 
@@ -165,6 +166,14 @@ public static class VarveEndpoints
         routes.Map(pattern, Tracing.Traced("commits", options, context => CommitsEndpoint.HandleAsync(context, options)));
         routes.Map(pattern.TrimEnd('/') + "/{" + CommitsEndpoint.PositionRouteValue + "}", Tracing.Traced("commit", options, context => CommitsEndpoint.HandleOneAsync(context, options)));
         return routes;
+    }
+
+    /// <summary>A quad's status and well-founded proof at the read's position, from its binding's closure (ADR 0199).</summary>
+    public static IEndpointConventionBuilder MapExplain(this IEndpointRouteBuilder routes, string pattern, ProtocolOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(routes);
+        ArgumentNullException.ThrowIfNull(options);
+        return routes.Map(pattern, Tracing.Traced("explain", options, context => ExplainEndpoint.HandleAsync(context, options)));
     }
 
     /// <summary>A data subject's quads, for a dataset admin: access without erasure mode (ADR 0231).</summary>

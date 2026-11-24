@@ -173,6 +173,47 @@ internal static class ObjectLease
         return (AzureBlobStore.Create(new AzureBlobStoreOptions { ContainerUrl = container, Clock = TimeProvider.System }), new ObjectName(string.Join('/', segments[(containerAt + 1)..]) + "/"));
     }
 
+    /// <summary>
+    /// A store by its root, a container or a bucket with no dataset after it:
+    /// what <c>varve storage verify</c> runs against (ADR 0183).
+    /// </summary>
+    internal static IObjectStore OpenRoot(string address, string? endpoint, string? region, string? sts)
+    {
+        const string Shape = "varve storage verify takes a container or a bucket, with no dataset after it: https://{account}.blob.core.windows.net/{container} or s3://{bucket}. Its scratch prefix and the verification record are at the store's root (ADR 0183).";
+        Uri uri = new(address);
+        string[] segments = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        if (uri.Scheme == "s3")
+        {
+            if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(region))
+            {
+                throw new Cli.CommandException("s3://{bucket} needs --endpoint and --region.");
+            }
+
+            if (uri.Host.Length == 0 || segments.Length != 0)
+            {
+                throw new Cli.CommandException(Shape);
+            }
+
+            return S3ObjectStore.Create(new S3ObjectStoreOptions
+            {
+                Endpoint = new Uri(endpoint),
+                Bucket = new S3Bucket(uri.Host),
+                Region = new S3Region(region),
+                StsEndpoint = StsEndpoint(sts),
+                Clock = TimeProvider.System,
+            });
+        }
+
+        // An Azurite address carries the account in its path: http://127.0.0.1:10000/{account}/{container}.
+        if (segments.Length != (uri.IsLoopback ? 2 : 1))
+        {
+            throw new Cli.CommandException(Shape);
+        }
+
+        return AzureBlobStore.Create(new AzureBlobStoreOptions { ContainerUrl = new Uri(uri.GetLeftPart(UriPartial.Authority) + "/" + string.Join('/', segments)), Clock = TimeProvider.System });
+    }
+
     private static async Task PrintAsync(WriterRecord? record, Io io)
     {
         if (record is null)

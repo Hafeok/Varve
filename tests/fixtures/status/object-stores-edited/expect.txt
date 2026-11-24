@@ -1,0 +1,4 @@
+# A compatibility page edited by hand: Garage, which ignores conditional
+# writes, promoted to verified with no record (ADR 0183).
+object-stores.md is not what testdata/object-stores/providers.yaml and the records under testdata/object-stores/results/ generate, from line
+it is never edited by hand: run `dotnet run eng/object-stores.cs`

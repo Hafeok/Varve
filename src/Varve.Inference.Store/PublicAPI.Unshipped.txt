@@ -1,0 +1,52 @@
+#nullable enable
+Varve.Inference.Store.InferenceProjection
+Varve.Inference.Store.InferenceProjection.ApplyAsync(Varve.Store.Log.Commit! commit, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Inference.Store.InferenceProjection.Binding.get -> Varve.Inference.Store.Model.InferenceBinding!
+Varve.Inference.Store.InferenceProjection.Floor.get -> Varve.Store.Log.Position
+Varve.Inference.Store.InferenceProjection.HeldFrom.get -> Varve.Store.Log.Position
+Varve.Inference.Store.InferenceProjection.HistoryHeld.get -> Varve.Store.Log.ByteCount
+Varve.Inference.Store.InferenceProjection.InferenceProjection(Varve.Store.Dataset! dataset, Varve.Inference.Store.Model.InferenceBinding! binding, Varve.Inference.Store.Model.InferenceOptions? options = null) -> void
+Varve.Inference.Store.InferenceProjection.MemoryLimit.get -> (Varve.Store.Log.ByteCount Limit, Varve.Store.Log.ByteCount Reached)
+Varve.Inference.Store.InferenceProjection.Position.get -> Varve.Store.Log.Position
+Varve.Inference.Store.InferenceProjection.ResetAsync(Varve.Store.DatasetView? checkpoint, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Inference.Store.InferenceProjection.Stopped.get -> bool
+Varve.Inference.Store.InferenceProjection.TBoxGraph.get -> Varve.Rdf.RdfTerm!
+Varve.Inference.Store.InferenceProjection.WaitForAsync(Varve.Store.Log.Position position, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Inference.Store.Model.InferenceBinding
+Varve.Inference.Store.Model.InferenceBinding.Binding.get -> Varve.Rdf.RdfTerm!
+Varve.Inference.Store.Model.InferenceBinding.CrossGraph.get -> bool
+Varve.Inference.Store.Model.InferenceBinding.CrossGraph.init -> void
+Varve.Inference.Store.Model.InferenceBinding.DataGraphs.get -> Varve.Rdf.GraphScope!
+Varve.Inference.Store.Model.InferenceBinding.InferenceBinding(Varve.Rdf.RdfTerm! binding, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! tboxGraphs, Varve.Rdf.GraphScope! dataGraphs, Varve.Inference.Model.InferenceProfile profile) -> void
+Varve.Inference.Store.Model.InferenceBinding.Profile.get -> Varve.Inference.Model.InferenceProfile
+Varve.Inference.Store.Model.InferenceBinding.TBoxGraphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Inference.Store.Model.InferenceOptions
+Varve.Inference.Store.Model.InferenceOptions.ClosureBytes.get -> Varve.Store.Log.ByteCount
+Varve.Inference.Store.Model.InferenceOptions.ClosureBytes.init -> void
+Varve.Inference.Store.Model.InferenceOptions.HistoryBytes.get -> Varve.Store.Log.ByteCount
+Varve.Inference.Store.Model.InferenceOptions.HistoryBytes.init -> void
+Varve.Inference.Store.Model.InferenceOptions.InferenceOptions() -> void
+Varve.Inference.Store.Model.InferenceReadOutcome
+Varve.Inference.Store.Model.InferenceReadOutcome.Behind = 1 -> Varve.Inference.Store.Model.InferenceReadOutcome
+Varve.Inference.Store.Model.InferenceReadOutcome.FromScratch = 2 -> Varve.Inference.Store.Model.InferenceReadOutcome
+Varve.Inference.Store.Model.InferenceReadOutcome.Held = 0 -> Varve.Inference.Store.Model.InferenceReadOutcome
+Varve.Inference.Store.Model.InferenceReadOutcome.Unavailable = 3 -> Varve.Inference.Store.Model.InferenceReadOutcome
+static Varve.Inference.Store.Model.InferenceOptions.BytesPerClosedRow.get -> Varve.Store.Log.ByteCount
+Varve.Inference.Store.InferenceProjection.LoadAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<bool>
+Varve.Inference.Store.InferenceProjection.SaveAsync(Varve.Store.IDerivedStore! store, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask
+Varve.Inference.Store.InferenceProjection.Clashes() -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>!
+Varve.Inference.Store.InferenceProjection.ReadFromScratchAsync(Varve.Store.Log.Position at, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<Varve.Inference.Model.InferredRows!>
+Varve.Inference.Store.InferenceProjection.TryRead(Varve.Store.Log.Position at, out Varve.Inference.Model.InferredRows? rows) -> Varve.Inference.Store.Model.InferenceReadOutcome
+Varve.Inference.Store.InferenceProjection.ExplainAsync(Varve.Store.Log.Position at, Varve.Rdf.RdfTerm? graph, Varve.Rdf.RdfTerm! subject, Varve.Rdf.RdfTerm! predicate, Varve.Rdf.RdfTerm! object, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<(Varve.Inference.Store.Model.InferenceReadOutcome Outcome, Varve.Inference.Model.Explanation? Explanation)>
+Varve.Inference.Store.InferenceProjection.PremiseSetOf(Varve.Rdf.RdfTerm! graph) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
+Varve.Inference.Store.InferenceProjection.PremiseSetGraphs() -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Inference.Store.InferenceProjection.Failure.get -> System.Exception?
+static Varve.Inference.Store.Model.InferenceOptions.CostsFor(Varve.Inference.Model.InferenceProfile profile) -> Varve.Inference.Model.ClosureCosts!
+static Varve.Inference.Store.Model.InferenceOptions.RowBytes.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Store.Model.InferenceOptions.Pool.get -> Varve.Inference.FactBudget?
+Varve.Inference.Store.Model.InferenceOptions.Pool.init -> void
+Varve.Inference.Store.InferenceProjection.ClosureHeld.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Store.InferenceProjection.ClosurePeak.get -> Varve.Inference.Model.MemoryAmount
+static Varve.Inference.Store.Model.InferenceOptions.TermBytes.get -> Varve.Inference.Model.MemoryAmount
+static Varve.Inference.Store.InferenceProjection.IsStorageFailure(System.Exception! error) -> bool
+Varve.Inference.Store.InferenceProjection.Refuse() -> void

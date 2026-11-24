@@ -105,3 +105,55 @@ The REC repository is under the BSD-3-Clause licence.
   generator, `tests/Varve.Rec.Tests`.
 - **Analyzer rule.** None.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-18 — links between buildings, a parameter of the generator
+
+Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20. Decided by the maintainer on #171 on
+2026-11-18: a REC variant with links between buildings, REC M unchanged,
+the density a parameter deterministic by seed, run at two densities at
+least, never a gate.
+
+Point 2's generator gains one parameter, the **link density**: in a
+thousand commits of the history past the build, how many are followed by a
+link commit (`RecPortfolio.Generate(size, seed, linksPerMille)`).
+- **A link** is an asset of one site that `rec:feeds` a room of another,
+  stated in the asset's site's graph, with `rec:isFedBy` stated in the
+  room's. A quarter of link commits remove a live link instead, retracting
+  both quads. The kinds are `link-added` and `link-removed`.
+- **The history between links is the history without them.** Links are
+  drawn from a SplitMix64 sequence of their own, seeded from the seed, so
+  density 0 gives the same bytes as before for every seed and size, and S,
+  M and L, their pinned hashes and the generator's `Version` (2) do not
+  change. A measurement taken with links states its density beside the
+  version.
+- **It gates nothing.** It is run by hand, or in the nightly, by
+  `Varve.Benchmarks --inference-premise-sets <size> <profile> [held]
+  links=<per mille>`.
+
+**The ledger.** The ruling is `LinksBetweenBuildingsAreAParameter`.
+
+## Amendment, 2026-11-18 — a benchmark axiom set beside REC, not part of it
+
+Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20. Decided by the maintainer on #171 on
+2026-11-18.
+
+REC 4.1 and its Brick state nothing that joins two data facts of different
+graphs, so links between buildings give no cross-graph premise set
+(ADR 0195 point 3). A **benchmark axiom set** makes them join, for that
+measurement only:
+- **What it states.** `rec:feeds` is an `owl:TransitiveProperty`, and
+  `rec:feeds owl:propertyChainAxiom ( rec:feeds rec:isLocationOf )`: what
+  feeds a space feeds what is located in it.
+- **What it is not.** It is not part of REC as published, and says so in
+  its first lines. It lives beside the benchmarks,
+  `tests/Varve.Benchmarks/Axioms/rec-links.ttl`, not under `testdata/rec/`,
+  is loaded as an ontology graph of its own beside REC's, and changes
+  neither the generator, REC M, nor any pinned hash.
+- **Who reads it.** The nightly's `premise-sets` job under OWL 2 RL, at
+  bounded link densities, and a run by hand
+  (`--inference-premise-sets <size> owl2rl links=<per mille> axioms=links`),
+  each reporting the closure's size against the live links at each count of
+  graphs. Nothing gates on it.
+
+**The ledger.** The ruling is `BenchmarkAxiomSetIsNotRec`.
+

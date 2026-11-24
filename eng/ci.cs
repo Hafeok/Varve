@@ -172,7 +172,7 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     // README.md ships in every package; its Status section and the roadmap's
     // headings are a checked projection (ADR 0102).
-    ("status", "README.md's status and docs/roadmap.md's headings match the releases, the baseline and the projects",
+    ("status", "README.md's status and docs/roadmap.md's headings match the releases, the baseline and the projects, and the object-store compatibility page is its generation",
         () => Run("dotnet", ["run", "eng/status.cs", "--", "--check"])),
 
     ("status-fixtures", "the status check fails each of its fixtures, for its own reason",
@@ -328,6 +328,10 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     ("test-sparql-entailment", "Varve.Sparql.Entailment: rewriting equals the forward-chained closure under RDF, RDFS and D, in the default graph, a named graph and under GRAPH ?g, the answer conditions, literals by value",
         () => Test("Varve.Sparql.Entailment.Tests")),
+    ("test-inference", "Varve.Inference: the closure maintained by insertion and retraction equals the closure from scratch at every commit, for each retraction strategy",
+        () => Test("Varve.Inference.Tests")),
+    ("test-inference-store", "Varve.Inference.Store: every read of the projection at every position is the closure of that position, held or from scratch, under every history ceiling, and a binding past its memory limit stops",
+        () => Test("Varve.Inference.Store.Tests")),
 
     ("test-events", "Varve.Events: rendering replayed byte for byte, the number rule, schema golden files, compatibility, the catalogue's three views, AsyncAPI 3.0, the declaration shapes' agreement with the code",
         () => Test("Varve.Events.Tests")),

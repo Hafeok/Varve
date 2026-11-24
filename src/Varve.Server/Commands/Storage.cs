@@ -20,7 +20,9 @@ namespace Varve.Server.Commands;
 /// sets no catalog names that the store still keeps, and what each reader
 /// record holds of them — read without changing anything; and
 /// <c>varve storage readers list</c> and <c>forget</c>, the operator's events
-/// for a reader that is gone (ADR 0160). The store is reached as the caller's
+/// for a reader that is gone (ADR 0160); and <c>varve storage verify</c>,
+/// the contract suite against a store (<see cref="StorageVerify"/>, ADR
+/// 0183). The store is reached as the caller's
 /// identity (ADR 0137): <c>forget</c> needs write access to <c>readers/</c>,
 /// which is its authorisation.
 /// </summary>
@@ -41,6 +43,7 @@ internal static class Storage
             () => ReportAsync(parsed.GetValue(address)!, parsed.GetValue(endpoint), parsed.GetValue(region), parsed.GetValue(sts), io, cancellationToken),
             parsed.InvocationConfiguration.Error));
         command.Subcommands.Add(Readers(io));
+        command.Subcommands.Add(StorageVerify.Command(io));
         return command;
     }
 
@@ -92,11 +95,11 @@ internal static class Storage
         Description = "A dataset in an object store: https://{account}.blob.core.windows.net/{container}/{dataset} or s3://{bucket}/{dataset}.",
     };
 
-    private static Option<string?> Endpoint() => new("--endpoint") { Description = "s3://: the S3-compatible service's endpoint." };
+    internal static Option<string?> Endpoint() => new("--endpoint") { Description = "s3://: the S3-compatible service's endpoint." };
 
-    private static Option<string?> Region() => new("--region") { Description = "s3://: the region the signature is for." };
+    internal static Option<string?> Region() => new("--region") { Description = "s3://: the region the signature is for." };
 
-    private static Option<string?> Sts() => new("--sts-endpoint") { Description = "s3://: the STS endpoint web identity is exchanged at, a self-hosted server's own; Amazon's when absent." };
+    internal static Option<string?> Sts() => new("--sts-endpoint") { Description = "s3://: the STS endpoint web identity is exchanged at, a self-hosted server's own; Amazon's when absent." };
 
     [DecisionDriven.DesignDecision(typeof(DecisionDriven.Ledger.Varve.StorageOperationsAndTheReadersCommand.StorageReportsSetsAndRetention), Scope = DecisionDriven.ExceptionScope.Boundary)]
     private static async Task<int> ReportAsync(string address, string? endpoint, string? region, string? sts, Io io, CancellationToken cancellationToken)

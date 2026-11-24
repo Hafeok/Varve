@@ -53,3 +53,5 @@ override Varve.Sparql.Entailment.Model.FullReadGraphs.ToString() -> string!
 static Varve.Sparql.Entailment.EntailmentRewriter.FullReads(Varve.Rdf.IQuadSource! source, System.Collections.Generic.IReadOnlyList<Varve.Sparql.Entailment.TBoxCover!>! covers, Varve.Sparql.Entailment.SchemaCache? schemas = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> Varve.Sparql.Entailment.Model.FullReadGraphs!
 static Varve.Sparql.Entailment.Model.FullReadGraphs.operator !=(Varve.Sparql.Entailment.Model.FullReadGraphs? left, Varve.Sparql.Entailment.Model.FullReadGraphs? right) -> bool
 static Varve.Sparql.Entailment.Model.FullReadGraphs.operator ==(Varve.Sparql.Entailment.Model.FullReadGraphs? left, Varve.Sparql.Entailment.Model.FullReadGraphs? right) -> bool
+static Varve.Sparql.Entailment.LiteralValues.IsWellTyped(Varve.Rdf.RdfTerm! literal) -> bool
+static Varve.Sparql.Entailment.LiteralValues.ValueSpaceWithin(Varve.Rdf.RdfTerm! datatype, Varve.Rdf.RdfTerm! super) -> bool

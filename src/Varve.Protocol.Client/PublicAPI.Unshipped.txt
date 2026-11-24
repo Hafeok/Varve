@@ -783,3 +783,27 @@ static Varve.Protocol.Client.Model.VariableName.operator ==(Varve.Protocol.Clien
 ~override Varve.Protocol.Client.Model.CommitTime.Equals(object obj) -> bool
 ~override Varve.Protocol.Client.Model.Entailment.Equals(object obj) -> bool
 ~override Varve.Protocol.Client.Model.VariableName.Equals(object obj) -> bool
+Varve.Protocol.Client.Model.EntailedAnswer
+Varve.Protocol.Client.Model.EntailedAnswer.EntailedAnswer() -> void
+Varve.Protocol.Client.Model.EntailedAnswer.EqualityNotApplied.get -> bool
+Varve.Protocol.Client.Model.EntailedAnswer.Equals(Varve.Protocol.Client.Model.EntailedAnswer other) -> bool
+Varve.Protocol.Client.Model.EntailedAnswer.Inconsistent.get -> bool
+Varve.Protocol.Client.Model.EntailedAnswer.PerGraphClosure.get -> bool
+Varve.Protocol.Client.Model.EntailedAnswer.WithoutClosure.get -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.Client.Model.GraphWithoutClosure>!
+Varve.Protocol.Client.Model.GraphWithoutClosure
+Varve.Protocol.Client.Model.GraphWithoutClosure.GraphWithoutClosure() -> void
+Varve.Protocol.Client.Model.GraphWithoutClosure.GraphWithoutClosure(string! value) -> void
+Varve.Protocol.Client.Model.GraphWithoutClosure.Value.get -> string!
+Varve.Protocol.Client.Model.GraphWithoutClosure.Equals(Varve.Protocol.Client.Model.GraphWithoutClosure other) -> bool
+override Varve.Protocol.Client.Model.GraphWithoutClosure.GetHashCode() -> int
+override Varve.Protocol.Client.Model.GraphWithoutClosure.ToString() -> string!
+static Varve.Protocol.Client.Model.GraphWithoutClosure.operator !=(Varve.Protocol.Client.Model.GraphWithoutClosure left, Varve.Protocol.Client.Model.GraphWithoutClosure right) -> bool
+static Varve.Protocol.Client.Model.GraphWithoutClosure.operator ==(Varve.Protocol.Client.Model.GraphWithoutClosure left, Varve.Protocol.Client.Model.GraphWithoutClosure right) -> bool
+~override Varve.Protocol.Client.Model.GraphWithoutClosure.Equals(object obj) -> bool
+override Varve.Protocol.Client.Model.EntailedAnswer.GetHashCode() -> int
+static Varve.Protocol.Client.Model.EntailedAnswer.Of(System.Net.Http.HttpResponseMessage! response) -> Varve.Protocol.Client.Model.EntailedAnswer
+static Varve.Protocol.Client.Model.EntailedAnswer.operator !=(Varve.Protocol.Client.Model.EntailedAnswer left, Varve.Protocol.Client.Model.EntailedAnswer right) -> bool
+static Varve.Protocol.Client.Model.EntailedAnswer.operator ==(Varve.Protocol.Client.Model.EntailedAnswer left, Varve.Protocol.Client.Model.EntailedAnswer right) -> bool
+static Varve.Protocol.Client.SparqlHttpClient.EntailedAnswerOf(System.Net.Http.HttpResponseMessage! response) -> Varve.Protocol.Client.Model.EntailedAnswer
+~override Varve.Protocol.Client.Model.EntailedAnswer.Equals(object obj) -> bool
+~override Varve.Protocol.Client.Model.EntailedAnswer.ToString() -> string

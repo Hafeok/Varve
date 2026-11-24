@@ -11,6 +11,8 @@ A write that changes a graph outside the caller's writable scope (ADR 0107). `gr
 
 A write to a validation report graph, under `https://w3id.org/varve/ns#validation/`, is refused the same way whoever makes it, an administrator included: the report is computed by its binding's projection and never written (ADR 0174).
 
+So is a write to a materialised closure's graphs: the views `https://w3id.org/varve/ns#explicit` and `https://w3id.org/varve/ns#implicit`, and every graph under `https://w3id.org/varve/ns#inferred/` (ADR 0198). Their content is computed by the binding's inference projection.
+
 ## What to do
 
 - An admin of the dataset: if the caller should write `graph`, grant `write`
@@ -18,6 +20,9 @@ A write to a validation report graph, under `https://w3id.org/varve/ns#validatio
   ([Authenticate](../operator/authenticate.md#the-model)).
 - A client: a validation report graph is never written; change the data or
   the shapes instead ([Shapes](../operator/shapes.md#the-report-graph)).
+  Nor is a closure's view or reserved graph; change the quads it is computed
+  from, a data graph of its binding or its TBox graphs
+  ([Inference](../operator/inference.md)).
   Sending the same write again is refused again.
 
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`

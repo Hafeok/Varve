@@ -1083,6 +1083,16 @@ internal sealed class LogWriter
         return new LogWriter(store, dataset, segmentBytes, maxRecordBytes, active, length, scan.Head);
     }
 
+    /// <summary>
+    /// The log writer of a follower (ADR 0164, amended 2026-11-20): at
+    /// <paramref name="head"/>, with no active segment, and made without
+    /// reading or writing the store. A follower appends nothing, so it
+    /// repairs nothing: where the newest segment holds only its opening
+    /// chunk, a torn tail, or a trailer and no seal, it stays as it is.
+    /// </summary>
+    internal static LogWriter Following(ISegmentStore store, DatasetId dataset, long segmentBytes, int maxRecordBytes, long head) =>
+        new(store, dataset, segmentBytes, maxRecordBytes, -1, 0, head);
+
     /// <summary>The bytes of the last commit's records, headers and bodies.</summary>
     internal long LastCommitBytes { get; private set; }
 

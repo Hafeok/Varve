@@ -115,6 +115,15 @@ public static class Tones
         ["entailment-refused"] = Tone.Critical,
         ["row-not-writable"] = Tone.Critical,
 
+        // Inference part 2. A closure behind is waiting: the same read
+        // succeeds once the projection has caught up (ADR 0195 point 5). A
+        // binding stopped needs the operator, and a closure refused to a
+        // row-scoped grant refuses the request as it stands (ADRs 0195
+        // point 6 and 0238).
+        ["inference-behind"] = Tone.Warn,
+        ["inference-unavailable"] = Tone.Critical,
+        ["entailment-not-available"] = Tone.Critical,
+
         // Client idempotency keys (ADR 0246). A key in flight is waiting: the
         // same request is answered once the first has been. A key reused with
         // another request is the client's mistake.

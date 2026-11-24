@@ -73,6 +73,15 @@ public sealed partial class SparqlHttpClient
     /// <summary>The dataset's address, ending in <c>/</c>.</summary>
     public Uri Dataset { get; }
 
+    /// <summary>
+    /// What a query's answer says of itself under <c>owl2-rl</c>: a clash in
+    /// a graph it read, equality not applied, a merge answered graph by
+    /// graph (ADR 0197, the ruling of 2026-11-19). Read it from the response
+    /// <see cref="QueryAsync(string, string, string?, string?, CancellationToken)"/>
+    /// returned.
+    /// </summary>
+    public static EntailedAnswer EntailedAnswerOf(HttpResponseMessage response) => EntailedAnswer.Of(response);
+
     /// <summary>A query, <c>POST</c>ed as <c>application/sparql-query</c>, asking for <paramref name="accept"/>; <paramref name="asOf"/> is a <c>Varve-As-Of</c> selector.</summary>
     public Task<HttpResponseMessage> QueryAsync(string query, string accept, string? asOf, CancellationToken cancellationToken) =>
         QueryAsync(query, accept, asOf, null, cancellationToken);
@@ -80,8 +89,10 @@ public sealed partial class SparqlHttpClient
     /// <summary>
     /// A query as <see cref="QueryAsync(string, string, string?, CancellationToken)"/> sends it,
     /// answered under <paramref name="entailment"/>, a <c>Varve-Entailment</c>
-    /// value: <c>simple</c>, <c>rdf</c>, <c>rdfs</c> or <c>d</c>, or a regime IRI
-    /// in angle brackets (ADR 0192). None is the dataset's default.
+    /// value: <c>simple</c>, <c>rdf</c>, <c>rdfs</c>, <c>d</c> or <c>owl2-rl</c>, or a
+    /// regime IRI in angle brackets (ADRs 0192, 0197). None is the dataset's
+    /// default. Under <c>owl2-rl</c>, <see cref="EntailedAnswerOf"/> reads what
+    /// the answer says of itself.
     /// </summary>
     public Task<HttpResponseMessage> QueryAsync(string query, string accept, string? asOf, string? entailment, CancellationToken cancellationToken)
     {

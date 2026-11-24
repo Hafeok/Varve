@@ -212,6 +212,7 @@
     | ghcr.io/rustfs/rustfs | 1.0.1 | Apache-2.0 | .github/storage/compose.yaml (ADR 0134) |
     | mcr.microsoft.com/azure-messaging/eventhubs-emulator | 2.2.1 | Microsoft's emulator licence, accepted by ACCEPT_EULA=Y (run in CI, never linked or shipped; ADR 0146) | .github/eventhubs/compose.yaml |
     | mcr.microsoft.com/azure-storage/azurite | 3.37.0 | MIT (ADR 0146) | .github/eventhubs/compose.yaml |
+    | gcr.io/k8s-staging-kind/node | v1.37.0 | Apache-2.0 (kind and Kubernetes; the Debian base's packages carry their own) | .github/ci-images.yaml, the kind cluster's node (#129) |
   -->
 
   <ItemGroup Label="Test-time">

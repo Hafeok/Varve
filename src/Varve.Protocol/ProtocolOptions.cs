@@ -137,6 +137,13 @@ public sealed class ProtocolOptions
     public IValidationReports? ValidationReports { get; init; }
 
     /// <summary>
+    /// The host's inference projections, the one seam every tier-2 surface
+    /// reads a closure through (ADR 0195 point 7); null when the host keeps
+    /// none, and then no graph has an implicit part.
+    /// </summary>
+    public IInferenceClosures? InferenceClosures { get; init; }
+
+    /// <summary>
     /// The host's classification projections (ADR 0233), which row-restricted
     /// callers are read and written by; null when the host keeps none, and
     /// then a row scope restricts nothing.

@@ -107,6 +107,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         IValidationReports? validationReports = null,
         IRowClassifications? rowClassifications = null,
         IEntailmentBindings? entailment = null,
+        IInferenceClosures? inference = null,
         Microsoft.Extensions.Logging.ILogger? logger = null,
         CancellationToken stopping = default)
     {
@@ -153,6 +154,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
             ValidationReports = validationReports,
             RowClassifications = rowClassifications,
             Entailment = entailment,
+            InferenceClosures = inference,
             Logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance,
         };
 
@@ -181,7 +183,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         _memory?.Dispose();
     }
 
-    private sealed class OneDataset(Dataset dataset) : IDatasetResolver
+    internal sealed class OneDataset(Dataset dataset) : IDatasetResolver
     {
         public bool TryResolve(DatasetName name, [NotNullWhen(true)] out Dataset? resolved)
         {
