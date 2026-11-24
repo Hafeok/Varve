@@ -24,7 +24,7 @@
 # point 5), the tag kept for the reader and for Dependabot, which proposes a
 # new digest when the tag moves. The chiseled base's digest is also what
 # publish.yml scans for the image SBOM's OS packages (ADR 0225 point 5).
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble@sha256:f87d6824cd56fa4ad117d06461e4eb0058f46a159872dbcc4a836a72efdd1bec AS layout
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble@sha256:fabe6d8f15c430642a1f92ba0b8d58ff81370cd34c39a182164ad13ba136d38f AS layout
 RUN mkdir -p /var/lib/varve && chown 1654:1654 /var/lib/varve
 
 # The Web UI's bundle (ADR 0245 point 1), its modes set here by GNU chmod:
@@ -35,7 +35,7 @@ RUN mkdir -p /var/lib/varve && chown 1654:1654 /var/lib/varve
 COPY webui /webui
 RUN chmod -R u=rwX,go=rX /webui && chown -R 0:0 /webui
 
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled@sha256:e9346023014b406b9bc8be969b3aa4d39efa3a43b6abcc495f01be566acb10e9
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble-chiseled@sha256:40eba5db69594d517c3a61e96bdacc2e3d6f8c99a44b52d55edee844d33518d0
 
 # Varve.Server on Linux and macOS, Varve.Server.exe on Windows; here Linux.
 ARG BINARY=Varve.Server

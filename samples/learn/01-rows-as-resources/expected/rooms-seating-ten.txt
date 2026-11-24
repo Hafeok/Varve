@@ -1,0 +1,6 @@
+room       | name             | seats
+-----------+------------------+------
+:room-2-01 | 2.01 Fjord       | 10
+:room-2-02 | 2.02 Open office | 40
+:room-3-02 | 3.02 Open office | 36
+(3 rows)

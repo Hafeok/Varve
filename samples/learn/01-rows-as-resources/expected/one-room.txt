@@ -1,0 +1,7 @@
+property     | value
+-------------+--------------------
+rdf:type     | rec:Room
+rdfs:label   | 2.01 Fjord
+rec:area     | :room-2-01-area
+rec:capacity | :room-2-01-capacity
+(4 rows)

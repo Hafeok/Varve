@@ -1,0 +1,7 @@
+PREFIX rec: <https://w3id.org/rec#>
+
+SELECT ?seats ?tenOrMore
+WHERE {
+  ?c rec:seatingCapacity ?seats .
+  BIND (?seats >= 10 AS ?tenOrMore)
+}

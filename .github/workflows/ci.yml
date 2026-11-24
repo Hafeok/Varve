@@ -1242,6 +1242,62 @@ jobs:
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
 
+  # The learning track (ADR 0249, #94): every sample builds against src/,
+  # runs, and prints what its expected/ files hold, on every OS a reader
+  # runs it on; its data conforms to the pinned REC 4 shapes; the pages
+  # quote it. The pipeline (devcontainer) runs the same on Linux, through
+  # eng/ci.cs; this job adds Windows and macOS, and the trimmed publish.
+  learn:
+    name: learn (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-15]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Run every sample and compare its output with the pages
+        run: dotnet run eng/learn.cs -- --run
+
+      - name: The track's data against REC 4
+        run: dotnet test --project tests/Varve.Learn.Tests/Varve.Learn.Tests.csproj --configuration Release --report-trx --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Learn.Tests
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test-results-learn-${{ matrix.os }}
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
+
+  # ADR 0249 point 7: each sample publishes trimmed with no warning, and the
+  # trimmed executable prints what the untrimmed one does. Linux here;
+  # Windows and macOS in the nightly.
+  learn-trimmed:
+    name: learn (trimmed)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Publish every sample trimmed, run it and compare
+        run: dotnet run eng/learn.cs -- --run --trimmed linux-x64
+
   # Auth test layer (c) (ADR 0100): Zitadel and PostgreSQL, a real provider,
   # started by compose and seeded through its API by eng/zitadel-seed.cs. One
   # test per flow: client credentials, and device code approved through the
