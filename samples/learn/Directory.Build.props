@@ -1,0 +1,46 @@
+<Project>
+
+  <!--
+    The learning track's samples (#94, ADR 0249). Each is a small console
+    project built the way a user builds one: it names the Varve packages it
+    uses as VarveReference items, and nothing else of this repository.
+
+    VarveFrom chooses how those resolve:
+      project  (default)  ProjectReference to src/, so CI builds the samples
+                          against main;
+      package             PackageReference at VarvePackageVersion, as a user
+                          restores them; the nightly builds every sample so.
+
+    eng/learn.cs refuses a VarveReference to anything that is not a packable
+    project under src/, and any other ProjectReference.
+  -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Layer 6 (ADR 0060): an executable that composes. -->
+    <ArchLayer>6</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
+    <IsPackable>false</IsPackable>
+    <VarveFrom Condition="'$(VarveFrom)' == ''">project</VarveFrom>
+    <!-- A publish is trimmed (ruling 4): `dotnet publish -r <rid>` must
+         give no warning. Set here, not by -p, so it does not flow into the
+         referenced projects. One lockfile serves every runner (ADR 0226). -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <!-- The runtime a trimmed publish is for, set here from VarveTrimFor
+         rather than by `-r`: a global RuntimeIdentifier flows into every
+         project under src/, whose lockfiles name no runtime, and a locked
+         restore refuses it (NU1004). -->
+    <RuntimeIdentifier Condition="'$(VarveTrimFor)' != ''">$(VarveTrimFor)</RuntimeIdentifier>
+    <RuntimeIdentifiers>$(VarveNativeRuntimeIdentifiers)</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <!-- A package build resolves a published preview, whose graph is not the
+       one checked in: it restores unlocked, to a lockfile under obj/ that
+       nothing commits, and is a check, never a ship. -->
+  <PropertyGroup Condition="'$(VarveFrom)' == 'package'">
+    <NuGetLockFilePath>$(MSBuildProjectDirectory)/obj/packages.published.lock.json</NuGetLockFilePath>
+    <RestoreLockedMode>false</RestoreLockedMode>
+  </PropertyGroup>
+
+</Project>

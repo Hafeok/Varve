@@ -94,8 +94,6 @@ internal static partial class SiteBuild
         }
 
         WriteText(Path.Combine(output, "index.html"), Layout.Page(site, new PageModel("index.html", "Varve documentation", null, null, Home(repository, map, packages.Count), null, [], [], Home: true)));
-        WriteText(Path.Combine(output, "learning", "index.html"), Layout.Page(site, new PageModel(
-            "learning/index.html", "Learning track", null, new Head("Learning track"), Learning(), null, [], [])));
         ApiReference.Write(output, site, packages, lists[SiteMap.Api]);
         SiteStyles.Write(repository, output);
 
@@ -215,19 +213,22 @@ internal static partial class SiteBuild
             Card(html, output, title, summary, "1 page");
         }
 
-        html.Append("</ul>\n<h2>Learning track</h2>\n");
-        html.Append("<div class=\"vd-notice\" role=\"note\"><span class=\"vw-state vw-state--warn\">Not written yet</span><span>The <a href=\"learning/index.html\">learning track</a> (<a href=\"")
-            .Append(Layout.Repository).Append("/issues/94\">#94</a>) gets its pages here as it is written.</span></div>\n");
+        html.Append("</ul>\n");
+
+        // Until the learning track is written, the home page says so (the
+        // design: "a warn notice saying it isn't written yet, until #94
+        // lands"). Once docs/learn/ is carried, it is a section and a card.
+        if (map.PageOf("docs/learn/README.md") is null)
+        {
+            html.Append("<h2>Learning track</h2>\n<div class=\"vd-notice\" role=\"note\"><span class=\"vw-state vw-state--warn\">Not written yet</span><span>The learning track (<a href=\"")
+                .Append(Layout.Repository).Append("/issues/94\">#94</a>) gets its pages here as it is written.</span></div>\n");
+        }
         return html.ToString();
     }
 
     private static void Card(StringBuilder html, string href, string title, string summary, string count) =>
         html.Append("<li><a href=\"").Append(href).Append("\"><b>").Append(Layout.Encode(title)).Append("</b><span>").Append(Layout.Encode(summary))
             .Append("</span><small>").Append(Layout.Encode(count)).Append("</small></a></li>");
-
-    private static string Learning() =>
-        "<div class=\"vd-notice\" role=\"note\"><span class=\"vw-state vw-state--warn\">Stub</span><span>This page is a placeholder, marked as one: the learning track, Varve for SQL developers and DDD practitioners, is not written yet. It is milestone <a href=\""
-        + Layout.Repository + "/issues/94\">#94</a>, and its pages take this place on the site when they land.</span></div>\n";
 
     /// <summary>
     /// Each Markdown section's page list, in order: its README as "Overview",

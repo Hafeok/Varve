@@ -84,6 +84,99 @@ public class ContractTests(BuiltSite site)
         Anchors(b.First("div", "vd-prose")!);
     }
 
+    private static bool LearningTrackWritten => File.Exists(Path.Combine(Paths.Root, "docs", "learn", "README.md"));
+
+    /// <summary>
+    /// The learning track's pages, which the design has no reference page for,
+    /// take the design: each against the reference page of its kind (the
+    /// section's index against operator/index, a chapter against
+    /// operator/configure) on the head links, the body, the bar, the frame's
+    /// areas, the crumbs, the head, the prose's vocabulary and anchors, the
+    /// diagrams, "On this page", the page list, the pager and the foot. Every
+    /// finding on every page is collected, so one run names them all.
+    /// </summary>
+    [Fact]
+    public async Task every_learning_track_page_takes_the_design()
+    {
+        if (!LearningTrackWritten)
+        {
+            Assert.Skip("docs/learn/ is not on this branch.");
+        }
+
+        string output = await site.OutputAsync();
+        List<string> pages = [.. Directory.EnumerateFiles(Path.Combine(output, "learning"), "*.html").Select(f => "learning/" + Path.GetFileName(f)).Order(StringComparer.Ordinal)];
+        Assert.NotEmpty(pages);
+        List<string> findings = [];
+
+        foreach (string page in pages)
+        {
+            bool index = page == "learning/index.html";
+            string reference = index ? "operator/index.html" : "operator/configure.html";
+            Element b = await PageAsync(page);
+            Element r = Reference(reference);
+
+            void Check(string what, Action check)
+            {
+                try
+                {
+                    check();
+                }
+                catch (Exception e) when (e is not Xunit.Sdk.SkipException)
+                {
+                    findings.Add($"{page}, {what}: {e.Message.ReplaceLineEndings(" ")}");
+                }
+            }
+
+            Check("head links", () => HeadLinks(b, r));
+            // Whether a page has "On this page", and so a wide frame, is its
+            // text's: the frame's classes are the "frame" check's.
+            Check("body", () => Assert.Equal(
+                Names(Body(r).Children).Select(static n => Without(n, ".vd-frame--wide")),
+                Names(Body(b).Children).Select(static n => Without(n, ".vd-frame--wide"))));
+            Check("bar", () => Assert.Equal(Without(r.First("header", "vd-bar")!.Shape(), "[aria-current]"), Without(b.First("header", "vd-bar")!.Shape(), "[aria-current]")));
+            Check("frame", () =>
+            {
+                Element bf = b.First("div", "vd-frame")!;
+                Assert.Contains(string.Join(" ", bf.Classes.Order(StringComparer.Ordinal)), (string[])["vd-frame", "vd-frame vd-frame--wide"]);
+                Assert.Equal(bf.Has("vd-frame--wide") ? ["main.vd-article[id]", "nav.vd-pages[aria-label][id]"] : ["main.vd-article[id]", "nav.vd-pages[aria-label][id]", "aside.vd-toc[aria-label]"], Names(bf.Children));
+            });
+            Check("crumbs", () => Assert.Equal(r.First("p", "vd-crumbs")!.Shape(), b.First("p", "vd-crumbs")!.Shape()));
+            Check("head", () => Head(b.First("header", "vd-head")!, r.First("header", "vd-head")!));
+            Check("one h1, in the head", () => Assert.True(Assert.Single(b.All("h1")).Parent!.Has("vd-head")));
+            Check("prose", () =>
+            {
+                Element prose = b.First("div", "vd-prose")!;
+                Assert.All(prose.All("table"), static t => Assert.True(t.Parent!.Has("vd-table"), "a table outside a div.vd-table"));
+                Assert.All(prose.All("div", "vd-table").Select(static d => string.Join(" ", d.Classes.Order(StringComparer.Ordinal))), static w => Assert.Contains(w, Vocabulary.Value.Wrappers));
+                Anchors(prose);
+                Assert.All(prose.All("figure", "vd-diagram"), static f => Assert.StartsWith("Diagram: ", f.First("img")!["alt"]!, StringComparison.Ordinal));
+            });
+            Check("contents", () =>
+            {
+                if (b.First("aside", "vd-toc") is { } toc)
+                {
+                    Assert.All(toc.All("li"), static li => Assert.Contains(li.Shape(), Vocabulary.Value.TocEntries));
+                }
+            });
+            Check("page list", () =>
+            {
+                Element list = b.First("nav", "vd-pages")!;
+                Assert.Equal(r.First("nav", "vd-pages")!.Name(), list.Name());
+                Assert.Equal(page, Resolve(page, Assert.Single(list.All("a"), static a => a["aria-current"] == "page")["href"]!));
+            });
+            Check("pager", () =>
+            {
+                if (!index)
+                {
+                    Assert.Equal(r.First("nav", "vd-pager")!.Name(), b.First("nav", "vd-pager")!.Name());
+                }
+            });
+            Check("foot", () => Foot(b, r));
+        }
+
+        Assert.True(findings.Count == 0, string.Join("\n", findings));
+    }
+
     private async Task<Element> PageAsync(string page) =>
         Markup.Parse(await File.ReadAllTextAsync(Path.Combine(await site.OutputAsync(), page), TestContext.Current.CancellationToken));
 
@@ -143,11 +236,26 @@ public class ContractTests(BuiltSite site)
 
         if (rm.Has("vd-home"))
         {
-            // The home page: the head and its three ways in, the cards, the notice.
-            Assert.Equal(Names(rm.Children), Names(bm.Children));
+            // The home page: the head and its three ways in, the cards, and,
+            // until the learning track is written, its notice (the design:
+            // "a warn notice saying it isn't written yet, until #94 lands").
+            List<string> expected = Names(rm.Children);
+
+            if (LearningTrackWritten)
+            {
+                Assert.Equal(["h2", "div.vd-notice[role]"], expected[^2..]);
+                expected = expected[..^2];
+                Assert.Null(bm.First("div", "vd-notice"));
+            }
+
+            Assert.Equal(expected, Names(bm.Children));
             Assert.Equal(rm.First("div", "vd-home-head")!.Shape(), bm.First("div", "vd-home-head")!.Shape());
             Assert.Equal(rm.First("ul", "vd-grid")!.Children.Select(static li => li.Shape()).Distinct(), bm.First("ul", "vd-grid")!.Children.Select(static li => li.Shape()).Distinct());
-            Assert.Equal(rm.First("div", "vd-notice")!.Shape(), bm.First("div", "vd-notice")!.Shape());
+            if (!LearningTrackWritten)
+            {
+                Assert.Equal(rm.First("div", "vd-notice")!.Shape(), bm.First("div", "vd-notice")!.Shape());
+            }
+
             return;
         }
 

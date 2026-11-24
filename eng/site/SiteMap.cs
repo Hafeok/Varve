@@ -72,6 +72,7 @@ internal sealed class SiteMap
 {
     public static readonly IReadOnlyList<Section> Sections =
     [
+        new("Learning track", "docs/learn", "learning", "Varve for SQL developers and DDD practitioners, chapter by chapter, on one RealEstateCore portfolio.", null, "page", "pages"),
         new("Operator guide", "docs/operator", "operator", "Running, configuring, securing and upgrading Varve.", "Operator guide", "page", "pages"),
         new("Specifications", "docs/spec", "spec", "The specifications Varve implements and its own formats.", "Specifications", "specification", "specifications"),
         new("Architecture decisions", "docs/adr", "adr", "Every ADR, with its context, decision and consequences.", "Decisions", "decision", "decisions"),
