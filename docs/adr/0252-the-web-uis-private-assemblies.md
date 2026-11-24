@@ -3,8 +3,8 @@
 ## Status
 
 **Accepted — filed unaccepted by the session for Web UI part 2 (#355, under
-#96), 2026-11-19** (ADR 0066). Acceptance is the maintainer's act on the pull
-request. Decided by the maintainer as D1-b on the part 2 plan, 2026-11-18,
+#96), 2026-11-19** (ADR 0066), and accepted by the maintainer on
+2026-11-24, written by his delegate (ADR 0239). Decided by the maintainer as D1-b on the part 2 plan, 2026-11-18,
 with one condition: VARVE0006 covers all three assemblies. Revised in place on
 2026-11-19, before acceptance, by the maintainer's ruling that DD0001 is right
 and the layering is what changes: the three assemblies take layers 6, 7 and 8.

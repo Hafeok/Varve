@@ -3,8 +3,8 @@
 ## Status
 
 **Accepted — filed unaccepted by the session for Web UI part 2 (#355, under
-#96), 2026-11-18** (ADR 0066). Acceptance is the maintainer's act on the pull
-request. The plan was approved on
+#96), 2026-11-18** (ADR 0066), and accepted by the maintainer on
+2026-11-24, written by his delegate (ADR 0239). The plan was approved on
 [#96](https://github.com/Hafeok/Varve/issues/96#issuecomment-6979264625), with
 the rulings of 2026-11-18. Filed as 0248, it became 0253 on 2026-11-20 by the
 maintainer's ruling on #387: 0248 is #129's on `main`, and its acceptance there
