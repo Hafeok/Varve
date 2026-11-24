@@ -1,13 +1,15 @@
 # Operating Varve
 
 The operator's guide to `Varve.Server`: one executable that is the server and
-the `varve` command line (ADR 0105). Eighteen pages, each a task:
+the `varve` command line (ADR 0105). Twenty pages, each a task:
 
 | Page | What it covers |
 |---|---|
 | [Run](run.md) | installing the executable, starting the server, what it listens on, liveness and readiness, stopping it |
 | [Configure](configure.md) | every setting under `Varve:`, with its default and what refuses to start |
-| [Authenticate](authenticate.md) | OIDC bearer tokens, claims to permissions, graph-scoped grants, on-behalf-of and the attribution rule, anonymous mode, and how the command line gets a token |
+| [Authenticate](authenticate.md) | OIDC bearer tokens, claims to permissions, graph-scoped grants, the attribution rule, the management plane's audience, anonymous mode, and how the command line gets a token |
+| [Microsoft Entra ID](entra.md) | every registration from the Bicep template, keyless: CI by workload identity federation, people through public clients, on-behalf-of, and the data plane's automation until #301 |
+| [Any other OpenID Connect issuer](oidc-issuer.md) | what the server needs of an issuer, why keyless automation needs federation there, and Zitadel step by step as CI runs it, its machine user's secret included |
 | [Datasets](datasets.md) | where a dataset's boundary goes; declaring datasets, settings and grants as TriG with `varve apply` and `/manage/`; and a setup an application applies on every start: `AddVarve`, `varve setup apply`, `WithDataset`, the setup file |
 | [The fleet](fleet.md) | the system dataset, its writer and followers, placement, write forwarding, reading your writes, readiness, and what each costs in store requests |
 | [Shapes](shapes.md) | shapes bindings: declaring one, `reject`, `report` and `off`, which shapes can be checked per commit, the attachment, the report graph and who reads it, the projection's lag, cold start and cost, and the composition REC and Brick need |
