@@ -3,7 +3,8 @@
 ## Status
 
 **Accepted — filed unaccepted by #364, 2026-11-19** (ADR 0066), under the
-learning track, #94. It records the plan the maintainer accepted on #94 on
+learning track, #94, and accepted by the maintainer on 2026-11-24, written by his
+delegate (ADR 0239). It records the plan the maintainer accepted on #94 on
 2026-11-19, answers 1 to 5 included. Numbered 0249, after
 [0248](0248-every-procedure-names-what-runs-it.md), whose marker grammar this
 ADR extends.
