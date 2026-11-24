@@ -19,6 +19,45 @@ basis:
   - adr: "0253"
   - adr: "0254"
 sbom:
+  - asset: varve-webui-0.1.0-preview.23.zip sha256:06fe64063a0b0c62a09f05fb917eff3b854b12d3246f922323c759ad9304c97b
+  - binary: varve-0.1.0-preview.23-linux-arm64.tar.gz sha256:549670b270987c164a76777fabd972ba58c3da6302b88e351a35846d90e0a156
+  - binary: varve-0.1.0-preview.23-linux-x64.tar.gz sha256:a3de854c0da63c4e38cf9ee161432641b51ed56fa0bc1edc50ff8ef49cab7cf8
+  - binary: varve-0.1.0-preview.23-osx-arm64.tar.gz sha256:88252eb9a16d6ac39074ee70174b50f39488f9edf7ea7dc4244e26648ab66358
+  - binary: varve-0.1.0-preview.23-osx-x64.tar.gz sha256:aab37be0c67af2049882eda82da70253674e8dd5ef4f09159ef235b63de7df1a
+  - binary: varve-0.1.0-preview.23-win-arm64.zip sha256:56f8484188daf6c2263873486d842a5cbfaaa5c1e4c8db485538b5906cd55cc8
+  - binary: varve-0.1.0-preview.23-win-x64.zip sha256:1fbce84f7b2fa9feae497e6a3607da10c6951cf4cffacb145676c1d18b8b7f09
+  - image: ghcr.io/hafeok/varve sha256:c0a2b3f64e4cc2ea491fc5abdc29fab999d4070a25bc0a185a5f6d7c34304d1d
+  - nupkg: Varve.Aspire sha256:4b4ca3f77e016db95298c1af27a1b401f82885f62f02bb64320da13e7e927d3a
+  - nupkg: Varve.Classification sha256:9443c541329aeb65edaac5e9a1f1934fd9f6496179c16a5e323dde1daa179e15
+  - nupkg: Varve.Delta sha256:2bf408e048a06c952f148898b78334602c536da403237ff7f59ce67c04c87e25
+  - nupkg: Varve.Derivation sha256:788654e2ab6bc70d8d1e7a782d928d7326671531daaac9842e8251f018d8dd5c
+  - nupkg: Varve.Events sha256:9328779bc50240684da30991b7581140990b640840813b708736ae41f6ab1acf
+  - nupkg: Varve.Inference sha256:d9bee81fa62f34625bfd5b40994c98c0653eaac60eb071c755afe00acc615670
+  - nupkg: Varve.Inference.Store sha256:69e4b8b74e08dacc00cb080302a58827a4641b9d76e932acd09cd351f1a8be6a
+  - nupkg: Varve.Iri sha256:d0b1b2b5565336685c43ed910b8aa7787430b62881b527b9758539a93b1e259e
+  - nupkg: Varve.Json.Canonical sha256:76bba17399241e3f782b972e4c836bd1de26b46c407106d4d3e61cffb3671924
+  - nupkg: Varve.JsonLd sha256:8c1107aa4a3a63ecbdea9ef3c01f3cbecce3e8374903aa21fed9430199c58d77
+  - nupkg: Varve.Management sha256:f0c8aca204d5daaf470cd6f69d8c50b4d3ab242d57bf2fa661c2f311264a6f07
+  - nupkg: Varve.Protocol sha256:65fe7724540df0afd6477e14a50936a54426b52e92fdc053219ad9f0f45c218c
+  - nupkg: Varve.Protocol.Client sha256:abc27f35048ede3a942c925d3e0c142ee440ed48758fc6e9bed566473c12c456
+  - nupkg: Varve.Rdf sha256:84a5aa1e33dca918d993b267fcbbc02e9e22c08a28b001e127c9aff8fc9d7e39
+  - nupkg: Varve.RdfXml sha256:4b2ab8e1e652d1c1186bba2788fa0e2b6719a65688f4ec5bed049997bbf03e73
+  - nupkg: Varve.Shacl sha256:52b3deaa5c27e65e68a267ab1f71f3727b2bb963f061ee84f54802338003f932
+  - nupkg: Varve.Shacl.Sparql sha256:7ba0d74c6be674efb2153a27d1c515d164c8f086d9857dbc916f2e677fbc9e34
+  - nupkg: Varve.Shacl.Store sha256:db22c074b862c61f6337333544e007cdaa42dca366a4ed85c7ba1433b26b6f3e
+  - nupkg: Varve.Sparql sha256:b79805e820345cc4c6baff4d46caf649044efcbd5f7b16a62454d84e117619b8
+  - nupkg: Varve.Sparql.Entailment sha256:a3889c39617fed6ece0f47df8cb4208332f21b2bc73de4ec3287494cb325449a
+  - nupkg: Varve.Sparql.Evaluation sha256:1b15b8398fcb9d7901619fcd32e03f763538b15f9ed7c7601e4cfb3d10b208c6
+  - nupkg: Varve.Sparql.Results sha256:ddb055af2a3cfb600f75db658a8fd4fc5d7088ee526da15599d42b26c5021320
+  - nupkg: Varve.Sparql.Store sha256:27792c78e12d448358c12aeb18636555a8c3ec302af7cbecc2f4bb9c9c9e4045
+  - nupkg: Varve.Store sha256:f79d5499ef41acaad160429432c05748d0e705918482808952f81819e1874036
+  - nupkg: Varve.Store.Azure sha256:80df4f2b87f3bbdfa2f0fdfa9b6107ad6cd4e0c348a8507bcc8e8b49d68768ef
+  - nupkg: Varve.Store.Browser sha256:4bdf555aaa12b3daf8495f0d54e065a5506427f183a11ff6e50fc6197935789b
+  - nupkg: Varve.Store.ObjectStorage sha256:61afc3ed6aae26267934c0e2ad21b0d3cb470d8fe7bc5c0560eb5a3508b3be2a
+  - nupkg: Varve.Store.S3 sha256:9cb3f9fa94b6c00c16a77d657b981fb902ef053be36a6e032f60664f0e516c7d
+  - nupkg: Varve.Turtle sha256:c9db8b0aec8412bfb6c8724049218216c0c60c659397e69cd98317966764bc3c
+  - nupkg: Varve.Xsd sha256:4ad76191ab6518c001173bdf179f24ddb9575bef036e54512fd1bdf19408d667
+  - tool: Varve.Server sha256:972ed178aedd15c7648518fba63fc015d5796aed67cf3c7e30f108cbf017f14e
 summary: |
   ### Web UI, part 2 (a) — the data explorer's Query screen (#355, part 2 of #96)
 
