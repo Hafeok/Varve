@@ -1250,27 +1250,12 @@ public sealed class LogShipperTests
                 return;
             }
 
-            // #384: a follower's open runs the writer's repairs of the newest
-            // segment, and its storage refuses them. It happens where the
-            // newest segment holds only its opening chunk, or its trailer and
-            // no seal chunk, on a source as on a target. The shipper copies
-            // chunks in order and so passes through both. The checks above
-            // ran; this catch goes when #384 is fixed.
-            // Closed with the check, so its reader record does not hold the
-            // target's sets through the rest of the schedule.
+            // A follower opens it wherever the shipper stopped: also where the newest segment holds only its opening
+            // chunk, or its trailer and no seal chunk, which the shipper passes through at every roll (#384, ADR 0164).
+            // Closed with the check, so its reader record does not hold the target's sets through the rest of the
+            // schedule.
             await using Backend storage = await Target.OpenAsync(ObjectStorageAccess.ReadOnly);
-            Dataset follower;
-
-            try
-            {
-                follower = await Dataset.OpenFollowerAsync(storage, Small(), T.Ct);
-            }
-            catch (InvalidOperationException refused) when (refused.Message.Contains("it claimed no writer epoch", StringComparison.Ordinal))
-            {
-                return;
-            }
-
-            await using Dataset opened = follower;
+            await using Dataset follower = await Dataset.OpenFollowerAsync(storage, Small(), T.Ct);
             List<SortedSet<string>> views = await FormatFixtures.ViewsAsync(follower);
             Assert.Equal((await FormatFixtures.ViewsAsync(writer)).Take(views.Count), views);
         }
