@@ -111,7 +111,8 @@ public sealed class ShippingRoleTests
         await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == dataset.Head.Value);
 
         // The target refuses writes while the source is damaged, so the shipper meets the damage and not a race with it.
-        scene.Target.Hook = (operation, _) => operation is ObjectOperation.Create or ObjectOperation.Replace ? () => throw new IOException("the target is held back") : null;
+        // It refuses before it applies them: a write applied with its answer lost would put the whole chunk there.
+        scene.Target.Hook = (operation, _) => operation is ObjectOperation.Create or ObjectOperation.Replace ? throw new IOException("the target is held back") : null;
         HashSet<string> had = [.. scene.Source.Names()];
         await CommitAsync(dataset, 2, 3);
         string chunk = scene.Source.Names().First(name => !had.Contains(name) && name.Contains(".chunks/", StringComparison.Ordinal));
@@ -128,7 +129,7 @@ public sealed class ShippingRoleTests
         await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == dataset.Head.Value);
 
         // A set, damaged before it is copied.
-        scene.Target.Hook = (operation, _) => operation is ObjectOperation.Create or ObjectOperation.Replace ? () => throw new IOException("the target is held back") : null;
+        scene.Target.Hook = (operation, _) => operation is ObjectOperation.Create or ObjectOperation.Replace ? throw new IOException("the target is held back") : null;
         await dataset.CheckpointAsync(dataset.Head, Ct);
         string blob = scene.Source.Names().First(name => name.StartsWith("orders/derived/extents/", StringComparison.Ordinal) && name.EndsWith("/terms", StringComparison.Ordinal));
         whole = scene.Source.Get(blob)!;
