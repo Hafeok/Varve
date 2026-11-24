@@ -1,0 +1,13 @@
+format: 1
+provider: "broken"
+server-version: "0"
+deployment: "a test"
+suite: 1
+date: "2026-11-16"
+racers: 16
+rounds: 8
+result: fail
+counterexample-case: "create-if-absent writes once and reads back"
+counterexample: "a second create of the same name returned a version"
+run-by: "maintainer"
+signed-off-by: "A Tester <tester@example.org>"

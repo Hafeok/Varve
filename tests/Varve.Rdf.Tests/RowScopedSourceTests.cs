@@ -35,6 +35,35 @@ public class RowScopedSourceTests
         Assert.IsType<RowScopedQuadSource>(RowScopedQuadSource.Wrap(dataset, rows, Restricted(SubjectScope.None)));
     }
 
+    /// <summary>
+    /// The wrapper forwards no capability beyond <see cref="IQuadSource"/>
+    /// (#171, the condition on ADR 0238 point 1). A forwarded
+    /// <see cref="IGraphVersionSource"/> would let two callers with different
+    /// row scopes share one saturated schema under the entailment rewriter's
+    /// cache key, and a forwarded <see cref="IDistinctTermSource"/> would seek
+    /// terms in rows the caller does not see. Any interface the type gains
+    /// fails this, as does any capability interface of <c>Varve.Rdf</c> it
+    /// comes to implement; forwarding one needs it to filter by row, and a
+    /// change to this test that says so.
+    /// </summary>
+    [Fact]
+    public void the_wrapper_forwards_no_capability_of_the_source_it_wraps()
+    {
+        Type wrapper = typeof(RowScopedQuadSource);
+        Assert.Equal([typeof(IQuadSource)], wrapper.GetInterfaces());
+
+        Type[] capabilities = [.. typeof(IQuadSource).Assembly.GetExportedTypes()
+            .Where(t => t.IsInterface && t != typeof(IQuadSource) && t.Name.EndsWith("Source", StringComparison.Ordinal))];
+        Assert.Contains(typeof(IGraphVersionSource), capabilities);
+        Assert.Contains(typeof(IDistinctTermSource), capabilities);
+        Assert.All(capabilities, capability => Assert.False(capability.IsAssignableFrom(wrapper), capability.Name));
+
+        InMemoryDataset dataset = Dataset([("http://ex/a", TypeIri, Person, Classified[0])]);
+        IQuadSource scoped = RowScopedQuadSource.Wrap(dataset, new RowFixture(dataset), Restricted(SubjectScope.None));
+        Assert.IsNotAssignableFrom<IGraphVersionSource>(scoped);
+        Assert.IsNotAssignableFrom<IDistinctTermSource>(scoped);
+    }
+
     [Fact]
     public void a_link_into_a_hidden_row_is_hidden_and_a_public_link_is_not()
     {

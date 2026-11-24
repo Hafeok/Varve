@@ -274,3 +274,153 @@ Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.WriterRecordFormatU
 Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.WriterRecordFormatUnknownException(string! message, System.Exception! innerException) -> void
 Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.WriterRecordFormatUnknownException(int format, int reads) -> void
 Varve.Store.ObjectStorage.WriterRecordFormatUnknownException.Format.get -> int
+Varve.Store.ObjectStorage.Model.ContractViolationText
+Varve.Store.ObjectStorage.Model.ContractViolationText.ContractViolationText() -> void
+Varve.Store.ObjectStorage.Model.ContractViolationText.ContractViolationText(string! Value) -> void
+Varve.Store.ObjectStorage.Model.ContractViolationText.Deconstruct(out string! Value) -> void
+Varve.Store.ObjectStorage.Model.ContractViolationText.Equals(Varve.Store.ObjectStorage.Model.ContractViolationText other) -> bool
+Varve.Store.ObjectStorage.Model.ContractViolationText.Value.get -> string!
+Varve.Store.ObjectStorage.Model.ContractViolationText.Value.init -> void
+Varve.Store.ObjectStorage.Model.VerificationCaseName
+Varve.Store.ObjectStorage.Model.VerificationCaseName.Deconstruct(out string! Value) -> void
+Varve.Store.ObjectStorage.Model.VerificationCaseName.Equals(Varve.Store.ObjectStorage.Model.VerificationCaseName other) -> bool
+Varve.Store.ObjectStorage.Model.VerificationCaseName.Value.get -> string!
+Varve.Store.ObjectStorage.Model.VerificationCaseName.Value.init -> void
+Varve.Store.ObjectStorage.Model.VerificationCaseName.VerificationCaseName() -> void
+Varve.Store.ObjectStorage.Model.VerificationCaseName.VerificationCaseName(string! Value) -> void
+Varve.Store.ObjectStorage.Model.VerificationCounterexample
+Varve.Store.ObjectStorage.Model.VerificationCounterexample.<Clone>$() -> Varve.Store.ObjectStorage.Model.VerificationCounterexample!
+Varve.Store.ObjectStorage.Model.VerificationCounterexample.Case.get -> Varve.Store.ObjectStorage.Model.VerificationCaseName
+Varve.Store.ObjectStorage.Model.VerificationCounterexample.Case.init -> void
+Varve.Store.ObjectStorage.Model.VerificationCounterexample.Deconstruct(out Varve.Store.ObjectStorage.Model.VerificationCaseName Case, out Varve.Store.ObjectStorage.Model.ContractViolationText Violation) -> void
+Varve.Store.ObjectStorage.Model.VerificationCounterexample.Equals(Varve.Store.ObjectStorage.Model.VerificationCounterexample? other) -> bool
+Varve.Store.ObjectStorage.Model.VerificationCounterexample.VerificationCounterexample(Varve.Store.ObjectStorage.Model.VerificationCaseName Case, Varve.Store.ObjectStorage.Model.ContractViolationText Violation) -> void
+Varve.Store.ObjectStorage.Model.VerificationCounterexample.Violation.get -> Varve.Store.ObjectStorage.Model.ContractViolationText
+Varve.Store.ObjectStorage.Model.VerificationCounterexample.Violation.init -> void
+Varve.Store.ObjectStorage.Model.VerificationOptions
+Varve.Store.ObjectStorage.Model.VerificationOptions.<Clone>$() -> Varve.Store.ObjectStorage.Model.VerificationOptions!
+Varve.Store.ObjectStorage.Model.VerificationOptions.Clock.get -> System.TimeProvider!
+Varve.Store.ObjectStorage.Model.VerificationOptions.Clock.init -> void
+Varve.Store.ObjectStorage.Model.VerificationOptions.Equals(Varve.Store.ObjectStorage.Model.VerificationOptions? other) -> bool
+Varve.Store.ObjectStorage.Model.VerificationOptions.Randomness.get -> Varve.Store.ObjectStorage.Model.IProbeRandomness!
+Varve.Store.ObjectStorage.Model.VerificationOptions.Randomness.init -> void
+Varve.Store.ObjectStorage.Model.VerificationOptions.Rounds.get -> Varve.Store.ObjectStorage.Model.VerificationRounds
+Varve.Store.ObjectStorage.Model.VerificationOptions.Rounds.init -> void
+Varve.Store.ObjectStorage.Model.VerificationOptions.VerificationOptions() -> void
+Varve.Store.ObjectStorage.Model.VerificationOutcome
+Varve.Store.ObjectStorage.Model.VerificationOutcome.<Clone>$() -> Varve.Store.ObjectStorage.Model.VerificationOutcome!
+Varve.Store.ObjectStorage.Model.VerificationOutcome.Counterexample.get -> Varve.Store.ObjectStorage.Model.VerificationCounterexample?
+Varve.Store.ObjectStorage.Model.VerificationOutcome.Counterexample.init -> void
+Varve.Store.ObjectStorage.Model.VerificationOutcome.Equals(Varve.Store.ObjectStorage.Model.VerificationOutcome? other) -> bool
+Varve.Store.ObjectStorage.Model.VerificationOutcome.LeftBehind.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.Log.ObjectName>!
+Varve.Store.ObjectStorage.Model.VerificationOutcome.LeftBehind.init -> void
+Varve.Store.ObjectStorage.Model.VerificationOutcome.Passed.get -> System.Collections.Generic.IReadOnlyList<Varve.Store.ObjectStorage.Model.VerificationCaseName>!
+Varve.Store.ObjectStorage.Model.VerificationOutcome.Passed.init -> void
+Varve.Store.ObjectStorage.Model.VerificationOutcome.Record.get -> Varve.Store.ObjectStorage.Model.VerificationRecord?
+Varve.Store.ObjectStorage.Model.VerificationOutcome.Record.init -> void
+Varve.Store.ObjectStorage.Model.VerificationOutcome.Rounds.get -> Varve.Store.ObjectStorage.Model.VerificationRounds
+Varve.Store.ObjectStorage.Model.VerificationOutcome.Rounds.init -> void
+Varve.Store.ObjectStorage.Model.VerificationOutcome.Suite.get -> Varve.Store.ObjectStorage.Model.VerificationSuite
+Varve.Store.ObjectStorage.Model.VerificationOutcome.Suite.init -> void
+Varve.Store.ObjectStorage.Model.VerificationOutcome.VerificationOutcome() -> void
+Varve.Store.ObjectStorage.Model.VerificationOutcome.Verified.get -> bool
+Varve.Store.ObjectStorage.Model.VerificationRecord
+Varve.Store.ObjectStorage.Model.VerificationRecord.<Clone>$() -> Varve.Store.ObjectStorage.Model.VerificationRecord!
+Varve.Store.ObjectStorage.Model.VerificationRecord.Equals(Varve.Store.ObjectStorage.Model.VerificationRecord? other) -> bool
+Varve.Store.ObjectStorage.Model.VerificationRecord.Rounds.get -> Varve.Store.ObjectStorage.Model.VerificationRounds
+Varve.Store.ObjectStorage.Model.VerificationRecord.Rounds.init -> void
+Varve.Store.ObjectStorage.Model.VerificationRecord.Suite.get -> Varve.Store.ObjectStorage.Model.VerificationSuite
+Varve.Store.ObjectStorage.Model.VerificationRecord.Suite.init -> void
+Varve.Store.ObjectStorage.Model.VerificationRecord.Understood.get -> bool
+Varve.Store.ObjectStorage.Model.VerificationRecord.Understood.init -> void
+Varve.Store.ObjectStorage.Model.VerificationRecord.VerificationRecord() -> void
+Varve.Store.ObjectStorage.Model.VerificationRecord.VerifiedAt.get -> Varve.Store.ObjectStorage.Model.VerificationTime
+Varve.Store.ObjectStorage.Model.VerificationRecord.VerifiedAt.init -> void
+Varve.Store.ObjectStorage.Model.VerificationRecord.Verifies(Varve.Store.ObjectStorage.Model.VerificationSuite minimum) -> bool
+Varve.Store.ObjectStorage.Model.VerificationRounds
+Varve.Store.ObjectStorage.Model.VerificationRounds.Equals(Varve.Store.ObjectStorage.Model.VerificationRounds other) -> bool
+Varve.Store.ObjectStorage.Model.VerificationRounds.Value.get -> int
+Varve.Store.ObjectStorage.Model.VerificationRounds.VerificationRounds() -> void
+Varve.Store.ObjectStorage.Model.VerificationRounds.VerificationRounds(int value) -> void
+Varve.Store.ObjectStorage.Model.VerificationSuite
+Varve.Store.ObjectStorage.Model.VerificationSuite.CompareTo(Varve.Store.ObjectStorage.Model.VerificationSuite other) -> int
+Varve.Store.ObjectStorage.Model.VerificationSuite.Equals(Varve.Store.ObjectStorage.Model.VerificationSuite other) -> bool
+Varve.Store.ObjectStorage.Model.VerificationSuite.Value.get -> int
+Varve.Store.ObjectStorage.Model.VerificationSuite.VerificationSuite() -> void
+Varve.Store.ObjectStorage.Model.VerificationSuite.VerificationSuite(int value) -> void
+Varve.Store.ObjectStorage.Model.VerificationTime
+Varve.Store.ObjectStorage.Model.VerificationTime.Deconstruct(out System.DateTimeOffset Value) -> void
+Varve.Store.ObjectStorage.Model.VerificationTime.Equals(Varve.Store.ObjectStorage.Model.VerificationTime other) -> bool
+Varve.Store.ObjectStorage.Model.VerificationTime.Value.get -> System.DateTimeOffset
+Varve.Store.ObjectStorage.Model.VerificationTime.Value.init -> void
+Varve.Store.ObjectStorage.Model.VerificationTime.VerificationTime() -> void
+Varve.Store.ObjectStorage.Model.VerificationTime.VerificationTime(System.DateTimeOffset Value) -> void
+Varve.Store.ObjectStorage.ObjectStoreVerification
+override Varve.Store.ObjectStorage.Model.ContractViolationText.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.ContractViolationText.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.VerificationCaseName.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.VerificationCaseName.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.VerificationCounterexample.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.VerificationCounterexample.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.VerificationCounterexample.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.VerificationOptions.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.VerificationOptions.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.VerificationOptions.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.VerificationOutcome.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.VerificationOutcome.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.VerificationOutcome.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.VerificationRecord.Equals(object? obj) -> bool
+override Varve.Store.ObjectStorage.Model.VerificationRecord.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.VerificationRecord.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.VerificationRounds.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.VerificationRounds.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.VerificationSuite.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.VerificationSuite.ToString() -> string!
+override Varve.Store.ObjectStorage.Model.VerificationTime.GetHashCode() -> int
+static Varve.Store.ObjectStorage.Model.ContractViolationText.operator !=(Varve.Store.ObjectStorage.Model.ContractViolationText left, Varve.Store.ObjectStorage.Model.ContractViolationText right) -> bool
+static Varve.Store.ObjectStorage.Model.ContractViolationText.operator ==(Varve.Store.ObjectStorage.Model.ContractViolationText left, Varve.Store.ObjectStorage.Model.ContractViolationText right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationCaseName.operator !=(Varve.Store.ObjectStorage.Model.VerificationCaseName left, Varve.Store.ObjectStorage.Model.VerificationCaseName right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationCaseName.operator ==(Varve.Store.ObjectStorage.Model.VerificationCaseName left, Varve.Store.ObjectStorage.Model.VerificationCaseName right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationCounterexample.operator !=(Varve.Store.ObjectStorage.Model.VerificationCounterexample? left, Varve.Store.ObjectStorage.Model.VerificationCounterexample? right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationCounterexample.operator ==(Varve.Store.ObjectStorage.Model.VerificationCounterexample? left, Varve.Store.ObjectStorage.Model.VerificationCounterexample? right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationOptions.operator !=(Varve.Store.ObjectStorage.Model.VerificationOptions? left, Varve.Store.ObjectStorage.Model.VerificationOptions? right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationOptions.operator ==(Varve.Store.ObjectStorage.Model.VerificationOptions? left, Varve.Store.ObjectStorage.Model.VerificationOptions? right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationOutcome.operator !=(Varve.Store.ObjectStorage.Model.VerificationOutcome? left, Varve.Store.ObjectStorage.Model.VerificationOutcome? right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationOutcome.operator ==(Varve.Store.ObjectStorage.Model.VerificationOutcome? left, Varve.Store.ObjectStorage.Model.VerificationOutcome? right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationRecord.operator !=(Varve.Store.ObjectStorage.Model.VerificationRecord? left, Varve.Store.ObjectStorage.Model.VerificationRecord? right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationRecord.operator ==(Varve.Store.ObjectStorage.Model.VerificationRecord? left, Varve.Store.ObjectStorage.Model.VerificationRecord? right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationRounds.Default.get -> Varve.Store.ObjectStorage.Model.VerificationRounds
+static Varve.Store.ObjectStorage.Model.VerificationRounds.operator !=(Varve.Store.ObjectStorage.Model.VerificationRounds left, Varve.Store.ObjectStorage.Model.VerificationRounds right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationRounds.operator ==(Varve.Store.ObjectStorage.Model.VerificationRounds left, Varve.Store.ObjectStorage.Model.VerificationRounds right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationSuite.operator !=(Varve.Store.ObjectStorage.Model.VerificationSuite left, Varve.Store.ObjectStorage.Model.VerificationSuite right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationSuite.operator <(Varve.Store.ObjectStorage.Model.VerificationSuite left, Varve.Store.ObjectStorage.Model.VerificationSuite right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationSuite.operator <=(Varve.Store.ObjectStorage.Model.VerificationSuite left, Varve.Store.ObjectStorage.Model.VerificationSuite right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationSuite.operator ==(Varve.Store.ObjectStorage.Model.VerificationSuite left, Varve.Store.ObjectStorage.Model.VerificationSuite right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationSuite.operator >(Varve.Store.ObjectStorage.Model.VerificationSuite left, Varve.Store.ObjectStorage.Model.VerificationSuite right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationSuite.operator >=(Varve.Store.ObjectStorage.Model.VerificationSuite left, Varve.Store.ObjectStorage.Model.VerificationSuite right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationTime.operator !=(Varve.Store.ObjectStorage.Model.VerificationTime left, Varve.Store.ObjectStorage.Model.VerificationTime right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationTime.operator ==(Varve.Store.ObjectStorage.Model.VerificationTime left, Varve.Store.ObjectStorage.Model.VerificationTime right) -> bool
+static Varve.Store.ObjectStorage.ObjectStoreVerification.MinimumSuite.get -> Varve.Store.ObjectStorage.Model.VerificationSuite
+static Varve.Store.ObjectStorage.ObjectStoreVerification.ReadRecordAsync(Varve.Store.IObjectStore! store, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Varve.Store.ObjectStorage.Model.VerificationRecord?>
+static Varve.Store.ObjectStorage.ObjectStoreVerification.RecordName.get -> Varve.Store.Log.ObjectName
+static Varve.Store.ObjectStorage.ObjectStoreVerification.RunAsync(Varve.Store.IObjectStore! store, Varve.Store.ObjectStorage.Model.VerificationOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Varve.Store.ObjectStorage.Model.VerificationOutcome!>!
+static Varve.Store.ObjectStorage.ObjectStoreVerification.Suite.get -> Varve.Store.ObjectStorage.Model.VerificationSuite
+~override Varve.Store.ObjectStorage.Model.ContractViolationText.Equals(object obj) -> bool
+~override Varve.Store.ObjectStorage.Model.VerificationCaseName.Equals(object obj) -> bool
+~override Varve.Store.ObjectStorage.Model.VerificationRounds.Equals(object obj) -> bool
+~override Varve.Store.ObjectStorage.Model.VerificationSuite.Equals(object obj) -> bool
+~override Varve.Store.ObjectStorage.Model.VerificationTime.Equals(object obj) -> bool
+~override Varve.Store.ObjectStorage.Model.VerificationTime.ToString() -> string
+Varve.Store.ObjectStorage.Model.VerificationRacers
+Varve.Store.ObjectStorage.Model.VerificationRacers.Deconstruct(out int Value) -> void
+Varve.Store.ObjectStorage.Model.VerificationRacers.Equals(Varve.Store.ObjectStorage.Model.VerificationRacers other) -> bool
+Varve.Store.ObjectStorage.Model.VerificationRacers.Value.get -> int
+Varve.Store.ObjectStorage.Model.VerificationRacers.Value.init -> void
+Varve.Store.ObjectStorage.Model.VerificationRacers.VerificationRacers() -> void
+Varve.Store.ObjectStorage.Model.VerificationRacers.VerificationRacers(int Value) -> void
+override Varve.Store.ObjectStorage.Model.VerificationRacers.GetHashCode() -> int
+override Varve.Store.ObjectStorage.Model.VerificationRacers.ToString() -> string!
+static Varve.Store.ObjectStorage.Model.VerificationRacers.operator !=(Varve.Store.ObjectStorage.Model.VerificationRacers left, Varve.Store.ObjectStorage.Model.VerificationRacers right) -> bool
+static Varve.Store.ObjectStorage.Model.VerificationRacers.operator ==(Varve.Store.ObjectStorage.Model.VerificationRacers left, Varve.Store.ObjectStorage.Model.VerificationRacers right) -> bool
+static Varve.Store.ObjectStorage.ObjectStoreVerification.Racers.get -> Varve.Store.ObjectStorage.Model.VerificationRacers
+~override Varve.Store.ObjectStorage.Model.VerificationRacers.Equals(object obj) -> bool

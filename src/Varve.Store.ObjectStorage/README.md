@@ -12,6 +12,12 @@ operations, and a provider is an adapter of its own — `Varve.Store.Azure`,
   not (ADR 0134). Garage is one such store. The supported stores are those
   the contract suite's race property has passed: Azure Blob Storage and
   RustFS.
+- **The contract suite, to run against any store.**
+  `ObjectStoreVerification.RunAsync` runs the five operations and both
+  races in a scratch prefix it removes, and answers a pass or the first
+  counterexample. A pass leaves a verification record at the store's root,
+  which `ReadRecordAsync` reads; one this build cannot read is not a
+  verification (ADR 0183). `varve storage verify` is the command.
 - **The log as write-once chunk objects.** Each flush is one create-if-absent
   of the next log slot, `log/NNNNNNNN.chunks/CCCCCCCC`; a sealed segment is
   consolidated into `log/NNNNNNNN.seg`, byte for byte the file backend's

@@ -405,6 +405,23 @@
           "Varve.Xsd": "[1.0.0, )"
         }
       },
+      "varve.inference": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Derivation": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )"
+        }
+      },
+      "varve.inference.store": {
+        "type": "Project",
+        "dependencies": {
+          "Varve.Inference": "[1.0.0, )",
+          "Varve.Rdf": "[1.0.0, )",
+          "Varve.Sparql.Entailment": "[1.0.0, )",
+          "Varve.Store": "[1.0.0, )",
+          "Varve.Xsd": "[1.0.0, )"
+        }
+      },
       "varve.iri": {
         "type": "Project"
       },
@@ -441,6 +458,7 @@
         "dependencies": {
           "Varve.Delta": "[1.0.0, )",
           "Varve.Events": "[1.0.0, )",
+          "Varve.Inference": "[1.0.0, )",
           "Varve.Iri": "[1.0.0, )",
           "Varve.JsonLd": "[1.0.0, )",
           "Varve.Management": "[1.0.0, )",
@@ -493,6 +511,7 @@
           "System.Security.Cryptography.ProtectedData": "[10.0.14, )",
           "Varve.Classification": "[1.0.0, )",
           "Varve.Events": "[1.0.0, )",
+          "Varve.Inference.Store": "[1.0.0, )",
           "Varve.Protocol": "[1.0.0, )",
           "Varve.Protocol.Client": "[1.0.0, )",
           "Varve.Shacl.Store": "[1.0.0, )",

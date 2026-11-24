@@ -167,6 +167,9 @@ internal abstract class FleetLocation
 
     /// <summary><c>varve lease</c> of a dataset here.</summary>
     public abstract string[] Lease(string dataset);
+
+    /// <summary><c>varve storage verify</c> of the container or bucket itself (ADR 0183).</summary>
+    public abstract string[] Verify();
 }
 
 internal sealed class AzureLocation(Uri container) : FleetLocation
@@ -184,6 +187,8 @@ internal sealed class AzureLocation(Uri container) : FleetLocation
     public override FleetLocation Through(Uri proxy) => new AzureLocation(new Uri(proxy, container.AbsolutePath.TrimStart('/')));
 
     public override string[] Lease(string dataset) => ["lease", container + "/" + dataset];
+
+    public override string[] Verify() => ["storage", "verify", container.ToString()];
 }
 
 internal sealed class S3Location(Uri endpoint, string bucket, Uri sts, string tokenFile, string roleArn) : FleetLocation
@@ -209,4 +214,7 @@ internal sealed class S3Location(Uri endpoint, string bucket, Uri sts, string to
 
     public override string[] Lease(string dataset) =>
         ["lease", "s3://" + bucket + "/" + dataset, "--endpoint", endpoint.ToString(), "--region", "us-east-1", "--sts-endpoint", sts.ToString()];
+
+    public override string[] Verify() =>
+        ["storage", "verify", "s3://" + bucket, "--endpoint", endpoint.ToString(), "--region", "us-east-1", "--sts-endpoint", sts.ToString()];
 }

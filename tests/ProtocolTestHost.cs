@@ -106,6 +106,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         IValidationReports? validationReports = null,
         IRowClassifications? rowClassifications = null,
         IEntailmentBindings? entailment = null,
+        IInferenceClosures? inference = null,
         CancellationToken stopping = default)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
@@ -151,6 +152,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
             ValidationReports = validationReports,
             RowClassifications = rowClassifications,
             Entailment = entailment,
+            InferenceClosures = inference,
         };
 
         if (map is null)
@@ -178,7 +180,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         _memory?.Dispose();
     }
 
-    private sealed class OneDataset(Dataset dataset) : IDatasetResolver
+    internal sealed class OneDataset(Dataset dataset) : IDatasetResolver
     {
         public bool TryResolve(DatasetName name, [NotNullWhen(true)] out Dataset? resolved)
         {

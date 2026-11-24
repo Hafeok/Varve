@@ -49,10 +49,19 @@ internal static class SettingsCheck
         "Cors:AllowedOrigins:*", "Cors:MaxAge",
         "Store:GroupCommit:MaxRecords", "Store:GroupCommit:MaxBytes",
         "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes", "Store:MemtableLimit", "Store:ReleaseMemoryAfterCheckpoint", "Store:SeekDirectoryCacheBytes",
+        "Inference:HistoryBytes", "Inference:ClosureBytes", "Inference:ReserveBytes",
         "Events:Source", "Events:EventHubs:Host", "Events:EventHubs:Hub",
         "WebUi:Path", "WebUi:Enabled", "WebUi:Settings", "WebUi:Server",
         "WebUi:Auth:ClientId", "WebUi:Auth:DataScope", "WebUi:Auth:ManageScope", "WebUi:Auth:ManageGrant", "WebUi:Auth:DataAudience", "WebUi:Auth:ManageAudience",
     ];
+
+    /// <summary>
+    /// The memtable's worst case in bytes (ADR 0244 point 5): one to two times
+    /// its limit held and a tier merge's copy, four times the limit at its
+    /// bytes an entry, the limit set or the heap limit's default.
+    /// </summary>
+    internal static long MemtableWorstBytes(ServerSettings settings) =>
+        4 * (settings.Store.MemtableLimit ?? MemtableDefault.For(MemtableDefault.HeapLimit())) * MemtableDefault.EntryBytes;
 
     /// <summary>The leaf keys under <paramref name="section"/> that match no known pattern, as <c>Varve:…</c> paths.</summary>
     internal static List<string> UnknownKeys(IConfigurationSection section)
@@ -261,6 +270,31 @@ internal static class SettingsCheck
         if (settings.Store.SeekDirectoryCacheBytes < 0)
         {
             errors.Add("Varve:Store:SeekDirectoryCacheBytes is zero or more: the bytes of extents' seek directories kept in memory for as-of reads (ADR 0240).");
+        }
+
+        if (settings.Inference.HistoryBytes < 0)
+        {
+            errors.Add("Varve:Inference:HistoryBytes is zero or more: the bytes of closed rows an inference projection keeps for as-of reads (ADR 0195).");
+        }
+
+        if (settings.Inference.ClosureBytes is < 1)
+        {
+            errors.Add("Varve:Inference:ClosureBytes is at least 1, or unset for a quarter of the heap limit: the bytes a binding's closures may hold together (ADR 0195).");
+        }
+        else if (settings.Inference.ClosureBytes is { } closure && closure > InferenceProjections.PoolBytes(settings))
+        {
+            // A limit the heap cannot hold could be outrun by the heap (#335): refused before anything is built.
+            errors.Add("Varve:Inference:ClosureBytes is at most the bindings' pool, " + InferenceProjections.PoolBytes(settings).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " bytes: the heap limit, " + MemtableDefault.HeapLimit().ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + ", less the memtable's worst case, " + MemtableWorstBytes(settings).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " (four times Varve:Store:MemtableLimit at " + MemtableDefault.EntryBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + " bytes an entry, ADR 0244 point 5), and Varve:Inference:ReserveBytes, " + settings.Inference.ReserveBytes.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + ", kept for queries, caches and requests (ADR 0195 point 6). Raise the heap limit, or lower one of the three.");
+        }
+
+        if (settings.Inference.ReserveBytes < 0)
+        {
+            errors.Add("Varve:Inference:ReserveBytes is zero or more: the heap kept for queries, caches and requests beside the inference bindings' pool and the memtable (ADR 0195).");
         }
 
         // The follower's record is the id with "-follower" (ObjectStores), so

@@ -434,7 +434,7 @@ public sealed class ShapesAgreementTests
                 nameof(Seen.TBoxWithoutProfile) => string.Empty,
                 nameof(Seen.TBoxTwoProfiles) => " ; varve:profile varve:Rewriting , varve:OWL2RL",
                 nameof(Seen.TBoxProfileInvalid) => " ; varve:profile varve:read",
-                nameof(Unseen.TBoxProfileReserved) => " ; varve:profile varve:OWL2RL",
+                nameof(Unseen.TBoxProfileReserved) => " ; varve:profile varve:RulesOnly",
                 _ => " ; varve:profile varve:Rewriting",
             } : " ; varve:profile varve:Rewriting");
             text.Append(first ? fault switch
@@ -447,10 +447,10 @@ public sealed class ShapesAgreementTests
             text.Append(first ? fault switch
             {
                 nameof(Seen.TBoxDefaultTwice) => " ; varve:defaultEntailment <http://www.w3.org/ns/entailment/RDFS> , <http://www.w3.org/ns/entailment/D>",
-                nameof(Seen.TBoxDefaultReserved) => " ; varve:defaultEntailment <http://www.w3.org/ns/entailment/OWL-RDF-Based>",
+                nameof(Seen.TBoxDefaultReserved) => " ; varve:defaultEntailment <http://www.w3.org/ns/entailment/OWL-Direct>",
                 _ => " ; varve:defaultEntailment <http://www.w3.org/ns/entailment/RDFS>",
             } : string.Empty);
-            text.Append(first && fault == nameof(Unseen.TBoxReservedTerm) ? " ; varve:crossGraph true" : string.Empty);
+            text.Append(first && fault == nameof(Unseen.TBoxReservedTerm) ? " ; varve:rulesGraph <https://x/rules>" : string.Empty);
             text.Append(" .\n");
         }
 

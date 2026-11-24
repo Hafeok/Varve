@@ -1,0 +1,80 @@
+# The object stores the compatibility page lists (ADR 0183), in the order it
+# lists them. docs/operator/object-stores.md is generated from this file and
+# the result records under results/ by `dotnet run eng/object-stores.cs`, and
+# `eng/status.cs` fails when the page and these disagree.
+#
+#   id           what a result record's `provider:` names, and its file:
+#                results/<id>-<server-version>.yaml
+#   name         as the page shows it
+#   adapter      the package that speaks to it, or `none`
+#   note         one line the page adds, whatever the state
+#   unsupported  a documented design limit, with where it is documented; the
+#                store is then unsupported without a record
+#
+# A provider's state is never written here. It is `verified` when a record
+# passed, `unsupported` when one failed or this file says so, `no adapter`
+# when there is none, and `untested` otherwise.
+
+- id: azure-blob
+  name: Azure Blob Storage
+  adapter: Varve.Store.Azure
+  note: The five operations and both races passed on a real account on 2026-10-23 (`docs/reports/azure-blob-live-2026-10-23.md`), before the suite had a version or a record. The optional leg, `azure-objects.yml`, writes the record when the maintainer runs it.
+
+- id: azurite
+  name: Azurite, the Azure Blob Storage emulator
+  adapter: Varve.Store.Azure
+  note: An emulator's record is the emulator's. It does not verify Azure Blob Storage.
+
+- id: rustfs
+  name: RustFS
+  adapter: Varve.Store.S3
+  note: CI's S3-compatible server, reached by web identity (ADR 0134 decision 6, ADR 0137).
+
+- id: amazon-s3
+  name: Amazon S3
+  adapter: Varve.Store.S3
+  note: The optional leg, `aws-objects.yml`, writes the record once the maintainer has created its role.
+
+- id: cloudflare-r2
+  name: Cloudflare R2
+  adapter: Varve.Store.S3
+
+- id: gcs-s3
+  name: Google Cloud Storage, through its S3-compatible API
+  adapter: Varve.Store.S3
+
+- id: gcs
+  name: Google Cloud Storage, through its own API
+  adapter: none
+  note: ADR 0134 decision 8 says what the adapter would be.
+
+- id: ceph-rgw
+  name: Ceph Object Gateway
+  adapter: Varve.Store.S3
+
+- id: seaweedfs
+  name: SeaweedFS
+  adapter: Varve.Store.S3
+  note: Tried on 2026-10-15 at version 4.48, before the suite had a record (ADR 0134 decision 6). It passed three runs in five, and failed two with `500` when its volumes ran out, which is not a verdict on the contract.
+
+- id: hetzner
+  name: Hetzner Object Storage
+  adapter: Varve.Store.S3
+
+- id: scaleway
+  name: Scaleway Object Storage
+  adapter: Varve.Store.S3
+
+- id: ovhcloud
+  name: OVHcloud Object Storage
+  adapter: Varve.Store.S3
+
+- id: minio-ce
+  name: MinIO, community edition
+  adapter: Varve.Store.S3
+  note: The community edition is no longer distributed as binaries (ADR 0134 decision 6), so there is nothing for CI to run.
+
+- id: garage
+  name: Garage
+  adapter: Varve.Store.S3
+  unsupported: Garage accepts `If-None-Match: *` and ignores it, and its documentation says conditional writes are not possible in its design. A writer's open refuses it by the probe (ADR 0134 decision 9).

@@ -39,6 +39,8 @@ using System.Text.RegularExpressions;
     ("src/Varve.Store.ObjectStorage/ChunkHeader.cs", "Version"),
     ("src/Varve.Store.ObjectStorage/WriterRecordFormat.cs", "Version"),
     ("src/Varve.Store.ObjectStorage/ReaderRecordFormat.cs", "Version"),
+    ("src/Varve.Store.ObjectStorage/Verification/VerificationRecordFormat.cs", "Version"),
+    ("src/Varve.Server/Commands/StorageVerify.cs", "Format"),
     ("src/Varve.Delta/DeltaFormat.cs", "Current"),
     ("src/Varve.Management/ManagementPlan.cs", "Format"),
 ];
