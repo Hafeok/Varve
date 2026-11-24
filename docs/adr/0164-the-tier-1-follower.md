@@ -220,8 +220,8 @@ around it, and the rule itself does not:
 
 ## Amendment, 2026-11-20 — a follower opens at the last whole record and never appends
 
-Filed unaccepted for #384 (ADR 0066), and accepted by the maintainer on
-2026-11-24, written by his delegate (ADR 0239).
+Filed for #384. It changes no ruling, and was read by the maintainer with
+#393.
 
 **What was wrong.** A follower's open ran the writer's open of the log.
 Where the newest segment was not whole, that open repairs it: it appends an
