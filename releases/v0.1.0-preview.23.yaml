@@ -123,6 +123,24 @@ summary: |
     its result records, and a generated compatibility page.
   - **A follower opens at the last whole record and never appends** (#393).
 
+  #### Known issues
+
+  - **A closure can exhaust the server's memory in one commit** (#399).
+    With an inference closure enabled, a schema whose lists give a list
+    cell more than one `rdf:rest` or `rdf:first` can make a single commit
+    grow the closure until the server runs out of memory: the closure's
+    byte budget does not bound it, so the commit is not refused, and the
+    server can stop. Until the fix, enable a closure only over a schema
+    whose `rdf:List` cells each have exactly one `rdf:first` and one
+    `rdf:rest`, and check a schema's lists before you bind it to a closure.
+  - **On object storage, a handover can lose acknowledged commits** (#396).
+    If a new writer takes a dataset over while the old writer is rolling
+    its segment, commits the old writer acknowledged can be missing from
+    the log the new writer goes on with. Until the fix (#402), stop the
+    old writer's commits before you hand a dataset on object storage
+    over, and don't hand over under write load. Datasets on files are not
+    affected.
+
   #### Not yet
 
   - **A design-side form row** for the Query screen's controls (#383), and
