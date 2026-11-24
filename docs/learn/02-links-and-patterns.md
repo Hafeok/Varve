@@ -292,12 +292,13 @@ states both.
 
 Deriving one direction from the other takes a rule saying the two are
 opposites (OWL's `owl:inverseOf`), and a reasoner that applies it. REC 4's
-files don't state that rule.
+files don't state that rule. Varve's OWL 2 RL closure applies it to a
+dataset whose ontology states it; chapter 12 shows that on this data.
 
 <!-- unshipped: #95 -->
-> **Not in this release.** Varve's inference doesn't apply `owl:inverseOf`
-> yet: that is the materialised closure of the Inference milestone, #95.
-> Chapter 12, which that milestone writes, covers it.
+> **Not in this release.** Chapter 12, ontologies and inference, is
+> written by the Inference milestone, #95. Until then this chapter's queries
+> read only what was stated.
 
 ## There is no foreign key
 
