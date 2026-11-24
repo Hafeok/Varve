@@ -45,6 +45,8 @@ decisions:
     accepted-at: 2026-10-17T00:00:00Z
   - key: AFenceStandsOnlyAtTheEndOfTheLog
     statement: "After a fence create succeeds the writer reads for the consolidated object of the fence's segment; found, the fence is behind it and is not the writer's fence: the writer adopts the object and the log after it and fences again, and the chunk it left stays"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-24T00:00:00Z
 ---
 
 The rulings of [ADR 0136](../adr/0136-one-writer-by-an-epoch-and-a-log-slot-fence.md), filed unaccepted

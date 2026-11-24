@@ -300,7 +300,8 @@ a release reason it does not know, under a format it does read, is held as
 
 ## Amendment, 2026-11-24 — a fence stands only at the end of the log
 
-Filed for #396, unaccepted until the maintainer accepts it (ADR 0066).
+Filed unaccepted for #396 (ADR 0066), and accepted by the maintainer on
+2026-11-24, written by his delegate (ADR 0239).
 
 **What was wrong.** Decision 3 argues that the old writer's attempt at slot
 *k* either landed before the new writer listed, and was adopted, or did not,
