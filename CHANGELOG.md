@@ -79,6 +79,10 @@ unchanged. #96 stays open for the explorer's other screens.
 - **Object store verification** (#322; ADR 0183): `varve storage verify`,
   its result records, and a generated compatibility page.
 - **A follower opens at the last whole record and never appends** (#393).
+- **What these two were run against:** Azurite, an emulator of Azure
+  Blob Storage, and RustFS, a self-hosted S3-compatible store. No managed
+  cloud service has run them yet: the tests against a real Azure storage
+  account are skipped in CI for want of one.
 
 #### Known issues
 
