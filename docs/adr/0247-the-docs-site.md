@@ -12,6 +12,12 @@ register holds): a package from outside NuGet that a build tool fetches is a
 `BuildArchive` entry in the register. The amendment is dated 2026-11-16 and
 filed unaccepted.
 
+**Amended 2026-11-19** ([below](#amendment-2026-11-19--the-site-is-styled-from-the-design-source)):
+the site is styled from the design source, `docs/ui/` (ADR 0206), and loads
+three stylesheets of its own origin where point 6 says one. Filed unaccepted
+by #368, ruling `SiteStyledFromDesignSource` (ADR 0066), and accepted by the
+maintainer on 2026-11-20.
+
 Records decision set [`docs-site`](../decisions/docs-site.md).
 
 ## Context
@@ -209,3 +215,74 @@ files written against GitHub's renderer.
 - ci.yml's `docs site`: the build twice, compared byte for byte, the SVG
   checks and the built site's own check.
 - `docs-site.yml` on `main`.
+
+## Amendment, 2026-11-19 — the site is styled from the design source
+
+Filed by #368, under #129's docs-site deliverable, unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20. Recording the maintainer's answers of
+2026-11-19 on #368 to the plan's questions.
+
+**What changes.** The site's stylesheet was embedded in `eng/site` and drawn
+from nothing in the repository's design system. The maintainer's design for
+the site is `docs/ui/site/`: `README.md` the spec, `site.css` the stylesheet,
+and `reference/`, pages rendered from the Markdown at `c754bcb` whose markup
+and classes are the contract. From this amendment:
+
+1. **`eng/site` embeds no stylesheet.** At build it writes
+   `site-tokens.css` from `docs/ui/tokens.json` — every colour and shadow
+   token on `:root` with its light value, the dark values under
+   `@media (prefers-color-scheme: dark)`, then spacing, radius and the font
+   families, with every token reference resolved to its value in that
+   scheme, so none reaches a browser unresolved — and copies `docs/ui/bundle.css`, `docs/ui/site/site.css` and
+   `docs/ui/assets/varve-core.svg` byte for byte. The site has no script to
+   set `data-theme`, as the Web UI does, so the reader's system decides the
+   scheme. A change to the design system is on the site at its next build.
+2. **Point 6 said "one stylesheet"; there are now three**, all from the
+   site's own origin, in the order tokens, atoms, design. The policy is
+   unchanged, and nothing loads from another origin. That sentence of point 6
+   stays as it was written, and this note is beside it.
+3. **The frame and the heads are the design's**, written by `Layout.Page`:
+   the bar's sections are the site map's, so a section the map gains is in
+   the bar with no change to the frame; a section's page order is its
+   README's links, then any other page by name. An ADR's badge is read from
+   the ledger, never from its status line, because every status line on
+   `main` reads the same before and after acceptance (the maintainer's
+   ruling 4 on #368, as corrected, and his wording of 2026-11-19):
+   Superseded from the ADR index row; otherwise, from the ADR's own decision
+   set, Accepted when every ruling in force is, "Accepted · N pending" when
+   some are and N are not, with the head naming the amendment those belong
+   to when their statements date one, and Not yet accepted when none is; an
+   unaccepted ruling of another ADR that amends it is a note with the
+   amendment's date.
+4. **The foot's licence is read from the repository**: the SPDX expression
+   `Directory.Build.targets` states for every package, never typed.
+5. **The built site's own check is stricter**, never weaker: a page holding
+   an inline style, which the policy blocks without a word, or loading any
+   resource from another origin, fails the build. Markdig writes a column's
+   alignment as a style attribute; it becomes `align`. A code block and a
+   table scroll sideways, so each is a named region in the tab order
+   (`tabindex="0"`, `role="region"`, a label from its language or its
+   header cells), which a keyboard can reach to scroll.
+6. **Tabular figures are for tables and numbers only.** The design set
+   them on the whole body, which in some system faces spaces out hyphens and
+   dates in prose; `site.css` sets them on tables and on an ADR's number in
+   the page list (the maintainer's answer 4 on #368).
+7. **The register.** `Deque.AxeCore.Playwright` (ADR 0204) and
+   `Microsoft.Playwright` (ADR 0204, widened by point 3) widen their scope to
+   `tests/Varve.Site.Tests/`, the site's tests. Nothing new enters the
+   register: the faces are system faces, the one image is the repository's
+   own mark, and `bundle.css` and `tokens.json` are the repository's.
+
+**Checks.** `tests/Varve.Site.Tests`, run by ci.yml's `docs site` job on
+the runner's Chrome:
+- `site-tokens.css` is held to `tokens.json`, value by value, in both schemes;
+- the badge, for each case, on a fixture ledger;
+- the structure of a built page of each kind against its page under
+  `docs/ui/site/reference/`, ignoring text and heading identifiers;
+- two builds of one commit are byte-identical;
+- axe-core at WCAG 2.2 AA on the home page, an ADR and an operator page, in
+  both schemes, at 1440 and 390 wide. Only the browser context that runs axe
+  bypasses the page's policy, because axe is injected script; the no-script
+  and other-origin checks read the files as written to disk.
+
+`every_stylesheet_balances_its_braces` (#357) walks `docs/ui/`, so it holds
+`docs/ui/site/site.css` too.
