@@ -782,44 +782,54 @@ public sealed class LogShipper
             await CreateAsync(name, theirs, at, cancellationToken).ConfigureAwait(false);
         }
 
-        LogSlot slot = new(ObjectNames.Slot(held.Segment, held.NextChunk));
-        byte[] rest;
-
-        using (FileStream file = new(staged, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.SequentialScan))
+        while (!held.Sealed)
         {
-            if (file.Length < held.Length)
+            LogSlot slot = new(ObjectNames.Slot(held.Segment, held.NextChunk));
+            byte[] rest;
+
+            using (FileStream file = new(staged, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.SequentialScan))
             {
-                throw new ShippingDivergedException(slot, "the target holds more of the segment than the source's consolidated segment has");
+                if (file.Length < held.Length)
+                {
+                    throw new ShippingDivergedException(slot, "the target holds more of the segment than the source's consolidated segment has");
+                }
+
+                rest = new byte[file.Length - held.Length];
+                file.Position = held.Length;
+                await file.ReadExactlyAsync(rest, cancellationToken).ConfigureAwait(false);
             }
 
-            rest = new byte[file.Length - held.Length];
-            file.Position = held.Length;
-            await file.ReadExactlyAsync(rest, cancellationToken).ConfigureAwait(false);
-        }
+            // The epoch is the highest the target's log shows: no lower than the chunk before, which is all a reader asks.
+            byte[] seal = ChunkHeader.Compose(ChunkFlags.Seal, Math.Max(1, Math.Max(held.Epoch, _pending.Count == 0 ? 0 : _pending.Max(other => other.Epoch))), held.Segment, held.NextChunk, held.Length, rest, held.Previous, out _);
+            (CreateOutcome outcome, ReadOnlyMemory<byte> existing) = await ConditionalWrites.CreateAsync(_options.Target, _target.Chunk(held.Segment, held.NextChunk), seal, _options.Clock, cancellationToken).ConfigureAwait(false);
 
-        // The epoch is the highest the target's log shows: no lower than the chunk before, which is all a reader asks.
-        byte[] seal = ChunkHeader.Compose(ChunkFlags.Seal, Math.Max(1, Math.Max(held.Epoch, _pending.Count == 0 ? 0 : _pending.Max(other => other.Epoch))), held.Segment, held.NextChunk, held.Length, rest, held.Previous, out _);
-        (CreateOutcome outcome, ReadOnlyMemory<byte> existing) = await ConditionalWrites.CreateAsync(_options.Target, _target.Chunk(held.Segment, held.NextChunk), seal, _options.Clock, cancellationToken).ConfigureAwait(false);
+            if (outcome == CreateOutcome.Ours)
+            {
+                Follow(held, seal);
+                return;
+            }
 
-        if (outcome == CreateOutcome.Taken)
-        {
-            // Another shipper of this source made the same chunk, perhaps under another epoch. Anything else
-            // holds the slot against this shipper: a promotion's fence.
+            // The slot is taken. By another shipper of this source, it holds bytes of the source's segment at
+            // this offset: the same sealing chunk, perhaps under another epoch, or a chunk of the source's that
+            // shipper copied before the source consolidated, which holds the first of the rest and not all of
+            // it. Either is followed, and after a chunk that does not seal the next slot is tried. Anything
+            // else holds the slot against this shipper: a promotion's fence, which has no bytes.
             byte[] theirs = existing.ToArray();
 
             if (!ChunkHeader.TryRead(theirs, out ChunkHeader there, out _)
-                || there.Flags != ChunkFlags.Seal
+                || (there.Flags & ChunkFlags.Fence) != 0
+                || there.Length == 0
+                || there.Length > rest.Length
+                || ((there.Flags & ChunkFlags.Seal) != 0 && there.Length != rest.Length)
                 || there.Offset != held.Length
                 || !there.Previous.AsSpan().SequenceEqual(held.Previous)
-                || !there.PayloadHash.AsSpan().SequenceEqual(System.Security.Cryptography.SHA256.HashData(rest)))
+                || !there.PayloadHash.AsSpan().SequenceEqual(System.Security.Cryptography.SHA256.HashData(rest.AsSpan(0, there.Length))))
             {
                 throw new ShippingDivergedException(slot, "the target holds other bytes there than the rest of the source's segment");
             }
 
-            seal = theirs;
+            Follow(held, theirs);
         }
-
-        Follow(held, seal);
     }
 
     // The target's chunks a consolidated segment replaced, except its fence chunks, which are kept for ever (ADR 0136).

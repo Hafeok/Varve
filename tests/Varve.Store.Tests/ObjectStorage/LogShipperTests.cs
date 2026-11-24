@@ -185,6 +185,57 @@ public sealed class LogShipperTests
         await pair.AssertFollowersAgreeAsync(writer);
     }
 
+    /// <summary>
+    /// ADR 0184 decision 4, two shippers at once: one copied a chunk of the
+    /// source's before the source consolidated its segment, and the other,
+    /// which listed the target before that, comes to seal the segment through
+    /// the same slot. The chunk there is the source's own bytes, so the
+    /// second shipper follows it and seals through the slot after. It is not
+    /// a divergence. Found by a whole pipeline run on ff790965, where
+    /// <c>a_shipper_started_again_resumes…</c> met this order once.
+    /// </summary>
+    [Fact]
+    public async Task a_shipper_that_finds_another_shippers_chunk_of_the_source_at_the_slot_seals_through_the_next()
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), T.Options(segmentBytes: 4096));
+        await CommitAsync(writer, 0, 3);
+        LogShipper shipper = (await pair.StartAsync())!;
+        await shipper.ShipLogAsync(T.Ct);
+
+        // One more chunk in segment 0, which the other shipper will have copied; then the commit that rolls the
+        // segment, and the source's consolidation, which deletes that chunk.
+        const string Slot = "log/00000000.chunks/00000005";
+        Assert.DoesNotContain(Slot, pair.Source.Store.Names());
+        await CommitAsync(writer, 3, 4);
+        byte[] copied = pair.Source.Store.Get(Slot)!;
+        Assert.True(ChunkHeader.TryRead(copied, out ChunkHeader header, out _));
+        Assert.Equal(ChunkFlags.None, header.Flags & (ChunkFlags.Seal | ChunkFlags.Fence));
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("big"), T.Iri("p"), T.Literal(new string('x', 3600))), T.Ct);
+        await UntilAsync(() => pair.Source.Store.Names().Contains("log/00000000.seg") && !pair.Source.Store.Names().Contains(Slot));
+
+        // The other shipper's create of that chunk lands just before this shipper's create at the same slot.
+        bool landed = false;
+        pair.Target.Store.Hook = (operation, name) =>
+        {
+            if (!landed && operation == ObjectOperation.Create && name.Value == Slot)
+            {
+                landed = true;
+                pair.Target.Store.Put(Slot, copied);
+            }
+
+            return null;
+        };
+
+        await shipper.ShipLogAsync(T.Ct);
+        pair.Target.Store.Hook = null;
+
+        Assert.True(landed);
+        Assert.Contains("log/00000000.seg", pair.Target.Store.Names());
+        pair.AssertIdentical();
+        await pair.AssertFollowersAgreeAsync(writer);
+    }
+
     /// <summary>Nothing on a target is ever overwritten: other bytes at the next slot stop the shipper, and stay.</summary>
     [Fact]
     public async Task other_bytes_at_the_next_slot_are_shipping_diverged_and_are_left_as_they_were()

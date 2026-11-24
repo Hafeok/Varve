@@ -522,3 +522,32 @@ ships to RustFS and a fleet on RustFS ships to Azurite; each copy is served
 by a second fleet, renders the events of commits the source fleet wrote,
 refuses a write, is promoted with `varve promote`, and is written; the old
 source's shipper stops as `replica-promoted`.
+
+## Amendment, 2026-11-24 — a shipper follows another shipper's chunk at the sealing slot
+
+Filed by Replication part 2 (#166), unaccepted until the maintainer accepts
+it (ADR 0066). It adds no ruling and changes no statement:
+`TheShipperRunsOffTheSequencer` already says two shippers at once are
+harmless.
+
+**What was wrong.** Decision 4 says of the chunk a shipper composes to seal
+a segment: "If it finds another shipper's chunk of the same bytes, it
+carries on." The code carried on only for the same sealing chunk. With two
+shippers at once there is another chunk it can find there: one of the
+source's own, which the other shipper copied before the source
+consolidated the segment. It holds the first of the bytes the composed
+chunk would hold, and not all of them. The shipper reported
+`shipping-diverged`, and nothing had diverged.
+
+**The change.** At the sealing slot a shipper follows any chunk that is not
+a fence, chains to the chunk before it, and holds the source's bytes at its
+offset, as the consolidated segment has them. If that chunk does not seal
+the segment, the shipper composes the rest at the slot after it. A chunk
+with no bytes, or with other bytes, stops it as before: that is a
+promotion's fence, or a divergence.
+
+**Checks.** `LogShipperTests`,
+`a_shipper_that_finds_another_shippers_chunk_of_the_source_at_the_slot_seals_through_the_next`,
+which fails without the change. The order was met once by
+`a_shipper_started_again_resumes_from_the_targets_tail_and_two_at_once_ship_one_copy`
+in a whole pipeline run.
