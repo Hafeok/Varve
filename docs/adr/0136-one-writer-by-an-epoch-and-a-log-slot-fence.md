@@ -297,3 +297,86 @@ an open for write and a takeover refuse with `WriterRecordFormatUnknownException
 and a read-only open goes on as a follower that knows no writer. A trigger or
 a release reason it does not know, under a format it does read, is held as
 `Unknown` with its text, written back as read, and never acted on.
+
+## Amendment, 2026-11-24 — a fence stands only at the end of the log
+
+Filed for #396, unaccepted until the maintainer accepts it (ADR 0066).
+
+**What was wrong.** Decision 3 argues that the old writer's attempt at slot
+*k* either landed before the new writer listed, and was adopted, or did not,
+and the fence is at *k*. There is a third case:
+
+1. The new writer claims and lists. The log ends at slot *k*−1.
+2. The old writer, not yet told, creates a chunk at *k*. The commit rolls
+   its segment: slot *k*, or a slot after it, is the seal. It opens the next
+   segment, consolidates the sealed one, and deletes its chunks, slot *k*
+   among them (ADR 0135 decision 4).
+3. The new writer creates its fence at *k*. The slot is free, so the create
+   succeeds.
+
+The fence is then inside a segment that is its consolidated object, and the
+log goes on in the next segment. The old writer has met no fence and writes
+on. What the new writer does next depends on what its open reads:
+
+- **Its open reads a chunk of that segment below the tail.** The chunk is
+  gone, so it takes the object for the segment, sealed. Its first commit goes
+  to chunk 0 of the next segment, which the old writer holds. It is refused
+  as superseded, with the higher epoch, and the old writer commits on under
+  a record that names another holder.
+- **A checkpoint is at the head, so its open reads nothing below the tail.**
+  It creates its commits at *k*+1 and after, behind the object, and
+  acknowledges them. The old writer acknowledges the same positions in the
+  next segment. A reader takes the object for the segment, so the new
+  writer's commits are in no reader's log, and are not in its own after its
+  next open.
+
+Both are reproduced in `FenceNotAtTheEndTests` with the fix turned off.
+
+**The ruling: `AFenceStandsOnlyAtTheEndOfTheLog`.** A consolidation creates
+the segment's object before it deletes any chunk. So a slot freed by a
+consolidation is in a segment whose object exists. Decision 2's *Fence* step
+gains a check, in an open for write and in a claim in place alike:
+
+- **After a fence create succeeds, the writer reads for the consolidated
+  object of the fence's segment.**
+- **Absent:** the fence stands, as before. The old writer cannot have got
+  past slot *k*: its seal needed *k* or a slot after it, and *k* is the
+  fence's for good.
+- **Present:** the fence is behind the object. It is not the writer's fence
+  and is not recorded as one. The writer adopts the object as the segment,
+  adopts what the log holds after it by the probe a follower's refresh makes
+  (ADR 0164), and fences again at the slot after the last that exists. It
+  repeats this until a fence stands or a later epoch is found.
+
+**The chunk left behind stays.** It is an empty fence chunk in a slot of a
+consolidated segment. Decision 4 keeps it, as it keeps every fence chunk.
+No reader takes it for the segment: the object, when present, is what the
+segment is (ADR 0135). A follower that had read up to slot *k*−1 adopts it on
+its next refresh, finds slot *k*+1 absent and the object present, and takes
+the object.
+
+**Decision 3's claim, restated.** The only new slot a superseded writer can
+create is one the new writer's fence does not stand in. Either the slot
+holds the fence, and the create fails; or the old writer got past it before
+the fence was created, and the new writer finds the object, adopts those
+commits and fences after them. A commit the old writer acknowledged is in
+the log the new writer writes on.
+
+**What it costs.** One read per open for write, of a name that is not there.
+Where the object is there, the read is the segment, which the writer needs.
+
+**What does not change.**
+- An old writer still learns that it is superseded only at its next create.
+- The writer record's `fence` names the fence that stands. The slot of a
+  fence that was left behind is in no record.
+- The file backend has no fence.
+
+**Releases.** The procedure without this check is in every preview from
+`v0.1.0-preview.8` on. A fleet in which a writer can be superseded while it
+still commits, by a takeover, a placement change or a second start, can meet
+the order. It needs a segment roll and a consolidation between the new
+writer's listing and its fence create.
+
+**Checks.** `FenceNotAtTheEndTests`: the open for write with and without a
+checkpoint at the head, the claim in place, and a follower that meets the
+chunk left behind. Each fails with the check turned off.

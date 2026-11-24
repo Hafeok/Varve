@@ -9,6 +9,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using DecisionDriven;
+using DecisionDriven.Ledger.Varve;
 using Microsoft.Win32.SafeHandles;
 using Varve.Store.Log;
 using Varve.Store.ObjectStorage.Model;
@@ -641,6 +643,14 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
         }
 
         await EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+        return await ProbeAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    // The probe a refresh makes, from the slot after the last this store
+    // holds. A writer makes it too, once: when its fence landed behind a
+    // consolidated object (ADR 0136's amendment of 2026-11-24).
+    private async ValueTask<bool> ProbeAsync(CancellationToken cancellationToken)
+    {
         bool adopted = false;
 
         while (true)
@@ -746,26 +756,33 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
         // refresh adopted that has not been deleted since.
         if (consolidated)
         {
-            IReadOnlyList<ObjectEntry> entries = await _store.ListAsync(_names.Log, cancellationToken).ConfigureAwait(false);
-            List<(int Segment, int Chunk)> listed = [];
-
-            foreach (ObjectEntry entry in entries)
-            {
-                if (_names.TryParse(entry.Name, out int segment, out int chunk) && chunk >= 0)
-                {
-                    listed.Add((segment, chunk));
-                }
-            }
-
-            long tail = await ListedTailEpochAsync(_store, _names, [.. listed], cancellationToken).ConfigureAwait(false);
-
-            lock (_lock)
-            {
-                _listedTail = tail;
-            }
+            await ListTheTailAsync(cancellationToken).ConfigureAwait(false);
         }
 
         await FenceAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    // The epoch of the log's last chunk, by a listing, for a log whose newest
+    // segment is consolidated.
+    private async ValueTask ListTheTailAsync(CancellationToken cancellationToken)
+    {
+        IReadOnlyList<ObjectEntry> entries = await _store.ListAsync(_names.Log, cancellationToken).ConfigureAwait(false);
+        List<(int Segment, int Chunk)> listed = [];
+
+        foreach (ObjectEntry entry in entries)
+        {
+            if (_names.TryParse(entry.Name, out int segment, out int chunk) && chunk >= 0)
+            {
+                listed.Add((segment, chunk));
+            }
+        }
+
+        long tail = await ListedTailEpochAsync(_store, _names, [.. listed], cancellationToken).ConfigureAwait(false);
+
+        lock (_lock)
+        {
+            _listedTail = tail;
+        }
     }
 
     // The fence (ADR 0136): the slot after the last that exists, in log
@@ -819,6 +836,24 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
             byte[] bytes = ChunkHeader.Compose(ChunkFlags.Fence, _epoch, segmentId, chunk, offset, [], previous, out byte[] hash);
             (CreateOutcome outcome, ReadOnlyMemory<byte> existing) = await ConditionalWrites.CreateAsync(_store, _names.Chunk(segmentId, chunk), bytes, _clock, cancellationToken).ConfigureAwait(false);
 
+            // A fence stands only at the end of the log (ADR 0136's amendment
+            // of 2026-11-24, #396). The slot was free, but a writer not yet
+            // told may have written it since the listing, sealed the segment,
+            // consolidated it and deleted its chunks, this slot among them.
+            // A consolidation creates the segment's object before it deletes
+            // a chunk, so a slot freed that way is in a segment whose object
+            // exists. Absent, the fence is at the end: the slot is taken for
+            // good, and no writer gets past it.
+            ObjectRead? behind = outcome == CreateOutcome.Ours
+                ? await ConditionalWrites.ReadWholeAsync(_store, _names.Segment(segmentId), cancellationToken).ConfigureAwait(false)
+                : null;
+
+            if (behind is not null)
+            {
+                await FenceAgainPastAsync(segmentId, chunk, behind, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
             lock (_lock)
             {
                 Segment target = chunk == 0 ? AddSegment(segmentId) : Get(segmentId);
@@ -839,6 +874,36 @@ internal sealed class ObjectSegmentStore : ISegmentStore, ISegmentCursor, IDispo
                     return;
                 }
             }
+        }
+    }
+
+    // The fence chunk this writer just created is behind a consolidated
+    // object: not the end of the log, and not this writer's fence. The chunk
+    // stays where it is; no reader takes it for the segment, which is its
+    // object. The writer adopts the object, then what the log holds after it,
+    // by the probe a follower's refresh makes, and the caller fences again.
+    [DesignDecision(typeof(OneWriterByAnEpochAndALogSlotFence.AFenceStandsOnlyAtTheEndOfTheLog), Scope = ExceptionScope.Boundary)]
+    private async ValueTask FenceAgainPastAsync(int segmentId, int chunk, ObjectRead whole, CancellationToken cancellationToken)
+    {
+        Segment segment;
+
+        lock (_lock)
+        {
+            segment = chunk == 0 ? AddSegment(segmentId) : Get(segmentId);
+        }
+
+        AdoptConsolidated(segment, whole);
+        await ProbeAsync(cancellationToken).ConfigureAwait(false);
+        bool consolidated;
+
+        lock (_lock)
+        {
+            consolidated = _segments[^1].Consolidated;
+        }
+
+        if (consolidated)
+        {
+            await ListTheTailAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
