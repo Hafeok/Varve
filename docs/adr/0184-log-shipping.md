@@ -490,3 +490,35 @@ adopts it. Until #203 chooses, `varve:erasureMode` stays reserved.
   - A commit waits for no target, with the target stalled.
   - Between Azurite and RustFS, in `shipping (services)`.
 - **Open questions owned.** Erasure mode across copies: #203.
+
+## Amendment, 2026-11-24 — a store named over plain http on a loopback host
+
+Filed by Replication part 2 (#166), unaccepted until the maintainer accepts
+it (ADR 0066). It adds no ruling and changes no statement.
+
+**What was found.** Decision 1 says an address is `https://…` or `s3://…`.
+The `shipping (services)` job ships between Azurite and RustFS, and Azurite
+is reached at `http://127.0.0.1:10000/devstoreaccount1/{container}`. A
+declaration that names it, as a target or as a copy's source (ADR 0185
+decision 10), was refused at apply. So neither direction of the job could
+be declared.
+
+**The change.** `varve:store` may be `http://…` when its host is a loopback
+host: `localhost`, an address in `127.0.0.0/8`, or `[::1]`, with an optional
+port. Every other `http://` address is refused as before, and so is one
+with user info, a query or a fragment.
+
+- **Why this and not more.** It is what the Azure adapter already reaches
+  over plain http: a loopback host and nothing else
+  (`AzureBlobStore`). A declaration can now name what the adapter can open.
+- **What it is for.** A development emulator beside the instance. No
+  deployed store is named this way.
+- **Authentication is unchanged.** An address still carries no credential
+  (ADR 0037).
+
+**Checks.** `ShippingTargetTests`, for a target and for a copy's source.
+`ShippingServiceTests`, the `shipping (services)` job: a fleet on Azurite
+ships to RustFS and a fleet on RustFS ships to Azurite; each copy is served
+by a second fleet, renders the events of commits the source fleet wrote,
+refuses a write, is promoted with `varve promote`, and is written; the old
+source's shipper stops as `replica-promoted`.

@@ -47,6 +47,34 @@ public sealed class ShippingTargetTests
         Assert.Null(second.ShippedOn);
     }
 
+    /// <summary>
+    /// ADR 0184's amendment of 2026-11-24: plain http names a store only on a
+    /// loopback host, a development emulator beside the instance, as the
+    /// Azure adapter reaches one. For a target and for a copy's source alike.
+    /// </summary>
+    [Theory]
+    [InlineData("http://127.0.0.1:10000/devstoreaccount1/replicas", true)]
+    [InlineData("http://localhost:10000/devstoreaccount1/replicas", true)]
+    [InlineData("http://[::1]:10000/devstoreaccount1/replicas", true)]
+    [InlineData("http://acct2.blob.core.windows.net/replicas", false)]
+    [InlineData("http://127.0.0.1.example.org/replicas", false)]
+    [InlineData("http://key@127.0.0.1:10000/devstoreaccount1/replicas", false)]
+    [InlineData("http://127.0.0.1:10000/devstoreaccount1/replicas?sig=abc", false)]
+    public void A_store_is_named_over_plain_http_only_on_a_loopback_host(string address, bool read)
+    {
+        Declarations target = T.Read(Orders.Replace("https://acct2.blob.core.windows.net/replicas", address, StringComparison.Ordinal));
+        Declarations source = T.Read(Copy.Replace("https://acct.blob.core.windows.net/primary", address, StringComparison.Ordinal));
+
+        Assert.Equal(read, target.Findings.Count == 0);
+        Assert.Equal(read, source.Findings.Count == 0);
+
+        if (read)
+        {
+            Assert.Contains(target.Datasets["orders"].ShippingTargets, declared => declared.Store == address);
+            Assert.Equal(address, source.Datasets["orders"].CopyOf!.Store);
+        }
+    }
+
     [Fact]
     public void A_dataset_with_no_target_reads_none()
     {

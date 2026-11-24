@@ -170,6 +170,15 @@ internal abstract class FleetLocation
 
     /// <summary><c>varve storage verify</c> of the container or bucket itself (ADR 0183).</summary>
     public abstract string[] Verify();
+
+    /// <summary>The address a declaration names this store by (ADR 0184): the container's URL, or <c>s3://{bucket}</c>.</summary>
+    public abstract string Address { get; }
+
+    /// <summary>The provider's id on the compatibility page (ADR 0183).</summary>
+    public abstract string Provider { get; }
+
+    /// <summary>What a server that ships to this store is told of it under <c>Varve:Replication:Stores</c>; nothing for a store its address reaches.</summary>
+    public abstract IEnumerable<string> ReplicationArguments { get; }
 }
 
 internal sealed class AzureLocation(Uri container) : FleetLocation
@@ -189,6 +198,12 @@ internal sealed class AzureLocation(Uri container) : FleetLocation
     public override string[] Lease(string dataset) => ["lease", container + "/" + dataset];
 
     public override string[] Verify() => ["storage", "verify", container.ToString()];
+
+    public override string Address => container.ToString();
+
+    public override string Provider => "azurite";
+
+    public override IEnumerable<string> ReplicationArguments => [];
 }
 
 internal sealed class S3Location(Uri endpoint, string bucket, Uri sts, string tokenFile, string roleArn) : FleetLocation
@@ -217,4 +232,16 @@ internal sealed class S3Location(Uri endpoint, string bucket, Uri sts, string to
 
     public override string[] Verify() =>
         ["storage", "verify", "s3://" + bucket, "--endpoint", endpoint.ToString(), "--region", "us-east-1", "--sts-endpoint", sts.ToString()];
+
+    public override string Address => "s3://" + bucket;
+
+    public override string Provider => "rustfs";
+
+    public override IEnumerable<string> ReplicationArguments =>
+    [
+        "--Varve:Replication:Stores:0:Address=s3://" + bucket,
+        "--Varve:Replication:Stores:0:Endpoint=" + endpoint,
+        "--Varve:Replication:Stores:0:Region=us-east-1",
+        "--Varve:Replication:Stores:0:StsEndpoint=" + sts,
+    ];
 }

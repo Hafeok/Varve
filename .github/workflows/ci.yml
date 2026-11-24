@@ -1127,6 +1127,83 @@ jobs:
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
 
+  # Log shipping and promotion between two stores of different providers
+  # (ADRs 0184 and 0185, #166): a fleet on Azurite ships to RustFS and a fleet
+  # on RustFS ships to Azurite, each copy is served by a second fleet and
+  # promoted there, by server processes over HTTP.
+  shipping-services:
+    name: shipping (services)
+    runs-on: ubuntu-latest
+
+    # Its test containers come from this repository's private mirror (#118).
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224,
+        # #276): never actions/setup-dotnet with global.json's roll-forward.
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start the object stores
+        run: |
+          docker compose --file .github/storage/compose.yaml up --detach
+          for attempt in $(seq 1 60); do
+            azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
+            rustfs=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:9000/ || true)
+            # RustFS answers before it has discovered its issuer: ready once its STS exchanges a token.
+            token=$(curl --silent --header 'Host: issuer:8080' --data 'grant_type=client_credentials&client_id=varve-storage&client_secret=unchecked&scope=openid' http://127.0.0.1:8090/varve/token | jq -r '.access_token // empty' || true)
+            sts=$(curl --silent --output /dev/null --write-out '%{http_code}' --data-urlencode "WebIdentityToken=$token" --data 'Action=AssumeRoleWithWebIdentity&Version=2011-06-15&DurationSeconds=900' http://127.0.0.1:9000/ || true)
+            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$sts" = 200 ] && exit 0
+            sleep 1
+          done
+          docker compose --file .github/storage/compose.yaml logs
+          exit 1
+
+      - name: Run the shipping cases
+        env:
+          VARVE_AZURITE: http://127.0.0.1:10000/devstoreaccount1
+          VARVE_RUSTFS: http://127.0.0.1:9000,varvetest,varvetestsecret
+          VARVE_RUSTFS_WEB_IDENTITY: http://127.0.0.1:9000/,http://127.0.0.1:8090/varve/token,issuer:8080
+          VARVE_STORAGE_LEGS_REQUIRED: azurite,rustfs,rustfs-web-identity
+        run: >
+          dotnet test
+          --project tests/Varve.Server.Tests/Varve.Server.Tests.csproj
+          --configuration Release
+          --filter-class Varve.Server.Tests.ShippingServiceTests
+          --report-trx
+          --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+
+      - name: Shipping test durations
+        if: always()
+        run: >
+          dotnet run eng/test-durations.cs --
+          ${{ github.workspace }}/artifacts/test-results/Varve.Server.Tests
+          --label "shipping and promotion between Azurite and RustFS"
+
+      - name: Upload the test results
+        # #126: every run keeps its TRX, pass or fail, so a slow or red run
+        # can be explained test by test from its own artifacts.
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: test-results-shipping-services
+          path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
+
   # The REC generator's bytes on both architectures (ADR 0141): its tests pin
   # each size's SHA-256, so a pass on each runner is the same bytes on both.
   rec-generator:

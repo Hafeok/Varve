@@ -490,8 +490,11 @@ public static class DeclarationReader
         // query, no fragment.
         private static bool IsStoreAddress(string value)
         {
+            // Plain http only on a loopback host: a development emulator beside the instance, which is all the
+            // Azure adapter reaches over http (ADR 0184, amended 2026-11-24).
             string? rest = value.StartsWith("https://", StringComparison.Ordinal) ? value["https://".Length..]
                 : value.StartsWith("s3://", StringComparison.Ordinal) ? value["s3://".Length..]
+                : value.StartsWith("http://", StringComparison.Ordinal) && IsLoopbackAuthority(value["http://".Length..]) ? value["http://".Length..]
                 : null;
 
             if (rest is null || rest.Length == 0 || rest[0] == '/')
@@ -508,6 +511,48 @@ public static class DeclarationReader
             }
 
             return true;
+        }
+
+        // Whether what follows http:// names this machine: localhost, 127.0.0.0/8 written as four numbers, or
+        // [::1], each with an optional port. Read by hand: System.Uri is not used in this project (ADR 0004).
+        private static bool IsLoopbackAuthority(string rest)
+        {
+            int end = rest.IndexOf('/', StringComparison.Ordinal);
+            string authority = end < 0 ? rest : rest[..end];
+            string host;
+
+            if (authority.StartsWith('['))
+            {
+                int close = authority.IndexOf(']', StringComparison.Ordinal);
+
+                if (close < 0 || !IsPort(authority[(close + 1)..]))
+                {
+                    return false;
+                }
+
+                host = authority[..(close + 1)];
+            }
+            else
+            {
+                int colon = authority.IndexOf(':', StringComparison.Ordinal);
+
+                if (colon >= 0 && !IsPort(authority[colon..]))
+                {
+                    return false;
+                }
+
+                host = colon < 0 ? authority : authority[..colon];
+            }
+
+            if (host is "localhost" or "[::1]")
+            {
+                return true;
+            }
+
+            string[] parts = host.Split('.');
+            return parts.Length == 4 && parts[0] == "127" && Array.TrueForAll(parts, static part => part.Length is > 0 and <= 3 && part.AsSpan().IndexOfAnyExceptInRange('0', '9') < 0 && int.Parse(part, System.Globalization.CultureInfo.InvariantCulture) <= 255);
+
+            static bool IsPort(string text) => text.Length == 0 || (text[0] == ':' && text.Length is > 1 and <= 6 && text.AsSpan(1).IndexOfAnyExceptInRange('0', '9') < 0);
         }
 
         private static bool IsPrefix(string value)
