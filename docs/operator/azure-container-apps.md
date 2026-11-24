@@ -35,7 +35,7 @@ apps' principal ids.
 
 | Parameter | Default | |
 |---|---|---|
-| `authority`, `audience` | — | `Varve:Auth` (ADR 0037); register the API as [Authenticate](authenticate.md) says |
+| `authority`, `audience` | — | `Varve:Auth` (ADR 0037); register the API as [Microsoft Entra ID](entra.md) says |
 | `managementAudience` | `api://varve-manage` | `Varve:Auth:Management:Audience` (ADR 0163) |
 | `operators` | — | `Varve:Manage:BootstrapOperators`, at least one |
 | `image` | `ghcr.io/hafeok/varve:latest` | pin a digest in production |

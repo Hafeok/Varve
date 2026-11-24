@@ -1,0 +1,12 @@
+PREFIX rec:  <https://w3id.org/rec#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?name ?area ?seats
+WHERE {
+  ?room a rec:Room ;
+        rdfs:label ?name ;
+        rec:area ?a .
+  ?a rec:netArea ?area .
+  OPTIONAL { ?room rec:capacity ?c . ?c rec:seatingCapacity ?seats }
+}
+ORDER BY ?name

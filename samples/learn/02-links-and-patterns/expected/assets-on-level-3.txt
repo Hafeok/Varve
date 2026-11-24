@@ -1,0 +1,4 @@
+asset               | name          | room
+--------------------+---------------+-----------
+:asset-display-3-01 | Display, 3.01 | :room-3-01
+(1 row)
