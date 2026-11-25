@@ -493,8 +493,8 @@ adopts it. Until #203 chooses, `varve:erasureMode` stays reserved.
 
 ## Amendment, 2026-11-24 — a store named over plain http on a loopback host
 
-Filed by Replication part 2 (#166), unaccepted until the maintainer accepts
-it (ADR 0066). It adds no ruling and changes no statement.
+Filed by Replication part 2 (#166) (ADR 0066). It adds no ruling and changes
+no statement, and was read by the maintainer on 2026-11-25.
 
 **What was found.** Decision 1 says an address is `https://…` or `s3://…`.
 The `shipping (services)` job ships between Azurite and RustFS, and Azurite
@@ -525,8 +525,8 @@ source's shipper stops as `replica-promoted`.
 
 ## Amendment, 2026-11-24 — a shipper follows another shipper's chunk at the sealing slot
 
-Filed by Replication part 2 (#166), unaccepted until the maintainer accepts
-it (ADR 0066). It adds no ruling and changes no statement:
+Filed by Replication part 2 (#166) (ADR 0066). It adds no ruling and changes
+no statement, and was read by the maintainer on 2026-11-25:
 `TheShipperRunsOffTheSequencer` already says two shippers at once are
 harmless.
 
