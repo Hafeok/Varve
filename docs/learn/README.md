@@ -18,8 +18,8 @@ Every chapter works on the same data, a property portfolio described in
 [RealEstateCore](https://w3id.org/rec) (REC), a published vocabulary for
 buildings. It starts as a slice small enough to read whole: one site, one
 building, two levels, five rooms, a few assets and points. From chapter 3
-it grows into a generated portfolio of many buildings. A chapter uses only
-the REC terms introduced by then: [the terms, by chapter](terms.md).
+a generated portfolio of two buildings and 400 rooms joins it. A chapter
+uses only the REC terms introduced by then.
 
 Every chapter has a sample under [`samples/learn/`](../../samples/learn/),
 a small console project that references the `Varve.*` packages and nothing
@@ -33,11 +33,23 @@ run embedded, in your own process, with no server and no container.
    its properties, against a `rooms` table.
 2. [Links and patterns](02-links-and-patterns.md): "every room in the
    building" as a property path, against a recursive CTE.
+3. [Schema without migrations](03-schema-without-migrations.md): a new kind
+   of sensor with no `ALTER TABLE`, and REC's shapes as the schema, against
+   a lookup table and a `CHECK`.
+4. [Commits](04-commits.md): splitting a room in one request, and two
+   writers on one reading, against `BEGIN … COMMIT` and a version column.
+5. [Deletion and history](05-deletion-and-history.md): retiring a sensor,
+   what a delete leaves behind and what is remembered, against a foreign
+   key and a soft delete.
+6. [Temporal and audit](06-temporal-and-audit.md): level 3 before its
+   renovation, and who moved a display, against system-versioned tables.
+
+The REC terms each chapter introduces are in [the terms, by
+chapter](terms.md).
 
 <!-- unshipped: #94 -->
-> **Not in this release.** Chapters 3 to 11 and the appendix are being
-> written, in this order, under #94: schema without migrations; commits;
-> deletion and history; temporal and audit; CDC and the outbox;
+> **Not in this release.** Chapters 7 to 11 and the appendix are being
+> written, in this order, under #94: CDC and the outbox;
 > multi-tenancy and row-level security; named graphs; from embedded to
 > server; Varve and domain-driven design; and an appendix, SQL habits that
 > hurt here. Chapter 12, ontologies and inference, is written by the

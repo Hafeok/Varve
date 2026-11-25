@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Chapter 6 of the learning track, temporal and audit (#94, #411):
+       docs/learn/06-temporal-and-audit.md quotes it and its output. -->
+  <PropertyGroup>
+    <RootNamespace>Varve.Learn</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <VarveReference Include="Varve.Store" />
+    <VarveReference Include="Varve.Turtle" />
+    <VarveReference Include="Varve.Sparql.Store" />
+  </ItemGroup>
+
+</Project>
