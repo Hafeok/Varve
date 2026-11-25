@@ -95,8 +95,15 @@ internal abstract class Materialisation
             {
                 using (IQuadCursor cursor = source.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
                 {
+                    long read = 0;
                     while (cursor.MoveNext())
                     {
+                        if ((++read & 0xFFFF) == 0)
+                        {
+                            // A stop is seen while the store is read too, not only once it has been.
+                            cancellationToken.ThrowIfCancellationRequested();
+                        }
+
                         Quad quad = cursor.Current;
                         Fact fact = new(quad.Subject, quad.Predicate, quad.Object);
                         built.Warm(quad);

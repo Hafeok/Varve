@@ -419,7 +419,15 @@ public sealed class InferenceProjection : IProjection
             }
         }
 
-        using DatasetView view = await _dataset.AsOfAsync(at, cancellationToken).ConfigureAwait(false);
+        // The head pinned when it is the position asked, as a pass pins it: an as-of view of the head costs a read of the log.
+        DatasetView pinned = _dataset.Pin();
+        if (pinned.Position != at)
+        {
+            pinned.Dispose();
+            pinned = await _dataset.AsOfAsync(at, cancellationToken).ConfigureAwait(false);
+        }
+
+        using DatasetView view = pinned;
         if (at.Value == Volatile.Read(ref _position))
         {
             // The live closures are read under the pass's lock, waited for at most

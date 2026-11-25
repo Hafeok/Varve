@@ -118,7 +118,10 @@ internal static class PassWaitBench
         Hold(failed, "a probe beside a commit", Max(waits), ProbeBound);
         Hold(failed, "explain beside a commit", Max(explains), ExplainBound);
 
-        // 4. Shutdown: a cold start cancelled 10 s in, as a stop cancels its feed.
+        // 4. Shutdown: a cold start cancelled 10 s in, as a stop cancels its feed. The first
+        // projection's closures are given back first: two at REC M do not fit one heap.
+        projection.Refuse();
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
         {
             InferenceProjection cancelled = new(dataset, binding, options);
             using DatasetView head = dataset.Pin();
@@ -141,8 +144,12 @@ internal static class PassWaitBench
                 {
                 }
 
-                Console.WriteLine($"shutdown: the cancelled build returned {ended.Elapsed.TotalSeconds:F2} s after the cancel; abandoned {cancelled.Abandoned}");
+                Console.WriteLine($"shutdown: the cancelled build returned {ended.Elapsed.TotalSeconds:F2} s after the cancel; abandoned {cancelled.Abandoned}, stopped {cancelled.Stopped}");
                 Hold(failed, "a cancelled build's return", ended.Elapsed.TotalMilliseconds, CancelBound);
+                if (!cancelled.Abandoned)
+                {
+                    failed.Add("the cancelled build was not abandoned: it " + (cancelled.Stopped ? "stopped at its memory limit or failed" : "ran to its end"));
+                }
             }
         }
 
