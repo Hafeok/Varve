@@ -1,0 +1,12 @@
+Committed at position 3
+p | o
+--+--
+(0 rows)
+s          | p
+-----------+-------------
+:room-3-01 | rec:hasPoint
+(1 row)
+point            | type | name
+-----------------+------+-----
+:point-temp-3-01 |      |
+(1 row)

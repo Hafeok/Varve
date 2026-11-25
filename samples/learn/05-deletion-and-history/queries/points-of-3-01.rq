@@ -1,0 +1,10 @@
+PREFIX rec:  <https://w3id.org/rec#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX :     <https://example.org/learn/>
+
+SELECT ?point ?type ?name
+WHERE {
+  :room-3-01 rec:hasPoint ?point .
+  OPTIONAL { ?point a ?type }
+  OPTIONAL { ?point rdfs:label ?name }
+}
