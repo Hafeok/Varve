@@ -20,7 +20,7 @@ is withdrawn by a later one.
 
 **Amended 2026-11-24** (ADR 0068), by the fix for #399: the list rules and
 checks read a list only from asserted statements; see the end. Filed
-unaccepted.
+unaccepted, and accepted by the maintainer on 2026-11-25.
 
 Amends **0192** (`owl2-rl` served) and **0194** (the `RDFS` and `OWL2RL`
 profiles, `crossGraph` and `SameAsOff` in effect), each by a dated amendment.
@@ -319,7 +319,8 @@ The ledger holds it as `NoClaimWiderThanServed`, `EqualityNotAppliedSaidInBand`,
 ## Amendment, 2026-11-24 — a list is read from asserted statements
 
 Filed unaccepted by the fix for #399, on the maintainer's decision of
-2026-11-24 (fix 1, with its two conditions). It amends point 3: the rules over
+2026-11-24 (fix 1, with its two conditions), and accepted by the maintainer on
+2026-11-25. It amends point 3: the rules over
 lists of OWL 2 Profiles §4.3 (`cls-int1`, `cls-int2`, `cls-uni`, `cls-oo`,
 `scm-int`, `scm-uni`, `prp-spo2`, `prp-key`) and the checks over lists
 (`eq-diff2`, `eq-diff3`, `prp-adp`, `cax-adc`). The ledger holds it as
