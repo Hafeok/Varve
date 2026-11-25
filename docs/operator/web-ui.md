@@ -239,7 +239,7 @@ server's own, and the client's settings are the server's
 
 | Issuer | Registration | `ManageGrant` | One token per plane |
 |---|---|---|---|
-| **Microsoft Entra ID** | a *single-page application* platform on the Web UI's registration, so the token endpoint answers CORS; a delegated scope on each API (`api://varve/access_as_user`, `api://varve-manage/access_as_user`), as in [Authenticate](authenticate.md) | `refresh` | yes: a refresh token is redeemed for another resource. Documented, not tested in CI |
+| **Microsoft Entra ID** | a *single-page application* platform on the Web UI's registration, so the token endpoint answers CORS; a delegated scope on each API (`api://varve/access_as_user`, `api://varve-manage/access_as_user`), as `deploy/azure/entra/main.bicep` creates them ([Microsoft Entra ID](entra.md#6-people-the-web-ui-and-the-command-line)) | `refresh` | yes: a refresh token is redeemed for another resource. Documented, not tested in CI |
 | **mock-oauth2-server** (tests) | `tests/fixtures/auth/mock-oauth2.json` maps the `varve-webui` client to the data audience, and `varve-webui-manage` to the management one | `refresh` | yes, and it answers CORS. Tested in CI by the browser tests |
 | **Zitadel** | a project per plane, and a user agent application with auth method none, JWT access tokens, and the authorization code, refresh token and token exchange grants; the instance's `oidcTokenExchange` feature on | `exchange` | yes, both planes through exchange. Tested in CI on v4.19.4 by the browser tests. See below |
 | **Keycloak, Auth0, Okta** | two audiences, as two client scopes or two APIs | per issuer | check which grant the issuer redeems for the management scope, refresh or exchange, before you rely on it |

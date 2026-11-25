@@ -88,45 +88,44 @@ internal static class ApiReference
         return packages;
     }
 
-    public static void Write(Repository repository, string output, string commit, IReadOnlyList<(string Title, string Output)> navigation)
+    public static void Write(string output, SiteContext site, List<ApiPackage> packages, IReadOnlyList<PageEntry> list)
     {
-        List<ApiPackage> packages = Read(repository);
+        Section section = SiteMap.Api;
         bool anyShipped = packages.Any(static p => p.Types.Values.Any(static m => m.Any(static l => l.Shipped)));
 
         StringBuilder index = new();
-        index.Append("<h1>API reference</h1>\n");
         index.Append("<p>Each package's public surface, generated from its <code>PublicAPI.Shipped.txt</code> and <code>PublicAPI.Unshipped.txt</code> (ADR 0035). The build fails when the compiled surface and those files differ, so this reference cannot drift from what ships.</p>\n");
 
         if (!anyShipped)
         {
-            index.Append("<p class=\"notice\">Before 1.0 no surface is shipped: every <code>PublicAPI.Shipped.txt</code> is empty, and everything below is <em>unshipped</em>, which may change in any preview. The freeze is #129's.</p>\n");
+            index.Append("<div class=\"vd-notice\" role=\"note\"><span class=\"vw-state vw-state--warn\">Unshipped</span><span>Before 1.0 no surface is shipped: every <code>PublicAPI.Shipped.txt</code> is empty, and everything below is <em>unshipped</em>, which may change in any preview. The freeze is #129's.</span></div>\n");
         }
 
-        index.Append("<table>\n<thead><tr><th>Package</th><th>Types</th><th>Lines</th></tr></thead>\n<tbody>\n");
+        index.Append("<div class=\"vd-table vd-index\" tabindex=\"0\" role=\"region\" aria-label=\"Table: Package, Types, Lines\"><table>\n<thead><tr><th>Package</th><th align=\"right\">Types</th><th align=\"right\">Lines</th></tr></thead>\n<tbody>\n");
 
         foreach (ApiPackage package in packages)
         {
-            index.Append("<tr><td><a href=\"").Append(package.Name).Append(".html\">").Append(package.Name).Append("</a></td><td>")
-                .Append(package.Types.Count).Append("</td><td>").Append(package.Count).Append("</td></tr>\n");
-            Directory.CreateDirectory(Path.Combine(output, "api"));
-            SiteBuild.WriteText(Path.Combine(output, "api", package.Name + ".html"),
-                Layout.Page($"api/{package.Name}.html", package.Name, PackagePage(package), commit, package.Directory + "/PublicAPI.Unshipped.txt", navigation));
+            index.Append("<tr><td><a href=\"").Append(package.Name).Append(".html\">").Append(package.Name).Append("</a></td><td align=\"right\">")
+                .Append(package.Types.Count).Append("</td><td align=\"right\">").Append(package.Count).Append("</td></tr>\n");
+            (string body, List<TocEntry> toc) = PackagePage(package);
+            string lede = $"{package.Count} lines in {package.Types.Count} types, from <code>{package.Directory}/PublicAPI.Shipped.txt</code> and <code>PublicAPI.Unshipped.txt</code>."
+                + (anyShipped ? " A line marked <em>unshipped</em> is not yet part of a released surface." : " None of it is shipped yet: all of it may change in any preview.");
+            SiteBuild.WriteText(Path.Combine(output, "api", package.Name + ".html"), Layout.Page(site, new PageModel(
+                $"api/{package.Name}.html", package.Name, section, new Head(Layout.Encode(package.Name), Lede: lede), body,
+                package.Directory + "/PublicAPI.Unshipped.txt", list, toc)));
         }
 
-        index.Append("</tbody>\n</table>\n");
-        SiteBuild.WriteText(Path.Combine(output, "api", "index.html"), Layout.Page("api/index.html", "API reference", index.ToString(), commit, null, navigation));
+        index.Append("</tbody>\n</table></div>\n");
+        SiteBuild.WriteText(Path.Combine(output, "api", "index.html"), Layout.Page(site, new PageModel(
+            "api/index.html", section.Title, section, new Head(Layout.Encode(section.Title), Lede: Layout.Encode(section.Summary)), index.ToString(), null, list, [])));
     }
 
-    private static string PackagePage(ApiPackage package)
+    private static (string Body, List<TocEntry> Toc) PackagePage(ApiPackage package)
     {
         StringBuilder html = new();
+        List<TocEntry> toc = [];
         bool anyShipped = package.Types.Values.Any(static m => m.Any(static l => l.Shipped));
         HashSet<string> anchors = new(StringComparer.Ordinal);
-        html.Append("<h1>").Append(package.Name).Append("</h1>\n");
-        html.Append("<p>").Append(package.Count).Append(" lines in ").Append(package.Types.Count).Append(" types, from <code>")
-            .Append(package.Directory).Append("/PublicAPI.Shipped.txt</code> and <code>PublicAPI.Unshipped.txt</code>.")
-            .Append(anyShipped ? " A line marked <em>unshipped</em> is not yet part of a released surface." : " None of it is shipped yet: all of it may change in any preview.")
-            .Append("</p>\n");
 
         foreach ((string type, List<ApiLine> members) in package.Types)
         {
@@ -137,14 +136,16 @@ internal static class ApiReference
                 anchor = Anchor(type) + "-" + n;
             }
 
-            html.Append("<h2 id=\"").Append(Layout.Encode(anchor)).Append("\"><code>").Append(Layout.Encode(type)).Append("</code></h2>\n");
+            toc.Add(new TocEntry(2, anchor, type));
+            html.Append("<h2 id=\"").Append(Layout.Encode(anchor)).Append("\"><code>").Append(Layout.Encode(type)).Append("</code> ")
+                .Append(SiteBuild.Anchor(anchor)).Append("</h2>\n");
 
             if (members.Count == 0)
             {
                 continue;
             }
 
-            html.Append("<ul class=\"api\">\n");
+            html.Append("<ul class=\"vd-api\">\n");
 
             foreach (ApiLine member in members)
             {
@@ -163,7 +164,8 @@ internal static class ApiReference
 
         if (package.Removed.Count > 0)
         {
-            html.Append("<h2 id=\"removed\">Removed since the last shipped surface</h2>\n<ul class=\"api\">\n");
+            toc.Add(new TocEntry(2, "removed", "Removed since the last shipped surface"));
+            html.Append("<h2 id=\"removed\">Removed since the last shipped surface ").Append(SiteBuild.Anchor("removed")).Append("</h2>\n<ul class=\"vd-api\">\n");
 
             foreach (ApiLine line in package.Removed)
             {
@@ -173,7 +175,7 @@ internal static class ApiReference
             html.Append("</ul>\n");
         }
 
-        return html.ToString();
+        return (html.ToString(), toc);
     }
 
     private static IEnumerable<ApiLine> Lines(string path, bool shipped) =>

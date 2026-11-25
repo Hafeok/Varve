@@ -53,8 +53,16 @@ internal sealed class Repository(string root)
     }
 }
 
-/// <summary>A part of the site: a directory of the repository's Markdown, every page directly in it.</summary>
-internal sealed record Section(string Title, string Source, string Output, string Summary);
+/// <summary>
+/// A part of the site: a directory of the repository's Markdown, every page
+/// directly in it, or, with no source, a part the generator writes (the API
+/// reference). <paramref name="Bar"/> is its label in the bar, null when the
+/// bar does not name it; the bar is these labels, in this order, so a section
+/// added here is in the bar with no change to the frame. <paramref name="Ident"/>
+/// marks a section whose pages are named by an identifier, set as code.
+/// <paramref name="One"/> and <paramref name="Many"/> count its pages on the home page.
+/// </summary>
+internal sealed record Section(string Title, string? Source, string Output, string Summary, string? Bar, string One, string Many, bool Ident = false);
 
 /// <summary>One page the site carries, from a Markdown file of the repository.</summary>
 internal sealed record Page(string Source, string Output, Section? Section);
@@ -64,14 +72,19 @@ internal sealed class SiteMap
 {
     public static readonly IReadOnlyList<Section> Sections =
     [
-        new("Operator guide", "docs/operator", "operator", "Running, configuring, securing and upgrading Varve."),
-        new("Problem types", "docs/problems", "problems", "Every RFC 9457 problem type Varve answers, and what to do about it."),
-        new("Architecture decisions", "docs/adr", "adr", "Every ADR, with its context, decision and consequences."),
-        new("Decision sets", "docs/decisions", "decisions", "Each ADR's rulings, as the analyzers read them."),
-        new("Specifications", "docs/spec", "spec", "The specifications Varve implements and its own formats."),
-        new("Rules", "docs/rules", "rules", "Varve's analyzer rules."),
-        new("Formats", "docs/formats", "formats", "Every format Varve writes, its version and its rule."),
+        new("Learning track", "docs/learn", "learning", "Varve for SQL developers and DDD practitioners, chapter by chapter, on one RealEstateCore portfolio.", null, "page", "pages"),
+        new("Operator guide", "docs/operator", "operator", "Running, configuring, securing and upgrading Varve.", "Operator guide", "page", "pages"),
+        new("Specifications", "docs/spec", "spec", "The specifications Varve implements and its own formats.", "Specifications", "specification", "specifications"),
+        new("Architecture decisions", "docs/adr", "adr", "Every ADR, with its context, decision and consequences.", "Decisions", "decision", "decisions"),
+        new("Decision sets", "docs/decisions", "decisions", "Each ADR's rulings, as the analyzers read them.", null, "decision set", "decision sets"),
+        new("Problem types", "docs/problems", "problems", "Every RFC 9457 problem type Varve answers, and what to do about it.", "Problems", "problem type", "problem types", Ident: true),
+        new("Rules", "docs/rules", "rules", "Varve's analyzer rules.", null, "rule", "rules"),
+        new("Formats", "docs/formats", "formats", "Every format Varve writes, its version and its rule.", null, "page", "pages"),
+        new("API reference", null, "api", "Each package's public surface, from its API baselines.", "API", "package", "packages"),
     ];
+
+    /// <summary>The section the generator writes from the API baselines.</summary>
+    public static Section Api => Sections.Single(static s => s.Source is null);
 
     /// <summary>Single files the site carries outside the sections, and where they go.</summary>
     public static readonly IReadOnlyList<(string Source, string Output, string Title, string Summary)> Files =
@@ -90,7 +103,7 @@ internal sealed class SiteMap
 
         foreach (Section section in Sections)
         {
-            if (!repository.IsDirectory(section.Source))
+            if (section.Source is null || !repository.IsDirectory(section.Source))
             {
                 continue;
             }
@@ -114,27 +127,18 @@ internal sealed class SiteMap
 
     public Page? PageOf(string source) => _bySource.GetValueOrDefault(source);
 
-    /// <summary>The sections and single files this site carries, in order, and the two generated parts.</summary>
-    public IReadOnlyList<(string Title, string Output, string Summary)> Contents()
-    {
-        List<(string, string, string)> contents = [];
+    /// <summary>The sections this site carries, in order: those with a README, and the generated ones.</summary>
+    public IReadOnlyList<Section> CarriedSections() =>
+        [.. Sections.Where(s => s.Source is null || _bySource.ContainsKey(s.Source + "/README.md"))];
 
-        foreach (Section section in Sections.Where(s => _bySource.ContainsKey(s.Source + "/README.md")))
-        {
-            contents.Add((section.Title, section.Output + "/index.html", section.Summary));
-        }
+    /// <summary>The bar's sections, in order: every carried section with a bar label.</summary>
+    public IReadOnlyList<Section> Bar() => [.. CarriedSections().Where(static s => s.Bar is not null)];
 
-        foreach ((string source, string output, string title, string summary) in Files.Where(f => _bySource.ContainsKey(f.Source)))
-        {
-            contents.Add((title, output, summary));
-        }
-
-        contents.Add(("API reference", "api/index.html", "Each package's public surface, from its API baselines."));
-        contents.Add(("Learning track", "learning/index.html", "Not written yet."));
-        return contents;
-    }
+    /// <summary>The pages of a Markdown section, its README excepted.</summary>
+    public int CountOf(Section section) =>
+        _bySource.Values.Count(p => p.Section == section && !p.Source.EndsWith("/README.md", StringComparison.Ordinal));
 
     /// <summary>The page a repository directory stands for on the site: a section's index.</summary>
     public string? OutputOfDirectory(string directory) =>
-        Sections.FirstOrDefault(s => s.Source == directory) is { } section ? section.Output + "/index.html" : null;
+        Sections.FirstOrDefault(s => s.Source is not null && s.Source == directory) is { } section ? section.Output + "/index.html" : null;
 }

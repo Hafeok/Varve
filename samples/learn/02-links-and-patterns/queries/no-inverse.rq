@@ -1,0 +1,5 @@
+PREFIX rec: <https://w3id.org/rec#>
+PREFIX :    <https://example.org/learn/>
+
+SELECT (COUNT(?container) AS ?stated)
+WHERE { :room-3-01 rec:isPartOf ?container }

@@ -1,0 +1,7 @@
+PREFIX rec: <https://w3id.org/rec#>
+
+SELECT ?asset ?room ?roomIsDescribed
+WHERE {
+  ?asset rec:locatedIn ?room .
+  BIND (EXISTS { ?room ?p ?o } AS ?roomIsDescribed)
+}
