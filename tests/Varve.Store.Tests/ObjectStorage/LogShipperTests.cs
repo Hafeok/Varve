@@ -236,6 +236,52 @@ public sealed class LogShipperTests
         await pair.AssertFollowersAgreeAsync(writer);
     }
 
+    /// <summary>
+    /// The same, where the chunk the other shipper copied is the first of a
+    /// segment: the chunk that opens it, which the source wrote before any
+    /// of the segment's records. Found by the hosted devcontainer run on
+    /// b6c19958, where the two-shippers test met it at chunk 0 of a segment.
+    /// </summary>
+    [Fact]
+    public async Task a_shipper_that_finds_another_shippers_copy_of_a_segments_first_chunk_seals_through_the_next()
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), T.Options(segmentBytes: 4096));
+        await CommitAsync(writer, 0, 3);
+        LogShipper shipper = (await pair.StartAsync())!;
+        await shipper.ShipLogAsync(T.Ct);
+
+        // A commit that rolls segment 0 and opens segment 1, whose first chunk the other shipper will have
+        // copied; then one that rolls segment 1, and the source's consolidation of both.
+        const string Slot = "log/00000001.chunks/00000000";
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("big0"), T.Iri("p"), T.Literal(new string('x', 3600))), T.Ct);
+        byte[] copied = pair.Source.Store.Get(Slot)!;
+        Assert.True(ChunkHeader.TryRead(copied, out ChunkHeader header, out _));
+        Assert.Equal(ChunkFlags.None, header.Flags & (ChunkFlags.Seal | ChunkFlags.Fence));
+        await writer.CommitAsync(new CommitRequestBuilder().Assert(T.Iri("big1"), T.Iri("p"), T.Literal(new string('x', 3600))), T.Ct);
+        await UntilAsync(() => pair.Source.Store.Names().Contains("log/00000001.seg") && !pair.Source.Store.Names().Contains(Slot));
+
+        bool landed = false;
+        pair.Target.Store.Hook = (operation, name) =>
+        {
+            if (!landed && operation == ObjectOperation.Create && name.Value == Slot)
+            {
+                landed = true;
+                pair.Target.Store.Put(Slot, copied);
+            }
+
+            return null;
+        };
+
+        await shipper.ShipLogAsync(T.Ct);
+        pair.Target.Store.Hook = null;
+
+        Assert.True(landed, "flags " + header.Flags + ", length " + header.Length);
+        Assert.Contains("log/00000001.seg", pair.Target.Store.Names());
+        pair.AssertIdentical();
+        await pair.AssertFollowersAgreeAsync(writer);
+    }
+
     /// <summary>Nothing on a target is ever overwritten: other bytes at the next slot stop the shipper, and stay.</summary>
     [Fact]
     public async Task other_bytes_at_the_next_slot_are_shipping_diverged_and_are_left_as_they_were()

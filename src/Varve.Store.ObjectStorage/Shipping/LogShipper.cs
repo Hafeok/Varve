@@ -812,13 +812,13 @@ public sealed class LogShipper
             // The slot is taken. By another shipper of this source, it holds bytes of the source's segment at
             // this offset: the same sealing chunk, perhaps under another epoch, or a chunk of the source's that
             // shipper copied before the source consolidated, which holds the first of the rest and not all of
-            // it. Either is followed, and after a chunk that does not seal the next slot is tried. Anything
-            // else holds the slot against this shipper: a promotion's fence, which has no bytes.
+            // it, or none of it: the chunk that opens a segment holds no bytes. Either is followed, and after a
+            // chunk that does not seal the next slot is tried. Anything else holds the slot against this
+            // shipper: a promotion's fence, which is marked a fence, or other bytes.
             byte[] theirs = existing.ToArray();
 
             if (!ChunkHeader.TryRead(theirs, out ChunkHeader there, out _)
                 || (there.Flags & ChunkFlags.Fence) != 0
-                || there.Length == 0
                 || there.Length > rest.Length
                 || ((there.Flags & ChunkFlags.Seal) != 0 && there.Length != rest.Length)
                 || there.Offset != held.Length

@@ -551,3 +551,35 @@ promotion's fence, or a divergence.
 which fails without the change. The order was met once by
 `a_shipper_started_again_resumes_from_the_targets_tail_and_two_at_once_ship_one_copy`
 in a whole pipeline run.
+
+## Amendment, 2026-11-25 — the chunk that opens a segment is followed too
+
+Filed by Replication part 2 (#166), unaccepted until the maintainer accepts
+it (ADR 0066). It adds no ruling and changes no statement. It corrects the
+amendment of 2026-11-24 above, "a shipper follows another shipper's chunk at
+the sealing slot".
+
+**What was wrong.** That amendment had a shipper stop on a chunk with no
+bytes, taking it for a promotion's fence. The chunk that opens a segment
+also has no bytes (ADR 0135). With two shippers at once, one copied a
+segment's opening chunk before the source consolidated the segment, and the
+other, come to seal the segment through chunk 0, reported
+`shipping-diverged`. The hosted devcontainer run on `b6c19958` met it, in
+the same two-shippers test.
+
+**The change.** A fence is told by its mark, not by its length. At the
+sealing slot a shipper follows any chunk that is not marked a fence, chains
+to the chunk before it, and holds the source's bytes at its offset, none
+included. A chunk marked a fence, or other bytes, stops it as before.
+
+**Not handled.** A fence chunk that the source's own writer made in the
+segment after this round listed it, and that another shipper copied first.
+It is marked a fence, so this shipper stops as diverged. It needs a writer
+of the source to fence inside a segment that is already consolidated, which
+since #396 happens only in the order that issue fixed. It is not tested and
+not built.
+
+**Checks.** `LogShipperTests`,
+`a_shipper_that_finds_another_shippers_copy_of_a_segments_first_chunk_seals_through_the_next`,
+which fails without the change. The two-shippers test then passed sixty
+runs in a row on this session's container.
