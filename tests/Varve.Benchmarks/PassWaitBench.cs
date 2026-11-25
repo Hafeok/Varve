@@ -59,6 +59,7 @@ internal static class PassWaitBench
             commits++;
         }
 
+        Console.WriteLine($"server GC {System.Runtime.GCSettings.IsServerGC}; heap limit {GC.GetGCMemoryInfo().TotalAvailableMemoryBytes} B");
         Console.WriteLine($"loaded {commits} commits in {load.Elapsed.TotalSeconds:F1} s; head {dataset.Head.Value}");
         InferenceBinding binding = new(RdfTerm.Iri("https://example.org/rec/binding"u8), [TBoxGraph], GraphScope.Of([], ["https://example.org/rec/graph/"], DefaultGraphAccess.Excluded), profile) { CrossGraph = crossGraph };
         InferenceOptions options = new() { ClosureBytes = new ByteCount(long.MaxValue / 4) };
@@ -79,6 +80,7 @@ internal static class PassWaitBench
             }
 
             await reset;
+            Console.WriteLine($"cold start: {GC.CollectionCount(2)} full collections so far, pause {GC.GetTotalPauseDuration().TotalSeconds:F1} s");
             Console.WriteLine($"cold start: built in {build.Elapsed.TotalSeconds:F1} s ({projection.ClosureHeld.Value} B held, {projection.Snapshot.Clashes.Count} clashes)");
             Console.WriteLine($"  probes during the build: {probes.Count}; slowest {Max(probes):F2} ms");
             Hold(failed, "a probe during the cold build", Max(probes), ProbeBound);
@@ -176,6 +178,7 @@ internal static class PassWaitBench
     private static Task<(double Seconds, InferenceReadOutcome Outcome)> AsServerExplains(InferenceProjection projection, Position at) => Task.Run(async () =>
     {
         Stopwatch sw = Stopwatch.StartNew();
+        int gcs = GC.CollectionCount(2);
         using (CancellationTokenSource bound = new(TimeSpan.FromSeconds(2)))
         {
             try
@@ -187,7 +190,13 @@ internal static class PassWaitBench
             }
         }
 
+        double waited = sw.Elapsed.TotalMilliseconds;
         (InferenceReadOutcome outcome, _) = await projection.ExplainAsync(at, null, RdfTerm.Iri("https://example.org/rec/x"u8), RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"u8), RdfTerm.Iri("https://w3id.org/rec#Space"u8), CancellationToken.None);
+        if (sw.Elapsed.TotalMilliseconds > 500)
+        {
+            Console.WriteLine($"  an explain at {at.Value}: {outcome}, {waited:F0} ms for the position, {sw.Elapsed.TotalMilliseconds - waited:F0} ms in explain, {GC.CollectionCount(2) - gcs} full collections meanwhile");
+        }
+
         return (sw.Elapsed.TotalSeconds, outcome);
     });
 
