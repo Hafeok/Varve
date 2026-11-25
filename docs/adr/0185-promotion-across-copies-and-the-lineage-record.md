@@ -449,8 +449,8 @@ says, at the step where the operator runs it and not in a note elsewhere:
 
 ## Amendment, 2026-11-25 — a fence behind a consolidated segment is made again, and the promotion finishes
 
-Filed by Replication part 2 (#166), unaccepted until the maintainer accepts
-it (ADR 0066). **It changes no ruling's statement.** The rulings it touches
+Filed by Replication part 2 (#166) (ADR 0066), and read by the maintainer on
+2026-11-25. **It changes no ruling's statement.** The rulings it touches
 are `PromotionIsAnsweredByAWarmMemberOfTheTargetFleet` and
 `AnIncompletePromotionIsCompletedOnlyByPromoting`, and neither states the
 behaviour that changes.
