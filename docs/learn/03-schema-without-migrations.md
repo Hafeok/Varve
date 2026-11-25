@@ -317,10 +317,10 @@ SHACL itself:
 The sample loads REC 4 into the graph `:rec`, and binds it as the
 dataset's shapes: a **shapes binding** in `reject` mode, validating the
 default graph, and the **shapes gate** that enforces it at commit time.
+`rec` is the graph's IRI, `https://example.org/learn/rec`.
 
-<!-- ci: eng/ci.cs learn — source samples/learn/03-schema-without-migrations/Program.cs#gate -->
+<!-- ci: eng/ci.cs learn — source samples/learn/Shared/Rec/Gated.cs#gate -->
 ```csharp
-RdfTerm rec = RdfTerm.Iri("https://example.org/learn/rec"u8);
 ShapesBinding binding = new(
     RdfTerm.Iri("https://example.org/learn/rec-binding"u8),
     rec,
@@ -331,10 +331,10 @@ ShapesBinding binding = new(
 };
 ShapesGate gate = new([binding]);
 
-await using Dataset dataset = await Dataset.CreateAsync(
+Dataset dataset = await Dataset.CreateAsync(
     new MemoryStorage(),
     new DatasetId(Guid.NewGuid()),
-    new DatasetOptions { Clock = TimeProvider.System, Validators = [gate] });
+    new DatasetOptions { Clock = clock, Validators = [gate] });
 ```
 
 - The shapes graph is a named graph of the same dataset
@@ -358,7 +358,7 @@ because the shapes must load as a whole: Brick's SPARQL constraints need
 the prefixes the composition declares, and a bound shapes graph that does
 not load refuses the commit that made it so.
 
-<!-- ci: eng/ci.cs learn — source samples/learn/03-schema-without-migrations/Program.cs#load-rec -->
+<!-- ci: eng/ci.cs learn — source samples/learn/Shared/Rec/Gated.cs#load-rec -->
 ```csharp
 string[] recFiles = ["rec.ttl", "Brick+patches.ttl", "recimports.ttl", "composition.ttl"];
 CommitResult vocabulary = await Load.TurtleIntoAsync(
@@ -399,9 +399,18 @@ internal static async ValueTask<CommitResult> TurtleIntoAsync(Dataset dataset, R
 }
 ```
 
-The slice and the portfolio are then loaded through the gate, and conform.
-Every query above ran on that dataset, and the new sensor was committed
-through it.
+Both are in [`Shared/Rec/Gated.cs`](../../samples/learn/Shared/Rec/Gated.cs),
+which chapter 4 uses too. The sample creates its dataset with it, then loads
+the slice and the portfolio through the gate, each file as one commit:
+
+<!-- ci: eng/ci.cs learn — source samples/learn/03-schema-without-migrations/Program.cs#create -->
+```csharp
+await using Dataset dataset = await Gated.CreateAsync(TimeProvider.System);
+await Gated.LoadAsync(dataset, "01-rooms.trig", "02-topology.trig", "03-portfolio.trig");
+```
+
+They conform. Every query above ran on that dataset, and the new sensor was
+committed through it.
 
 ### A refused commit
 

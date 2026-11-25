@@ -1,0 +1,2 @@
+move-display: Committed at position 5
+rename-3-01:  Conflict, the head at position 5

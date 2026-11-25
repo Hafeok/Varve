@@ -29,6 +29,7 @@
        load it into the graph :rec from chapter 3. The tag is rec.pin's, which
        Varve.Learn.Tests holds to testdata/rec/. -->
   <ItemGroup Condition="'$(VarveLearnRec)' == 'true'">
+    <Compile Include="$(MSBuildThisFileDirectory)Shared/Rec/*.cs" LinkBase="Shared/Rec" />
     <None Include="$(MSBuildThisFileDirectory)../../testdata/rec/v4.1.0/*.ttl;$(MSBuildThisFileDirectory)../../testdata/rec/gate/composition.ttl" LinkBase="rec" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
