@@ -79,10 +79,71 @@ unchanged. #96 stays open for the explorer's other screens.
 - **Object store verification** (#322; ADR 0183): `varve storage verify`,
   its result records, and a generated compatibility page.
 - **A follower opens at the last whole record and never appends** (#393).
-- **What these two were run against:** Azurite, an emulator of Azure
-  Blob Storage, and RustFS, a self-hosted S3-compatible store. No managed
-  cloud service has run them yet: the tests against a real Azure storage
-  account are skipped in CI for want of one.
+- **What object store verification and the follower fix were run
+  against:** Azurite, an emulator of Azure Blob Storage, and RustFS, a
+  self-hosted S3-compatible store. No managed cloud service has run them
+  yet: the tests against a real Azure storage account are skipped in CI
+  for want of one.
+- **The learning track, part (a)** (#385; ADR 0249): its pages quote
+  what CI ran, so every sample on a page is one CI executed.
+
+#### Fixed
+
+- **A new writer's fence could land behind a consolidated segment**
+  (#396, fixed by #402; ADR 0136, amended).
+  - **Affected:** every preview from `v0.1.0-preview.8` to
+    `v0.1.0-preview.22`, for a dataset on **object storage** whose
+    writer is handed over while the old writer is still committing: a
+    takeover of an instance that is slow and not dead, a placement
+    change, or a second process started on the same dataset. The file
+    backend is not affected.
+  - **The order.** The new writer claims the dataset and lists its log.
+    Before it creates its fence, the old writer commits once more, the
+    commit rolls its segment, and the old writer consolidates that
+    segment and deletes its chunks. The new writer's fence is then
+    created in a slot inside a segment that is already one consolidated
+    object, and not at the end of the log. The old writer has met no
+    fence and writes on.
+  - **What it did,** depending on whether a checkpoint was at the head
+    of the log when the new writer opened:
+    - no checkpoint at the head: the new writer was refused at its first
+      commit, and the old writer kept the log. No data was lost;
+    - a checkpoint at the head: both writers acknowledged commits at the
+      same positions. The new writer's commits were written behind the
+      consolidated object, where no reader looks. **Those acknowledged
+      commits were lost,** and the log forked.
+  - **The two signs an operator would see:**
+    1. straight after a handover, the instance that took the dataset
+       reports it `superseded` on `/health/ready` and answers writes with
+       `503 writer-superseded`, while `varve lease` names that same
+       instance as the holder of the highest epoch. The old instance
+       still accepts writes. This is the first case; a restart of either
+       instance clears it;
+    2. `varve lease` shows, for the newest epoch, a `fence` in a segment
+       that has a `.seg` and is below the log's last segment, and a
+       listing of `log/` shows chunks numbered above that fence in the
+       same consolidated segment (for example
+       `log/00000000.chunks/00000006` beside `log/00000000.seg`). This
+       is the second case. Nothing reports it at the time: both
+       instances are ready and both answer `200`.
+  - **The fix.** After its fence is created, a writer now reads for the
+    consolidated object of the fence's segment. If it is there, the
+    writer adopts it and the log after it, and fences again at the end.
+  - **The fix prevents the order. It repairs nothing.** A dataset that
+    already shows the second sign is read as before: the consolidated
+    object is the segment, and the chunks behind it are ignored. The
+    lost commits are still in those chunk objects, which nothing
+    deletes. There is no procedure for recovering them; open an issue
+    with the listing of `log/` and the output of `varve lease` before
+    changing anything.
+  - **Not known:** how wide the window is against a real store. It
+    needs several of the old writer's requests to complete between two
+    of the new writer's. It was found by a test and has not been
+    reported from a deployment.
+  - **What the fix was run against:** an in-memory object store, with
+    the issue's reproduction, the order that forks, the claim in place
+    and a follower. Its tests have no leg against Azurite, RustFS or an
+    Azure storage account.
 
 #### Known issues
 
@@ -94,13 +155,6 @@ unchanged. #96 stays open for the explorer's other screens.
   server can stop. Until the fix, enable a closure only over a schema
   whose `rdf:List` cells each have exactly one `rdf:first` and one
   `rdf:rest`, and check a schema's lists before you bind it to a closure.
-- **On object storage, a handover can lose acknowledged commits** (#396).
-  If a new writer takes a dataset over while the old writer is rolling
-  its segment, commits the old writer acknowledged can be missing from
-  the log the new writer goes on with. Until the fix (#402), stop the
-  old writer's commits before you hand a dataset on object storage
-  over, and don't hand over under write load. Datasets on files are not
-  affected.
 
 #### Not yet
 
