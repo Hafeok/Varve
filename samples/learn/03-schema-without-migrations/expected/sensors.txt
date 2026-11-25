@@ -1,0 +1,7 @@
+type                         | sensors
+-----------------------------+--------
+brick:CO2_Sensor             | 342
+brick:Humidity_Sensor        | 298
+brick:Occupancy_Count_Sensor | 320
+brick:Temperature_Sensor     | 334
+(4 rows)

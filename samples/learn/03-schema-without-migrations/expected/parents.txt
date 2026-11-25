@@ -1,0 +1,10 @@
+parent
+------------------------
+brick:Air_Quality_Sensor
+brick:CO2_Level_Sensor
+brick:CO2_Sensor
+brick:Class
+brick:Entity
+brick:Point
+brick:Sensor
+(7 rows)

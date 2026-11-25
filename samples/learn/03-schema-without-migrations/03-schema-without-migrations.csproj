@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Chapter 3 of the learning track, schema without migrations (#94, #411):
+       docs/learn/03-schema-without-migrations.md quotes it and its output. -->
+  <PropertyGroup>
+    <RootNamespace>Varve.Learn</RootNamespace>
+    <VarveLearnRec>true</VarveLearnRec>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <VarveReference Include="Varve.Store" />
+    <VarveReference Include="Varve.Turtle" />
+    <VarveReference Include="Varve.Sparql.Store" />
+    <VarveReference Include="Varve.Shacl.Store" />
+  </ItemGroup>
+
+</Project>

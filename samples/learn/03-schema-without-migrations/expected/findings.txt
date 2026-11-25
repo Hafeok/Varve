@@ -1,0 +1,5 @@
+focusNode           | path                | value | component
+--------------------+---------------------+-------+-------------------------------
+:room-2-01-capacity | rec:seatingCapacity |       | sh:MaxCountConstraintComponent
+:room-2-01-capacity | rec:seatingCapacity | "ten" | sh:DatatypeConstraintComponent
+(2 rows)

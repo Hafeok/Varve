@@ -1,0 +1,8 @@
+type                           | points
+-------------------------------+-------
+brick:Air_Temperature_Setpoint | 313
+brick:CO2_Sensor               | 342
+brick:Humidity_Sensor          | 298
+brick:Occupancy_Count_Sensor   | 320
+brick:Temperature_Sensor       | 334
+(5 rows)

@@ -1,0 +1,15 @@
+PREFIX rec:      <https://w3id.org/rec#>
+PREFIX brick:    <https://brickschema.org/schema/Brick#>
+PREFIX rdfs:     <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX :         <https://example.org/learn/>
+PREFIX building: <https://example.org/rec/building/>
+
+SELECT ?type (COUNT(?point) AS ?sensors)
+WHERE {
+  building:1 rec:hasPart+ ?space .
+  ?space (rec:hasPoint | rec:isLocationOf/rec:hasPoint) ?point .
+  ?point a ?type .
+  GRAPH :rec { ?type rdfs:subClassOf* brick:Sensor }
+}
+GROUP BY ?type
+ORDER BY ?type

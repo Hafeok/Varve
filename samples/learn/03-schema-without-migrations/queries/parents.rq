@@ -1,0 +1,10 @@
+PREFIX brick: <https://brickschema.org/schema/Brick#>
+PREFIX rdfs:  <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX :      <https://example.org/learn/>
+
+SELECT ?parent
+WHERE {
+  GRAPH :rec { brick:CO2_Level_Sensor rdfs:subClassOf* ?parent }
+  FILTER isIRI(?parent)
+}
+ORDER BY ?parent

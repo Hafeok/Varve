@@ -1,0 +1,30 @@
+type                           | things
+-------------------------------+-------
+brick:Air_Temperature_Setpoint | 619
+brick:CO2_Sensor               | 651
+brick:Humidity_Sensor          | 641
+brick:Occupancy_Count_Sensor   | 636
+brick:Temperature_Sensor       | 672
+rec:ArchitectureArea           | 5
+rec:ArchitectureCapacity       | 4
+rec:Asset                      | 3
+rec:Bathroom                   | 43
+rec:Building                   | 3
+rec:Cabinet                    | 195
+rec:ConferenceRoom             | 55
+rec:Desk                       | 206
+rec:Hallway                    | 41
+rec:IAQSensorEquipment         | 188
+rec:Kitchenette                | 53
+rec:Lamp                       | 204
+rec:Level                      | 18
+rec:OccupancySensorEquipment   | 194
+rec:Office                     | 71
+rec:OfficeChair                | 213
+rec:OfficeLandscape            | 38
+rec:Pantry                     | 61
+rec:PhoneBooth                 | 47
+rec:Region                     | 1
+rec:Room                       | 5
+rec:Site                       | 2
+(27 rows)
