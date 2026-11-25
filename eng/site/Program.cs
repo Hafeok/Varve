@@ -6,6 +6,7 @@
 //
 //   dotnet run --project eng/site -- check [--root <repository>]
 //   dotnet run --project eng/site -- check-svg <file>…
+//   dotnet run --project eng/site -- screenshots --site <built site> --out <directory> --chrome <path>
 //   dotnet run --project eng/site -- build --out <directory> --commit <sha> [--chrome <path>] [--root <repository>] [--cache <directory>]
 //
 // check reads every page the site carries and fails on a relative link whose
@@ -19,7 +20,16 @@
 // each package's API reference from its PublicAPI baselines. It runs check
 // first, and fails on what check fails on. Its output depends only on the
 // repository, the commit named and the browser, so two builds are compared
-// byte for byte in CI.
+// byte for byte in CI. Every page's foot names --commit, and nothing writes a
+// time or a date. A pull request's build names GitHub's test merge commit,
+// which is what it checked out; main's names the commit pushed; a local build
+// names whatever it is given, by convention `git rev-parse HEAD`, which a
+// working tree with uncommitted changes does not match.
+//
+// The stylesheets are the design source's (ADR 0247 amended 2026-11-19):
+// site-tokens.css is written from docs/ui/tokens.json, and docs/ui/bundle.css,
+// docs/ui/site/site.css and the mark are copied. The foot's licence is the
+// PackageLicenseExpression of Directory.Build.targets.
 //
 // Exit codes: 0 done, 1 a finding, 2 could not run.
 
@@ -44,9 +54,31 @@ if (args.Length > 1 && args[0] == "check-svg")
     return findings == 0 ? 0 : 1;
 }
 
+// screenshots: a built site's review set, each page of a kind in both schemes
+// at two widths (#368). For review only: written outside the repository and
+// uploaded by ci.yml's docs site job, never committed.
+if (args.Length == 7 && args[0] == "screenshots" && args[1] == "--site" && args[3] == "--out" && args[5] == "--chrome")
+{
+    if (!File.Exists(args[6]) || !Directory.Exists(args[2]))
+    {
+        Console.Error.WriteLine($"varve-site: no built site at {args[2]}, or no browser at {args[6]}.");
+        return 2;
+    }
+
+    try
+    {
+        return await Screenshots.WriteAsync(args[2], args[4], args[6]);
+    }
+    catch (SiteException e)
+    {
+        Console.Error.WriteLine($"varve-site: {e.Message}");
+        return 1;
+    }
+}
+
 if (args.Length == 0 || args[0] is not ("check" or "build"))
 {
-    Console.Error.WriteLine("varve-site: check [--root <repository>] | check-svg <file>… | build --out <directory> --commit <sha> [--chrome <path>] [--root <repository>] [--cache <directory>]");
+    Console.Error.WriteLine("varve-site: check [--root <repository>] | check-svg <file>… | build --out <directory> --commit <sha> [--chrome <path>] [--root <repository>] [--cache <directory>] | screenshots --site <directory> --out <directory> --chrome <path>");
     return 2;
 }
 

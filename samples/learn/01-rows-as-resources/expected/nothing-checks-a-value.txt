@@ -1,0 +1,4 @@
+seats | tenOrMore
+------+----------
+ten   |
+(1 row)

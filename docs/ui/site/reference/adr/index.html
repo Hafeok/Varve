@@ -1,0 +1,1707 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Architecture decisions — Varve</title>
+<link rel="icon" href="../varve-core.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../site-tokens.css">
+<link rel="stylesheet" href="../bundle.css">
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+<a class="vd-skip" href="#main">Skip to content</a>
+<header class="vd-bar">
+<a class="vd-brand" href="../index.html"><img src="../varve-core.svg" alt=""><b>Varve</b><span>Documentation</span></a>
+<nav class="vd-sections" aria-label="Sections"><a href="../operator/index.html">Operator guide</a><a href="../spec/index.html">Specifications</a><a href="../adr/index.html" aria-current="page">Decisions</a><a href="../problems/index.html">Problems</a><a href="../api/index.html">API</a></nav>
+<a class="vd-repo" href="https://github.com/Hafeok/Varve">GitHub</a>
+</header>
+<div class="vd-frame vd-frame--wide">
+<main class="vd-article" id="main"><p class="vd-crumbs"><a href="../index.html">Documentation</a><a class="vd-jump" href="#pages">Pages in this section ↓</a></p><header class="vd-head"><h1>Architecture decisions</h1><p class="vd-lede">Every ADR, with its context, decision and consequences.</p></header><div class="vd-prose"><p>Format, numbering and the supersession rule are in
+<a href="../adr/0001-record-architecture-decisions.html">0001</a>. An accepted ADR is not edited; a
+change of mind is a new ADR whose Status names the one it supersedes.</p>
+<p><code>docs/spec/log-and-projection-model.md</code> is the authority for <code>Varve.Store</code>
+behaviour. ADRs 0010–0020 record the decisions it presupposes; where they refine
+or depart from <code>docs/brief.md</code>, each says so in its Context.</p>
+<h2 id="set-zero--foundation">Set zero — foundation <a class="vd-anchor" aria-label="Link to this section" href="#set-zero--foundation">#</a></h2>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0001-record-architecture-decisions.html">0001</a></td>
+<td>Record architecture decisions</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td><strong>amended by 0068</strong></td></tr>
+<tr>
+<td align="right"><a href="../adr/0002-licence.html">0002</a></td>
+<td>Licence: Apache-2.0</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--neutral">Superseded</span></td><td>by 0031</td></tr>
+<tr>
+<td align="right"><a href="../adr/0003-package-layering.html">0003</a></td>
+<td>Package layering and the strictly downward reference rule</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>layer table <strong>superseded by 0060</strong>; declaration <strong>by 0064</strong>; suppression escape <strong>by 0062</strong></td></tr>
+<tr>
+<td align="right"><a href="../adr/0004-enforcement-by-analyzers.html">0004</a></td>
+<td>Enforcement by analyzers</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>reservation table <strong>superseded by 0062</strong>; amended 2026-10-07 (the <code>System.Uri</code> ban narrowed); amended 2026-10-08 (<code>Varve.Protocol.Client</code>)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0005-store-is-sparql-free.html">0005</a></td>
+<td><code>Varve.Store</code> is SPARQL-free</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0006-build-and-test-dependencies.html">0006</a></td>
+<td>Build-time and test-time dependencies</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--neutral">Superseded</span></td><td>by 0009</td></tr>
+<tr>
+<td align="right"><a href="../adr/0007-w3c-conformance-harness.html">0007</a></td>
+<td>W3C conformance harness</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0008-target-framework-and-language.html">0008</a></td>
+<td>Target framework and language version policy</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0009-dependency-policy-and-register.html">0009</a></td>
+<td>Dependency policy and the enforced register</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td><strong>amended by 0063</strong></td></tr>
+</tbody>
+</table></div>
+<h2 id="set-zero--the-log-and-projection-model">Set zero — the log and projection model <a class="vd-anchor" aria-label="Link to this section" href="#set-zero--the-log-and-projection-model">#</a></h2>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0010-commit-model-and-effective-deltas.html">0010</a></td>
+<td>Commit model and effective deltas</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0011-concurrency-single-sequencer.html">0011</a></td>
+<td>Concurrency: one sequencer, optional expected position</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>primitive results <strong>superseded by 0065</strong></td></tr>
+<tr>
+<td align="right"><a href="../adr/0012-term-dictionary-and-id-scheme.html">0012</a></td>
+<td>Term dictionary, id classes, id scheme, blank node identity</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0013-records-commits-and-bulk-load.html">0013</a></td>
+<td>Records versus commits, and bulk load</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0014-header-chain-and-divergence.html">0014</a></td>
+<td>Header chain and divergence detection</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0015-checkpoints-and-reads.html">0015</a></td>
+<td>Checkpoints, pinned reads, as-of reads, archive horizon</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>&quot;No temporal index in the default projection&quot; <strong>superseded in part by 0138</strong> (filed unaccepted)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0016-projection-contract-and-subscriptions.html">0016</a></td>
+<td>Projection contract, synchronous default projection, erasure in projections</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0017-validator-contract-and-overlay.html">0017</a></td>
+<td>Pre-commit validator contract and the overlay quad source</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0018-storage-abstraction.html">0018</a></td>
+<td>Storage abstraction: memory, file, browser</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>&quot;asynchronous throughout&quot; <strong>superseded by 0071</strong></td></tr>
+<tr>
+<td align="right"><a href="../adr/0019-erasure-by-crypto-shredding.html">0019</a></td>
+<td>Erasure by crypto-shredding</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--neutral">Superseded</span></td><td>by 0023</td></tr>
+<tr>
+<td align="right"><a href="../adr/0020-cipher-for-erasure-mode.html">0020</a></td>
+<td>Cipher for erasure mode</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--neutral">Superseded</span></td><td>by 0028</td></tr>
+<tr>
+<td align="right"><a href="../adr/0021-dataset-settings-as-a-commit-kind.html">0021</a></td>
+<td>Dataset settings as a commit kind</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0022-quad-source-term-handle.html">0022</a></td>
+<td>The quad source contract over an opaque term handle</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>amended 2026-10-30 (a denied term is in no quad the source will yield, loaded or not; filed unaccepted, #191)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0023-erasure-and-access-requests.html">0023</a></td>
+<td>Erasure by crypto-shredding, and access requests</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-3a--the-model-and-the-syntax">Milestone 3a — the model and the syntax <a class="vd-anchor" aria-label="Link to this section" href="#milestone-3a--the-model-and-the-syntax">#</a></h2>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0024-rdf-term-representation.html">0024</a></td>
+<td>RDF term representation</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0025-property-based-testing.html">0025</a></td>
+<td>CsCheck for property-based testing</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0026-hotpath-attribute.html">0026</a></td>
+<td>Where the <code>[HotPath]</code> attribute lives</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>placement <strong>superseded by 0064</strong></td></tr>
+<tr>
+<td align="right"><a href="../adr/0027-benchmarking.html">0027</a></td>
+<td>Benchmarking</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>dotNetRDF's fixture use (note of 2026-09-25) closed 2026-10-09 by ADR 0122</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-3a-close-out">Milestone 3a close-out <a class="vd-anchor" aria-label="Link to this section" href="#milestone-3a-close-out">#</a></h2>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0028-deterministic-aead-from-hmac.html">0028</a></td>
+<td>A deterministic AEAD built from HMAC-SHA-256</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>condition 1 <strong>discharged</strong> 2026-09-22, condition 2 open</td></tr>
+<tr>
+<td align="right"><a href="../adr/0029-publishing-and-versioning.html">0029</a></td>
+<td>Publishing and versioning</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-3b--turtle-and-trig">Milestone 3b — Turtle and TriG <a class="vd-anchor" aria-label="Link to this section" href="#milestone-3b--turtle-and-trig">#</a></h2>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0030-turtle-recovery-and-prefixes.html">0030</a></td>
+<td>Turtle's recovery unit, prefix exposure, and where isomorphism lives</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>deletion clause <strong>superseded by 0059</strong>; amended 2026-10-09 (depth over the RDF 1.2 brackets, ADR 0121)</td></tr>
+</tbody>
+</table></div>
+<h2 id="stewardship--the-mind-over-machine-standard">Stewardship — the Mind Over Machine standard <a class="vd-anchor" aria-label="Link to this section" href="#stewardship--the-mind-over-machine-standard">#</a></h2>
+<p>Adopted at <a href="https://github.com/Hafeok/Varve/issues/16">#16</a>. Four of these
+reverse a decision this repository had already made, which is why each is a
+superseding ADR rather than an edit.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0031-licence-mpl-2-0.html">0031</a></td>
+<td>Licence: MPL-2.0</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td><strong>supersedes 0002</strong></td></tr>
+<tr>
+<td align="right"><a href="../adr/0032-trunk-based-development.html">0032</a></td>
+<td>Trunk-based development and non-blocking review</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--neutral">Superseded</span></td><td>by 0088; amended 2026-09-24 (the gate runs after the push); amended by 0066</td></tr>
+<tr>
+<td align="right"><a href="../adr/0033-commit-traceability.html">0033</a></td>
+<td>Commit traceability and AI-session records</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0034-commit-signing-and-the-sandbox-exception.html">0034</a></td>
+<td>Commit signing and the sandbox exception</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>revisit condition; <strong>amended by 0066</strong>; amended 2026-10-06 (DCO enforced from 0087)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0035-semantic-versioning.html">0035</a></td>
+<td>Semantic versioning</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>complements 0029; amended 2026-11-16 (the published package is the evidence before 1.0, the freeze gated; filed unaccepted, #129)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0085-a-release-per-milestone.html">0085</a></td>
+<td>A release per milestone, and the next milestone waits for it</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--neutral">Superseded</span></td><td>by 0102; complemented 0029 and 0035</td></tr>
+<tr>
+<td align="right"><a href="../adr/0086-home-of-the-eng-gates.html">0086</a></td>
+<td>Home of the eng/ gates</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>complements 0036 and 0039</td></tr>
+<tr>
+<td align="right"><a href="../adr/0087-the-identity-map.html">0087</a></td>
+<td>The identity map: who signs off, accepts and approves for an agent</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>enforces 0034 point 3; amended 2026-10-06 (approval by comment on one's own pull request; the exit to a signed ledger Review); amended again 2026-10-06 (the judging script is always main's; only App-pinned checks count; approval by comment is not a valid workflow); amended 2026-10-08 (an approved head lands through land/); <strong>amended 2026-11-12</strong> (#290: an approval is a whole comment with the full sha, never edited, judged again on an edit or deletion; <code>ApprovalIsAConversationComment</code> restated, unaccepted)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0088-only-checked-commits-reach-main.html">0088</a></td>
+<td>Only checked commits reach main</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td><strong>supersedes 0032</strong>; amended 2026-10-06 (required check names are checked); amended 2026-10-08 (a release's review is its descriptor's approval; <code>HumanReviewGatesReleases</code> superseded by 0102); amended 2026-11-11 (landing by fast-forward or merge commit, and trains; filed unaccepted, #230)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0102-a-release-is-a-descriptor.html">0102</a></td>
+<td>A release is a descriptor, and landing it cuts it</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>(filed unaccepted, ADR 0066); <strong>supersedes 0085</strong> and 0088's <code>HumanReviewGatesReleases</code>; amends 0087 rule 3; amended 2026-11-11 (chain builds are not releases; filed unaccepted, #230)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0036-containerised-development.html">0036</a></td>
+<td>Containerised development and the local pipeline</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-4--the-in-memory-log">Milestone 4 — the in-memory log <a class="vd-anchor" aria-label="Link to this section" href="#milestone-4--the-in-memory-log">#</a></h2>
+<p>Issue <a href="https://github.com/Hafeok/Varve/issues/8">#8</a>. The first code against the
+specification, which moved to version 1.2 with 0046 and to 1.3 with 0047.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0040-storage-contract-members-and-the-memory-backend.html">0040</a></td>
+<td>The storage contract's members, and where the memory backend lives</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>member types <strong>superseded by 0065</strong>; derived members <strong>by 0071</strong></td></tr>
+<tr>
+<td align="right"><a href="../adr/0041-sorted-runs-for-the-default-projection-and-checkpoints.html">0041</a></td>
+<td>Sorted runs for the default projection and for checkpoints</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0042-subscriptions-pull-from-the-log.html">0042</a></td>
+<td>Subscriptions pull from the log</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>amended 2026-10-02 (maintenance is not delivery; proposed); amended 2026-10-07 (a delivered commit externalises its handles; proposed)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0043-the-reference-model-as-a-test-asset.html">0043</a></td>
+<td>The reference model is a test asset</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0044-blank-node-identity-in-process.html">0044</a></td>
+<td>Blank node identity at the in-process boundary (Q1, split)</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0045-the-provisional-in-memory-log-encoding.html">0045</a></td>
+<td>The provisional log encoding, and the in-memory id layout</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>provisional by design; <strong>superseded by 0072</strong></td></tr>
+<tr>
+<td align="right"><a href="../adr/0046-settings-commits-reach-every-subscriber.html">0046</a></td>
+<td>Settings commits reach every subscriber; specification 1.2</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td><strong>amends 0016</strong></td></tr>
+<tr>
+<td align="right"><a href="../adr/0047-delta-composition-and-closure-over-triple-terms.html">0047</a></td>
+<td>Delta composition over chains, and dictionary closure over triple terms; specification 1.3</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-5a--varvexsd-the-sparql-algebra-and-parser">Milestone 5a — <code>Varve.Xsd</code>, the SPARQL algebra and parser <a class="vd-anchor" aria-label="Link to this section" href="#milestone-5a--varvexsd-the-sparql-algebra-and-parser">#</a></h2>
+<p>Issue <a href="https://github.com/Hafeok/Varve/issues/9">#9</a>. The maintainer's
+positions from the close of milestone 4, written as decisions before the
+first SPARQL line; 0051 and 0052 also carry the answers to the plan's
+questions.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0048-optimiser-and-evaluator-one-package-algebra-in-algebra-out.html">0048</a></td>
+<td>Optimiser and evaluator: one package, algebra in and algebra out; closes 0003's open question 2</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0049-cardinality-estimates-on-the-quad-source.html">0049</a></td>
+<td>Cardinality estimates on the quad source</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>widens 0022; <code>Count</code>'s type <strong>superseded by 0065</strong></td></tr>
+<tr>
+<td align="right"><a href="../adr/0050-typed-value-accessor-and-the-benchmark-for-adr-0022.html">0050</a></td>
+<td>A typed-value accessor beside the handle, and the benchmark ADR 0022 asked for</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>widens 0022, measurement due 5b</td></tr>
+<tr>
+<td align="right"><a href="../adr/0051-varve-xsd-scope-and-precision.html">0051</a></td>
+<td><code>Varve.Xsd</code>: scope, precision policy, canonical forms, and value comparison</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>dateTime order verified in 5b</td></tr>
+<tr>
+<td align="right"><a href="../adr/0052-pinned-read-lifetime.html">0052</a></td>
+<td>A pinned read lives for one query execution</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>refines 0015</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-5b--the-evaluator-and-the-optimiser">Milestone 5b — the evaluator and the optimiser <a class="vd-anchor" aria-label="Link to this section" href="#milestone-5b--the-evaluator-and-the-optimiser">#</a></h2>
+<p>Issue <a href="https://github.com/Hafeok/Varve/issues/9">#9</a>. The five questions 5a
+left open, decided by the maintainer on the 5b plan. The dateTime order stays
+ADR 0051's and ADR 0050's benchmark stays as written; both are carried out in
+<code>docs/spec/sparql-evaluation.md</code>. Dated notes the same day: 0004 (VARVE0007's
+reserved wording admits algebra types), 0027 (dotNetRDF generates the RDF/XML
+fixtures offline), 0048 (the evaluation package references <code>Varve.Iri</code>).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0053-aggregation-by-hash-grouping-and-accumulators.html">0053</a></td>
+<td>Aggregation: hash grouping, one accumulator per aggregate</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0054-property-paths-normalised-then-evaluated-by-alp.html">0054</a></td>
+<td>Property paths: normalised to joins and unions, closures by <code>ALP</code>; closes <code>sparql-algebra.md</code> open question 1</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0055-service-through-a-handler-the-default-refuses.html">0055</a></td>
+<td><code>SERVICE</code> through a handler, and the default refuses</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0056-evaluator-options-extension-functions-clock-and-randomness.html">0056</a></td>
+<td>Evaluator options: extension functions, the clock and randomness are injected; extends 0011's ban</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-5c--result-writers-sparql-update-canonicalisation">Milestone 5c — result writers, SPARQL Update, canonicalisation <a class="vd-anchor" aria-label="Link to this section" href="#milestone-5c--result-writers-sparql-update-canonicalisation">#</a></h2>
+<p>Decided by the maintainer on the 5c plan.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0057-sparql-update-one-request-one-commit.html">0057</a></td>
+<td>SPARQL Update over the store: one request, one commit</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>amended 2026-09-25 (release before submit); amended 2026-10-08 (a data-only request expects no position)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0058-staging-view-and-dataset-validators.html">0058</a></td>
+<td>A staging view over a pinned read, and validators bound to a dataset</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>refines 0017</td></tr>
+<tr>
+<td align="right"><a href="../adr/0059-rdfc-in-varve-rdf-and-its-work-limit.html">0059</a></td>
+<td>RDFC-1.0 in <code>Varve.Rdf</code>, bounded by a work limit; the isomorphism check stays as a cross-check</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>supersedes 0030's deletion clause</td></tr>
+</tbody>
+</table></div>
+<h2 id="after-milestone-5c--hosts-and-the-canonical-form">After milestone 5c — hosts and the canonical form <a class="vd-anchor" aria-label="Link to this section" href="#after-milestone-5c--hosts-and-the-canonical-form">#</a></h2>
+<p>Decided by the maintainer on the 5c report.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0060-hosts-at-layer-6-the-composition-root.html">0060</a></td>
+<td>Hosts at layer 6: the composition root, reserved to executables</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>supersedes 0003's layer table; amended 2026-10-07 (the protocol seam's revisit condition; proposed); amended 2026-10-27 (a host may be a browser application; filed unaccepted, #167)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0061-canonical-n-triples-is-rdf-1-2s.html">0061</a></td>
+<td>Canonical N-Triples and N-Quads follow RDF 1.2; where 1.1 and 1.2 differ, 1.2 wins</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+</tbody>
+</table></div>
+<h2 id="adopting-decisiondrivenanalyzers">Adopting <code>DecisionDriven.Analyzers</code> <a class="vd-anchor" aria-label="Link to this section" href="#adopting-decisiondrivenanalyzers">#</a></h2>
+<p>Issue <a href="https://github.com/Hafeok/Varve/issues/43">#43</a>. Decided by the
+maintainer on the adoption plan. Every ADR is also a decision set in
+<a href="https://github.com/Hafeok/Varve/blob/c754bcb7e1f0/docs/decisions"><code>docs/decisions/</code></a>, which code cites as a type.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0062-adopting-decisiondriven-analyzers.html">0062</a></td>
+<td>Adopting <code>DecisionDriven.Analyzers</code>: generic rules from a package, Varve's own rules only in <code>Varve.Analyzers</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>supersedes 0004's reservation table and 0003's suppression escape</td></tr>
+<tr>
+<td align="right"><a href="../adr/0063-build-time-analyzer-packages.html">0063</a></td>
+<td>Build-time packages for the analyzers, and what <code>BannedSymbols.txt</code> must cite</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>amends 0009; amended 2026-09-26 (0006's two config-only rulings)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0064-varve-configuration-and-hot-path-rules.html">0064</a></td>
+<td>Varve's configuration of the <code>DD</code> rules; the hot-path rules <code>VARVE0003</code> and <code>VARVE0004</code>; the layer declaration <code>VARVE0005</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>supersedes 0026's placement and 0003's declaration; two <em>not a model</em> bullets <strong>superseded by 0069</strong></td></tr>
+<tr>
+<td align="right"><a href="../adr/0065-wrapper-types-and-the-store-log-namespace.html">0065</a></td>
+<td>Positions, ids and sizes as wrapper types; the log's values in <code>Varve.Store.Log</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>supersedes 0011, 0040 and 0049 in part; <code>Durability</code>'s placement <strong>superseded by 0069</strong></td></tr>
+<tr>
+<td align="right"><a href="../adr/0066-expected-red-pull-requests.html">0066</a></td>
+<td>Expected-red pull requests: citing a decision nobody has accepted yet</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>amends 0032 and 0034</td></tr>
+<tr>
+<td align="right"><a href="../adr/0067-inmemorydataset-is-a-value-built-by-a-builder.html">0067</a></td>
+<td><code>InMemoryDataset</code> is an immutable value, assembled by <code>InMemoryDatasetBuilder</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0068-dated-amendments.html">0068</a></td>
+<td>Dated amendments: add-only, dated, never a change of meaning</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>amends 0001</td></tr>
+<tr>
+<td align="right"><a href="../adr/0069-model-namespaces-for-layers-3-to-5.html">0069</a></td>
+<td>One model namespace per package at layers 3 to 5; <code>Durability</code> is a log value</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>supersedes 0065's <code>Durability</code> line and two of 0064's <em>not a model</em> bullets</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-6a--the-file-backend-and-format-version-1">Milestone 6a — the file backend and format version 1 <a class="vd-anchor" aria-label="Link to this section" href="#milestone-6a--the-file-backend-and-format-version-1">#</a></h2>
+<p>Issue <a href="https://github.com/Hafeok/Varve/issues/10">#10</a>. Decided by the
+maintainer on the 6a plan, filed unaccepted (ADR 0066); specification 1.4, and 1.5 on its pull request.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0070-the-storage-engine-is-our-own.html">0070</a></td>
+<td>The storage engine is our own, and it is two different things</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>revisit condition</td></tr>
+<tr>
+<td align="right"><a href="../adr/0071-synchronous-reads-over-asynchronous-storage.html">0071</a></td>
+<td>Synchronous reads of derived data over asynchronous storage</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>amended 2026-10-05 (replacing an open blob on Windows); supersedes 0018 and 0040 in part; revisit condition; amended 2026-10-15 (page fetch on a miss, filed unaccepted)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0072-format-version-1.html">0072</a></td>
+<td>Format version 1, read forever from the first prerelease that writes it</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>supersedes 0045; amended 2026-10-15 (derived version 4, filed unaccepted)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0073-durability-per-host-declared.html">0073</a></td>
+<td>Durability per host, declared, and what each level survives</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0074-private-ids-reserved-and-the-key-store-refused.html">0074</a></td>
+<td>The private id and entry layout, reserved; the key store refused by path</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0075-one-process-per-dataset-by-an-os-lease.html">0075</a></td>
+<td>One process per dataset directory, held by an exclusive handle</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0076-bulk-load-by-sort-and-merge-join.html">0076</a></td>
+<td>Bulk load and I2: sort into a run, merge-join, one multi-record commit (Q2)</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>implemented in 6c</td></tr>
+<tr>
+<td align="right"><a href="../adr/0077-bulk-load-validators-scan-the-delta-on-disk.html">0077</a></td>
+<td>Bulk load and validators: the overlay scans the delta on disk (Q3)</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>implemented in 6c</td></tr>
+<tr>
+<td align="right"><a href="../adr/0078-checkpoints-streamed-and-written-by-policy.html">0078</a></td>
+<td>Checkpoints streamed from the runs, and written by a policy; runs deleted once unread</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0079-the-term-dictionary-on-disk.html">0079</a></td>
+<td>The term dictionary on disk, carried by the runs</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0080-derived-blocks-compressed.html">0080</a></td>
+<td>Derived keys compressed in their blocks; derived format 2</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>answers 6a's compression question</td></tr>
+<tr>
+<td align="right"><a href="../adr/0081-the-bulk-loader.html">0081</a></td>
+<td>The bulk loader: references by content hash, memory bounded, one commit</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>builds 0076 and 0077</td></tr>
+<tr>
+<td align="right"><a href="../adr/0082-the-soak-gate.html">0082</a></td>
+<td>The soak gate: a flat working set within a stated band</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>the gate #61 blocks; amended 2026-10-09 (judged under the shipped configuration)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0083-replica-bootstrap-is-a-file-copy.html">0083</a></td>
+<td>Replica bootstrap is a copy of files</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0084-the-browser-backend.html">0084</a></td>
+<td>The browser backend: OPFS sync access handles in a worker, IndexedDB as the fallback</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>answers 0071's revisit condition for the browser</td></tr>
+<tr>
+<td align="right"><a href="../adr/0089-the-commit-index-is-derived-and-paged.html">0089</a></td>
+<td>The commit index is derived and paged</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>the soak's drift (#61)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0090-file-suites-without-the-device-flush.html">0090</a></td>
+<td>The file suites run without the device flush; Defender skips the build's files</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>Windows test time</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-7--the-server">Milestone 7 — the server <a class="vd-anchor" aria-label="Link to this section" href="#milestone-7--the-server">#</a></h2>
+<p>Accepted ahead of the milestone, because the decision bears on what the server
+is allowed to become and the cheapest time to reject API keys is before anyone
+has written one.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0037-server-authentication.html">0037</a></td>
+<td>Authentication and authorisation for the server</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>amended 2026-10-07 (<code>JwtBearer</code> is a package, ADR 0099); test consequence refined by 0100; point 8's storage clause <strong>superseded in part by 0105</strong>; point 3 refined by 0107</td></tr>
+</tbody>
+</table></div>
+<p>Filed by milestone 7a (<a href="https://github.com/Hafeok/Varve/issues/11">#11</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 7a, likewise unaccepted: 0004 (the <code>System.Uri</code> ban narrowed), 0042 (a delivered commit externalises its handles), 0060 (the protocol seam's revisit condition).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0091-varve-protocol-and-varve-server.html">0091</a></td>
+<td><code>Varve.Protocol</code> and <code>Varve.Server</code>: endpoint groups, the update seam, policy names</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>amended 2026-10-08 (the 7b seams)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0092-protocol-scope-problem-details-and-tie-breakers.html">0092</a></td>
+<td>Protocol scope, problem details, and the Oxigraph tie-breakers</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>amended 2026-10-09 (the problem catalogue) and 2026-10-12 (RDF/XML and JSON-LD negotiated)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0093-datasets-are-the-routing-unit.html">0093</a></td>
+<td>Datasets are the routing unit; the name is the host's</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>refined by 0106; amended 2026-10-09 (the route table)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0094-a-write-over-http-is-one-commit.html">0094</a></td>
+<td>A write over HTTP is one commit: agent, cause, <code>Varve-Position</code>, <code>409</code>, <code>412</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>amended 2026-10-09 (the cause is never a trace id)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0095-a-read-over-http-is-pinned-for-its-response.html">0095</a></td>
+<td>A read over HTTP is pinned for its response, bounded, and cut visibly</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>refines 0052</td></tr>
+<tr>
+<td align="right"><a href="../adr/0096-time-travel-over-http.html">0096</a></td>
+<td>Time travel over HTTP: <code>Varve-As-Of</code>, <code>ETag</code>, <code>304</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>amended 2026-10-09 (the cache headers)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0097-the-change-feed-and-the-diff.html">0097</a></td>
+<td>The change feed and the diff: a line format, SSE for tailing</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td><code>docs/spec/change-feed.md</code>; amended 2026-10-09 (the commits resource)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0098-blank-nodes-at-the-protocol-boundary.html">0098</a></td>
+<td>Blank nodes at the protocol boundary: stable labels out, fresh in, no skolem IRIs</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>closes Q1, spec 1.6</td></tr>
+<tr>
+<td align="right"><a href="../adr/0099-register-jwtbearer-and-the-workflows-containers.html">0099</a></td>
+<td>Register: <code>JwtBearer</code> in the server; no Testcontainers; the shared framework</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>conditional on the server's AOT publish; amended 2026-10-15 (storage services, filed unaccepted)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0100-authentication-tested-in-three-layers.html">0100</a></td>
+<td>Authentication tested in three layers</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>refines 0037; point 4 <strong>superseded in part by 0223</strong> (the provider legs' credentials)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0101-the-server-configuration-aot-shutdown-readiness.html">0101</a></td>
+<td>The server: configuration, Native AOT, shutdown, readiness, status</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>amended 2026-10-09 (health paths, unknown keys); amended 2026-10-15 (ObjectStorage, filed unaccepted)</td></tr>
+</tbody>
+</table></div>
+<p>Filed by milestone 7b (<a href="https://github.com/Hafeok/Varve/issues/11">#11</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 7b, likewise unaccepted: 0004 (<code>Varve.Protocol.Client</code> speaks HTTP), 0057 (a data-only request expects no position), 0091 (the 7b seams).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0103-varve-protocol-client.html">0103</a></td>
+<td><code>Varve.Protocol.Client</code>: the HTTP client at layer 5, and the endpoint policy</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0104-service-and-load-over-http.html">0104</a></td>
+<td><code>SERVICE</code> and <code>LOAD</code> over HTTP</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>discharges 0055's and 0057's reservations</td></tr>
+<tr>
+<td align="right"><a href="../adr/0105-the-cli.html">0105</a></td>
+<td>The CLI <code>varve</code>: one executable with the server, embedded and remote modes, the credential file, <code>System.CommandLine</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>supersedes 0037 point 8's storage clause in part</td></tr>
+<tr>
+<td align="right"><a href="../adr/0106-the-admin-api.html">0106</a></td>
+<td>The admin API</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>refines 0093; amended 2026-10-09 (state and settings as resources)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0107-graph-level-authorisation.html">0107</a></td>
+<td>Graph-level authorisation</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>refines 0037; amends 0091</td></tr>
+<tr>
+<td align="right"><a href="../adr/0108-bulk-resolve-on-worker-threads.html">0108</a></td>
+<td>The bulk load resolves and spills on worker threads</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>builds 0081's last alternative</td></tr>
+<tr>
+<td align="right"><a href="../adr/0109-per-run-term-filters.html">0109</a></td>
+<td>Per-run term filters: derived format 3</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>discharges 0079's revisit condition</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-operability--a-server-somebody-can-run">Milestone Operability — a server somebody can run <a class="vd-anchor" aria-label="Link to this section" href="#milestone-operability--a-server-somebody-can-run">#</a></h2>
+<p>Filed by milestone Operability (<a href="https://github.com/Hafeok/Varve/issues/12">#12</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0082 (judged under the shipped configuration), 0092 (the problem catalogue), 0093 (the route table), 0094 (the cause is never a trace id), 0096 (the cache headers; <code>410</code> reversed), 0097 (the commits resource), 0101 (health paths, unknown keys), 0106 (state and settings as resources).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0110-the-shipped-runtime-configuration.html">0110</a></td>
+<td>The shipped runtime configuration: workstation concurrent GC, <code>ConserveMemory</code>, no heap limit of our own</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>amends 0082 and supersedes it in part (the drift's window); the two-hour soak did not hold, #61 stays open</td></tr>
+<tr>
+<td align="right"><a href="../adr/0111-the-container-image.html">0111</a></td>
+<td>The container image: <code>ghcr.io/hafeok/varve</code>, Native AOT per architecture, attested</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+<tr>
+<td align="right"><a href="../adr/0112-telemetry-in-two-layers.html">0112</a></td>
+<td>Telemetry in two layers: the BCL instruments, the server exports</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>admits the OpenTelemetry packages to <code>Varve.Server</code></td></tr>
+<tr>
+<td align="right"><a href="../adr/0113-health-and-readiness.html">0113</a></td>
+<td>Health and readiness are different questions: <code>/health/live</code>, <code>/health/ready</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>amends 0101; amended 2026-10-15 (superseded, filed unaccepted)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0114-resource-governance.html">0114</a></td>
+<td>Resource governance: a stated answer for every limit</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>refines 0095</td></tr>
+<tr>
+<td align="right"><a href="../adr/0115-configuration-precedence-and-print-config.html">0115</a></td>
+<td>Configuration from file, environment and command line; <code>--print-config</code>; an unknown key refuses to start</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>amends 0101; amended 2026-10-15 (ObjectStorage keys, filed unaccepted)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0116-the-lease-policy-and-varve-lease.html">0116</a></td>
+<td>The lease at start: a bounded wait, never a forced takeover; <code>varve lease</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>refines 0075; amended 2026-10-15 (varve lease for an epoch, filed unaccepted)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0117-varve-aspire.html">0117</a></td>
+<td><code>Varve.Aspire</code>: the hosting integration</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>admits <code>Aspire.Hosting</code>; amended 2026-10-15 (WithAzureBlobStorage, filed unaccepted)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0118-api-alignment-while-everything-is-preview.html">0118</a></td>
+<td>API alignment while everything is preview</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>amends 0093, 0097, 0106; <code>410</code> reversed, 0096 stands</td></tr>
+<tr>
+<td align="right"><a href="../adr/0119-headers-and-the-problem-catalogue.html">0119</a></td>
+<td>Headers by read kind, and a catalogue of every problem the server can emit</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>amends 0092, 0094, 0096; amended 2026-10-15 (writer-superseded, filed unaccepted)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0120-the-insert-data-fast-path.html">0120</a></td>
+<td>The <code>INSERT DATA</code> fast path: ground quads to the commit request</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>answers #35</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-6b--rdf-12-turtle-and-trig-rdfxml-json-ld">Milestone 6b — RDF 1.2 Turtle and TriG, RDF/XML, JSON-LD <a class="vd-anchor" aria-label="Link to this section" href="#milestone-6b--rdf-12-turtle-and-trig-rdfxml-json-ld">#</a></h2>
+<p>Filed by milestone 6b (<a href="https://github.com/Hafeok/Varve/issues/10">#10</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by 6b, likewise unaccepted: 0030 (the recovery depth counts the RDF 1.2 brackets); 0092 (RDF/XML and JSON-LD negotiated); 0027 carries a dated note closing its RDF/XML fixtures.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0121-rdf-1-2-turtle-and-trig.html">0121</a></td>
+<td>RDF 1.2 Turtle and TriG are accepted; the edition decides a surrogate escape</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>supersedes <code>turtle.md</code> §9's refusal; amends 0030</td></tr>
+<tr>
+<td align="right"><a href="../adr/0122-rdf-xml-over-system-xml.html">0122</a></td>
+<td>RDF/XML over <code>System.Xml</code>, with its cost measured and a size at which to revisit</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>closes 0027's fixture note</td></tr>
+<tr>
+<td align="right"><a href="../adr/0123-json-ld-over-utf8-json.html">0123</a></td>
+<td>JSON-LD 1.1 over <code>Utf8JsonReader</code>, as a tree in an arena; the direction is RDF 1.2's by default</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-commit-path--group-commit-and-per-graph-concurrency">Milestone Commit path — group commit and per-graph concurrency <a class="vd-anchor" aria-label="Link to this section" href="#milestone-commit-path--group-commit-and-per-graph-concurrency">#</a></h2>
+<p>Filed by milestone Commit path (<a href="https://github.com/Hafeok/Varve/issues/91">#91</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by Commit path, likewise unaccepted: 0011 (the expected position has a scope); 0057 (a request's scope is what it asked for); 0094 and 0096 (a graph's tag is its version); 0114 (a write waits in the sequencer's queue); 0119 (<code>graphs</code> on <code>409</code> and <code>412</code>).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0124-group-commit.html">0124</a></td>
+<td>Group commit: one storage write and one flush for the requests that wait</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Commit path, #91)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0125-per-graph-optimistic-concurrency.html">0125</a></td>
+<td>Per-graph optimistic concurrency and the graph-version index; amends 0011 and 0057</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Commit path, #91)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0126-graph-versions-over-http.html">0126</a></td>
+<td>Graph versions over HTTP: <code>ETag</code> and <code>If-Match</code> per graph, <code>Varve-If-Graphs-Match</code>; amends 0094, 0096 and 0119</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Commit path, #91)</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-client-and-integration--on-behalf-of-setup-follow-first-part">Milestone Client and integration — on-behalf-of, setup, follow (first part) <a class="vd-anchor" aria-label="Link to this section" href="#milestone-client-and-integration--on-behalf-of-setup-follow-first-part">#</a></h2>
+<p>Filed by milestone Client and integration (<a href="https://github.com/Hafeok/Varve/issues/93">#93</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0009 (a register entry's scope is checked); 0097 (the format is <code>Varve.Delta</code>'s, read for ever); 0102 (<code>delta-format</code> in the basis); 0103 (a token provider; no store in the closure); 0112 (<code>varve.azp</code>); 0117 (<code>WithDataset</code>'s setup).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0127-on-behalf-of-and-the-token-provider.html">0127</a></td>
+<td>On-behalf-of: the client's token provider, <code>azp</code> on the span, and the attribution rule; amends 0103 and 0112; amended 2026-10-27 (the fixed provider moves out of the model, unaccepted)</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Client and integration, #93)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0128-varve-delta-and-the-read-forever-rule.html">0128</a></td>
+<td><code>Varve.Delta</code>: the delta format as a package of its own, read for ever; amends 0097, 0102 and 0103</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Client and integration, #93)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0129-following-the-commits-resource.html">0129</a></td>
+<td>Following the commits resource: <code>FollowAsync</code>, a checkpoint the caller owns, at least once</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Client and integration, #93)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0130-client-side-setup-and-system-graphs.html">0130</a></td>
+<td>Client-side setup: a declared dataset, migrations recorded as data, and the first system graph</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Client and integration, #93); amended 2026-10-15 (ObjectStorage, filed unaccepted)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0131-hosting-the-client.html">0131</a></td>
+<td>Hosting the client: <code>AddVarve</code>, <code>varve setup apply</code>, and <code>WithDataset</code>'s setup; amends 0117</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Client and integration, #93)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0132-cors.html">0132</a></td>
+<td>CORS: configured origins, bearer tokens without credentials, and what a browser may read</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Client and integration, #93)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0133-packages-scoped-to-samples.html">0133</a></td>
+<td>Packages scoped to samples, and the register's scope check; amends 0009</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Client and integration, #93)</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-object-storage--the-log-on-any-object-store-azure-first">Milestone Object storage — the log on any object store, Azure first <a class="vd-anchor" aria-label="Link to this section" href="#milestone-object-storage--the-log-on-any-object-store-azure-first">#</a></h2>
+<p>Filed by milestone Object storage (<a href="https://github.com/Hafeok/Varve/issues/92">#92</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0134-the-object-store-contract.html">0134</a></td>
+<td>The object-store contract: five operations, one package per provider, REST over <code>HttpClient</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Object storage, #92)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0135-the-log-as-chunk-objects.html">0135</a></td>
+<td>The log as write-once chunk objects, consolidated on seal</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Object storage, #92)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0136-one-writer-by-an-epoch-and-a-log-slot-fence.html">0136</a></td>
+<td>One writer by an epoch, fenced by a log slot; no lease, no timer; refines 0075 and 0116</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Object storage, #92)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0137-storage-credentials-are-workload-identity.html">0137</a></td>
+<td>Storage credentials are the workload's identity; a key only on loopback</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Object storage, #92)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0138-validity-intervals-in-the-default-projection.html">0138</a></td>
+<td>Validity intervals in the default projection's checkpoints: a checkpoint is a chain of extent sets; supersedes 0015 in part</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Object storage, #92)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0139-extents-and-the-projection-catalog.html">0139</a></td>
+<td>Extents and the projection catalog; derived format 4, rebuilt not migrated; the page cache</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Object storage, #92)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0140-what-varve-takes-from-azure-data-explorer.html">0140</a></td>
+<td>What Varve takes from Azure Data Explorer, and what it does not</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Object storage, #92), from the maintainer's draft</td></tr>
+<tr>
+<td align="right"><a href="../adr/0141-realestatecore-as-the-reference-domain.html">0141</a></td>
+<td>RealEstateCore as the reference domain for learning and testing</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Object storage, #92), from the maintainer's draft</td></tr>
+<tr>
+<td align="right"><a href="../adr/0142-deployment-on-container-apps-and-small-machines.html">0142</a></td>
+<td>Deployment: Azure Container Apps with an identity-only store, the Aspire Azure variant, small machines</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Object storage, #92)</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-client-and-integration--events-catalogue-schema-registry-second-part">Milestone Client and integration — events, catalogue, schema registry (second part) <a class="vd-anchor" aria-label="Link to this section" href="#milestone-client-and-integration--events-catalogue-schema-registry-second-part">#</a></h2>
+<p>Filed by milestone Client and integration, part 2 (<a href="https://github.com/Hafeok/Varve/issues/93">#93</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0143: Object storage (<a href="https://github.com/Hafeok/Varve/issues/92">#92</a>) holds 0134–0142. Amended by it, likewise unaccepted: 0092 (the event vocabulary); 0107 (a graph may be governed by another); 0119 (three problem types and the validator's path); 0123 (RFC 8785 moves to <code>Varve.Json.Canonical</code>); 0130 (the catalogue graphs, the first derived grant).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0143-domain-events-as-cloudevents.html">0143</a></td>
+<td>Domain events as quads, rendered as CloudEvents in canonical JSON</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Client and integration, #93)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0144-the-event-catalogue.html">0144</a></td>
+<td>The event catalogue: declarations as data, one graph per source graph, governed by it; amends 0107 and 0130</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Client and integration, #93)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0145-the-event-schema-registry.html">0145</a></td>
+<td>The event schema registry: versions, immutable revisions, compatibility checked at commit</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Client and integration, #93)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0146-the-register-for-events.html">0146</a></td>
+<td>The register for events: the Event Hubs SDK in a sample, a schema validator in tests, and the emulator's images</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Client and integration, #93)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0147-varve-json-canonical.html">0147</a></td>
+<td><code>Varve.Json.Canonical</code>: one RFC 8785 implementation, at layer 0; amends 0123</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Client and integration, #93)</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-8--shacl-first-part-the-standalone-validator">Milestone 8 — SHACL (first part, the standalone validator) <a class="vd-anchor" aria-label="Link to this section" href="#milestone-8--shacl-first-part-the-standalone-validator">#</a></h2>
+<p>Filed by SHACL, part 1 (<a href="https://github.com/Hafeok/Varve/issues/120">#120</a>, under milestone 8, <a href="https://github.com/Hafeok/Varve/issues/13">#13</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0148: Object storage (<a href="https://github.com/Hafeok/Varve/issues/116">#116</a>) holds 0134–0142 and Client and integration, part 2, 0143–0147. Amended by it, likewise unaccepted: 0003 (open question 1 closed); 0007 (the SHACL suites); 0027 (dotNetRDF's SHACL validator); 0051 (XPath regular expressions in <code>Varve.Xsd</code>).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0148-varve-shacl-and-varve-shacl-sparql.html">0148</a></td>
+<td><code>Varve.Shacl</code> at layer 3, <code>Varve.Shacl.Sparql</code> at layer 4; closes 0003's open question 1</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 1, #120)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0149-the-shacl-conformance-baseline.html">0149</a></td>
+<td>The SHACL conformance baseline: the 2017 suites gate, the 1.2 drafts pinned</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 1, #120)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0150-recursive-shapes-stratified-greatest-fixpoint.html">0150</a></td>
+<td>Recursive shapes: stratified, the greatest fixpoint in each stratum, refused statically otherwise</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 1, #120)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0151-shacl-inputs-failures-and-instances.html">0151</a></td>
+<td>SHACL inputs, failures and SHACL instances</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 1, #120)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0152-shacl-paths-in-varve-shacl.html">0152</a></td>
+<td>SHACL paths are evaluated in <code>Varve.Shacl</code>, and agree with the evaluator's</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 1, #120)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0153-xpath-regular-expressions-in-varve-xsd.html">0153</a></td>
+<td>XPath regular expressions are translated once, in <code>Varve.Xsd</code>; amends 0051</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 1, #120)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0154-the-validation-report-deterministic-rdf.html">0154</a></td>
+<td>The validation report is deterministic RDF, and keeps the data's blank nodes</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 1, #120)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0155-a-minimal-public-shacl-api.html">0155</a></td>
+<td>A minimal public SHACL API, and the shapes model kept internal</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 1, #120)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0156-dotnetrdf-shacl-for-benchmarks-and-as-an-oracle.html">0156</a></td>
+<td><code>dotNetRdf.Shacl</code> for the benchmarks and as a differential oracle; amends 0027</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 1, #120)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0157-shapes-for-event-declarations.html">0157</a></td>
+<td>SHACL shapes for the event declaration vocabulary, shipped with <code>Varve.Events</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 1, #120)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0169-commit-time-gating-under-a-shapes-binding.html">0169</a></td>
+<td><code>Varve.Shacl.Store</code>: commit-time gating under a shapes binding; amends 0017, 0058, 0119</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 2a, #138)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0170-the-shapes-binding-vocabulary.html">0170</a></td>
+<td>The shapes binding vocabulary; amends 0166</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 2a, #138)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0171-which-shapes-are-incrementally-maintainable.html">0171</a></td>
+<td>Which shapes are incrementally maintainable: footprints, anchors and three classes</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 2a, #138)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0172-varve-derivation.html">0172</a></td>
+<td><code>Varve.Derivation</code>: delta-driven maintenance at layer 2; amends 0003, 0150, 0152</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 2a, #138)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0173-the-validation-report-on-the-commit.html">0173</a></td>
+<td>The validation report on the commit: a reference and a digest; amends 0154</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 2a, #138)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0174-the-validation-projection.html">0174</a></td>
+<td>The validation projection and its reserved graph; amends 0107, 0119, 0130, 0155</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 2b, #13)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0175-shapes-validate-varves-declarations.html">0175</a></td>
+<td>Shapes validate Varve's own declarations; amends 0145, 0157, 0166</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 2b, #13)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0176-the-rec-gate.html">0176</a></td>
+<td>The REC gate: its shapes composition, and three ways that agree</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (SHACL part 2b, #13)</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-management-plane--fleet-system-dataset-grants-as-code-varve-apply-first-part">Milestone Management plane — fleet system dataset, grants as code, <code>varve apply</code> (first part) <a class="vd-anchor" aria-label="Link to this section" href="#milestone-management-plane--fleet-system-dataset-grants-as-code-varve-apply-first-part">#</a></h2>
+<p>Filed by milestone Management plane, part 1 (<a href="https://github.com/Hafeok/Varve/issues/105">#105</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0163: SHACL holds 0148–0157 and Extent maintenance 0158–0162; 0167, the event-schema move, is part 2's. Amended by it, likewise unaccepted: 0017 and 0058 (host attachments); 0037, 0093, 0101, 0106, 0107, 0113, 0117, 0118 and 0130 (rulings superseded by 0163); 0094 and 0142 (superseded by 0168); 0115, 0131 and 0136 (additions).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0163-the-management-plane.html">0163</a></td>
+<td>The management plane: a fleet system dataset, declarations as code, <code>varve apply</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Management plane, #105)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0164-the-tier-1-follower.html">0164</a></td>
+<td>The tier-1 follower: a dataset that tails its writer's log on the same store</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Management plane, #105)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0165-the-management-position-on-the-commit.html">0165</a></td>
+<td>The management position on the commit: a host attachment, no format change</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Management plane, #105)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0166-varve-management-and-the-vocabulary.html">0166</a></td>
+<td><code>Varve.Management</code> and the management vocabulary</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Management plane, #105)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0168-write-routing-by-forwarding.html">0168</a></td>
+<td>Write routing by forwarding: the writer directory, the hop rule and the internal address</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Management plane, #105)</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-management-plane--the-event-schema-move-second-part">Milestone Management plane — the event-schema move (second part) <a class="vd-anchor" aria-label="Link to this section" href="#milestone-management-plane--the-event-schema-move-second-part">#</a></h2>
+<p>Filed by milestone Management plane, part 2 (<a href="https://github.com/Hafeok/Varve/issues/105">#105</a>), unaccepted until the maintainer accepts it on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0144 (point 6 realised), 0145 (revision identifiers after the move) and 0166 (the event declarations join).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0167-event-declarations-move-to-the-management-plane.html">0167</a></td>
+<td>Event declarations move to the management plane: freeze, barrier, copy and switch; the boundary; <code>m{p}</code> revisions</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Management plane, #105)</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-extent-maintenance--background-merges-and-extent-deletion">Milestone Extent maintenance — background merges and extent deletion <a class="vd-anchor" aria-label="Link to this section" href="#milestone-extent-maintenance--background-merges-and-extent-deletion">#</a></h2>
+<p>Filed by milestone Extent maintenance (<a href="https://github.com/Hafeok/Varve/issues/110">#110</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered 0158–0162: SHACL holds 0148–0157 and the Management plane 0163 onward. Amended by it, likewise unaccepted: 0134 (a follower writes its reader record; the streamed create; refusals for the identity); 0138 (the chain bounded by merges, the checkpoint budget removed); 0139 (deletion and merges superseded, the shared commit index, the catalog's sequence as its version).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0158-background-extent-merges.html">0158</a></td>
+<td>Background merges of extent sets: only the writer merges, and a merge rebases on the catalog</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Extent maintenance, #110)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0159-the-extent-merge-policy.html">0159</a></td>
+<td>The extent merge policy: size-tiered with a fan-out and a cap, its bound and its write amplification</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Extent maintenance, #110)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0160-extent-deletion-by-reader-announcements.html">0160</a></td>
+<td>Extent deletion by reader announcements: readers announce an interval, and no timer; supersedes 0139 in part</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Extent maintenance, #110)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0161-the-shared-commit-index.html">0161</a></td>
+<td>The shared commit index: each extent set carries its window's commit index</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Extent maintenance, #110)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0162-storage-operations-and-the-readers-command.html">0162</a></td>
+<td>Storage operations: <code>varve storage</code>, the readers command, readiness, and the operator guide</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Extent maintenance, #110)</td></tr>
+</tbody>
+</table></div>
+<h2 id="as-of-reads-that-seek-133">As-of reads that seek (#133) <a class="vd-anchor" aria-label="Link to this section" href="#as-of-reads-that-seek-133">#</a></h2>
+<p>Filed by <a href="https://github.com/Hafeok/Varve/issues/133">#133</a>, in 1.0 (<a href="https://github.com/Hafeok/Varve/issues/15">#15</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0177. Amended by it, likewise unaccepted: 0049 (an as-of view inside a set may estimate); 0072 (derived version 5, for extents); 0138 (&quot;As-of reads&quot;: a format-5 set is sought); 0139 (an extent is written in format 5); 0159 (the cap bounds merges, not reads); 0160 (a reader record says what its reader reads, <code>maxDerived</code>).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0177-seek-dont-narrow-intervals-beside-the-key.html">0177</a></td>
+<td>Seek, don't narrow: an extent's intervals beside its keys, derived format 5</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#133)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0178-the-format-5-upgrade-and-the-set-cap.html">0178</a></td>
+<td>The format-5 upgrade, mixed-version instances, and the set cap</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#133)</td></tr>
+</tbody>
+</table></div>
+<h2 id="replication-part-1-165">Replication, part 1 (#165) <a class="vd-anchor" aria-label="Link to this section" href="#replication-part-1-165">#</a></h2>
+<p>Filed by <a href="https://github.com/Hafeok/Varve/issues/165">#165</a>, part 1 of Replication (<a href="https://github.com/Hafeok/Varve/issues/97">#97</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0179; part 2 (#166) holds 0183–0186, and 0182 is unused, because the RustFS spike needed no fallback. Amended by it, likewise unaccepted: 0136 (triggers, release reasons, a claim made before the open, supersession per dataset); 0137 (a self-hosted store's STS, and RustFS by web identity); 0163 (the writer set's start rule and placement events; readiness); 0164 (a standby's interval beside <code>FollowOnDemand</code>; the epoch a refresh saw; point 5 built); 0166 (<code>varve:standbyOn</code>); 0168 (the directory across a handover).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0179-writer-handover-within-a-store.html">0179</a></td>
+<td>Writer handover within a store: two triggers, an epoch claimed in the writer record, a log slot as the fence</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#165)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0180-warm-standbys-and-the-writer-set.html">0180</a></td>
+<td>Warm standbys and the writer set: <code>placedOn</code> ∪ <code>standbyOn</code>, placement by events, and what warm means</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#165)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0181-handover-automation.html">0181</a></td>
+<td>Handover automation: the orchestrator judges liveness, one idempotent command acts, and the two-app layout keeps restart</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#165)</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-inference--rdfs-by-rewriting-owl-2-rl-and-rules-as-a-projection-inconsistency-at-commit">Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit <a class="vd-anchor" aria-label="Link to this section" href="#milestone-inference--rdfs-by-rewriting-owl-2-rl-and-rules-as-a-projection-inconsistency-at-commit">#</a></h2>
+<p>Filed by milestone Inference (<a href="https://github.com/Hafeok/Varve/issues/95">#95</a>), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0190: Replication holds 0179–0189 and the Web UI 0200–0205, so Inference has 0190–0199 and 0206–0211. The grants ADR comes first, in a pull request of its own, ahead of the three parts (#170, #171 and #95's last). Amended by it, likewise unaccepted: 0107 (the dataset-public graphs of a binding, a graph governed by every graph of a set); by part 1 (#170), 0003 (the packages), 0119 (<code>entailment-unsupported</code>), 0132 (the header under CORS) and 0166 (the binding's terms).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0190-entailments-under-graph-level-grants.html">0190</a></td>
+<td>Entailments under graph-level grants: premise sets, intra-graph by default, the ontology readable by the dataset's readers; amends 0107</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Inference, #95)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0191-the-inference-packages-and-their-layers.html">0191</a></td>
+<td>The inference packages and their layers; amends 0003</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Inference part 1, #170)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0192-entailment-regimes-over-http.html">0192</a></td>
+<td>Entailment regimes over HTTP: the <code>Varve-Entailment</code> header and the service description; amends 0119, 0132</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Inference part 1, #170)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0193-rdfs-rdf-and-d-by-rewriting.html">0193</a></td>
+<td>RDF, RDFS and D entailment by query rewriting</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Inference part 1, #170)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0194-the-tbox-binding-vocabulary.html">0194</a></td>
+<td>The TBox binding vocabulary; amends 0166</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Inference part 1, #170)</td></tr>
+</tbody>
+</table></div>
+<h2 id="web-ui-part-1-167">Web UI, part 1 (#167) <a class="vd-anchor" aria-label="Link to this section" href="#web-ui-part-1-167">#</a></h2>
+<p>Filed by Web UI part 1 (<a href="https://github.com/Hafeok/Varve/issues/167">#167</a>, milestone <a href="https://github.com/Hafeok/Varve/issues/96">#96</a>), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Numbered from 0200: Replication holds 0179–0189 and Inference 0190–0199. 0206 lands first, in a docs-only pull request; 0200–0205 come with the milestone's. Amended by it, likewise unaccepted: 0060 (a host may be a browser application published as static files).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0200-varve-webui-a-blazor-webassembly-host.html">0200</a></td>
+<td><code>Varve.WebUi</code>: a Blazor WebAssembly host at layer 6, and what Blazor costs</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Web UI part 1, #167)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0201-the-web-uis-own-oidc-client.html">0201</a></td>
+<td>The Web UI's own OIDC client: one token per plane</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Web UI part 1, #167)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0202-serving-the-web-ui-and-its-content-security-policy.html">0202</a></td>
+<td>Serving the Web UI under <code>/ui/</code>, and its Content Security Policy</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Web UI part 1, #167)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0203-typed-reads-in-the-protocol-client.html">0203</a></td>
+<td>Typed reads in <code>Varve.Protocol.Client</code>: health, problems, response facts and the management plane</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Web UI part 1, #167)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0204-test-dependencies-for-the-web-ui.html">0204</a></td>
+<td>Test dependencies for the Web UI: bUnit, Playwright on the runner's Chrome, axe-core</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Web UI part 1, #167)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0205-the-web-uis-size-budget-and-no-aot.html">0205</a></td>
+<td>The Web UI's size budget, and why it is not AOT-compiled</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Web UI part 1, #167)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0206-the-web-ui-design-source.html">0206</a></td>
+<td>The Web UI's design source, its levels, and the markup contract</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (Web UI part 1, #167)</td></tr>
+</tbody>
+</table></div>
+<h2 id="10-readiness-a--correctness-and-the-read-forever-contract-129">1.0 readiness A — correctness and the read-forever contract (#129) <a class="vd-anchor" aria-label="Link to this section" href="#10-readiness-a--correctness-and-the-read-forever-contract-129">#</a></h2>
+<p>Filed by 1.0 readiness A (<a href="https://github.com/Hafeok/Varve/issues/129">#129</a>; <a href="https://github.com/Hafeok/Varve/issues/146">#146</a>, <a href="https://github.com/Hafeok/Varve/issues/132">#132</a>, <a href="https://github.com/Hafeok/Varve/issues/61">#61</a>), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered from 0213. Superseded in part by 0213, likewise unaccepted: 0071 (publishing qualified), 0073 (the derived flush kept only where a reader cannot verify), 0161 (the <code>commits</code> blob in version 6), 0177 (a block that does not match is a miss; version 6 for the checked kinds), 0178 (rewrites generalised to any blob below the newest version). Amended by it: 0072 (derived version 6), 0119 (<code>load-spill-damaged</code>), 0174 (the snapshot in the checked envelope).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0213-cached-derived-data-is-verified-before-use.html">0213</a></td>
+<td>Cached derived data is verified before use: a check per block, and damage is a miss</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#146)</td></tr>
+</tbody>
+</table></div>
+<h2 id="supply-chain-transparency-119-readiness-b">Supply chain transparency (#119, readiness B) <a class="vd-anchor" aria-label="Link to this section" href="#supply-chain-transparency-119-readiness-b">#</a></h2>
+<p>Filed by readiness B for <a href="https://github.com/Hafeok/Varve/issues/119">#119</a>, in 1.0 (<a href="https://github.com/Hafeok/Varve/issues/15">#15</a>), unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0224: readiness A holds 0213–0222. Amended by it, likewise unaccepted: 0009 (the register against every lockfile, licences by scope, the native-asset gate folded in); 0029 (the SBOM in the package, the release's assets); 0102 (descriptor format 2, <code>sbom:</code>); 0111 (the base by digest, the merged image SBOM).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0224-supply-chain-transparency.html">0224</a></td>
+<td>Supply chain transparency: SBOMs, the dependency gate and vulnerability handling</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#119); amended 2026-11-11 (the pin covers workload sets, #276)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0225-the-sbom-generator.html">0225</a></td>
+<td>The SBOM generator: <code>eng/sbom.cs</code>, SPDX 2.3, from the restore</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#119)</td></tr>
+</tbody>
+</table></div>
+<h2 id="cli-distribution-129-readiness-b">CLI distribution (#129, readiness B) <a class="vd-anchor" aria-label="Link to this section" href="#cli-distribution-129-readiness-b">#</a></h2>
+<p>Filed by readiness B for <a href="https://github.com/Hafeok/Varve/issues/129">#129</a>, in 1.0 (<a href="https://github.com/Hafeok/Varve/issues/15">#15</a>), unaccepted until the maintainer accepts it on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0105 (point 6: the release carries the binary).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0226-cli-distribution.html">0226</a></td>
+<td>CLI distribution: Native AOT binaries for six RIDs, a keyless Homebrew tap, winget manifests submitted by the maintainer</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#129)</td></tr>
+</tbody>
+</table></div>
+<h2 id="the-public-api-freeze-gate-129-readiness-b">The public API freeze gate (#129, readiness B) <a class="vd-anchor" aria-label="Link to this section" href="#the-public-api-freeze-gate-129-readiness-b">#</a></h2>
+<p>Filed by readiness B for <a href="https://github.com/Hafeok/Varve/issues/129">#129</a>, in 1.0 (<a href="https://github.com/Hafeok/Varve/issues/15">#15</a>), unaccepted until the maintainer accepts it on its pull request (ADR 0066). Amended by it, likewise unaccepted: 0035 (points 2 and 4: the published package is the evidence before 1.0, and the freeze has a gate).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0227-the-public-api-freeze-gate.html">0227</a></td>
+<td>The public API freeze gate: each package against its published nupkg, a break marked or refused</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#129)</td></tr>
+</tbody>
+</table></div>
+<h2 id="milestone-9-part-1--row-level-access-through-the-classifier-202">Milestone 9, part 1 — row-level access through the classifier (#202) <a class="vd-anchor" aria-label="Link to this section" href="#milestone-9-part-1--row-level-access-through-the-classifier-202">#</a></h2>
+<p>Filed by milestone 9, part 1 (<a href="https://github.com/Hafeok/Varve/issues/202">#202</a>, under <a href="https://github.com/Hafeok/Varve/issues/14">#14</a>), in 1.0 and stable, unaccepted until the maintainer accepts them on its pull request (ADR 0066). Numbered from 0230: readiness A holds 0213–0222 and readiness B from 0224. Amended by it, likewise unaccepted: 0003 (<code>Varve.Classification</code>), 0023 (the classifier's assignment, the selector), 0107 (rows beneath graphs), 0119 (three problem types), 0166 (the classifier binding, subject-scoped grants), 0173 and 0174 (the report withheld from row-restricted callers), 0190 (row-scoped grants, pending #171).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0230-rows-data-subjects-and-visibility.html">0230</a></td>
+<td>Rows, data subjects and visibility</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#202)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0231-the-classifier-and-selector-contracts.html">0231</a></td>
+<td>The classifier and selector contracts, without erasure mode</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#202)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0232-the-shape-derived-classifier.html">0232</a></td>
+<td>The shape-derived classifier, in <code>Varve.Classification</code></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#202)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0233-the-classification-projection.html">0233</a></td>
+<td>The classification projection</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#202)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0234-subject-scoped-grants-and-the-classifier-binding.html">0234</a></td>
+<td>Subject-scoped grants and the classifier binding; amends 0166</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#202)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0235-the-row-scoped-quad-source-and-the-read-filters-cost.html">0235</a></td>
+<td>The row-scoped quad source and the read filter's cost</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#202)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0236-the-row-level-write-rule.html">0236</a></td>
+<td>The row-level write rule</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#202)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0237-rows-on-every-surface.html">0237</a></td>
+<td>Rows on every surface; amends 0173 and 0174</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#202)</td></tr>
+<tr>
+<td align="right"><a href="../adr/0238-inference-under-row-scoped-grants.html">0238</a></td>
+<td>Inference under row-scoped grants; amends 0190, pending #171</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#202)</td></tr>
+</tbody>
+</table></div>
+<h2 id="the-maintainers-delegate-244">The maintainer's delegate (#244) <a class="vd-anchor" aria-label="Link to this section" href="#the-maintainers-delegate-244">#</a></h2>
+<p>Filed by the landing session for <a href="https://github.com/Hafeok/Varve/issues/244">#244</a>, at the maintainer's direction of 2026-11-06, unaccepted until he accepts it (ADR 0066). Numbered 0239: milestone 9 holds 0230–0238. It amends 0066 and 0087 by dated amendments.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0239-the-maintainers-delegate.html">0239</a></td>
+<td>The maintainer's delegate: one session on his machine may approve, land and accept for him</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#244)</td></tr>
+</tbody>
+</table></div>
+<h2 id="the-provider-legs-by-federated-credentials-101">The provider legs by federated credentials (#101) <a class="vd-anchor" aria-label="Link to this section" href="#the-provider-legs-by-federated-credentials-101">#</a></h2>
+<p>Filed by <a href="https://github.com/Hafeok/Varve/issues/101">#101</a>, unaccepted until the maintainer accepts it on its pull request (ADR 0066). Numbered 0223, between readiness A's 0213–0222 and readiness B's 0224 onward. Supersedes in part, likewise unaccepted: 0100 (point 4: the Entra and Google legs by GitHub's OIDC token, with no secret; <code>EntraAndGoogleBySecret</code> moves).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0223-provider-legs-by-federated-credentials.html">0223</a></td>
+<td>The provider legs by federated credentials: GitHub's OIDC token for Entra ID and Google</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#101)</td></tr>
+</tbody>
+</table></div>
+<h2 id="model-names-in-commit-messages-257">Model names in commit messages (#257) <a class="vd-anchor" aria-label="Link to this section" href="#model-names-in-commit-messages-257">#</a></h2>
+<p>Filed by the session for <a href="https://github.com/Hafeok/Varve/issues/257">#257</a>, recording the maintainer's ruling of 2026-10-27 for <a href="https://github.com/Hafeok/Varve/issues/169">#169</a>, unaccepted until he accepts it (ADR 0066). Numbered 0241: 0240 is taken on another branch. It supersedes one ruling of 0033.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0241-model-names-refused-identifiers-allowed.html">0241</a></td>
+<td>A commit message never names a model; a model's identifier is allowed; supersedes one ruling of 0033</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#257)</td></tr>
+</tbody>
+</table></div>
+<h2 id="chain-builds-and-landing-trains-230">Chain builds and landing trains (#230) <a class="vd-anchor" aria-label="Link to this section" href="#chain-builds-and-landing-trains-230">#</a></h2>
+<p>Filed by the session for <a href="https://github.com/Hafeok/Varve/issues/230">#230</a>, recording the maintainer's decision of 2026-11-06 and his review of 2026-11-11, unaccepted until he accepts it (ADR 0066). Numbered 0243: 0240–0242 are taken by open pull requests (#268; #259 and #264, #278; #267). It amends 0088 and 0102 by dated amendments.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0243-chain-builds-ahead-of-main.html">0243</a></td>
+<td>Chain builds ahead of main, and landing trains</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#230)</td></tr>
+</tbody>
+</table></div>
+<h2 id="problems-that-say-what-to-do-194">Problems that say what to do (#194) <a class="vd-anchor" aria-label="Link to this section" href="#problems-that-say-what-to-do-194">#</a></h2>
+<p>Filed by the session for <a href="https://github.com/Hafeok/Varve/issues/194">#194</a>, unaccepted until the maintainer accepts it (ADR 0066). Numbered 0242: open branches hold 0240 and 0241.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0242-problems-that-say-what-to-do.html">0242</a></td>
+<td>Problems that say what to do: <code>forbidden</code>, a failed dataset, <code>writer-superseded</code> and <code>shutting-down</code> name the next step; every problem page says what to do</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#194)</td></tr>
+</tbody>
+</table></div>
+<h2 id="the-web-ui-in-the-container-image-296">The Web UI in the container image (#296) <a class="vd-anchor" aria-label="Link to this section" href="#the-web-ui-in-the-container-image-296">#</a></h2>
+<p>Filed by the session for <a href="https://github.com/Hafeok/Varve/issues/296">#296</a>, recording the maintainer's ruling of 2026-11-16 and his answers to the plan, unaccepted until he accepts it (ADR 0066). Numbered 0245: 0240, 0242 and 0244 were taken by other pull requests (#268, #267, #264), all now on <code>main</code>. It supersedes 0202 point 6 in part, and amends 0111, 0201, 0202 and 0225 by dated amendments.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0245-the-web-ui-in-the-container-image.html">0245</a></td>
+<td>The Web UI in the container image, served by default, with its settings from the server</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#296)</td></tr>
+</tbody>
+</table></div>
+<h2 id="client-idempotency-keys-132">Client idempotency keys (#132) <a class="vd-anchor" aria-label="Link to this section" href="#client-idempotency-keys-132">#</a></h2>
+<p>Filed by the session for <a href="https://github.com/Hafeok/Varve/issues/132">#132</a>, 1.0 readiness (#129), unaccepted until the maintainer accepts it (ADR 0066). Numbered 0246, because 0244 and 0245 are taken on open branches. It amends 0094 and 0168 by dated amendments.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0246-client-idempotency-keys.html">0246</a></td>
+<td>Client idempotency keys, scoped to the agent: a retried write commits once</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#132)</td></tr>
+</tbody>
+</table></div>
+<h2 id="the-docs-site-317">The docs site (#317) <a class="vd-anchor" aria-label="Link to this section" href="#the-docs-site-317">#</a></h2>
+<p>Filed by the session for <a href="https://github.com/Hafeok/Varve/issues/317">#317</a>, under <a href="https://github.com/Hafeok/Varve/issues/129">#129</a>'s docs-site deliverable, recording the maintainer's answers of 2026-11-16, unaccepted until he accepts it (ADR 0066). Numbered 0247: 0244–0246 are taken on other branches. It amends 0224 by a dated amendment.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0247-the-docs-site.html">0247</a></td>
+<td>The docs site: a generator in eng/ on Markdig, Mermaid drawn at build time, no script</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#317)</td></tr>
+</tbody>
+</table></div>
+<h2 id="conformance--differential-testing-against-oxigraph">Conformance — differential testing against Oxigraph <a class="vd-anchor" aria-label="Link to this section" href="#conformance--differential-testing-against-oxigraph">#</a></h2>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0038-upstream-contribution-policy.html">0038</a></td>
+<td>Upstream contribution to Oxigraph and the shared test suites</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>refines the brief's tie-breaker</td></tr>
+</tbody>
+</table></div>
+<h2 id="tooling--repo-standard">Tooling — repo-standard <a class="vd-anchor" aria-label="Link to this section" href="#tooling--repo-standard">#</a></h2>
+<p>Built here and moving to a repository of its own; see
+<a href="https://github.com/Hafeok/Varve/issues/23">#23</a>.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0039-repo-standard.html">0039</a></td>
+<td>repo-standard: repository settings as code, built here and moving out</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td></td></tr>
+</tbody>
+</table></div>
+<p><strong>0085 was <code>Proposed</code></strong> from its filing by the pre-release session of #63 until its acceptance on its pull request, both on 2026-10-06; the decision sets of 0086–0088, decided by the maintainer in that session, were accepted in the same commit (4c7e911). <strong>0078–0084 were <code>Proposed</code></strong> from their filing by milestone 6c on 2026-10-05 until their acceptance on its pull request on 2026-10-06. <strong>0070–0077 were</strong> from their filing by milestone 6a on 2026-10-02 until their acceptance on its pull request on 2026-10-05. <a href="../adr/0069-model-namespaces-for-layers-3-to-5.html">0069</a> was,
+from its filing on 2026-09-29 until its acceptance on 2026-09-30. Three others were
+<code>Proposed</code> once, and were completed in place rather than superseded, because
+ADR 0001's no-edit rule binds accepted decisions and they had never been
+accepted.</p>
+<h3 id="accepted-ahead-of-the-evidence">Accepted ahead of the evidence <a class="vd-anchor" aria-label="Link to this section" href="#accepted-ahead-of-the-evidence">#</a></h3>
+<p>Six ADRs carry a <strong>revisit condition</strong>: a stated fact which, if it turns out to
+be true, supersedes the ADR. It does not edit it.</p>
+<p><strong>One has fired.</strong> ADR 0020's condition was its acceptance condition, it was
+tested on a real browser at milestone 3a, and it failed. Its successor, 0028,
+carries a condition of its own that is not measurable by a build.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th>ADR</th>
+<th>Condition</th>
+<th>Due</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../adr/0012-term-dictionary-and-id-scheme.html">0012</a></td>
+<td>Milestone 4 benchmarks of index size and scan throughput contradict 64-bit counter-allocated ids. No bytes are frozen before milestone 6.</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td><strong>did not fire</strong> at milestone 4: 192 bytes per quad for six orders, 37–45 M quads/s scanned (<code>tests/Varve.Benchmarks/README.md</code>). At milestone 6a, <strong>did not fire, and the locality hypothesis holds</strong>: sorted keys delta-encode to 5.2–7.1 bytes with counter ids against 17.3–33.9 with scattered ids; format version 1 freezes the 64-bit layout (ADR 0072)</td></tr>
+<tr>
+<td><a href="../adr/0018-storage-abstraction.html">0018</a></td>
+<td>The in-memory and browser backends cannot both implement the contract without leaking backend detail. Members fixed when the first backend is written.</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>members <strong>fixed</strong> by <a href="../adr/0040-storage-contract-members-and-the-memory-backend.html">0040</a>; the memory backend and a second one outside the assembly implement them with nothing leaked. The browser half waits for milestone 6</td></tr>
+<tr>
+<td><a href="../adr/0020-cipher-for-erasure-mode.html">0020</a></td>
+<td><s>AES-CBC, HMAC-SHA-256 and HKDF do not run on browser WASM when verified on a real build.</s> <strong>Fired</strong> at milestone 3a: <code>Aes.Create()</code> throws on browser-wasm and no symmetric cipher of any kind is available there. Superseded by 0028.</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td><strong>fired</strong>, superseded</td></tr>
+<tr>
+<td><a href="../adr/0028-deterministic-aead-from-hmac.html">0028</a></td>
+<td>External cryptographic review rejects the construction. The fallback is then that erasure mode does not run in the browser, in its own ADR. Its other condition — the primitives run in a browser — is measured and holds.</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>milestone 9, before shipping</td></tr>
+<tr>
+<td><a href="../adr/0022-quad-source-term-handle.html">0022</a></td>
+<td>Milestone 5 evaluator benchmarks show the opaque handle costs more than it saves. The accessor it named as its successor is built in 5a (<a href="../adr/0050-typed-value-accessor-and-the-benchmark-for-adr-0022.html">0050</a>), which fixes the three arms and the verdict rule.</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>milestone 5b</td></tr>
+<tr>
+<td><a href="../adr/0070-the-storage-engine-is-our-own.html">0070</a></td>
+<td>A workload at milestone 7 where tier merges cannot keep up with the commit rate.</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>milestone 7</td></tr>
+<tr>
+<td><a href="../adr/0071-synchronous-reads-over-asynchronous-storage.html">0071</a></td>
+<td>A host where no synchronous read exists.</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>milestone 6c, the browser</td></tr>
+<tr>
+<td><a href="../adr/0034-commit-signing-and-the-sandbox-exception.html">0034</a></td>
+<td>A route appears by which a sandbox commit is signed by a key the project controls, or by GitHub itself. Two are identified and neither is available: GraphQL <code>createCommitOnBranch</code>, blocked by the session proxy rather than by GitHub, and a per-installation signing key. The REST contents API was tested and is <strong>not</strong> one — it produces unsigned commits.</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>whenever it fires</td></tr>
+</tbody>
+</table></div>
+<h2 id="10-readiness-a--the-file-backends-faults-the-soak-and-the-formats">1.0 readiness A — the file backend's faults, the soak, and the formats <a class="vd-anchor" aria-label="Link to this section" href="#10-readiness-a--the-file-backends-faults-the-soak-and-the-formats">#</a></h2>
+<p>Filed by 1.0 readiness A (<a href="https://github.com/Hafeok/Varve/issues/129">#129</a>; <a href="https://github.com/Hafeok/Varve/issues/61">#61</a>), unaccepted until the maintainer accepts them on their pull request (ADR 0066). Amended by them: 0073 (a full disk; the faults on real files), 0082 (run by the release gate and judged by a script), 0119 (<code>storage-full</code>). Superseded in part by 0214: 0124 (point 3 and <code>AcknowledgedOnlyWhenTheBatchIsDurable</code> move, restated: a failed batch answered by the log, and a full disk recovered by the next write). Superseded in part by 0215: 0110 (<code>FlatWithinABand</code> moves, restated).</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th>ADR</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../adr/0214-file-backend-failure-injection.html">0214</a></td>
+<td>File-backend failure injection: four faults, at every point, on simulated and on real files</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#129)</td></tr>
+<tr>
+<td><a href="../adr/0215-the-soak-gate-run-and-judged.html">0215</a></td>
+<td>The soak gate, run and judged: a bounded vocabulary, four hours, a judge, and Windows weekly</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#61)</td></tr>
+<tr>
+<td><a href="../adr/0216-the-format-inventory.html">0216</a></td>
+<td>The format inventory: fixtures written by the releases that introduced them, and the format gate</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#129)</td></tr>
+<tr>
+<td><a href="../adr/0217-coordination-records-read-conservatively.html">0217</a></td>
+<td>Coordination records read conservatively: an unknown format is never written on, an unknown value never acted on</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#129)</td></tr>
+</tbody>
+</table></div>
+<h2 id="open-questions-recorded-not-resolved">Open questions recorded, not resolved <a class="vd-anchor" aria-label="Link to this section" href="#open-questions-recorded-not-resolved">#</a></h2>
+<p>From the specification's §11, each owned by the ADR that records the decision it
+falls out of:</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th></th>
+<th>Question</th>
+<th>Owner</th>
+<th>Due</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Q1</strong></td>
+<td>External form of store-scoped blank node identity at protocol boundaries. The in-process half is <strong>decided</strong> by <a href="../adr/0044-blank-node-identity-in-process.html">0044</a>: by handle</td>
+<td><a href="../adr/0012-term-dictionary-and-id-scheme.html">0012</a></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>milestone 7, with the server</td></tr>
+<tr>
+<td><strong>Q2</strong></td>
+<td>Bulk load and I2 — normalising a huge commit against a populated dataset</td>
+<td><a href="../adr/0013-records-commits-and-bulk-load.html">0013</a></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td><strong>decided</strong> by <a href="../adr/0076-bulk-load-by-sort-and-merge-join.html">0076</a>: sort and merge-join; built in 6c</td></tr>
+<tr>
+<td><strong>Q3</strong></td>
+<td>Bulk load and validators — an overlay that does not fit in memory</td>
+<td><a href="../adr/0013-records-commits-and-bulk-load.html">0013</a>, with <a href="../adr/0017-validator-contract-and-overlay.html">0017</a></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td><strong>decided</strong> by <a href="../adr/0077-bulk-load-validators-scan-the-delta-on-disk.html">0077</a>: the overlay scans the delta on disk; built in 6c</td></tr>
+<tr>
+<td><strong>Q4</strong></td>
+<td>How a shredded term appears in SPARQL results and serialisations</td>
+<td><a href="../adr/0023-erasure-and-access-requests.html">0023</a></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>milestone 9</td></tr>
+<tr>
+<td><strong>Q5</strong></td>
+<td>Lookup by private value — scan and decrypt, or a keyed blind index</td>
+<td><a href="../adr/0028-deterministic-aead-from-hmac.html">0028</a></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>milestone 9</td></tr>
+<tr>
+<td><strong>Q6</strong></td>
+<td>Cipher and availability per host</td>
+<td><a href="../adr/0028-deterministic-aead-from-hmac.html">0028</a></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td><strong>decided</strong>, subject to 0028's two conditions: the primitives run in a browser (measured, holds) and the construction survives external review (milestone 9)</td></tr>
+<tr>
+<td><strong>Q7</strong></td>
+<td><s>Whether an access request defaults to <code>G_head</code> or every quad ever asserted</s></td>
+<td><a href="../adr/0023-erasure-and-access-requests.html">0023</a></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td><strong>closed</strong> — by key id, scope a dataset setting defaulting to <code>AllHistory</code></td></tr>
+<tr>
+<td><strong>Q8</strong></td>
+<td>Key granularity when one term is about two data subjects</td>
+<td><a href="../adr/0023-erasure-and-access-requests.html">0023</a></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>milestone 9</td></tr>
+<tr>
+<td><strong>Q9</strong></td>
+<td>Whether the structure surviving shredding counts as anonymous — <strong>a legal question</strong></td>
+<td><a href="../adr/0023-erasure-and-access-requests.html">0023</a></td>
+<td class="vd-state-cell"><span class="vw-state vw-state--ok">Accepted</span></td><td>milestone 9</td></tr>
+</tbody>
+</table></div>
+<p>From ADR 0003:</p>
+<ul>
+<li><strong>0003 open question 1</strong> — <code>Varve.Shacl</code> and the SPARQL evaluator are both
+placed in layer 3, yet SHACL-SPARQL depends on the evaluator. Due milestone 8.</li>
+<li><strong>0003 open question 2</strong> — <s>the SPARQL optimiser and evaluator are both in
+layer 3. If the evaluator consumes a plan type the optimiser owns, they are one
+package or two layers.</s> <strong>Closed</strong> 2026-09-24 by
+<a href="../adr/0048-optimiser-and-evaluator-one-package-algebra-in-algebra-out.html">0048</a>:
+no plan type, one layer 3 package.</li>
+</ul>
+<h2 id="obligations-recorded-against-a-later-milestone">Obligations recorded against a later milestone <a class="vd-anchor" aria-label="Link to this section" href="#obligations-recorded-against-a-later-milestone">#</a></h2>
+<ul>
+<li><strong>ADR 0038</strong> — the differential harness enforces the four exemption checks
+(category, required references, no <code>varve-defect</code>, stale entry), each with a
+violating and a conforming test. Due with the differential harness. Its open
+question (whether a <code>spec-gap</code> entry must cite a W3C suite PR) is due then too.</li>
+<li><strong>ADR 0004</strong> — the <code>System.Uri</code> ban is wider than the brief scopes it. Narrow
+before layer 5 exists.</li>
+<li><s><strong>ADR 0014</strong> — the storage format must carry a version discriminator from the
+start, so a change to what is hashed is a migration rather than a corruption.</s>
+<strong>Discharged</strong> by <a href="../adr/0072-format-version-1.html">0072</a>: every header carries the
+format version.</li>
+</ul>
+<h2 id="closed">Closed <a class="vd-anchor" aria-label="Link to this section" href="#closed">#</a></h2>
+<ul>
+<li><strong>ADR 0007 / 0027</strong> — <code>dotNetRdf.Core</code>'s <em>manifest-reading</em> use. Closed
+2026-09-22 at milestone 3b, two milestones early: <code>Varve.Turtle</code> passes
+<code>rdf/rdf11/rdf-turtle</code> 313 of 313 and <code>rdf/rdf11/rdf-trig</code> 357 of 357
+unexempted, the harness reads its own manifests, and
+<code>The_harness_does_not_reference_another_rdf_implementation</code> keeps it out. The
+package stays for the benchmark baseline on ADR 0027's separate
+justification, and its register citation moved from 0007 to 0027 with this
+closure.</li>
+<li><strong>ADR 0002</strong> — the copyright holder. Closed 2026-09-21: Emil Okkels Klein,
+named in <code>NOTICE</code>. The <code>LICENSE</code> appendix stays unedited, because it is the
+per-file boilerplate template and not a record of ownership.</li>
+<li><strong>ADR 0004</strong> — the known limit that <code>VARVE0002</code>'s analyzer exemption was by
+name and could not be closed. Withdrawn 2026-09-21: it was wrong on both
+counts, and the rule now checks <code>IsPackable</code> and refuses the analyzer as a
+library reference.</li>
+</ul>
+<h2 id="resident-memory-222">Resident memory (#222) <a class="vd-anchor" aria-label="Link to this section" href="#resident-memory-222">#</a></h2>
+<p>Filed by the session for <a href="https://github.com/Hafeok/Varve/issues/222">#222</a>, unaccepted until the maintainer accepts it (ADR 0066). It amends 0082, 0089 and 0177 by dated amendments.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0240-resident-memory-is-bounded-by-data-and-configuration.html">0240</a></td>
+<td>Resident memory is bounded by data and by configuration, never by commits</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#222)</td></tr>
+</tbody>
+</table></div>
+<h2 id="memory-bounds-227">Memory bounds (#227) <a class="vd-anchor" aria-label="Link to this section" href="#memory-bounds-227">#</a></h2>
+<p>Filed by the session for <a href="https://github.com/Hafeok/Varve/issues/227">#227</a>, unaccepted until the maintainer accepts it (ADR 0066). It supersedes 0070 in part, its revisit condition being met, and amends 0110, 0139 and 0164 by dated amendments.</p>
+<div class="vd-table vd-index"><table>
+<thead>
+<tr>
+<th align="right">#</th>
+<th>Title</th>
+<th>Status</th><th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="right"><a href="../adr/0244-memory-bounds-for-writing-checkpointing-and-reopening.html">0244</a></td>
+<td>Memory bounds for writing, checkpointing and reopening</td>
+<td class="vd-state-cell"><span class="vw-state vw-state--warn">Filed unaccepted</span></td><td>Filed unaccepted (#227)</td></tr>
+</tbody>
+</table></div>
+</div></main>
+<nav class="vd-pages vd-pages--long" id="pages" aria-label="Architecture decisions"><h2>Architecture decisions</h2><ol><li><a href="../adr/index.html" aria-current="page">Overview</a></li><li><a href="../adr/0001-record-architecture-decisions.html"><span class="vd-num">0001</span>Record architecture decisions</a></li><li><a href="../adr/0002-licence.html"><span class="vd-num">0002</span>Licence: Apache-2.0</a></li><li><a href="../adr/0003-package-layering.html"><span class="vd-num">0003</span>Package layering and the strictly downward reference rule</a></li><li><a href="../adr/0004-enforcement-by-analyzers.html"><span class="vd-num">0004</span>Enforcement by analyzers</a></li><li><a href="../adr/0005-store-is-sparql-free.html"><span class="vd-num">0005</span>Varve.Store is SPARQL-free</a></li><li><a href="../adr/0006-build-and-test-dependencies.html"><span class="vd-num">0006</span>Build-time and test-time dependencies</a></li><li><a href="../adr/0007-w3c-conformance-harness.html"><span class="vd-num">0007</span>W3C conformance harness</a></li><li><a href="../adr/0008-target-framework-and-language.html"><span class="vd-num">0008</span>Target framework and language version policy</a></li><li><a href="../adr/0009-dependency-policy-and-register.html"><span class="vd-num">0009</span>Dependency policy and the enforced register</a></li><li><a href="../adr/0010-commit-model-and-effective-deltas.html"><span class="vd-num">0010</span>Commit model and effective deltas</a></li><li><a href="../adr/0011-concurrency-single-sequencer.html"><span class="vd-num">0011</span>Concurrency: one sequencer, optional expected position</a></li><li><a href="../adr/0012-term-dictionary-and-id-scheme.html"><span class="vd-num">0012</span>Term dictionary, id classes, id scheme, blank node identity</a></li><li><a href="../adr/0013-records-commits-and-bulk-load.html"><span class="vd-num">0013</span>Records versus commits, and bulk load as a multi-record commit</a></li><li><a href="../adr/0014-header-chain-and-divergence.html"><span class="vd-num">0014</span>Header chain and divergence detection</a></li><li><a href="../adr/0015-checkpoints-and-reads.html"><span class="vd-num">0015</span>Checkpoints, pinned reads, as-of reads, archive horizon</a></li><li><a href="../adr/0016-projection-contract-and-subscriptions.html"><span class="vd-num">0016</span>Projection contract, the synchronous default projection, and erasure in projections</a></li><li><a href="../adr/0017-validator-contract-and-overlay.html"><span class="vd-num">0017</span>Pre-commit validator contract and the overlay quad source</a></li><li><a href="../adr/0018-storage-abstraction.html"><span class="vd-num">0018</span>Storage abstraction: memory, file, browser</a></li><li><a href="../adr/0019-erasure-by-crypto-shredding.html"><span class="vd-num">0019</span>Erasure by crypto-shredding</a></li><li><a href="../adr/0020-cipher-for-erasure-mode.html"><span class="vd-num">0020</span>Cipher for erasure mode</a></li><li><a href="../adr/0021-dataset-settings-as-a-commit-kind.html"><span class="vd-num">0021</span>Dataset settings as a commit kind</a></li><li><a href="../adr/0022-quad-source-term-handle.html"><span class="vd-num">0022</span>The quad source contract over an opaque term handle</a></li><li><a href="../adr/0023-erasure-and-access-requests.html"><span class="vd-num">0023</span>Erasure by crypto-shredding, and access requests</a></li><li><a href="../adr/0024-rdf-term-representation.html"><span class="vd-num">0024</span>RDF term representation</a></li><li><a href="../adr/0025-property-based-testing.html"><span class="vd-num">0025</span>CsCheck for property-based testing</a></li><li><a href="../adr/0026-hotpath-attribute.html"><span class="vd-num">0026</span>Where the [HotPath] attribute lives</a></li><li><a href="../adr/0027-benchmarking.html"><span class="vd-num">0027</span>Benchmarking</a></li><li><a href="../adr/0028-deterministic-aead-from-hmac.html"><span class="vd-num">0028</span>A deterministic AEAD built from HMAC-SHA-256</a></li><li><a href="../adr/0029-publishing-and-versioning.html"><span class="vd-num">0029</span>Publishing and versioning</a></li><li><a href="../adr/0030-turtle-recovery-and-prefixes.html"><span class="vd-num">0030</span>Turtle&#x27;s recovery unit, prefix exposure, and where isomorphism lives</a></li><li><a href="../adr/0031-licence-mpl-2-0.html"><span class="vd-num">0031</span>Licence: MPL-2.0</a></li><li><a href="../adr/0032-trunk-based-development.html"><span class="vd-num">0032</span>Trunk-based development and non-blocking review</a></li><li><a href="../adr/0033-commit-traceability.html"><span class="vd-num">0033</span>Commit traceability and AI-session records</a></li><li><a href="../adr/0034-commit-signing-and-the-sandbox-exception.html"><span class="vd-num">0034</span>Commit signing and the sandbox exception</a></li><li><a href="../adr/0035-semantic-versioning.html"><span class="vd-num">0035</span>Semantic versioning</a></li><li><a href="../adr/0085-a-release-per-milestone.html"><span class="vd-num">0085</span>A release per milestone, and the next milestone waits for it</a></li><li><a href="../adr/0086-home-of-the-eng-gates.html"><span class="vd-num">0086</span>Home of the eng/ gates</a></li><li><a href="../adr/0087-the-identity-map.html"><span class="vd-num">0087</span>The identity map: who signs off, accepts and approves for an agent</a></li><li><a href="../adr/0088-only-checked-commits-reach-main.html"><span class="vd-num">0088</span>Only checked commits reach main</a></li><li><a href="../adr/0102-a-release-is-a-descriptor.html"><span class="vd-num">0102</span>A release is a descriptor, and landing it cuts it</a></li><li><a href="../adr/0036-containerised-development.html"><span class="vd-num">0036</span>Containerised development and the local pipeline</a></li><li><a href="../adr/0040-storage-contract-members-and-the-memory-backend.html"><span class="vd-num">0040</span>The storage contract&#x27;s members, and where the memory backend lives</a></li><li><a href="../adr/0041-sorted-runs-for-the-default-projection-and-checkpoints.html"><span class="vd-num">0041</span>Sorted runs: one representation for the default projection and for checkpoints</a></li><li><a href="../adr/0042-subscriptions-pull-from-the-log.html"><span class="vd-num">0042</span>Subscriptions pull from the log</a></li><li><a href="../adr/0043-the-reference-model-as-a-test-asset.html"><span class="vd-num">0043</span>The reference model is a test asset, and it is naive on purpose</a></li><li><a href="../adr/0044-blank-node-identity-in-process.html"><span class="vd-num">0044</span>Blank node identity at the in-process boundary (Q1, split)</a></li><li><a href="../adr/0045-the-provisional-in-memory-log-encoding.html"><span class="vd-num">0045</span>The provisional log encoding, and the in-memory id layout</a></li><li><a href="../adr/0046-settings-commits-reach-every-subscriber.html"><span class="vd-num">0046</span>Settings commits reach every subscriber; specification 1.2</a></li><li><a href="../adr/0047-delta-composition-and-closure-over-triple-terms.html"><span class="vd-num">0047</span>Delta composition over chains, and dictionary closure over triple terms; specification 1.3</a></li><li><a href="../adr/0048-optimiser-and-evaluator-one-package-algebra-in-algebra-out.html"><span class="vd-num">0048</span>Optimiser and evaluator: one package, algebra in and algebra out</a></li><li><a href="../adr/0049-cardinality-estimates-on-the-quad-source.html"><span class="vd-num">0049</span>Cardinality estimates on the quad source</a></li><li><a href="../adr/0050-typed-value-accessor-and-the-benchmark-for-adr-0022.html"><span class="vd-num">0050</span>A typed-value accessor beside the handle, and the benchmark ADR 0022 asked for</a></li><li><a href="../adr/0051-varve-xsd-scope-and-precision.html"><span class="vd-num">0051</span>Varve.Xsd: scope, precision policy, canonical forms, and value comparison</a></li><li><a href="../adr/0052-pinned-read-lifetime.html"><span class="vd-num">0052</span>A pinned read lives for one query execution</a></li><li><a href="../adr/0053-aggregation-by-hash-grouping-and-accumulators.html"><span class="vd-num">0053</span>Aggregation: hash grouping, one accumulator per aggregate</a></li><li><a href="../adr/0054-property-paths-normalised-then-evaluated-by-alp.html"><span class="vd-num">0054</span>Property paths: normalised to joins and unions, closures by ALP</a></li><li><a href="../adr/0055-service-through-a-handler-the-default-refuses.html"><span class="vd-num">0055</span>SERVICE through a handler, and the default refuses</a></li><li><a href="../adr/0056-evaluator-options-extension-functions-clock-and-randomness.html"><span class="vd-num">0056</span>Evaluator options: extension functions, the clock and randomness are injected</a></li><li><a href="../adr/0057-sparql-update-one-request-one-commit.html"><span class="vd-num">0057</span>SPARQL Update over the store: one request, one commit</a></li><li><a href="../adr/0058-staging-view-and-dataset-validators.html"><span class="vd-num">0058</span>A staging view over a pinned read, and validators bound to a dataset</a></li><li><a href="../adr/0059-rdfc-in-varve-rdf-and-its-work-limit.html"><span class="vd-num">0059</span>RDFC-1.0 in Varve.Rdf, bounded by a work limit; the isomorphism check stays as a cross-check</a></li><li><a href="../adr/0060-hosts-at-layer-6-the-composition-root.html"><span class="vd-num">0060</span>Hosts at layer 6: the composition root, reserved to executables</a></li><li><a href="../adr/0061-canonical-n-triples-is-rdf-1-2s.html"><span class="vd-num">0061</span>Canonical N-Triples and N-Quads follow RDF 1.2; where 1.1 and 1.2 differ, 1.2 wins</a></li><li><a href="../adr/0062-adopting-decisiondriven-analyzers.html"><span class="vd-num">0062</span>Adopting DecisionDriven.Analyzers: generic rules from a package, Varve&#x27;s own rules only in Varve.Analyzers</a></li><li><a href="../adr/0063-build-time-analyzer-packages.html"><span class="vd-num">0063</span>Build-time packages for the analyzers, and what BannedSymbols.txt must cite</a></li><li><a href="../adr/0064-varve-configuration-and-hot-path-rules.html"><span class="vd-num">0064</span>Varve&#x27;s configuration of the DD rules; the hot-path rules VARVE0003 and VARVE0004; the layer declaration VARVE0005</a></li><li><a href="../adr/0065-wrapper-types-and-the-store-log-namespace.html"><span class="vd-num">0065</span>Positions, ids and sizes as wrapper types; the log&#x27;s values in Varve.Store.Log</a></li><li><a href="../adr/0066-expected-red-pull-requests.html"><span class="vd-num">0066</span>Expected-red pull requests: citing a decision nobody has accepted yet</a></li><li><a href="../adr/0067-inmemorydataset-is-a-value-built-by-a-builder.html"><span class="vd-num">0067</span>InMemoryDataset is an immutable value, assembled by InMemoryDatasetBuilder</a></li><li><a href="../adr/0068-dated-amendments.html"><span class="vd-num">0068</span>Dated amendments: add-only, dated, never a change of meaning</a></li><li><a href="../adr/0069-model-namespaces-for-layers-3-to-5.html"><span class="vd-num">0069</span>One model namespace per package at layers 3 to 5; Durability is a log value</a></li><li><a href="../adr/0070-the-storage-engine-is-our-own.html"><span class="vd-num">0070</span>The storage engine is our own, and it is two different things</a></li><li><a href="../adr/0071-synchronous-reads-over-asynchronous-storage.html"><span class="vd-num">0071</span>Synchronous reads of derived data over asynchronous storage</a></li><li><a href="../adr/0072-format-version-1.html"><span class="vd-num">0072</span>Format version 1, read forever from the first prerelease that writes it</a></li><li><a href="../adr/0073-durability-per-host-declared.html"><span class="vd-num">0073</span>Durability per host, declared, and what each level survives</a></li><li><a href="../adr/0074-private-ids-reserved-and-the-key-store-refused.html"><span class="vd-num">0074</span>The private id and entry layout, reserved; the key store refused by path</a></li><li><a href="../adr/0075-one-process-per-dataset-by-an-os-lease.html"><span class="vd-num">0075</span>One process per dataset directory, held by an exclusive handle</a></li><li><a href="../adr/0076-bulk-load-by-sort-and-merge-join.html"><span class="vd-num">0076</span>Bulk load and I2: sort into a run, merge-join, one multi-record commit (Q2)</a></li><li><a href="../adr/0077-bulk-load-validators-scan-the-delta-on-disk.html"><span class="vd-num">0077</span>Bulk load and validators: the overlay scans the delta on disk (Q3)</a></li><li><a href="../adr/0078-checkpoints-streamed-and-written-by-policy.html"><span class="vd-num">0078</span>Checkpoints streamed from the runs, and written by a policy</a></li><li><a href="../adr/0079-the-term-dictionary-on-disk.html"><span class="vd-num">0079</span>The term dictionary on disk, carried by the runs</a></li><li><a href="../adr/0080-derived-blocks-compressed.html"><span class="vd-num">0080</span>Derived keys compressed in their blocks</a></li><li><a href="../adr/0081-the-bulk-loader.html"><span class="vd-num">0081</span>The bulk loader: references by content hash, memory bounded, one commit</a></li><li><a href="../adr/0082-the-soak-gate.html"><span class="vd-num">0082</span>The soak gate: a flat working set within a stated band</a></li><li><a href="../adr/0083-replica-bootstrap-is-a-file-copy.html"><span class="vd-num">0083</span>Replica bootstrap is a copy of files</a></li><li><a href="../adr/0084-the-browser-backend.html"><span class="vd-num">0084</span>The browser backend: OPFS sync access handles in a worker, IndexedDB as the fallback</a></li><li><a href="../adr/0089-the-commit-index-is-derived-and-paged.html"><span class="vd-num">0089</span>The commit index is derived and paged</a></li><li><a href="../adr/0090-file-suites-without-the-device-flush.html"><span class="vd-num">0090</span>The file suites run without the device flush; Defender skips the build&#x27;s files</a></li><li><a href="../adr/0037-server-authentication.html"><span class="vd-num">0037</span>Authentication and authorisation for the server</a></li><li><a href="../adr/0091-varve-protocol-and-varve-server.html"><span class="vd-num">0091</span>Varve.Protocol and Varve.Server: endpoint groups, the update seam, policy names</a></li><li><a href="../adr/0092-protocol-scope-problem-details-and-tie-breakers.html"><span class="vd-num">0092</span>Protocol scope, problem details, and the Oxigraph tie-breakers</a></li><li><a href="../adr/0093-datasets-are-the-routing-unit.html"><span class="vd-num">0093</span>Datasets are the routing unit; the name is the host&#x27;s</a></li><li><a href="../adr/0094-a-write-over-http-is-one-commit.html"><span class="vd-num">0094</span>A write over HTTP is one commit: agent, cause, Varve-Position, 409, 412</a></li><li><a href="../adr/0095-a-read-over-http-is-pinned-for-its-response.html"><span class="vd-num">0095</span>A read over HTTP is pinned for its response, bounded, and cut visibly</a></li><li><a href="../adr/0096-time-travel-over-http.html"><span class="vd-num">0096</span>Time travel over HTTP: Varve-As-Of, ETag, 304</a></li><li><a href="../adr/0097-the-change-feed-and-the-diff.html"><span class="vd-num">0097</span>The change feed and the diff: a line format, SSE for tailing</a></li><li><a href="../adr/0098-blank-nodes-at-the-protocol-boundary.html"><span class="vd-num">0098</span>Blank nodes at the protocol boundary: stable labels out, fresh in, no skolem IRIs (Q1)</a></li><li><a href="../adr/0099-register-jwtbearer-and-the-workflows-containers.html"><span class="vd-num">0099</span>Register: JwtBearer and Microsoft.IdentityModel.* in the server; no Testcontainers; the shared framework</a></li><li><a href="../adr/0100-authentication-tested-in-three-layers.html"><span class="vd-num">0100</span>Authentication tested in three layers</a></li><li><a href="../adr/0101-the-server-configuration-aot-shutdown-readiness.html"><span class="vd-num">0101</span>The server: configuration, Native AOT, shutdown, readiness, status</a></li><li><a href="../adr/0103-varve-protocol-client.html"><span class="vd-num">0103</span>Varve.Protocol.Client: the HTTP client at layer 5, and the endpoint policy</a></li><li><a href="../adr/0104-service-and-load-over-http.html"><span class="vd-num">0104</span>SERVICE and LOAD over HTTP</a></li><li><a href="../adr/0105-the-cli.html"><span class="vd-num">0105</span>The CLI varve: one executable with the server, embedded and remote modes, the credential file, System.CommandLine</a></li><li><a href="../adr/0106-the-admin-api.html"><span class="vd-num">0106</span>The admin API: datasets created, listed, opened, closed and deleted; settings; checkpoints; projection status</a></li><li><a href="../adr/0107-graph-level-authorisation.html"><span class="vd-num">0107</span>Graph-level authorisation: scoped grants, the scoped quad source, and the row-level boundary</a></li><li><a href="../adr/0108-bulk-resolve-on-worker-threads.html"><span class="vd-num">0108</span>The bulk load resolves and spills on worker threads</a></li><li><a href="../adr/0109-per-run-term-filters.html"><span class="vd-num">0109</span>Per-run term filters: derived format 3</a></li><li><a href="../adr/0110-the-shipped-runtime-configuration.html"><span class="vd-num">0110</span>The shipped runtime configuration: workstation concurrent GC, ConserveMemory, no heap limit of our own</a></li><li><a href="../adr/0111-the-container-image.html"><span class="vd-num">0111</span>The container image: ghcr.io/hafeok/varve, Native AOT per architecture, attested</a></li><li><a href="../adr/0112-telemetry-in-two-layers.html"><span class="vd-num">0112</span>Telemetry in two layers: the BCL instruments, the server exports</a></li><li><a href="../adr/0113-health-and-readiness.html"><span class="vd-num">0113</span>Health and readiness are different questions: /health/live, /health/ready</a></li><li><a href="../adr/0114-resource-governance.html"><span class="vd-num">0114</span>Resource governance: a stated answer for every limit</a></li><li><a href="../adr/0115-configuration-precedence-and-print-config.html"><span class="vd-num">0115</span>Configuration from file, environment and command line; --print-config; an unknown key refuses to start</a></li><li><a href="../adr/0116-the-lease-policy-and-varve-lease.html"><span class="vd-num">0116</span>The lease at start: a bounded wait, never a forced takeover; varve lease</a></li><li><a href="../adr/0117-varve-aspire.html"><span class="vd-num">0117</span>Varve.Aspire: the hosting integration</a></li><li><a href="../adr/0118-api-alignment-while-everything-is-preview.html"><span class="vd-num">0118</span>API alignment while everything is preview: every path a resource, every status code what HTTP says</a></li><li><a href="../adr/0119-headers-and-the-problem-catalogue.html"><span class="vd-num">0119</span>Headers by read kind, and a catalogue of every problem the server can emit</a></li><li><a href="../adr/0120-the-insert-data-fast-path.html"><span class="vd-num">0120</span>The INSERT DATA fast path: ground quads to the commit request</a></li><li><a href="../adr/0121-rdf-1-2-turtle-and-trig.html"><span class="vd-num">0121</span>RDF 1.2 Turtle and TriG are accepted; the edition decides a surrogate escape</a></li><li><a href="../adr/0122-rdf-xml-over-system-xml.html"><span class="vd-num">0122</span>RDF/XML over System.Xml, with its cost measured and a size at which to revisit</a></li><li><a href="../adr/0123-json-ld-over-utf8-json.html"><span class="vd-num">0123</span>JSON-LD 1.1 over Utf8JsonReader, as a tree in an arena; the direction is RDF 1.2&#x27;s by default</a></li><li><a href="../adr/0124-group-commit.html"><span class="vd-num">0124</span>Group commit: one storage write and one flush for the requests that wait</a></li><li><a href="../adr/0125-per-graph-optimistic-concurrency.html"><span class="vd-num">0125</span>Per-graph optimistic concurrency and the graph-version index</a></li><li><a href="../adr/0126-graph-versions-over-http.html"><span class="vd-num">0126</span>Graph versions over HTTP: ETag per graph, If-Match per graph, Varve-If-Graphs-Match</a></li><li><a href="../adr/0127-on-behalf-of-and-the-token-provider.html"><span class="vd-num">0127</span>On-behalf-of: the client&#x27;s token provider, azp on the span, and the attribution rule</a></li><li><a href="../adr/0128-varve-delta-and-the-read-forever-rule.html"><span class="vd-num">0128</span>Varve.Delta: the delta format as a package of its own, read for ever</a></li><li><a href="../adr/0129-following-the-commits-resource.html"><span class="vd-num">0129</span>Following the commits resource: FollowAsync, a checkpoint the caller owns, at least once</a></li><li><a href="../adr/0130-client-side-setup-and-system-graphs.html"><span class="vd-num">0130</span>Client-side setup: a declared dataset, migrations recorded as data, and the first system graph</a></li><li><a href="../adr/0131-hosting-the-client.html"><span class="vd-num">0131</span>Hosting the client: AddVarve, varve setup apply, and WithDataset&#x27;s setup</a></li><li><a href="../adr/0132-cors.html"><span class="vd-num">0132</span>CORS: configured origins, bearer tokens without credentials, and what a browser may read</a></li><li><a href="../adr/0133-packages-scoped-to-samples.html"><span class="vd-num">0133</span>Packages scoped to samples, and the register&#x27;s scope check</a></li><li><a href="../adr/0134-the-object-store-contract.html"><span class="vd-num">0134</span>The object-store contract: five operations, one package per provider, REST over HttpClient</a></li><li><a href="../adr/0135-the-log-as-chunk-objects.html"><span class="vd-num">0135</span>The log as write-once chunk objects, consolidated on seal</a></li><li><a href="../adr/0136-one-writer-by-an-epoch-and-a-log-slot-fence.html"><span class="vd-num">0136</span>One writer by an epoch, fenced by a log slot; no lease, no timer</a></li><li><a href="../adr/0137-storage-credentials-are-workload-identity.html"><span class="vd-num">0137</span>Storage credentials are the workload&#x27;s identity; a key only on loopback</a></li><li><a href="../adr/0138-validity-intervals-in-the-default-projection.html"><span class="vd-num">0138</span>Validity intervals in the default projection&#x27;s checkpoints</a></li><li><a href="../adr/0139-extents-and-the-projection-catalog.html"><span class="vd-num">0139</span>Extents and the projection catalog; derived format 4</a></li><li><a href="../adr/0140-what-varve-takes-from-azure-data-explorer.html"><span class="vd-num">0140</span>What Varve takes from Azure Data Explorer, and what it does not</a></li><li><a href="../adr/0141-realestatecore-as-the-reference-domain.html"><span class="vd-num">0141</span>RealEstateCore as the reference domain for learning and testing</a></li><li><a href="../adr/0142-deployment-on-container-apps-and-small-machines.html"><span class="vd-num">0142</span>Deployment: Azure Container Apps, the Aspire Azure variant, small machines</a></li><li><a href="../adr/0143-domain-events-as-cloudevents.html"><span class="vd-num">0143</span>Domain events as quads, rendered as CloudEvents in canonical JSON</a></li><li><a href="../adr/0144-the-event-catalogue.html"><span class="vd-num">0144</span>The event catalogue: declarations as data, one graph per source graph, governed by it</a></li><li><a href="../adr/0145-the-event-schema-registry.html"><span class="vd-num">0145</span>The event schema registry: versions, immutable revisions, compatibility checked at commit</a></li><li><a href="../adr/0146-the-register-for-events.html"><span class="vd-num">0146</span>The register for events: the Event Hubs SDK in a sample, a schema validator in tests, and the emulator&#x27;s images</a></li><li><a href="../adr/0147-varve-json-canonical.html"><span class="vd-num">0147</span>Varve.Json.Canonical: one RFC 8785 implementation, at layer 0</a></li><li><a href="../adr/0148-varve-shacl-and-varve-shacl-sparql.html"><span class="vd-num">0148</span>Varve.Shacl at layer 3, Varve.Shacl.Sparql at layer 4</a></li><li><a href="../adr/0149-the-shacl-conformance-baseline.html"><span class="vd-num">0149</span>The SHACL conformance baseline: the 2017 suites gate, the 1.2 drafts pinned</a></li><li><a href="../adr/0150-recursive-shapes-stratified-greatest-fixpoint.html"><span class="vd-num">0150</span>Recursive shapes: stratified, the greatest fixpoint in each stratum, refused statically otherwise</a></li><li><a href="../adr/0151-shacl-inputs-failures-and-instances.html"><span class="vd-num">0151</span>SHACL inputs, failures and SHACL instances</a></li><li><a href="../adr/0152-shacl-paths-in-varve-shacl.html"><span class="vd-num">0152</span>SHACL paths are evaluated in Varve.Shacl, and agree with the evaluator&#x27;s</a></li><li><a href="../adr/0153-xpath-regular-expressions-in-varve-xsd.html"><span class="vd-num">0153</span>XPath regular expressions are translated once, in Varve.Xsd</a></li><li><a href="../adr/0154-the-validation-report-deterministic-rdf.html"><span class="vd-num">0154</span>The validation report is deterministic RDF, and keeps the data&#x27;s blank nodes</a></li><li><a href="../adr/0155-a-minimal-public-shacl-api.html"><span class="vd-num">0155</span>A minimal public SHACL API, and the shapes model kept internal</a></li><li><a href="../adr/0156-dotnetrdf-shacl-for-benchmarks-and-as-an-oracle.html"><span class="vd-num">0156</span>dotNetRdf.Shacl for the benchmarks and as a differential oracle</a></li><li><a href="../adr/0157-shapes-for-event-declarations.html"><span class="vd-num">0157</span>SHACL shapes for the event declaration vocabulary, shipped with Varve.Events</a></li><li><a href="../adr/0169-commit-time-gating-under-a-shapes-binding.html"><span class="vd-num">0169</span>Varve.Shacl.Store: commit-time gating under a shapes binding</a></li><li><a href="../adr/0170-the-shapes-binding-vocabulary.html"><span class="vd-num">0170</span>The shapes binding vocabulary</a></li><li><a href="../adr/0171-which-shapes-are-incrementally-maintainable.html"><span class="vd-num">0171</span>Which shapes are incrementally maintainable: footprints, anchors and three classes</a></li><li><a href="../adr/0172-varve-derivation.html"><span class="vd-num">0172</span>Varve.Derivation: delta-driven maintenance at layer 2</a></li><li><a href="../adr/0173-the-validation-report-on-the-commit.html"><span class="vd-num">0173</span>The validation report on the commit: a reference and a digest</a></li><li><a href="../adr/0174-the-validation-projection.html"><span class="vd-num">0174</span>The validation projection and its reserved graph</a></li><li><a href="../adr/0175-shapes-validate-varves-declarations.html"><span class="vd-num">0175</span>Shapes validate Varve&#x27;s own declarations</a></li><li><a href="../adr/0176-the-rec-gate.html"><span class="vd-num">0176</span>The REC gate: its shapes composition, and three ways that agree</a></li><li><a href="../adr/0163-the-management-plane.html"><span class="vd-num">0163</span>The management plane: a fleet system dataset, declarations as code, varve apply</a></li><li><a href="../adr/0164-the-tier-1-follower.html"><span class="vd-num">0164</span>The tier-1 follower: a dataset that tails its writer&#x27;s log on the same store</a></li><li><a href="../adr/0165-the-management-position-on-the-commit.html"><span class="vd-num">0165</span>The management position on the commit: a host attachment, no format change</a></li><li><a href="../adr/0166-varve-management-and-the-vocabulary.html"><span class="vd-num">0166</span>Varve.Management and the management vocabulary</a></li><li><a href="../adr/0168-write-routing-by-forwarding.html"><span class="vd-num">0168</span>Write routing by forwarding: the writer directory, the hop rule and the internal address</a></li><li><a href="../adr/0167-event-declarations-move-to-the-management-plane.html"><span class="vd-num">0167</span>Event declarations move to the management plane</a></li><li><a href="../adr/0158-background-extent-merges.html"><span class="vd-num">0158</span>Background merges of extent sets: only the writer merges, and a merge rebases on the catalog</a></li><li><a href="../adr/0159-the-extent-merge-policy.html"><span class="vd-num">0159</span>The extent merge policy: size-tiered with a fan-out and a cap</a></li><li><a href="../adr/0160-extent-deletion-by-reader-announcements.html"><span class="vd-num">0160</span>Extent deletion by reader announcements: readers announce an interval, and no timer</a></li><li><a href="../adr/0161-the-shared-commit-index.html"><span class="vd-num">0161</span>The shared commit index: each extent set carries its window&#x27;s commit index</a></li><li><a href="../adr/0162-storage-operations-and-the-readers-command.html"><span class="vd-num">0162</span>Storage operations: varve storage, the readers command, readiness, and the operator guide</a></li><li><a href="../adr/0177-seek-dont-narrow-intervals-beside-the-key.html"><span class="vd-num">0177</span>Seek, don&#x27;t narrow: an extent&#x27;s intervals beside its keys, derived format 5</a></li><li><a href="../adr/0178-the-format-5-upgrade-and-the-set-cap.html"><span class="vd-num">0178</span>The format-5 upgrade, mixed-version instances, and the set cap</a></li><li><a href="../adr/0179-writer-handover-within-a-store.html"><span class="vd-num">0179</span>Writer handover within a store: two triggers, an epoch claimed in the writer record, a log slot as the fence</a></li><li><a href="../adr/0180-warm-standbys-and-the-writer-set.html"><span class="vd-num">0180</span>Warm standbys and the writer set: placedOn ∪ standbyOn, placement by events, and what warm means</a></li><li><a href="../adr/0181-handover-automation.html"><span class="vd-num">0181</span>Handover automation: the orchestrator judges liveness, one idempotent command acts, and the two-app layout keeps restart</a></li><li><a href="../adr/0190-entailments-under-graph-level-grants.html"><span class="vd-num">0190</span>Entailments under graph-level grants</a></li><li><a href="../adr/0191-the-inference-packages-and-their-layers.html"><span class="vd-num">0191</span>The inference packages and their layers</a></li><li><a href="../adr/0192-entailment-regimes-over-http.html"><span class="vd-num">0192</span>Entailment regimes over HTTP: the Varve-Entailment header and the service description</a></li><li><a href="../adr/0193-rdfs-rdf-and-d-by-rewriting.html"><span class="vd-num">0193</span>RDF, RDFS and D entailment by query rewriting</a></li><li><a href="../adr/0194-the-tbox-binding-vocabulary.html"><span class="vd-num">0194</span>The TBox binding vocabulary</a></li><li><a href="../adr/0200-varve-webui-a-blazor-webassembly-host.html"><span class="vd-num">0200</span>Varve.WebUi: a Blazor WebAssembly host at layer 6, and what Blazor costs</a></li><li><a href="../adr/0201-the-web-uis-own-oidc-client.html"><span class="vd-num">0201</span>The Web UI&#x27;s own OIDC client: one token per plane</a></li><li><a href="../adr/0202-serving-the-web-ui-and-its-content-security-policy.html"><span class="vd-num">0202</span>Serving the Web UI, and its Content Security Policy</a></li><li><a href="../adr/0203-typed-reads-in-the-protocol-client.html"><span class="vd-num">0203</span>Typed reads in Varve.Protocol.Client: health, problems, response facts and the management plane</a></li><li><a href="../adr/0204-test-dependencies-for-the-web-ui.html"><span class="vd-num">0204</span>Test dependencies for the Web UI: bUnit, Playwright on the runner&#x27;s Chrome, axe-core</a></li><li><a href="../adr/0205-the-web-uis-size-budget-and-no-aot.html"><span class="vd-num">0205</span>The Web UI&#x27;s size budget, and why it is not AOT-compiled</a></li><li><a href="../adr/0206-the-web-ui-design-source.html"><span class="vd-num">0206</span>The Web UI&#x27;s design source, its levels, and the markup contract</a></li><li><a href="../adr/0213-cached-derived-data-is-verified-before-use.html"><span class="vd-num">0213</span>Cached derived data is verified before use: a check per block, and damage is a miss</a></li><li><a href="../adr/0224-supply-chain-transparency.html"><span class="vd-num">0224</span>Supply chain transparency: SBOMs, the dependency gate and vulnerability handling</a></li><li><a href="../adr/0225-the-sbom-generator.html"><span class="vd-num">0225</span>The SBOM generator: eng/sbom.cs, SPDX 2.3, from the restore</a></li><li><a href="../adr/0226-cli-distribution.html"><span class="vd-num">0226</span>CLI distribution: Native AOT binaries for six RIDs, a keyless Homebrew tap, winget manifests submitted by the maintainer</a></li><li><a href="../adr/0227-the-public-api-freeze-gate.html"><span class="vd-num">0227</span>The public API freeze gate: each package against its published nupkg, a break marked or refused</a></li><li><a href="../adr/0230-rows-data-subjects-and-visibility.html"><span class="vd-num">0230</span>Rows, data subjects and visibility</a></li><li><a href="../adr/0231-the-classifier-and-selector-contracts.html"><span class="vd-num">0231</span>The classifier and selector contracts, without erasure mode</a></li><li><a href="../adr/0232-the-shape-derived-classifier.html"><span class="vd-num">0232</span>The shape-derived classifier, in Varve.Classification</a></li><li><a href="../adr/0233-the-classification-projection.html"><span class="vd-num">0233</span>The classification projection</a></li><li><a href="../adr/0234-subject-scoped-grants-and-the-classifier-binding.html"><span class="vd-num">0234</span>Subject-scoped grants and the classifier binding</a></li><li><a href="../adr/0235-the-row-scoped-quad-source-and-the-read-filters-cost.html"><span class="vd-num">0235</span>The row-scoped quad source and the read filter&#x27;s cost</a></li><li><a href="../adr/0236-the-row-level-write-rule.html"><span class="vd-num">0236</span>The row-level write rule</a></li><li><a href="../adr/0237-rows-on-every-surface.html"><span class="vd-num">0237</span>Rows on every surface</a></li><li><a href="../adr/0238-inference-under-row-scoped-grants.html"><span class="vd-num">0238</span>Inference under row-scoped grants</a></li><li><a href="../adr/0239-the-maintainers-delegate.html"><span class="vd-num">0239</span>The maintainer&#x27;s delegate</a></li><li><a href="../adr/0223-provider-legs-by-federated-credentials.html"><span class="vd-num">0223</span>The provider legs by federated credentials: GitHub&#x27;s OIDC token for Entra ID and Google</a></li><li><a href="../adr/0241-model-names-refused-identifiers-allowed.html"><span class="vd-num">0241</span>A commit message never names a model; a model&#x27;s identifier is allowed</a></li><li><a href="../adr/0243-chain-builds-ahead-of-main.html"><span class="vd-num">0243</span>Chain builds ahead of main, and landing trains</a></li><li><a href="../adr/0242-problems-that-say-what-to-do.html"><span class="vd-num">0242</span>Problems that say what to do</a></li><li><a href="../adr/0245-the-web-ui-in-the-container-image.html"><span class="vd-num">0245</span>The Web UI in the container image, served by default, with its settings from the server</a></li><li><a href="../adr/0246-client-idempotency-keys.html"><span class="vd-num">0246</span>Client idempotency keys, scoped to the agent: a retried write commits once</a></li><li><a href="../adr/0247-the-docs-site.html"><span class="vd-num">0247</span>The docs site: a generator in eng/ on Markdig, Mermaid drawn at build time, no script</a></li><li><a href="../adr/0038-upstream-contribution-policy.html"><span class="vd-num">0038</span>Upstream contribution to Oxigraph and the shared test suites</a></li><li><a href="../adr/0039-repo-standard.html"><span class="vd-num">0039</span>repo-standard: repository settings as code, built here and moving out</a></li><li><a href="../adr/0214-file-backend-failure-injection.html"><span class="vd-num">0214</span>File-backend failure injection: four faults, at every point, on simulated and on real files</a></li><li><a href="../adr/0215-the-soak-gate-run-and-judged.html"><span class="vd-num">0215</span>The soak gate, run and judged: a bounded vocabulary, four hours, a judge, and Windows weekly</a></li><li><a href="../adr/0216-the-format-inventory.html"><span class="vd-num">0216</span>The format inventory: fixtures written by the releases that introduced them, and the format gate</a></li><li><a href="../adr/0217-coordination-records-read-conservatively.html"><span class="vd-num">0217</span>Coordination records read conservatively: an unknown format is never written on, an unknown value never acted on</a></li><li><a href="../adr/0240-resident-memory-is-bounded-by-data-and-configuration.html"><span class="vd-num">0240</span>Resident memory is bounded by data and by configuration, never by commits</a></li><li><a href="../adr/0244-memory-bounds-for-writing-checkpointing-and-reopening.html"><span class="vd-num">0244</span>Memory bounds for writing, checkpointing and reopening</a></li></ol></nav>
+
+</div>
+<footer class="vd-foot"><span>Built from <a href="https://github.com/Hafeok/Varve/tree/c754bcb7e1f0a2d4"><code>c754bcb7e1f0</code></a>. This page is <a href="https://github.com/Hafeok/Varve/blob/c754bcb7e1f0/docs/adr/README.md">docs/adr/README.md</a>.</span><span>MPL-2.0</span></footer>
+</body>
+</html>

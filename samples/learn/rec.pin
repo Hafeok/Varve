@@ -1,0 +1,4 @@
+# The REC release the learning track is written against (#94, ADR 0141).
+# A different tag, or a change to its files, fails Varve.Learn.Tests.
+tag: v4.1.0
+SHA256SUMS: 412c8a2f9b6270ffd7daec31a042fc80b8dfaa944188c62cb3afd96c3a6254e4

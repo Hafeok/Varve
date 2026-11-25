@@ -111,6 +111,53 @@ public sealed class RecPortfolioTests
         Assert.InRange(stats.RetractedShareAfterBuild, 15, 30);
     }
 
+    /// <summary>
+    /// Links between buildings (ADR 0141, amended 2026-11-18): with none, the
+    /// history is the one without the parameter, byte for byte; with some,
+    /// the history between links is still that one, every link joins two
+    /// sites' graphs, a removal retracts what an addition asserted, and the
+    /// same seed and density give the same bytes.
+    /// </summary>
+    [Fact]
+    public void links_between_buildings_leave_the_history_between_them_as_it_was()
+    {
+        List<RecCommit> plain = [.. RecPortfolio.Generate(RecSize.S, Seed)];
+        Assert.Equal(Bytes(plain), Bytes(RecPortfolio.Generate(RecSize.S, Seed, linksPerMille: 0)));
+
+        foreach (int density in new[] { 20, 200 })
+        {
+            List<RecCommit> linked = [.. RecPortfolio.Generate(RecSize.S, Seed, density)];
+            Assert.Equal(Bytes(linked), Bytes(RecPortfolio.Generate(RecSize.S, Seed, density)));
+            Assert.Equal(Bytes(plain), Bytes(linked.Where(c => !c.Kind.StartsWith("link-", StringComparison.Ordinal))));
+
+            HashSet<RecQuad> live = [];
+            int added = 0;
+            foreach (RecCommit commit in linked.Where(c => c.Kind.StartsWith("link-", StringComparison.Ordinal)))
+            {
+                if (commit.Kind == "link-added")
+                {
+                    added++;
+                    Assert.Equal(2, commit.Asserted.Count);
+                    Assert.NotEqual(commit.Asserted[0].Graph, commit.Asserted[1].Graph);
+                    Assert.All(commit.Asserted, q => Assert.True(live.Add(q)));
+                }
+                else
+                {
+                    Assert.All(commit.Retracted, q => Assert.True(live.Remove(q)));
+                }
+            }
+
+            Assert.InRange(added, density * 4 / 10, density * 2);
+        }
+    }
+
+    private static string Bytes(IEnumerable<RecCommit> history)
+    {
+        using MemoryStream bytes = new();
+        RecPortfolio.Write(history, bytes);
+        return Convert.ToHexStringLower(SHA256.HashData(bytes.ToArray()));
+    }
+
     internal sealed record Stats(int Commits, long Head, long Asserted, long Retracted, long RetractedShareAfterBuild)
     {
         public override string ToString() =>

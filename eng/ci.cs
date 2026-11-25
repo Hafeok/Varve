@@ -172,7 +172,7 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     // README.md ships in every package; its Status section and the roadmap's
     // headings are a checked projection (ADR 0102).
-    ("status", "README.md's status and docs/roadmap.md's headings match the releases, the baseline and the projects",
+    ("status", "README.md's status and docs/roadmap.md's headings match the releases, the baseline and the projects, and the object-store compatibility page is its generation",
         () => Run("dotnet", ["run", "eng/status.cs", "--", "--check"])),
 
     ("status-fixtures", "the status check fails each of its fixtures, for its own reason",
@@ -240,6 +240,16 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("site-script-fixture", "the docs site build refuses a page that holds a script",
         () => Run("dotnet", ["run", "--project", "eng/site", "-p:RestoreLockedMode=true", "--", "build", "--root", "tests/fixtures/site/script", "--out", "artifacts/site-script-fixture", "--commit", "0000000000000000000000000000000000000000"]) == 1 ? 0 : 1),
 
+    // ADR 0248 (#129): every procedure in the operator's guide names the
+    // job that runs it, or why none can; --report lists the second kind.
+    ("procedures", "every procedure in the operator's guide names a job that exists, or says why no job runs it",
+        () => Run("dotnet", ["run", "eng/procedures.cs", "--", "--report"])),
+
+    // Both of its paths (tests/fixtures/procedures/README.md).
+    ("procedures-fixtures", "the procedure marker gate fails its failing fixture and passes its passing one",
+        () => Run("dotnet", ["run", "eng/procedures.cs", "--", "--root", "tests/fixtures/procedures/failing"]) == 1
+            && Run("dotnet", ["run", "eng/procedures.cs", "--", "--root", "tests/fixtures/procedures/passing"]) == 0 ? 0 : 1),
+
     ("lockfiles", "every lockfile was written with global.json's SDK, before a locked restore says so less clearly",
         () => Run("dotnet", ["run", "eng/lockfiles.cs", "--", "--check"])),
 
@@ -280,6 +290,18 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("build-benchmarks", "the benchmark project builds; it is not run",
         () => Run("dotnet", ["build", "tests/Varve.Benchmarks/Varve.Benchmarks.csproj", "--configuration", "Release"])),
 
+    // ADR 0249 (#94): the learning track's pages quote what its samples
+    // print, byte for byte, and its terms come in the order of
+    // docs/learn/terms.md. --run builds each sample against src/, runs it,
+    // and compares every section and the final state with expected/; it
+    // then runs the static checks.
+    ("learn", "the learning track: every sample runs and prints what expected/ holds, every page quotes it, no REC term before its chapter, samples reference only packable projects",
+        () => Run("dotnet", ["run", "eng/learn.cs", "--", "--run"])),
+
+    // Its failure paths (tests/fixtures/learn/README.md).
+    ("learn-fixtures", "the learning track's gate fails each of its fixtures, for its own reason, and passes its passing one",
+        () => Run("dotnet", ["run", "eng/learn.cs", "--", "--fixtures", "tests/fixtures/learn"])),
+
     // The soak judge's failure path (ADR 0215): every fixture is judged as
     // its name says, a run that misses with 1 and one it cannot judge with 2
     // (tests/fixtures/soak-judge/README.md). The soak itself runs in the
@@ -310,6 +332,9 @@ List<(string Name, string Description, Func<int> Run)> jobs =
     ("test-rec", "the REC portfolio generator: the vendored release, REC's terms, the same bytes for each seed and size",
         () => Test("Varve.Rec.Tests")),
 
+    ("test-learn", "the learning track's data: the slice and every sample's final state conform to the pinned REC 4 shapes, and the pin holds",
+        () => Test("Varve.Learn.Tests")),
+
     ("test-json-canonical", "Varve.Json.Canonical: RFC 8785's vectors, Node's numbers as the oracle, the writer's refusals",
         () => Test("Varve.Json.Canonical.Tests")),
 
@@ -318,6 +343,10 @@ List<(string Name, string Description, Func<int> Run)> jobs =
 
     ("test-sparql-entailment", "Varve.Sparql.Entailment: rewriting equals the forward-chained closure under RDF, RDFS and D, in the default graph, a named graph and under GRAPH ?g, the answer conditions, literals by value",
         () => Test("Varve.Sparql.Entailment.Tests")),
+    ("test-inference", "Varve.Inference: the closure maintained by insertion and retraction equals the closure from scratch at every commit, for each retraction strategy",
+        () => Test("Varve.Inference.Tests")),
+    ("test-inference-store", "Varve.Inference.Store: every read of the projection at every position is the closure of that position, held or from scratch, under every history ceiling, and a binding past its memory limit stops",
+        () => Test("Varve.Inference.Store.Tests")),
 
     ("test-events", "Varve.Events: rendering replayed byte for byte, the number rule, schema golden files, compatibility, the catalogue's three views, AsyncAPI 3.0, the declaration shapes' agreement with the code",
         () => Test("Varve.Events.Tests")),

@@ -1,0 +1,11 @@
+format: 1
+provider: "example-store"
+server-version: "1.2.3"
+deployment: "a test, \"in memory\""
+suite: 1
+date: "2026-11-16"
+racers: 16
+rounds: 8
+result: pass
+run-by: "ci"
+signed-off-by: "A Tester <tester@example.org>"

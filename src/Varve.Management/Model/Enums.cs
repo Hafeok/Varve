@@ -84,6 +84,12 @@ public enum TBoxProfile : byte
 {
     /// <summary><c>varve:Rewriting</c>: a query is rewritten against the TBox (tier 1); nothing is materialised.</summary>
     Rewriting,
+
+    /// <summary><c>varve:RDFS</c>: the RDFS entailment rules, materialised by the inference projection (ADR 0197); tier 1 still answers <c>rdf</c>, <c>rdfs</c> and <c>d</c>.</summary>
+    Rdfs,
+
+    /// <summary><c>varve:OWL2RL</c>: OWL 2 RL/RDF over the RDFS rules, with <c>sameAs</c> off, materialised (ADR 0197).</summary>
+    Owl2Rl,
 }
 
 /// <summary>What a shapes binding does to a commit: <c>varve:validationMode</c> (ADR 0170).</summary>

@@ -14,7 +14,10 @@ namespace Varve.Rdf.Tests;
 /// The governing-graph seam (ADR 0107, amended 2026-10-15): a governed graph is
 /// allowed exactly when its governor is, by every path a scope decides, and a
 /// grant naming the governed graph itself has no effect. The rule here is a
-/// test's own: "http://gov/{x}" is governed by "http://ex/{x}".
+/// test's own: "http://gov/{x}" is governed by "http://ex/{x}". Governed by
+/// a set (ADR 0190 point 6): "http://set/ab" by "http://ex/a" and
+/// "http://ex/b", "http://set/a-default" by "http://ex/a" and the default
+/// graph, allowed exactly when every governor is.
 /// </summary>
 public class GovernedGraphTests
 {
@@ -38,7 +41,35 @@ public class GovernedGraphTests
         return false;
     }
 
-    private static readonly string[] Names = ["http://ex/a", "http://ex/b", "http://gov/a", "http://gov/b", "http://gov/default", "http://other/c"];
+    private static bool SetRule(RdfTerm graph, out IReadOnlyList<RdfTerm?>? governors)
+    {
+        governors = Encoding.UTF8.GetString(graph.Lexical) switch
+        {
+            "http://set/ab" => [Iri("http://ex/a"), Iri("http://ex/b")],
+            "http://set/a-default" => [Iri("http://ex/a"), null],
+            _ => null,
+        };
+        return governors is not null;
+    }
+
+    private static readonly string[] Names = ["http://ex/a", "http://ex/b", "http://gov/a", "http://gov/b", "http://gov/default", "http://other/c", "http://set/ab", "http://set/a-default"];
+
+    [Fact]
+    public void a_graph_governed_by_a_set_needs_every_governor_and_not_its_own_grant()
+    {
+        GraphScope a = GraphScope.Of([Iri("http://ex/a"), Iri("http://set/ab")], [], DefaultGraphAccess.Excluded).WithGovernor(Rule).WithGovernors(SetRule);
+        GraphScope ab = GraphScope.Of([Iri("http://ex/a"), Iri("http://ex/b")], [], DefaultGraphAccess.Excluded).WithGovernors(SetRule).WithGovernor(Rule);
+        GraphScope withDefault = GraphScope.Of([Iri("http://ex/a")], [], DefaultGraphAccess.Included).WithGovernors(SetRule);
+
+        Assert.False(a.Allows(Iri("http://set/ab")));
+        Assert.True(a.Allows(Iri("http://gov/a")));
+        Assert.True(ab.Allows(Iri("http://set/ab")));
+        Assert.True(ab.Allows(Iri("http://gov/b")));
+        Assert.False(ab.Allows(Iri("http://set/a-default")));
+        Assert.True(withDefault.Allows(Iri("http://set/a-default")));
+        Assert.True(a.IsGoverned(Iri("http://set/ab")) && a.IsGoverned(Iri("http://gov/a")) && !a.IsGoverned(Iri("http://ex/a")));
+        Assert.Same(GraphScope.All, GraphScope.All.WithGovernors(SetRule));
+    }
 
     [Fact]
     public void a_governed_graph_follows_its_governor_and_not_its_own_grant()
@@ -79,7 +110,7 @@ public class GovernedGraphTests
                 starts.Add("http://gov/");
             }
 
-            GraphScope scope = GraphScope.Of([.. graphs], [.. starts], includesDefault ? DefaultGraphAccess.Included : DefaultGraphAccess.Excluded).WithGovernor(Rule);
+            GraphScope scope = GraphScope.Of([.. graphs], [.. starts], includesDefault ? DefaultGraphAccess.Included : DefaultGraphAccess.Excluded).WithGovernor(Rule).WithGovernors(SetRule);
             InMemoryDatasetBuilder builder = new();
             builder.Add(Iri("s"), Iri("p"), Iri("o"), null);
 
@@ -131,6 +162,16 @@ public class GovernedGraphTests
         if (name.StartsWith("http://gov/", StringComparison.Ordinal))
         {
             return Expected("http://ex/" + name["http://gov/".Length..], graphs, prefixes, includesDefault);
+        }
+
+        if (name == "http://set/ab")
+        {
+            return Expected("http://ex/a", graphs, prefixes, includesDefault) && Expected("http://ex/b", graphs, prefixes, includesDefault);
+        }
+
+        if (name == "http://set/a-default")
+        {
+            return Expected("http://ex/a", graphs, prefixes, includesDefault) && includesDefault;
         }
 
         return graphs.Exists(g => Encoding.UTF8.GetString(g.Lexical) == name) || prefixes.Exists(p => name.StartsWith(p, StringComparison.Ordinal));

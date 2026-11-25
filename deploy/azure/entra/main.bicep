@@ -2,11 +2,15 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// The two Entra registrations of the on-behalf-of chain (ADR 0127,
-// docs/operator/authenticate.md): Varve's API, with its app roles and the
-// delegated scope a calling application exchanges a user's token for, and one
-// calling application granted that scope with admin consent. Deployed at
-// tenant scope with the Microsoft Graph Bicep extension:
+// Varve's Entra registrations (ADR 0127, docs/operator/authenticate.md):
+// Varve's API, with its app roles and the delegated scope a calling
+// application exchanges a user's token for; the management plane's API, with
+// its operator role and a delegated scope of its own; one calling application
+// granted Varve's scope with admin consent; the deployer `varve apply` runs
+// as; the Web UI's single-page application and the `varve` command line's
+// public client, which a person signs in through for both planes; and the
+// client CI's provider leg runs as (ADR 0223). Deployed at tenant scope with
+// the Microsoft Graph Bicep extension:
 //
 //   az deployment tenant create --location westeurope --template-file main.bicep
 //
@@ -32,6 +36,14 @@ param githubDeployEnvironment string = 'varve-deploy'
 @description('The calling application\'s own application ID URI: the audience of the tokens its users send it.')
 param callerIdentifierUri string = 'api://varve-caller'
 
+@description('The Web UI\'s redirect URIs: each origin\'s `/ui/` the console is served at, https, or http on localhost only (ADR 0201).')
+param webUiRedirectUris array = [
+  'http://localhost:8080/ui/'
+]
+
+@description('The GitHub environment CI\'s provider leg runs in (ADR 0223): only the main branch may use it.')
+param githubProviderEnvironment string = 'auth-providers'
+
 @description('A suffix that keeps the registrations\' unique names apart between environments.')
 param environmentName string = 'default'
 
@@ -48,6 +60,7 @@ var adminRoleId = guid('varve', 'role', 'Varve.Admin')
 var accessAsUserId = guid('varve', 'scope', 'access_as_user')
 var callerAccessAsUserId = guid('varve-caller', 'scope', 'access_as_user')
 var operatorRoleId = guid('varve-manage', 'role', 'Varve.Operator')
+var manageAccessAsUserId = guid('varve-manage', 'scope', 'access_as_user')
 
 resource varve 'Microsoft.Graph/applications@v1.0' = {
   uniqueName: 'varve-api-${environmentName}'
@@ -124,6 +137,18 @@ resource management 'Microsoft.Graph/applications@v1.0' = {
   ]
   api: {
     requestedAccessTokenVersion: 2
+    // A person's own operator role, through the Web UI or the command line:
+    // the user is the agent, and Varve.Operator in their token decides.
+    oauth2PermissionScopes: [
+      {
+        id: manageAccessAsUserId
+        value: 'access_as_user'
+        type: 'Admin'
+        isEnabled: true
+        adminConsentDisplayName: 'Manage Varve as the signed-in user'
+        adminConsentDescription: 'Lets the Web UI or the varve command line call Varve\'s management plane on behalf of the signed-in user; the user\'s own roles decide what it may do.'
+      }
+    ]
   }
   appRoles: [
     {
@@ -275,6 +300,134 @@ resource signInConsent 'Microsoft.Graph/oauth2PermissionGrants@v1.0' = {
   scope: 'access_as_user'
 }
 
+// The Web UI (ADR 0201): a single-page application, so its token endpoint
+// answers CORS; authorisation code with PKCE, no secret. It asks for each
+// plane's access_as_user, one token per plane (ADR 0201 point 2).
+resource webUi 'Microsoft.Graph/applications@v1.0' = {
+  uniqueName: 'varve-webui-${environmentName}'
+  displayName: 'Varve Web UI'
+  signInAudience: 'AzureADMyOrg'
+  spa: {
+    redirectUris: webUiRedirectUris
+  }
+  requiredResourceAccess: [
+    {
+      resourceAppId: varve.appId
+      resourceAccess: [
+        {
+          id: accessAsUserId
+          type: 'Scope'
+        }
+      ]
+    }
+    {
+      resourceAppId: management.appId
+      resourceAccess: [
+        {
+          id: manageAccessAsUserId
+          type: 'Scope'
+        }
+      ]
+    }
+  ]
+}
+
+resource webUiPrincipal 'Microsoft.Graph/servicePrincipals@v1.0' = {
+  appId: webUi.appId
+}
+
+resource webUiDataConsent 'Microsoft.Graph/oauth2PermissionGrants@v1.0' = {
+  clientId: webUiPrincipal.id
+  resourceId: varvePrincipal.id
+  consentType: 'AllPrincipals'
+  scope: 'access_as_user'
+}
+
+resource webUiManageConsent 'Microsoft.Graph/oauth2PermissionGrants@v1.0' = {
+  clientId: webUiPrincipal.id
+  resourceId: managementPrincipal.id
+  consentType: 'AllPrincipals'
+  scope: 'access_as_user'
+}
+
+// The `varve` command line (ADR 0105): a public client a person signs in
+// through by device code, for either plane. No credential; the person's own
+// sign-in, with their MFA, is the only one. Its refresh token is kept in the
+// credential file unless --no-store.
+resource cli 'Microsoft.Graph/applications@v1.0' = {
+  uniqueName: 'varve-cli-${environmentName}'
+  displayName: 'Varve command line'
+  signInAudience: 'AzureADMyOrg'
+  isFallbackPublicClient: true
+  requiredResourceAccess: [
+    {
+      resourceAppId: varve.appId
+      resourceAccess: [
+        {
+          id: accessAsUserId
+          type: 'Scope'
+        }
+      ]
+    }
+    {
+      resourceAppId: management.appId
+      resourceAccess: [
+        {
+          id: manageAccessAsUserId
+          type: 'Scope'
+        }
+      ]
+    }
+  ]
+}
+
+resource cliPrincipal 'Microsoft.Graph/servicePrincipals@v1.0' = {
+  appId: cli.appId
+}
+
+resource cliDataConsent 'Microsoft.Graph/oauth2PermissionGrants@v1.0' = {
+  clientId: cliPrincipal.id
+  resourceId: varvePrincipal.id
+  consentType: 'AllPrincipals'
+  scope: 'access_as_user'
+}
+
+resource cliManageConsent 'Microsoft.Graph/oauth2PermissionGrants@v1.0' = {
+  clientId: cliPrincipal.id
+  resourceId: managementPrincipal.id
+  consentType: 'AllPrincipals'
+  scope: 'access_as_user'
+}
+
+// CI's provider leg (ADR 0223): client credentials whose only credential is
+// GitHub's OIDC token for the auth-providers environment, holding Varve.Write
+// as an application permission, so its writes name the client as their agent.
+resource providerLeg 'Microsoft.Graph/applications@v1.0' = {
+  uniqueName: 'varve-provider-leg-${environmentName}'
+  displayName: 'Varve CI provider leg'
+  signInAudience: 'AzureADMyOrg'
+}
+
+resource providerLegPrincipal 'Microsoft.Graph/servicePrincipals@v1.0' = {
+  appId: providerLeg.appId
+}
+
+resource providerLegWrites 'Microsoft.Graph/appRoleAssignedTo@v1.0' = {
+  appRoleId: writeRoleId
+  principalId: providerLegPrincipal.id
+  resourceId: varvePrincipal.id
+}
+
+resource providerLegFromGitHub 'Microsoft.Graph/applications/federatedIdentityCredentials@v1.0' = {
+  name: '${providerLeg.uniqueName}/github-${githubProviderEnvironment}'
+  audiences: [
+    'api://AzureADTokenExchange'
+  ]
+  issuer: 'https://token.actions.githubusercontent.com'
+  subject: 'repo:${githubRepository}:environment:${githubProviderEnvironment}'
+  description: 'GitHub Actions in ${githubRepository}, environment ${githubProviderEnvironment}: the Entra provider leg (ADR 0223).'
+}
+
 @description('The public client the on-behalf-of leg\'s user signs in through by device code.')
 output signInClientId string = signIn.appId
 
@@ -295,3 +448,18 @@ output managementAudience string = managementIdentifierUri
 
 @description('The deployer\'s client id: `varve apply --client-id`, with `--client-assertion github`.')
 output deployerClientId string = deployer.appId
+
+@description('The Web UI\'s client id: Varve:WebUi:Auth:ClientId, or the bundle\'s Varve:Auth:ClientId.')
+output webUiClientId string = webUi.appId
+
+@description('The Web UI\'s and the command line\'s scope for the data plane.')
+output dataScope string = '${varveIdentifierUri}/access_as_user'
+
+@description('The Web UI\'s and the command line\'s scope for the management plane.')
+output manageScope string = '${managementIdentifierUri}/access_as_user'
+
+@description('The command line\'s client id: `varve … --authority … --client-id`, by device code.')
+output cliClientId string = cli.appId
+
+@description('VARVE_ENTRA_CLIENT_ID in the auth-providers environment (ADR 0223); VARVE_ENTRA_AUDIENCE is varveAudience.')
+output providerLegClientId string = providerLeg.appId

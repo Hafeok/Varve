@@ -77,6 +77,34 @@ jobs:
           --hangdump
           --hangdump-timeout 5m
 
+      # The suite as an operator runs it, and its result record for the
+      # compatibility page (ADR 0183, #117). The container is the account's,
+      # so the record says the service's API version and the account's region,
+      # which the maintainer gives as the variable VARVE_AZURE_REGION. The
+      # record is this run's artifact: adding it under
+      # testdata/object-stores/results/ is a pull request's.
+      - name: varve storage verify against the container
+        env:
+          VARVE_AZURE_REGION: ${{ vars.VARVE_AZURE_REGION }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/object-store-results"
+          dotnet run --project src/Varve.Server/Varve.Server.csproj --configuration Release -- \
+            storage verify "${VARVE_AZURE_CONTAINER%/}" --rounds 20 \
+            --record "$GITHUB_WORKSPACE/artifacts/object-store-results/azure-blob-2025-11-05.yaml" \
+            --provider azure-blob --server-version 2025-11-05 \
+            --deployment "a real storage account, ${VARVE_AZURE_REGION:-region not stated}; x-ms-version 2025-11-05" \
+            --run-by maintainer --signed-off-by "Emil Okkels Klein <emil@okkels-klein.dk>"
+          cat "$GITHUB_WORKSPACE/artifacts/object-store-results/azure-blob-2025-11-05.yaml" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the result record
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: object-store-results-azure-blob
+          path: ${{ github.workspace }}/artifacts/object-store-results
+          if-no-files-found: warn
+
       - name: What-if for the Container Apps template
         env:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}

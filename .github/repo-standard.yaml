@@ -216,6 +216,11 @@ rulesets:
       - context: container (linux-x64)
       - context: container (linux-arm64)
       - context: aspire sample
+      # The learning track (ADR 0249): Linux and the trimmed run. ci.yml's
+      # Windows and macOS legs run on every pull request and become required
+      # after ten consecutive clean runs on main (#364).
+      - context: learn (ubuntu-latest)
+      - context: learn (trimmed)
   bypass_actors: []
 environments:
 # publish.yml's environment, named in nuget.org's trusted-publishing claim
@@ -266,6 +271,22 @@ environments:
 # manage variables); no secret is stored here. Only main deploys to it, as for
 # every environment a credential trusts (#101).
 - name: azure-objects
+  wait_timer: 0
+  prevent_self_review: false
+  reviewers: []
+  deployment_branch_policy:
+    protected_branches: false
+    custom_branch_policies: true
+  branch_policies:
+  - name: main
+  secrets: []
+# The contract suite against Amazon S3 (ADR 0183, #117): aws-objects.yml,
+# dispatched by the maintainer. It exchanges GitHub's OIDC token for this
+# environment at Amazon's STS for a role's temporary credentials, and reads
+# only identifiers, as variables; no secret is stored here. Only main deploys
+# to it, as for every environment a credential trusts (#101). Until the role
+# exists the variables are unset, and the leg skips, saying so (ADR 0223).
+- name: aws-objects
   wait_timer: 0
   prevent_self_review: false
   reviewers: []

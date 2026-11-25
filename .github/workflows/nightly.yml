@@ -36,7 +36,8 @@
 #
 # A dispatch on main runs one part when evidence is needed before a release:
 # `run` is the night's whole run, the store at full depth, the Linux soak or
-# the Windows soak.
+# the Windows soak; or, by hand, the premise sets of a cross-graph binding on
+# REC M with links between buildings (ADR 0195 point 3).
 #
 # A dispatch with `run: repeat`, on any branch, runs one named test filter N
 # times on one OS, under load if asked, and keeps the whole output of every
@@ -65,6 +66,8 @@ on:
           - store at full depth
           - linux soak
           - windows soak
+          - premise sets
+          - closure budget
           - repeat
       repeat-project:
         description: "repeat: the test project's directory"
@@ -292,6 +295,8 @@ jobs:
           VARVE_SPILL_DAMAGE_STRIDE: "1"
           # The fence after a consolidation (#181).
           VARVE_FENCE_SCHEDULES: "3000"
+          # The contract suite's races (ADR 0183, #117): 64 rounds of each.
+          VARVE_VERIFY_ROUNDS: "64"
         run: >
           dotnet test
           --project tests/Varve.Store.Tests/Varve.Store.Tests.csproj
@@ -329,7 +334,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [Varve.Derivation.Tests, Varve.Sparql.Entailment.Tests, Varve.Shacl.Tests, Varve.Shacl.Sparql.Tests, Varve.Shacl.Store.Tests]
+        project: [Varve.Derivation.Tests, Varve.Sparql.Entailment.Tests, Varve.Inference.Tests, Varve.Inference.Store.Tests, Varve.Shacl.Tests, Varve.Shacl.Sparql.Tests, Varve.Shacl.Store.Tests]
         # The leg's limit, and its budget's (#219).
         timeout: [300]
         include:
@@ -387,6 +392,132 @@ jobs:
         with:
           name: test-results-nightly-${{ matrix.project }}
           path: ${{ github.workspace }}/artifacts/test-results
+          if-no-files-found: warn
+
+  # Cross-graph premise sets on REC M with links between buildings (ADR 0190
+  # point 6; ADR 0195 point 3; ADR 0141, amended 2026-11-18), under OWL 2 RL
+  # with the benchmark axiom set (tests/Varve.Benchmarks/Axioms/rec-links.ttl,
+  # not part of REC as published): a cross-graph binding's merge of the first
+  # 7, 15, 31 and 63 site graphs, the live links and the closure's size at
+  # each, and the distinct premise sets of two graphs or more. Under RDFS no
+  # premise set crosses two data graphs, so RDFS is not run. The densities
+  # are bounded so the job ends within its limit. A measurement, never a
+  # gate: it fails only when the benchmark does not run to the end, and its
+  # numbers are read by hand.
+  premise-sets:
+    name: premise sets (REC M, owl2rl, ${{ matrix.run }})
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'premise sets')
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        # Links per thousand commits past the build, and the most graphs merged. At 20 the
+        # whole of REC M takes about 50 minutes on four cores; at 200 the premise sets
+        # grow faster than the graphs (15 graphs in 15 minutes, 31 in 74, #354), so
+        # the run stops at 15 to finish inside the job.
+        # One dimension, so required-checks can expand the name: the benchmark's arguments.
+        run: [links=20 graphs=63, links=200 graphs=15]
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        # REC 4.1.0 and its Brick are vendored under testdata/rec; no submodule.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build the benchmarks
+        run: dotnet build tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release
+
+      - name: Premise sets, REC M, owl2rl, ${{ matrix.run }}, the benchmark axioms
+        shell: bash
+        run: |
+          mkdir -p artifacts/premise-sets
+          out="artifacts/premise-sets/rec-m-owl2rl-${{ strategy.job-index }}.txt"
+          tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks --inference-premise-sets M owl2rl ${{ matrix.run }} axioms=links | tee "$out"
+          { echo '```'; cat "$out"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the measurement
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: premise-sets-owl2rl-${{ strategy.job-index }}
+          path: artifacts/premise-sets
+          if-no-files-found: warn
+
+  # The closure budget's margin (ADR 0195 point 6; #335):
+  # a from-scratch build, under both profiles, per graph and cross-graph, must
+  # finish under a hard heap limit of the heap before it and 0.9 of what its
+  # budget counted at peak. The cost figures were measured on REC S alone, so
+  # REC M is held to the same margin here; REC S is also bisected, to report
+  # how far under the count each build stays. Unlike the premise sets, this
+  # fails: a build that needs more than the budget assumes is #335 again.
+  closure-budget:
+    name: closure budget (REC ${{ matrix.run }})
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'closure budget')
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        # One dimension, so required-checks can expand the name: size, profile, build.
+        run: [S rdfs per-graph, S rdfs cross, S owl2rl per-graph, S owl2rl cross, M rdfs per-graph, M rdfs cross, M owl2rl per-graph, M owl2rl cross]
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        # REC 4.1.0 and its Brick are vendored under testdata/rec; no submodule.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build the benchmarks
+        run: dotnet build tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release
+
+      - name: The margin, REC ${{ matrix.run }}
+        shell: bash
+        run: |
+          read -r size profile mode <<< "${{ matrix.run }}"
+          bisect=; [ "$size" = S ] && bisect=bisect
+          mkdir -p artifacts/closure-budget
+          out="artifacts/closure-budget/rec-$size-$profile-$mode.txt"
+          tests/Varve.Benchmarks/closure-budget-margin.sh tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks \
+            "$size" "$profile" "$mode" $bisect | tee "$out"
+          status=${PIPESTATUS[0]}
+          { echo '```'; cat "$out"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload the measurement
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: closure-budget-${{ strategy.job-index }}
+          path: artifacts/closure-budget
           if-no-files-found: warn
 
   # REC M through the gate and the projection (ADR 0176), in shards (#219).
@@ -463,6 +594,48 @@ jobs:
           name: test-results-nightly-rec-m-${{ strategy.job-index }}
           path: ${{ github.workspace }}/artifacts/test-results
           if-no-files-found: warn
+
+  # The learning track (ADR 0249 points 6 and 7): every sample published
+  # trimmed on Windows and macOS (ci.yml runs Linux on every pull request),
+  # and built against the newest published Varve packages, as a reader
+  # restores them, with its output compared with the pages.
+  learn:
+    name: learn (${{ matrix.leg }})
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - leg: trimmed, win-x64
+            os: windows-latest
+            run: --trimmed win-x64
+          - leg: trimmed, osx-arm64
+            os: macos-15
+            run: --trimmed osx-arm64
+          - leg: published packages
+            os: ubuntu-latest
+            run: --packages
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Run every sample and compare
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.run }}" = "--packages" ]; then
+            # The newest release descriptor names the newest published version.
+            version=$(ls releases | sed -n 's/^v\(.*\)\.yaml$/\1/p' | sort -V | tail -n 1)
+            echo "Building the samples against Varve $version from nuget.org."
+            dotnet run eng/learn.cs -- --run --packages "$version"
+          else
+            dotnet run eng/learn.cs -- --run ${{ matrix.run }}
+          fi
 
   # The four-hour soak on Linux, every night (ADR 0215 point 6, amended
   # 2026-11-02): a preview checks its latest run here instead of running it.

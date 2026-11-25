@@ -10,6 +10,12 @@ request. The plan it follows was approved on #129 on 2026-10-27.
 dated amendment: what an open makes of a writer record it does not fully
 read.
 
+**Amended 2026-11-16** (ADR 0068), by Replication part 2 (#166) for #117,
+filed unaccepted (ADR 0066) and accepted by the maintainer on 2026-11-18: the verification
+record is read by this rule
+([ADR 0183](0183-object-store-verification-and-the-compatibility-page.md)).
+See the end.
+
 Records decision set [`coordination-records-read-conservatively`](../decisions/coordination-records-read-conservatively.md).
 
 ## Context
@@ -85,3 +91,18 @@ unknown value is held and never acted on.
 - **Analyzer rule.** None.
 - **Open questions owned.** The lineage record's rule is agreed with #175
   before it lands.
+
+## Amendment, 2026-11-16 — the verification record
+
+Filed unaccepted by Replication part 2 (#166) for #117 with ADR 0183
+(ADR 0066), and accepted by the maintainer on 2026-11-18.
+
+The verification record at a store's root (ADR 0183) is read by this ADR's
+rule, in the direction that is conservative for it: **a record of a format
+this version does not read, or one that does not parse, is not a
+verification.** Nothing is inferred from an unreadable record, and a later
+release's record of a known format is read with the members this version
+knows.
+
+**The ledger.** No ruling changes. The ruling is
+`TheVerificationRecordIsReadConservatively`, in ADR 0183's set.

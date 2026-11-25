@@ -9,9 +9,10 @@ or gets the dataset's default, and is answered as if every entailment of its
 graph and the TBox were asserted.
 
 This guide covers tier 1, the rewriting (#170): RDF, RDFS and D entailment,
-answered without materialising anything. The closure (OWL 2 RL, custom rules)
-and the commit-time validator are later parts of #95, and their terms are
-refused until then.
+answered without materialising anything; and tier 2, the materialised
+closure of a binding whose profile is `varve:RDFS` or `varve:OWL2RL` (#171,
+[below](#the-materialised-closure)). Custom rules and the commit-time
+validator are #95's last part, and their terms are refused until then.
 
 The decisions are ADRs 0190 (entailments under graph-level grants), 0191 (the
 packages), 0192 (the regimes over HTTP), 0193 (RDFS, RDF and D by rewriting)
@@ -22,6 +23,7 @@ and 0194 (the binding's vocabulary). The rewriting is `Varve.Sparql.Entailment`.
 A binding is a node in the dataset's management graph,
 `varve:manage/dataset/{name}`, beside the dataset's own declaration:
 
+<!-- ci: ci.yml build — TBoxBindingTests and EntailmentTests -->
 ```trig
 @prefix varve: <https://w3id.org/varve/ns#> .
 
@@ -55,11 +57,17 @@ Apply it with `varve apply`, or `PUT` it to `/manage/datasets/zoo`.
   `varve:defaultEntailment` state the same one.
 - **No templates.** A binding names no `varve:graphTemplate`: a template
   expands per caller, and a binding has no caller.
-- **Reserved.** The materialising profiles `varve:RDFS`, `varve:OWL2RL` and
-  `varve:RulesOnly`, and `varve:rulesGraph`, `varve:crossGraph`,
-  `varve:sameAs` and `varve:inconsistencyMode`, are refused, each with the
-  part of #95 that gives it effect. A declaration written for a later part is
-  refused, not silently ignored.
+- **The materialising profiles.** `varve:profile varve:RDFS` and
+  `varve:OWL2RL` are read (ADR 0197), with `varve:crossGraph true` and
+  `varve:sameAs varve:SameAsOff` on them, and `varve:defaultEntailment
+  ent:OWL-RDF-Based` on an `OWL2RL` binding only. Tier 1 still answers `rdf`,
+  `rdfs` and `d` over a materialising binding's graphs. A cross-graph binding
+  whose data graphs meet a classifier binding's is refused while a grant with
+  subject terms reads them (ADR 0238 point 3).
+- **Reserved.** `varve:RulesOnly`, `varve:rulesGraph`, `varve:SameAsClasses`
+  and `varve:inconsistencyMode` are refused, each with the part of #95 that
+  gives it effect. A declaration written for a later part is refused, not
+  silently ignored.
 
 ## Who reads the TBox
 
@@ -77,6 +85,7 @@ it, not before) and **narrows**. The saved plan's JSON carries the list as
 `datasetPublic`, written only when the apply names one: a plan without is
 format 1 as earlier releases wrote it.
 
+<!-- ci: ci.yml build — TBoxBindingTests asserts this text -->
 ```text
 System position 41
 Dataset-public graphs, read by every reader of their dataset:
@@ -115,7 +124,9 @@ The value may also be the regime's IRI in angle brackets,
 From the command line, `varve query <url> --entailment rdfs`; from
 `Varve.Protocol.Client`, `QueryAsync(query, accept, asOf, "rdfs", …)`. A
 local `varve query` over a dataset directory answers under simple entailment
-only, since the bindings are a server's declarations.
+only, since the bindings are a server's declarations: asked for `rdf`, `rdfs`
+or `d` there, it refuses with exit code 1 and says to name the dataset by
+URL.
 
 ## What a query sees
 
@@ -141,6 +152,100 @@ only, since the bindings are a server's declarations.
 The description names the dataset's default as `sd:defaultEntailmentRegime`
 and says `sd:feature varve:EntailmentHeader`. Each `sd:NamedGraph` a binding
 covers carries one `sd:entailmentRegime` per regime served for it.
+
+## The materialised closure
+
+A binding whose profile is `varve:RDFS` or `varve:OWL2RL` is **materialised**
+(ADRs 0195–0198): each instance holding the dataset keeps the binding's
+closure, every quad its rules entail, commit by commit, in memory. Tier 1
+still answers `rdf`, `rdfs` and `d` over the same graphs.
+
+**Where a conclusion is.** A conclusion drawn from the TBox graphs alone is in
+the binding's reserved graph,
+`https://w3id.org/varve/ns#inferred/{enc(binding IRI)}/tbox`, which every
+reader of the dataset reads. Any other is in the data graph it was drawn in,
+read by that graph's readers.
+
+**Across graphs.** A binding with `varve:crossGraph true` closes the merge
+of its data graphs (ADR 0190 point 6). A conclusion is placed once for each
+smallest set of data graphs it can be drawn from: one graph's conclusion in
+that graph, and one drawn from two or more graphs in the set's own reserved
+graph, `https://w3id.org/varve/ns#inferred/{enc(binding IRI)}/{d}`, `d` the
+hex SHA-256 of the set's graph IRIs. A caller reads such a graph only when it
+reads every graph of its set, and only by naming it. Each data commit
+recomputes the sets over the whole closure, so a cross-graph binding's
+commits cost more than an intra-graph one's; readiness counts its reserved
+graphs as `premiseSets`.
+
+**Reading it.**
+- `FROM <https://w3id.org/varve/ns#implicit>` reads the implicit part of the
+  query's other `FROM` graphs, or of the default graph when there are none;
+  `varve:explicit` the explicit part; both, the union. In `FROM NAMED`, each
+  named graph is read in that part, and `GRAPH ?g` binds the real graph. A
+  view counts as a `FROM`, and combines with `simple` and `owl2-rl` only.
+- `GRAPH <…/inferred/…/tbox>`, `FROM NAMED` of it, or a Graph Store `GET`
+  reads a binding's TBox conclusions.
+- `Varve-Entailment: owl2-rl` reads every graph as explicit ∪ implicit, on a
+  dataset with an `OWL2RL` binding. What it serves is OWL 2 RL **without the
+  equality rules** (`varve:SameAsOff`, the only setting in this part), and
+  the answer says where it is narrower than the request (ADR 0197
+  points 4, 6 and 9):
+  - **`Varve-Equality: not-applied`** on every `owl2-rl` answer: no
+    `owl:sameAs` was substituted through, so an answer that needs it is
+    missing.
+  - **`Varve-Closure: per-graph`** when the default graph merges two or more
+    graphs (`FROM g1 FROM g2`, or two `default-graph-uri`s) and the answer is
+    each graph's closure, merged, not the closure of the merge: a conclusion
+    drawn from facts of two graphs together is missing. When one binding
+    with `varve:crossGraph true` covers every merged graph, the merge also
+    reads that binding's premise-set graphs within it, is the closure of the
+    merge, and carries no header; a merge that names a view, and an as-of
+    read, are always per-graph.
+  - **`Varve-Inconsistent: true`** when a graph it reads holds a clash.
+  - **`Varve-Without-Closure`** when `GRAPH ?g` ranged over named graphs no
+    `OWL2RL` binding covers: it lists them (at most twenty, then `+N more`),
+    and their rows are explicit quads only.
+
+  `SparqlHttpClient.EntailedAnswerOf(response)` reads all four. **A graph
+  no `OWL2RL` binding covers**, named by `FROM`, `FROM NAMED`, the protocol
+  or `GRAPH <g>`, is refused
+  [`400 entailment-unsupported`](../problems/entailment-unsupported.md),
+  naming it; so is a view naming a graph no materialising binding covers.
+- **The service description** describes each graph an `OWL2RL` binding
+  covers with `sd:entailmentRegime ent:OWL-RDF-Based`,
+  `sd:supportedEntailmentProfile varve:OWL2RLWithoutEquality` and
+  `varve:sameAs varve:SameAsOff`. It never claims `pr:RL`, the W3C profile,
+  which includes the equality rules; part 3's `varve:SameAsClasses` will.
+- A read that names none of these reads nothing of the closure and never
+  waits for it. None of them is ever written (`graph-not-writable`).
+
+**When it cannot answer.**
+- A projection not at the read's position after a two-second wait:
+  [`503 inference-behind`](../problems/inference-behind.md).
+- A binding stopped by `Varve:Inference:ClosureBytes`, or because its
+  projection failed:
+  [`503 inference-unavailable`](../problems/inference-unavailable.md), with
+  no `Retry-After`: `failure` `configuration` at the memory limit, `defect`
+  when the projection failed. Nothing tries it again automatically: a
+  restart, with the limit raised, or a change to the binding's declaration
+  builds it again; a defect needs an upgrade first, and a report (the
+  problem page says which act does what). A store that fails to
+  answer stops nothing: the binding holds off and resumes where it was.
+- A caller whose grant restricts rows over the binding's graphs:
+  [`403 entailment-not-available`](../problems/entailment-not-available.md).
+
+**History.** A read as of an older position is answered from the rows the
+projection holds, up to `Varve:Inference:HistoryBytes`, and below them, or
+below the position the instance started at, by computing the closure as of
+that position, on every instance and after every restart. That costs a
+closure from scratch; the [configuration](configure.md#inference) page has
+the settings.
+
+**On readiness**, each binding's `inference` line beside its dataset's gives
+its `state` (`following`, `stopped (memory-limit)`, `stopped (failed)`), its
+`lag`, `heldFrom`, `inconsistent` and `clashes`, `held` and `peak` (the bytes
+its closures hold now and the most they have held, by the budget's count),
+and for a cross-graph binding `premiseSets`. None of them makes the dataset unready.
 
 ## Cost
 
@@ -184,3 +289,25 @@ count never makes the server unready.
 
 A query under `GRAPH ?g` enumerates the dataset's named graphs once, to
 group them by the TBox each meets.
+
+### A cross-graph binding with property chains
+
+A binding with `varve:crossGraph true` finds each fact's premise sets, so it
+can place a fact two graphs derive together. That is paid on every build
+from scratch: a cold start, a commit to a TBox graph, a restart after a stop.
+Under `varve:OWL2RL`, a TBox with an `owl:propertyChainAxiom` or a transitive
+property whose facts cross graphs currently costs **about four times as long
+each time the number of graphs doubles** (ADR 0195 point 3, #354). Measured
+on REC M with links between buildings, 200 per thousand commits, 4 cores:
+
+| Graphs | Closure | Premise sets |
+|---|---|---|
+| 7 | 49 s | 163 s |
+| 15 | 198 s | 686 s |
+| 31 | 1,216 s | 3,239 s |
+
+Without such links the same graphs take 38 s, 91 s and 236 s to close and 55
+s, 141 s and 383 s to find the sets. Keep such a binding to **about 15
+graphs**, a build of a quarter of an hour on this machine, or bind the
+graphs the chain crosses in one binding and the rest per graph. A binding
+under `varve:RDFS` is unaffected: no RDFS rule joins two data graphs.

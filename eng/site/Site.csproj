@@ -17,8 +17,11 @@
     <PackageReference Include="Microsoft.Playwright" />
   </ItemGroup>
 
+  <!-- The stylesheets are the design source's, read from docs/ui/ at build
+       (ADR 0247 amended 2026-11-19): nothing is embedded. The tests of the
+       site, tests/Varve.Site.Tests, reach its internals. -->
   <ItemGroup>
-    <EmbeddedResource Include="site.css" LogicalName="site.css" />
+    <InternalsVisibleTo Include="Varve.Site.Tests" />
   </ItemGroup>
 
 </Project>

@@ -11,6 +11,7 @@ card. A log flushes every commit to the device (`Synchronised`, ADR 0073), and
 an SD card's `fsync` latency and write endurance do not suit that: commits
 are slow, and the card wears out.
 
+<!-- ci: ci.yml build — AuthTests puts a dataset declaration as TriG, and HostTests takes --set -->
 ```sh
 sudo mkdir -p /srv/varve && sudo chown "$USER" /srv/varve     # on the SSD
 varve serve --set DatasetsRoot=/srv/varve --anonymous
@@ -19,10 +20,14 @@ curl -X PUT -H 'Content-Type: application/trig' http://localhost:5000/manage/dat
   --data '<urn:people> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> "people" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#File> .' 
 ```
 
-or with the image:
+or with the image, which runs as uid 1654, so the directory is that user's,
+and names a release, since every release before 1.0 is a preview and there
+is no `latest` tag:
 
+<!-- ci: none — the bind mount's owner is the host's; ci.yml container runs the image on a named volume -->
 ```sh
-docker run --rm --read-only -v /srv/varve:/var/lib/varve -p 8080:8080 ghcr.io/hafeok/varve serve --anonymous
+sudo chown 1654:1654 /srv/varve
+docker run --rm --read-only -v /srv/varve:/var/lib/varve -p 8080:8080 ghcr.io/hafeok/varve:v<version> serve --anonymous
 ```
 
 ## An object store on a NAS — only by identity
@@ -65,7 +70,8 @@ Garage the open fails: *the object store at … does not enforce conditional
 writes*. Use the file backend on the Pi's NVMe SSD, which is the supported
 small-machine setup; Garage, or any store, can still hold its backups as
 copied files. Any S3-compatible store but RustFS is untested for the
-object-storage backend: the probe catches a store that ignores conditional
+object-storage backend ([Object stores](object-stores.md) has the list, and
+`varve storage verify` tests the one you have): the probe catches a store that ignores conditional
 writes, not one that enforces them only one request at a time
 ([Configure](configure.md)).
 
@@ -130,6 +136,7 @@ minute idle and a restart.
 
 To measure your own, with the server binary and no container:
 
+<!-- ci: none — a measurement taken by hand; eng/ci.cs build-benchmarks only builds the benchmarks -->
 ```sh
 dotnet run -c Release --project tests/Varve.Benchmarks -- --import-memory /path/to/Varve.Server 3000
 ```
@@ -166,9 +173,104 @@ much on 8 GB, a smaller `IdempotencyWindow` shrinks the index in proportion.
 It also shortens how long a client may wait before retrying: a retry from
 further back is refused with `422 idempotency-key-expired`.
 
+## Inference
+
+A binding's closure is held in memory (ADR 0195). Measured on REC M
+(5 million data quads), it holds 718 bytes a data quad under `rdfs` and
+755 under `owl2rl`, the store's own data not included: 3.4 and 3.6 GiB.
+
+`Varve:Inference:ClosureBytes` is a budget that every structure a closure
+grows asks before it is allocated (ADR 0195 point 6): a fact at
+its profile's measured cost (40 bytes under `rdfs`, 70 under `owl2rl`,
+beside its 64-byte record), 96 bytes beside it for the binding's row, its
+explicit set, a build's working sets while they live, and 160 bytes for
+each of the dataset's terms the binding keeps resolved. Readiness's `peak`
+for a binding is what it has asked for at most.
+
+**Sizing REC M** (5 million data quads, one binding over its 63 graphs,
+measured 2026-11-19 on .NET 10.0.15, DRed's build): a from-scratch build asks the budget
+for at most
+
+| Profile | Facts | Closures' peak | With the rows | `ClosureBytes` at least | Heap limit at least |
+|---|---|---|---|---|---|
+| `rdfs` | 17.5 million | 3.36 GB | 5.04 GB | 5 GiB | 8 GiB |
+| `owl2rl` | 23.1 million | 4.28 GB | 6.50 GB | 6.5 GiB | 9.5 GiB |
+
+with the terms' 160 bytes each on top. Every binding together takes from
+one pool: the heap limit less the memtable's worst case (820 MiB at the
+default limit above a 3.2 GiB heap limit) and `Varve:Inference:ReserveBytes`,
+2 GiB by default, kept for queries, caches and requests. The heap limit
+above is `ClosureBytes` plus those two. A build needs 0.77 to 0.85 of what
+the budget counts, measured, and the budget keeps a margin of a tenth, so a
+`ClosureBytes` the pool can hold is never outrun. The same graphs bound
+`varve:crossGraph true` need their premise sets besides: on REC S, the
+budget's peak is 2.2 times the per-graph build's under both profiles.
+
+**The reserve** was measured at the runtime limits above, with a 5 GiB heap
+limit, four concurrent reads at 256 MiB each and a writer: the rest of the
+server needed more than 1.5 GiB and at most 2 GiB. **The reserve is not a
+limit on queries.** The closures and the memtable are held under the heap
+limit less the reserve, but nothing holds the queries to the reserve: they
+may hold up to `Varve:Limits:MaxConcurrentReads` × `Varve:Limits:MaxQueryMemory`
+together, 1 GiB at the settings above and 16 GiB at the defaults (64 × 256
+MiB). Past the reserve a query's own allocation is what fails. Keep that
+product within the reserve, and raise the reserve if you raise either
+(#359 is a bound on all queries together).
+
+At the 5 GiB heap limit above, the pool is 2.2 GiB, and `ClosureBytes`
+unset is a quarter of the heap limit, 1.25 GiB: about a million data quads
+under either profile. A closure past its limit is refused before the
+memory is asked for, the binding stops and answers `inference-unavailable`,
+and the instance stays up; restart it with the limit raised, or narrow the
+binding (the problem page says how). The instance refuses at start a
+`ClosureBytes` above the pool.
+
+### A small container
+
+With the default reserve of 2 GiB, **a heap limit under 2.67 GiB leaves no
+pool for closures**: the memtable's worst case (a quarter of the heap limit
+there) and the reserve take all of it. The 256 MB container measured above
+is one; the Pi's 5 GiB heap limit is not.
+
+- **A server that declares no `varve:RDFS` or `varve:OWL2RL` binding is
+  unaffected.** It starts and serves at any heap limit; tier-1 regimes
+  (`rdf`, `rdfs`, `d`) need no closure and are served as ever.
+- **A materialising binding declared there is stopped as it is declared**,
+  before it builds anything. Readiness says `stopped (memory-limit)` with a
+  `limit` of 0, and every read of its closure answers `503
+  inference-unavailable`, with no `Retry-After`, saying:
+
+  > The closure of this binding is not built: the instance has no memory
+  > for closures. Its heap limit, … bytes, less the memtable's worst case,
+  > … bytes, and Varve:Inference:ReserveBytes, … bytes, leaves the
+  > bindings' pool nothing (ADR 0195). Lower Varve:Inference:ReserveBytes or
+  > Varve:Store:MemtableLimit, or raise the heap limit, then restart the
+  > instance.
+
+  The log says the same once, at error level. The instance and its other
+  datasets keep running.
+- **To run a closure in a small container**, lower
+  `Varve:Inference:ReserveBytes` (the reserve was measured with four reads
+  of 256 MiB; fewer concurrent reads, or a smaller `MaxQueryMemory`, need
+  less) or `Varve:Store:MemtableLimit`, and restart. In a 1 GiB heap limit,
+  for example, `ReserveBytes=402653184` (384 MiB) with the default memtable
+  (256 MiB at its worst) leaves a pool of 384 MiB, and `ClosureBytes`
+  defaults to a quarter of the heap limit, 256 MiB.
+
+A from-scratch closure of REC M takes about one minute under `rdfs` and
+four and a half under `owl2rl`, on four cores: what a cold start or an
+as-of read older than the history pays.
+
 ## Measured
 
 Commit latency, query throughput and cold start on a Pi 5 with an NVMe SSD:
 **to be measured by the maintainer**, with the same commands as the
 milestone's record (`Varve.Benchmarks --objects file S`, `--extent-reads S`),
 and filled in here.
+
+## Not run in CI
+
+What on this page no CI job runs, and why (ADR 0248):
+
+- **The file backend on an NVMe SSD — supported.** The bind mount's owner is the host's; ci.yml container runs the image on a named volume.
+- **What a dataset needs, to be written and to be reopened.** A measurement taken by hand; eng/ci.cs build-benchmarks only builds the benchmarks.

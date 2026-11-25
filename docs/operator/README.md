@@ -1,13 +1,15 @@
 # Operating Varve
 
 The operator's guide to `Varve.Server`: one executable that is the server and
-the `varve` command line (ADR 0105). Fifteen pages, each a task:
+the `varve` command line (ADR 0105). Twenty pages, each a task:
 
 | Page | What it covers |
 |---|---|
 | [Run](run.md) | installing the executable, starting the server, what it listens on, liveness and readiness, stopping it |
 | [Configure](configure.md) | every setting under `Varve:`, with its default and what refuses to start |
-| [Authenticate](authenticate.md) | OIDC bearer tokens, claims to permissions, graph-scoped grants, on-behalf-of and the attribution rule, anonymous mode, and how the command line gets a token |
+| [Authenticate](authenticate.md) | OIDC bearer tokens, claims to permissions, graph-scoped grants, the attribution rule, the management plane's audience, anonymous mode, and how the command line gets a token |
+| [Microsoft Entra ID](entra.md) | every registration from the Bicep template, keyless: CI by workload identity federation, people through public clients, on-behalf-of, and the data plane's automation until #301 |
+| [Any other OpenID Connect issuer](oidc-issuer.md) | what the server needs of an issuer, why keyless automation needs federation there, and Zitadel step by step as CI runs it, its machine user's secret included |
 | [Datasets](datasets.md) | where a dataset's boundary goes; declaring datasets, settings and grants as TriG with `varve apply` and `/manage/`; and a setup an application applies on every start: `AddVarve`, `varve setup apply`, `WithDataset`, the setup file |
 | [The fleet](fleet.md) | the system dataset, its writer and followers, placement, write forwarding, reading your writes, readiness, and what each costs in store requests |
 | [Shapes](shapes.md) | shapes bindings: declaring one, `reject`, `report` and `off`, which shapes can be checked per commit, the attachment, the report graph and who reads it, the projection's lag, cold start and cost, and the composition REC and Brick need |
@@ -19,8 +21,9 @@ the `varve` command line (ADR 0105). Fifteen pages, each a task:
 | [Back up and restore](backup-and-restore.md) | what the files are, taking a copy, checkpoints, restoring, and the change feed as an incremental copy |
 | [Upgrade](upgrade.md) | what a new build reads, what it rewrites, and the order of a rolling upgrade |
 | [A small machine](small-machine.md) | a Raspberry Pi 5: the file backend on NVMe, an object store on a NAS only by identity, the runtime limits for 8 GB |
+| [Object stores](object-stores.md) | which object stores keep the contract a log rests on, with the evidence for each; `varve storage verify` against your own store, and the record it leaves there |
 | [Azure Container Apps](azure-container-apps.md) | datasets in Blob Storage, the template, the writer app and the reader app, cold start, costs |
-| [Kubernetes](kubernetes.md) | a fleet as one StatefulSet with a headless service, workload identity for the store |
+| [Kubernetes](kubernetes.md) | a fleet as one StatefulSet with a headless service and a writer set, `varve manage watch-kubernetes`, workload identity for the store |
 | [The Web UI](web-ui.md) | the operator console in a browser: served by the server or a static host, its Content Security Policy, signing in per issuer, anonymous mode |
 
 Every refusal the server answers is an RFC 9457 problem of a type listed in
@@ -31,8 +34,13 @@ and its members (ADR 0119). Every term the service description coins under
 The decisions behind the pages are ADRs 0101 (the host), 0105 (the command
 line), 0106 (the admin API), 0163–0168 (the management plane, the
 follower, the management position, the vocabulary, the event-schema move, write forwarding), 0169–0176 (shapes bindings, the validation projection and the REC gate), 0107 (graph-level authorisation), 0230–0238 (row-level access), 0104 (`SERVICE`
-and `LOAD` over HTTP), 0112 (telemetry), 0037, 0100 and 0127 (authentication
-and on-behalf-of), 0128 and 0129 (the feed's format and following it), 0130
-and 0131 (setup), 0132 (CORS), and 0200–0206 (the Web UI). The protocol a
+and `LOAD` over HTTP), 0111 (the container image), 0112 (telemetry),
+0113–0117 (health, resource governance, configuration, the lease, Aspire),
+0037, 0100, 0127 and 0223 (authentication, on-behalf-of and the provider
+legs), 0128 and 0129 (the feed's format and following it), 0130 and 0131
+(setup), 0132 (CORS), 0143–0146 (domain events), 0179–0181 (handover and
+standbys), 0190–0194 (inference), 0213 (verified derived data), 0216 (the
+format inventory), 0183 (object store verification), 0246 (idempotency
+keys) and 0200–0206 (the Web UI). The protocol a
 client speaks is in `src/Varve.Protocol/README.md` and
 `docs/spec/change-feed.md`.

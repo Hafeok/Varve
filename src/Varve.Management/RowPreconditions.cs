@@ -70,6 +70,33 @@ internal static class RowPreconditions
             }
         }
 
+        // ADR 0238 point 3: a cross-graph closure's premise sets cross rows,
+        // so a cross-graph binding whose data graphs meet a classified graph
+        // set is refused while a read grant with subject terms covers it.
+        foreach (TBoxBindingDeclaration tbox in dataset.TBoxBindings)
+        {
+            if (!tbox.CrossGraph)
+            {
+                continue;
+            }
+
+            foreach (BindingDeclaration classifier in classifiers)
+            {
+                if (!Meets(tbox.DataGraphs, classifier.Classifies!))
+                {
+                    continue;
+                }
+
+                foreach (GrantDeclaration grant in dataset.Grants)
+                {
+                    if (!grant.Subjects.All && Meets(grant.Graphs, classifier.Classifies!))
+                    {
+                        yield return new DeclarationFinding(graph, tbox.Node, ManagementVocabulary.CrossGraph, $"the cross-graph TBox binding {Name(tbox.Node)} meets the graphs of the classifier binding {Name(classifier.Node)}, which the grant {Name(grant.Node)} reads with subject terms: a cross-graph conclusion's premises cross rows, so it cannot be served by row (ADR 0238 point 3)");
+                    }
+                }
+            }
+        }
+
         foreach (GrantDeclaration grant in dataset.Grants)
         {
             if (grant.Subjects.All)

@@ -527,10 +527,45 @@ internal static class CodeDeclarationReader
 
             List<RdfTerm> profiles = Values(node, ManagementVocabulary.Profile);
 
-            // The materialising profiles are refused as reserved terms, by CheckTerms.
-            if (profiles.Count != 1 || !profiles[0].Equals(ManagementVocabulary.Rewriting))
+            // varve:RulesOnly is refused as a reserved term, by CheckTerms.
+            TBoxProfile profile = TBoxProfile.Rewriting;
+            if (profiles.Count != 1)
             {
                 Find(node, ManagementVocabulary.Profile, "a TBox binding has exactly one varve:profile: varve:Rewriting, varve:RDFS, varve:OWL2RL or varve:RulesOnly");
+                ok = false;
+            }
+            else if (profiles[0].Equals(ManagementVocabulary.Rdfs))
+            {
+                profile = TBoxProfile.Rdfs;
+            }
+            else if (profiles[0].Equals(ManagementVocabulary.Owl2Rl))
+            {
+                profile = TBoxProfile.Owl2Rl;
+            }
+            else if (!profiles[0].Equals(ManagementVocabulary.Rewriting))
+            {
+                Find(node, ManagementVocabulary.Profile, "a TBox binding has exactly one varve:profile: varve:Rewriting, varve:RDFS, varve:OWL2RL or varve:RulesOnly");
+                ok = false;
+            }
+
+            bool materialises = profile is TBoxProfile.Rdfs or TBoxProfile.Owl2Rl;
+            bool crossGraph = Boolean(node, ManagementVocabulary.CrossGraph) ?? false;
+            if (crossGraph && !materialises)
+            {
+                Find(node, ManagementVocabulary.CrossGraph, "varve:crossGraph places a materialised closure's conclusions, so it is stated only with varve:RDFS or varve:OWL2RL (ADR 0197)");
+                ok = false;
+            }
+
+            // varve:SameAsClasses is refused as a reserved term, by CheckTerms.
+            List<RdfTerm> sameAs = Values(node, ManagementVocabulary.SameAs);
+            if (sameAs.Count > 1 || (sameAs.Count == 1 && !sameAs[0].Equals(ManagementVocabulary.SameAsOff) && !sameAs[0].Equals(ManagementVocabulary.SameAsClasses)))
+            {
+                Find(node, ManagementVocabulary.SameAs, "varve:sameAs is stated at most once, as varve:SameAsOff, the only value in effect; varve:SameAsClasses is reserved for Inference's last part (#95)");
+                ok = false;
+            }
+            else if (sameAs.Count == 1 && !materialises)
+            {
+                Find(node, ManagementVocabulary.SameAs, "varve:sameAs governs a materialised closure, so it is stated only with varve:RDFS or varve:OWL2RL (ADR 0197)");
                 ok = false;
             }
 
@@ -542,9 +577,17 @@ internal static class CodeDeclarationReader
                 Find(node, ManagementVocabulary.DefaultEntailment, "this property is stated at most once");
                 ok = false;
             }
+            else if (defaultEntailment is not null && defaultEntailment.Equals(ManagementVocabulary.OwlRdfBased))
+            {
+                if (profile != TBoxProfile.Owl2Rl)
+                {
+                    Find(node, ManagementVocabulary.DefaultEntailment, "varve:defaultEntailment ent:OWL-RDF-Based is served by an OWL 2 RL closure, so only a varve:OWL2RL binding states it (ADR 0194, amended 2026-11-06)");
+                    ok = false;
+                }
+            }
             else if (defaultEntailment is not null && !ManagementVocabulary.DefaultEntailments.Contains(defaultEntailment))
             {
-                Find(node, ManagementVocabulary.DefaultEntailment, "varve:defaultEntailment is ent:Simple, ent:RDF, ent:RDFS or ent:D; the OWL regimes are reserved for Inference's later parts (#95)");
+                Find(node, ManagementVocabulary.DefaultEntailment, "varve:defaultEntailment is ent:Simple, ent:RDF, ent:RDFS, ent:D, or ent:OWL-RDF-Based on a varve:OWL2RL binding; the other OWL regimes are reserved for Inference's last part (#95)");
                 ok = false;
             }
 
@@ -574,7 +617,7 @@ internal static class CodeDeclarationReader
             }
 
             bound.Sort(TermOrder.Instance);
-            return new TBoxBindingDeclaration(node, bound, graphs, TBoxProfile.Rewriting) { DefaultEntailment = defaultEntailment };
+            return new TBoxBindingDeclaration(node, bound, graphs, profile) { DefaultEntailment = defaultEntailment, CrossGraph = crossGraph };
         }
 
         // Two graph sets share a graph (ADR 0194 point 2): judged on allGraphs,

@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Back up and restore — Varve</title>
+<link rel="icon" href="../varve-core.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../site-tokens.css">
+<link rel="stylesheet" href="../bundle.css">
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+<a class="vd-skip" href="#main">Skip to content</a>
+<header class="vd-bar">
+<a class="vd-brand" href="../index.html"><img src="../varve-core.svg" alt=""><b>Varve</b><span>Documentation</span></a>
+<nav class="vd-sections" aria-label="Sections"><a href="../operator/index.html" aria-current="page">Operator guide</a><a href="../spec/index.html">Specifications</a><a href="../adr/index.html">Decisions</a><a href="../problems/index.html">Problems</a><a href="../api/index.html">API</a></nav>
+<a class="vd-repo" href="https://github.com/Hafeok/Varve">GitHub</a>
+</header>
+<div class="vd-frame ">
+<main class="vd-article" id="main"><p class="vd-crumbs"><a href="../index.html">Documentation</a><span aria-hidden="true">/</span><a href="../operator/index.html">Operator guide</a><a class="vd-jump" href="#pages">Pages in this section ↓</a></p><header class="vd-head"><h1>Back up and restore</h1></header><div class="vd-prose"><h2 id="what-the-files-are">What the files are <a class="vd-anchor" aria-label="Link to this section" href="#what-the-files-are">#</a></h2>
+<p>A file dataset is one directory under <code>Varve:DatasetsRoot</code> (ADR 0072,
+<code>docs/spec/storage-format.md</code>):</p>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What</th>
+<th>Loss means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>log/</code></td>
+<td>the source of truth: a manifest and append-only segments, <strong>format version 1</strong>, never rewritten, read for ever</td>
+<td>the dataset</td>
+</tr>
+<tr>
+<td><code>derived/</code></td>
+<td>the projection's runs, the checkpoints — <code>extents/</code> and the <code>catalog</code> that names them (ADR 0139) — the commit index and bulk-load spills: rebuilt from the log on a cache miss</td>
+<td>a slower open, and as-of reads that replay the log</td>
+</tr>
+<tr>
+<td><code>lock</code></td>
+<td>the lease of the process that holds the dataset (ADR 0075)</td>
+<td>nothing; a stale one is taken over</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>A backup is a copy of the directory.</strong> <code>log/</code> alone is enough; <code>derived/</code>
+saves the replay. Every commit is flushed to the device before it is
+acknowledged (<code>Synchronised</code>, ADR 0073), so the log on disk is never behind
+what a client was told.</p>
+<p><strong>A full disk fails the write that met it, and nothing that was
+acknowledged</strong> (ADR 0214). The commit that needed the space is refused with
+<code>507</code> and the problem type <code>storage-full</code>, and its client is not told it
+committed. The dataset keeps serving reads at the position it had, and
+<code>/health/ready</code> stays ready, naming the dataset under <code>writesRefused</code>. Free
+space; nothing needs restarting. The next write recovers the dataset's log
+itself, as an open would, and commits. Until there is space, each write is
+refused <code>storage-full</code> again. A full disk while the dataset opens fails the
+open; the next open with space succeeds. A checkpoint or maintenance write
+that meets a full disk fails on its own, and a later round retries it. Every
+release is gated on these outcomes, on Linux and Windows, at every allocation
+the backend makes.</p>
+<h2 id="taking-a-copy">Taking a copy <a class="vd-anchor" aria-label="Link to this section" href="#taking-a-copy">#</a></h2>
+<p><strong>Hot</strong>: copy the directory while the server runs. The store is built for
+it: a copy taken while the dataset was being written opens at its last closed
+commit, and a torn tail is ignored (ADR 0071, the failure-injection suite).
+A snapshot taken by the file system or the volume at one instant is the
+cleanest hot copy.</p>
+<p><strong>Cold</strong>: declare the dataset closed first, so that the copy is exactly a
+position. <code>$OPERATOR</code> is a token for the management audience (ADR 0163):</p>
+<pre><code class="language-sh">curl -X PUT -H &quot;Authorization: Bearer $OPERATOR&quot; -H 'Content-Type: application/json' \
+  -d '{&quot;state&quot;:&quot;closed&quot;}' https://varve.example/manage/datasets/people/state
+cp -a /var/lib/varve/people /backup/people-$(date -u +%Y%m%dT%H%M%SZ)
+curl -X PUT -H &quot;Authorization: Bearer $OPERATOR&quot; -H 'Content-Type: application/json' \
+  -d '{&quot;state&quot;:&quot;open&quot;}' https://varve.example/manage/datasets/people/state
+</code></pre>
+<p>Record the position with the copy: <code>varve info /backup/people-…</code> reads it
+from the copy itself, or <code>GET /manage/datasets/people/status</code> before the close.</p>
+<h2 id="checkpoints">Checkpoints <a class="vd-anchor" aria-label="Link to this section" href="#checkpoints">#</a></h2>
+<p>A checkpoint bounds the replay an open and an as-of read do (ADR 0078):</p>
+<pre><code class="language-sh">curl -X POST -H &quot;Authorization: Bearer $OPERATOR&quot; https://varve.example/manage/datasets/people/checkpoints
+varve checkpoint /var/lib/varve/people        # the dataset must not be held by a server
+</code></pre>
+<p>A checkpoint is an <strong>extent set</strong>: the intervals of every quad over the window
+since the previous checkpoint, in <code>derived/extents/</code>, named by
+<code>derived/catalog</code> (ADRs 0138, 0139). Below the newest checkpoint an as-of read
+replays no log at all; above it, only the log after it. The sets are
+derived and rebuilt if lost; a dataset written by the previous release keeps
+its full checkpoints in <code>derived/checkpoints/</code> until they are dropped.
+Dropping a checkpoint merges its set into the next, so no answer changes.</p>
+<p>A dataset's <code>CheckpointPolicy</code> can write them on a schedule of commits; the
+server's defaults write none, so an operator who wants bounded opens takes
+them, as above, or relies on maintenance's merged runs. There is no budget on
+how many to keep: the writer merges sets in the background (ADR 0158).</p>
+<h3 id="merges">Merges <a class="vd-anchor" aria-label="Link to this section" href="#merges">#</a></h3>
+<p>Every read of the present merges one run per set, so the writer's maintenance
+merges sets after each checkpoint, by the policy of ADR 0159:</p>
+<ul>
+<li><strong>Similar sizes.</strong> The oldest run of <code>FanOut</code> adjacent sets whose largest is
+at most <code>FanOut</code> times their smallest merges into one.</li>
+<li><strong>Pressure.</strong> Past the bound, the adjacent run with the fewest bytes merges.</li>
+<li><strong>The cap.</strong> A set past half of <code>MaxSetBytes</code> is not merged again, and no
+merge makes a set past it. It bounds one merge's work and the largest blob
+an upload carries, not reads: an as-of read inside a set seeks it, at the
+cost of its matches (ADR 0177).</li>
+</ul>
+<p>At the defaults (<code>Varve:Store:ExtentMerges</code>: <code>FanOut</code> 4, <code>MaxSetBytes</code>
+256 MiB, see <a href="../operator/configure.html">Configure</a>) a chain holds at most 15 sets below
+half the cap, plus the capped ones. Measured on REC size M (5,049,846 quads,
+25,000 commits) on files, a checkpoint every hundredth of the history:</p>
+<div class="vd-table"><table>
+<thead>
+<tr>
+<th></th>
+<th align="right">Without merges, 10 checkpoints</th>
+<th align="right">With merges, 100 checkpoints</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sets in the chain</td>
+<td align="right">10</td>
+<td align="right">5</td>
+</tr>
+<tr>
+<td>Head: a quad's lookup, p50 / p99</td>
+<td align="right">59 / 124 µs</td>
+<td align="right">12 / 38 µs</td>
+</tr>
+<tr>
+<td>Head: one subject's quads, p50 / p99</td>
+<td align="right">9.0 / 41 µs</td>
+<td align="right">4.6 / 13 µs</td>
+</tr>
+<tr>
+<td>Head: an exact count, p50 / p99</td>
+<td align="right">38 / 87 µs</td>
+<td align="right">15 / 31 µs</td>
+</tr>
+<tr>
+<td>As-of inside the largest set, before #133 (narrowing)</td>
+<td align="right">2.4 s (183 MiB)</td>
+<td align="right">2.7 s (211 MiB)</td>
+</tr>
+<tr>
+<td>As-of inside the largest set, a quad's lookup, since #133</td>
+<td align="right">—</td>
+<td align="right">4.4 / 15.0 µs (211 MiB)</td>
+</tr>
+<tr>
+<td>As-of at a set's end</td>
+<td align="right">&lt; 0.1 ms</td>
+<td align="right">&lt; 0.1 ms</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Write amplification</strong> was 1.77: merges rewrote 746 MB for the 420 MB the
+checkpoints wrote; with format-5 extents (#133), 1.86, for 3.5% smaller
+extents. A higher <code>FanOut</code> rewrites less and keeps more sets.</p>
+<p><strong>Sizing <code>MaxSetBytes</code>.</strong> The cap no longer bounds what an as-of read costs,
+so it can be raised; at REC M it should not be, since at 1 GiB the chain
+held 7 sets against 5 and head lookups were slower (21 against 15 µs at
+p50). Raise it when the dataset is many times the cap: the sets past half
+of it, about <code>2 × total / MaxSetBytes</code>, are never merged again, and every
+read of the present merges one run each, so a 40 GiB dataset at 256 MiB
+keeps over 300 of them. Between 1 and 2 GiB keeps that count in the tens,
+at the cost of longer merges and more bytes rewritten. An order extent is
+about a seventh of its set, far below an object store's single upload
+(5,000 MiB on Azure, 5 GiB on S3), which bounds the cap from above. <code>CheckpointPolicy.Keep</code> still drops the oldest sets, merging each into
+the next, at no cost to any answer.</p>
+<h3 id="readers-and-retained-bytes">Readers and retained bytes <a class="vd-anchor" aria-label="Link to this section" href="#readers-and-retained-bytes">#</a></h3>
+<p>On a filesystem the writer deletes a merged set's files once no read of the
+process uses them. In an object store, other instances may still read them,
+so every instance announces the catalog versions it reads in a reader record,
+and the writer deletes a set only when no record holds it (ADR 0160). Until
+then the store keeps it, and its bytes are <em>retained</em>.</p>
+<pre><code class="language-sh">varve storage https://account.blob.core.windows.net/varve/people
+varve storage readers list https://account.blob.core.windows.net/varve/people
+</code></pre>
+<p><code>varve storage</code> prints the catalog's version, the sets per permutation, each
+set's window and bytes, the sets no catalog names that the store still keeps,
+and each record with the bytes it retains. <code>/health/ready</code> reports the same as
+<code>retention</code>, with <code>uncheckedSets</code>, the sets still read without their block
+checks because a follower of an earlier build is announced (ADR 0213, see
+<a href="../operator/upgrade.html">Upgrade</a>); it never turns unready because of either.</p>
+<p>A record holds what it announces until its instance moves on, ends, starts
+again under the same id, or is forgotten. A reader that is gone — a replica
+removed without a clean stop, a killed <code>varve query</code> — keeps its record. When
+<code>readers list</code> shows one that retains bytes and you know it is gone, forget it
+with the interval list showed:</p>
+<pre><code class="language-sh">varve storage readers forget https://account.blob.core.windows.net/varve/people \
+  --reader 3f2a… --oldest 41 --newest 42
+</code></pre>
+<p>The forget acts only if the record still announces that interval. The writer
+deletes what it held at its next maintenance round. A reader that was in fact
+alive fails its next read of a deleted set with
+<a href="../problems/reader-forgotten.html"><code>reader-forgotten</code></a> and attaches again.</p>
+<p>A dataset in an object store is backed up by <code>ShipAsync</code> into a directory
+(the migration path is the same call the other way), or by the store's own
+replication; see <a href="../operator/azure-container-apps.html">Azure Container Apps</a>.</p>
+<h2 id="restoring">Restoring <a class="vd-anchor" aria-label="Link to this section" href="#restoring">#</a></h2>
+<p>Put the directory under the root, under the name the dataset should have,
+with the dataset declared closed, then declare it open:</p>
+<pre><code class="language-sh">cp -a /backup/people-20261008T120000Z /var/lib/varve/people
+curl -X PUT -H &quot;Authorization: Bearer $OPERATOR&quot; -H 'Content-Type: application/json' \
+  -d '{&quot;state&quot;:&quot;open&quot;}' https://varve.example/manage/datasets/people/state
+</code></pre>
+<p>A dataset not declared yet is declared with <code>varve apply</code>, as a <code>File</code>
+dataset of that name; its writer opens the directory it finds there (ADR
+0163). Declaring a dataset never empties a directory that holds one.
+The restored dataset is the one that was copied — same dataset id, same log
+bytes up to the copied position — so a client that kept a position resumes
+its feed from it. <strong>Two copies of one dataset that both take commits
+diverge</strong> (ADR 0014); restore to one place.</p>
+<p><code>Dataset.ShipAsync</code> (ADR 0083) does the same from code, at an exact position,
+into any storage: the manifest, the segments up to the position, and a
+checkpoint. There is no <code>varve ship</code> yet; the roadmap has replica bootstrap
+over HTTP.</p>
+<h2 id="a-stale-lease">A stale lease <a class="vd-anchor" aria-label="Link to this section" href="#a-stale-lease">#</a></h2>
+<p>A file dataset is leased by the process that has it open: <code>derived/LOCK</code>,
+held by an OS lock, and <code>derived/LOCK.owner</code>, which says whose it is
+(process id, machine, since when; ADR 0075). The lock goes with the process:
+a crash releases it, and a start after a crash opens the dataset as usual.
+What a start does meet is a <strong>predecessor still draining</strong> (a rolling
+restart, a stop that is taking its thirty seconds), and ADR 0116 says what
+happens then:</p>
+<ul>
+<li>the server retries the open every second for <code>Varve:Lease:WaitFor</code>
+(30 s by default), logging who holds it each time;</li>
+<li>when the wait ends, the dataset is <strong>failed</strong> with the holder as its
+reason, which <code>GET /health/ready</code> and <code>GET /datasets</code> report, and the
+server starts for the others. A configured dataset that does not open
+still refuses the start (ADR 0101).</li>
+<li><strong>Nothing ever forces a held lock.</strong> A lock the OS still holds has a live
+holder; a timer that broke it would be deciding a slow process is dead.</li>
+</ul>
+<p><code>varve lease &lt;dir&gt;</code> says what the lease is now: it prints the owner file and
+tries to take the lock, releasing it at once; exit 0 free, 1 held.</p>
+<pre><code class="language-sh">$ varve lease /var/lib/varve/people
+held by pid 4242 on db-1 since 2026-10-09T15:02:11Z
+</code></pre>
+<p><code>varve lease --break &lt;dir&gt;</code> is for the one case the OS does not handle: a
+filesystem that did not release a dead process's lock. It takes the lock to
+prove the lease free; when it can, it removes <code>LOCK.owner</code>, reports whose it
+was and exits 0. When the lock is held it <strong>refuses</strong>, names the holder and
+exits 1, so that <code>--break</code> can never let a second process in on a filesystem
+whose locks work. On a filesystem where locking fails for every caller, it
+says so and names the filesystem as the problem: the dataset must move to one
+that locks.</p>
+<h2 id="the-change-feed-as-an-incremental-copy">The change feed as an incremental copy <a class="vd-anchor" aria-label="Link to this section" href="#the-change-feed-as-an-incremental-copy">#</a></h2>
+<p>A consumer that persists the last position it applied misses nothing by
+resuming from it (<code>docs/spec/change-feed.md</code> §4):</p>
+<pre><code class="language-sh">varve feed https://varve.example/datasets/people/ --from &quot;$LAST&quot; --token &quot;$TOKEN&quot; &gt;&gt; people.delta
+</code></pre>
+<p>The records replay in order onto any store, <code>Varve.Delta</code>'s <code>ChangeFeedReader</code>
+reading them with Varve types; version 1 of the format is read by every later
+release (ADR 0128). It is a copy of the content, not of the log:
+positions, agents and timestamps travel with it, but a dataset rebuilt from a
+feed is a new dataset with a new id.</p>
+<h2 id="an-export">An export <a class="vd-anchor" aria-label="Link to this section" href="#an-export">#</a></h2>
+<p><code>varve export &lt;dir-or-url&gt;</code> writes the dataset at its head as N-Quads (or
+TriG), or one graph as N-Triples or Turtle, and <code>--as-of position:&lt;n&gt;</code> on a
+directory writes the past. It is what to hand to another system; it carries
+no history.</p>
+</div><nav class="vd-pager" aria-label="Previous and next"><a class="vd-prev" href="../operator/observe.html"><small>Previous</small><b>Observe</b></a><a class="vd-next" href="../operator/upgrade.html"><small>Next</small><b>Upgrade</b></a></nav></main>
+<nav class="vd-pages" id="pages" aria-label="Operator guide"><h2>Operator guide</h2><ol><li><a href="../operator/index.html">Overview</a></li><li><a href="../operator/run.html">Run</a></li><li><a href="../operator/configure.html">Configure</a></li><li><a href="../operator/authenticate.html">Authenticate</a></li><li><a href="../operator/datasets.html">Datasets: their boundary, their declaration, and their setup</a></li><li><a href="../operator/fleet.html">The fleet</a></li><li><a href="../operator/shapes.html">Shapes</a></li><li><a href="../operator/inference.html">Inference</a></li><li><a href="../operator/moving-event-schemas.html">Moving event schemas</a></li><li><a href="../operator/integrate.html">Integrate: the commits resource as a stream, and domain events</a></li><li><a href="../operator/row-level-access.html">Row-level access</a></li><li><a href="../operator/observe.html">Observe</a></li><li><a href="../operator/backup-and-restore.html" aria-current="page">Back up and restore</a></li><li><a href="../operator/upgrade.html">Upgrade</a></li><li><a href="../operator/small-machine.html">Run on a small machine</a></li><li><a href="../operator/azure-container-apps.html">Run on Azure Container Apps</a></li><li><a href="../operator/kubernetes.html">Run on Kubernetes</a></li><li><a href="../operator/web-ui.html">The Web UI</a></li></ol></nav>
+<aside class="vd-toc" aria-label="On this page"><div><h2>On this page</h2><ol><li class="vd-toc-2"><a href="#what-the-files-are">What the files are</a></li><li class="vd-toc-2"><a href="#taking-a-copy">Taking a copy</a></li><li class="vd-toc-2"><a href="#checkpoints">Checkpoints</a></li><li class="vd-toc-3"><a href="#merges">Merges</a></li><li class="vd-toc-3"><a href="#readers-and-retained-bytes">Readers and retained bytes</a></li><li class="vd-toc-2"><a href="#restoring">Restoring</a></li><li class="vd-toc-2"><a href="#a-stale-lease">A stale lease</a></li><li class="vd-toc-2"><a href="#the-change-feed-as-an-incremental-copy">The change feed as an incremental copy</a></li><li class="vd-toc-2"><a href="#an-export">An export</a></li></ol></div></aside>
+</div>
+<footer class="vd-foot"><span>Built from <a href="https://github.com/Hafeok/Varve/tree/c754bcb7e1f0a2d4"><code>c754bcb7e1f0</code></a>. This page is <a href="https://github.com/Hafeok/Varve/blob/c754bcb7e1f0/docs/operator/backup-and-restore.md">docs/operator/backup-and-restore.md</a>.</span><span>MPL-2.0</span></footer>
+</body>
+</html>

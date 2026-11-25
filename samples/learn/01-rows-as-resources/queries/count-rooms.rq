@@ -1,0 +1,4 @@
+PREFIX rec: <https://w3id.org/rec#>
+
+SELECT (COUNT(?room) AS ?rooms)
+WHERE { ?room a rec:Room }

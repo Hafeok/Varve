@@ -186,8 +186,10 @@ and it ships inside every package.
 | `Varve.Analyzers` | — | the layer rules, at build time | working, never shipped |
 | `Varve.Events` | 4 | domain events as quads: the event catalogue's declarations, their rendering as canonical CloudEvents through declared `SELECT` mappings, JSON Schemas with immutable revisions, AsyncAPI 3.0, the compatibility check of a declaration change, and the declaration vocabulary's SHACL shapes | working |
 | `Varve.Shacl.Sparql` | 4 | SHACL-SPARQL: SPARQL-based constraints and constraint components, evaluated by `Varve.Sparql.Evaluation` with SHACL 1.2's pre-binding | working |
+| `Varve.Inference` | 4 | the closure of a graph under the RDFS and OWL 2 RL/RDF rules over any quad source's handles, kept by semi-naive insertion and retraction | in progress (#171): RDFS and OWL 2 RL/RDF with sameAs off, the clash checks, and three retraction candidates (delete-and-rederive, Backward/Forward, recursive counting) |
 | `Varve.Management` | 4 | the management plane's declarations: the `varve:` vocabulary for datasets, settings, placement and grants, their reader and code validator, grants over a caller with graph templates, and the RDFC-1.0 plan `varve apply` converges | working |
 | `Varve.Store` | 4 | the log, the default projection, pinned and as-of reads, checkpoints, subscriptions, dataset validators, the staging view, the bulk loader, replicas by file copy; checkpoints as extent sets with validity intervals; `log/` format 1, `derived/` format 4, reading format 3 | working |
+| `Varve.Inference.Store` | 5 | the inference projection: a materialising binding's implicit quads, placed by graph, kept commit by commit with validity intervals and read as of any position | in progress (#171): intra-graph bindings, the history ceiling and the memory limit |
 | `Varve.Sparql.Store` | 5 | SPARQL Update over the store: one request, one commit, `LOAD` through a caller's source, read and write scopes by graph | working |
 | `Varve.Classification` | 5 | row-level access: a classifier derived from annotated SHACL shapes that assigns nodes to data subjects, and the classification projection that serves it at any position | working |
 | `Varve.Shacl.Store` | 5 | commit-time gating under a shapes binding: a dataset validator that validates the focus nodes a commit affects and refuses new violations (`reject`) or attaches the affected report's digest (`report`) | working |
@@ -237,7 +239,9 @@ The W3C suites are the acceptance gate, from
 | `shacl12-test-suite`, SHACL 1.2 Working Draft, `core` and `sparql`, × 2 subjects | 390 |
 | `sparql11/entailment` under RDF, RDFS and D, by rewriting (ADR 0193) | 95 |
 | `rdf11/rdf-mt`, by rewriting: the 38 cases that ask no consistency question | 38 |
-| **Total** | **6,274 of 6,274** |
+| `sparql11/entailment` under OWL 2 RL without equality, on the materialised closure (ADRs 0195, 0197): 27 of its 28; `sparqldl-13` needs `owl:sameAs`, pending part 3 | 27 |
+| `rdf11/rdf-mt`, on the materialised closure: the 10 cases that expect "false", by the clash checks (ADR 0197) | 10 |
+| **Total** | **6,311 of 6,311** |
 
 **Blocked as out of scope, not run:** 25, by name in
 `tests/Varve.Conformance.Tests/baseline/blocked.txt`: the RIF and the OWL 2

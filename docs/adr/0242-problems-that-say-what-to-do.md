@@ -142,3 +142,26 @@ and from the catalogue's pages:
   detail.
 - **Analyzer rule.** None. The page section is held by a test.
 - **Open questions owned.** The console's rendering of the members (#96).
+
+## Amendment, 2026-11-19 — `defect`, a class of its own
+
+Filed by Inference, part 2 (#171), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20, on the architect's review of #171 on 2026-11-19.
+
+Ruling 2's classes are `damaged`, `configuration` and `transient`, each
+saying whether a retry helps and what does. A failure whose cause is the
+code fits none of them: no setting fixes it, so it is not `configuration`,
+and repeating it gives the same result, so it is not `transient`. It is
+classed **`defect`**, and its problem's `detail` and its page's `## What to
+do` say to report it, with the instance's log, and to upgrade to a version
+that fixes it.
+
+The first is an inference binding stopped because its projection failed
+(ADR [0195](0195-the-inference-projection.md) point 6, `stopped (failed)`):
+`503 inference-unavailable` with `reason` `failed` and `failure` `defect`,
+no `Retry-After`. A binding stopped at its memory limit stays
+`configuration`. A dataset that fails to open keeps the three classes it
+has; one whose cause is found to be a defect may be reclassed by a later
+decision.
+
+**The ledger.** `DefectIsItsOwnClass`, in this ADR's set.
+

@@ -33,6 +33,18 @@ public enum DefaultGraphAccess : byte
 public delegate bool GraphGovernor(RdfTerm graph, out RdfTerm? governor);
 
 /// <summary>
+/// A graph's governors (ADR 0107, amended 2026-10-28; ADR 0190 point 6): when
+/// <paramref name="graph"/> is governed by a set of graphs, answers
+/// <see langword="true"/> with them in <paramref name="governors"/>,
+/// <see langword="null"/> among them for the default graph. A scope allows a
+/// governed graph exactly when it allows every governor, by its own rules,
+/// and a grant naming the governed graph itself has no effect. A single
+/// governor is the set of one: <see cref="GraphGovernor"/>.
+/// </summary>
+[Contract(typeof(EntailmentsUnderGraphLevelGrants.GovernedByEveryGraphOfASet), Role = "the rule a host composes into a scope that names the graphs governing a graph")]
+public delegate bool GraphGovernors(RdfTerm graph, out IReadOnlyList<RdfTerm?>? governors);
+
+/// <summary>
 /// A set of graphs (ADR 0107): every graph, or the default graph and named
 /// graphs listed by IRI or by IRI prefix. The unit of a grant's scope, and
 /// what <see cref="GraphScopedQuadSource"/> filters by. Immutable; two scopes
@@ -43,17 +55,43 @@ public sealed class GraphScope
     private readonly RdfTerm[] _graphs;
     private readonly byte[][] _prefixes;
 
-    private GraphScope(RdfTerm[] graphs, byte[][] prefixes, bool includesDefault, bool all, GraphGovernor? governor = null)
+    private GraphScope(RdfTerm[] graphs, byte[][] prefixes, bool includesDefault, bool all, GraphGovernor? governor = null, GraphGovernors? governors = null)
     {
         _graphs = graphs;
         _prefixes = prefixes;
         IncludesDefault = includesDefault;
         IsAll = all;
         Governor = governor;
+        Governors = governors;
     }
 
     /// <summary>The rule that names a graph's governor, when the scope has one.</summary>
     public GraphGovernor? Governor { get; }
+
+    /// <summary>The rule that names the set of graphs governing a graph, when the scope has one; asked when <see cref="Governor"/> names none.</summary>
+    public GraphGovernors? Governors { get; }
+
+    /// <summary>Whether the scope has a rule that may govern a graph.</summary>
+    public bool HasGovernors => Governor is not null || Governors is not null;
+
+    /// <summary>Whether <paramref name="graph"/> is governed under the scope's rules: by its one governor, or by a set.</summary>
+    public bool IsGoverned(RdfTerm graph)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        return (Governor is not null && Governor(graph, out _)) || (Governors is not null && Governors(graph, out _));
+    }
+
+    /// <summary>
+    /// The same set, with <paramref name="governors"/> deciding the graphs
+    /// governed by a set: such a graph is allowed exactly when every graph of
+    /// its set is. A graph <see cref="Governor"/> names a governor for is
+    /// decided by that one. The scope of every graph stays itself.
+    /// </summary>
+    public GraphScope WithGovernors(GraphGovernors governors)
+    {
+        ArgumentNullException.ThrowIfNull(governors);
+        return IsAll ? this : new GraphScope(_graphs, _prefixes, IncludesDefault, all: false, Governor, governors);
+    }
 
     /// <summary>
     /// The same set, with <paramref name="governor"/> deciding governed graphs:
@@ -63,7 +101,7 @@ public sealed class GraphScope
     public GraphScope WithGovernor(GraphGovernor governor)
     {
         ArgumentNullException.ThrowIfNull(governor);
-        return IsAll ? this : new GraphScope(_graphs, _prefixes, IncludesDefault, all: false, governor);
+        return IsAll ? this : new GraphScope(_graphs, _prefixes, IncludesDefault, all: false, governor, Governors);
     }
 
     /// <summary>Every graph, the default graph included: the scope of an unscoped grant.</summary>
@@ -158,6 +196,20 @@ public sealed class GraphScope
             return !graph.Equals(governor) && Allows(governor);
         }
 
+        if (Governors is not null && Governors(graph, out IReadOnlyList<RdfTerm?>? set) && set is not null)
+        {
+            // Every governor, by the scope's own rules; none is the graph itself.
+            foreach (RdfTerm? member in set)
+            {
+                if (graph.Equals(member) || !Allows(member))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         foreach (RdfTerm named in _graphs)
         {
             if (named.Equals(graph))
@@ -224,6 +276,6 @@ public sealed class GraphScope
             }
         }
 
-        return new GraphScope([.. graphs], [.. prefixes], IncludesDefault || other.IncludesDefault, all: false, Governor ?? other.Governor);
+        return new GraphScope([.. graphs], [.. prefixes], IncludesDefault || other.IncludesDefault, all: false, Governor ?? other.Governor, Governors ?? other.Governors);
     }
 }

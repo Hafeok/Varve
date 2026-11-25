@@ -10,7 +10,7 @@
 // says about the project is published with each version, and cannot be
 // corrected afterwards. v0.1.0-preview.1 shipped one two milestones stale:
 // "Milestone 5c", "Nothing is published yet", 2,803 conformance cases where
-// the baseline held 2,927. So five statements are checked against what they
+// the baseline held 2,927. So six statements are checked against what they
 // describe, read from one tree (the working tree, or a commit):
 //
 //   1. README.md's "## Status" opens with a line naming the latest release
@@ -26,6 +26,10 @@
 //   5. Every container image tag README.md names (ghcr.io/hafeok/varve:<tag>)
 //      is the latest release: the quick start ships in the package too, and
 //      preview.4 shipped one pulling preview.3.
+//   6. docs/operator/object-stores.md is what the provider list and the
+//      result records under testdata/object-stores/ generate (ADR 0183,
+//      lib/ObjectStores.cs): which stores are verified is evidence, never
+//      prose edited by hand.
 //
 // "Released" counts every descriptor in releases/, not only the tagged ones:
 // at most one is pending, it is the one being cut, and the files must say
@@ -87,8 +91,11 @@ static class ProjectStatus
         StatusTree tree, List<string> problems,
         string readmePath = StatusTree.ReadmePath, string roadmapPath = StatusTree.RoadmapPath,
         string passingPath = StatusTree.PassingPath, string releasesPath = ReleaseFormat.Directory,
-        string blockedPath = StatusTree.BlockedPath)
+        string blockedPath = StatusTree.BlockedPath, string objectStoresPath = ObjectStoresPage.PagePath)
     {
+        // 6. The compatibility page is its generation, whatever else is found.
+        ObjectStoresPage.Check(tree.Read, tree.List, problems, objectStoresPath);
+
         string? readme = tree.Read(readmePath);
         string? roadmap = tree.Read(roadmapPath);
         string? passing = tree.Read(passingPath);

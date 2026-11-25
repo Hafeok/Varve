@@ -40,7 +40,8 @@ public class EntailmentGuardTests
             return;
         }
 
-        Assert.Equal(["lang", "plainLit", "sparqldl-13"], Named("pending: OWL 2 RL"));
+        Assert.Equal(["sparqldl-13"], Named("pending: owl:sameAs"));
+        Assert.Equal(27, EntailmentClosureTests.Cases().Count());
         Assert.Equal(["paper-sparqldl-Q1", "paper-sparqldl-Q4"], Named("pending: OWL 2 QL"));
     }
 
@@ -68,7 +69,7 @@ public class EntailmentGuardTests
     }
 
     [Fact]
-    public void Rdf_mt_lists_forty_eight_active_cases_and_its_ten_inconsistency_cases_wait_for_the_closure()
+    public void Rdf_mt_lists_forty_eight_active_cases_and_its_ten_inconsistency_cases_run_on_the_closure()
     {
         if (!TestData.IsCheckedOut)
         {
@@ -79,6 +80,7 @@ public class EntailmentGuardTests
         Assert.Equal(38, RdfMtConformanceTests.Cases().Count());
         List<string> pending = [.. RdfMtSuite.Entries.Where(e => RdfMtSuite.NotRun(e) is not null).Select(e => e.Name).Order(StringComparer.Ordinal)];
         Assert.Equal(10, pending.Count);
+        Assert.Equal(10, RdfMtClosureTests.Cases().Count());
     }
 
     private static List<string> Named(string prefix) =>
