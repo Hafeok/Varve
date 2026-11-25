@@ -64,6 +64,17 @@ internal static class PassWaitBench
         InferenceBinding binding = new(RdfTerm.Iri("https://example.org/rec/binding"u8), [TBoxGraph], GraphScope.Of([], ["https://example.org/rec/graph/"], DefaultGraphAccess.Excluded), profile) { CrossGraph = crossGraph };
         InferenceOptions options = new() { ClosureBytes = new ByteCount(long.MaxValue / 4) };
 
+        // VARVE_PHASE=shutdown: only phase 4, cancelling builds at several points, each a stage of a build.
+        if (Environment.GetEnvironmentVariable("VARVE_PHASE") == "shutdown")
+        {
+            foreach (int seconds in new[] { 5, 10, 20, 40, 80 })
+            {
+                await CancelledAsync(dataset, binding, options, seconds, failed);
+            }
+
+            return Report(failed);
+        }
+
         // 1. A cold start, probed as readiness probes it, and explain asked at the projection's position beside it.
         InferenceProjection projection = new(dataset, binding, options);
         using (DatasetView head = dataset.Pin())
@@ -122,43 +133,54 @@ internal static class PassWaitBench
         // projection's closures are given back first: two at REC M do not fit one heap.
         projection.Refuse();
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
-        {
-            InferenceProjection cancelled = new(dataset, binding, options);
-            using DatasetView head = dataset.Pin();
-            using CancellationTokenSource stop = new();
-            Task reset = Task.Run(async () => await cancelled.ResetAsync(head, stop.Token));
-            await Task.WhenAny(reset, Task.Delay(10_000, none));
-            if (reset.IsCompleted)
-            {
-                Console.WriteLine("shutdown: the build ended within 10 s; nothing to cancel");
-            }
-            else
-            {
-                Stopwatch ended = Stopwatch.StartNew();
-                await stop.CancelAsync();
-                try
-                {
-                    await reset;
-                }
-                catch (OperationCanceledException)
-                {
-                }
+        await CancelledAsync(dataset, binding, options, 10, failed);
+        return Report(failed);
+    }
 
-                Console.WriteLine($"shutdown: the cancelled build returned {ended.Elapsed.TotalSeconds:F2} s after the cancel; abandoned {cancelled.Abandoned}, stopped {cancelled.Stopped}");
-                Hold(failed, "a cancelled build's return", ended.Elapsed.TotalMilliseconds, CancelBound);
-                if (!cancelled.Abandoned)
-                {
-                    failed.Add("the cancelled build was not abandoned: it " + (cancelled.Stopped ? "stopped at its memory limit or failed" : "ran to its end"));
-                }
-            }
-        }
-
+    private static int Report(List<string> failed)
+    {
         foreach (string failure in failed)
         {
             Console.WriteLine("FAIL: " + failure);
         }
 
         return failed.Count == 0 ? 0 : 1;
+    }
+
+    // A cold start cancelled after the given seconds: how long the build takes to see it, and whether it is abandoned.
+    private static async Task CancelledAsync(Varve.Store.Dataset dataset, InferenceBinding binding, InferenceOptions options, int seconds, List<string> failed)
+    {
+        InferenceProjection cancelled = new(dataset, binding, options);
+        using DatasetView head = dataset.Pin();
+        using CancellationTokenSource stop = new();
+        Task reset = Task.Run(async () => await cancelled.ResetAsync(head, stop.Token));
+        await Task.WhenAny(reset, Task.Delay(TimeSpan.FromSeconds(seconds)));
+        if (reset.IsCompleted)
+        {
+            Console.WriteLine($"shutdown at {seconds} s: the build ended first; nothing to cancel");
+            cancelled.Refuse();
+            return;
+        }
+
+        Stopwatch ended = Stopwatch.StartNew();
+        await stop.CancelAsync();
+        try
+        {
+            await reset;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        Console.WriteLine($"shutdown at {seconds} s: the cancelled build returned {ended.Elapsed.TotalSeconds:F2} s after the cancel; abandoned {cancelled.Abandoned}, stopped {cancelled.Stopped}");
+        Hold(failed, $"a build cancelled at {seconds} s returning", ended.Elapsed.TotalMilliseconds, CancelBound);
+        if (!cancelled.Abandoned)
+        {
+            failed.Add($"the build cancelled at {seconds} s was not abandoned: it " + (cancelled.Stopped ? "stopped at its memory limit or failed" : "ran to its end"));
+        }
+
+        cancelled.Refuse();
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true, compacting: true);
     }
 
     // What readiness reads of a binding, in milliseconds.

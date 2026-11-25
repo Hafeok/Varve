@@ -95,6 +95,7 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         HashSet<Fact> merged = [];
         foreach ((TermHandle graph, List<Fact> facts) in graphs)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             Index(graph);
             _explicit[graph] = [.. facts];
             merged.UnionWith(facts);

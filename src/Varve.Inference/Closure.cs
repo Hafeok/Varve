@@ -348,6 +348,7 @@ public sealed partial class Closure
         List<Fact> added = [];
         foreach (Fact fact in asserted)
         {
+            Fired();
             if (!_explicit.Contains(fact))
             {
                 TakeExplicit();
@@ -378,6 +379,7 @@ public sealed partial class Closure
         Propagation<Fact, Rule> pass = new(Program.Dependencies, Program.Strata, EqualityComparer<Fact>.Default);
         foreach (Fact fact in facts)
         {
+            Fired();
             if (Facts.Add(fact))
             {
                 working.Take();
