@@ -199,6 +199,25 @@ summary: |
     server can stop. Until the fix, enable a closure only over a schema
     whose `rdf:List` cells each have exactly one `rdf:first` and one
     `rdf:rest`, and check a schema's lists before you bind it to a closure.
+  - **A closure's work has no limit** (#408). With an OWL 2 RL closure
+    enabled, a commit can make the closure work for minutes or longer
+    while staying well inside its byte budget, so it is not refused. The
+    case found was 85 triples that use the RDF, RDFS and OWL vocabulary as
+    data (`rdf:type rdfs:subPropertyOf rdfs:domain`, a class declared
+    equivalent to a property): it gave 388,741 facts and did not finish in
+    20 minutes. While that pass runs, closure reads at or after the commit
+    are refused with `503 inference-behind`, and the pass cannot be
+    cancelled. Until the fix, no setting bounds it: enable an OWL 2 RL
+    closure only over graphs whose writers do not use the RDF, RDFS and
+    OWL vocabulary's own terms as data, as the case found does.
+  - **A closure can keep an instance unready** (#412). With an OWL 2 RL
+    closure over a large dataset, a readiness probe can take several
+    seconds, during a closure build or after it, so an orchestrator with
+    a 1-second probe timeout, the default, marks the instance not ready
+    and keeps it so. A shutdown during a closure build is not honoured
+    within the grace period, so the instance is killed and its next
+    start builds the closure again. Until the fix, leave the closure off
+    on instances behind a readiness probe, or raise the probe's timeout.
 
   #### Not yet
 
