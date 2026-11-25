@@ -109,6 +109,11 @@ The plan is #411's description. The answer to it:
   portfolio." (`eng/site/SiteMap.cs`). Chapter 2's last paragraph says
   chapter 3 adds "a new kind of asset"; it adds a kind of sensor, which is a
   point. That sentence is left for the maintainer, as asked.
+- **The release.** Built against the published `0.1.0-preview.22` packages
+  (`eng/learn.cs -- --run --packages 0.1.0-preview.22`), all six samples
+  print what `expected/` holds, chapter 3's refusal and report included, so
+  chapters 3 to 6 show only what that release does. Published trimmed for
+  linux-x64, all six print the same.
 - **Durations, measured in this container (Linux x64).** `learn --run`, six
   samples, after the first build: chapter 3 about 13 s, chapter 4 about 7 s,
   chapters 5 and 6 about 4 s each.
