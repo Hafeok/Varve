@@ -390,6 +390,8 @@ jobs:
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Entailment.Tests
 
       - name: Test Varve.Inference
+        # About three times the slowest green run of this step (#405, #399).
+        timeout-minutes: 110
         run: >
           dotnet test
           --project tests/Varve.Inference.Tests/Varve.Inference.Tests.csproj
