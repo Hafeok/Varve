@@ -1,0 +1,268 @@
+/* The docs site's own stylesheet (ADR 0247, design from docs/ui).
+   Loaded after site-tokens.css (generated from docs/ui/tokens.json) and
+   docs/ui/bundle.css (the atoms: vw-state, vw-stamp, vw-term). Classes here are
+   prefixed vd- and only lay out documentation: nothing in it restyles a vw-
+   class. No web font, no script, nothing from another origin. */
+
+* { box-sizing: border-box; }
+
+html { color-scheme: light dark; -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 16px/26px var(--font-sans);
+}
+
+/* Figures line up where they are compared: in tables, and in a number set
+   apart, such as an ADR's in the page list. Prose keeps the face's own
+   figures, which in some system faces space out hyphens and dates. */
+.vd-table table, .vd-num { font-variant-numeric: tabular-nums; }
+
+a { color: var(--accent); text-underline-offset: 0.18em; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.vd-skip { position: absolute; left: -9999px; }
+.vd-skip:focus { left: var(--space-4); top: var(--space-2); z-index: 10; background: var(--surface); padding: var(--space-2) var(--space-3); }
+
+/* ---- Bar ------------------------------------------------------------- */
+
+.vd-bar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: var(--space-6);
+  height: 52px; padding: 0 var(--space-6);
+  background: var(--surface);
+  border-bottom: 1px solid var(--rule);
+}
+.vd-brand { display: flex; align-items: center; gap: var(--space-2); color: var(--ink); text-decoration: none; flex: none; }
+.vd-brand img { width: 24px; height: 24px; display: block; }
+.vd-brand b { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.vd-brand span { font-size: 14px; color: var(--ink-muted); padding-left: var(--space-2); border-left: 1px solid var(--rule); margin-left: var(--space-1); }
+
+.vd-sections { display: flex; gap: var(--space-1); overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.vd-sections a {
+  flex: none; padding: 0 var(--space-3); line-height: 52px; font-size: 14px;
+  color: var(--ink-muted); text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+.vd-sections a:hover { color: var(--ink); }
+.vd-sections a[aria-current] { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+.vd-repo { flex: none; font-size: 14px; color: var(--ink-muted); text-decoration: none; }
+.vd-repo:hover { color: var(--ink); text-decoration: underline; }
+
+/* ---- Frame: pages | article | on this page ---------------------------- */
+
+.vd-frame {
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr) 224px;
+  grid-template-areas: "pages article toc";
+  max-width: 1440px; margin: 0 auto;
+  min-height: calc(100vh - 52px);
+}
+.vd-frame--wide { grid-template-columns: 272px minmax(0, 1fr); grid-template-areas: "pages article"; }
+.vd-frame--home { grid-template-columns: minmax(0, 1fr); grid-template-areas: "article"; }
+/* The article comes first in the document, so a narrow screen and a screen
+   reader reach the content before the page list. */
+.vd-article, .vd-home { grid-area: article; }
+.vd-pages { grid-area: pages; }
+.vd-toc { grid-area: toc; }
+
+.vd-pages {
+  background: var(--ground);
+  border-right: 1px solid var(--rule);
+  padding: var(--space-6) 0 var(--space-8);
+}
+.vd-pages h2 {
+  margin: 0 var(--space-6) var(--space-2);
+  font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.vd-pages ol { list-style: none; margin: 0; padding: 0; position: sticky; top: calc(52px + var(--space-6)); }
+.vd-pages li a {
+  display: block; padding: 6px var(--space-6); font-size: 14px; line-height: 20px;
+  color: var(--ink); text-decoration: none; border-left: 3px solid transparent;
+}
+.vd-pages li a:hover { background: var(--surface-sunk); }
+.vd-pages li a[aria-current] { background: var(--layer); color: var(--layer-ink); font-weight: 600; border-left-color: var(--layer-ink); }
+.vd-pages li a .vd-num { font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); margin-right: var(--space-2); }
+.vd-pages li a[aria-current] .vd-num { color: var(--layer-ink); }
+.vd-pages--long ol { position: static; }
+
+.vd-article { padding: var(--space-8) var(--space-8) 64px; min-width: 0; }
+.vd-prose { max-width: 46rem; }
+
+.vd-toc { padding: var(--space-8) var(--space-6) var(--space-8) 0; }
+.vd-toc > div { position: sticky; top: calc(52px + var(--space-8)); }
+.vd-toc h2 { margin: 0 0 var(--space-2); font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.vd-toc ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--rule); }
+.vd-toc a { display: block; padding: 3px 0 3px var(--space-3); font-size: 13px; line-height: 18px; color: var(--ink-muted); text-decoration: none; }
+.vd-toc a:hover { color: var(--ink); }
+.vd-toc .vd-toc-3 a { padding-left: var(--space-6); }
+
+/* ---- Page head -------------------------------------------------------- */
+
+.vd-crumbs { margin: 0 0 var(--space-3); font-size: 13px; line-height: 20px; color: var(--ink-muted); }
+.vd-crumbs a { color: var(--ink-muted); text-decoration: none; }
+.vd-crumbs a:hover { color: var(--ink); text-decoration: underline; }
+.vd-jump { display: none; margin-left: var(--space-3); }
+.vd-crumbs span[aria-hidden] { margin: 0 var(--space-2); }
+
+.vd-head { margin: 0 0 var(--space-8); padding-bottom: var(--space-6); border-bottom: 1px solid var(--rule); }
+.vd-head h1 { margin: 0; font-size: 32px; line-height: 40px; font-weight: 600; letter-spacing: -0.015em; text-wrap: balance; }
+.vd-eyebrow { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+/* A page named by an identifier (a problem type, a rule, a format) sets it as code. */
+.vd-head h1.vd-ident { font-family: var(--font-mono); font-size: 28px; line-height: 36px; font-weight: 600; letter-spacing: 0; overflow-wrap: anywhere; }
+.vd-pages--ident li a { font-family: var(--font-mono); font-size: 13px; }
+.vd-lede { margin: var(--space-3) 0 0; font-size: 18px; line-height: 28px; color: var(--ink-muted); }
+.vd-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-6); margin: var(--space-4) 0 0; font-size: 14px; line-height: 20px; }
+.vd-meta dt { display: inline; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); margin-right: var(--space-2); }
+.vd-meta dd { display: inline; margin: 0; }
+.vd-meta > div { display: flex; align-items: center; }
+
+/* ---- Prose ------------------------------------------------------------ */
+
+.vd-prose > :first-child { margin-top: 0; }
+.vd-prose h2 { margin: 48px 0 var(--space-3); font-size: 22px; line-height: 28px; font-weight: 600; letter-spacing: -0.01em; scroll-margin-top: 72px; }
+.vd-prose h3 { margin: var(--space-8) 0 var(--space-2); font-size: 17px; line-height: 24px; font-weight: 600; scroll-margin-top: 72px; }
+.vd-prose h4 { margin: var(--space-6) 0 var(--space-2); font-size: 15px; line-height: 24px; font-weight: 600; }
+.vd-prose h2 > a.vd-anchor, .vd-prose h3 > a.vd-anchor { margin-left: var(--space-2); color: var(--ink-muted); text-decoration: none; opacity: 0; }
+.vd-prose h2:hover > a.vd-anchor, .vd-prose h3:hover > a.vd-anchor, a.vd-anchor:focus { opacity: 1; }
+.vd-prose p, .vd-prose ul, .vd-prose ol, .vd-prose dl { margin: 0 0 var(--space-4); }
+.vd-prose ul, .vd-prose ol { padding-left: var(--space-6); }
+.vd-prose li { margin: var(--space-1) 0; }
+.vd-prose li > ul, .vd-prose li > ol { margin: var(--space-1) 0 0; }
+.vd-prose li::marker { color: var(--ink-muted); }
+.vd-prose strong { font-weight: 600; }
+.vd-prose hr { border: 0; border-top: 1px solid var(--rule); margin: var(--space-8) 0; }
+
+.vd-prose code {
+  font-family: var(--font-mono); font-size: 0.8125em;
+  background: var(--surface-sunk); padding: 2px 5px; border-radius: var(--radius-sm);
+  line-height: 1; overflow-wrap: anywhere;
+}
+.vd-prose a code { color: inherit; }
+.vd-prose pre {
+  margin: 0 0 var(--space-6); padding: var(--space-3) var(--space-4);
+  background: var(--surface-sunk); border: 1px solid var(--rule); border-radius: var(--radius-md);
+  overflow-x: auto; font: 400 13px/20px var(--font-mono); tab-size: 2;
+}
+.vd-prose pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+
+/* Tables read like the console's: hairlines, a sunk header, no grid. */
+.vd-table { margin: 0 0 var(--space-6); overflow-x: auto; border: 1px solid var(--rule); border-radius: var(--radius-md); }
+.vd-table table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 20px; }
+.vd-table th {
+  background: var(--surface-sunk); text-align: left; vertical-align: bottom;
+  font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted);
+  padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--rule);
+}
+.vd-table td { padding: var(--space-2) var(--space-3); border-top: 1px solid var(--rule); vertical-align: top; }
+.vd-table tr:first-child td { border-top: 0; }
+.vd-table td[align="right"], .vd-table th[align="right"] { text-align: right; }
+.vd-table code { font-size: 12px; }
+/* A key-value table (a header row of empty cells, as the problem pages write it). */
+.vd-table--kv thead { display: none; }
+.vd-table--kv td:first-child { width: 9rem; color: var(--ink-muted); }
+.vd-table--kv td:first-child strong { font-weight: 400; }
+
+blockquote { margin: 0 0 var(--space-6); padding: var(--space-3) var(--space-4); background: var(--layer); color: var(--layer-ink); border-left: 3px solid var(--layer-ink); border-radius: var(--radius-sm); }
+blockquote > :last-child { margin-bottom: 0; }
+
+.vd-notice { display: flex; gap: var(--space-3); margin: 0 0 var(--space-6); padding: var(--space-3) var(--space-4); background: var(--warn-soft); border: 1px solid var(--rule); border-left: 3px solid var(--warn); border-radius: var(--radius-sm); font-size: 14px; line-height: 20px; }
+
+/* A diagram is an SVG drawn at build time, on its own light card in both
+   themes: Mermaid's neutral theme is drawn for a light ground. */
+figure.vd-diagram { margin: 0 0 var(--space-6); padding: var(--space-4); background: #ffffff; border: 1px solid var(--rule); border-radius: var(--radius-md); overflow-x: auto; }
+figure.vd-diagram img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+
+/* ---- Previous / next and the foot -------------------------------------- */
+
+.vd-pager { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); max-width: 46rem; margin: 64px 0 0; }
+.vd-pager a { display: block; padding: var(--space-3) var(--space-4); border: 1px solid var(--rule); border-radius: var(--radius-md); text-decoration: none; color: var(--ink); }
+.vd-pager a:hover { border-color: var(--control-border); }
+.vd-pager small { display: block; font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+.vd-pager b { font-weight: 600; color: var(--accent); }
+.vd-pager .vd-next { grid-column: 2; text-align: right; }
+
+.vd-foot {
+  display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); justify-content: space-between;
+  padding: var(--space-4) var(--space-6); border-top: 1px solid var(--rule); background: var(--ground);
+  font-size: 13px; line-height: 20px; color: var(--ink-muted);
+}
+.vd-foot a { color: var(--ink-muted); }
+.vd-foot code { font-family: var(--font-mono); font-size: 12px; }
+
+/* ---- Home -------------------------------------------------------------- */
+
+.vd-home { max-width: 1120px; margin: 0 auto; padding: 56px var(--space-8) 80px; width: 100%; }
+.vd-home-head { padding-bottom: var(--space-8); border-bottom: 1px solid var(--rule); }
+.vd-home-head h1 { margin: 0; font-size: 40px; line-height: 48px; font-weight: 600; letter-spacing: -0.02em; }
+.vd-home-head p { margin: var(--space-3) 0 0; max-width: 40rem; font-size: 18px; line-height: 28px; color: var(--ink-muted); }
+.vd-start { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6); }
+.vd-start a { padding: 10px var(--space-4); border-radius: var(--radius-sm); border: 1px solid var(--control-border); color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 600; line-height: 20px; }
+.vd-start a.vd-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.vd-start a:hover { text-decoration: underline; }
+
+.vd-home h2 { margin: 48px 0 var(--space-4); font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-muted); }
+.vd-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); list-style: none; margin: 0; padding: 0; }
+.vd-grid a { display: flex; flex-direction: column; height: 100%; padding: var(--space-4) var(--space-4) var(--space-3); background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-md); color: var(--ink); text-decoration: none; }
+.vd-grid a:hover { border-color: var(--control-border); }
+.vd-grid a:hover b { text-decoration: underline; }
+.vd-grid b { font-size: 16px; line-height: 24px; font-weight: 600; color: var(--accent); }
+.vd-grid span { margin-top: var(--space-1); font-size: 14px; line-height: 20px; color: var(--ink-muted); flex: 1; }
+.vd-grid small { margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--rule); font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+
+/* ---- Index tables (ADRs, problems, rules) ------------------------------ */
+
+.vd-index td:first-child { white-space: nowrap; }
+.vd-index td:first-child a { font-family: var(--font-mono); font-size: 13px; }
+.vd-index td.vd-state-cell { white-space: nowrap; }
+
+/* ---- API reference ------------------------------------------------------ */
+
+ul.vd-api { list-style: none; margin: 0 0 var(--space-6); padding: 0; border: 1px solid var(--rule); border-radius: var(--radius-md); }
+ul.vd-api li { padding: var(--space-2) var(--space-3); border-top: 1px solid var(--rule); font: 400 13px/20px var(--font-mono); overflow-wrap: anywhere; }
+ul.vd-api li:first-child { border-top: 0; }
+
+/* ---- Narrow screens ------------------------------------------------------ */
+
+@media (max-width: 1240px) {
+  .vd-frame { grid-template-columns: 248px minmax(0, 1fr); grid-template-areas: "pages article"; }
+  .vd-toc { display: none; }
+}
+
+@media (max-width: 860px) {
+  body { font-size: 16px; }
+  /* The bar is two rows and scrolls away with the page: the brand, then the
+     five sections wrapped, so every section shows without a menu or a script. */
+  .vd-bar { position: static; flex-wrap: wrap; height: auto; gap: 0 var(--space-4); padding: var(--space-3) var(--space-4) 0; }
+  .vd-brand { flex: 1 0 100%; }
+  .vd-brand span, .vd-repo { display: none; }
+  .vd-sections { flex: 1 0 100%; flex-wrap: wrap; overflow: visible; gap: 0 var(--space-1); margin-left: calc(-1 * var(--space-3)); }
+  .vd-sections a { line-height: 44px; }
+  .vd-pages ol, .vd-toc > div { top: 0; }
+  .vd-frame, .vd-frame--wide { grid-template-columns: minmax(0, 1fr); grid-template-areas: "article" "pages"; }
+  /* The page list moves below the article; a link at the top jumps to it. */
+  .vd-pages { border-right: 0; border-top: 1px solid var(--rule); padding: var(--space-6) 0; }
+  .vd-pages h2 { margin-left: var(--space-4); }
+  .vd-pages ol { position: static; }
+  .vd-pages li a { padding: 10px var(--space-4); }
+  .vd-jump { display: inline-block; }
+  .vd-article { padding: var(--space-6) var(--space-4) 48px; }
+  .vd-head h1 { font-size: 26px; line-height: 32px; }
+  .vd-home { padding: var(--space-8) var(--space-4) 56px; }
+  .vd-home-head h1 { font-size: 30px; line-height: 36px; }
+  .vd-grid { grid-template-columns: minmax(0, 1fr); }
+  .vd-pager { grid-template-columns: 1fr; }
+  .vd-pager .vd-next { grid-column: 1; }
+}
+
+
+@media (forced-colors: active) {
+  .vd-pages li a[aria-current], .vd-sections a[aria-current] { border-color: Highlight; }
+  figure.vd-diagram { forced-color-adjust: none; }
+}
+
+.vd-eyebrow code { font: 400 12px/16px var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--ink); background: var(--surface-sunk); padding: 2px 6px; border-radius: var(--radius-sm); }

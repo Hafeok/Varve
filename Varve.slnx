@@ -59,6 +59,7 @@
     <Project Path="tests/Varve.Shacl.Store.Tests/Varve.Shacl.Store.Tests.csproj" />
     <Project Path="tests/Varve.Classification.Tests/Varve.Classification.Tests.csproj" />
     <Project Path="tests/Varve.Shacl.Tests/Varve.Shacl.Tests.csproj" />
+    <Project Path="tests/Varve.Site.Tests/Varve.Site.Tests.csproj" />
     <Project Path="tests/Varve.Sparql.Entailment.Tests/Varve.Sparql.Entailment.Tests.csproj" />
     <Project Path="tests/Varve.Inference.Tests/Varve.Inference.Tests.csproj" />
     <Project Path="tests/Varve.Inference.Store.Tests/Varve.Inference.Store.Tests.csproj" />
