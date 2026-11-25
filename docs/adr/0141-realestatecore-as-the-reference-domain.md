@@ -157,3 +157,40 @@ measurement only:
 
 **The ledger.** The ruling is `BenchmarkAxiomSetIsNotRec`.
 
+
+## Amendment, 2026-11-25 — the learning track's data: the slice, the generated portfolio, and the default graph
+
+Filed by the learning track, part (b) (#411, under #94), unaccepted (ADR
+0066). Decided by the maintainer on #94 on 2026-11-19 (answers 2 and 4 to
+the track's plan) and on #411 on 2026-11-25 (its decision 1).
+
+Point 4's row for the learning track is made concrete:
+- **The slice.** Chapters 1 and 2 use hand-written data,
+  `samples/learn/data/01-rooms.trig` and `02-topology.trig`, small enough to
+  read whole. Later chapters load it beside the portfolio, or alone when a
+  chapter needs only a few rooms.
+- **The generated portfolio is a pinned cut, not a run of the generator.**
+  A sample references nothing internal (ADR 0249), so it cannot run the
+  test-only generator of point 2. From chapter 3 it loads
+  `samples/learn/data/03-portfolio.trig`: REC S at its head, seed 20261015,
+  cut to region 0, site 0 and buildings 0 and 1 with everything below them
+  by `rec:hasPart`, `rec:isLocationOf` and `rec:hasPoint`, flattened into the
+  default graph. `tests/Varve.Rec.Tests/LearnFixtureTests.cs` writes it and
+  pins its SHA-256, and fails when the generator's output and the file
+  differ. Leases, their companies and the site's owner are left out until
+  the chapter on agents and collections. The generator, its `Version`, and
+  S, M and L do not change.
+- **The default graph until chapter 9,** which introduces named graphs.
+- **The one exception is the vocabulary.** From chapter 3, a sample that
+  binds REC's shapes loads REC 4, composed as the REC gate composes it (ADR
+  0176), as one commit into the graph `https://example.org/learn/rec`. A
+  shapes binding's shapes graph is a named graph of the dataset (ADR 0170),
+  so the shapes cannot sit in the default graph beside the data, and the
+  class hierarchy is then read from that graph with `GRAPH`. Copying REC's
+  `rdfs:subClassOf` statements into the default graph instead was rejected:
+  it duplicates them and teaches the wrong thing.
+- **The asset types.** The generator types some assets `rec:Cabinet`, which
+  REC 4 makes a room (#414). The track does not teach the asset hierarchy
+  until #414 is answered.
+
+**The ledger.** The ruling is `LearningTrackDataIsTheSliceAndAPinnedCut`.

@@ -2,7 +2,7 @@
 
 Chapters 1 and 2 used a handful of rooms written by hand. From here, the
 track works on a generated portfolio: a region, a site and two buildings of
-eight levels each, with 400 rooms, 1,200 assets and 3,200 points. This
+eight levels each, with 400 rooms, 1,200 assets and 3,215 points. This
 chapter asks what happens to the schema as a portfolio like that grows new
 kinds of thing. In a relational database, a new kind of thing is a
 migration: a column, a lookup row or an enum value, and a `CHECK` that

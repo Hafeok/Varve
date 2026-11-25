@@ -35,6 +35,8 @@ decisions:
     statement: "The slice, chapter by chapter, and every sample's final state conform to the pinned REC 4 shapes composed as ADR 0176 composes them, and samples/learn/rec.pin's tag and checksum are verified first"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-11-24T00:00:00Z
+  - key: StateLeavesOutThePinnedVocabulary
+    statement: "Amended 2026-11-25: a sample that holds the pinned REC files in a graph of their own names that graph, and its final state is the head without it; the graph is held to the release by rec.pin, not by expected/state.nq"
 ---
 
 The rulings of [ADR 0249](../adr/0249-the-learning-tracks-pages-quote-what-ci-ran.md),
