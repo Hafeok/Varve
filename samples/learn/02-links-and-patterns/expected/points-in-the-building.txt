@@ -1,0 +1,7 @@
+space      | point            | type
+-----------+------------------+-------------------------
+:room-2-01 | :point-temp-2-01 | brick:Temperature_Sensor
+:room-2-02 | :point-co2-2-02  | brick:CO2_Sensor
+:room-3-01 | :point-temp-3-01 | brick:Temperature_Sensor
+:room-3-02 | :point-temp-3-02 | brick:Temperature_Sensor
+(4 rows)

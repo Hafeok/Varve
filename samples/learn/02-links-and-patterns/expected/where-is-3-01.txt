@@ -1,0 +1,6 @@
+container     | type
+--------------+-------------
+:building-hq  | rec:Building
+:level-3      | rec:Level
+:site-harbour | rec:Site
+(3 rows)

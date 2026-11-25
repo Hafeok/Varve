@@ -1,0 +1,40 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    The samples hold the constraints a user's application would (#94, ruling
+    4): a trimmed build with no warning, and Varve.Iri where an IRI is meant,
+    never System.Uri (ADR 0004).
+  -->
+  <PropertyGroup>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)../../eng/BannedSymbols.Uri.txt" />
+  </ItemGroup>
+
+  <!-- What every sample shares: the loader and the printer, and the slice. -->
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Shared/*.cs" LinkBase="Shared" />
+    <None Include="$(MSBuildThisFileDirectory)data/*.trig" LinkBase="data" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="queries/*.rq;queries/*.ru" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(VarveFrom)' == 'project'">
+    <ProjectReference Include="@(VarveReference->'$(MSBuildThisFileDirectory)../../src/%(Identity)/%(Identity).csproj')" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(VarveFrom)' == 'package'">
+    <PackageReference Include="@(VarveReference)" VersionOverride="$(VarvePackageVersion)" />
+  </ItemGroup>
+
+  <Target Name="VarveLearnPackageVersion" BeforeTargets="CollectPackageReferences" Condition="'$(VarveFrom)' == 'package' and '$(VarvePackageVersion)' == ''">
+    <Error Text="VarveFrom=package needs VarvePackageVersion, the published version to build against." />
+  </Target>
+
+</Project>
