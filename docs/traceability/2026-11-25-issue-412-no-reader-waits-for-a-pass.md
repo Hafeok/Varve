@@ -75,7 +75,14 @@ history and the position survive a restart, the build's time does not. The
 amendment leaves restoring without a build as an open question for the
 maintainer.
 
-**Measured after**, REC M: @@RECM-SUMMARY@@
+**Measured after**, REC M, OWL 2 RL, cross-graph: 1,740 readiness probes
+during a cold build, the longest 0.40 ms; idle 0.001 ms; beside a commit's
+pass at most 0.04 ms; explain beside a commit at most 181 ms, and during a
+build `inference-behind` after 2.06 s; a cold build cancelled at 5, 10, 20,
+40 and 80 s returned within 0.08 s. The first full run found explain at the
+head taking about 8 s for an as-of view of the head, and a cancellation not
+seen while a build read the store; both are fixed on the branch, and
+ADR 0195's amendment has the table.
 
 **Tests.** `ClashesKeptPerPassTests` (the kept clashes equal a full match,
 and a mutant that keeps stale clashes fails it); `PassTests` (probes during a

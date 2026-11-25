@@ -767,8 +767,8 @@ RL, cross-graph, on 4 cores (#412):
   every check matched in full, at every commit, under both profiles, DRed
   and recursive counting, with and without a TBox closure beneath.
 - **A stop cancels the pass.** The stop's token reaches every closure a pass
-  changes; a closure sees it within a thousand rule firings, and a build
-  between graphs. A cancelled pass drops its closures, keeps the position,
+  changes; a closure sees it within a thousand rule firings or facts
+  asserted, and a build every 65,536 quads it reads and between graphs. A cancelled pass drops its closures, keeps the position,
   and saves nothing; the projection is then abandoned, and applies nothing
   until a reset builds it again. The stop waits at most
   `Varve:Inference:StopWait`, 10 s by default, for the pass to end, then
@@ -791,7 +791,27 @@ RL, cross-graph, on 4 cores (#412):
   read does (point 6). Below it, it is from scratch and waits for no pass.
 
 **Measured after**, at REC M, OWL 2 RL, cross-graph, 4 cores
-(`Varve.Benchmarks --pass-waits M owl2rl cross`): @@RECM-TABLE@@
+(`Varve.Benchmarks --pass-waits M owl2rl cross`; the cancellations with
+`VARVE_PHASE=shutdown`):
+
+| What | Before | After |
+|---|---|---|
+| Readiness probe during a cold build | 58 probes, every one past 1 s, longest 450 s | 1,740 probes, longest 0.40 ms |
+| Readiness probe idle | 7.2 s | 0.001 ms |
+| Readiness probe beside a commit's pass | 7.6 s at the median | at most 0.04 ms |
+| A commit's pass | median 9.8 ms, up to 8.5 s behind a probe | median 44 ms, at most 183 ms |
+| Explain at the position during a cold build | waited for the build | `inference-behind` after 2.06 s |
+| Explain at the head beside a commit | waited for the pass, then about 8 s for an as-of view of the head | at most 181 ms: the head is pinned, as a pass pins it |
+| A cold build cancelled at 5, 10, 20, 40 and 80 s | returned 290 s after the cancel | returned within 0.08 s, abandoned |
+
+A commit's pass costs more after: it publishes the snapshot, whose
+clashes and premise-set graphs it reads once, and keeps the clashes from the
+facts it changed. The cold build took 849 to 874 s across three runs on this
+machine, the closure at 13.4 GB by the budget's count against a heap of
+10.75 GB; it is not this change's to shorten (#408), and main's own harness
+did not finish its build within 40 minutes on the same machine that day, so
+the 290 s measured before is not comparable. At REC S, where both finish,
+the build took 28.0 s after and 28.1 s before.
 
 **Bounds held.** The nightly's `pass waits` job runs that gate at REC M,
 both profiles, per graph and cross-graph, and fails a run in which a probe
