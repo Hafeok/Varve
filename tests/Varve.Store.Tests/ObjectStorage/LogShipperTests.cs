@@ -844,8 +844,10 @@ public sealed class LogShipperTests
     /// before the shipper copies the rest of it: the shipper seals the
     /// target's segment through its next slot, creates the consolidated
     /// segment and deletes that chunk, all before the promoter's fence, which
-    /// then lands in the slot the chunk left. That promotion does not finish,
-    /// and promoting again does.
+    /// then lands in the slot the chunk left. The promoter finds the
+    /// segment's object there, adopts the log after it and fences again at
+    /// the end, as any writer does since #396: the promotion finishes in the
+    /// one request.
     /// </remarks>
     [Theory]
     [InlineData(0)]
@@ -913,22 +915,14 @@ public sealed class LogShipperTests
 
         if (consolidated)
         {
-            // The fence took a slot in a segment the shipper had sealed, consolidated and cleared: it is not at the
-            // end of the log, and this storage does not know the commit that is. The last write refuses.
+            // The promoter's first fence took a slot in a segment the shipper had sealed, consolidated and cleared.
+            // The writer finds the segment's object after its create (ADR 0136, amended 2026-11-24, #396), adopts
+            // it and the log after it, and fences again at the end: the promotion finishes in this one request, and
+            // the copy holds the commit the shipper brought.
             Assert.Contains("log/00000000.seg", pair.Target.Store.Names());
-            Assert.Equal(recorded, replica.Head);
-            IOException unfinished = await Assert.ThrowsAsync<IOException>(async () => await Pair.CompleteAsync(storage, replica));
-            Assert.Contains("Promote again", unfinished.Message, StringComparison.Ordinal);
-            storage.ReleaseOnClose = ReleaseReason.Promotion;
-            await replica.DisposeAsync();
-            await storage.DisposeAsync();
-            Assert.Equal(ReplicaState.PromotionIncomplete, await Backend.ReplicaStateAsync(pair.Target.Store, null, T.Ct));
-
-            // Promoting again, naming the position first recorded: it lists the log afresh and fences at its end.
-            storage = await pair.Target.OpenAsync(ObjectStorageAccess.ReadOnly);
-            replica = await Dataset.OpenFollowerAsync(storage, options, T.Ct);
+            Assert.Contains(contested, pair.Target.Store.Names());
+            Assert.StartsWith("log/00000000.chunks/", contested, StringComparison.Ordinal);
             Assert.Equal(recorded.Value + 1, replica.Head.Value);
-            Assert.True(await replica.TakeWriteAsync(async claim => await storage.PromoteInPlaceAsync(await Pair.PromotionAsync(replica, recorded), claim) == PromotionOutcome.Promoted, T.Ct));
         }
 
         await using Backend held = storage;
@@ -942,6 +936,10 @@ public sealed class LogShipperTests
         await Pair.CompleteAsync(storage, promoted);
         LineageRecord lineage = (await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!;
         Assert.Equal(promoted.Head, lineage.Promoted!.Position);
+
+        // Where the first fence landed behind a consolidated segment, the fence the lineage names is the second one,
+        // in the segment after it.
+        Assert.True(way != 2 || lineage.Promoted.Fence!.Value.Value.StartsWith("00000001.chunks/", StringComparison.Ordinal), "the fence is at " + lineage.Promoted.Fence);
 
         // Where the shipper won the slot the promoter's fence was going to, the fence is above it.
         Assert.True(way != 1 || string.CompareOrdinal("log/" + lineage.Promoted.Fence!.Value.Value, contested) > 0, "the fence is at " + lineage.Promoted.Fence + ", not above " + contested);
@@ -1038,6 +1036,33 @@ public sealed class LogShipperTests
             Assert.True(watch.Elapsed < TimeSpan.FromSeconds(30), "The source did not get there in thirty seconds.");
             await Task.Delay(10, T.Ct);
         }
+    }
+
+    /// <summary>
+    /// ADR 0185 decision 4, amended 2026-11-25: the promotion's last write
+    /// still refuses a fence whose segment has a consolidated object. No
+    /// order of a shipper and a promoter reaches that since #396, so the
+    /// object is put in the store by hand here: the guard is what is tested.
+    /// </summary>
+    [Fact]
+    public async Task the_last_write_of_a_promotion_refuses_a_fence_behind_a_consolidated_segment()
+    {
+        await using Pair pair = new();
+        await using Dataset writer = await T.OpenOrCreate(await pair.Source.OpenAsync(), T.Options());
+        await CommitAsync(writer, 0, 3);
+        await (await pair.StartAsync())!.ShipAsync(T.Ct);
+
+        await using Backend storage = await pair.Target.OpenAsync(ObjectStorageAccess.ReadOnly);
+        await using Dataset replica = await Dataset.OpenFollowerAsync(storage, T.Options(), T.Ct);
+        Position tail = replica.Head;
+        Assert.True(await replica.TakeWriteAsync(async claim => await storage.PromoteInPlaceAsync(await Pair.PromotionAsync(replica, tail), claim) == PromotionOutcome.Promoted, T.Ct));
+        pair.Target.Store.Put("log/00000000.seg", [1]);
+
+        IOException unfinished = await Assert.ThrowsAsync<IOException>(async () => await Pair.CompleteAsync(storage, replica));
+
+        Assert.Contains("Promote again", unfinished.Message, StringComparison.Ordinal);
+        Assert.Null((await Backend.ReadLineageAsync(pair.Target.Store, null, T.Ct))!.Promoted!.Fence);
+        storage.ReleaseOnClose = ReleaseReason.Promotion;
     }
 
     /// <summary>

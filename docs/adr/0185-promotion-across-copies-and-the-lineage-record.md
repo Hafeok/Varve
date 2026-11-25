@@ -446,3 +446,67 @@ says, at the step where the operator runs it and not in a note elsewhere:
     bound.
 - **Open questions owned.** None. Restoring a lost fleet is #315, and a
   check that two fleets' declarations agree is #314.
+
+## Amendment, 2026-11-25 — a fence behind a consolidated segment is made again, and the promotion finishes
+
+Filed by Replication part 2 (#166), unaccepted until the maintainer accepts
+it (ADR 0066). **It changes no ruling's statement.** The rulings it touches
+are `PromotionIsAnsweredByAWarmMemberOfTheTargetFleet` and
+`AnIncompletePromotionIsCompletedOnlyByPromoting`, and neither states the
+behaviour that changes.
+
+**What changed underneath.** ADR 0136's amendment of 2026-11-24 (#396,
+`AFenceStandsOnlyAtTheEndOfTheLog`) is in `main`, and this branch has
+merged it. A writer now reads for the consolidated object of its fence's
+segment after the fence is created. Found, it adopts the object and the log
+after it and fences again at the end. A promoter fences with that code.
+
+**What decision 4 said, and no longer does.** The bullet "A fence that is
+not at the end of the log does not finish the promotion" described this
+order:
+
+1. the shipper seals a segment on the target through its next slot,
+   creates the segment's `.seg`, and deletes the sealing chunk;
+2. a promoter that listed the log before that creates its fence in the
+   slot the chunk left.
+
+It said step 4 then refuses, and the operator promotes again.
+
+**What happens now.** The promoter's fence create succeeds in that slot.
+The promoter finds the segment's `.seg`, adopts it and the segments after
+it, and fences again at the end of the log. Step 4 records that second
+fence and the position there. **The promotion finishes in the one request,**
+and the copy holds the commits the shipper brought, which are the source
+fleet's as before. The first fence chunk stays in its slot, inside a
+consolidated segment, where no reader takes it for the segment.
+
+- **The operator sees** an answer whose `position` may be above `asked`,
+  with `keptAboveAsked`, as for any chunk a shipper created before the
+  fence. They do not see `promotion-incomplete` for this order.
+- **A second promote request** is answered as before.
+
+**Step 4's check stays, as a guard.** The last write still refuses a fence
+whose segment has a consolidated object, with the same message. No order
+of a shipper and a promoter reaches it now. It is kept because a promotion
+recorded at such a fence would be behind the object, whatever path led
+there.
+
+**What this does not change: ADR 0184 decision 4.** A shipper still seals
+a segment through the target's next slot before it creates the `.seg`. The
+fence's own check runs when the fence is created. A shipper that created a
+`.seg` directly could do so after a promotion has finished and the promoted
+writer has committed, and nothing would refuse it. #403 is unchanged.
+
+**Checks.** `LogShipperTests`:
+- `a_shipper_that_wins_a_slot_before_the_fence_has_its_commits_kept_and_recorded_as_the_sources`,
+  the third way: the promotion finishes in one request, the copy holds the
+  shipped commit, and the lineage names a fence in the next segment. Before
+  the merge of `main` this case required the refusal and a second
+  promotion.
+- `the_last_write_of_a_promotion_refuses_a_fence_behind_a_consolidated_segment`:
+  the guard, with the object put in the store by hand, since no order
+  reaches it.
+
+The "Checks" section above says of the five orders that a consolidated
+segment before the fence "leaves the promotion unfinished until it is
+promoted again". Read it as amended here.

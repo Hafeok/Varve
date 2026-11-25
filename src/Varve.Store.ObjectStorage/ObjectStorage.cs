@@ -353,16 +353,16 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
             throw new InvalidOperationException("Only the storage that promoted completes the promotion, once its log is fenced.");
         }
 
-        // The fence must be the end of the log. A shipper that was mid-round may have consolidated the fence's
-        // segment since this storage listed it: it creates the segment's object before it deletes the chunk that
-        // sealed it, so a fence that landed in the slot that chunk left finds the object here. The segment is then
-        // sealed, the log goes on after it, and this storage's view of it is stale. The promotion has not finished
-        // (decision 6): promoting again lists the log afresh and fences at its end.
+        // The fence must be the end of the log. The fence procedure itself now sees to that: a fence that lands in
+        // a slot a consolidation left finds the segment's object and is made again at the end (ADR 0136, amended
+        // 2026-11-24, #396), so no order of a shipper and a promoter reaches this check (ADR 0185, amended
+        // 2026-11-25). It stays as the last write's own guard: a fence in a segment that has its object is not
+        // the end of the log by any path, and a promotion recorded there would be behind the object.
         int segment = int.Parse(fence.Value.AsSpan(0, 8), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture);
 
         if (await _store.ReadAsync(_names.Segment(segment), new ByteOffset(0), new ByteCount(1), cancellationToken).ConfigureAwait(false) is not null)
         {
-            throw new IOException("The promotion's fence at log slot " + fence + " is in a segment that a shipper consolidated while the copy was being promoted, so it is not at the end of the log. "
+            throw new IOException("The promotion's fence at log slot " + fence + " is in a segment that has been consolidated, so it is not at the end of the log. "
                 + "Nothing was written after it, and the promotion has not finished (ADR 0185). Promote again, naming the same source and position.");
         }
 
