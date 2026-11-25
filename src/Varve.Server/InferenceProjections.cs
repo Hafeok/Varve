@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
@@ -41,8 +42,11 @@ namespace Varve.Server;
 [Contract(typeof(TheInferenceProjection.OneSeamForTierTwo), Role = "the server's inference projections, fed and served")]
 internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncDisposable
 {
-    /// <summary>How many commits a projection applies between two saves of its state.</summary>
+    /// <summary>How many commits a projection applies between two saves of its state, at most.</summary>
     private const int SaveEvery = 1_000;
+
+    /// <summary>How long a projection that applies commits goes between two saves of its state, at most.</summary>
+    private static readonly TimeSpan SaveAfter = TimeSpan.FromMinutes(5);
 
     private readonly Func<Declarations> _declarations;
     private readonly OpenDatasets _datasets;
@@ -58,14 +62,17 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 
     /// <summary>Projections of <paramref name="datasets"/> under the declarations <paramref name="declarations"/> answers; a read waits up to <paramref name="wait"/> for one to reach its position.</summary>
     [DesignDecision(typeof(TheInferenceProjection.InferenceBehind), Scope = ExceptionScope.Boundary)]
-    internal InferenceProjections(Func<Declarations> declarations, OpenDatasets datasets, TimeSpan wait, InferenceOptions options, ILogger logger)
+    internal InferenceProjections(Func<Declarations> declarations, OpenDatasets datasets, TimeSpan wait, InferenceOptions options, ILogger logger, TimeSpan? stopWait = null)
     {
         _declarations = declarations;
         _datasets = datasets;
         _wait = wait;
         _options = options;
         _logger = logger;
+        _stopWait = stopWait ?? TimeSpan.FromSeconds(10);
     }
+
+    private readonly TimeSpan _stopWait;
 
     /// <summary>
     /// The pool every binding of the process takes from (ADR 0195 point 6): the collector's heap limit less the memtable's
@@ -223,7 +230,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
             {
                 if (!_entries.ContainsKey((dataset.Value, key)))
                 {
-                    Entry entry = new(key, held!, new InferenceProjection(held!, binding, _options), _datasets.LocalDerivedOf(dataset), _wait);
+                    Entry entry = new(key, held!, new InferenceProjection(held!, binding, _options), _datasets.LocalDerivedOf(dataset), _wait, _stopWait, _options.Clock, _logger);
                     _entries[(dataset.Value, key)] = entry;
                     entry.Start(_logger, WithoutMemory);
                 }
@@ -285,6 +292,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
     }
 
     /// <summary>One binding's projection, its feed, and its closure as the seam reads it.</summary>
+    [Contract(typeof(TheInferenceProjection.ShutdownCancelsAPass), Role = "a binding's feed, stopped by cancelling its pass")]
     private sealed class Entry : IInferenceClosure, IAsyncDisposable
     {
         private readonly IDerivedStore? _cache;
@@ -292,14 +300,20 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
         private readonly CancellationTokenSource _stop = new();
         private Task _feed = Task.CompletedTask;
         private NoClosureMemory? _withoutMemory;
+        private readonly TimeSpan _stopWait;
+        private readonly TimeProvider _clock;
+        private readonly ILogger _logger;
 
-        internal Entry(string key, Dataset dataset, InferenceProjection projection, IDerivedStore? cache, TimeSpan wait)
+        internal Entry(string key, Dataset dataset, InferenceProjection projection, IDerivedStore? cache, TimeSpan wait, TimeSpan stopWait, TimeProvider clock, ILogger logger)
         {
+            _clock = clock;
             Key = key;
             Dataset = dataset;
             Projection = projection;
             _cache = cache;
             _wait = wait;
+            _stopWait = stopWait;
+            _logger = logger;
             Name = Encoding.UTF8.GetString(projection.Binding.Binding.Lexical);
         }
 
@@ -364,7 +378,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
         public Explanation Explain(Position position, RdfTerm? graph, RdfTerm subject, RdfTerm predicate, RdfTerm @object)
         {
             (InferenceReadOutcome outcome, Explanation? explanation) = Once();
-            if (outcome == InferenceReadOutcome.Behind)
+            if (outcome == InferenceReadOutcome.Behind && Projection.Position < position)
             {
                 // The one bounded wait, as a read makes.
                 try
@@ -382,6 +396,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 
             return outcome switch
             {
+                InferenceReadOutcome.Behind when Projection.Position >= position => throw new InferenceBehindException(Binding, position, PassNames.Busy(Projection.Pass, _clock)),
                 InferenceReadOutcome.Behind => throw new InferenceBehindException(Binding, position, Projection.Position),
                 InferenceReadOutcome.Unavailable => throw Unavailable(),
                 _ => explanation!,
@@ -400,20 +415,30 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
             }
         }
 
+        /// <summary>
+        /// The binding's state on readiness: read from what the projection
+        /// published at the end of its last pass, and the pass running now,
+        /// never under a pass's lock and never by matching a check (ADR 0195
+        /// point 6, amended 2026-11-25).
+        /// </summary>
         internal InferenceStatus Status()
         {
             (ByteCount limit, ByteCount reached) = Projection.MemoryLimit;
+            InferenceSnapshot snapshot = Projection.Snapshot;
+            InferencePass? pass = Projection.Pass;
             return new InferenceStatus(
                 Math.Max(0, Dataset.Head.Value - Projection.Position.Value),
                 Projection.HeldFrom.Value,
                 !Projection.Stopped ? "following" : Projection.Failure is null ? "stopped (memory-limit)" : "stopped (failed)",
-                Projection.Clashes().Count,
+                snapshot.Clashes.Count,
                 limit.Value,
                 Projection.Stopped ? reached.Value : 0,
-                Projection.Binding.CrossGraph ? Projection.PremiseSetGraphs().Count : null)
+                Projection.Binding.CrossGraph ? snapshot.PremiseSetGraphs.Count : null)
             {
-                Held = Projection.ClosureHeld.Value,
-                Peak = Projection.ClosurePeak.Value,
+                Held = snapshot.Held.Value,
+                Peak = snapshot.Peak.Value,
+                Pass = pass,
+                PassRunning = pass is null ? TimeSpan.Zero : PassNames.Running(pass, _clock),
             };
         }
 
@@ -433,18 +458,30 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
 
         public ValueTask DisposeAsync() => new(StopAsync());
 
+        /// <summary>
+        /// Stops the feed (ADR 0195 point 6, amended 2026-11-25): its pass is
+        /// cancelled, and seen within a thousand rule firings; a pass that has
+        /// not ended after <c>Varve:Inference:StopWait</c> is abandoned. The
+        /// state is saved when no pass was cut short, so the next start loads
+        /// it; otherwise the state saved last stays the newest.
+        /// </summary>
         internal async Task StopAsync()
         {
             await _stop.CancelAsync().ConfigureAwait(false);
             try
             {
-                await _feed.ConfigureAwait(false);
+                await _feed.WaitAsync(_stopWait).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
             }
+            catch (TimeoutException)
+            {
+                ProjectionLog.Abandoned(_logger, Name, _stopWait);
+                return;
+            }
 
-            if (_cache is not null)
+            if (_cache is not null && !Projection.Abandoned)
             {
                 try
                 {
@@ -512,19 +549,28 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
                             // A cold start: one generation at the head, which is the projection's floor (ADR 0195 point 5).
                             using DatasetView head = Dataset.Pin();
                             await Projection.ResetAsync(head, stopping).ConfigureAwait(false);
+
+                            // Saved once built, so a stop from here on never leaves the next start cold.
+                            if (_cache is not null)
+                            {
+                                await SaveAsync(logger, stopping).ConfigureAwait(false);
+                            }
                         }
 
                         started = true;
                     }
 
                     int applied = 0;
+                    long saved = Environment.TickCount64;
                     await foreach (Commit commit in Dataset.Subscribe(Projection.Position, SubscriptionFilter.All, stopping).ConfigureAwait(false))
                     {
                         await Projection.ApplyAsync(commit, stopping).ConfigureAwait(false);
                         wait = TimeSpan.FromSeconds(1);
-                        if (_cache is not null && ++applied % SaveEvery == 0)
+                        if (_cache is not null && (++applied % SaveEvery == 0 || Environment.TickCount64 - saved >= (long)SaveAfter.TotalMilliseconds))
                         {
                             await SaveAsync(logger, stopping).ConfigureAwait(false);
+                            applied = 0;
+                            saved = Environment.TickCount64;
                         }
                     }
 
@@ -583,6 +629,9 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
         [LoggerMessage(Level = LogLevel.Warning, Message = "The inference projection of {Binding} held off at position {Position}: the store failed ({Reason}). It resumes from there in {Wait}.")]
         internal static partial void HeldOff(ILogger logger, string binding, long position, string reason, TimeSpan wait);
 
+        [LoggerMessage(Level = LogLevel.Warning, Message = "The inference projection of {Binding} did not end its pass within {Wait} of the stop: the pass is abandoned and nothing more is saved; the next start loads the state saved last (ADR 0195).")]
+        internal static partial void Abandoned(ILogger logger, string binding, TimeSpan wait);
+
         [LoggerMessage(Level = LogLevel.Warning, Message = "The inference projection of {Binding} could not save its state: {Reason}. The next save tries again.")]
         internal static partial void NotSaved(ILogger logger, string binding, string reason);
 
@@ -607,4 +656,43 @@ internal sealed record InferenceStatus(long Lag, long HeldFrom, string State, in
 
     /// <summary>The most they have held at once since they were built, the build included: what the binding needs of its limit.</summary>
     internal long Peak { get; init; }
+
+    /// <summary>The pass running now, if any: readiness names its kind, the position it brings the binding to, and how long it has run.</summary>
+    internal InferencePass? Pass { get; init; }
+
+    /// <summary>How long <see cref="Pass"/> had run when the status was read.</summary>
+    internal TimeSpan PassRunning { get; init; }
+}
+
+/// <summary>
+/// A binding's pass as readiness and explain name it (ADR 0195 point 6,
+/// amended 2026-11-25): explain at the projection's position waits a read's
+/// bound for the pass, then answers <c>inference-behind</c> naming it.
+/// </summary>
+[Contract(typeof(TheInferenceProjection.ExplainWaitsAtMostTheReadBound), Role = "a pass, named to a reader who would wait for it")]
+internal static class PassNames
+{
+    /// <summary>A pass's kind as readiness and explain name it.</summary>
+    internal static string Kind(InferencePassKind kind) => kind switch
+    {
+        InferencePassKind.ColdStart => "cold-start",
+        InferencePassKind.Generation => "generation",
+        InferencePassKind.Commit => "commit",
+        _ => "load",
+    };
+
+    /// <summary>How long <paramref name="pass"/> has run by <paramref name="clock"/>; never less than zero.</summary>
+    internal static TimeSpan Running(InferencePass pass, TimeProvider clock)
+    {
+        TimeSpan running = clock.GetUtcNow() - pass.Since.Value;
+        return running < TimeSpan.Zero ? TimeSpan.Zero : running;
+    }
+
+    /// <summary>What explain says when a pass holds the live closures past its wait: the pass, and that explain answers when it ends.</summary>
+    internal static string Busy(InferencePass? pass, TimeProvider clock)
+    {
+        string what = pass is null ? "A pass" : "A " + Kind(pass.Kind) + " pass to position " + pass.Position.Value.ToString(CultureInfo.InvariantCulture)
+            + ", running " + Running(pass, clock).TotalSeconds.ToString("F1", CultureInfo.InvariantCulture) + " s,";
+        return what + " holds the closures of this binding. Explain answers at this position when it ends: retry.";
+    }
 }

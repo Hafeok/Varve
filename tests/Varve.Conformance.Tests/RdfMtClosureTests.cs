@@ -51,7 +51,7 @@ public class RdfMtClosureTests
             facts.Add(new Fact(terms.Handle(quad.Subject), terms.Handle(quad.Predicate), terms.Handle(quad.Object)));
         }
 
-        closure.Apply([.. facts.Distinct()], []);
+        closure.Apply([.. facts.Distinct()], [], TestContext.Current.CancellationToken);
         IReadOnlyList<Clash> clashes = closure.Clashes();
         Assert.True(
             (clashes.Count > 0) == entry.Positive,

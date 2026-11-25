@@ -34,6 +34,15 @@ internal abstract class Check
     /// <summary>Adds the premises of every match over <paramref name="facts"/>, one array a match.</summary>
     internal abstract void Matches(FactSet facts, List<Fact[]> into);
 
+    /// <summary>
+    /// Whether <see cref="MatchesAt"/> finds every new match once a fact is
+    /// added; a check that cannot is matched again in full after each change.
+    /// </summary>
+    internal virtual bool Anchored => false;
+
+    /// <summary>Adds the premises of every match over <paramref name="facts"/> that uses <paramref name="anchor"/>; at least those.</summary>
+    internal virtual void MatchesAt(in Fact anchor, FactSet facts, List<Fact[]> into) => Matches(facts, into);
+
     /// <inheritdoc/>
     public override string ToString() => Name;
 }
@@ -45,6 +54,17 @@ internal sealed class PatternCheck(string profile, string name, Atom[] body, Fun
 
     internal override void Matches(FactSet facts, List<Fact[]> into) =>
         _body.Matches(facts, (bindings, premises) =>
+        {
+            if (condition is null || condition(bindings))
+            {
+                into.Add([.. premises]);
+            }
+        });
+
+    internal override bool Anchored => true;
+
+    internal override void MatchesAt(in Fact anchor, FactSet facts, List<Fact[]> into) =>
+        _body.MatchesAt(anchor, facts, (bindings, premises) =>
         {
             if (condition is null || condition(bindings))
             {

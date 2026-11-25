@@ -197,6 +197,27 @@ internal sealed class PatternRule : Rule
     internal void Matches(FactSet facts, Action<TermHandle[], Fact[]> found) =>
         Collect(facts, new TermHandle[_variables], skip: -1, next: 0, new Fact[_body.Length], found);
 
+    /// <summary>
+    /// Every match of the whole body over <paramref name="facts"/> that uses
+    /// <paramref name="anchor"/> for at least one atom: a check's new matches
+    /// once <paramref name="anchor"/> is added. A match using it for several
+    /// atoms is found once for each.
+    /// </summary>
+    internal void MatchesAt(in Fact anchor, FactSet facts, Action<TermHandle[], Fact[]> found)
+    {
+        TermHandle[] bindings = new TermHandle[_variables];
+        Fact[] chosen = new Fact[_body.Length];
+        for (int i = 0; i < _body.Length; i++)
+        {
+            Array.Clear(bindings);
+            if (Unify(_body[i], anchor, bindings))
+            {
+                chosen[i] = anchor;
+                Collect(facts, bindings, skip: i, next: 0, chosen, found);
+            }
+        }
+    }
+
     /// <summary>Every way to match the body's atoms but <paramref name="skip"/> from <paramref name="next"/> on, each with its premises.</summary>
     private void Collect(FactSet facts, TermHandle[] bindings, int skip, int next, Fact[] chosen, Action<TermHandle[], Fact[]> found)
     {

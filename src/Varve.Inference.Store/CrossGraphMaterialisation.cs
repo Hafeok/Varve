@@ -101,13 +101,13 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        _merge.Apply([.. merged], []);
+        _merge.Apply([.. merged], [], cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         _sets = Label();
         Mint();
     }
 
-    protected override void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed)
+    protected override void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed, CancellationToken cancellationToken)
     {
         List<Fact> asserted = [], retracted = [];
         List<(Fact, DataGraphIndex)> unpaired = [];
@@ -160,7 +160,7 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         // The sets a retraction may change, over the merge as it was; then the
         // merge, then the sets from the delta (ADR 0195 point 3).
         IReadOnlySet<Fact> affected = _sets.Reach(unpaired, (fact, graph) => _explicit.TryGetValue(_graphs[graph.Value], out HashSet<Fact>? held) && held.Contains(fact));
-        HashSet<Fact> moved = [.. _merge.Apply([.. asserted], [.. retracted])];
+        HashSet<Fact> moved = [.. _merge.Apply([.. asserted], [.. retracted], cancellationToken)];
         foreach (Fact fact in affected)
         {
             foreach ((TermHandle graph, HashSet<Fact> facts) in _explicit)

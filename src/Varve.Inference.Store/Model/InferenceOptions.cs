@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Inference.Model;
@@ -54,4 +55,15 @@ public sealed class InferenceOptions
     /// of the heap limit; this type's, for a host that sets none, 1 GiB.
     /// </summary>
     public ByteCount ClosureBytes { get; init; } = new(1L << 30);
+
+    /// <summary>
+    /// How long explain waits for a pass to let go of the live closures before
+    /// it answers <c>inference-behind</c> naming the pass
+    /// (<c>Varve:Inference:ExplainWait</c>): 2 s by default, a read's bounded
+    /// wait (ADR 0195 point 6, amended 2026-11-25).
+    /// </summary>
+    public ExplainWait ExplainWait { get; init; } = new(TimeSpan.FromSeconds(2));
+
+    /// <summary>The clock a pass's start is read from, which readiness reports: the system's by default.</summary>
+    public TimeProvider Clock { get; init; } = TimeProvider.System;
 }

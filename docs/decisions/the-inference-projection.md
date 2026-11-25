@@ -87,8 +87,19 @@ decisions:
     statement: "the budget counts at least a ninth more than a build needs, so a build finishes under the heap before it and 0.9 of its budget's peak; the nightly holds REC S and REC M to that, under both profiles, per graph and cross-graph"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-11-20T00:00:00Z
+  - key: ReadinessFromAPublishedSnapshot
+    statement: "a closure build or pass never makes the instance or a dataset unready; readiness reads what the projection published at the end of its last pass, never under a pass's lock and in constant time, names the pass running by its kind, the position it brings the binding to and how long it has run, and never matches a check; a query's Varve-Inconsistent reads the same"
+  - key: ClashesKeptPerPass
+    statement: "a closure keeps its clashes from the facts each pass changes: a clash with a premise that left goes, a match that uses a fact that came is added, and a check over a list's members is matched again in full; every check is matched over the whole closure only once after a build"
+  - key: ShutdownCancelsAPass
+    statement: "a stop cancels the pass running, which sees it within a thousand rule firings, drops its closures, keeps the position and saves nothing; a pass not ended within Varve:Inference:StopWait, 10 s by default, is abandoned; the state is saved after a cold build, every 1,000 commits or 5 minutes, and at a stop that cut no pass short"
+  - key: ExplainWaitsAtMostTheReadBound
+    statement: "explain at the projection's position waits at most a read's bound, 2 s, for a pass to let go of the live closures, then answers 503 inference-behind naming the pass, with Retry-After; above the position it waits and answers as a read does, and below it from scratch"
 ---
 
 The rulings of [ADR 0195](../adr/0195-the-inference-projection.md), one line each. The ADR is the
 narrative; this is what code cites. Filed unaccepted by Inference, part 2 (#171) (ADR 0066), and accepted by the
 maintainer on 2026-11-20, written by his delegate (ADR 0239).
+
+ReadinessFromAPublishedSnapshot, ClashesKeptPerPass, ShutdownCancelsAPass and ExplainWaitsAtMostTheReadBound
+are the amendment of 2026-11-25 (#412), filed unaccepted.

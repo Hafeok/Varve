@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Derivation;
@@ -126,37 +127,6 @@ public sealed partial class Closure
         }
     }
 
-    /// <summary>
-    /// Every clash the profile's checks find over the closure (ADR 0197
-    /// point 5), each check and set of premises once. A clash changes nothing
-    /// the closure holds: it is reported, never served as everything.
-    /// </summary>
-    public IReadOnlyList<Clash> Clashes()
-    {
-        List<Clash> clashes = [];
-        List<Fact[]> matches = [];
-        foreach (Check check in Program.Checks)
-        {
-            matches.Clear();
-            check.Matches(Facts, matches);
-            HashSet<string> seen = [];
-            foreach (Fact[] premises in matches)
-            {
-                Fact[] ordered = [.. premises];
-                Array.Sort(ordered, static (x, y) =>
-                    x.Subject.Value != y.Subject.Value ? x.Subject.Value.CompareTo(y.Subject.Value)
-                    : x.Predicate.Value != y.Predicate.Value ? x.Predicate.Value.CompareTo(y.Predicate.Value)
-                    : x.Object.Value.CompareTo(y.Object.Value));
-                if (seen.Add(string.Join(' ', ordered)))
-                {
-                    clashes.Add(new Clash(check.Iri, premises));
-                }
-            }
-        }
-
-        return clashes;
-    }
-
     internal FactSet Facts { get; }
 
     internal Program Program { get; }
@@ -177,7 +147,39 @@ public sealed partial class Closure
     /// The closure would pass its budget. It is then partly applied, and its
     /// owner drops it.
     /// </exception>
-    public IReadOnlyCollection<Fact> Apply(ReadOnlySpan<Fact> asserted, ReadOnlySpan<Fact> retracted)
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was cancelled; seen within a
+    /// thousand rule firings (ADR 0195 point 6, amended 2026-11-25). The
+    /// closure is then partly applied, and its owner drops it.
+    /// </exception>
+    public IReadOnlyCollection<Fact> Apply(ReadOnlySpan<Fact> asserted, ReadOnlySpan<Fact> retracted, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _cancellation = cancellationToken;
+        try
+        {
+            return ApplyOnce(asserted, retracted);
+        }
+        finally
+        {
+            _cancellation = CancellationToken.None;
+        }
+    }
+
+    // The token of the Apply running, seen every thousand firings.
+    private CancellationToken _cancellation;
+    private int _fired;
+
+    /// <summary>Called for each rule firing of a pass: throws within a thousand firings of a cancellation.</summary>
+    internal void Fired()
+    {
+        if ((++_fired & 1023) == 0)
+        {
+            _cancellation.ThrowIfCancellationRequested();
+        }
+    }
+
+    private IReadOnlyCollection<Fact> ApplyOnce(ReadOnlySpan<Fact> asserted, ReadOnlySpan<Fact> retracted)
     {
         if (Facts.Count == 0 && retracted.IsEmpty)
         {
@@ -185,18 +187,26 @@ public sealed partial class Closure
             // from scratch: every fact it holds after is a change, so none is
             // recorded on the way, which for a large one costs as much again.
             ApplyDelta(asserted, retracted);
+            _clashes = null;
             return new Held(Facts);
         }
 
         Dictionary<Fact, bool> touched = [];
         Facts.Touched = touched;
+        bool applied = false;
         try
         {
             ApplyDelta(asserted, retracted);
+            applied = true;
         }
         finally
         {
             Facts.Touched = null;
+            if (!applied)
+            {
+                // Partly applied: the clashes kept are no longer this closure's.
+                _clashes = null;
+            }
         }
 
         List<Fact> changed = [];
@@ -208,6 +218,7 @@ public sealed partial class Closure
             }
         }
 
+        Maintain(changed);
         return changed;
     }
 
@@ -377,6 +388,7 @@ public sealed partial class Closure
         List<Fact> heads = [];
         pass.Run((edge, fact, into) =>
         {
+            Fired();
             heads.Clear();
             edge.Label.Fire(fact, Facts, heads);
             foreach (Fact head in heads)
@@ -414,6 +426,7 @@ public sealed partial class Closure
         List<Fact> heads = [];
         overDeletion.Run((edge, fact, into) =>
         {
+            Fired();
             heads.Clear();
             edge.Label.Fire(fact, Facts, heads);
             foreach (Fact head in heads)
@@ -435,6 +448,7 @@ public sealed partial class Closure
         List<Fact> rederived = [];
         foreach (Fact fact in deleted)
         {
+            Fired();
             if (IsGiven(fact) || Derivable(fact))
             {
                 working.Take();

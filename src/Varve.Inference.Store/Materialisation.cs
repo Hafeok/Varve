@@ -122,7 +122,7 @@ internal abstract class Materialisation
 
                 built.Budget.Admit(new QuadCount(given));
                 cancellationToken.ThrowIfCancellationRequested();
-                built.TBox.Apply([.. tbox], []);
+                built.TBox.Apply([.. tbox], [], cancellationToken);
                 built.Load(graphs, cancellationToken);
             }
             finally
@@ -146,7 +146,8 @@ internal abstract class Materialisation
     /// is a generation.
     /// </summary>
     /// <exception cref="ClosureLimitExceededException">A closure would pass the binding's limit.</exception>
-    internal Dictionary<TermHandle, HashSet<Fact>>? Apply(IQuadSource view, QuadDelta delta)
+    /// <exception cref="OperationCanceledException">The pass was cancelled; the closures are partly applied, and the projection drops them.</exception>
+    internal Dictionary<TermHandle, HashSet<Fact>>? Apply(IQuadSource view, QuadDelta delta, CancellationToken cancellationToken)
     {
         List<Fact> tboxAsserted = [], tboxRetracted = [];
         Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs = [];
@@ -183,7 +184,7 @@ internal abstract class Materialisation
         Dictionary<TermHandle, HashSet<Fact>> changed = [];
         try
         {
-            ApplyData(graphs, emptied, changed);
+            ApplyData(graphs, emptied, changed, cancellationToken);
         }
         catch (Exception error) when (InferenceProjection.IsStorageFailure(error))
         {
@@ -284,7 +285,7 @@ internal abstract class Materialisation
 
     /// <summary>Applies a data commit, graph by graph, recording per graph the facts whose row may have changed.</summary>
     /// <summary>Applies a data commit's delta, graph by graph, recording per graph the facts whose row may have changed; <paramref name="emptied"/> the graphs it left with no quad, read before.</summary>
-    protected abstract void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed);
+    protected abstract void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed, CancellationToken cancellationToken);
 
     protected abstract bool IsDataRow(TermHandle graph, in Fact fact);
 
@@ -401,11 +402,11 @@ internal sealed class PerGraphMaterialisation(ProjectionTerms terms, InferencePr
             cancellationToken.ThrowIfCancellationRequested();
             Closure closure = new(Projection.Binding.Profile, Terms, Budget, TBox);
             _graphs[graph] = closure;
-            closure.Apply([.. facts], []);
+            closure.Apply([.. facts], [], cancellationToken);
         }
     }
 
-    protected override void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed)
+    protected override void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed, CancellationToken cancellationToken)
     {
         foreach ((TermHandle graph, (List<Fact> asserted, List<Fact> retracted)) in graphs)
         {
@@ -416,7 +417,7 @@ internal sealed class PerGraphMaterialisation(ProjectionTerms terms, InferencePr
                 _graphs[graph] = closure;
             }
 
-            into.UnionWith(closure.Apply([.. asserted], [.. retracted]));
+            into.UnionWith(closure.Apply([.. asserted], [.. retracted], cancellationToken));
             into.UnionWith(asserted);
             into.UnionWith(retracted);
 

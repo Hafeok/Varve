@@ -50,3 +50,76 @@ Varve.Inference.Store.InferenceProjection.ClosurePeak.get -> Varve.Inference.Mod
 static Varve.Inference.Store.Model.InferenceOptions.TermBytes.get -> Varve.Inference.Model.MemoryAmount
 static Varve.Inference.Store.InferenceProjection.IsStorageFailure(System.Exception! error) -> bool
 Varve.Inference.Store.InferenceProjection.Refuse() -> void
+Varve.Inference.Store.InferenceProjection.Abandoned.get -> bool
+Varve.Inference.Store.InferenceProjection.Pass.get -> Varve.Inference.Store.Model.InferencePass?
+Varve.Inference.Store.InferenceProjection.Snapshot.get -> Varve.Inference.Store.Model.InferenceSnapshot!
+Varve.Inference.Store.Model.ExplainWait
+Varve.Inference.Store.Model.ExplainWait.Deconstruct(out System.TimeSpan Value) -> void
+Varve.Inference.Store.Model.ExplainWait.Equals(Varve.Inference.Store.Model.ExplainWait other) -> bool
+Varve.Inference.Store.Model.ExplainWait.ExplainWait() -> void
+Varve.Inference.Store.Model.ExplainWait.ExplainWait(System.TimeSpan Value) -> void
+Varve.Inference.Store.Model.ExplainWait.Value.get -> System.TimeSpan
+Varve.Inference.Store.Model.ExplainWait.Value.init -> void
+Varve.Inference.Store.Model.InferenceOptions.Clock.get -> System.TimeProvider!
+Varve.Inference.Store.Model.InferenceOptions.Clock.init -> void
+Varve.Inference.Store.Model.InferenceOptions.ExplainWait.get -> Varve.Inference.Store.Model.ExplainWait
+Varve.Inference.Store.Model.InferenceOptions.ExplainWait.init -> void
+Varve.Inference.Store.Model.InferencePass
+Varve.Inference.Store.Model.InferencePass.<Clone>$() -> Varve.Inference.Store.Model.InferencePass!
+Varve.Inference.Store.Model.InferencePass.Deconstruct(out Varve.Inference.Store.Model.InferencePassKind Kind, out Varve.Store.Log.Position Position, out Varve.Inference.Store.Model.PassStart Since) -> void
+Varve.Inference.Store.Model.InferencePass.Equals(Varve.Inference.Store.Model.InferencePass? other) -> bool
+Varve.Inference.Store.Model.InferencePass.InferencePass(Varve.Inference.Store.Model.InferencePassKind Kind, Varve.Store.Log.Position Position, Varve.Inference.Store.Model.PassStart Since) -> void
+Varve.Inference.Store.Model.InferencePass.Kind.get -> Varve.Inference.Store.Model.InferencePassKind
+Varve.Inference.Store.Model.InferencePass.Kind.init -> void
+Varve.Inference.Store.Model.InferencePass.Position.get -> Varve.Store.Log.Position
+Varve.Inference.Store.Model.InferencePass.Position.init -> void
+Varve.Inference.Store.Model.InferencePass.Since.get -> Varve.Inference.Store.Model.PassStart
+Varve.Inference.Store.Model.InferencePass.Since.init -> void
+Varve.Inference.Store.Model.InferencePassKind
+Varve.Inference.Store.Model.InferencePassKind.ColdStart = 0 -> Varve.Inference.Store.Model.InferencePassKind
+Varve.Inference.Store.Model.InferencePassKind.Commit = 2 -> Varve.Inference.Store.Model.InferencePassKind
+Varve.Inference.Store.Model.InferencePassKind.Generation = 1 -> Varve.Inference.Store.Model.InferencePassKind
+Varve.Inference.Store.Model.InferencePassKind.Load = 3 -> Varve.Inference.Store.Model.InferencePassKind
+Varve.Inference.Store.Model.InferenceSnapshot
+Varve.Inference.Store.Model.InferenceSnapshot.<Clone>$() -> Varve.Inference.Store.Model.InferenceSnapshot!
+Varve.Inference.Store.Model.InferenceSnapshot.Clashes.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>!
+Varve.Inference.Store.Model.InferenceSnapshot.Clashes.init -> void
+Varve.Inference.Store.Model.InferenceSnapshot.Deconstruct(out Varve.Store.Log.Position Position, out System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>! Clashes, out System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! PremiseSetGraphs, out Varve.Inference.Model.MemoryAmount Held, out Varve.Inference.Model.MemoryAmount Peak) -> void
+Varve.Inference.Store.Model.InferenceSnapshot.Equals(Varve.Inference.Store.Model.InferenceSnapshot? other) -> bool
+Varve.Inference.Store.Model.InferenceSnapshot.Held.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Store.Model.InferenceSnapshot.Held.init -> void
+Varve.Inference.Store.Model.InferenceSnapshot.InferenceSnapshot(Varve.Store.Log.Position Position, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>! Clashes, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! PremiseSetGraphs, Varve.Inference.Model.MemoryAmount Held, Varve.Inference.Model.MemoryAmount Peak) -> void
+Varve.Inference.Store.Model.InferenceSnapshot.Peak.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Store.Model.InferenceSnapshot.Peak.init -> void
+Varve.Inference.Store.Model.InferenceSnapshot.Position.get -> Varve.Store.Log.Position
+Varve.Inference.Store.Model.InferenceSnapshot.Position.init -> void
+Varve.Inference.Store.Model.InferenceSnapshot.PremiseSetGraphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Inference.Store.Model.InferenceSnapshot.PremiseSetGraphs.init -> void
+Varve.Inference.Store.Model.PassStart
+Varve.Inference.Store.Model.PassStart.Deconstruct(out System.DateTimeOffset Value) -> void
+Varve.Inference.Store.Model.PassStart.Equals(Varve.Inference.Store.Model.PassStart other) -> bool
+Varve.Inference.Store.Model.PassStart.PassStart() -> void
+Varve.Inference.Store.Model.PassStart.PassStart(System.DateTimeOffset Value) -> void
+Varve.Inference.Store.Model.PassStart.Value.get -> System.DateTimeOffset
+Varve.Inference.Store.Model.PassStart.Value.init -> void
+override Varve.Inference.Store.Model.ExplainWait.GetHashCode() -> int
+override Varve.Inference.Store.Model.InferencePass.Equals(object? obj) -> bool
+override Varve.Inference.Store.Model.InferencePass.GetHashCode() -> int
+override Varve.Inference.Store.Model.InferencePass.ToString() -> string!
+override Varve.Inference.Store.Model.InferenceSnapshot.Equals(object? obj) -> bool
+override Varve.Inference.Store.Model.InferenceSnapshot.GetHashCode() -> int
+override Varve.Inference.Store.Model.InferenceSnapshot.ToString() -> string!
+override Varve.Inference.Store.Model.PassStart.GetHashCode() -> int
+static Varve.Inference.Store.Model.ExplainWait.operator !=(Varve.Inference.Store.Model.ExplainWait left, Varve.Inference.Store.Model.ExplainWait right) -> bool
+static Varve.Inference.Store.Model.ExplainWait.operator ==(Varve.Inference.Store.Model.ExplainWait left, Varve.Inference.Store.Model.ExplainWait right) -> bool
+static Varve.Inference.Store.Model.InferencePass.operator !=(Varve.Inference.Store.Model.InferencePass? left, Varve.Inference.Store.Model.InferencePass? right) -> bool
+static Varve.Inference.Store.Model.InferencePass.operator ==(Varve.Inference.Store.Model.InferencePass? left, Varve.Inference.Store.Model.InferencePass? right) -> bool
+static Varve.Inference.Store.Model.InferenceSnapshot.None.get -> Varve.Inference.Store.Model.InferenceSnapshot!
+static Varve.Inference.Store.Model.InferenceSnapshot.operator !=(Varve.Inference.Store.Model.InferenceSnapshot? left, Varve.Inference.Store.Model.InferenceSnapshot? right) -> bool
+static Varve.Inference.Store.Model.InferenceSnapshot.operator ==(Varve.Inference.Store.Model.InferenceSnapshot? left, Varve.Inference.Store.Model.InferenceSnapshot? right) -> bool
+static Varve.Inference.Store.Model.PassStart.operator !=(Varve.Inference.Store.Model.PassStart left, Varve.Inference.Store.Model.PassStart right) -> bool
+static Varve.Inference.Store.Model.PassStart.operator ==(Varve.Inference.Store.Model.PassStart left, Varve.Inference.Store.Model.PassStart right) -> bool
+~override Varve.Inference.Store.Model.ExplainWait.Equals(object obj) -> bool
+~override Varve.Inference.Store.Model.ExplainWait.ToString() -> string
+~override Varve.Inference.Store.Model.PassStart.Equals(object obj) -> bool
+~override Varve.Inference.Store.Model.PassStart.ToString() -> string

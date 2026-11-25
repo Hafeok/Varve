@@ -1,7 +1,7 @@
 #nullable enable
 Varve.Inference.Closure
 Varve.Inference.Closure.All.get -> System.Collections.Generic.IEnumerable<Varve.Inference.Model.Fact>!
-Varve.Inference.Closure.Apply(System.ReadOnlySpan<Varve.Inference.Model.Fact> asserted, System.ReadOnlySpan<Varve.Inference.Model.Fact> retracted) -> System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.Fact>!
+Varve.Inference.Closure.Apply(System.ReadOnlySpan<Varve.Inference.Model.Fact> asserted, System.ReadOnlySpan<Varve.Inference.Model.Fact> retracted, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.Fact>!
 Varve.Inference.Closure.Closure(Varve.Inference.Model.InferenceProfile profile, Varve.Inference.IInferenceTerms! terms) -> void
 Varve.Inference.Closure.Contains(Varve.Inference.Model.Fact fact) -> bool
 Varve.Inference.Closure.Implicit.get -> System.Collections.Generic.IEnumerable<Varve.Inference.Model.Fact>!
