@@ -21,10 +21,13 @@ internal readonly record struct Cell(TermHandle Member, Fact FirstFact, Fact Res
 /// </summary>
 /// <remarks>
 /// <para>
-/// A list is any path of cells from the axiom's object to <c>rdf:nil</c>,
-/// each cell a subject with an <c>rdf:first</c> and an <c>rdf:rest</c>, no cell
-/// twice. Every path is an instance, so adding a fact never takes an instance
-/// away: the rule stays monotone however ill-formed a list is.
+/// A list is read from the asserted statements alone (ADR 0197, amended
+/// 2026-11-24; <see cref="AssertedLists"/>): the one chain of cells from the
+/// axiom's object to <c>rdf:nil</c>, each cell a subject the asserted
+/// statements give exactly one <c>rdf:first</c> and one <c>rdf:rest</c>. An
+/// axiom whose object is no such list has no instance, and its cells are
+/// reported unread. The reading does not change while the rules run, so the
+/// rule is monotone in the facts it joins (#399).
 /// </para>
 /// <para>
 /// Fired at a changed fact, the rule re-evaluates every axiom instance the
@@ -36,8 +39,6 @@ internal readonly record struct Cell(TermHandle Member, Fact FirstFact, Fact Res
 /// </remarks>
 internal abstract class ListRule : Rule
 {
-    private const int MaximumCells = 10_000;
-
     protected ListRule(string name, TermHandle axiom, ListTerms list)
         : base(name)
     {
@@ -212,16 +213,19 @@ internal abstract class ListRule : Rule
         }
 
         HashSet<ulong> heads = [];
-        if (anchor.Predicate.Value == List.First.Value || anchor.Predicate.Value == List.Rest.Value)
+        if (facts.Lists is { } lists)
         {
-            HeadsReaching(anchor.Subject, facts, heads);
-        }
-
-        foreach (TermHandle member in MembersNamedBy(anchor))
-        {
-            foreach (Fact cell in facts.Match(TermHandle.None, List.First, member))
+            if (lists.IsCellStatement(anchor))
             {
-                HeadsReaching(cell.Subject, facts, heads);
+                lists.HeadsReaching(anchor.Subject, heads);
+            }
+
+            foreach (TermHandle member in MembersNamedBy(anchor))
+            {
+                foreach (TermHandle cell in lists.CellsHolding(member))
+                {
+                    lists.HeadsReaching(cell, heads);
+                }
             }
         }
 
@@ -249,58 +253,14 @@ internal abstract class ListRule : Rule
         }
     }
 
-    /// <summary>The cells from which <paramref name="cell"/> is reached along <c>rdf:rest</c>, itself included.</summary>
-    private void HeadsReaching(TermHandle cell, FactSet facts, HashSet<ulong> heads)
+    /// <summary>The list from <paramref name="head"/> as the asserted statements make it: one path, or none (ADR 0197, amended 2026-11-24).</summary>
+    protected static IEnumerable<List<Cell>> Paths(TermHandle head, FactSet facts)
     {
-        Stack<TermHandle> pending = new();
-        pending.Push(cell);
-        while (pending.Count > 0 && heads.Count < MaximumCells)
+        List<Cell> path = [];
+        if (facts.Lists is { } lists && lists.TryPath(head, path, facts))
         {
-            TermHandle next = pending.Pop();
-            if (!heads.Add(next.Value))
-            {
-                continue;
-            }
-
-            foreach (Fact rest in facts.Match(TermHandle.None, List.Rest, next))
-            {
-                pending.Push(rest.Subject);
-            }
+            yield return path;
         }
-    }
-
-    /// <summary>Every path of cells from <paramref name="head"/> to <c>rdf:nil</c>, no cell twice.</summary>
-    protected IEnumerable<List<Cell>> Paths(TermHandle head, FactSet facts)
-    {
-        List<List<Cell>> paths = [];
-        Walk(head, facts, [], [], paths);
-        return paths;
-    }
-
-    private void Walk(TermHandle cell, FactSet facts, List<Cell> path, HashSet<ulong> visited, List<List<Cell>> paths)
-    {
-        if (cell.Value == List.Nil.Value)
-        {
-            paths.Add([.. path]);
-            return;
-        }
-
-        if (path.Count >= MaximumCells || !visited.Add(cell.Value))
-        {
-            return;
-        }
-
-        foreach (Fact first in facts.Match(cell, List.First, TermHandle.None))
-        {
-            foreach (Fact rest in facts.Match(cell, List.Rest, TermHandle.None))
-            {
-                path.Add(new Cell(first.Object, first, rest));
-                Walk(rest.Object, facts, path, visited, paths);
-                path.RemoveAt(path.Count - 1);
-            }
-        }
-
-        visited.Remove(cell.Value);
     }
 
     private static bool Accepted(List<Cell> path, Func<Fact, bool> accept)

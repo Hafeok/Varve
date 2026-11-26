@@ -18,6 +18,10 @@ amendment, accepted by the maintainer on 2026-11-20 with the rest of this
 ADR, and are folded into the body here at the maintainer's request; no point
 is withdrawn by a later one.
 
+**Amended 2026-11-24** (ADR 0068), by the fix for #399: the list rules and
+checks read a list only from asserted statements; see the end. Filed
+unaccepted, and accepted by the maintainer on 2026-11-25.
+
 Amends **0192** (`owl2-rl` served) and **0194** (the `RDFS` and `OWL2RL`
 profiles, `crossGraph` and `SameAsOff` in effect), each by a dated amendment.
 
@@ -311,3 +315,205 @@ The ledger holds it as `NoClaimWiderThanServed`, `EqualityNotAppliedSaidInBand`,
   service description. `Varve.Protocol.Client`: `EntailedAnswer`.
 - **Analyzer rule.** None new.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-24 — a list is read from asserted statements
+
+Filed unaccepted by the fix for #399, on the maintainer's decision of
+2026-11-24 (fix 1, with its two conditions), and accepted by the maintainer on
+2026-11-25. It amends point 3: the rules over
+lists of OWL 2 Profiles §4.3 (`cls-int1`, `cls-int2`, `cls-uni`, `cls-oo`,
+`scm-int`, `scm-uni`, `prp-spo2`, `prp-key`) and the checks over lists
+(`eq-diff2`, `eq-diff3`, `prp-adp`, `cax-adc`). The ledger holds it as
+`ListsReadFromAssertedStatements`, cited by `AssertedLists`.
+
+**What was wrong.** Point 3 named the rules over lists and did not say how a
+list is read. The code read one as **every path** of cells from the axiom's
+object to `rdf:nil` along `rdf:rest`, through any fact the closure held,
+inferred ones included, no cell twice. Each path was an instance, and the
+paths were all built before any was evaluated. A graph whose closure gives
+many nodes several `rdf:rest` values makes the number of paths grow
+factorially. #399's seed (`eGI5Cz8BVtI1`) is 5 TBox and 80 data triples.
+They make 72 nodes cells, each with 73 `rdf:first` and 73 `rdf:rest` values,
+all inferred. `cls-oo` then held 2,097,152 paths of 72 cells (about 11 GB)
+before the heap ran out. None of it was charged to the closure's budget
+(ADR 0195 point 3). One triple, `ex:next rdfs:subPropertyOf rdf:rest`, is
+enough to do the same to any graph with `ex:next` chains.
+
+**The ruling.**
+- **A cell** is a subject the asserted statements give **exactly one**
+  `rdf:first` and **exactly one** `rdf:rest`. Those statements are the
+  closure's explicit ones and, for a data graph, the TBox graphs' beneath it.
+  A statement both assert is one statement.
+- **A data graph neither breaks nor changes a TBox list.** A cell the TBox
+  graphs make is read as they make it, under every data graph, because the
+  TBox closure's conclusions from it are served to every reader (ADR 0195
+  point 3). A data graph's own `rdf:first` or `rdf:rest` of such a cell that
+  differs is not read, and is reported as `differs-from-tbox`. A cell the TBox
+  graphs leave unread, for example one with no `rdf:rest`, a data graph may
+  complete.
+- **A list** is the one chain of cells from a head along their `rdf:rest` to
+  `rdf:nil`, no cell twice. `rdf:nil` is the empty list. A rule's axiom whose
+  object is no list has no instance.
+- **An inferred `rdf:first` or `rdf:rest` neither makes nor breaks a list.**
+  One the rules conclude about a cell is a fact like any other: served,
+  explained and joined by the other rules. It is never read as list
+  structure.
+- **Every other subject of an asserted `rdf:first` or `rdf:rest` is unread,
+  and reported with its reason:**
+  - `several-first`;
+  - `several-rest`;
+  - `no-first`;
+  - `no-rest`;
+  - `cycle`: its chain comes back to a cell before `rdf:nil`;
+  - `broken`: its chain reaches a node that is no cell before `rdf:nil`;
+  - `differs-from-tbox`: a data graph asserts an `rdf:first` or `rdf:rest` of
+    a TBox cell other than the TBox's.
+- **Under a cross-graph binding** (ADR 0190 point 6), the merge reads its
+  lists from the merge's asserted statements. One graph's statement can then
+  make a list another graph asserts unread in the merge, for example a second
+  `rdf:rest` on its cell. It is reported under each graph that asserts an
+  `rdf:first` or `rdf:rest` of the cell.
+  - A premise set is drawn from the merge's instances: a minimal set of
+    graphs whose facts, with the lists the merge reads, entail the fact.
+  - When a commit changes the lists the merge reads, the premise sets are
+    labelled again from scratch, as the merge is rebuilt. An instance can come
+    or go with no change to its premises, so an incremental update of the sets
+    cannot see it (`Closure.ListReadings`).
+- **A list is read only while its cells' statements are held.** It always is,
+  since they are explicit, except while a rebuild inserts them again. So an
+  instance is never counted before its premises are all present.
+
+**Why the rules stay monotone.** The reading depends only on the closure's
+explicit statements, which are its input, not on anything it derives. With the
+input fixed, the reading is fixed, and each list rule is an ordinary rule over
+derived facts, with the list's cells as constants: one instance per axiom and
+list. Its premises are the axiom, the cells' two statements each, and what the
+rule joins. So:
+- **semi-naive insertion is complete:** a derived fact never adds or removes a
+  list;
+- **DRed is sound and complete for a retraction that leaves the reading
+  alone:** over-deletion reaches every head whose instance used a retracted
+  fact, and rederivation finds every head still supported. A cell's statements
+  are explicit, so they are never over-deleted;
+- **the from-scratch closure of the same explicit statements reads the same
+  lists**, so incremental equals from scratch (ADR 0195 point 9) by the same
+  argument as for every other rule.
+  - For a data graph, "from scratch" is the data's closure over the TBox's,
+    each built from scratch, as the projection builds them.
+  - It equals the closure of the TBox's and the data's triples together
+    exactly when the data reports no `differs-from-tbox`. With one, the union
+    would break the TBox's list, which the TBox closure beneath cannot
+    unsay.
+
+**What a change to an asserted list does.** A commit that asserts or retracts
+an `rdf:first` or `rdf:rest` statement reads that closure's lists again.
+- When the cells read are the same, the commit is applied as any other. Only
+  the unread report changes.
+- When they differ, the closure's input to the list rules has changed, and the
+  closure is **rebuilt from its explicit statements**: dropped and inserted
+  again, in the same pass. Examples are a second `rdf:rest` on a cell, a
+  retracted `rdf:first`, or a chain newly reaching `rdf:nil`.
+  - What the pass reports as changed is still exact: a fact dropped and
+    derived again is no change.
+  - The cost is a from-scratch build of that one closure: a data graph's under
+    an intra-graph binding, the merge's under a cross-graph one. A TBox
+    commit already rebuilds both (ADR 0195 point 4).
+- Adding a statement can remove a list, so a conclusion can go away when a
+  triple is asserted. That is the reading's, and the rebuild makes it exact.
+
+**Where it is reported.**
+- **`Closure.UnreadLists()`** gives the unread cells and their reasons. A data
+  graph's closure reports those its own statements make unread, beyond the
+  TBox closure's.
+- **The projection** places each under its graph:
+  - the binding's TBox graph for the TBox closure's;
+  - the data graph for an intra-graph binding;
+  - each data graph asserting an `rdf:first` or `rdf:rest` of the cell, for a
+    cross-graph binding's merge.
+- **Readiness**, under each binding, gives `unreadLists`, the count, and
+  `unreadListCells`, the first twenty, each with `graph`, `cell` and
+  `reason`.
+- **The operator's guide**, on the materialised closure, says that only
+  well-formed asserted lists are read.
+
+**Point 9.** This narrows what `owl2-rl` serves. A conclusion OWL 2 RL/RDF
+would draw from an ill-formed or inferred list is not drawn. Point 9's table
+gains the row: *0197 point 3, lists: what is served is the rules over
+well-formed asserted lists; the user is told on readiness (`unreadLists`) and
+on the profile's page.* An answer over such a graph carries no header of its
+own.
+
+**Open question for the maintainer, on cross-graph merges:** under the merge's
+reading, a graph that reads one of its own lists by itself can lose it in the
+merge to another graph's statement. A conclusion that graph alone entails is
+then not placed in it. Should a merge instead read each list within one graph
+(with the TBox), never across graphs? That reading is monotone in the graphs,
+but a list whose cells span graphs is then never read.
+
+**Open question for the maintainer, on point 9:** point 9 asks that an answer narrower
+than its request says so in-band. Is the binding's status enough, or should an
+`owl2-rl` answer over a graph with unread lists carry a header as well?
+
+**What the byte budget bounds.** The byte budget bounds what a closure
+**holds**, not how long it **works**. Reading lists from asserted statements
+removes #399's unbounded allocation. It does not bound the rules' joins over a
+graph that uses the vocabulary as data.
+
+#399's other seed, `eGI5Cz8BVtI1`, reads no list after this amendment, yet its
+commit 42 takes the closure from 1,275 to 388,741 facts. That is within any
+default budget, and it runs for more than 20 minutes. It is #408's
+reproduction: a closure's work is not bounded, readiness and explain block on
+the pass, and the pass cannot be cancelled. Allocations that grow with the
+input outside the budget are #406's.
+
+**The property tests** are split, so that neither stands for the other:
+- **The general property** keeps its sizes (40 histories of up to 60 commits,
+  400 × 200 nightly). It draws no axiom whose subject or object is an RDF,
+  RDFS or OWL term.
+  - The OWL declarations (`rdf:type owl:TransitiveProperty`, `owl:Thing` as a
+    restriction's class, `rdf:nil` ending a list) are the language's own use
+    of its vocabulary, not the vocabulary as data, and stay.
+- **A second property, the vocabulary as data**, draws vocabulary terms as
+  the subjects and objects of schema axioms. Its universe is one individual,
+  one class, one property, one restriction and one list cell. Its histories
+  have up to 16 commits.
+  - **Under `RDFS`** it draws RDF and RDFS terms as data: `rdf:type`, the
+    four RDFS schema properties, `rdfs:Resource`, `rdfs:Class`,
+    `rdf:Property`, `rdfs:member` and `rdf:_1`.
+  - **Under `OWL2RL`** it draws OWL terms as data:
+    `owl:TransitiveProperty`, `owl:SymmetricProperty`,
+    `owl:equivalentClass`, `owl:inverseOf` and `owl:Thing`. It draws them as
+    the subjects and objects of `rdfs:subClassOf`, `rdfs:subPropertyOf`,
+    `rdfs:domain`, `rdfs:range` and the OWL pairs.
+  - **Why not RDF and RDFS terms under `OWL2RL`:** there they join the
+    profile's whole axiomatic vocabulary into one complete relation of 48
+    terms. That is 110,592 facts (48³), and its closure took 39 s from
+    scratch, with a history up to 200 s. That is #408's cost, not a bound a
+    property test can hold.
+  - The slowest sample of 50 runs is reported on the pull request.
+
+**The suites.** `sparql11/entailment` and `rdf-mt` are the same before and
+after:
+- entailment: 122 of 122 case runs;
+- `rdf-mt`: 48 of 48;
+- 6,311 passing and 40 exempt in all, `Regressed: 0`.
+
+Every list in their data is well formed and asserted.
+
+**Tests.**
+- `ListsFromAssertedStatementsTests` covers:
+  - the reading, and each reason;
+  - an inferred `rdf:rest` that neither makes nor breaks a list;
+  - an asserted change that rebuilds the closure, equal to from scratch at
+    each step;
+  - the one-commit case `ex:next rdfs:subPropertyOf rdf:rest`.
+- `IncrementalEqualsFromScratchTests.The_seed_of_399_holds_over_a_tbox_beneath`
+  fixes the seed `akRsD4X_QWj2`, for DRed and recursive counting, with the
+  generator that drew it. On `main` it runs out of memory for both, and with
+  this amendment it holds in seconds.
+- The one-commit case runs out of memory on `main` in 55 s and passes in
+  under a second.
+- `with_the_vocabulary_as_data_incremental_equals_from_scratch_at_every_commit`
+  is the second property.
+- `InferenceBindingTests` checks the report on readiness.
+

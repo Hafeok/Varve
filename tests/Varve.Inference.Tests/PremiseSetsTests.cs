@@ -17,7 +17,7 @@ namespace Varve.Inference.Tests;
 /// The minimal premise sets (ADR 0190 point 6) against their definition:
 /// with no negation the rules are monotone, so a fact's minimal premise sets
 /// are the minimal sets of data graphs whose merge, over the TBox, entails
-/// it. The oracle closes the TBox with every subset of three data graphs.
+/// it. The oracle closes the TBox with every subset of three data graphs, reading the lists as the merge reads them.
 /// </summary>
 public class PremiseSetsTests
 {
@@ -48,13 +48,12 @@ public class PremiseSetsTests
 
             PremiseSets sets = new(merge, held);
 
-            // The oracle: the closure of the TBox with each subset of the graphs.
+            // The oracle: the closure of the TBox with each subset of the graphs, the lists read as the
+            // merge reads them (ADR 0197, amended 2026-11-24): a set is drawn from the merge's instances.
             Dictionary<int, HashSet<Fact>> closures = [];
             for (int mask = 0; mask < 1 << Graphs; mask++)
             {
-                Closure fresh = new(program, Retraction.FromScratch);
-                fresh.Apply([.. tbox.Concat(Enumerable.Range(0, Graphs).Where(g => (mask & (1 << g)) != 0).SelectMany(g => data[g])).Distinct()], []);
-                closures[mask] = [.. fresh.All];
+                closures[mask] = Oracle.Closure(program, tbox.Concat(Enumerable.Range(0, Graphs).Where(g => (mask & (1 << g)) != 0).SelectMany(g => data[g])).Distinct(), merge.Facts.Lists);
             }
 
             foreach (Fact fact in merge.All)
@@ -139,6 +138,7 @@ public class PremiseSetsTests
 
                 HashSet<Fact> mergedAfter = [.. graphs.SelectMany(g => g)];
                 IReadOnlySet<Fact> affected = sets.Reach(removed.Select(r => (r.Item1, new DataGraphIndex(r.Item2))), (f, g) => graphs[g.Value].Contains(f));
+                ListReadings readings = merge.ListReadings;
                 merge.Apply([.. mergedAfter.Except(mergedBefore)], [.. mergedBefore.Except(mergedAfter)]);
                 List<(Fact, DataGraphIndex)> held = [];
                 for (int g = 0; g < Graphs; g++)
@@ -146,9 +146,20 @@ public class PremiseSetsTests
                     held.AddRange(graphs[g].Where(f => affected.Contains(f) || added.Contains((f, g))).Select(f => (f, new DataGraphIndex(g))));
                 }
 
-                IReadOnlyDictionary<Fact, IReadOnlyList<PremiseSet>> changed = sets.Update(affected, held);
-
                 PremiseSets fresh = new(merge, Enumerable.Range(0, Graphs).SelectMany(g => graphs[g].Select(f => (f, new DataGraphIndex(g)))));
+                IReadOnlyDictionary<Fact, IReadOnlyList<PremiseSet>> changed;
+                if (merge.ListReadings != readings)
+                {
+                    // The merge read its lists again and was rebuilt (ADR 0197, amended 2026-11-24): the sets are labelled again from scratch, as the projection does, and every fact's sets before are the answer.
+                    PremiseSets was = sets;
+                    changed = merge.Own.Concat(beforeSets.Keys).Distinct().ToDictionary(f => f, f => was.Of(f));
+                    sets = new PremiseSets(merge, Enumerable.Range(0, Graphs).SelectMany(g => graphs[g].Select(f => (f, new DataGraphIndex(g)))));
+                }
+                else
+                {
+                    changed = sets.Update(affected, held);
+                }
+
                 foreach (Fact fact in merge.All.Concat(beforeSets.Keys).Distinct())
                 {
                     HashSet<int> now = Masks(sets.Of(fact)), expected = Masks(fresh.Of(fact));

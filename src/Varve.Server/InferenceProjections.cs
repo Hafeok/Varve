@@ -414,6 +414,7 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
             {
                 Held = Projection.ClosureHeld.Value,
                 Peak = Projection.ClosurePeak.Value,
+                UnreadLists = Projection.UnreadLists(),
             };
         }
 
@@ -607,4 +608,23 @@ internal sealed record InferenceStatus(long Lag, long HeldFrom, string State, in
 
     /// <summary>The most they have held at once since they were built, the build included: what the binding needs of its limit.</summary>
     internal long Peak { get; init; }
+
+    /// <summary>The cells of asserted lists its rules do not read, each with its graph and why (ADR 0197, amended 2026-11-24).</summary>
+    internal IReadOnlyList<NamedUnreadList> UnreadLists { get; init; } = [];
+
+    /// <summary>A graph or cell as the status names it: an IRI as itself, a blank node as <c>_:label</c>.</summary>
+    internal static string Text(RdfTerm term) =>
+        term.Kind == RdfTermKind.BlankNode ? "_:" + Encoding.UTF8.GetString(term.Lexical) : Encoding.UTF8.GetString(term.Lexical);
+
+    /// <summary>Why a cell is unread, as the status names it.</summary>
+    internal static string ReasonName(UnreadListReason reason) => reason switch
+    {
+        UnreadListReason.SeveralFirsts => "several-first",
+        UnreadListReason.SeveralRests => "several-rest",
+        UnreadListReason.NoFirst => "no-first",
+        UnreadListReason.NoRest => "no-rest",
+        UnreadListReason.Cycle => "cycle",
+        UnreadListReason.Broken => "broken",
+        _ => "differs-from-tbox",
+    };
 }

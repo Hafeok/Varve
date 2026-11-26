@@ -883,6 +883,24 @@ internal static partial class ServerHost
                 {
                     json.WriteNumber("premiseSets", premiseSets);
                 }
+
+                // Every cell of an asserted list the rules do not read is said, never skipped in silence (ADR 0197, amended 2026-11-24): the count, and the first twenty.
+                json.WriteNumber("unreadLists", status.UnreadLists.Count);
+                if (status.UnreadLists.Count > 0)
+                {
+                    json.WriteStartArray("unreadListCells");
+                    for (int i = 0; i < Math.Min(20, status.UnreadLists.Count); i++)
+                    {
+                        Varve.Inference.Store.Model.NamedUnreadList unread = status.UnreadLists[i];
+                        json.WriteStartObject();
+                        json.WriteString("graph", InferenceStatus.Text(unread.Graph));
+                        json.WriteString("cell", InferenceStatus.Text(unread.Cell));
+                        json.WriteString("reason", InferenceStatus.ReasonName(unread.Reason));
+                        json.WriteEndObject();
+                    }
+
+                    json.WriteEndArray();
+                }
                 if (status.Reached > 0 || status.State == "stopped (memory-limit)")
                 {
                     // A binding stopped at its memory limit says it, even one stopped before it built (ADR 0195 point 6).
