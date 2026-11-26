@@ -52,6 +52,9 @@ internal sealed class RecursiveCounting : Retraction
 
     internal override void Retract(Closure closure, List<Fact> gone) => CountingRetract(closure, gone);
 
+    // A rebuild drops every fact, so every count kept for them goes with it.
+    internal override void Rebuilding(Closure closure) => _standings.Remove(closure);
+
     private Dictionary<Fact, (int Round, int Count)> Of(Closure closure) => _standings.GetValue(closure, static _ => []);
 
     private bool TryStanding(Closure closure, in Fact fact, out int round, out int count)

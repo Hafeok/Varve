@@ -341,6 +341,36 @@ public sealed class InferenceProjection : IProjection
     }
 
     /// <summary>
+    /// The cells of asserted lists the binding's rules do not read at
+    /// <see cref="Position"/> (ADR 0197, amended 2026-11-24), each named with
+    /// its graph and why: reported, never skipped in silence. None while the
+    /// binding is stopped.
+    /// </summary>
+    public IReadOnlyList<NamedUnreadList> UnreadLists()
+    {
+        lock (_applying)
+        {
+            if (_state is not { } state)
+            {
+                return [];
+            }
+
+            using DatasetView view = _dataset.Pin();
+            state.Terms.Source = view;
+            List<NamedUnreadList> named = [];
+            foreach (PlacedUnreadList unread in state.UnreadLists())
+            {
+                if (state.Terms.TryExternalise(unread.Graph, out RdfTerm? graph) && state.Terms.TryExternalise(unread.List.Cell, out RdfTerm? cell))
+                {
+                    named.Add(new NamedUnreadList(graph, cell, unread.List.Reason));
+                }
+            }
+
+            return named;
+        }
+    }
+
+    /// <summary>
     /// The clashes in the binding's closures at <see cref="Position"/> (ADR
     /// 0197 point 5): those drawn from the TBox graphs alone placed in
     /// <see cref="TBoxGraph"/>, the rest in the data graph whose closure

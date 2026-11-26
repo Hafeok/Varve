@@ -58,7 +58,7 @@ internal sealed class PatternCheck(string profile, string name, Atom[] body, Fun
 /// (<c>eq-diff2</c>, <c>eq-diff3</c>, <c>prp-adp</c>, <c>cax-adc</c>): the
 /// axiom's typing, its members fact, the cells, and what the pair matches.
 /// </summary>
-internal sealed class MembersCheck(string profile, string name, TermHandle type, TermHandle kind, TermHandle members, ListTerms list, Action<FactSet, TermHandle, TermHandle, List<Fact[]>> pair) : Check(profile, name)
+internal sealed class MembersCheck(string profile, string name, TermHandle type, TermHandle kind, TermHandle members, Action<FactSet, TermHandle, TermHandle, List<Fact[]>> pair) : Check(profile, name)
 {
     internal override void Matches(FactSet facts, List<Fact[]> into)
     {
@@ -103,37 +103,10 @@ internal sealed class MembersCheck(string profile, string name, TermHandle type,
         }
     }
 
-    /// <summary>Every path of cells from <paramref name="head"/> to <c>rdf:nil</c>, no cell twice, as the list rules read a list.</summary>
-    private List<List<Cell>> Paths(TermHandle head, FactSet facts)
+    /// <summary>The list from <paramref name="head"/> as the list rules read it: from the asserted statements, one path or none (ADR 0197, amended 2026-11-24).</summary>
+    private static List<List<Cell>> Paths(TermHandle head, FactSet facts)
     {
-        List<List<Cell>> paths = [];
-        Walk(head, facts, [], [], paths);
-        return paths;
-    }
-
-    private void Walk(TermHandle cell, FactSet facts, List<Cell> path, HashSet<ulong> visited, List<List<Cell>> paths)
-    {
-        if (cell.Value == list.Nil.Value)
-        {
-            paths.Add([.. path]);
-            return;
-        }
-
-        if (!visited.Add(cell.Value))
-        {
-            return;
-        }
-
-        foreach (Fact first in facts.Match(cell, list.First, TermHandle.None))
-        {
-            foreach (Fact rest in facts.Match(cell, list.Rest, TermHandle.None))
-            {
-                path.Add(new Cell(first.Object, first, rest));
-                Walk(rest.Object, facts, path, visited, paths);
-                path.RemoveAt(path.Count - 1);
-            }
-        }
-
-        visited.Remove(cell.Value);
+        List<Cell> path = [];
+        return facts.Lists is { } lists && lists.TryPath(head, path, facts) ? [path] : [];
     }
 }
