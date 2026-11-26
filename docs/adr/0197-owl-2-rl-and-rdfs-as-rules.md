@@ -599,11 +599,12 @@ changed are taken as retracted and asserted again in their graphs. Only
 what was drawn through them is confirmed again or relabelled, as for any
 other commit (`Closure.ReadListsPerGraph`, `ListChange`).
 
-**Measured after**, the same commits on the same machine:
+**Measured after**, the same commits on the same machine, three rounds each:
 
 | Binding | Plain commit | Assert the list | Retract it |
 |---|---|---|---|
-| per graph | 0.4–21.8 ms | 1.2–2.5 ms | 7.6–24.6 ms |
+| per graph | 0.3–15.0 ms | 1.2–1.7 ms | 7.4–17.2 ms |
+| cross-graph | 0.6–25.8 ms | 2.0–9.8 ms | 23.3–32.8 ms; the binding stays up |
 
 **Tests.**
 - `ListsFromAssertedStatementsTests`:

@@ -208,7 +208,8 @@ graph's closure only when an axiom names one of the lists it changes. Under
 a cross-graph binding, that closure is the merge. The rebuild costs a build from
 scratch of that one closure. A list no axiom names, asserted, changed or
 retracted, costs what any other triple does. At REC M a three-cell list
-took 1.2–2.5 ms to assert, against 3.7–5.2 s when it rebuilt the graph.
+took 1.2–9.8 ms to assert, against 3.7–5.2 s per graph when it rebuilt the
+graph, and a cross-graph binding stopped at its memory.
 Turtle's `( … )` and RDF/XML's `parseType="Collection"` always write
 well-formed lists.
 
