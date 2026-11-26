@@ -508,3 +508,30 @@ sides' medians, 20,000 resamples of the pairs.
   (−1.5% to +10.4%): the same as over all runs.
 - The checkpoints' +19% and the load's +3.1% are stated as accepted in the
   consequences above.
+
+## Amendment, 2026-11-20 — a shipper copies a set as it is
+
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
+
+- **A set is copied as bytes, and never rewritten on a target.** A rewrite
+  for an older reader, and a repair, are the source writer's. Their result
+  reaches the target as a new set under a fresh name.
+- **A blob is verified whole before it is copied** (the architect's
+  review of 2026-11-23, ADR 0184 decision 5). This ADR verifies a blob
+  read by range one block at a time, as each is read. A shipper reads no
+  block, so `ExtentBlobCheck.Verifies` reads them all: the header, the
+  directory under its hash, every key block, column block, row within and
+  seek directory of an order extent, every page of a dictionary, every
+  block of a commit index, and the whole of a graph-version index. It is
+  public in `Varve.Store`, since the shipper is in
+  `Varve.Store.ObjectStorage`.
+- **One part of an order extent is under no check,** and the test that
+  changes each byte in turn found it: the 72 bytes of its empty term
+  section, below the version whose term pages are checked. They are an
+  offset of zero and a filter of no bits, so the check requires every one
+  to be zero.
+- **A blob of a version from before the checks passes when every block
+  decodes.** Point 7's rewrite is still the source writer's.
+
+**The ledger.** No ruling changes. The ruling is
+`ASetIsVerifiedThenCopiedAsItIs`, in ADR 0184's set.

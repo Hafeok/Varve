@@ -3,9 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Varve.Management.Model;
 using Varve.Store;
 using Varve.Store.Azure;
 using Varve.Store.Azure.Model;
@@ -29,15 +31,15 @@ internal sealed class ObjectStores : IDisposable
 {
     private const string Manifest = "/log/MANIFEST";
 
-    private readonly IObjectStore _store;
     private readonly ObjectStorageSettings _settings;
-    private readonly TimeProvider _clock;
+    private readonly Lock _targetsLock = new();
+    private readonly Dictionary<string, IObjectStore> _targets = new(StringComparer.Ordinal);
 
     private ObjectStores(IObjectStore store, ObjectStorageSettings settings, TimeProvider clock)
     {
-        _store = store;
+        Store = store;
         _settings = settings;
-        _clock = clock;
+        Clock = clock;
     }
 
     /// <summary>The server's store, or null when no provider is configured.</summary>
@@ -63,16 +65,161 @@ internal sealed class ObjectStores : IDisposable
     /// <summary>The server's view of a store it is given, for a fleet run in one process by a test (#332).</summary>
     internal static ObjectStores Over(IObjectStore store, ObjectStorageSettings settings, TimeProvider clock) => new(store, settings, clock);
 
+    /// <summary>The server's store at its root, as a shipper reads it (ADR 0184).</summary>
+    internal IObjectStore Store { get; }
+
+    /// <summary>The address of the server's store, as a lineage record names a source (ADR 0185): its container, or <c>s3://{bucket}</c>.</summary>
+    internal string Address => _settings.Provider == "Azure" ? _settings.ContainerUrl! : "s3://" + _settings.Bucket;
+
+    /// <summary>The prefix of a dataset in the server's store.</summary>
+    internal static ObjectName PrefixOf(string name) => new(name + "/");
+
+    /// <summary>The directory under the cache in which a shipper stages what it copies to one target.</summary>
+    internal string StagingOf(string name, string target) => Path.Combine(_settings.CachePath!, "_shipping", name, target);
+
+    /// <summary>The reader id this instance announces under, or none when it is not configured.</summary>
+    internal string? ConfiguredReader => string.IsNullOrWhiteSpace(_settings.ReaderId) ? null : _settings.ReaderId;
+
+    /// <summary>A test's target stores by address, in place of the providers' adapters (#332).</summary>
+    internal Func<string, IObjectStore?>? TargetsForTests { get; set; }
+
+    /// <summary>
+    /// A shipping target's store at its root (ADR 0184), reached as this
+    /// instance's identity: an Azure container by its address, an
+    /// S3-compatible bucket by the endpoint and region
+    /// <c>Varve:Replication:Stores</c> gives for it. One adapter per address.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The address is an S3 bucket this instance has no endpoint for.</exception>
+    internal IObjectStore OpenTarget(string address, ReplicationSettings replication)
+    {
+        lock (_targetsLock)
+        {
+            if (_targets.TryGetValue(address, out IObjectStore? open))
+            {
+                return open;
+            }
+
+            IObjectStore store = TargetsForTests?.Invoke(address) ?? Create(address, replication, Clock);
+            _targets[address] = store;
+            return store;
+        }
+    }
+
+    private static IObjectStore Create(string address, ReplicationSettings replication, TimeProvider clock)
+    {
+        if (!address.StartsWith("s3://", StringComparison.Ordinal))
+        {
+            return AzureBlobStore.Create(new AzureBlobStoreOptions { ContainerUrl = new Uri(address), Clock = clock });
+        }
+
+        ReplicationStoreSettings? reached = replication.Stores.Find(store => string.Equals(store.Address, address, StringComparison.Ordinal));
+
+        if (reached is null || string.IsNullOrEmpty(reached.Endpoint) || string.IsNullOrEmpty(reached.Region))
+        {
+            throw new InvalidOperationException("This instance has no endpoint for the shipping target '" + address + "': name it under Varve:Replication:Stores with its Address, Endpoint and Region (ADR 0184).");
+        }
+
+        return S3ObjectStore.Create(new S3ObjectStoreOptions
+        {
+            Endpoint = new Uri(reached.Endpoint),
+            Bucket = new S3Bucket(address["s3://".Length..].TrimEnd('/')),
+            Region = new S3Region(reached.Region),
+            StsEndpoint = reached.StsEndpoint is { Length: > 0 } sts ? new Uri(sts) : null,
+            Clock = clock,
+        });
+    }
+
     /// <summary>Who this server is in a writer record (ADR 0136): the configured instance, or the machine name.</summary>
     internal WriterInstance Instance => new(string.IsNullOrWhiteSpace(_settings.Instance) ? Environment.MachineName : _settings.Instance);
 
     /// <summary>The writer record of a dataset's prefix, as the store holds it now; none before the first claim.</summary>
     internal async Task<WriterRecord?> ReadWriterAsync(string name, CancellationToken cancellationToken) =>
-        await Backend.ReadWriterAsync(_store, new ObjectName(name + "/"), cancellationToken).ConfigureAwait(false);
+        await Backend.ReadWriterAsync(Store, new ObjectName(name + "/"), cancellationToken).ConfigureAwait(false);
+
+    /// <summary>Whether a dataset is a replica, or a copy whose promotion did not finish (ADR 0185): read before this instance claims it.</summary>
+    internal async Task<ReplicaState> ReplicaStateAsync(string name, CancellationToken cancellationToken) =>
+        await Backend.ReplicaStateAsync(Store, PrefixOf(name), cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// The position a copy was promoted at, or none for a dataset that is no
+    /// promoted copy (ADR 0185 decision 8): every commit at or below it was
+    /// written under another fleet, whose management positions mean nothing
+    /// here.
+    /// </summary>
+    internal async Task<Position?> PromotedAtAsync(string name, CancellationToken cancellationToken) =>
+        (await Backend.ReadLineageAsync(Store, PrefixOf(name), cancellationToken).ConfigureAwait(false))?.Promoted?.Position;
+
+    /// <summary>A dataset's lineage record, or none for a dataset that is no copy (ADR 0185).</summary>
+    internal async Task<LineageRecord?> LineageAsync(string name, CancellationToken cancellationToken) =>
+        await Backend.ReadLineageAsync(Store, PrefixOf(name), cancellationToken).ConfigureAwait(false);
+
+    /// <summary>
+    /// What contradicts declaring the dataset <paramref name="name"/> a copy
+    /// of <paramref name="copy"/> (ADR 0185 decision 10), as the store shows
+    /// it: the store holds a dataset under the name, and its lineage does not
+    /// name that source. Null where there is no dataset yet, where its
+    /// lineage names the source, or where the lineage is one this build does
+    /// not read.
+    /// </summary>
+    internal async Task<string?> CopyContradictionAsync(string name, CopySourceDeclaration copy, CancellationToken cancellationToken)
+    {
+        LineageRecord? lineage = await LineageAsync(name, cancellationToken).ConfigureAwait(false);
+
+        if (lineage is { Understood: false }
+            || (lineage is { Source: { } source }
+                && string.Equals(source.Store.Value, copy.Store, StringComparison.Ordinal)
+                && string.Equals((source.Prefix?.Value ?? string.Empty).TrimEnd('/'), copy.Prefix.TrimEnd('/'), StringComparison.Ordinal)))
+        {
+            return null;
+        }
+
+        if (lineage is null && !await ExistsAsync(name, cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return "Dataset '" + name + "' is declared a copy of the dataset under '" + copy.Prefix + "' at " + copy.Store + ", and the store holds it "
+            + (lineage?.Source is { } other ? "as a copy of the dataset under '" + other.Prefix + "' at " + other.Store : "with no lineage record: it is a dataset written in this fleet")
+            + ". A copy is made only by its source's shipper, under an empty prefix (ADR 0185). Remove varve:copyOf, or declare the copy under another name.";
+    }
+
+    /// <summary>The clock this instance's storages wait on.</summary>
+    internal TimeProvider Clock { get; }
+
+    /// <summary>
+    /// The system dataset of another fleet as its shipper wrote it beside the
+    /// copies this fleet serves (ADR 0185 decision 8), under
+    /// <c>fleets/{fleet id}/</c>, opened read-only; none where the store
+    /// holds no such copy.
+    /// </summary>
+    internal async Task<Backend?> OpenShippedFleetAsync(DatasetId fleet, CancellationToken cancellationToken)
+    {
+        string name = "fleets/" + fleet.Value.ToString("D");
+
+        if (!await ExistsAsync(name, cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        string cache = Path.Combine(_settings.CachePath!, "_fleets", fleet.Value.ToString("D"));
+        Directory.CreateDirectory(cache);
+
+        return await Backend.OpenAsync(new ObjectStorageOptions
+        {
+            Store = Store,
+            Prefix = new ObjectName(name + "/"),
+            Cache = new CacheDirectory(cache),
+            Access = ObjectStorageAccess.ReadOnly,
+            CacheBytes = new ByteCount(_settings.CacheBytes),
+            MaxObjectBytes = _settings.Provider == "Azure" ? AzureBlobStore.MaxSingleUploadBytes : S3ObjectStore.MaxSingleUploadBytes,
+            Clock = Clock,
+            ProbeRandomness = SystemProbeRandomness.Instance,
+        }, cancellationToken).ConfigureAwait(false);
+    }
 
     /// <summary>Whether the store holds a dataset of this name: its manifest.</summary>
     internal async Task<bool> ExistsAsync(string name, CancellationToken cancellationToken) =>
-        await _store.ReadAsync(new ObjectName(name + Manifest), new ByteOffset(0), new ByteCount(1), cancellationToken).ConfigureAwait(false) is not null;
+        await Store.ReadAsync(new ObjectName(name + Manifest), new ByteOffset(0), new ByteCount(1), cancellationToken).ConfigureAwait(false) is not null;
 
     /// <summary>
     /// Opens a dataset's storage: for write, the next epoch is claimed, the log
@@ -88,7 +235,7 @@ internal sealed class ObjectStores : IDisposable
 
         return await Backend.OpenAsync(new ObjectStorageOptions
         {
-            Store = _store,
+            Store = Store,
             Prefix = new ObjectName(name + "/"),
             Cache = new CacheDirectory(cache),
             Access = access,
@@ -97,7 +244,7 @@ internal sealed class ObjectStores : IDisposable
             CacheBytes = new ByteCount(_settings.CacheBytes),
             Reader = ReaderOf(access),
             MaxObjectBytes = _settings.Provider == "Azure" ? AzureBlobStore.MaxSingleUploadBytes : S3ObjectStore.MaxSingleUploadBytes,
-            Clock = _clock,
+            Clock = Clock,
             ProbeRandomness = SystemProbeRandomness.Instance,
         }, cancellationToken).ConfigureAwait(false);
     }
@@ -113,9 +260,9 @@ internal sealed class ObjectStores : IDisposable
     /// <summary>Deletes every object of a dataset, and its cache: all of it, and not undoable (ADR 0106).</summary>
     internal async Task DeleteAsync(string name, CancellationToken cancellationToken)
     {
-        foreach (ObjectEntry entry in await _store.ListAsync(new ObjectName(name + "/"), cancellationToken).ConfigureAwait(false))
+        foreach (ObjectEntry entry in await Store.ListAsync(new ObjectName(name + "/"), cancellationToken).ConfigureAwait(false))
         {
-            await _store.DeleteAsync(entry.Name, cancellationToken).ConfigureAwait(false);
+            await Store.DeleteAsync(entry.Name, cancellationToken).ConfigureAwait(false);
         }
 
         string cache = Path.Combine(_settings.CachePath!, name);
@@ -126,7 +273,20 @@ internal sealed class ObjectStores : IDisposable
         }
     }
 
-    public void Dispose() => (_store as IDisposable)?.Dispose();
+    public void Dispose()
+    {
+        (Store as IDisposable)?.Dispose();
+
+        lock (_targetsLock)
+        {
+            foreach (IObjectStore target in _targets.Values)
+            {
+                (target as IDisposable)?.Dispose();
+            }
+
+            _targets.Clear();
+        }
+    }
 }
 
 /// <summary>The operating system's generator, for a writer's probe key (ADR 0134).</summary>

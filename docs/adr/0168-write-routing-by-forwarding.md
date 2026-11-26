@@ -201,3 +201,19 @@ maintainer on 2026-11-18. It adds to points 3 and 7.
 
 **The ledger.** The ruling of this block is `ForwardedWriteKeepsItsKey`,
 accepted by the maintainer on 2026-11-18.
+
+## Amendment, 2026-11-20 — a write to a replica
+
+Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
+
+A replica has no writer to forward to. A write sent to one is answered
+`409 dataset-is-replica` and not `503`: nothing claims a replica by
+itself, so a retry cannot help.
+
+- It is decided after authorisation, and names only the dataset the caller
+  sent. A caller who may not write the dataset gets what any dataset with
+  no writer gives.
+- The route is never kept: a promotion ends it.
+
+**The ledger.** No ruling changes. The ruling is
+`AReplicaIsNeverOpenedForWrite`, in ADR 0185's set.

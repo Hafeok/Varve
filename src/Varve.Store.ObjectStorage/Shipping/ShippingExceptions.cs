@@ -1,0 +1,197 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+using System;
+using Varve.Store.Log;
+using Varve.Store.ObjectStorage.Model;
+
+namespace Varve.Store.ObjectStorage;
+
+/// <summary>
+/// A target holds, at a name the shipper was about to write, bytes that are
+/// not the source's (ADR 0184): the two logs have diverged. Nothing was
+/// overwritten and nothing deleted. The shipper stops for that target.
+/// </summary>
+public sealed class ShippingDivergedException : Exception
+{
+    /// <summary>The target diverged.</summary>
+    public ShippingDivergedException()
+    {
+    }
+
+    /// <summary>The target diverged, as the message says.</summary>
+    public ShippingDivergedException(string message)
+        : base(message)
+    {
+    }
+
+    /// <summary>The target diverged, as the message says, and the cause.</summary>
+    public ShippingDivergedException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+
+    /// <summary>The target diverged at <paramref name="slot"/>, in the way <paramref name="how"/> says.</summary>
+    public ShippingDivergedException(LogSlot slot, string how)
+        : base("The shipping target has diverged from its source at log slot " + slot + ": " + how
+            + ". Nothing was overwritten. A target is written only by create-if-absent of the source's bytes (ADR 0184); ship to a fresh prefix.") =>
+        Slot = slot;
+
+    /// <summary>The target diverged at <paramref name="slot"/>, in the way <paramref name="how"/> says, and the cause.</summary>
+    public ShippingDivergedException(LogSlot slot, string how, Exception innerException)
+        : base("The shipping target has diverged from its source at log slot " + slot + ": " + how
+            + ". Nothing was overwritten. A target is written only by create-if-absent of the source's bytes (ADR 0184); ship to a fresh prefix.", innerException) =>
+        Slot = slot;
+
+    /// <summary>The slot at which they differ, where one is known.</summary>
+    public LogSlot? Slot { get; }
+}
+
+/// <summary>
+/// The target's prefix holds a dataset that is not a replica of this source
+/// (ADR 0184): another dataset, a copy of another source, or a log with no
+/// lineage record. Nothing was written to it.
+/// </summary>
+public sealed class ShippingTargetNotEmptyException : Exception
+{
+    /// <summary>The target is not empty.</summary>
+    public ShippingTargetNotEmptyException()
+    {
+    }
+
+    /// <summary>The target is not empty, as the message says.</summary>
+    public ShippingTargetNotEmptyException(string message)
+        : base(message)
+    {
+    }
+
+    /// <summary>The target is not empty, as the message says, and the cause.</summary>
+    public ShippingTargetNotEmptyException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}
+
+/// <summary>
+/// The target was promoted (ADR 0185): it is a dataset of its own now, and
+/// takes no write from its old source. The shipper stops for that target.
+/// </summary>
+public sealed class ReplicaPromotedException : Exception
+{
+    /// <summary>The target was promoted.</summary>
+    public ReplicaPromotedException()
+    {
+    }
+
+    /// <summary>The target was promoted, as the message says.</summary>
+    public ReplicaPromotedException(string message)
+        : base(message)
+    {
+    }
+
+    /// <summary>The target was promoted, as the message says, and the cause.</summary>
+    public ReplicaPromotedException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+
+    /// <summary>The target was promoted, as <paramref name="lineage"/> records.</summary>
+    public ReplicaPromotedException(LineageRecord lineage)
+        : base("The shipping target was promoted at position " + (lineage ?? throw new ArgumentNullException(nameof(lineage))).Promoted?.Position
+            + " by " + lineage.Promoted?.By + ": it is the dataset now and takes no write from its old source (ADR 0185). To make this dataset a replica of it, ship from the promoted copy to a fresh prefix.") =>
+        Lineage = lineage;
+
+    /// <summary>The target's lineage record, where one was read.</summary>
+    public LineageRecord? Lineage { get; }
+}
+
+/// <summary>
+/// The target's store has no verification record this build accepts (ADR
+/// 0184 decision 9, ADR 0183): none at its root, one of a format this build
+/// does not read, or one of an older suite. Nothing was written to it.
+/// </summary>
+public sealed class StoreUnverifiedException : Exception
+{
+    /// <summary>The store is unverified.</summary>
+    public StoreUnverifiedException()
+    {
+    }
+
+    /// <summary>The store is unverified, as the message says.</summary>
+    public StoreUnverifiedException(string message)
+        : base(message)
+    {
+    }
+
+    /// <summary>The store is unverified, as the message says, and the cause.</summary>
+    public StoreUnverifiedException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+
+    /// <summary>The store holds <paramref name="found"/> where a verification by <paramref name="minimum"/> or a newer suite was due.</summary>
+    public StoreUnverifiedException(VerificationRecord? found, VerificationSuite minimum)
+        : base(found switch
+        {
+            null => "The shipping target's store has no verification record.",
+            { Understood: false } => "The shipping target's store has a verification record of a format this build does not read.",
+            _ => "The shipping target's store was verified by suite " + found.Suite + ", and this build needs suite " + minimum + " or newer.",
+        }
+        + " Nothing was written to it. Run 'varve storage verify' against the store with this build (ADR 0183), then start shipping again.")
+    {
+        Found = found;
+        Minimum = minimum;
+    }
+
+    /// <summary>The record the store holds, or none.</summary>
+    public VerificationRecord? Found { get; }
+
+    /// <summary>The oldest suite this build accepts.</summary>
+    public VerificationSuite Minimum { get; }
+}
+
+/// <summary>
+/// The source holds a chunk or a blob of an extent set that does not verify
+/// (ADR 0184 decisions 5 and 6). It was not shipped, and nothing was written
+/// to the target for it. The shipper tries again each round: a chunk that
+/// reads whole next time is shipped then, and a damaged set is shipped once
+/// the source's writer has rewritten it under a fresh name (ADR 0213).
+/// </summary>
+public sealed class SourceDamagedException : Exception
+{
+    /// <summary>The source is damaged.</summary>
+    public SourceDamagedException()
+    {
+    }
+
+    /// <summary>The source is damaged, as the message says.</summary>
+    public SourceDamagedException(string message)
+        : base(message)
+    {
+    }
+
+    /// <summary>The source is damaged, as the message says, and the cause.</summary>
+    public SourceDamagedException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+
+    /// <summary>The source's chunk at <paramref name="slot"/> does not verify.</summary>
+    public SourceDamagedException(LogSlot slot)
+        : base("The source's chunk at log slot " + slot + " does not verify: its header or its content hash is not what its bytes give. It was not shipped, and nothing was written to the target for it (ADR 0184). "
+            + "The shipper reads it again at its next round. If it stays so, the source's log is damaged at that slot: see docs/operator/shipping/source-chunk-damaged.md.") =>
+        Slot = slot;
+
+    /// <summary>The source's blob <paramref name="blob"/> of an extent set does not verify.</summary>
+    public SourceDamagedException(BlobName blob)
+        : base("The source's '" + blob + "' does not verify (ADR 0213). It was not shipped, and the catalog that names its set was not published on the target (ADR 0184). "
+            + "The log is shipped as before. The set is shipped once the source's writer has rewritten it under a fresh name: see docs/operator/shipping/waiting-on-damaged-set.md.") =>
+        Blob = blob;
+
+    /// <summary>The slot of the chunk that does not verify, where it is a chunk.</summary>
+    public LogSlot? Slot { get; }
+
+    /// <summary>The blob that does not verify, where it is a blob of a set.</summary>
+    public BlobName? Blob { get; }
+}

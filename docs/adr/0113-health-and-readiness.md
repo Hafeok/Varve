@@ -99,3 +99,20 @@ bootstrap mismatch or a management lag past `Varve:Fleet:AllowedLag` is not read
 
 **The ledger.** `ReadinessIsEveryDatasetOpenAndWithinLag` moves to ADR 0163's set,
 superseded.
+
+## Amendment, 2026-11-20 — readiness reports shipping
+
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
+
+A dataset this instance ships has a `shipping` member on `/health/ready`:
+one member per declared target, with `state`, `shippedThrough`, `lag`,
+`catalogPosition`, `failures` and `detail`.
+
+- **It never makes the instance unready.** A target's failure is never the
+  source's.
+- **`shipping-diverged`, `shipping-target-not-empty` and
+  `replica-promoted` are states here and not problem types.** Only the
+  shipper meets them, and it answers no request.
+
+**The ledger.** No ruling changes. The ruling is
+`ATargetsFailureIsNeverTheSources`, in ADR 0184's set.

@@ -745,7 +745,7 @@ replace-if-unchanged against the version read:
 | `format` | number | `1`. Another value is refused, never guessed at |
 | `epoch` | number | the current writer epoch, from 1 |
 | `holder` | string | the instance that claimed it |
-| `released` | string, optional | present when the holder released the epoch: `shutdown`, `operator-takeover`, `placement`, `storage-error` or `local-disk-error` |
+| `released` | string, optional | present when the holder released the epoch: `shutdown`, `operator-takeover`, `placement`, `storage-error`, `local-disk-error`, or `promotion` (a promotion of a copy that did not finish, or that no fleet serves, ADR 0185) |
 | `history` | array | every claim, in epoch order |
 
 Each claim in `history`:
@@ -754,7 +754,7 @@ Each claim in `history`:
 |---|---|---|
 | `epoch` | number | the epoch claimed |
 | `holder` | string | the instance that claimed it |
-| `trigger` | string | why: `restart` (an open for write), `operator` (`varve lease --take`), `abdication` (a claim of a released epoch), or `probe` (a takeover request, ADR 0179 point 6) |
+| `trigger` | string | why: `restart` (an open for write), `operator` (`varve lease --take`), `abdication` (a claim of a released epoch), `probe` (a takeover request, ADR 0179 point 6), or `promotion` (an operator promoted a copy on another store, ADR 0185) |
 | `at` | string | when, an `xsd:dateTime` in UTC, for the operator; nothing decides by it |
 | `fence` | string, optional | the log slot the claim fenced, `NNNNNNNN.chunks/CCCCCCCC` |
 | `address` | string, optional | where the holder answered, its `Varve:Fleet:InternalUrl`; a forwarder routes writes to it, and the automation asks it before a takeover (ADR 0181) |
@@ -766,3 +766,57 @@ record, never read as another. The epoch history is how an operator reads a
 handover: a run of `restart` claims alternating between two holders means two
 writers are configured for one dataset, where `abdication` after a release,
 or `probe`, is a handover (ADR 0179 point 11).
+
+### 8.3 Lineage record — `lineage`, format 1
+
+At most one per dataset, beside `writer`: what a copy of a dataset is (ADR
+0185). A dataset that is not a copy has none. UTF-8 JSON, one object. Log
+shipping creates it by create-if-absent before the first object of a new
+target (ADR 0184), and a promotion replaces it by replace-if-unchanged
+against the version read.
+
+| Member | Type | Meaning |
+|---|---|---|
+| `format` | number | `1` |
+| `state` | string | `replica`: log shipping writes this copy, and nothing else does. `promoted`: an operator made it the dataset |
+| `source` | object | the dataset it was shipped from |
+| `promoted` | object, when `state` is `promoted` | the promotion |
+| `earlier` | array, optional | the chain: for a copy of a promoted copy, every earlier source with that copy's promotion, oldest first. Each item is `{"source": …, "promoted": …}` as below. Absent or empty for a copy of a dataset that was never a copy |
+
+`source`:
+
+| Member | Type | Meaning |
+|---|---|---|
+| `store` | string | the source's store, as it was declared: a container's URL, `s3://bucket` |
+| `prefix` | string, optional | the dataset's prefix in it, ending in `/`; absent for the store's root |
+| `dataset` | string | the dataset's id, as `log/MANIFEST` has it. A copy has its source's id |
+| `fleet` | string, optional | the id of the source fleet's system dataset: the fleet whose positions the copy's commits record (ADR 0165) |
+
+`promoted`:
+
+| Member | Type | Meaning |
+|---|---|---|
+| `epoch` | number | the epoch the promotion claimed, above every epoch that was shipped |
+| `position` | number | the last position the source's fleet wrote: the position at the promotion's fence, which the promoted copy continues from. Until `fence` is written it is the position the promotion first verified |
+| `hash` | string | the header hash of the commit at that position, 64 hexadecimal digits |
+| `fence` | string, optional | the log slot of the promotion's fence, `NNNNNNNN.chunks/CCCCCCCC`. It is written last, with `position` and `hash` as they are at the fence. **A promotion with no `fence` has not finished** |
+| `at` | string | when, an `xsd:dateTime` in UTC to the second, for the operator; nothing decides by it |
+| `by` | string | the instance that promoted it |
+
+**Which fleet wrote a position** is read from the record alone. Positions
+up to the first item of `earlier`'s promoted position were written by that
+item's source fleet, the next range by the next item's, and so on.
+Positions after those and up to `promoted.position`, or every other
+position of a `replica`, were written by `source`'s fleet. Positions above
+`promoted.position` were written by the fleet that serves the copy.
+
+**It is read conservatively** (ADR 0217). A record of another `format`, one
+that does not parse, a `promoted` one with no `promoted` member, and one
+whose `earlier` is not in rising order of position are not understood: the dataset is treated as a replica, and the record is never
+written on. A `state` this version does not know is held as written and is
+a replica. A reader ignores members it does not know.
+
+**A replica is never opened for write.** An open for write, a takeover and
+a claim in place read the record first and refuse with
+`DatasetIsReplicaException` before anything is written, the probe of §8
+included. A read-only open reads it as it reads any dataset.

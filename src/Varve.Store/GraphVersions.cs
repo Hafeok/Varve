@@ -254,6 +254,14 @@ internal sealed class GraphVersions
 
         using (blob)
         {
+            return TryRead(blob, dataset);
+        }
+    }
+
+    /// <summary>The index an open blob holds, verified whole (ADR 0213), or null. The blob stays the caller's.</summary>
+    internal static (GraphVersions Versions, byte[] Hash)? TryRead(IReadableBlob blob, DatasetId dataset)
+    {
+        {
             if (!DerivedFormat.TryReadHeader(blob, dataset, DerivedFormat.KindGraphs, out DerivedHeader header)
                 || header.DirectoryOffset != 0
                 || header.DirectoryLength < DirectoryHead

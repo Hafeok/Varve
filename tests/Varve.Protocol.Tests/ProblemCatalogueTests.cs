@@ -78,7 +78,7 @@ public class ProblemCatalogueTests
     ];
 
     /// <summary>The types the management plane's endpoints emit, triggered by <see cref="every_problem_the_management_endpoints_emit_has_its_catalogued_shape"/>.</summary>
-    private static readonly ImmutableArray<ProblemType> ManagementTriggered = [ProblemType.DeclarationInvalid, ProblemType.DatasetOpen, ProblemType.WriterMoved];
+    private static readonly ImmutableArray<ProblemType> ManagementTriggered = [ProblemType.DeclarationInvalid, ProblemType.DatasetOpen, ProblemType.WriterMoved, ProblemType.DatasetIsReplica];
 
     [Fact]
     public void every_problem_type_is_catalogued_with_a_page_stating_the_same_shape_and_what_to_do()
@@ -303,6 +303,7 @@ public class ProblemCatalogueTests
         Dataset moved = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
         ProtocolTestHost.Datasets datasets = new();
         datasets.Add("moved", moved);
+        datasets.Add("copy", moved);
         TestPlane plane = new(system);
         const string Declared = "<urn:y> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"y\" ; <https://w3id.org/varve/ns#storage> <https://w3id.org/varve/ns#Memory> .";
 
@@ -323,6 +324,7 @@ public class ProblemCatalogueTests
             {
                 [ProblemType.DeclarationInvalid] = () => Put("manage/datasets/x", "<urn:x> a <https://w3id.org/varve/ns#Dataset> ; <https://w3id.org/varve/ns#datasetName> \"x\" ; <https://w3id.org/varve/ns#erasureMode> \"y\" .", "application/trig"),
                 [ProblemType.DatasetOpen] = () => new HttpRequestMessage(HttpMethod.Delete, new Uri("manage/datasets/y", UriKind.Relative)),
+                [ProblemType.DatasetIsReplica] = () => P.Update("datasets/copy/sparql", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }"),
                 [ProblemType.WriterMoved] = () =>
                 {
                     HttpRequestMessage forwarded = P.Update("datasets/moved/sparql", "INSERT DATA { <http://ex/a> <http://ex/p> 1 }");
@@ -356,6 +358,81 @@ public class ProblemCatalogueTests
     private const string Catalogue = "https://w3id.org/varve/ns#events-catalogue/default";
 
     private const string Sh = "http://www.w3.org/ns/shacl#";
+
+    /// <summary>
+    /// ADR 0184 decision 9: the compatibility page is a notice and never a
+    /// refusal. A shipping target whose provider the page does not list as
+    /// verified is applied, and the answer says so in-band, once per target.
+    /// </summary>
+    [Fact]
+    public async Task an_apply_of_a_target_on_an_untested_provider_is_applied_and_its_answer_says_so()
+    {
+        Dataset system = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+        TestPlane plane = new(system);
+
+        await using (system)
+        await using (ProtocolTestHost host = await ProtocolTestHost.StartAsync(new ProtocolTestHost.Datasets(), map: (app, o) => app.MapVarveManagement(o, plane), stopping: P.Ct))
+        {
+            const string Ns = "https://w3id.org/varve/ns#";
+            HttpResponseMessage applied = await host.Client.SendAsync(
+                Put(
+                    "manage/datasets/z",
+                    "<urn:z> a <" + Ns + "Dataset> ; <" + Ns + "datasetName> \"z\" ; <" + Ns + "storage> <" + Ns + "ObjectStorage> ; <" + Ns + "shipsTo> <urn:z:replica> . "
+                    + "<urn:z:replica> a <" + Ns + "ShippingTarget> ; <" + Ns + "store> \"s3://replicas\" ; <" + Ns + "prefix> \"z\" ; <" + Ns + "provider> \"never-tried\" .",
+                    "application/trig"),
+                P.Ct);
+
+            Assert.Equal(System.Net.HttpStatusCode.Created, applied.StatusCode);
+            Assert.Equal(["shipping-provider-untested; dataset=z; provider=never-tried; state=untested"], applied.Headers.GetValues(UntestedTarget.Header));
+            using DatasetView view = system.Pin();
+            Assert.Single(DeclarationReader.Read(view).Datasets["z"].ShippingTargets);
+
+            // A dataset that ships nowhere carries no notice.
+            HttpResponseMessage plain = await host.Client.SendAsync(
+                Put("manage/datasets/y", "<urn:y> a <" + Ns + "Dataset> ; <" + Ns + "datasetName> \"y\" ; <" + Ns + "storage> <" + Ns + "Memory> .", "application/trig"), P.Ct);
+            Assert.Equal(System.Net.HttpStatusCode.Created, plain.StatusCode);
+            Assert.False(plain.Headers.Contains(UntestedTarget.Header));
+        }
+    }
+
+    /// <summary>
+    /// ADR 0185 decision 10 (the maintainer's ruling of 2026-11-23): an apply
+    /// that declares a copy of a dataset the answering instance can see is
+    /// written in this fleet is refused before anything is committed, and
+    /// says which dataset and what to do. One the instance sees nothing
+    /// against is applied.
+    /// </summary>
+    [Fact]
+    public async Task an_apply_that_declares_a_written_dataset_a_copy_is_refused_and_commits_nothing()
+    {
+        Dataset system = await Dataset.CreateAsync(new MemoryStorage(), new DatasetId(Guid.NewGuid()), new DatasetOptions { Clock = TimeProvider.System }, P.Ct);
+        TestPlane plane = new(system) { WrittenHere = "taken" };
+
+        await using (system)
+        await using (ProtocolTestHost host = await ProtocolTestHost.StartAsync(new ProtocolTestHost.Datasets(), map: (app, o) => app.MapVarveManagement(o, plane), stopping: P.Ct))
+        {
+            const string Ns = "https://w3id.org/varve/ns#";
+
+            static string Copy(string name) =>
+                "<urn:" + name + "> a <" + Ns + "Dataset> ; <" + Ns + "datasetName> \"" + name + "\" ; <" + Ns + "storage> <" + Ns + "ObjectStorage> ; <" + Ns + "copyOf> <urn:" + name + ":source> . "
+                + "<urn:" + name + ":source> a <" + Ns + "ShippingSource> ; <" + Ns + "store> \"https://primary.invalid/c\" ; <" + Ns + "prefix> \"" + name + "\" .";
+
+            HttpResponseMessage refused = await host.Client.SendAsync(Put("manage/datasets/taken", Copy("taken"), "application/trig"), P.Ct);
+            Assert.Equal((System.Net.HttpStatusCode)422, refused.StatusCode);
+            using JsonDocument problem = JsonDocument.Parse(await refused.Content.ReadAsStringAsync(P.Ct));
+            Assert.EndsWith("/declaration-invalid", problem.RootElement.GetProperty("type").GetString(), StringComparison.Ordinal);
+            JsonElement finding = Assert.Single(problem.RootElement.GetProperty("findings").EnumerateArray());
+            Assert.Equal(Ns + "manage/dataset/taken", finding.GetProperty("graph").GetString());
+            Assert.Equal(Ns + "copyOf", finding.GetProperty("path").GetString());
+            Assert.Contains("Remove varve:copyOf", finding.GetProperty("message").GetString(), StringComparison.Ordinal);
+            Assert.Equal(0L, system.Head.Value);
+
+            HttpResponseMessage applied = await host.Client.SendAsync(Put("manage/datasets/fresh", Copy("fresh"), "application/trig"), P.Ct);
+            Assert.Equal(System.Net.HttpStatusCode.Created, applied.StatusCode);
+            using DatasetView view = system.Pin();
+            Assert.NotNull(DeclarationReader.Read(view).Datasets["fresh"].CopyOf);
+        }
+    }
 
     private static HttpRequestMessage Put(string path, string body, string mediaType) =>
         new(HttpMethod.Put, new Uri(path, UriKind.Relative)) { Content = new StringContent(body, Encoding.UTF8, mediaType) };
@@ -487,6 +564,18 @@ public class ProblemCatalogueTests
         public ManagementStatus Status => new(ManagementRole.Writer, 0, new ManagementPosition(system.Head.Value), new ManagementPosition(system.Head.Value), BootstrapState.Absent, null);
 
         public ICommitValidator Validator { get; } = new ManagementValidator();
+
+        /// <summary>A dataset this plane sees is written in its fleet, with no lineage: declaring it a copy is refused.</summary>
+        public string? WrittenHere { get; init; }
+
+        public ValueTask<CopyRefusal?> CheckCopiesAsync(Declarations proposed, CancellationToken cancellationToken) =>
+            ValueTask.FromResult<CopyRefusal?>(proposed.Datasets.Values.FirstOrDefault(dataset => dataset.CopyOf is not null && dataset.Name == WrittenHere) is { } declared
+                ? new CopyRefusal(new DatasetName(declared.Name), new RefusalDetail("Dataset '" + declared.Name + "' is written in this fleet. Remove varve:copyOf, or declare the copy under another name."))
+                : null);
+
+        // As a server does against its compiled page: here every provider is untested.
+        public IReadOnlyList<UntestedTarget> UntestedTargets(Declarations proposed) =>
+            [.. proposed.Datasets.Values.SelectMany(dataset => dataset.ShippingTargets.Where(target => target.Provider is not null).Select(target => new UntestedTarget(dataset.Name, target.Provider!, "untested")))];
     }
 
     /// <summary>Another instance writes the dataset "moved"; this one writes the rest.</summary>
@@ -495,7 +584,12 @@ public class ProblemCatalogueTests
         public WriterName Instance { get; } = new("this-one");
 
         public ValueTask<WriterRoute> RouteAsync(WriterTarget target, CancellationToken cancellationToken) =>
-            ValueTask.FromResult(target.Dataset is { Value: "moved" } ? new WriterRoute(WriterRouteKind.Remote, "http://127.0.0.1:9/", 7) : WriterRoute.Local);
+            ValueTask.FromResult(target.Dataset switch
+            {
+                { Value: "moved" } => new WriterRoute(WriterRouteKind.Remote, "http://127.0.0.1:9/", 7),
+                { Value: "copy" } => new WriterRoute(WriterRouteKind.Replica, null, 0),
+                _ => WriterRoute.Local,
+            });
 
         public void Stale(WriterTarget target)
         {

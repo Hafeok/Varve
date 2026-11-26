@@ -804,3 +804,6 @@ Varve.Store.Log.CommitHeaderTerms.GraphScope.get -> Varve.Rdf.RdfTerm?
 Varve.Store.Log.CommitHeaderTerms.Kind.get -> Varve.Store.Log.CommitKind
 Varve.Store.Log.CommitHeaderTerms.Position.get -> Varve.Store.Log.Position
 Varve.Store.Log.CommitHeaderTerms.Timestamp.get -> Varve.Store.Log.CommitTimestamp
+Varve.Store.Dataset.HeaderHashAsync(Varve.Store.Log.Position position, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<System.ReadOnlyMemory<byte>>
+Varve.Store.ExtentBlobCheck
+static Varve.Store.ExtentBlobCheck.Verifies(Varve.Store.Log.BlobName name, Varve.Store.Log.DatasetId dataset, System.IO.FileInfo! file, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> bool

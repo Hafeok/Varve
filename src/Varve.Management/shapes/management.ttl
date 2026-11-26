@@ -15,7 +15,12 @@
 # - the fleet graph declares no dataset and grants varve:operator only, and a
 #   dataset's graph grants no varve:operator;
 # - the bootstrap graph holds only varve:bootstrapOperator literals;
-# - a graph template's syntax.
+# - a graph template's syntax;
+# - every rule of a shipping target (ADR 0184): varve:shipsTo and
+#   varve:ShippingTarget name each other, a target is a store with its
+#   prefix and provider, an address carries no credential,
+#   two targets do not name one place, and only a dataset on
+#   varve:ObjectStorage has one. No shape here states any of it.
 # Each needs the graph's name, a count across the graph, or a parser. The
 # move's transitions (ADR 0167 point 4: none or varve:InDataset to Moving, the
 # cancel back to varve:InDataset, Moving to Moved) compare two management

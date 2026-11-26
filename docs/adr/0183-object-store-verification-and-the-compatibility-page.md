@@ -213,3 +213,29 @@ counterexample against both broken stores.
   - `eng/status.cs` refuses a page edited by hand.
 - **Open questions owned.** None. What a shipping target must show is
   ADR 0184's.
+
+## Amendment, 2026-11-20 — the page is a notice, and the record is the gate
+
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md),
+unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
+
+Decision 3 says replication needs a verification record at a shipping
+target. Decision 6 says the compatibility page lists what the project has
+verified. This amendment says how the two bear on a target:
+
+- **The record at the store is what a target needs.** No record of an
+  accepted suite, and the shipper writes nothing to the store.
+- **The page refuses nothing.** A target on a provider the page lists as
+  untested, unsupported, with no adapter, or does not list, is accepted by
+  an apply. The answer says in-band that the project has not tested that
+  provider, and that shipping starts once the store holds a record.
+- **So an operator's own run counts.** A store the project never tried is
+  shipped to once its operator has run `varve storage verify` against it.
+  The page still says what the project's own evidence is, and no more.
+
+The record still guards against a mistake and not an adversary (decision
+3). A provider the page lists as unsupported fails the suite by its design,
+so it gets no record, and nothing is shipped to it.
+
+**The ledger.** No ruling of this ADR changes. The ruling is
+`ATargetIsAVerifiedStore`, in ADR 0184's set.
