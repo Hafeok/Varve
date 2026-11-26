@@ -339,7 +339,7 @@ public sealed partial class Closure
             // from scratch: every fact it holds after is a change, so none is
             // recorded on the way, which for a large one costs as much again.
             ApplyDelta(asserted, retracted);
-            _clashes = null;
+            ForgetClashes();
             return new Held(Facts);
         }
 
@@ -358,7 +358,7 @@ public sealed partial class Closure
             if (!applied)
             {
                 // Partly applied: the clashes kept are no longer this closure's.
-                _clashes = null;
+                ForgetClashes();
             }
         }
 

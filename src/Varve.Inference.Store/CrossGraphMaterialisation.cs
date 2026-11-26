@@ -176,8 +176,7 @@ internal sealed class CrossGraphMaterialisation : Materialisation
             // offered to the graphs it was and is placed in (ADR 0197, amended 2026-11-24).
             PremiseSets was = _sets;
             _sets = Label();
-            _placements.Clear();
-            _placedFrom = null;
+            _placementsStale = true;
             foreach (Fact fact in _merge.Own.Concat(moved).Distinct())
             {
                 foreach (TermHandle graph in Placements(was.Of(fact), fact).Concat(Placements(_sets.Of(fact), fact)))
@@ -293,26 +292,57 @@ internal sealed class CrossGraphMaterialisation : Materialisation
     protected override void DataClashes(List<IReadOnlyList<PlacedClash>> into)
     {
         IReadOnlyList<Clash> clashes = _merge.Clashes();
-        if (!ReferenceEquals(clashes, _placedFrom) || _setsChanged.Count > 0)
+        ClashChanges? changes = _merge.TakeClashChanges();
+        bool changed = false;
+        if (changes is null || _placementsStale)
         {
-            // A clash is placed again when it is new or a premise's sets changed since it was placed.
-            Dictionary<Clash, PlacedClash[]> placements = new(ReferenceEqualityComparer.Instance);
-            List<PlacedClash> placed = [];
+            // Every clash placed afresh: the first time, after the merge's clashes were matched again, or after a relabel.
+            _placements.Clear();
             foreach (Clash clash in clashes)
             {
-                if (!_placements.TryGetValue(clash, out PlacedClash[]? those) || Moved(clash))
-                {
-                    those = Place(clash);
-                }
+                _placements[clash] = Place(clash);
+            }
 
-                placements[clash] = those;
+            _placementsStale = false;
+            changed = true;
+        }
+        else
+        {
+            // A clash placed when it comes, forgotten when it goes, and placed again when a premise's sets changed.
+            foreach (Clash clash in changes.Came)
+            {
+                _placements[clash] = Place(clash);
+                changed = true;
+            }
+
+            foreach (Clash clash in changes.Went)
+            {
+                changed |= _placements.Remove(clash);
+            }
+
+            foreach (Fact fact in _setsChanged)
+            {
+                foreach (Clash clash in _merge.ClashesWith(fact))
+                {
+                    if (_placements.ContainsKey(clash))
+                    {
+                        _placements[clash] = Place(clash);
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        _setsChanged.Clear();
+        if (changed)
+        {
+            List<PlacedClash> placed = [];
+            foreach (PlacedClash[] those in _placements.Values)
+            {
                 placed.AddRange(those);
             }
 
-            _placements = placements;
             _placed = placed;
-            _placedFrom = clashes;
-            _setsChanged.Clear();
         }
 
         into.Add(_placed);
@@ -324,20 +354,6 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         {
             into.AddRange(Place(clash));
         }
-    }
-
-    // Whether a premise of the clash has had its premise sets changed since the clashes were last placed.
-    private bool Moved(Clash clash)
-    {
-        foreach (Fact premise in clash.Premises)
-        {
-            if (_setsChanged.Contains(premise))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>A clash of the merge, under the graph of each minimal set of its premises: none when the TBox closure finds it alone.</summary>
@@ -370,10 +386,10 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         return [.. placed];
     }
 
-    // The merge's clashes as last placed: each clash's placements, the list placed from, and the facts whose sets changed since.
-    private Dictionary<Clash, PlacedClash[]> _placements = new(ReferenceEqualityComparer.Instance);
+    // The merge's clashes as last placed, each clash's placements, and the facts whose sets changed since.
+    private readonly Dictionary<Clash, PlacedClash[]> _placements = new(ReferenceEqualityComparer.Instance);
     private List<PlacedClash> _placed = [];
-    private IReadOnlyList<Clash>? _placedFrom;
+    private bool _placementsStale = true;
     private readonly HashSet<Fact> _setsChanged = [];
 
     /// <summary>The graphs a fact is a row of under <paramref name="sets"/>: a set's one graph unless the fact is explicit there, a set's reserved graph when it has two or more.</summary>

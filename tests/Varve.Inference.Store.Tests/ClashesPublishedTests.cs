@@ -48,7 +48,7 @@ public class ClashesPublishedTests
     [InlineData(false)]
     [InlineData(true)]
     public void the_published_clashes_equal_every_check_matched_and_placed_afresh_after_every_commit(bool crossGraph) =>
-        History.Sample(commits => CheckAsync(commits, crossGraph).GetAwaiter().GetResult(), iter: 25, threads: 1);
+        History.Sample(commits => CheckAsync(commits, crossGraph).GetAwaiter().GetResult(), iter: 60, threads: 1);
 
     private static async Task CheckAsync((RdfTerm S, RdfTerm P, RdfTerm O, int G)[][] commits, bool crossGraph)
     {

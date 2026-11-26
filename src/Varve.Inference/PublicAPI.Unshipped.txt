@@ -224,3 +224,19 @@ static Varve.Inference.Model.ListReadings.operator ==(Varve.Inference.Model.List
 ~override Varve.Inference.Model.ListReadings.Equals(object obj) -> bool
 ~override Varve.Inference.Model.ListReadings.ToString() -> string
 Varve.Inference.Closure.ClashesInFull() -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>!
+Varve.Inference.Closure.ClashesWith(Varve.Inference.Model.Fact premise) -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>!
+Varve.Inference.Closure.TakeClashChanges() -> Varve.Inference.Model.ClashChanges?
+Varve.Inference.Model.ClashChanges
+Varve.Inference.Model.ClashChanges.<Clone>$() -> Varve.Inference.Model.ClashChanges!
+Varve.Inference.Model.ClashChanges.Came.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>!
+Varve.Inference.Model.ClashChanges.Came.init -> void
+Varve.Inference.Model.ClashChanges.ClashChanges(System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>! Came, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>! Went) -> void
+Varve.Inference.Model.ClashChanges.Deconstruct(out System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>! Came, out System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>! Went) -> void
+Varve.Inference.Model.ClashChanges.Equals(Varve.Inference.Model.ClashChanges? other) -> bool
+Varve.Inference.Model.ClashChanges.Went.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>!
+Varve.Inference.Model.ClashChanges.Went.init -> void
+override Varve.Inference.Model.ClashChanges.Equals(object? obj) -> bool
+override Varve.Inference.Model.ClashChanges.GetHashCode() -> int
+override Varve.Inference.Model.ClashChanges.ToString() -> string!
+static Varve.Inference.Model.ClashChanges.operator !=(Varve.Inference.Model.ClashChanges? left, Varve.Inference.Model.ClashChanges? right) -> bool
+static Varve.Inference.Model.ClashChanges.operator ==(Varve.Inference.Model.ClashChanges? left, Varve.Inference.Model.ClashChanges? right) -> bool

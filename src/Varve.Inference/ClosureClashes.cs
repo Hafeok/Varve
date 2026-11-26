@@ -28,8 +28,45 @@ public sealed partial class Closure
     /// </remarks>
     public IReadOnlyList<Clash> Clashes()
     {
-        _clashes ??= new KeptClashes(Program, Facts);
+        if (_clashes is null)
+        {
+            _clashes = new KeptClashes(Program, Facts, _log);
+            _log?.Restart();
+        }
+
         return _clashes.All();
+    }
+
+    // What has come and gone since TakeClashChanges last answered; null until it is first asked.
+    private ClashLog? _log;
+
+    /// <summary>
+    /// The clashes kept and dropped since the last call (ADR 0195 point 6,
+    /// amended 2026-11-25), for an owner that places each clash once and
+    /// keeps it placed; or null when the owner must take every clash afresh:
+    /// on the first call, and after the clashes were matched again in full.
+    /// </summary>
+    public ClashChanges? TakeClashChanges()
+    {
+        if (_log is null)
+        {
+            // From now on every clash kept or dropped is written down, the kept ones' included.
+            _log = new ClashLog();
+            _clashes?.Log = _log;
+            return null;
+        }
+
+        return _log.Take();
+    }
+
+    /// <summary>The clashes kept now that have <paramref name="premise"/> among their premises.</summary>
+    public IReadOnlyList<Clash> ClashesWith(Fact premise) => _clashes?.With(premise) ?? [];
+
+    // The kept clashes are no longer this closure's: matched again in full when next asked.
+    private void ForgetClashes()
+    {
+        _clashes = null;
+        _log?.Restart();
     }
 
     /// <summary>
@@ -37,7 +74,7 @@ public sealed partial class Closure
     /// <see cref="Clashes"/> is held to. Costs what the closure holds; a
     /// reader asks <see cref="Clashes"/>.
     /// </summary>
-    public IReadOnlyList<Clash> ClashesInFull() => new KeptClashes(Program, Facts).All();
+    public IReadOnlyList<Clash> ClashesInFull() => new KeptClashes(Program, Facts, log: null).All();
 
     // Keeps a pass's changes: the facts whose membership changed, each held before or after and not both.
     private void Maintain(List<Fact> changed, ListsRead lists) => _clashes?.Maintain(changed, Facts, lists);
@@ -61,9 +98,13 @@ internal sealed class KeptClashes
     // Each premise of a kept clash, to the clashes it is a premise of.
     private readonly Dictionary<Fact, List<Kept>> _byPremise = [];
 
+    /// <summary>Where each clash kept and dropped is written, for an owner that keeps them placed; none for one that does not.</summary>
+    internal ClashLog? Log { get; set; }
+
     /// <summary>Every check of <paramref name="program"/> matched over <paramref name="facts"/>: the clashes after a build.</summary>
-    internal KeptClashes(Program program, FactSet facts)
+    internal KeptClashes(Program program, FactSet facts, ClashLog? log)
     {
+        Log = log;
         Check[] checks = program.Checks;
         _checks = checks;
         _kept = new Dictionary<ClashKey, Kept>[checks.Length];
@@ -173,6 +214,7 @@ internal sealed class KeptClashes
             Kept clash = new(check, key, new Clash(_checks[check].Iri, premises));
             kept.Add(key, clash);
             _all = null;
+            Log?.Came(clash.Clash);
             foreach (Fact premise in premises)
             {
                 if (!_byPremise.TryGetValue(premise, out List<Kept>? of))
@@ -189,6 +231,23 @@ internal sealed class KeptClashes
         }
     }
 
+    /// <summary>The clashes kept with <paramref name="premise"/> among their premises.</summary>
+    internal IReadOnlyList<Clash> With(Fact premise)
+    {
+        if (!_byPremise.TryGetValue(premise, out List<Kept>? of))
+        {
+            return [];
+        }
+
+        Clash[] with = new Clash[of.Count];
+        for (int i = 0; i < with.Length; i++)
+        {
+            with[i] = of[i].Clash;
+        }
+
+        return with;
+    }
+
     private void Drop(Kept kept)
     {
         if (!_kept[kept.Check].Remove(kept.Key))
@@ -197,6 +256,7 @@ internal sealed class KeptClashes
         }
 
         _all = null;
+        Log?.Went(kept.Clash);
 
         foreach (Fact premise in kept.Clash.Premises)
         {
@@ -257,4 +317,34 @@ internal enum ListsRead
 
     /// <summary>Differently: the closure was rebuilt from them.</summary>
     Differently,
+}
+
+/// <summary>The clashes kept and dropped since an owner last took them.</summary>
+internal sealed class ClashLog
+{
+    private List<Clash> _came = [];
+    private List<Clash> _went = [];
+    private bool _restarted;
+
+    internal void Came(Clash clash) => _came.Add(clash);
+
+    internal void Went(Clash clash) => _went.Add(clash);
+
+    /// <summary>Every clash is to be taken afresh: they were matched again in full.</summary>
+    internal void Restart()
+    {
+        _restarted = true;
+        _came.Clear();
+        _went.Clear();
+    }
+
+    /// <summary>What came and went since the last take; null after a restart.</summary>
+    internal ClashChanges? Take()
+    {
+        ClashChanges? changes = _restarted ? null : new ClashChanges(_came, _went);
+        _restarted = false;
+        _came = [];
+        _went = [];
+        return changes;
+    }
 }
