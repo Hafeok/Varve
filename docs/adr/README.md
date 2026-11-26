@@ -396,6 +396,7 @@ Filed by [#166](https://github.com/Hafeok/Varve/issues/166), part 2 of Replicati
 | [0183](0183-object-store-verification-and-the-compatibility-page.md) | Object store verification: the suite as shipped code, a record at the store, and a generated compatibility page | Filed unaccepted (#166, for #117) |
 | [0184](0184-log-shipping.md) | Log shipping: a byte-identical copy of a dataset in another store, written by create-if-absent | Filed unaccepted (#166) |
 | [0185](0185-promotion-across-copies-and-the-lineage-record.md) | Promotion across copies: an operator's act, a lineage record, and a management position that belongs to its fleet | Filed unaccepted (#166) |
+| [0186](0186-tier-two-the-stores-own-geo-replication.md) | Tier 2: the store's own geo-replication, read at its secondary and promoted only by an operator | Filed unaccepted (#166) |
 
 ## Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit
 
