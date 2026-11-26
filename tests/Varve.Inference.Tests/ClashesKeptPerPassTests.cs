@@ -219,6 +219,35 @@ public class ClashesKeptPerPassTests
         (2, Gen.OneOfConst(Lists)),
         (1, Gen.Select(Gen.OneOfConst([Named("I2"), Named("C2"), Named("P3")]), Gen.OneOfConst([First, Rest]), Gen.OneOfConst([.. Individuals, Nil]))));
 
+    /// <summary>
+    /// ADR 0195 point 6: what a closure keeps for its clashes is charged to its
+    /// budget before it is held, a clash and an entry for each premise, given
+    /// back when the clash goes, and all of it when the closure is released.
+    /// </summary>
+    [Fact]
+    public void the_clashes_kept_are_charged_to_the_budget_and_given_back()
+    {
+        Terms terms = new();
+        ClosureCosts costs = ClosureCosts.For(InferenceProfile.Owl2Rl);
+        FactBudget budget = new(new MemoryAmount(1L << 30), costs);
+        Closure closure = new(InferenceProfile.Owl2Rl, terms, budget);
+        Fact[] typed = [.. Enumerable.Range(0, 10).SelectMany(i => new[] { terms.Fact(Named("x" + i), Type, Named("C")), terms.Fact(Named("x" + i), Type, Named("D")) })];
+        closure.Apply([.. typed, terms.Fact(Named("C"), Owl("disjointWith"), Named("D"))], [], TestContext.Current.CancellationToken);
+        long before = budget.Used.Value;
+        Assert.Equal(10, closure.Clashes().Count);
+        long clash = costs.PerClash.Value + (3 * costs.PerClashPremise.Value);
+        Assert.Equal(10 * clash, budget.Used.Value - before);
+
+        // One individual typed D no longer: its clash goes, and so does its charge, beside the fact's.
+        long kept = budget.Used.Value;
+        closure.Apply([], [typed[1]], TestContext.Current.CancellationToken);
+        Assert.Equal(9, closure.Clashes().Count);
+        Assert.True(budget.Used.Value <= kept - clash, $"{kept - budget.Used.Value} bytes given back where at least {clash} were the clash's");
+
+        closure.Release();
+        Assert.Equal(0, budget.Used.Value);
+    }
+
     [Fact]
     public void the_histories_meet_the_checks()
     {

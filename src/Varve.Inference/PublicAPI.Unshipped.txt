@@ -240,3 +240,7 @@ override Varve.Inference.Model.ClashChanges.GetHashCode() -> int
 override Varve.Inference.Model.ClashChanges.ToString() -> string!
 static Varve.Inference.Model.ClashChanges.operator !=(Varve.Inference.Model.ClashChanges? left, Varve.Inference.Model.ClashChanges? right) -> bool
 static Varve.Inference.Model.ClashChanges.operator ==(Varve.Inference.Model.ClashChanges? left, Varve.Inference.Model.ClashChanges? right) -> bool
+Varve.Inference.Model.ClosureCosts.PerClash.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Model.ClosureCosts.PerClash.init -> void
+Varve.Inference.Model.ClosureCosts.PerClashPremise.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Model.ClosureCosts.PerClashPremise.init -> void

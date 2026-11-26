@@ -454,6 +454,8 @@ public sealed partial class Closure
     /// <summary>Gives back to the budget everything this closure took: its owner is dropping it.</summary>
     public void Release()
     {
+        _clashes?.Release();
+        _clashes = null;
         Facts.Budget?.Give(new MemoryAmount(_explicitCharge + _listCharge));
         _explicitCharge = 0;
         _listCharge = 0;

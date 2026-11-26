@@ -30,7 +30,7 @@ public sealed partial class Closure
     {
         if (_clashes is null)
         {
-            _clashes = new KeptClashes(Program, Facts, _log);
+            _clashes = new KeptClashes(Program, Facts, _log, Facts.Budget);
             _log?.Restart();
         }
 
@@ -65,6 +65,7 @@ public sealed partial class Closure
     // The kept clashes are no longer this closure's: matched again in full when next asked.
     private void ForgetClashes()
     {
+        _clashes?.Release();
         _clashes = null;
         _log?.Restart();
     }
@@ -74,7 +75,7 @@ public sealed partial class Closure
     /// <see cref="Clashes"/> is held to. Costs what the closure holds; a
     /// reader asks <see cref="Clashes"/>.
     /// </summary>
-    public IReadOnlyList<Clash> ClashesInFull() => new KeptClashes(Program, Facts, log: null).All();
+    public IReadOnlyList<Clash> ClashesInFull() => new KeptClashes(Program, Facts, log: null, budget: null).All();
 
     // Keeps a pass's changes: the facts whose membership changed, each held before or after and not both.
     private void Maintain(List<Fact> changed, ListsRead lists) => _clashes?.Maintain(changed, Facts, lists);
@@ -102,20 +103,35 @@ internal sealed class KeptClashes
     /// <summary>Where each clash kept and dropped is written, for an owner that keeps them placed; none for one that does not.</summary>
     internal ClashLog? Log { get; set; }
 
+    // The budget the clashes kept are charged to (ADR 0195 point 6), and what they have taken from it.
+    private readonly FactBudget? _budget;
+    private long _charged;
+
     /// <summary>Every check of <paramref name="program"/> matched over <paramref name="facts"/>: the clashes after a build.</summary>
-    internal KeptClashes(Program program, FactSet facts, ClashLog? log)
+    /// <exception cref="ClosureLimitExceededException">The clashes would pass the closure's budget.</exception>
+    internal KeptClashes(Program program, FactSet facts, ClashLog? log, FactBudget? budget)
     {
         Log = log;
+        _budget = budget;
         Check[] checks = program.Checks;
         _checks = checks;
         _kept = new Dictionary<ClashKey, Kept>[checks.Length];
         List<Fact[]> matches = [];
-        for (int i = 0; i < checks.Length; i++)
+        try
         {
-            _kept[i] = [];
-            matches.Clear();
-            checks[i].Matches(facts, matches);
-            Keep(i, matches);
+            for (int i = 0; i < checks.Length; i++)
+            {
+                _kept[i] = [];
+                matches.Clear();
+                checks[i].Matches(facts, matches);
+                Keep(i, matches);
+            }
+        }
+        catch (ClosureLimitExceededException)
+        {
+            // Refused part way: what was charged is given back with the set, which no one will hold.
+            Release();
+            throw;
         }
     }
 
@@ -212,6 +228,8 @@ internal sealed class KeptClashes
                 continue;
             }
 
+            // Charged before it is held (ADR 0195 point 6): the clash, and its entry under each premise.
+            Take(premises.Length);
             Kept clash = new(check, key, new Clash(_checks[check].Iri, premises));
             kept.Add(key, clash);
             _all = null;
@@ -247,6 +265,36 @@ internal sealed class KeptClashes
         return with;
     }
 
+    /// <summary>Gives back everything the clashes kept took: their closure is dropping them.</summary>
+    internal void Release()
+    {
+        _budget?.Give(new MemoryAmount(_charged));
+        _charged = 0;
+    }
+
+    private long Cost(int premises) =>
+        _budget is null ? 0 : _budget.Costs.PerClash.Value + (premises * _budget.Costs.PerClashPremise.Value);
+
+    private void Take(int premises)
+    {
+        if (_budget is not null)
+        {
+            long cost = Cost(premises);
+            _budget.Take(new MemoryAmount(cost));
+            _charged += cost;
+        }
+    }
+
+    private void Give(int premises)
+    {
+        if (_budget is not null)
+        {
+            long cost = Cost(premises);
+            _budget.Give(new MemoryAmount(cost));
+            _charged -= cost;
+        }
+    }
+
     private void Drop(Kept kept)
     {
         if (!_kept[kept.Check].Remove(kept.Key))
@@ -256,6 +304,7 @@ internal sealed class KeptClashes
 
         _all = null;
         Log?.Went(kept.Clash);
+        Give(kept.Clash.Premises.Count);
 
         foreach (Fact premise in kept.Clash.Premises)
         {

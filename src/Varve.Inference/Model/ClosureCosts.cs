@@ -47,6 +47,21 @@ public sealed record ClosureCosts(MemoryAmount PerFact, MemoryAmount PerWorkingE
     // the cross-graph build is already near the margin (ADR 0195 point 6).
     private static ClosureCosts Owl2Rl { get; } = new(new(70), new(96), new(256), new(280), new(80));
 
+    /// <summary>
+    /// A clash a closure keeps between passes (ADR 0195 point 6, amended
+    /// 2026-11-25): the clash, its premises' array, its key and its entry
+    /// among its check's. Measured with <see cref="PerClashPremise"/> by the
+    /// benchmarks' <c>--clash-costs</c> on 2026-11-26: 873 bytes retained by a
+    /// clash of three premises, one shared by every clash, and 793 by one of
+    /// two premises, each its own; solved, 632 a clash and 80 a premise entry.
+    /// Charged 700 and 160, which counts 1.35 and 1.29 times what those keep:
+    /// a premise of its own costs a set of its own, which the solve averages.
+    /// </summary>
+    public MemoryAmount PerClash { get; init; } = new(700);
+
+    /// <summary>A kept clash's entry under one of its premises, in the index that finds the clashes a fact is a premise of.</summary>
+    public MemoryAmount PerClashPremise { get; init; } = new(160);
+
     /// <summary>The same costs, each fact charged <paramref name="bytes"/> more: what its owner keeps per fact beside the closure.</summary>
     public ClosureCosts WithPerFactBeside(MemoryAmount bytes) => this with { PerFact = new(PerFact.Value + bytes.Value) };
 }

@@ -311,7 +311,16 @@ public sealed class InferenceProjection : IProjection
             // A check names terms through the source: a pinned view of its own, at or above every handle the closure holds.
             using DatasetView view = _dataset.Pin();
             state.Terms.Source = view;
-            clashes = state.Clashes();
+            try
+            {
+                clashes = state.Clashes();
+            }
+            catch (ClosureLimitExceededException refused)
+            {
+                // The clashes kept would pass the binding's limit (ADR 0195 point 6): stopped as any pass is, and published stopped.
+                Stop(state, position, refused.Wanted, failure: null);
+                return;
+            }
             foreach (PlacedUnreadList list in state.UnreadLists())
             {
                 if (state.Terms.TryExternalise(list.Graph, out RdfTerm? graph) && state.Terms.TryExternalise(list.List.Cell, out RdfTerm? cell))
