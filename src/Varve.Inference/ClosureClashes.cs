@@ -32,6 +32,13 @@ public sealed partial class Closure
         return _clashes.All();
     }
 
+    /// <summary>
+    /// Every check matched over the whole closure, nothing kept: what
+    /// <see cref="Clashes"/> is held to. Costs what the closure holds; a
+    /// reader asks <see cref="Clashes"/>.
+    /// </summary>
+    public IReadOnlyList<Clash> ClashesInFull() => new KeptClashes(Program, Facts).All();
+
     // Keeps a pass's changes: the facts whose membership changed, each held before or after and not both.
     private void Maintain(List<Fact> changed, ListsRead lists) => _clashes?.Maintain(changed, Facts, lists);
 }
@@ -46,7 +53,10 @@ public sealed partial class Closure
 internal sealed class KeptClashes
 {
     private readonly Check[] _checks;
-    private readonly Dictionary<string, Kept>[] _kept;
+    private readonly Dictionary<ClashKey, Kept>[] _kept;
+
+    // The list All() answered, until a clash is kept or dropped.
+    private IReadOnlyList<Clash>? _all;
 
     // Each premise of a kept clash, to the clashes it is a premise of.
     private readonly Dictionary<Fact, List<Kept>> _byPremise = [];
@@ -56,7 +66,7 @@ internal sealed class KeptClashes
     {
         Check[] checks = program.Checks;
         _checks = checks;
-        _kept = new Dictionary<string, Kept>[checks.Length];
+        _kept = new Dictionary<ClashKey, Kept>[checks.Length];
         List<Fact[]> matches = [];
         for (int i = 0; i < checks.Length; i++)
         {
@@ -67,10 +77,16 @@ internal sealed class KeptClashes
         }
     }
 
+    /// <summary>Every clash kept: the same list until a pass keeps or drops one, so that what publishes it can tell.</summary>
     internal IReadOnlyList<Clash> All()
     {
+        if (_all is { } all)
+        {
+            return all;
+        }
+
         List<Clash> clashes = [];
-        foreach (Dictionary<string, Kept> check in _kept)
+        foreach (Dictionary<ClashKey, Kept> check in _kept)
         {
             foreach (Kept kept in check.Values)
             {
@@ -78,6 +94,7 @@ internal sealed class KeptClashes
             }
         }
 
+        _all = clashes;
         return clashes;
     }
 
@@ -138,10 +155,10 @@ internal sealed class KeptClashes
 
     private void Keep(int check, List<Fact[]> matches)
     {
-        Dictionary<string, Kept> kept = _kept[check];
+        Dictionary<ClashKey, Kept> kept = _kept[check];
         foreach (Fact[] premises in matches)
         {
-            string key = KeyOf(premises);
+            ClashKey key = ClashKey.Of(premises);
             if (kept.ContainsKey(key))
             {
                 continue;
@@ -149,6 +166,7 @@ internal sealed class KeptClashes
 
             Kept clash = new(check, key, new Clash(_checks[check].Iri, premises));
             kept.Add(key, clash);
+            _all = null;
             foreach (Fact premise in premises)
             {
                 if (!_byPremise.TryGetValue(premise, out List<Kept>? of))
@@ -172,6 +190,8 @@ internal sealed class KeptClashes
             return;
         }
 
+        _all = null;
+
         foreach (Fact premise in kept.Clash.Premises)
         {
             if (_byPremise.TryGetValue(premise, out List<Kept>? of))
@@ -185,18 +205,42 @@ internal sealed class KeptClashes
         }
     }
 
-    // One set of premises, in any order of the body, as one key.
-    private static string KeyOf(Fact[] premises)
-    {
-        Fact[] ordered = [.. premises];
-        Array.Sort(ordered, static (x, y) =>
-            x.Subject.Value != y.Subject.Value ? x.Subject.Value.CompareTo(y.Subject.Value)
-            : x.Predicate.Value != y.Predicate.Value ? x.Predicate.Value.CompareTo(y.Predicate.Value)
-            : x.Object.Value.CompareTo(y.Object.Value));
-        return string.Join(' ', ordered);
-    }
+    private sealed record Kept(int Check, ClashKey Key, Clash Clash);
 
-    private sealed record Kept(int Check, string Key, Clash Clash);
+    /// <summary>One set of premises, in any order of the body: its facts sorted, and their hash.</summary>
+    private readonly struct ClashKey : IEquatable<ClashKey>
+    {
+        private readonly Fact[] _facts;
+        private readonly int _hash;
+
+        private ClashKey(Fact[] facts, int hash)
+        {
+            _facts = facts;
+            _hash = hash;
+        }
+
+        internal static ClashKey Of(Fact[] premises)
+        {
+            Fact[] ordered = [.. premises];
+            Array.Sort(ordered, static (x, y) =>
+                x.Subject.Value != y.Subject.Value ? x.Subject.Value.CompareTo(y.Subject.Value)
+                : x.Predicate.Value != y.Predicate.Value ? x.Predicate.Value.CompareTo(y.Predicate.Value)
+                : x.Object.Value.CompareTo(y.Object.Value));
+            HashCode hash = default;
+            foreach (Fact fact in ordered)
+            {
+                hash.Add(fact);
+            }
+
+            return new ClashKey(ordered, hash.ToHashCode());
+        }
+
+        public bool Equals(ClashKey other) => _hash == other._hash && _facts.AsSpan().SequenceEqual(other._facts);
+
+        public override bool Equals(object? obj) => obj is ClashKey other && Equals(other);
+
+        public override int GetHashCode() => _hash;
+    }
 }
 
 /// <summary>Whether a pass read a closure's lists as before, or differently and rebuilt it (ADR 0197, amended 2026-11-24).</summary>

@@ -205,10 +205,18 @@ internal sealed class PatternRule : Rule
     /// </summary>
     internal void MatchesAt(in Fact anchor, FactSet facts, Action<TermHandle[], Fact[]> found)
     {
-        TermHandle[] bindings = new TermHandle[_variables];
-        Fact[] chosen = new Fact[_body.Length];
+        TermHandle[]? bindings = null;
+        Fact[]? chosen = null;
         for (int i = 0; i < _body.Length; i++)
         {
+            if (!Fits(_body[i], anchor))
+            {
+                // Most facts a pass changes meet no atom of a check: nothing is allocated for them.
+                continue;
+            }
+
+            bindings ??= new TermHandle[_variables];
+            chosen ??= new Fact[_body.Length];
             Array.Clear(bindings);
             if (Unify(_body[i], anchor, bindings))
             {
@@ -328,6 +336,19 @@ internal sealed class PatternRule : Rule
     }
 
     private static TermHandle Resolve(Slot slot, TermHandle[] bindings) => slot.IsVariable ? bindings[slot.Variable] : slot.Constant;
+
+    /// <summary>
+    /// Whether <paramref name="fact"/> meets <paramref name="atom"/>'s
+    /// constants and repeated variables: what <see cref="Unify"/> decides,
+    /// with no bindings.
+    /// </summary>
+    internal static bool Fits(Atom atom, in Fact fact) =>
+        (atom.S.IsVariable || atom.S.Constant.Value == fact.Subject.Value)
+        && (atom.P.IsVariable || atom.P.Constant.Value == fact.Predicate.Value)
+        && (atom.O.IsVariable || atom.O.Constant.Value == fact.Object.Value)
+        && (!atom.S.IsVariable || !atom.P.IsVariable || atom.S.Variable != atom.P.Variable || fact.Subject.Value == fact.Predicate.Value)
+        && (!atom.S.IsVariable || !atom.O.IsVariable || atom.S.Variable != atom.O.Variable || fact.Subject.Value == fact.Object.Value)
+        && (!atom.P.IsVariable || !atom.O.IsVariable || atom.P.Variable != atom.O.Variable || fact.Predicate.Value == fact.Object.Value);
 
     private static bool Unify(Atom atom, in Fact fact, TermHandle[] bindings) =>
         Bind(atom.S, fact.Subject, bindings) && Bind(atom.P, fact.Predicate, bindings) && Bind(atom.O, fact.Object, bindings);

@@ -66,7 +66,19 @@ internal sealed class PatternCheck(string profile, string name, Atom[] body, Fun
 
     internal override bool Anchored => true;
 
-    internal override void MatchesAt(in Fact anchor, FactSet facts, List<Fact[]> into) =>
+    internal override void MatchesAt(in Fact anchor, FactSet facts, List<Fact[]> into)
+    {
+        bool fits = false;
+        foreach (Atom atom in body)
+        {
+            fits |= PatternRule.Fits(atom, anchor);
+        }
+
+        if (!fits)
+        {
+            return;
+        }
+
         _body.MatchesAt(anchor, facts, (bindings, premises) =>
         {
             if (condition is null || condition(bindings))
@@ -74,6 +86,7 @@ internal sealed class PatternCheck(string profile, string name, Atom[] body, Fun
                 into.Add([.. premises]);
             }
         });
+    }
 }
 
 /// <summary>

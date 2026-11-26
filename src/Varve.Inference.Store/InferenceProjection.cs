@@ -162,6 +162,9 @@ public sealed class InferenceProjection : IProjection
     /// </summary>
     public InferenceSnapshot Snapshot => Volatile.Read(ref _snapshot);
 
+    /// <summary>The closures now, for the tests: never read outside a pass's lock elsewhere.</summary>
+    internal Materialisation? CurrentState() => _state;
+
     /// <summary>The pass running now, if any: its kind, the position it brings the projection to, and since when.</summary>
     public InferencePass? Pass => Volatile.Read(ref _pass);
 

@@ -223,3 +223,4 @@ static Varve.Inference.Model.ListReadings.operator !=(Varve.Inference.Model.List
 static Varve.Inference.Model.ListReadings.operator ==(Varve.Inference.Model.ListReadings left, Varve.Inference.Model.ListReadings right) -> bool
 ~override Varve.Inference.Model.ListReadings.Equals(object obj) -> bool
 ~override Varve.Inference.Model.ListReadings.ToString() -> string
+Varve.Inference.Closure.ClashesInFull() -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>!

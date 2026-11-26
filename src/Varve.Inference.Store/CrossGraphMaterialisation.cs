@@ -176,6 +176,8 @@ internal sealed class CrossGraphMaterialisation : Materialisation
             // offered to the graphs it was and is placed in (ADR 0197, amended 2026-11-24).
             PremiseSets was = _sets;
             _sets = Label();
+            _placements.Clear();
+            _placedFrom = null;
             foreach (Fact fact in _merge.Own.Concat(moved).Distinct())
             {
                 foreach (TermHandle graph in Placements(was.Of(fact), fact).Concat(Placements(_sets.Of(fact), fact)))
@@ -200,6 +202,7 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         }
 
         IReadOnlyDictionary<Fact, IReadOnlyList<PremiseSet>> before = _sets.Update(affected, paired);
+        _setsChanged.UnionWith(before.Keys);
 
         // A fact whose sets changed may have moved between graphs: offer it to every graph it was or is placed in.
         foreach ((Fact fact, IReadOnlyList<PremiseSet> was) in before)
@@ -287,34 +290,91 @@ internal sealed class CrossGraphMaterialisation : Materialisation
     }
 
     /// <summary>A clash of the merge, under the graph of each minimal set of its premises: none when the TBox closure finds it alone.</summary>
-    protected override void DataClashes(List<PlacedClash> into)
+    protected override void DataClashes(List<IReadOnlyList<PlacedClash>> into)
     {
-        foreach (Clash clash in _merge.Clashes())
+        IReadOnlyList<Clash> clashes = _merge.Clashes();
+        if (!ReferenceEquals(clashes, _placedFrom) || _setsChanged.Count > 0)
         {
-            List<int[]> unions = [[]];
-            foreach (Fact premise in clash.Premises)
+            // A clash is placed again when it is new or a premise's sets changed since it was placed.
+            Dictionary<Clash, PlacedClash[]> placements = new(ReferenceEqualityComparer.Instance);
+            List<PlacedClash> placed = [];
+            foreach (Clash clash in clashes)
             {
-                List<int[]> next = [];
-                foreach (int[] sofar in unions)
+                if (!_placements.TryGetValue(clash, out PlacedClash[]? those) || Moved(clash))
                 {
-                    foreach (PremiseSet set in _sets.Of(premise))
-                    {
-                        next.Add(Union(sofar, set));
-                    }
+                    those = Place(clash);
                 }
 
-                unions = next;
+                placements[clash] = those;
+                placed.AddRange(those);
             }
 
-            foreach (int[] minimal in Minimal(unions))
-            {
-                if (minimal.Length > 0)
-                {
-                    into.Add(new PlacedClash(GraphOf(minimal), clash));
-                }
-            }
+            _placements = placements;
+            _placed = placed;
+            _placedFrom = clashes;
+            _setsChanged.Clear();
+        }
+
+        into.Add(_placed);
+    }
+
+    protected override void DataClashesInFull(List<PlacedClash> into)
+    {
+        foreach (Clash clash in _merge.ClashesInFull())
+        {
+            into.AddRange(Place(clash));
         }
     }
+
+    // Whether a premise of the clash has had its premise sets changed since the clashes were last placed.
+    private bool Moved(Clash clash)
+    {
+        foreach (Fact premise in clash.Premises)
+        {
+            if (_setsChanged.Contains(premise))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>A clash of the merge, under the graph of each minimal set of its premises: none when the TBox closure finds it alone.</summary>
+    private PlacedClash[] Place(Clash clash)
+    {
+        List<int[]> unions = [[]];
+        foreach (Fact premise in clash.Premises)
+        {
+            List<int[]> next = [];
+            foreach (int[] sofar in unions)
+            {
+                foreach (PremiseSet set in _sets.Of(premise))
+                {
+                    next.Add(Union(sofar, set));
+                }
+            }
+
+            unions = next;
+        }
+
+        List<PlacedClash> placed = [];
+        foreach (int[] minimal in Minimal(unions))
+        {
+            if (minimal.Length > 0)
+            {
+                placed.Add(new PlacedClash(GraphOf(minimal), clash));
+            }
+        }
+
+        return [.. placed];
+    }
+
+    // The merge's clashes as last placed: each clash's placements, the list placed from, and the facts whose sets changed since.
+    private Dictionary<Clash, PlacedClash[]> _placements = new(ReferenceEqualityComparer.Instance);
+    private List<PlacedClash> _placed = [];
+    private IReadOnlyList<Clash>? _placedFrom;
+    private readonly HashSet<Fact> _setsChanged = [];
 
     /// <summary>The graphs a fact is a row of under <paramref name="sets"/>: a set's one graph unless the fact is explicit there, a set's reserved graph when it has two or more.</summary>
     private List<TermHandle> Placements(PremiseSets sets, in Fact fact) => Placements(sets.Of(fact), fact);
