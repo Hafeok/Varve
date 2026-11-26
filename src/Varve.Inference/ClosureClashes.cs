@@ -33,7 +33,7 @@ public sealed partial class Closure
     }
 
     // Keeps a pass's changes: the facts whose membership changed, each held before or after and not both.
-    private void Maintain(List<Fact> changed) => _clashes?.Maintain(changed, Facts);
+    private void Maintain(List<Fact> changed, ListsRead lists) => _clashes?.Maintain(changed, Facts, lists);
 }
 
 /// <summary>
@@ -81,8 +81,12 @@ internal sealed class KeptClashes
         return clashes;
     }
 
-    /// <summary>Keeps a pass's <paramref name="changed"/> facts, each now in <paramref name="facts"/> or not.</summary>
-    internal void Maintain(List<Fact> changed, FactSet facts)
+    /// <summary>
+    /// Keeps a pass's <paramref name="changed"/> facts, each now in
+    /// <paramref name="facts"/> or not. When the pass read the closure's lists
+    /// differently, a check over a list's members is matched again in full.
+    /// </summary>
+    internal void Maintain(List<Fact> changed, FactSet facts, ListsRead lists)
     {
         if (changed.Count == 0)
         {
@@ -110,7 +114,7 @@ internal sealed class KeptClashes
         {
             Check check = _checks[i];
             matches.Clear();
-            if (check.Anchored)
+            if (check.Anchored && !(lists == ListsRead.Differently && check.ReadsLists))
             {
                 foreach (Fact fact in came)
                 {
@@ -119,7 +123,7 @@ internal sealed class KeptClashes
             }
             else
             {
-                // A check over a list's members: matched again in full.
+                // Matched again in full: a check that cannot be anchored, or one over lists read differently.
                 foreach (Kept kept in new List<Kept>(_kept[i].Values))
                 {
                     Drop(kept);
@@ -193,4 +197,14 @@ internal sealed class KeptClashes
     }
 
     private sealed record Kept(int Check, string Key, Clash Clash);
+}
+
+/// <summary>Whether a pass read a closure's lists as before, or differently and rebuilt it (ADR 0197, amended 2026-11-24).</summary>
+internal enum ListsRead
+{
+    /// <summary>The same cells, from the same statements.</summary>
+    AsBefore,
+
+    /// <summary>Differently: the closure was rebuilt from them.</summary>
+    Differently,
 }

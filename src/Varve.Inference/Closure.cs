@@ -343,6 +343,7 @@ public sealed partial class Closure
             return new Held(Facts);
         }
 
+        ListReadings readings = ListReadings;
         Dictionary<Fact, bool> touched = [];
         Facts.Touched = touched;
         bool applied = false;
@@ -370,7 +371,7 @@ public sealed partial class Closure
             }
         }
 
-        Maintain(changed);
+        Maintain(changed, ListReadings != readings ? ListsRead.Differently : ListsRead.AsBefore);
         return changed;
     }
 

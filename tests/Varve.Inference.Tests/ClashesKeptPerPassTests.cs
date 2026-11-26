@@ -91,13 +91,7 @@ public class ClashesKeptPerPassTests
                 data.ExceptWith(retracted);
                 data.UnionWith(asserted);
 
-                // Asked now and then, as a probe asks: between two calls a pass
-                // or several may have run, and the first is after the build.
-                if (random.Next(3) != 0)
-                {
-                    continue;
-                }
-
+                // At every commit, the first after the build.
                 List<string> kept = [.. closure.Clashes().Select(clash => Key(clash.Rule, clash.Premises)).Order(StringComparer.Ordinal)];
                 List<string> full = [.. InFull(closure).Order(StringComparer.Ordinal)];
                 Assert.True(
@@ -106,6 +100,124 @@ public class ClashesKeptPerPassTests
             }
         }, iter: 60, threads: 1);
     }
+
+    /// <summary>
+    /// The list checks kept from the facts a pass changes (ADR 0195 point 6,
+    /// amended 2026-11-25). Three well-formed lists, of individuals, classes
+    /// and properties, each named by an axiom, are asserted first, in the
+    /// data or in a TBox beneath; the commits then toggle the facts their
+    /// pairs match and, now and then, a typing, a members axiom or a cell's
+    /// statement, so that a list check's matches come and go each way, and a
+    /// list is read differently.
+    /// </summary>
+    [Theory]
+    [InlineData("DeleteAndRederive", false)]
+    [InlineData("RecursiveCounting", false)]
+    [InlineData("DeleteAndRederive", true)]
+    public void the_list_checks_kept_equal_a_full_match_at_every_commit(string strategyName, bool beneath)
+    {
+        Retraction strategy = Strategies.Named(strategyName);
+        Gen.Select(ListTriple.Array[1, 4].Array[15, 40], Gen.Int).Sample(sample =>
+        {
+            Terms terms = new();
+            Program program = Program.Of(InferenceProfile.Owl2Rl, terms);
+            Fact[] lists = [.. Lists.Select(t => terms.Fact(t.S, t.P, t.O))];
+            Closure? tbox = null;
+            if (beneath)
+            {
+                tbox = new Closure(program, Retraction.DeleteAndRederive);
+                tbox.Apply(lists, [], TestContext.Current.CancellationToken);
+            }
+
+            Closure closure = new(program, strategy, budget: null, tbox: tbox);
+            HashSet<Fact> data = [];
+            if (!beneath)
+            {
+                closure.Apply(lists, [], TestContext.Current.CancellationToken);
+                data.UnionWith(lists);
+            }
+
+            Random random = new(sample.Item2);
+            for (int c = 0; c < sample.Item1.Length; c++)
+            {
+                List<Fact> asserted = [], retracted = [];
+                foreach ((RdfTerm s, RdfTerm p, RdfTerm o) in sample.Item1[c])
+                {
+                    Fact fact = terms.Fact(s, p, o);
+                    if (data.Contains(fact) && random.Next(2) == 0 && !retracted.Contains(fact))
+                    {
+                        retracted.Add(fact);
+                    }
+                    else if (!data.Contains(fact) && !asserted.Contains(fact))
+                    {
+                        asserted.Add(fact);
+                    }
+                }
+
+                closure.Apply([.. asserted], [.. retracted], TestContext.Current.CancellationToken);
+                data.ExceptWith(retracted);
+                data.UnionWith(asserted);
+                List<string> kept = [.. closure.Clashes().Select(clash => Key(clash.Rule, clash.Premises)).Order(StringComparer.Ordinal)];
+                List<string> full = [.. InFull(closure).Order(StringComparer.Ordinal)];
+                Assert.True(
+                    full.SequenceEqual(kept),
+                    $"after commit {c + 1}, {strategyName}{(beneath ? " over a TBox" : string.Empty)}: missing\n  {string.Join("\n  ", full.Except(kept))}\nextra\n  {string.Join("\n  ", kept.Except(full))}");
+            }
+        }, iter: 80, threads: 1);
+    }
+
+    [Fact]
+    public void the_list_histories_meet_the_list_checks()
+    {
+        // The property above is not vacuous: each list check fires in some history.
+        HashSet<string> fired = [];
+        ListTriple.Array[10, 40].Sample(triples =>
+        {
+            Terms terms = new();
+            Closure closure = new(Program.Of(InferenceProfile.Owl2Rl, terms), Retraction.DeleteAndRederive);
+            closure.Apply([.. Lists.Concat(triples).Select(t => terms.Fact(t.S, t.P, t.O)).Distinct()], [], TestContext.Current.CancellationToken);
+            foreach (Clash clash in closure.Clashes())
+            {
+                fired.Add(System.Text.Encoding.UTF8.GetString(clash.Rule.Lexical));
+            }
+        }, iter: 100, threads: 1);
+        foreach (string check in new[] { "eq-diff2", "eq-diff3", "prp-adp", "cax-adc" })
+        {
+            Assert.Contains(fired, rule => rule.EndsWith("/owl2rl/" + check, StringComparison.Ordinal));
+        }
+    }
+
+    private static readonly RdfTerm First = IriOf(RdfNs + "first");
+    private static readonly RdfTerm Rest = IriOf(RdfNs + "rest");
+
+    /// <summary>A list's cells, <c>{name}1</c> to <c>{name}3</c>, holding <paramref name="members"/>.</summary>
+    private static IEnumerable<(RdfTerm S, RdfTerm P, RdfTerm O)> List(string name, RdfTerm[] members)
+    {
+        for (int i = 0; i < members.Length; i++)
+        {
+            yield return (Named(name + (i + 1)), First, members[i]);
+            yield return (Named(name + (i + 1)), Rest, i + 1 < members.Length ? Named(name + (i + 2)) : Nil);
+        }
+    }
+
+    /// <summary>Three lists and the axioms naming them: individuals all different, classes and properties all disjoint.</summary>
+    private static readonly (RdfTerm S, RdfTerm P, RdfTerm O)[] Lists =
+    [
+        .. List("I", Individuals), .. List("C", Classes), .. List("P", Properties),
+        (Named("x"), Type, Owl("AllDifferent")), (Named("x"), Owl("members"), Named("I1")), (Named("x"), Owl("distinctMembers"), Named("I1")),
+        (Named("y"), Type, Owl("AllDisjointClasses")), (Named("y"), Owl("members"), Named("C1")),
+        (Named("z"), Type, Owl("AllDisjointProperties")), (Named("z"), Owl("members"), Named("P1")),
+    ];
+
+    /// <summary>The facts the lists' pairs match, and now and then one of the lists' own statements or another cell.</summary>
+    private static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> ListTriple = Gen.Frequency(
+        (4, Gen.Select(Gen.OneOfConst(Individuals), Gen.Const(Owl("sameAs")), Gen.OneOfConst(Individuals))),
+        (4, Gen.Select(Gen.OneOfConst(Individuals), Gen.Const(Type), Gen.OneOfConst(Classes))),
+        (4, Gen.Select(Gen.OneOfConst(Individuals), Gen.OneOfConst(Properties), Gen.OneOfConst(Individuals))),
+        (1, Gen.Select(Gen.OneOfConst(Classes), Gen.Const(IriOf(RdfsNs + "subClassOf")), Gen.OneOfConst(Classes))),
+        (1, Gen.Select(Gen.OneOfConst(Properties), Gen.Const(IriOf(RdfsNs + "subPropertyOf")), Gen.OneOfConst(Properties))),
+        (2, Gen.OneOfConst(Lists)),
+        (1, Gen.Select(Gen.OneOfConst([Named("I2"), Named("C2"), Named("P3")]), Gen.OneOfConst([First, Rest]), Gen.OneOfConst([.. Individuals, Nil]))));
 
     [Fact]
     public void the_histories_meet_the_checks()
