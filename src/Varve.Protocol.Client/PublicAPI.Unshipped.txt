@@ -807,3 +807,14 @@ static Varve.Protocol.Client.Model.EntailedAnswer.operator ==(Varve.Protocol.Cli
 static Varve.Protocol.Client.SparqlHttpClient.EntailedAnswerOf(System.Net.Http.HttpResponseMessage! response) -> Varve.Protocol.Client.Model.EntailedAnswer
 ~override Varve.Protocol.Client.Model.EntailedAnswer.Equals(object obj) -> bool
 ~override Varve.Protocol.Client.Model.EntailedAnswer.ToString() -> string
+Varve.Protocol.Client.Model.EntailedAnswer.UnreadLists.get -> Varve.Protocol.Client.Model.UnreadListCount
+Varve.Protocol.Client.Model.UnreadListCount
+Varve.Protocol.Client.Model.UnreadListCount.UnreadListCount() -> void
+Varve.Protocol.Client.Model.UnreadListCount.UnreadListCount(int value) -> void
+Varve.Protocol.Client.Model.UnreadListCount.Value.get -> int
+Varve.Protocol.Client.Model.UnreadListCount.Equals(Varve.Protocol.Client.Model.UnreadListCount other) -> bool
+override Varve.Protocol.Client.Model.UnreadListCount.GetHashCode() -> int
+override Varve.Protocol.Client.Model.UnreadListCount.ToString() -> string!
+static Varve.Protocol.Client.Model.UnreadListCount.operator !=(Varve.Protocol.Client.Model.UnreadListCount left, Varve.Protocol.Client.Model.UnreadListCount right) -> bool
+static Varve.Protocol.Client.Model.UnreadListCount.operator ==(Varve.Protocol.Client.Model.UnreadListCount left, Varve.Protocol.Client.Model.UnreadListCount right) -> bool
+~override Varve.Protocol.Client.Model.UnreadListCount.Equals(object obj) -> bool

@@ -176,6 +176,81 @@ public sealed partial class Closure
     public IReadOnlyList<UnreadList> UnreadListsIn(DataGraphIndex graph) => Facts.Lists?.UnreadIn(graph.Value) ?? [];
 
     /// <summary>
+    /// The cells of asserted lists the list rules and checks do not read,
+    /// from the <c>rdf:first</c> and <c>rdf:rest</c> statements alone, as
+    /// closures of each data graph over the TBox's read them: the TBox's under
+    /// <paramref name="tboxGraph"/>, each data graph's beyond the TBox's under
+    /// that graph. What an answer as of a position below a projection's
+    /// reports, with no closure built (ADR 0197, amended 2026-11-26). Empty
+    /// for a profile without list rules.
+    /// </summary>
+    public static IReadOnlyList<PlacedUnreadList> UnreadListsOf(InferenceProfile profile, IInferenceTerms terms, TermHandle tboxGraph, IReadOnlyCollection<Fact> tbox, IReadOnlyDictionary<TermHandle, List<Fact>> graphs) =>
+        UnreadListsOf(profile, terms, tboxGraph, tbox, graphs, merge: false);
+
+    /// <summary>
+    /// As <see cref="UnreadListsOf"/>, as a cross-graph merge reads them:
+    /// each data graph's lists within that graph and the TBox, a list that
+    /// goes on in another graph unread as <see cref="UnreadListReason.SpansGraphs"/>.
+    /// </summary>
+    public static IReadOnlyList<PlacedUnreadList> UnreadListsOfMerge(InferenceProfile profile, IInferenceTerms terms, TermHandle tboxGraph, IReadOnlyCollection<Fact> tbox, IReadOnlyDictionary<TermHandle, List<Fact>> graphs) =>
+        UnreadListsOf(profile, terms, tboxGraph, tbox, graphs, merge: true);
+
+    private static List<PlacedUnreadList> UnreadListsOf(InferenceProfile profile, IInferenceTerms terms, TermHandle tboxGraph, IReadOnlyCollection<Fact> tbox, IReadOnlyDictionary<TermHandle, List<Fact>> graphs, bool merge)
+    {
+        ArgumentNullException.ThrowIfNull(terms);
+        ArgumentNullException.ThrowIfNull(tbox);
+        ArgumentNullException.ThrowIfNull(graphs);
+        List<PlacedUnreadList> placed = [];
+        if (Program.Of(profile, terms).List is not { } list)
+        {
+            return placed;
+        }
+
+        AssertedLists beneath = AssertedLists.Read(ListStatementsOf(tbox, list), list, null);
+        foreach (UnreadList unread in beneath.Unread)
+        {
+            placed.Add(new PlacedUnreadList(tboxGraph, unread));
+        }
+
+        HashSet<UnreadList> under = [.. beneath.Unread];
+        TermHandle[] order = [.. graphs.Keys];
+        Dictionary<int, HashSet<Fact>> byIndex = [];
+        for (int i = 0; i < order.Length; i++)
+        {
+            byIndex[i] = ListStatementsOf(graphs[order[i]], list);
+        }
+
+        AssertedLists? merged = merge ? AssertedLists.PerGraph(byIndex, list, beneath) : null;
+        for (int i = 0; i < order.Length; i++)
+        {
+            IReadOnlyList<UnreadList> own = merged is not null ? merged.UnreadIn(i) : AssertedLists.Read(byIndex[i], list, beneath).Unread;
+            foreach (UnreadList unread in own)
+            {
+                if (!under.Contains(unread))
+                {
+                    placed.Add(new PlacedUnreadList(order[i], unread));
+                }
+            }
+        }
+
+        return placed;
+    }
+
+    private static HashSet<Fact> ListStatementsOf(IEnumerable<Fact> facts, ListTerms list)
+    {
+        HashSet<Fact> statements = [];
+        foreach (Fact fact in facts)
+        {
+            if (AssertedLists.IsListStatement(fact, list))
+            {
+                statements.Add(fact);
+            }
+        }
+
+        return statements;
+    }
+
+    /// <summary>
     /// How many times a commit has changed the lists this closure reads, each
     /// rebuilding it (ADR 0197, amended 2026-11-24). What is kept beside the
     /// closure and drawn from its rules' instances, such as premise sets, is

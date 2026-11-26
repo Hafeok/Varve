@@ -619,3 +619,4 @@ static Varve.Protocol.NoClosureMemory.operator !=(Varve.Protocol.NoClosureMemory
 static Varve.Protocol.NoClosureMemory.operator ==(Varve.Protocol.NoClosureMemory? left, Varve.Protocol.NoClosureMemory? right) -> bool
 Varve.Protocol.IInferenceClosure.PremiseSetGraphs() -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
 Varve.Protocol.InferenceBehindException.InferenceBehindException(Varve.Rdf.RdfTerm! binding, Varve.Store.Log.Position position, string! message) -> void
+Varve.Protocol.IInferenceClosure.UnreadListGraphsAt(Varve.Store.DatasetView! view) -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!

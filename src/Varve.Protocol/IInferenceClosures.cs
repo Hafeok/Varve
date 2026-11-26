@@ -81,6 +81,16 @@ public interface IInferenceClosure
     IReadOnlyList<PlacedClash> Clashes();
 
     /// <summary>
+    /// The graph of each asserted list cell the binding's rules do not read
+    /// as of <paramref name="view"/>'s position (ADR 0197, amended
+    /// 2026-11-26), one entry a cell: a data graph, <c>varve:defaultGraph</c>,
+    /// or <see cref="TBoxConclusions"/> for one the TBox graphs leave unread.
+    /// Read from the view's list statements below the projection's
+    /// position, with no closure built. None for a binding without list rules.
+    /// </summary>
+    IReadOnlyList<RdfTerm> UnreadListGraphsAt(Varve.Store.DatasetView view) => [];
+
+    /// <summary>
     /// Explains <paramref name="subject"/> <paramref name="predicate"/>
     /// <paramref name="object"/> in <paramref name="graph"/> at
     /// <paramref name="position"/> (ADR 0199): one of the binding's data

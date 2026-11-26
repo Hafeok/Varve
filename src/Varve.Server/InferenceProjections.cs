@@ -4,6 +4,7 @@
 
 using System;
 using System.Globalization;
+using System.Linq;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
@@ -374,6 +375,8 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
         }
 
         public IReadOnlyList<PlacedClash> Clashes() => Projection.Clashes();
+
+        public IReadOnlyList<RdfTerm> UnreadListGraphsAt(DatasetView view) => [.. Projection.UnreadListsAt(view).Select(unread => unread.Graph)];
 
         public Explanation Explain(Position position, RdfTerm? graph, RdfTerm subject, RdfTerm predicate, RdfTerm @object)
         {

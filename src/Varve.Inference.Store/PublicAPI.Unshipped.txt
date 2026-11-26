@@ -142,3 +142,4 @@ Varve.Inference.Store.Model.InferenceSnapshot.Deconstruct(out Varve.Store.Log.Po
 Varve.Inference.Store.Model.InferenceSnapshot.InferenceSnapshot(Varve.Store.Log.Position Position, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>! Clashes, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! PremiseSetGraphs, Varve.Inference.Model.MemoryAmount Held, Varve.Inference.Model.MemoryAmount Peak, System.Collections.Generic.IReadOnlyList<Varve.Inference.Store.Model.NamedUnreadList!>! UnreadLists) -> void
 Varve.Inference.Store.Model.InferenceSnapshot.UnreadLists.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Store.Model.NamedUnreadList!>!
 Varve.Inference.Store.Model.InferenceSnapshot.UnreadLists.init -> void
+Varve.Inference.Store.InferenceProjection.UnreadListsAt(Varve.Store.DatasetView! view) -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Store.Model.NamedUnreadList!>!
