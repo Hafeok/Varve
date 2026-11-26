@@ -71,7 +71,7 @@ internal sealed class Terms : IInferenceTerms
 
     internal string Text(Fact fact) => $"{Text(fact.Subject)} {Text(fact.Predicate)} {Text(fact.Object)}";
 
-    private string Text(TermHandle handle)
+    internal string Text(TermHandle handle)
     {
         RdfTerm term = Term(handle);
         string lexical = Encoding.UTF8.GetString(term.Lexical);

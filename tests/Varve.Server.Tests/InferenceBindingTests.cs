@@ -64,11 +64,70 @@ public class InferenceBindingTests
             Assert.Equal("following", inference.GetProperty("state").GetString());
             Assert.Equal(0, inference.GetProperty("lag").GetInt64());
             Assert.False(inference.GetProperty("inconsistent").GetBoolean());
+            Assert.Equal(0, inference.GetProperty("unreadLists").GetInt32());
 
             // Its graphs are computed, never written.
             HttpResponseMessage refused = await Update(server, "people", "INSERT DATA { GRAPH <" + Varve + "inferred/urn%3Abinding%3Apeople/tbox> { <http://ex/a> <http://ex/b> <http://ex/c> } }");
             Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
             Assert.Contains("graph-not-writable", await refused.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// ADR 0197, amended 2026-11-24 (#399): a node of an asserted list the
+    /// rules do not read is reported on readiness with its graph and reason,
+    /// never skipped in silence, and nothing is drawn from it.
+    /// </summary>
+    [Fact]
+    public async Task A_list_the_rules_do_not_read_is_reported_on_readiness()
+    {
+        const string RdfNs = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+        string root = Directory.CreateTempSubdirectory("varve-inference-").FullName;
+        try
+        {
+            await using RunningServer server = await RunningServer.StartAsync(new Dictionary<string, string> { ["Varve:Auth:Mode"] = "Anonymous", ["Varve:DatasetsRoot"] = root });
+            Assert.Equal(HttpStatusCode.Created, (await Trig(server, "manage/datasets/people", Declaration("people", "OWL2RL"))).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await Update(server, "people", "INSERT DATA { GRAPH <http://ex/g/1> { "
+                + "<http://ex/U> <http://www.w3.org/2002/07/owl#unionOf> <http://ex/l> . "
+                + "<http://ex/l> <" + RdfNs + "first> <http://ex/A> . <http://ex/l> <" + RdfNs + "rest> <" + RdfNs + "nil> . <http://ex/l> <" + RdfNs + "rest> <http://ex/m> . "
+                + "<http://ex/ann> a <http://ex/A> } }")).StatusCode);
+
+            JsonElement inference = default;
+            for (int attempt = 0; attempt < 50; attempt++)
+            {
+                HttpResponseMessage ready = await server.Client.GetAsync(new Uri("health/ready", UriKind.Relative), Ct);
+                using JsonDocument json = JsonDocument.Parse(await ready.Content.ReadAsStringAsync(Ct));
+                inference = json.RootElement.GetProperty("datasets").GetProperty("people").GetProperty("inference").GetProperty("urn:binding:people").Clone();
+                if (inference.GetProperty("lag").GetInt64() == 0)
+                {
+                    break;
+                }
+
+                await Task.Delay(100, Ct);
+            }
+
+            Assert.Equal("following", inference.GetProperty("state").GetString());
+            Assert.Equal(1, inference.GetProperty("unreadLists").GetInt32());
+            JsonElement cell = Assert.Single(inference.GetProperty("unreadListCells").EnumerateArray());
+            Assert.Equal("http://ex/g/1", cell.GetProperty("graph").GetString());
+            Assert.Equal("http://ex/l", cell.GetProperty("cell").GetString());
+            Assert.Equal("several-rest", cell.GetProperty("reason").GetString());
+
+            // Nothing is drawn from it: ann is not an instance of the union.
+            using HttpRequestMessage query = new(HttpMethod.Post, new Uri("datasets/people/sparql", UriKind.Relative))
+            {
+                Content = new StringContent("ASK { GRAPH <http://ex/g/1> { <http://ex/ann> a <http://ex/U> } }", Encoding.UTF8, "application/sparql-query"),
+            };
+            query.Headers.Accept.ParseAdd("application/sparql-results+json");
+            query.Headers.Add("Varve-Entailment", "owl2-rl");
+            HttpResponseMessage answered = await server.Client.SendAsync(query, Ct);
+            string body = await answered.Content.ReadAsStringAsync(Ct);
+            Assert.True(answered.StatusCode == HttpStatusCode.OK, body);
+            Assert.Contains("false", body, StringComparison.Ordinal);
         }
         finally
         {
