@@ -173,6 +173,9 @@ internal sealed class MembersCheck(
 
     internal override bool ReadsLists => true;
 
+    /// <summary>The axiom's property, <c>owl:members</c> or <c>owl:distinctMembers</c>: the closure tells a list an axiom reads by it.</summary>
+    internal TermHandle MembersPredicate => members;
+
     // Every match needs a typing of the axiom's class.
     internal override bool MayMatch(FactSet facts)
     {

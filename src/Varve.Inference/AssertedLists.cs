@@ -278,6 +278,35 @@ internal sealed class AssertedLists
         }
     }
 
+    /// <summary>
+    /// The heads of every list whose reading differs between this reading and
+    /// <paramref name="other"/>: each cell read in one and not the other, or
+    /// read differently, and every cell whose chain reaches it, in either.
+    /// </summary>
+    internal HashSet<ulong> HeadsChangedFrom(AssertedLists other)
+    {
+        HashSet<ulong> heads = [];
+        foreach ((ulong subject, Cell cell) in _read)
+        {
+            if (!other._read.TryGetValue(subject, out Cell theirs) || !theirs.Equals(cell))
+            {
+                HeadsReaching(new TermHandle(subject), heads);
+                other.HeadsReaching(new TermHandle(subject), heads);
+            }
+        }
+
+        foreach (ulong subject in other._read.Keys)
+        {
+            if (!_read.ContainsKey(subject))
+            {
+                HeadsReaching(new TermHandle(subject), heads);
+                other.HeadsReaching(new TermHandle(subject), heads);
+            }
+        }
+
+        return heads;
+    }
+
     /// <summary>Whether <paramref name="other"/> reads the same cells from the same statements: the list rules' input unchanged.</summary>
     internal bool SameReading(AssertedLists other)
     {

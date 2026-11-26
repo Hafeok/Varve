@@ -49,6 +49,9 @@ internal abstract class ListRule : Rule
     /// <summary>The predicate of the axiom that names the list: <c>owl:intersectionOf</c>, <c>owl:propertyChainAxiom</c>.</summary>
     protected TermHandle Axiom { get; }
 
+    /// <summary>The predicate of the axiom that names the list, for the closure to tell a list an axiom reads.</summary>
+    internal TermHandle AxiomPredicate => Axiom;
+
     protected ListTerms List { get; }
 
     internal sealed override void Fire(in Fact anchor, FactSet facts, List<Fact> into)

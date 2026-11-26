@@ -256,8 +256,10 @@ public sealed partial class Closure
         AssertedLists after = ReadLists(next);
         _listStatements.Clear();
         _listStatements.UnionWith(next);
-        if (after.SameReading(before))
+        if (after.SameReading(before) || !ReadByAnAxiom(before.HeadsChangedFrom(after)))
         {
+            // No list an axiom names reads differently: no instance of a list rule or check changes,
+            // so the delta is applied over the new reading as any other is (ADR 0197, amended 2026-11-26).
             return false;
         }
 
@@ -281,6 +283,30 @@ public sealed partial class Closure
         ListReadings = new ListReadings(ListReadings.Value + 1);
         Rebuild();
         return true;
+    }
+
+    /// <summary>
+    /// Whether the closure holds an axiom that names one of
+    /// <paramref name="heads"/> as its list: a fact, asserted or inferred,
+    /// whose predicate is one a list rule or check reads a list from and
+    /// whose object is the head. Held before the delta, so an axiom the delta
+    /// retracts counts and one it asserts does not: that one fires the rules
+    /// over the new reading as it is inserted.
+    /// </summary>
+    private bool ReadByAnAxiom(HashSet<ulong> heads)
+    {
+        foreach (ulong head in heads)
+        {
+            foreach (TermHandle predicate in Program.ListAxioms)
+            {
+                foreach (Fact _ in Facts.Match(TermHandle.None, predicate, new TermHandle(head)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

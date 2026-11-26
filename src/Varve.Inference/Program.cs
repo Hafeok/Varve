@@ -23,6 +23,24 @@ internal sealed class Program
         Rules = rules;
         Axioms = axioms;
         Checks = checks;
+        HashSet<TermHandle> listAxioms = [];
+        foreach (Rule rule in rules)
+        {
+            if (rule is ListRule listRule)
+            {
+                listAxioms.Add(listRule.AxiomPredicate);
+            }
+        }
+
+        foreach (Check check in checks)
+        {
+            if (check is MembersCheck members)
+            {
+                listAxioms.Add(members.MembersPredicate);
+            }
+        }
+
+        ListAxioms = [.. listAxioms];
         Dependencies = new DependencyGraph<Rule>(1);
         foreach (Rule rule in rules)
         {
@@ -39,6 +57,9 @@ internal sealed class Program
 
     /// <summary>The list vocabulary, when the profile has rules or checks over lists: the closure reads its asserted lists (ADR 0197, amended 2026-11-24).</summary>
     internal ListTerms? List { get; }
+
+    /// <summary>The predicates of the axioms that name a list a list rule or check reads: <c>owl:intersectionOf</c>, <c>owl:members</c>.</summary>
+    internal TermHandle[] ListAxioms { get; }
 
     /// <summary>The facts every closure of the profile holds, whatever the graph.</summary>
     internal Fact[] Axioms { get; }

@@ -237,6 +237,91 @@ public class ListsFromAssertedStatementsTests
         Assert.Empty(closure.UnreadLists());
     }
 
+    /// <summary>
+    /// ADR 0197, amended 2026-11-26 (#413): a list no axiom names changes no
+    /// instance of a list rule or check, so asserting it, breaking it and
+    /// retracting it rebuilds nothing. Its cells are still read and
+    /// reported, and at every step the closure is the closure from scratch.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Strategies))]
+    public void A_list_no_axiom_names_rebuilds_nothing(string strategyName)
+    {
+        (Terms terms, Program program) = Owl();
+        Closure closure = new(program, Strategy(strategyName));
+        HashSet<Fact> data = [terms.Fact(Named("x"), Type, Named("B"))];
+        closure.Apply([.. data], [], TestContext.Current.CancellationToken);
+        ListReadings readings = closure.ListReadings;
+        Fact[] list =
+        [
+            terms.Fact(Named("l1"), First, Named("A")),
+            terms.Fact(Named("l1"), Rest, Named("l2")),
+            terms.Fact(Named("l2"), First, Named("B")),
+            terms.Fact(Named("l2"), Rest, Nil),
+        ];
+        Fact second = terms.Fact(Named("l2"), Rest, Named("l1"));
+
+        closure.Apply(list, [], TestContext.Current.CancellationToken);
+        data.UnionWith(list);
+        Assert.Equal(readings, closure.ListReadings);
+        Assert.Empty(closure.UnreadLists());
+        Assert.True(FromScratch(program, data).SetEquals(closure.All));
+
+        closure.Apply([second], [], TestContext.Current.CancellationToken);
+        data.Add(second);
+        Assert.Equal(readings, closure.ListReadings);
+        Assert.Equal(2, closure.UnreadLists().Count);
+        Assert.True(FromScratch(program, data).SetEquals(closure.All));
+
+        closure.Apply([], [second, .. list], TestContext.Current.CancellationToken);
+        data.Remove(second);
+        data.ExceptWith(list);
+        Assert.Equal(readings, closure.ListReadings);
+        Assert.Empty(closure.UnreadLists());
+        Assert.True(FromScratch(program, data).SetEquals(closure.All));
+    }
+
+    /// <summary>
+    /// An axiom that arrives after its list, asserted or inferred, fires the
+    /// list rule over the reading the list already has: the closure is the
+    /// one both asserted together give, with no rebuild, and retracting the
+    /// axiom takes its conclusions back.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Strategies))]
+    public void An_axiom_after_its_list_reads_it_with_no_rebuild(string strategyName)
+    {
+        foreach (bool inferred in new[] { false, true })
+        {
+            (Terms terms, Program program) = Owl();
+            Closure closure = new(program, Strategy(strategyName));
+            HashSet<Fact> data =
+            [
+                terms.Fact(Named("l1"), First, Named("A")),
+                terms.Fact(Named("l1"), Rest, Named("l2")),
+                terms.Fact(Named("l2"), First, Named("B")),
+                terms.Fact(Named("l2"), Rest, Nil),
+                terms.Fact(Named("x"), Type, Named("B")),
+                terms.Fact(Named("unionVia"), SubPropertyOf, UnionOf),
+            ];
+            closure.Apply([.. data], [], TestContext.Current.CancellationToken);
+            ListReadings readings = closure.ListReadings;
+            Fact union = terms.Fact(Named("x"), Type, Named("U"));
+            Fact axiom = inferred ? terms.Fact(Named("U"), Named("unionVia"), Named("l1")) : terms.Fact(Named("U"), UnionOf, Named("l1"));
+
+            closure.Apply([axiom], [], TestContext.Current.CancellationToken);
+            data.Add(axiom);
+            Assert.True(closure.Contains(union));
+            Assert.Equal(readings, closure.ListReadings);
+            Assert.True(FromScratch(program, data).SetEquals(closure.All));
+
+            closure.Apply([], [axiom], TestContext.Current.CancellationToken);
+            data.Remove(axiom);
+            Assert.False(closure.Contains(union));
+            Assert.True(FromScratch(program, data).SetEquals(closure.All));
+        }
+    }
+
     /// <summary>A data graph reads the lists of the TBox graphs beneath it with its own, reads a TBox cell as the TBox does, and reports only the cells its own statements leave unread or differ on.</summary>
     [Fact]
     public void A_data_graph_reads_the_tbox_lists_and_reports_only_its_own()
