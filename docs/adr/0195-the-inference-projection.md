@@ -782,6 +782,11 @@ RL, cross-graph, on 4 cores (#412):
   of it when the closure is released. Measured by `Varve.Benchmarks
   --clash-costs`: 873 bytes held by a clash of three premises and 793 by
   one of two, so the charge counts 1.29 to 1.35 times what is held.
+  **A closure that fitted its limit before can now stop at
+  `memory-limit`**: what it keeps for its clashes was beside the budget,
+  and counts against the limit now. At REC M the clashes are a small share
+  of what a closure holds (the figures are under "Measured after"), and no
+  existing test or benchmark crosses its limit with the charge.
 - **What is published is what changed.** A closure's list of kept clashes
   is the same object until a clash comes or goes; each data graph's clashes
   are placed again only when its list changed, and the snapshot's list is a
