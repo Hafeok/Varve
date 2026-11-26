@@ -131,6 +131,12 @@ internal sealed class KeptClashes
         {
             Check check = _checks[i];
             matches.Clear();
+            if (_kept[i].Count == 0 && !check.MayMatch(facts))
+            {
+                // Nothing kept, and nothing the check needs held: no clash of it comes or goes in this pass.
+                continue;
+            }
+
             if (check.Anchored && !(lists == ListsRead.Differently && check.ReadsLists))
             {
                 foreach (Fact fact in came)

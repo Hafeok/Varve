@@ -40,6 +40,13 @@ internal abstract class Check
     /// </summary>
     internal virtual bool Anchored => false;
 
+    /// <summary>
+    /// Whether the check can match anything over <paramref name="facts"/>: false
+    /// when no fact meets the atom every match needs one of, so that a pass
+    /// skips it with one probe of the index.
+    /// </summary>
+    internal virtual bool MayMatch(FactSet facts) => true;
+
     /// <summary>Whether the check reads lists: matched again in full when a pass reads the closure's lists differently.</summary>
     internal virtual bool ReadsLists => false;
 
@@ -54,6 +61,48 @@ internal abstract class Check
 internal sealed class PatternCheck(string profile, string name, Atom[] body, Func<TermHandle[], bool>? condition = null) : Check(profile, name)
 {
     private readonly PatternRule _body = new(name, body, []);
+
+    // The atom with the most constants among those with a constant predicate: every match needs a fact that meets it.
+    private readonly Atom? _gate = Gate(body);
+
+    internal override bool MayMatch(FactSet facts)
+    {
+        if (_gate is not { } gate)
+        {
+            return true;
+        }
+
+        TermHandle subject = gate.S.IsVariable ? TermHandle.None : gate.S.Constant;
+        TermHandle @object = gate.O.IsVariable ? TermHandle.None : gate.O.Constant;
+        foreach (Fact _ in facts.Match(subject, gate.P.Constant, @object))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static Atom? Gate(Atom[] body)
+    {
+        Atom? gate = null;
+        int most = 0;
+        foreach (Atom atom in body)
+        {
+            if (atom.P.IsVariable)
+            {
+                continue;
+            }
+
+            int constants = 1 + (atom.S.IsVariable ? 0 : 1) + (atom.O.IsVariable ? 0 : 1);
+            if (constants > most)
+            {
+                most = constants;
+                gate = atom;
+            }
+        }
+
+        return gate;
+    }
 
     internal override void Matches(FactSet facts, List<Fact[]> into) =>
         _body.Matches(facts, (bindings, premises) =>
@@ -123,6 +172,17 @@ internal sealed class MembersCheck(
     internal override bool Anchored => true;
 
     internal override bool ReadsLists => true;
+
+    // Every match needs a typing of the axiom's class.
+    internal override bool MayMatch(FactSet facts)
+    {
+        foreach (Fact _ in facts.Match(TermHandle.None, type, kind))
+        {
+            return true;
+        }
+
+        return false;
+    }
 
     internal override void Matches(FactSet facts, List<Fact[]> into)
     {
