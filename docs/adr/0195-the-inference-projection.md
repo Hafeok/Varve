@@ -762,10 +762,34 @@ RL, cross-graph, on 4 cores (#412):
   keep it: a clash with a premise that left the closure goes, and a match
   that uses a fact that came is added, found by matching the check with that
   fact in each of its atoms in turn. A check over a list's members
-  (`eq-diff2`, `eq-diff3`, `prp-adp`, `cax-adc`) is matched again in full on
-  each pass that changes a fact. A property test holds the kept clashes to
-  every check matched in full, at every commit, under both profiles, DRed
-  and recursive counting, with and without a TBox closure beneath.
+  (`eq-diff2`, `eq-diff3`, `prp-adp`, `cax-adc`) is anchored the same way,
+  since lists are read from asserted statements (ADR 0197, amended
+  2026-11-24): a typing or members fact matches its axiom, a cell's
+  statement the axioms whose lists reach it, and a fact a pair matches is
+  paired with the other members of each list holding the member it names.
+  A pass that reads the lists differently, which rebuilds the closure,
+  matches them in full. A check has a gate, the atom with a constant
+  predicate and the most constants: when the closure holds no fact that
+  meets it and the check keeps no clash, a pass skips the check with one
+  probe of the index. Property tests hold the kept clashes to every check
+  matched in full at every commit, under both profiles, DRed and recursive
+  counting, with and without a TBox closure beneath, over histories that
+  make and unmake every list check's clashes.
+- **What is kept is charged.** Each kept clash is taken from the closure's
+  budget before it is held: `ClosureCosts.PerClash`, 700 bytes, and
+  `PerClashPremise`, 160 bytes for each premise's entry in the index from a
+  premise to its clashes. They are given back when the clash goes, and all
+  of it when the closure is released. Measured by `Varve.Benchmarks
+  --clash-costs`: 873 bytes held by a clash of three premises and 793 by
+  one of two, so the charge counts 1.29 to 1.35 times what is held.
+- **What is published is what changed.** A closure's list of kept clashes
+  is the same object until a clash comes or goes; each data graph's clashes
+  are placed again only when its list changed, and the snapshot's list is a
+  view over those pieces. Under a cross-graph binding the merge writes down
+  the clashes it keeps and drops (`Closure.TakeClashChanges`), and a clash
+  is placed again only when it is new or a premise's premise sets changed.
+  A property test holds the published clashes to every check matched and
+  placed afresh after every commit, per graph and cross-graph.
 - **A stop cancels the pass.** The stop's token reaches every closure a pass
   changes; a closure sees it within a thousand rule firings or facts
   asserted, and a build every 65,536 quads it reads and between graphs. A cancelled pass drops its closures, keeps the position,

@@ -90,7 +90,7 @@ decisions:
   - key: ReadinessFromAPublishedSnapshot
     statement: "a closure build or pass never makes the instance or a dataset unready; readiness reads what the projection published at the end of its last pass, never under a pass's lock and in constant time, names the pass running by its kind, the position it brings the binding to and how long it has run, and never matches a check; a query's Varve-Inconsistent reads the same"
   - key: ClashesKeptPerPass
-    statement: "a closure keeps its clashes from the facts each pass changes: a clash with a premise that left goes, a match that uses a fact that came is added, and a check over a list's members is matched again in full; every check is matched over the whole closure only once after a build"
+    statement: "a closure keeps its clashes from the facts each pass changes: a clash with a premise that left goes, and a match that uses a fact that came is added, a list check's by the list's cells and the members its facts name, since lists are read from asserted statements; every check is matched over the whole closure only after a build or a pass that reads the lists differently, a check none of whose needed facts is held is skipped, the clashes kept and their premise index are charged to the closure's budget, and a pass publishes again only the clashes it changed"
   - key: ShutdownCancelsAPass
     statement: "a stop cancels the pass running, which sees it within a thousand rule firings, drops its closures, keeps the position and saves nothing; a pass not ended within Varve:Inference:StopWait, 10 s by default, is abandoned; the state is saved after a cold build, every 1,000 commits or 5 minutes, and at a stop that cut no pass short"
   - key: ExplainWaitsAtMostTheReadBound
