@@ -257,14 +257,9 @@ internal abstract class ListRule : Rule
     }
 
     /// <summary>The list from <paramref name="head"/> as the asserted statements make it: one path, or none (ADR 0197, amended 2026-11-24).</summary>
-    protected static IEnumerable<List<Cell>> Paths(TermHandle head, FactSet facts)
-    {
-        List<Cell> path = [];
-        if (facts.Lists is { } lists && lists.TryPath(head, path, facts))
-        {
-            yield return path;
-        }
-    }
+    /// <summary>The list <paramref name="head"/> names, as each graph reads it: one under every closure but a cross-graph merge, where two graphs can read a head differently (ADR 0197, amended 2026-11-26).</summary>
+    protected static IEnumerable<List<Cell>> Paths(TermHandle head, FactSet facts) =>
+        facts.Lists is { } lists ? lists.Paths(head, facts) : [];
 
     private static bool Accepted(List<Cell> path, Func<Fact, bool> accept)
     {

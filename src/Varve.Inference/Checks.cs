@@ -236,7 +236,6 @@ internal sealed class MembersCheck(
         }
 
         // A fact a pair matches: paired with the other members of each list holding the member it names.
-        List<Cell> path = [];
         List<Fact[]> found = [];
         foreach (TermHandle member in named(anchor))
         {
@@ -250,21 +249,25 @@ internal sealed class MembersCheck(
                     {
                         foreach (Fact typing in facts.Match(axiom.Subject, type, kind))
                         {
-                            if (!lists.TryPath(axiom.Object, path, facts))
+                            // Each reading of the list that holds the member: graphs can read one head differently.
+                            foreach (List<Cell> path in lists.Paths(axiom.Object, facts))
                             {
-                                continue;
-                            }
-
-                            foreach (Cell other in path)
-                            {
-                                if (other.Member.Value == member.Value)
+                                if (!path.Exists(cell => cell.Member.Value == member.Value))
                                 {
                                     continue;
                                 }
 
-                                found.Clear();
-                                pairAt(facts, anchor, member, other.Member, found);
-                                Add(typing, axiom, path, found, into);
+                                foreach (Cell other in path)
+                                {
+                                    if (other.Member.Value == member.Value)
+                                    {
+                                        continue;
+                                    }
+
+                                    found.Clear();
+                                    pairAt(facts, anchor, member, other.Member, found);
+                                    Add(typing, axiom, path, found, into);
+                                }
                             }
                         }
                     }
@@ -277,27 +280,29 @@ internal sealed class MembersCheck(
     private void MatchesOf(Fact typing, FactSet facts, List<Fact[]> into)
     {
         List<Fact[]> found = [];
-        List<Cell> path = [];
         foreach (Fact axiom in facts.Match(typing.Subject, members, TermHandle.None))
         {
-            if (facts.Lists is not { } lists || !lists.TryPath(axiom.Object, path, facts))
+            if (facts.Lists is not { } lists)
             {
                 continue;
             }
 
-            for (int i = 0; i < path.Count; i++)
+            foreach (List<Cell> path in lists.Paths(axiom.Object, facts))
             {
-                for (int j = i + 1; j < path.Count; j++)
+                for (int i = 0; i < path.Count; i++)
                 {
-                    if (path[i].Member.Value == path[j].Member.Value)
+                    for (int j = i + 1; j < path.Count; j++)
                     {
-                        continue;
-                    }
+                        if (path[i].Member.Value == path[j].Member.Value)
+                        {
+                            continue;
+                        }
 
-                    found.Clear();
-                    pair(facts, path[i].Member, path[j].Member, found);
-                    pair(facts, path[j].Member, path[i].Member, found);
-                    Add(typing, axiom, path, found, into);
+                        found.Clear();
+                        pair(facts, path[i].Member, path[j].Member, found);
+                        pair(facts, path[j].Member, path[i].Member, found);
+                        Add(typing, axiom, path, found, into);
+                    }
                 }
             }
         }

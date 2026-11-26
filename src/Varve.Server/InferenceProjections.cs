@@ -682,6 +682,7 @@ internal sealed record InferenceStatus(long Lag, long HeldFrom, string State, in
         UnreadListReason.NoRest => "no-rest",
         UnreadListReason.Cycle => "cycle",
         UnreadListReason.Broken => "broken",
+        UnreadListReason.SpansGraphs => "spans-graphs",
         _ => "differs-from-tbox",
     };
 }

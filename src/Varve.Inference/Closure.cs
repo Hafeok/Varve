@@ -33,6 +33,12 @@ public sealed partial class Closure
     // The explicit rdf:first and rdf:rest statements of this closure, which its lists are read from with the TBox closure's (ADR 0197, amended 2026-11-24).
     private readonly HashSet<Fact> _listStatements = [];
 
+    // A cross-graph merge's list statements by data graph, read per graph (ADR 0197, amended 2026-11-26); null for every other closure.
+    private Dictionary<int, HashSet<Fact>>? _listGraphs;
+
+    // Set when the lists were read again per graph for the next delta and an axiom reads a list whose reading changed.
+    private bool _rebuildForLists;
+
     /// <summary>The empty graph's closure under <paramref name="profile"/>: its axioms and what they entail.</summary>
     public Closure(InferenceProfile profile, IInferenceTerms terms)
         : this(Program.Of(profile, terms), Retraction.DeleteAndRederive)
@@ -166,6 +172,9 @@ public sealed partial class Closure
         return own;
     }
 
+    /// <summary>The cells one data graph's statements leave unread under a cross-graph merge, which reads each graph's lists alone; empty for every other closure.</summary>
+    public IReadOnlyList<UnreadList> UnreadListsIn(DataGraphIndex graph) => Facts.Lists?.UnreadIn(graph.Value) ?? [];
+
     /// <summary>
     /// How many times a commit has changed the lists this closure reads, each
     /// rebuilding it (ADR 0197, amended 2026-11-24). What is kept beside the
@@ -188,6 +197,111 @@ public sealed partial class Closure
     /// the budget a working entry a statement before the reading is made.
     /// </summary>
     /// <exception cref="ClosureLimitExceededException">The reading would pass the budget.</exception>
+    /// <summary>
+    /// Makes this closure, a cross-graph merge's, read each data graph's
+    /// lists from that graph's statements and the TBox's alone, never across
+    /// graphs (ADR 0197, amended 2026-11-26): its owner then tells it each
+    /// graph's list statements before each delta
+    /// (<see cref="ReadListsPerGraph(IReadOnlyDictionary{DataGraphIndex, ListStatements})"/>), and the
+    /// list statements in a delta are read from those alone.
+    /// </summary>
+    public void ReadListsPerGraph()
+    {
+        if (Program.List is not { } list)
+        {
+            return;
+        }
+
+        _listGraphs = [];
+        Facts.Lists = AssertedLists.PerGraph(_listGraphs, list, Beneath?.Facts.Lists);
+    }
+
+    /// <summary>
+    /// Reads a cross-graph merge's lists again for the next delta, from each
+    /// data graph's list statements added and removed. Answers whether the
+    /// delta will rebuild the closure, which it does only when an axiom it
+    /// holds names a list whose reading changed in some graph, and then the
+    /// cells of those lists before and after, each pair of a statement and
+    /// its graph: the instances over them are the only ones that can have
+    /// come or gone, and what was drawn through them is what moves.
+    /// </summary>
+    /// <exception cref="ClosureLimitExceededException">The reading would pass the budget.</exception>
+    public ListChange ReadListsPerGraph(IReadOnlyDictionary<DataGraphIndex, ListStatements> changes)
+    {
+        ArgumentNullException.ThrowIfNull(changes);
+        if (_listGraphs is null || Program.List is not { } list || changes.Count == 0)
+        {
+            return ListChange.None;
+        }
+
+        foreach ((DataGraphIndex graph, ListStatements statements) in changes)
+        {
+            if (!_listGraphs.TryGetValue(graph.Value, out HashSet<Fact>? held))
+            {
+                _listGraphs[graph.Value] = held = [];
+            }
+
+            held.ExceptWith(statements.Removed);
+            held.UnionWith(statements.Added);
+            if (held.Count == 0)
+            {
+                _listGraphs.Remove(graph.Value);
+            }
+        }
+
+        AssertedLists before = Facts.Lists!;
+        AssertedLists after = ReadPerGraph(list);
+        if (after.SameReading(before))
+        {
+            return ListChange.None;
+        }
+
+        HashSet<ulong> heads = before.HeadsChangedFrom(after);
+        _rebuildForLists = ReadByAnAxiom(heads);
+        if (!_rebuildForLists)
+        {
+            return ListChange.None;
+        }
+
+        return new ListChange(Cells(before), Cells(after));
+
+        List<(Fact Fact, DataGraphIndex Graph)> Cells(AssertedLists reading)
+        {
+            List<(Fact, DataGraphIndex)> cells = [];
+            foreach (int graph in reading.Graphs)
+            {
+                foreach (Fact cell in reading.CellStatementsOf(graph, heads))
+                {
+                    cells.Add((cell, new DataGraphIndex(graph)));
+                }
+            }
+
+            return cells;
+        }
+    }
+
+    private AssertedLists ReadPerGraph(ListTerms list)
+    {
+        long count = 0;
+        foreach (HashSet<Fact> statements in _listGraphs!.Values)
+        {
+            count += statements.Count + (Beneath?._listStatements.Count ?? 0);
+        }
+
+        long charge = 0;
+        if (Facts.Budget is { } budget)
+        {
+            charge = count * budget.Costs.PerWorkingEntry.Value;
+            budget.Take(new MemoryAmount(charge));
+            budget.Give(new MemoryAmount(_listCharge));
+        }
+
+        _listCharge = charge;
+        AssertedLists lists = AssertedLists.PerGraph(_listGraphs, list, Beneath?.Facts.Lists);
+        Facts.Lists = lists;
+        return lists;
+    }
+
     private AssertedLists ReadLists(IReadOnlyCollection<Fact> statements)
     {
         ListTerms list = Program.List!.Value;
@@ -228,6 +342,21 @@ public sealed partial class Closure
             return false;
         }
 
+        if (_listGraphs is not null)
+        {
+            // A merge: its owner read the lists per graph before the delta, and said whether it rebuilds.
+            if (!_rebuildForLists)
+            {
+                return false;
+            }
+
+            _rebuildForLists = false;
+            ReplaceExplicit(asserted, retracted);
+            ListReadings = new ListReadings(ListReadings.Value + 1);
+            Rebuild();
+            return true;
+        }
+
         HashSet<Fact>? next = null;
         foreach (Fact fact in retracted)
         {
@@ -263,6 +392,14 @@ public sealed partial class Closure
             return false;
         }
 
+        ReplaceExplicit(asserted, retracted);
+        ListReadings = new ListReadings(ListReadings.Value + 1);
+        Rebuild();
+        return true;
+    }
+
+    private void ReplaceExplicit(ReadOnlySpan<Fact> asserted, ReadOnlySpan<Fact> retracted)
+    {
         foreach (Fact fact in retracted)
         {
             if (_explicit.Remove(fact))
@@ -279,10 +416,6 @@ public sealed partial class Closure
                 _explicit.Add(fact);
             }
         }
-
-        ListReadings = new ListReadings(ListReadings.Value + 1);
-        Rebuild();
-        return true;
     }
 
     /// <summary>

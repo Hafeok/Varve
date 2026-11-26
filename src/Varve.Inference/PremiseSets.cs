@@ -254,8 +254,57 @@ public sealed class PremiseSets
     {
         foreach (Rule rule in _closure.Program.Rules)
         {
+            if (rule is ListRule && _closure.Facts.Lists is { IsPerGraph: true } lists)
+            {
+                // Each instance in turn, its cells drawn through one graph that reads them all.
+                List<Fact[]> instances = [];
+                rule.Instances(fact, _closure.Facts, instances);
+                foreach (Fact[] premises in instances)
+                {
+                    if (WithinReading(premises, fact, set, lists))
+                    {
+                        return true;
+                    }
+                }
+
+                continue;
+            }
+
             Fact head = fact;
             if (rule.Proves(fact, _closure.Facts, premise => premise != head && Within(premise, set), premises: null))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool WithinReading(Fact[] premises, in Fact head, int[] set, AssertedLists lists)
+    {
+        List<Fact> cells = [];
+        foreach (Fact premise in premises)
+        {
+            if (lists.IsCellStatement(premise))
+            {
+                cells.Add(premise);
+            }
+            else if (premise != head && !Within(premise, set))
+            {
+                return false;
+            }
+        }
+
+        if (cells.Count == 0)
+        {
+            return true;
+        }
+
+        List<int> readers = [];
+        lists.ReadersOf(cells, readers);
+        foreach (int reader in readers)
+        {
+            if (reader < 0 || Array.IndexOf(set, reader) >= 0)
             {
                 return true;
             }
@@ -464,7 +513,7 @@ public sealed class PremiseSets
                     foreach (Fact[] premises in instances)
                     {
                         products.Clear();
-                        Product(premises, 0, default, [], products);
+                        ProductOf(premises, default, [], products);
                         foreach (int set in products)
                         {
                             Offer(fact, set, work);
@@ -522,7 +571,7 @@ public sealed class PremiseSets
                     }
 
                     products.Clear();
-                    Product(instance.Premises, 0, item.Fact, _sets[item.Set], products);
+                    ProductOf(instance.Premises, item.Fact, _sets[item.Set], products);
                     _unions += products.Count;
                     foreach (int set in products)
                     {
@@ -530,6 +579,74 @@ public sealed class PremiseSets
                     }
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// The sets an instance with <paramref name="premises"/> is drawn
+    /// through, one union for each choice of a set of each premise; a list's
+    /// cells drawn through a graph that reads them all, as for a rule's
+    /// instance. What a clash with those premises is placed by.
+    /// </summary>
+    public IReadOnlyList<PremiseSet> SetsOfInstance(IReadOnlyList<Fact> premises)
+    {
+        ArgumentNullException.ThrowIfNull(premises);
+        List<int> products = [];
+        ProductOf([.. premises], default, [], products);
+        List<PremiseSet> sets = [];
+        foreach (int set in products)
+        {
+            sets.Add(View(set));
+        }
+
+        return sets;
+    }
+
+    /// <summary>
+    /// Every union of one set from each premise, <paramref name="anchor"/>
+    /// taking <paramref name="sofar"/>'s part already. Under a cross-graph
+    /// merge an instance's list cells are drawn through a graph that reads
+    /// them all, {g}, or none for the TBox's reading, never through the sets
+    /// of the statements as such: another graph that asserts the same
+    /// statements and does not read them as that list gives the instance
+    /// nothing (ADR 0197, amended 2026-11-26).
+    /// </summary>
+    private void ProductOf(Fact[] premises, in Fact anchor, int[] sofar, List<int> into)
+    {
+        if (_closure.Facts.Lists is not { IsPerGraph: true } lists)
+        {
+            Product(premises, 0, anchor, sofar, into);
+            return;
+        }
+
+        List<Fact>? cells = null;
+        List<Fact> others = [];
+        foreach (Fact premise in premises)
+        {
+            if (lists.IsCellStatement(premise))
+            {
+                (cells ??= []).Add(premise);
+            }
+            else
+            {
+                others.Add(premise);
+            }
+        }
+
+        if (cells is null)
+        {
+            Product(premises, 0, anchor, sofar, into);
+            return;
+        }
+
+        // An anchor among the cells takes its part from the reading, not from its own set.
+        int[] start = cells.Contains(anchor) ? [] : sofar;
+        Fact[] rest = [.. others];
+        List<int> readers = [];
+        lists.ReadersOf(cells, readers);
+        foreach (int reader in readers)
+        {
+            Product(rest, 0, anchor, reader < 0 ? start : Union(start, [reader]), into);
         }
     }
 
