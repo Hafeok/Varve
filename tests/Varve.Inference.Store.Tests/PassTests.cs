@@ -48,8 +48,11 @@ public class PassTests
         int probes = 0;
         while (!build.IsCompleted && probes < 20)
         {
+            // A pass publishes before it moves the position: read in this order, the snapshot is never behind it.
+            Position seen = projection.Position;
             Stopwatch probe = Stopwatch.StartNew();
             InferenceSnapshot snapshot = projection.Snapshot;
+            Assert.True(snapshot.Position >= seen, $"the snapshot at {snapshot.Position.Value} is behind the position {seen.Value}");
             int clashes = projection.Clashes().Count;
             InferencePass? running = projection.Pass;
             probe.Stop();
@@ -67,6 +70,7 @@ public class PassTests
 
         Assert.True(probes > 0, "the build ended before a probe could run beside it");
         await build;
+        Assert.Equal(projection.Position, projection.Snapshot.Position);
         Assert.Null(projection.Pass);
         Assert.Equal(head.Position, projection.Snapshot.Position);
         Assert.True(projection.Snapshot.Held.Value > 0);

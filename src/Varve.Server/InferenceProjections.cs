@@ -424,10 +424,12 @@ internal sealed partial class InferenceProjections : IInferenceClosures, IAsyncD
         internal InferenceStatus Status()
         {
             (ByteCount limit, ByteCount reached) = Projection.MemoryLimit;
+            // One snapshot for every figure, the lag included: a pass that has moved the position but not yet published
+            // shows as the lag and the pass it is, never as the old figures at no lag.
             InferenceSnapshot snapshot = Projection.Snapshot;
             InferencePass? pass = Projection.Pass;
             return new InferenceStatus(
-                Math.Max(0, Dataset.Head.Value - Projection.Position.Value),
+                Math.Max(0, Dataset.Head.Value - snapshot.Position.Value),
                 Projection.HeldFrom.Value,
                 !Projection.Stopped ? "following" : Projection.Failure is null ? "stopped (memory-limit)" : "stopped (failed)",
                 snapshot.Clashes.Count,

@@ -279,9 +279,10 @@ public sealed class InferenceProjection : IProjection
                 Rebuild(checkpoint is null ? Empty : checkpoint, position, cancellationToken);
             }
 
+            // Published before the position moves, as every pass is: a reader that sees the position sees what the pass left.
+            Publish(position);
             Volatile.Write(ref _floor, position);
             Volatile.Write(ref _position, position);
-            Publish(position);
         }
     }
 
