@@ -372,6 +372,6 @@ and the queries are in [`queries/`](../../samples/learn/02-links-and-patterns/qu
 
 ## Next
 
-Chapter 3, schema without migrations, loads a generated portfolio of many
-buildings, adds a new kind of asset without an `ALTER TABLE`, and declares
+Chapter 3, schema without migrations, loads a generated portfolio of two
+buildings, adds a new kind of sensor without an `ALTER TABLE`, and declares
 REC's SHACL shapes as the schema, so that a write breaking them is refused.

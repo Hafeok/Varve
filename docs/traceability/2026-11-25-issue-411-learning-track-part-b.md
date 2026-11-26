@@ -106,9 +106,10 @@ The plan is #411's description. The answer to it:
   chapters 3 to 6 and moves the term table's link below the chapter list,
   and the site's lede for the section reads "RDF and SPARQL for SQL
   developers, with Varve, chapter by chapter, on one RealEstateCore
-  portfolio." (`eng/site/SiteMap.cs`). Chapter 2's last paragraph says
-  chapter 3 adds "a new kind of asset"; it adds a kind of sensor, which is a
-  point. That sentence is left for the maintainer, as asked.
+  portfolio." (`eng/site/SiteMap.cs`). Chapter 2's last paragraph said
+  chapter 3 loads "many buildings" and adds "a new kind of asset"; it loads
+  two and adds a kind of sensor, which is a point. Changed on 2026-11-26, at
+  the session user's request.
 - **The release.** Built against the published `0.1.0-preview.22` packages
   (`eng/learn.cs -- --run --packages 0.1.0-preview.22`), all six samples
   print what `expected/` holds, chapter 3's refusal and report included, so
