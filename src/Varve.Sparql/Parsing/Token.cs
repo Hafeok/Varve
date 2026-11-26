@@ -92,6 +92,9 @@ internal enum TokenKind : byte
 
     /// <summary><c>|}</c></summary>
     AnnotationClose,
+
+    /// <summary><c># …</c> to the end of its line: only from a lexer made with comments (ADR 0253); the parser never sees one.</summary>
+    Comment,
 }
 
 /// <summary>One terminal: its kind and where it is.</summary>

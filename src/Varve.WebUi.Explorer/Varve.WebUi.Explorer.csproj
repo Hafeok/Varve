@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <!-- The data explorer (#96 part 2, ADR 0252): its parts and pages, loaded
+         when a route of it is first visited, never with the first screen. A
+         private assembly of the host Varve.WebUi, at layer 7: above the shared
+         components it references (6), below the host that references it (8),
+         so DD0001 holds the three strictly downward. Part of the host's
+         composition root; never packed (ADR 0060, amended 2026-11-19). -->
+    <ArchLayer>7</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
+    <VarveHostPartOf>Varve.WebUi</VarveHostPartOf>
+    <IsPackable>false</IsPackable>
+    <IsTrimmable>true</IsTrimmable>
+    <VarveSpeaksHttp>true</VarveSpeaksHttp>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Varve.WebUi.Components/Varve.WebUi.Components.csproj" />
+    <ProjectReference Include="../Varve.Protocol.Client/Varve.Protocol.Client.csproj" />
+    <!-- The query editor colours with the parser's own lexer (ADR 0253), lazy-loaded with the explorer. -->
+    <ProjectReference Include="../Varve.Sparql/Varve.Sparql.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+  </ItemGroup>
+
+  <!-- The graph view's spike (#355): its page, from tests/, built in only when
+       -p:VarveGraphSpike=true (the host links its script). At an explorer
+       route, so it loads with the explorer that holds the graph view. -->
+  <ItemGroup Condition="'$(VarveGraphSpike)' == 'true'">
+    <Content Include="../../tests/Varve.WebUi.Spike/GraphSpike.razor" Link="Pages/GraphSpike.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Varve.WebUi.Tests" />
+  </ItemGroup>
+
+</Project>

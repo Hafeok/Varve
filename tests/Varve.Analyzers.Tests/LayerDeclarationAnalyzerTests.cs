@@ -28,8 +28,9 @@ public class LayerDeclarationAnalyzerTests
         string? layer,
         bool packable = false,
         bool executable = false,
-        bool compositionRoot = false) =>
-        new(assemblyName, layer, packable, executable, compositionRoot);
+        bool compositionRoot = false,
+        string? hostPartOf = null) =>
+        new(assemblyName, layer, packable, executable, compositionRoot, hostPartOf);
 
     private static DiagnosticResult Violation(string assemblyName, string finding, string decide) =>
         new DiagnosticResult(VarveDiagnostics.LayerDeclaration)
@@ -99,7 +100,7 @@ public class LayerDeclarationAnalyzerTests
     [Theory]
     [InlineData("one")]
     [InlineData("-1")]
-    [InlineData("7")]
+    [InlineData("9")]
     [InlineData("2.0")]
     [InlineData("none")]
     public async Task A_malformed_layer_is_reported(string layer)
@@ -131,7 +132,73 @@ public class LayerDeclarationAnalyzerTests
         Test test = Declaring("Varve.Server.Parts", "6", compositionRoot: true);
         test.ExpectedDiagnostics.Add(Violation(
             "Varve.Server.Parts",
-            LayerDeclarationAnalyzer.HostNotExecutable,
+            Format(LayerDeclarationAnalyzer.HostNotExecutableFormat, 6),
+            LayerDeclarationAnalyzer.HostNotExecutableDecide));
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    // ADR 0252: a host stacks its private assemblies below itself, at 6 and 7,
+    // and sits at 8; 9 is no layer.
+    [Fact]
+    public async Task A_host_at_layer_8_that_is_the_composition_root_is_clean() =>
+        await Declaring("Varve.WebUi", "8", executable: true, compositionRoot: true)
+            .RunAsync(TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task A_private_assembly_at_layer_7_naming_its_host_is_clean() =>
+        await Declaring("Varve.WebUi.Explorer", "7", compositionRoot: true, hostPartOf: "Varve.WebUi")
+            .RunAsync(TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task A_library_at_layer_7_naming_no_host_is_reported()
+    {
+        Test test = Declaring("Varve.WebUi.Explorer", "7", compositionRoot: true);
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.WebUi.Explorer",
+            Format(LayerDeclarationAnalyzer.HostNotExecutableFormat, 7),
+            LayerDeclarationAnalyzer.HostNotExecutableDecide));
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_host_layer_without_the_composition_root_is_reported()
+    {
+        Test test = Declaring("Varve.WebUi", "8", executable: true);
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.WebUi",
+            Format(LayerDeclarationAnalyzer.HostWithoutRootFormat, 8),
+            LayerDeclarationAnalyzer.HostWithoutRootDecide));
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Layer_9_is_no_layer()
+    {
+        Test test = Declaring("Varve.WebUi", "9", executable: true, compositionRoot: true);
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.WebUi",
+            Format(LayerDeclarationAnalyzer.MalformedFormat, "9"),
+            LayerDeclarationAnalyzer.MalformedDecide));
+
+        await test.RunAsync(TestContext.Current.CancellationToken);
+    }
+
+    // ADR 0252: a host's private assembly, a library at layer 6 that names its host.
+    [Fact]
+    public async Task A_library_at_layer_6_naming_its_host_is_clean() =>
+        await Declaring("Varve.WebUi.Components", "6", compositionRoot: true, hostPartOf: "Varve.WebUi")
+            .RunAsync(TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task A_library_at_layer_6_naming_no_varve_host_is_reported()
+    {
+        Test test = Declaring("Varve.WebUi.Components", "6", compositionRoot: true, hostPartOf: "Elsewhere");
+        test.ExpectedDiagnostics.Add(Violation(
+            "Varve.WebUi.Components",
+            Format(LayerDeclarationAnalyzer.HostNotExecutableFormat, 6),
             LayerDeclarationAnalyzer.HostNotExecutableDecide));
 
         await test.RunAsync(TestContext.Current.CancellationToken);
@@ -155,7 +222,7 @@ public class LayerDeclarationAnalyzerTests
         Test test = Declaring("Varve.AotSmoke", "6", executable: true);
         test.ExpectedDiagnostics.Add(Violation(
             "Varve.AotSmoke",
-            LayerDeclarationAnalyzer.HostWithoutRoot,
+            Format(LayerDeclarationAnalyzer.HostWithoutRootFormat, 6),
             LayerDeclarationAnalyzer.HostWithoutRootDecide));
 
         await test.RunAsync(TestContext.Current.CancellationToken);
@@ -176,7 +243,7 @@ public class LayerDeclarationAnalyzerTests
     /// <summary>One compilation with a name and the build properties VARVE0005 reads.</summary>
     private sealed class Test : CSharpAnalyzerTest<LayerDeclarationAnalyzer, DefaultVerifier>
     {
-        internal Test(string assemblyName, string? layer, bool packable, bool executable, bool compositionRoot)
+        internal Test(string assemblyName, string? layer, bool packable, bool executable, bool compositionRoot, string? hostPartOf)
         {
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80;
             TestCode = "namespace Declaring { internal sealed class Marker { } }";
@@ -189,6 +256,11 @@ public class LayerDeclarationAnalyzerTests
             if (layer is not null)
             {
                 config += "build_property.ArchLayer = " + layer + Environment.NewLine;
+            }
+
+            if (hostPartOf is not null)
+            {
+                config += "build_property.VarveHostPartOf = " + hostPartOf + Environment.NewLine;
             }
 
             TestState.AnalyzerConfigFiles.Add(("/.globalconfig", config));

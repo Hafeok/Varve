@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Varve.Protocol.Client;
 using Varve.Protocol.Client.Model;
+using Varve.WebUi.Components;
 using Varve.WebUi.SignIn;
 
 namespace Varve.WebUi.Pages.Services;
@@ -115,10 +116,10 @@ internal sealed class SignInSession : IDisposable
 
     /// <summary>The data plane's token, renewed when it is within the skew of expiry.</summary>
     /// <summary>Who the data plane's token names, for display (review F02).</summary>
-    internal Caller? DataCaller => _data is { } token ? Caller.Of(token.Value, _options.RoleClaimType) : null;
+    internal Caller? DataCaller => _data is { } token ? CallerTokens.Of(token.Value, _options.RoleClaimType) : null;
 
     /// <summary>Who the management plane's token names, for display (review F02).</summary>
-    internal Caller? ManagementCaller => _management is { } token ? Caller.Of(token.Value, _options.RoleClaimType) : null;
+    internal Caller? ManagementCaller => _management is { } token ? CallerTokens.Of(token.Value, _options.RoleClaimType) : null;
 
     internal BearerTokenProvider Data => async cancellationToken => OneAudience.Checked(await CurrentAsync(isManagement: false, cancellationToken).ConfigureAwait(false));
 

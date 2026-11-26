@@ -1,0 +1,231 @@
+format: 2
+version: v0.1.0-preview.23
+title: Web UI, part 2 (a) — the data explorer's Query screen
+date: 2026-11-24
+basis:
+  - issue: 355
+  - storage-format: 1
+  - delta-format: 1
+  - adr: "0183"
+  - adr: "0195"
+  - adr: "0196"
+  - adr: "0197"
+  - adr: "0198"
+  - adr: "0199"
+  - adr: "0248"
+  - adr: "0249"
+  - adr: "0250"
+  - adr: "0251"
+  - adr: "0252"
+  - adr: "0253"
+  - adr: "0254"
+sbom:
+  - asset: varve-webui-0.1.0-preview.23.zip sha256:06fe64063a0b0c62a09f05fb917eff3b854b12d3246f922323c759ad9304c97b
+  - binary: varve-0.1.0-preview.23-linux-arm64.tar.gz sha256:549670b270987c164a76777fabd972ba58c3da6302b88e351a35846d90e0a156
+  - binary: varve-0.1.0-preview.23-linux-x64.tar.gz sha256:a3de854c0da63c4e38cf9ee161432641b51ed56fa0bc1edc50ff8ef49cab7cf8
+  - binary: varve-0.1.0-preview.23-osx-arm64.tar.gz sha256:88252eb9a16d6ac39074ee70174b50f39488f9edf7ea7dc4244e26648ab66358
+  - binary: varve-0.1.0-preview.23-osx-x64.tar.gz sha256:aab37be0c67af2049882eda82da70253674e8dd5ef4f09159ef235b63de7df1a
+  - binary: varve-0.1.0-preview.23-win-arm64.zip sha256:56f8484188daf6c2263873486d842a5cbfaaa5c1e4c8db485538b5906cd55cc8
+  - binary: varve-0.1.0-preview.23-win-x64.zip sha256:1fbce84f7b2fa9feae497e6a3607da10c6951cf4cffacb145676c1d18b8b7f09
+  - image: ghcr.io/hafeok/varve sha256:240ae92949ae4151ce2e8f368fc47934a44d88907b07c507cf7fc4e646f59fec
+  - nupkg: Varve.Aspire sha256:4b4ca3f77e016db95298c1af27a1b401f82885f62f02bb64320da13e7e927d3a
+  - nupkg: Varve.Classification sha256:9443c541329aeb65edaac5e9a1f1934fd9f6496179c16a5e323dde1daa179e15
+  - nupkg: Varve.Delta sha256:2bf408e048a06c952f148898b78334602c536da403237ff7f59ce67c04c87e25
+  - nupkg: Varve.Derivation sha256:788654e2ab6bc70d8d1e7a782d928d7326671531daaac9842e8251f018d8dd5c
+  - nupkg: Varve.Events sha256:9328779bc50240684da30991b7581140990b640840813b708736ae41f6ab1acf
+  - nupkg: Varve.Inference sha256:d9bee81fa62f34625bfd5b40994c98c0653eaac60eb071c755afe00acc615670
+  - nupkg: Varve.Inference.Store sha256:69e4b8b74e08dacc00cb080302a58827a4641b9d76e932acd09cd351f1a8be6a
+  - nupkg: Varve.Iri sha256:d0b1b2b5565336685c43ed910b8aa7787430b62881b527b9758539a93b1e259e
+  - nupkg: Varve.Json.Canonical sha256:76bba17399241e3f782b972e4c836bd1de26b46c407106d4d3e61cffb3671924
+  - nupkg: Varve.JsonLd sha256:8c1107aa4a3a63ecbdea9ef3c01f3cbecce3e8374903aa21fed9430199c58d77
+  - nupkg: Varve.Management sha256:f0c8aca204d5daaf470cd6f69d8c50b4d3ab242d57bf2fa661c2f311264a6f07
+  - nupkg: Varve.Protocol sha256:65fe7724540df0afd6477e14a50936a54426b52e92fdc053219ad9f0f45c218c
+  - nupkg: Varve.Protocol.Client sha256:abc27f35048ede3a942c925d3e0c142ee440ed48758fc6e9bed566473c12c456
+  - nupkg: Varve.Rdf sha256:84a5aa1e33dca918d993b267fcbbc02e9e22c08a28b001e127c9aff8fc9d7e39
+  - nupkg: Varve.RdfXml sha256:4b2ab8e1e652d1c1186bba2788fa0e2b6719a65688f4ec5bed049997bbf03e73
+  - nupkg: Varve.Shacl sha256:52b3deaa5c27e65e68a267ab1f71f3727b2bb963f061ee84f54802338003f932
+  - nupkg: Varve.Shacl.Sparql sha256:7ba0d74c6be674efb2153a27d1c515d164c8f086d9857dbc916f2e677fbc9e34
+  - nupkg: Varve.Shacl.Store sha256:db22c074b862c61f6337333544e007cdaa42dca366a4ed85c7ba1433b26b6f3e
+  - nupkg: Varve.Sparql sha256:b79805e820345cc4c6baff4d46caf649044efcbd5f7b16a62454d84e117619b8
+  - nupkg: Varve.Sparql.Entailment sha256:a3889c39617fed6ece0f47df8cb4208332f21b2bc73de4ec3287494cb325449a
+  - nupkg: Varve.Sparql.Evaluation sha256:1b15b8398fcb9d7901619fcd32e03f763538b15f9ed7c7601e4cfb3d10b208c6
+  - nupkg: Varve.Sparql.Results sha256:ddb055af2a3cfb600f75db658a8fd4fc5d7088ee526da15599d42b26c5021320
+  - nupkg: Varve.Sparql.Store sha256:27792c78e12d448358c12aeb18636555a8c3ec302af7cbecc2f4bb9c9c9e4045
+  - nupkg: Varve.Store sha256:f79d5499ef41acaad160429432c05748d0e705918482808952f81819e1874036
+  - nupkg: Varve.Store.Azure sha256:80df4f2b87f3bbdfa2f0fdfa9b6107ad6cd4e0c348a8507bcc8e8b49d68768ef
+  - nupkg: Varve.Store.Browser sha256:4bdf555aaa12b3daf8495f0d54e065a5506427f183a11ff6e50fc6197935789b
+  - nupkg: Varve.Store.ObjectStorage sha256:61afc3ed6aae26267934c0e2ad21b0d3cb470d8fe7bc5c0560eb5a3508b3be2a
+  - nupkg: Varve.Store.S3 sha256:9cb3f9fa94b6c00c16a77d657b981fb902ef053be36a6e032f60664f0e516c7d
+  - nupkg: Varve.Turtle sha256:c9db8b0aec8412bfb6c8724049218216c0c60c659397e69cd98317966764bc3c
+  - nupkg: Varve.Xsd sha256:4ad76191ab6518c001173bdf179f24ddb9575bef036e54512fd1bdf19408d667
+  - tool: Varve.Server sha256:972ed178aedd15c7648518fba63fc015d5796aed67cf3c7e30f108cbf017f14e
+summary: |
+  ### Web UI, part 2 (a) — the data explorer's Query screen (#355, part 2 of #96)
+
+  The Web UI gains its data explorer, lazy-loaded on its first route, and
+  its first screen, Query. The console is unchanged, and its first screen
+  stays within the 1,920,000-byte budget. The storage and delta formats are
+  unchanged. #96 stays open for the explorer's other screens.
+
+  #### Added
+
+  - **The Query screen** (`datasets/{name}/query`).
+    - **The editor** (ADR 0250): a textarea over a layer coloured by the
+      parser's own lexer. It shows the parser's first error in the server's
+      words before anything is sent, and takes the answer's form from the
+      parsed query. Over 25,000 characters it neither colours nor checks as
+      it is typed; Run checks the text once.
+    - **The choices:** the regime, from those the service description lists;
+      and where to read, at the head, a position or a time. A position too
+      far below the head is refused before sending.
+    - **A SELECT** is read ahead to 5,000 rows, closed, and shown 500 at a
+      time. A cancel, a cut and the ceiling each say so. ASK, CONSTRUCT and
+      DESCRIBE each have their own view.
+    - **A download** in any format the server writes is a fresh read at the
+      view's position, never held whole in the browser.
+    - **History:** the tab's last 20 queries, cleared at sign-out.
+  - **A public SPARQL tokenizer** (ADR 0253): `SparqlTokenizer.Tokenize`, the
+    parser's lexer with comments and classified words, in the input's UTF-8
+    or UTF-16 units.
+  - **The explorer's reads in `Varve.Protocol.Client`** (ADR 0254; ADR 0203,
+    amended):
+    - `StartQueryAsync`, with `QueryAnswer`, streams a SELECT as TSV and a
+      graph as N-Triples, a line at a time;
+    - `AskAsync`, `DownloadAsync`, `ReadDiffAsync` and
+      `ServiceDescriptionAsync`;
+    - a body that breaks before its end ends as cut, never as an exception.
+    - Nothing was removed.
+  - **A read the client ended is said on the server** (ADR 0112, amended):
+    `varve.request.aborted = true` on its span, and one log line with its
+    request id.
+  - **The Web UI in three assemblies** (ADR 0252):
+    - `Varve.WebUi.Components` (layer 6, loaded with the first screen) holds
+      what the console uses;
+    - `Varve.WebUi.Explorer` (layer 7) loads with the explorer's first
+      route, with `Varve.Sparql` and `Varve.Sparql.Results`;
+    - the host `Varve.WebUi` is at layer 8.
+  - **The size gate's two rows** (ADR 0205, amended): the first screen at
+    1,905.1 kB against 1,920.0 kB, and the explorer's lazy set at 96.4 kB
+    against 100.0 kB.
+  - **The graph view** (ADR 0251): a deterministic radial layout in SVG,
+    with a node budget of 50 from its spike, and what a regime added marked
+    from two whole reads at one position (ADR 0254). It is on no screen yet.
+    The size gate refuses a publish that holds its spike.
+  - **Every procedure in the operator's guide names what runs it**
+    (ADR 0248, from #129), first shipped here.
+
+  #### Also first shipped here, from `main`
+
+  - **Inference, part 2** (#341; ADRs 0195 to 0199): materialised closures
+    under a byte budget, the explicit and implicit views with the reserved
+    graphs of the closure, OWL 2 RL and RDFS as rules, retraction decided
+    by measurement, and explain.
+  - **Object store verification** (#322; ADR 0183): `varve storage verify`,
+    its result records, and a generated compatibility page.
+  - **A follower opens at the last whole record and never appends** (#393).
+  - **What object store verification and the follower fix were run
+    against:** Azurite, an emulator of Azure Blob Storage, and RustFS, a
+    self-hosted S3-compatible store. No managed cloud service has run them
+    yet: the tests against a real Azure storage account are skipped in CI
+    for want of one.
+  - **The learning track, part (a)** (#385; ADR 0249): its pages quote
+    what CI ran, so every sample on a page is one CI executed.
+
+  #### Fixed
+
+  - **A new writer's fence could land behind a consolidated segment**
+    (#396, fixed by #402; ADR 0136, amended).
+    - **Affected:** every preview from `v0.1.0-preview.8` to
+      `v0.1.0-preview.22`, for a dataset on **object storage** whose
+      writer is handed over while the old writer is still committing: a
+      takeover of an instance that is slow and not dead, a placement
+      change, or a second process started on the same dataset. The file
+      backend is not affected.
+    - **The order.** The new writer claims the dataset and lists its log.
+      Before it creates its fence, the old writer commits once more, the
+      commit rolls its segment, and the old writer consolidates that
+      segment and deletes its chunks. The new writer's fence is then
+      created in a slot inside a segment that is already one consolidated
+      object, and not at the end of the log. The old writer has met no
+      fence and writes on.
+    - **What it did,** depending on whether a checkpoint was at the head
+      of the log when the new writer opened:
+      - no checkpoint at the head: the new writer was refused at its first
+        commit, and the old writer kept the log. No data was lost;
+      - a checkpoint at the head: both writers acknowledged commits at the
+        same positions. The new writer's commits were written behind the
+        consolidated object, where no reader looks. **Those acknowledged
+        commits were lost,** and the log forked.
+    - **The two signs an operator would see:**
+      1. straight after a handover, the instance that took the dataset
+         reports it `superseded` on `/health/ready` and answers writes with
+         `503 writer-superseded`, while `varve lease` names that same
+         instance as the holder of the highest epoch. The old instance
+         still accepts writes. This is the first case; a restart of either
+         instance clears it;
+      2. `varve lease` shows, for the newest epoch, a `fence` in a segment
+         that has a `.seg` and is below the log's last segment, and a
+         listing of `log/` shows chunks numbered above that fence in the
+         same consolidated segment (for example
+         `log/00000000.chunks/00000006` beside `log/00000000.seg`). This
+         is the second case. Nothing reports it at the time: both
+         instances are ready and both answer `200`.
+    - **The fix.** After its fence is created, a writer now reads for the
+      consolidated object of the fence's segment. If it is there, the
+      writer adopts it and the log after it, and fences again at the end.
+    - **The fix prevents the order. It repairs nothing.** A dataset that
+      already shows the second sign is read as before: the consolidated
+      object is the segment, and the chunks behind it are ignored. The
+      lost commits are still in those chunk objects, which nothing
+      deletes. There is no procedure for recovering them; open an issue
+      with the listing of `log/` and the output of `varve lease` before
+      changing anything.
+    - **Not known:** how wide the window is against a real store. It
+      needs several of the old writer's requests to complete between two
+      of the new writer's. It was found by a test and has not been
+      reported from a deployment.
+    - **What the fix was run against:** an in-memory object store, with
+      the issue's reproduction, the order that forks, the claim in place
+      and a follower. Its tests have no leg against Azurite, RustFS or an
+      Azure storage account.
+  - **A closure no longer exhausts the server's memory over a malformed
+    list** (#399, fixed by #409; ADR 0197, amended 2026-11-24). The list
+    rules now read lists from asserted statements only: a cell is a list
+    cell when the graph, or the binding's TBox graphs, assert exactly one
+    `rdf:first` and one `rdf:rest` of it, and an inferred `rdf:first` or
+    `rdf:rest` neither makes nor breaks a list. Every other cell with an
+    asserted `rdf:first` or `rdf:rest` is not read and is reported on
+    readiness as `unreadLists`, with the reason (`several-first`,
+    `several-rest`, `no-first`, `no-rest`, `cycle`, `broken`,
+    `differs-from-tbox`). A commit that changes which lists a graph's
+    triples make rebuilds that graph's closure.
+
+  #### Known issues
+
+  - **A closure's work has no limit** (#408). With an OWL 2 RL closure
+    enabled, a commit can make the closure work for minutes or longer
+    while staying well inside its byte budget, so it is not refused. The
+    case found was 85 triples that use the RDF, RDFS and OWL vocabulary as
+    data (`rdf:type rdfs:subPropertyOf rdfs:domain`, a class declared
+    equivalent to a property): it gave 388,741 facts and did not finish in
+    20 minutes. While that pass runs, closure reads at or after the commit
+    are refused with `503 inference-behind`, and the pass cannot be
+    cancelled. Until the fix, no setting bounds it: enable an OWL 2 RL
+    closure only over graphs whose writers do not use the RDF, RDFS and
+    OWL vocabulary's own terms as data, as the case found does.
+  - **A closure can keep an instance unready** (#412). With an OWL 2 RL
+    closure over a large dataset, a readiness probe can take several
+    seconds, during a closure build or after it, so an orchestrator with
+    a 1-second probe timeout, the default, marks the instance not ready
+    and keeps it so. A shutdown during a closure build is not honoured
+    within the grace period, so the instance is killed and its next
+    start builds the closure again. Until the fix, leave the closure off
+    on instances behind a readiness probe, or raise the probe's timeout.
+
+  #### Not yet
+
+  - **A design-side form row** for the Query screen's controls (#383), and
+    a results-table case for a triple term (#377).
+  - **The decision ledger in the host's first screen** (#375).
+  - **The graph view's budget**, re-measured on the perf environment (#376).
+accepted-by: mailto:emil@okkels-klein.dk

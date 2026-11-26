@@ -1297,3 +1297,56 @@ virtual Varve.Sparql.Algebra.UpdateOperation.Equals(Varve.Sparql.Algebra.UpdateO
 ~override Varve.Sparql.Algebra.GraphTarget.Equals(object obj) -> bool
 ~override Varve.Sparql.Algebra.GraphTarget.ToString() -> string
 ~override Varve.Sparql.Algebra.Variable.Equals(object obj) -> bool
+Varve.Sparql.Algebra.SparqlToken
+Varve.Sparql.Algebra.SparqlToken.Deconstruct(out Varve.Sparql.Algebra.SparqlTokenKind Kind, out long Start, out long End) -> void
+Varve.Sparql.Algebra.SparqlToken.End.get -> long
+Varve.Sparql.Algebra.SparqlToken.End.init -> void
+Varve.Sparql.Algebra.SparqlToken.Equals(Varve.Sparql.Algebra.SparqlToken other) -> bool
+Varve.Sparql.Algebra.SparqlToken.Kind.get -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlToken.Kind.init -> void
+Varve.Sparql.Algebra.SparqlToken.SparqlToken() -> void
+Varve.Sparql.Algebra.SparqlToken.SparqlToken(Varve.Sparql.Algebra.SparqlTokenKind Kind, long Start, long End) -> void
+Varve.Sparql.Algebra.SparqlToken.Start.get -> long
+Varve.Sparql.Algebra.SparqlToken.Start.init -> void
+Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.AnnotationClose = 28 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.AnnotationOpen = 27 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Anon = 3 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.BlankNodeLabel = 2 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Boolean = 11 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.CloseBrace = 16 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.CloseBracket = 20 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.CloseParen = 18 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Comment = 14 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Decimal = 8 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Double = 9 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Integer = 7 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Iri = 0 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Keyword = 12 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.LangTag = 10 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Nil = 4 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.OpenBrace = 15 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.OpenBracket = 19 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.OpenParen = 17 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Operator = 22 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.PrefixedName = 1 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Punctuation = 21 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.ReifiedClose = 24 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.ReifiedOpen = 23 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.String = 6 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.TripleTermClose = 26 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.TripleTermOpen = 25 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Variable = 5 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.Algebra.SparqlTokenKind.Word = 13 -> Varve.Sparql.Algebra.SparqlTokenKind
+Varve.Sparql.SparqlTokenizer
+Varve.Sparql.SparqlTokens
+Varve.Sparql.SparqlTokens.Error.get -> Varve.Sparql.Algebra.SparqlParseError
+Varve.Sparql.SparqlTokens.IsComplete.get -> bool
+Varve.Sparql.SparqlTokens.Tokens.get -> System.Collections.Generic.IReadOnlyList<Varve.Sparql.Algebra.SparqlToken>!
+override Varve.Sparql.Algebra.SparqlToken.GetHashCode() -> int
+static Varve.Sparql.Algebra.SparqlToken.operator !=(Varve.Sparql.Algebra.SparqlToken left, Varve.Sparql.Algebra.SparqlToken right) -> bool
+static Varve.Sparql.Algebra.SparqlToken.operator ==(Varve.Sparql.Algebra.SparqlToken left, Varve.Sparql.Algebra.SparqlToken right) -> bool
+static Varve.Sparql.SparqlTokenizer.Tokenize(System.ReadOnlySpan<byte> utf8) -> Varve.Sparql.SparqlTokens!
+static Varve.Sparql.SparqlTokenizer.Tokenize(System.ReadOnlySpan<char> text) -> Varve.Sparql.SparqlTokens!
+~override Varve.Sparql.Algebra.SparqlToken.Equals(object obj) -> bool
+~override Varve.Sparql.Algebra.SparqlToken.ToString() -> string

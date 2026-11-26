@@ -5,6 +5,8 @@
 using System;
 using Xunit;
 
+using Varve.WebUi.Components;
+
 namespace Varve.WebUi.Tests;
 
 /// <summary>

@@ -1,0 +1,22 @@
+@* AskAnswer (docs/ui/components/AskAnswer): an ASK query's answer as a word
+   in the metric style, with what answered it and where. A boolean is not a
+   state, so no StateBadge. *@
+<p class="vw-answer"><span class="vw-metric">@(Answer ? "true" : "false")</span><span class="vw-answer__context">@Context</span><PositionStamp Label="@PositionLabel" Value="Position" /></p>
+
+@code {
+    /// <summary>The answer.</summary>
+    [Parameter, EditorRequired]
+    public bool Answer { get; set; }
+
+    /// <summary>What answered it: "answered under rdfs".</summary>
+    [Parameter, EditorRequired]
+    public string Context { get; set; } = "";
+
+    /// <summary>The position's label.</summary>
+    [Parameter, EditorRequired]
+    public string PositionLabel { get; set; } = "";
+
+    /// <summary>The position it was read at.</summary>
+    [Parameter, EditorRequired]
+    public long Position { get; set; }
+}

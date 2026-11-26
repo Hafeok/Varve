@@ -1,0 +1,124 @@
+@* QueryEditor (docs/ui/components/QueryEditor, ADR 0250): a real textarea over
+   an aria-hidden coloured layer and a line-number gutter, all in one grid with
+   the same metrics. The browser does all the editing; the layer only repeats
+   the text, coloured by the runs it is given. The text is the textarea's
+   initial content: once rendered, the browser owns its value, and a page
+   that replaces the text sets it through webui.js. *@
+<div class="vw-field"><label for="@Id">@Label</label><div class="@EditorClass"><div class="vw-editor__gutter" aria-hidden="true">@Gutter</div><div class="vw-editor__layers"><pre class="vw-editor__code" aria-hidden="true">@Code</pre><textarea class="vw-editor__input" id="@Id" rows="@Lines" spellcheck="false" autocapitalize="off" autocomplete="off" readonly="@ReadOnly" aria-describedby="@DescribedBy" aria-invalid="@(Error is null ? null : "true")">@Text</textarea></div></div>@if (Error is not null)
+{
+<span class="vw-field__error" id="@(Id + "-err")" aria-live="polite">@Error.Message</span>
+}@if (!ReadOnly && Help is not null)
+{
+<span class="vw-field__help" id="@(Id + "-help")">@Help</span>
+}</div>
+
+@code {
+    /// <summary>A stable id, unique on the page: the textarea's.</summary>
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    /// <summary>The label, naming what the text is.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    /// <summary>The text, as the textarea holds it.</summary>
+    [Parameter]
+    public string Text { get; set; } = "";
+
+    /// <summary>The coloured runs, in order and not overlapping; text outside them is plain.</summary>
+    [Parameter]
+    public IReadOnlyList<EditorRun> Runs { get; set; } = [];
+
+    /// <summary>The parse error, if there is one.</summary>
+    [Parameter]
+    public EditorError? Error { get; set; }
+
+    /// <summary>The bracket pair at the caret, as the starts of their two runs.</summary>
+    [Parameter]
+    public IReadOnlyList<int> Match { get; set; } = [];
+
+    /// <summary>Shown, not edited: the query a view runs.</summary>
+    [Parameter]
+    public bool ReadOnly { get; set; }
+
+    /// <summary>The help line under an editable editor: how Tab works, and how to leave.</summary>
+    [Parameter]
+    public string? Help { get; set; }
+
+    private int Lines => Text.Count('\n') + 1;
+
+    private string EditorClass =>
+        ReadOnly ? "vw-editor vw-editor--readonly" : Error is null ? "vw-editor" : "vw-editor vw-editor--invalid";
+
+    private string? DescribedBy =>
+        ReadOnly ? null : (Error is null, Help is null) switch
+        {
+            (true, true) => null,
+            (true, false) => Id + "-help",
+            (false, true) => Id + "-err",
+            _ => Id + "-err " + Id + "-help",
+        };
+
+    private RenderFragment Gutter => builder =>
+    {
+        for (int line = 1; line <= Lines; line++)
+        {
+            builder.OpenElement(0, "span");
+            builder.AddContent(1, line.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            builder.CloseElement();
+        }
+    };
+
+    // The layer: plain text between runs, one span per run, the error's run
+    // wrapped, and a closing line break so that a last empty line still has
+    // its height, as the textarea gives it.
+    private RenderFragment Code => builder =>
+    {
+        int at = 0;
+        bool errorShown = Error is null;
+
+        foreach (EditorRun run in Runs)
+        {
+            if (run.Start > at)
+            {
+                builder.AddContent(0, Text[at..run.Start]);
+            }
+
+            bool wrapped = !errorShown && run.End > Error!.Offset;
+
+            if (wrapped)
+            {
+                builder.OpenElement(1, "span");
+                builder.AddAttribute(2, "class", "vw-tok--error");
+                errorShown = true;
+            }
+
+            builder.OpenElement(3, "span");
+            builder.AddAttribute(4, "class", Match.Contains(run.Start) ? "vw-tok vw-tok--" + run.Kind + " vw-tok--match" : "vw-tok vw-tok--" + run.Kind);
+            builder.AddContent(5, Text[run.Start..run.End]);
+            builder.CloseElement();
+
+            if (wrapped)
+            {
+                builder.CloseElement();
+            }
+
+            at = run.End;
+        }
+
+        if (at < Text.Length)
+        {
+            builder.AddContent(6, Text[at..]);
+        }
+
+        if (!errorShown)
+        {
+            builder.OpenElement(7, "span");
+            builder.AddAttribute(8, "class", "vw-tok--error vw-tok--error-end");
+            builder.AddContent(9, " ");
+            builder.CloseElement();
+        }
+
+        builder.AddContent(10, "\n");
+    };
+}

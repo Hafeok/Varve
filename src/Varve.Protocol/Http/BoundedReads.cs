@@ -47,12 +47,22 @@ internal static class BoundedReads
         {
             await body(output, linked.Token).ConfigureAwait(false);
             await output.FlushAsync(linked.Token).ConfigureAwait(false);
+
+            // A write to a connection the client closed is discarded, not
+            // refused: a body can finish into nothing. That is ended too.
+            if (context.RequestAborted.IsCancellationRequested)
+            {
+                Tracing.EndedByTheClient(context, options);
+            }
+
             return;
         }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
         {
             // The client left. Nobody is listening for an answer; the pin is
-            // released with the response.
+            // released with the response. Said on the span and in the log
+            // (ADR 0112, amended 2026-11-20).
+            Tracing.EndedByTheClient(context, options);
             return;
         }
         catch (OperationCanceledException) when (limit.IsCancellationRequested)

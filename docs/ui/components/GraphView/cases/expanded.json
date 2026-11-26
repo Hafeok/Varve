@@ -1,0 +1,329 @@
+{
+  "parameters": {
+    "Id": "gv",
+    "Title": "Neighbourhood of notes:42 at position 18417",
+    "Layout": {
+      "MinX": -334.4,
+      "MinY": -503.2624104031495,
+      "Width": 914,
+      "Height": 774,
+      "Nodes": [
+        {
+          "X": 0,
+          "Y": 0,
+          "Height": 40,
+          "Label": "notes:42",
+          "Shown": "notes:42",
+          "Kind": "iri",
+          "Centre": true,
+          "Type": "schema:Note",
+          "Diff": null,
+          "Expand": null,
+          "Name": "notes:42, the resource at the centre",
+          "Href": "#"
+        },
+        {
+          "X": 204.1958893802367,
+          "Y": -148.35699767862022,
+          "Height": 40,
+          "Label": "users:alice",
+          "Shown": "users:alice",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": "schema:Person",
+          "Diff": null,
+          "Expand": "Collapse",
+          "Name": "dct:creator → users:alice, outgoing",
+          "Href": "#"
+        },
+        {
+          "X": 149.8732422718495,
+          "Y": -461.2624104031495,
+          "Height": 28,
+          "Label": "users:bob",
+          "Shown": "users:bob",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "foaf:knows → users:bob, outgoing from users:alice",
+          "Href": "#"
+        },
+        {
+          "X": 392.3732422718495,
+          "Y": -285.07584736184947,
+          "Height": 28,
+          "Label": "users:carol",
+          "Shown": "users:carol",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "foaf:knows → users:carol, outgoing from users:alice",
+          "Href": "#"
+        },
+        {
+          "X": 485.0,
+          "Y": 0.0,
+          "Height": 28,
+          "Label": "notes:51",
+          "Shown": "notes:51",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:creator ← notes:51, incoming from users:alice",
+          "Href": "#"
+        },
+        {
+          "X": 204.1958893802367,
+          "Y": 148.35699767862022,
+          "Height": 28,
+          "Label": "\"2026-10-27\"",
+          "Shown": "\"2026-10-27\"",
+          "Kind": "literal",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": null,
+          "Name": "dct:created → \"2026-10-27\", outgoing",
+          "Href": "#"
+        },
+        {
+          "X": 77.99588938023673,
+          "Y": 240.04666471289673,
+          "Height": 28,
+          "Label": "topics:planning",
+          "Shown": "topics:planning",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:subject → topics:planning, outgoing",
+          "Href": "#"
+        },
+        {
+          "X": -77.9958893802367,
+          "Y": 240.04666471289676,
+          "Height": 28,
+          "Label": "topics:sync",
+          "Shown": "topics:sync",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:subject → topics:sync, outgoing",
+          "Href": "#"
+        },
+        {
+          "X": -204.19588938023668,
+          "Y": 148.35699767862025,
+          "Height": 28,
+          "Label": "\"Weekly sync\"@en",
+          "Shown": "\"Weekly sync\"@en",
+          "Kind": "literal",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": null,
+          "Name": "dct:title → \"Weekly sync\"@en, outgoing",
+          "Href": "#"
+        },
+        {
+          "X": -252.39999999999998,
+          "Y": 3.091008521047919e-14,
+          "Height": 28,
+          "Label": "_:b7",
+          "Shown": "_:b7",
+          "Kind": "bnode",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "schema:about → _:b7, outgoing",
+          "Href": "#"
+        },
+        {
+          "X": -204.19588938023674,
+          "Y": -148.3569976786202,
+          "Height": 28,
+          "Label": "notes:7",
+          "Shown": "notes:7",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:references ← notes:7, incoming",
+          "Href": "#"
+        },
+        {
+          "X": -77.99588938023676,
+          "Y": -240.04666471289673,
+          "Height": 28,
+          "Label": "notes:9",
+          "Shown": "notes:9",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:references ← notes:9, incoming",
+          "Href": "#"
+        }
+      ],
+      "Edges": [
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": 204.1958893802367,
+          "Y2": -148.35699767862022,
+          "Kind": null
+        },
+        {
+          "X1": 204.1958893802367,
+          "Y1": -148.35699767862022,
+          "X2": 149.8732422718495,
+          "Y2": -461.2624104031495,
+          "Kind": null
+        },
+        {
+          "X1": 204.1958893802367,
+          "Y1": -148.35699767862022,
+          "X2": 392.3732422718495,
+          "Y2": -285.07584736184947,
+          "Kind": null
+        },
+        {
+          "X1": 204.1958893802367,
+          "Y1": -148.35699767862022,
+          "X2": 485.0,
+          "Y2": 0.0,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": 204.1958893802367,
+          "Y2": 148.35699767862022,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": 77.99588938023673,
+          "Y2": 240.04666471289673,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -77.9958893802367,
+          "Y2": 240.04666471289676,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -204.19588938023668,
+          "Y2": 148.35699767862025,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -252.39999999999998,
+          "Y2": 3.091008521047919e-14,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -204.19588938023674,
+          "Y2": -148.3569976786202,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -77.99588938023676,
+          "Y2": -240.04666471289673,
+          "Kind": null
+        }
+      ],
+      "Labels": [
+        {
+          "X": 145.03580974400018,
+          "Y": -105.37468386271046,
+          "Text": "dct:creator",
+          "Kind": null
+        },
+        {
+          "X": 155.19165222334004,
+          "Y": -430.6276871432727,
+          "Text": "foaf:knows",
+          "Kind": null
+        },
+        {
+          "X": 343.6313321991587,
+          "Y": -249.66277679782672,
+          "Text": "foaf:knows",
+          "Kind": null
+        },
+        {
+          "X": 422.1311857630819,
+          "Y": -33.21542732126807,
+          "Text": "dct:creator",
+          "Kind": null
+        },
+        {
+          "X": 153.2941012668272,
+          "Y": 111.37468386271044,
+          "Text": "dct:created",
+          "Kind": null
+        },
+        {
+          "X": 66.49637271473284,
+          "Y": 204.65479158600294,
+          "Text": "dct:subject",
+          "Kind": null
+        },
+        {
+          "X": -66.49637271473281,
+          "Y": 204.65479158600297,
+          "Text": "dct:subject",
+          "Kind": null
+        },
+        {
+          "X": -157.6138573482645,
+          "Y": 114.51317036648447,
+          "Text": "dct:title",
+          "Kind": null
+        },
+        {
+          "X": -128.79999999999998,
+          "Y": 1.5773450773017908e-14,
+          "Text": "schema:about",
+          "Kind": null
+        },
+        {
+          "X": -146.81446714467123,
+          "Y": -106.6669541070494,
+          "Text": "dct:references",
+          "Kind": null
+        },
+        {
+          "X": -65.55100683688886,
+          "Y": -201.7452545871552,
+          "Text": "dct:references",
+          "Kind": null
+        }
+      ]
+    }
+  }
+}

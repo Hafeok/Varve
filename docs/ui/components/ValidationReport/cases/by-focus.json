@@ -1,0 +1,79 @@
+{
+  "parameters": {
+    "Id": "g",
+    "Conforms": false,
+    "Count": "3 results",
+    "PositionLabel": "notes position",
+    "Position": 18417,
+    "Grouping": [
+      {
+        "Text": "By shape",
+        "Href": "#",
+        "Current": false
+      },
+      {
+        "Text": "By focus node",
+        "Href": "#",
+        "Current": true
+      }
+    ],
+    "Groups": [
+      {
+        "Title": {
+          "Kind": "Iri",
+          "Text": "notes:42"
+        },
+        "Count": "1 result",
+        "Caption": "Results for notes:42",
+        "Rows": [
+          {
+            "Tone": "Critical",
+            "Severity": "violation",
+            "Focus": {
+              "Kind": "Iri",
+              "Text": "notes:42"
+            },
+            "Path": "dct:title",
+            "Value": null,
+            "Message": "Each note has exactly one title."
+          }
+        ]
+      },
+      {
+        "Title": {
+          "Kind": "Iri",
+          "Text": "notes:43"
+        },
+        "Count": "2 results",
+        "Caption": "Results for notes:43",
+        "Rows": [
+          {
+            "Tone": "Critical",
+            "Severity": "violation",
+            "Focus": {
+              "Kind": "Iri",
+              "Text": "notes:43"
+            },
+            "Path": "dct:title",
+            "Value": null,
+            "Message": "Each note has exactly one title; this one has 2."
+          },
+          {
+            "Tone": "Warn",
+            "Severity": "warning",
+            "Focus": {
+              "Kind": "Iri",
+              "Text": "notes:43"
+            },
+            "Path": "dct:creator/foaf:mbox",
+            "Value": {
+              "Kind": "Literal",
+              "Text": "owner@example"
+            },
+            "Message": "A creator's mailbox is a mailto: IRI."
+          }
+        ]
+      }
+    ]
+  }
+}

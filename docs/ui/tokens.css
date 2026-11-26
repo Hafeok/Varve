@@ -27,6 +27,13 @@
   --added-soft: #dff1f2;
   --removed: #8c2f62;
   --removed-soft: #f6e4ee;
+  --tok-keyword: var(--ink);
+  --tok-iri: var(--term-iri);
+  --tok-variable: #6a3fb4;
+  --tok-literal: #566000;
+  --tok-punct: var(--ink-muted);
+  --tok-comment: var(--ink-muted);
+  --tok-selection: #c8dcef;
   --shadow-overlay: 0 8px 24px rgba(17, 25, 34, 0.18);
 }
 [data-theme="dark"] {
@@ -57,6 +64,13 @@
   --added-soft: #0f2629;
   --removed: #f08cc0;
   --removed-soft: #2c1622;
+  --tok-keyword: var(--ink);
+  --tok-iri: var(--term-iri);
+  --tok-variable: #c0a8f4;
+  --tok-literal: #c3c96a;
+  --tok-punct: var(--ink-muted);
+  --tok-comment: var(--ink-muted);
+  --tok-selection: #2c4560;
   --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.55);
 }
 :root {
