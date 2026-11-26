@@ -50,6 +50,9 @@ jobs:
   pipeline:
     name: pipeline (devcontainer)
     runs-on: ubuntu-latest
+    # A limit for the job as a whole (#405): three times its slowest green run
+    # that is not #399's slow case. Not the per-test limit eng/ci.cs still owes.
+    timeout-minutes: 210
 
     steps:
       - name: Line endings
@@ -390,6 +393,9 @@ jobs:
           --results-directory ${{ github.workspace }}/artifacts/test-results/Varve.Sparql.Entailment.Tests
 
       - name: Test Varve.Inference
+        # Three times the slowest green run of this step that is not #399's slow
+        # case (#405); about 15 once #409 has landed.
+        timeout-minutes: 45
         run: >
           dotnet test
           --project tests/Varve.Inference.Tests/Varve.Inference.Tests.csproj
