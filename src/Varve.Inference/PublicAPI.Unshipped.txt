@@ -244,3 +244,40 @@ Varve.Inference.Model.ClosureCosts.PerClash.get -> Varve.Inference.Model.MemoryA
 Varve.Inference.Model.ClosureCosts.PerClash.init -> void
 Varve.Inference.Model.ClosureCosts.PerClashPremise.get -> Varve.Inference.Model.MemoryAmount
 Varve.Inference.Model.ClosureCosts.PerClashPremise.init -> void
+Varve.Inference.Closure.ReadListsPerGraph() -> void
+Varve.Inference.Closure.ReadListsPerGraph(System.Collections.Generic.IReadOnlyDictionary<Varve.Inference.Model.DataGraphIndex, Varve.Inference.Model.ListStatements!>! changes) -> Varve.Inference.Model.ListChange!
+Varve.Inference.Closure.UnreadListsIn(Varve.Inference.Model.DataGraphIndex graph) -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.UnreadList>!
+static Varve.Inference.Closure.UnreadListsOf(Varve.Inference.Model.InferenceProfile profile, Varve.Inference.IInferenceTerms! terms, Varve.Rdf.TermHandle tboxGraph, System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.Fact>! tbox, System.Collections.Generic.IReadOnlyDictionary<Varve.Rdf.TermHandle, System.Collections.Generic.List<Varve.Inference.Model.Fact>!>! graphs) -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedUnreadList>!
+static Varve.Inference.Closure.UnreadListsOfMerge(Varve.Inference.Model.InferenceProfile profile, Varve.Inference.IInferenceTerms! terms, Varve.Rdf.TermHandle tboxGraph, System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.Fact>! tbox, System.Collections.Generic.IReadOnlyDictionary<Varve.Rdf.TermHandle, System.Collections.Generic.List<Varve.Inference.Model.Fact>!>! graphs) -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedUnreadList>!
+Varve.Inference.Model.ListChange.<Clone>$() -> Varve.Inference.Model.ListChange!
+Varve.Inference.Model.ListChange.CellsAfter.get -> System.Collections.Generic.IReadOnlyList<(Varve.Inference.Model.Fact Fact, Varve.Inference.Model.DataGraphIndex Graph)>!
+Varve.Inference.Model.ListChange.CellsAfter.init -> void
+Varve.Inference.Model.ListChange.CellsBefore.get -> System.Collections.Generic.IReadOnlyList<(Varve.Inference.Model.Fact Fact, Varve.Inference.Model.DataGraphIndex Graph)>!
+Varve.Inference.Model.ListChange.CellsBefore.init -> void
+Varve.Inference.Model.ListChange.Deconstruct(out System.Collections.Generic.IReadOnlyList<(Varve.Inference.Model.Fact Fact, Varve.Inference.Model.DataGraphIndex Graph)>! CellsBefore, out System.Collections.Generic.IReadOnlyList<(Varve.Inference.Model.Fact Fact, Varve.Inference.Model.DataGraphIndex Graph)>! CellsAfter) -> void
+Varve.Inference.Model.ListChange.Equals(Varve.Inference.Model.ListChange? other) -> bool
+Varve.Inference.Model.ListChange.ListChange(System.Collections.Generic.IReadOnlyList<(Varve.Inference.Model.Fact Fact, Varve.Inference.Model.DataGraphIndex Graph)>! CellsBefore, System.Collections.Generic.IReadOnlyList<(Varve.Inference.Model.Fact Fact, Varve.Inference.Model.DataGraphIndex Graph)>! CellsAfter) -> void
+Varve.Inference.Model.ListChange.Rebuilds.get -> bool
+Varve.Inference.Model.ListStatements.<Clone>$() -> Varve.Inference.Model.ListStatements!
+Varve.Inference.Model.ListStatements.Added.get -> System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.Fact>!
+Varve.Inference.Model.ListStatements.Added.init -> void
+Varve.Inference.Model.ListStatements.Deconstruct(out System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.Fact>! Added, out System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.Fact>! Removed) -> void
+Varve.Inference.Model.ListStatements.Equals(Varve.Inference.Model.ListStatements? other) -> bool
+Varve.Inference.Model.ListStatements.ListStatements(System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.Fact>! Added, System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.Fact>! Removed) -> void
+Varve.Inference.Model.ListStatements.Removed.get -> System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.Fact>!
+Varve.Inference.Model.ListStatements.Removed.init -> void
+override Varve.Inference.Model.ListChange.Equals(object? obj) -> bool
+override Varve.Inference.Model.ListChange.GetHashCode() -> int
+override Varve.Inference.Model.ListChange.ToString() -> string!
+override Varve.Inference.Model.ListStatements.Equals(object? obj) -> bool
+override Varve.Inference.Model.ListStatements.GetHashCode() -> int
+override Varve.Inference.Model.ListStatements.ToString() -> string!
+static Varve.Inference.Model.ListChange.None.get -> Varve.Inference.Model.ListChange!
+static Varve.Inference.Model.ListChange.operator !=(Varve.Inference.Model.ListChange? left, Varve.Inference.Model.ListChange? right) -> bool
+static Varve.Inference.Model.ListChange.operator ==(Varve.Inference.Model.ListChange? left, Varve.Inference.Model.ListChange? right) -> bool
+static Varve.Inference.Model.ListStatements.operator !=(Varve.Inference.Model.ListStatements? left, Varve.Inference.Model.ListStatements? right) -> bool
+static Varve.Inference.Model.ListStatements.operator ==(Varve.Inference.Model.ListStatements? left, Varve.Inference.Model.ListStatements? right) -> bool
+Varve.Inference.Model.UnreadListReason.SpansGraphs = 7 -> Varve.Inference.Model.UnreadListReason
+Varve.Inference.PremiseSets.SetsOfInstance(System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Fact>! premises) -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PremiseSet!>!
+Varve.Inference.Model.ListChange
+Varve.Inference.Model.ListStatements

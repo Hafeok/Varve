@@ -4,7 +4,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
 using Varve.Inference.Model;
@@ -125,7 +124,16 @@ internal sealed class AssertedLists
         }
 
         HashSet<UnreadList> under = [.. tbox._unread];
-        return [.. part._unread.Where(unread => !under.Contains(unread))];
+        List<UnreadList> own = [];
+        foreach (UnreadList unread in part._unread)
+        {
+            if (!under.Contains(unread))
+            {
+                own.Add(unread);
+            }
+        }
+
+        return own;
     }
 
     /// <summary>The cells the statements do not make lists of, each with its reason, ordered by handle.</summary>
@@ -339,7 +347,7 @@ internal sealed class AssertedLists
         foreach (AssertedLists part in _parts.Values)
         {
             List<Cell> path = [];
-            if (part.TryPath(head, path, facts) && !given.Exists(other => other.SequenceEqual(path)))
+            if (part.TryPath(head, path, facts) && !given.Exists(other => Same(other, path)))
             {
                 given.Add(path);
                 yield return path;
@@ -446,10 +454,22 @@ internal sealed class AssertedLists
     {
         if (_parts is not null || other._parts is not null)
         {
-            // Graph by graph: a graph read on one side only is compared with no lists.
-            AssertedLists none = new(_list);
+            // Graph by graph: a graph read on one side only is compared with what it reads with no
+            // statements of its own, the TBox's lists, or none.
+            AssertedLists none = Part(this, -1) ?? Part(other, -1) ?? new(_list);
             HashSet<ulong> changed = [];
-            foreach (int graph in Parts(this).Union(Parts(other)))
+            HashSet<int> graphs = [];
+            foreach (int graph in Parts(this))
+            {
+                graphs.Add(graph);
+            }
+
+            foreach (int graph in Parts(other))
+            {
+                graphs.Add(graph);
+            }
+
+            foreach (int graph in graphs)
             {
                 AssertedLists mine = Part(this, graph) ?? none, theirs = Part(other, graph) ?? none;
                 changed.UnionWith(mine.HeadsChangedFrom(theirs));
@@ -485,14 +505,14 @@ internal sealed class AssertedLists
     {
         if (_parts is not null || other._parts is not null)
         {
-            if (_parts is null || other._parts is null || !_parts.Keys.SequenceEqual(other._parts.Keys))
+            if (_parts is null || other._parts is null || _parts.Count != other._parts.Count)
             {
                 return false;
             }
 
             foreach ((int graph, AssertedLists part) in _parts)
             {
-                if (!part.SameReading(other._parts[graph]))
+                if (!other._parts.TryGetValue(graph, out AssertedLists? theirs) || !part.SameReading(theirs))
                 {
                     return false;
                 }
@@ -545,9 +565,39 @@ internal sealed class AssertedLists
     }
 
     /// <summary>The data graphs read, by index: none for a reading not per graph.</summary>
-    internal IEnumerable<int> Graphs => Parts(this).Where(graph => graph >= 0);
+    internal IEnumerable<int> Graphs
+    {
+        get
+        {
+            foreach (int graph in Parts(this))
+            {
+                if (graph >= 0)
+                {
+                    yield return graph;
+                }
+            }
+        }
+    }
 
-    private static IEnumerable<int> Parts(AssertedLists lists) => lists._parts?.Keys ?? Enumerable.Empty<int>();
+    private static IReadOnlyCollection<int> Parts(AssertedLists lists) => lists._parts is { } parts ? parts.Keys : Array.Empty<int>();
+
+    private static bool Same(List<Cell> a, List<Cell> b)
+    {
+        if (a.Count != b.Count)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (!a[i].Equals(b[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     private static AssertedLists? Part(AssertedLists lists, int graph) =>
         lists._parts is not null && lists._parts.TryGetValue(graph, out AssertedLists? part) ? part : null;
