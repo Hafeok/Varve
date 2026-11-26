@@ -144,17 +144,20 @@ unchanged. #96 stays open for the explorer's other screens.
     the issue's reproduction, the order that forks, the claim in place
     and a follower. Its tests have no leg against Azurite, RustFS or an
     Azure storage account.
+- **A closure no longer exhausts the server's memory over a malformed
+  list** (#399, fixed by #409; ADR 0197, amended 2026-11-24). The list
+  rules now read lists from asserted statements only: a cell is a list
+  cell when the graph, or the binding's TBox graphs, assert exactly one
+  `rdf:first` and one `rdf:rest` of it, and an inferred `rdf:first` or
+  `rdf:rest` neither makes nor breaks a list. Every other cell with an
+  asserted `rdf:first` or `rdf:rest` is not read and is reported on
+  readiness as `unreadLists`, with the reason (`several-first`,
+  `several-rest`, `no-first`, `no-rest`, `cycle`, `broken`,
+  `differs-from-tbox`). A commit that changes which lists a graph's
+  triples make rebuilds that graph's closure.
 
 #### Known issues
 
-- **A closure can exhaust the server's memory in one commit** (#399).
-  With an inference closure enabled, a schema whose lists give a list
-  cell more than one `rdf:rest` or `rdf:first` can make a single commit
-  grow the closure until the server runs out of memory: the closure's
-  byte budget does not bound it, so the commit is not refused, and the
-  server can stop. Until the fix, enable a closure only over a schema
-  whose `rdf:List` cells each have exactly one `rdf:first` and one
-  `rdf:rest`, and check a schema's lists before you bind it to a closure.
 - **A closure's work has no limit** (#408). With an OWL 2 RL closure
   enabled, a commit can make the closure work for minutes or longer
   while staying well inside its byte budget, so it is not refused. The
