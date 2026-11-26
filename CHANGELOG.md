@@ -12,6 +12,179 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0-preview.23] - 2026-11-24
+
+**Web UI, part 2 (a) — the data explorer's Query screen**
+
+### Web UI, part 2 (a) — the data explorer's Query screen (#355, part 2 of #96)
+
+The Web UI gains its data explorer, lazy-loaded on its first route, and
+its first screen, Query. The console is unchanged, and its first screen
+stays within the 1,920,000-byte budget. The storage and delta formats are
+unchanged. #96 stays open for the explorer's other screens.
+
+#### Added
+
+- **The Query screen** (`datasets/{name}/query`).
+  - **The editor** (ADR 0250): a textarea over a layer coloured by the
+    parser's own lexer. It shows the parser's first error in the server's
+    words before anything is sent, and takes the answer's form from the
+    parsed query. Over 25,000 characters it neither colours nor checks as
+    it is typed; Run checks the text once.
+  - **The choices:** the regime, from those the service description lists;
+    and where to read, at the head, a position or a time. A position too
+    far below the head is refused before sending.
+  - **A SELECT** is read ahead to 5,000 rows, closed, and shown 500 at a
+    time. A cancel, a cut and the ceiling each say so. ASK, CONSTRUCT and
+    DESCRIBE each have their own view.
+  - **A download** in any format the server writes is a fresh read at the
+    view's position, never held whole in the browser.
+  - **History:** the tab's last 20 queries, cleared at sign-out.
+- **A public SPARQL tokenizer** (ADR 0253): `SparqlTokenizer.Tokenize`, the
+  parser's lexer with comments and classified words, in the input's UTF-8
+  or UTF-16 units.
+- **The explorer's reads in `Varve.Protocol.Client`** (ADR 0254; ADR 0203,
+  amended):
+  - `StartQueryAsync`, with `QueryAnswer`, streams a SELECT as TSV and a
+    graph as N-Triples, a line at a time;
+  - `AskAsync`, `DownloadAsync`, `ReadDiffAsync` and
+    `ServiceDescriptionAsync`;
+  - a body that breaks before its end ends as cut, never as an exception.
+  - Nothing was removed.
+- **A read the client ended is said on the server** (ADR 0112, amended):
+  `varve.request.aborted = true` on its span, and one log line with its
+  request id.
+- **The Web UI in three assemblies** (ADR 0252):
+  - `Varve.WebUi.Components` (layer 6, loaded with the first screen) holds
+    what the console uses;
+  - `Varve.WebUi.Explorer` (layer 7) loads with the explorer's first
+    route, with `Varve.Sparql` and `Varve.Sparql.Results`;
+  - the host `Varve.WebUi` is at layer 8.
+- **The size gate's two rows** (ADR 0205, amended): the first screen at
+  1,905.1 kB against 1,920.0 kB, and the explorer's lazy set at 96.4 kB
+  against 100.0 kB.
+- **The graph view** (ADR 0251): a deterministic radial layout in SVG,
+  with a node budget of 50 from its spike, and what a regime added marked
+  from two whole reads at one position (ADR 0254). It is on no screen yet.
+  The size gate refuses a publish that holds its spike.
+- **Every procedure in the operator's guide names what runs it**
+  (ADR 0248, from #129), first shipped here.
+
+#### Also first shipped here, from `main`
+
+- **Inference, part 2** (#341; ADRs 0195 to 0199): materialised closures
+  under a byte budget, the explicit and implicit views with the reserved
+  graphs of the closure, OWL 2 RL and RDFS as rules, retraction decided
+  by measurement, and explain.
+- **Object store verification** (#322; ADR 0183): `varve storage verify`,
+  its result records, and a generated compatibility page.
+- **A follower opens at the last whole record and never appends** (#393).
+- **What object store verification and the follower fix were run
+  against:** Azurite, an emulator of Azure Blob Storage, and RustFS, a
+  self-hosted S3-compatible store. No managed cloud service has run them
+  yet: the tests against a real Azure storage account are skipped in CI
+  for want of one.
+- **The learning track, part (a)** (#385; ADR 0249): its pages quote
+  what CI ran, so every sample on a page is one CI executed.
+
+#### Fixed
+
+- **A new writer's fence could land behind a consolidated segment**
+  (#396, fixed by #402; ADR 0136, amended).
+  - **Affected:** every preview from `v0.1.0-preview.8` to
+    `v0.1.0-preview.22`, for a dataset on **object storage** whose
+    writer is handed over while the old writer is still committing: a
+    takeover of an instance that is slow and not dead, a placement
+    change, or a second process started on the same dataset. The file
+    backend is not affected.
+  - **The order.** The new writer claims the dataset and lists its log.
+    Before it creates its fence, the old writer commits once more, the
+    commit rolls its segment, and the old writer consolidates that
+    segment and deletes its chunks. The new writer's fence is then
+    created in a slot inside a segment that is already one consolidated
+    object, and not at the end of the log. The old writer has met no
+    fence and writes on.
+  - **What it did,** depending on whether a checkpoint was at the head
+    of the log when the new writer opened:
+    - no checkpoint at the head: the new writer was refused at its first
+      commit, and the old writer kept the log. No data was lost;
+    - a checkpoint at the head: both writers acknowledged commits at the
+      same positions. The new writer's commits were written behind the
+      consolidated object, where no reader looks. **Those acknowledged
+      commits were lost,** and the log forked.
+  - **The two signs an operator would see:**
+    1. straight after a handover, the instance that took the dataset
+       reports it `superseded` on `/health/ready` and answers writes with
+       `503 writer-superseded`, while `varve lease` names that same
+       instance as the holder of the highest epoch. The old instance
+       still accepts writes. This is the first case; a restart of either
+       instance clears it;
+    2. `varve lease` shows, for the newest epoch, a `fence` in a segment
+       that has a `.seg` and is below the log's last segment, and a
+       listing of `log/` shows chunks numbered above that fence in the
+       same consolidated segment (for example
+       `log/00000000.chunks/00000006` beside `log/00000000.seg`). This
+       is the second case. Nothing reports it at the time: both
+       instances are ready and both answer `200`.
+  - **The fix.** After its fence is created, a writer now reads for the
+    consolidated object of the fence's segment. If it is there, the
+    writer adopts it and the log after it, and fences again at the end.
+  - **The fix prevents the order. It repairs nothing.** A dataset that
+    already shows the second sign is read as before: the consolidated
+    object is the segment, and the chunks behind it are ignored. The
+    lost commits are still in those chunk objects, which nothing
+    deletes. There is no procedure for recovering them; open an issue
+    with the listing of `log/` and the output of `varve lease` before
+    changing anything.
+  - **Not known:** how wide the window is against a real store. It
+    needs several of the old writer's requests to complete between two
+    of the new writer's. It was found by a test and has not been
+    reported from a deployment.
+  - **What the fix was run against:** an in-memory object store, with
+    the issue's reproduction, the order that forks, the claim in place
+    and a follower. Its tests have no leg against Azurite, RustFS or an
+    Azure storage account.
+- **A closure no longer exhausts the server's memory over a malformed
+  list** (#399, fixed by #409; ADR 0197, amended 2026-11-24). The list
+  rules now read lists from asserted statements only: a cell is a list
+  cell when the graph, or the binding's TBox graphs, assert exactly one
+  `rdf:first` and one `rdf:rest` of it, and an inferred `rdf:first` or
+  `rdf:rest` neither makes nor breaks a list. Every other cell with an
+  asserted `rdf:first` or `rdf:rest` is not read and is reported on
+  readiness as `unreadLists`, with the reason (`several-first`,
+  `several-rest`, `no-first`, `no-rest`, `cycle`, `broken`,
+  `differs-from-tbox`). A commit that changes which lists a graph's
+  triples make rebuilds that graph's closure.
+
+#### Known issues
+
+- **A closure's work has no limit** (#408). With an OWL 2 RL closure
+  enabled, a commit can make the closure work for minutes or longer
+  while staying well inside its byte budget, so it is not refused. The
+  case found was 85 triples that use the RDF, RDFS and OWL vocabulary as
+  data (`rdf:type rdfs:subPropertyOf rdfs:domain`, a class declared
+  equivalent to a property): it gave 388,741 facts and did not finish in
+  20 minutes. While that pass runs, closure reads at or after the commit
+  are refused with `503 inference-behind`, and the pass cannot be
+  cancelled. Until the fix, no setting bounds it: enable an OWL 2 RL
+  closure only over graphs whose writers do not use the RDF, RDFS and
+  OWL vocabulary's own terms as data, as the case found does.
+- **A closure can keep an instance unready** (#412). With an OWL 2 RL
+  closure over a large dataset, a readiness probe can take several
+  seconds, during a closure build or after it, so an orchestrator with
+  a 1-second probe timeout, the default, marks the instance not ready
+  and keeps it so. A shutdown during a closure build is not honoured
+  within the grace period, so the instance is killed and its next
+  start builds the closure again. Until the fix, leave the closure off
+  on instances behind a readiness probe, or raise the probe's timeout.
+
+#### Not yet
+
+- **A design-side form row** for the Query screen's controls (#383), and
+  a results-table case for a triple term (#377).
+- **The decision ledger in the host's first screen** (#375).
+- **The graph view's budget**, re-measured on the perf environment (#376).
+
 ## [0.1.0-preview.22] - 2026-11-18
 
 **The container image ships the Web UI and serves it by default**
@@ -2296,7 +2469,8 @@ a format-2 run is read as before and migrates when maintenance rewrites it.
 - add NOTICE and close the copyright open question (0387bf11)
 - dependency policy as an enforced register (5e6f03a8)
 
-[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.22...HEAD
+[Unreleased]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.23...HEAD
+[0.1.0-preview.23]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.22...v0.1.0-preview.23
 [0.1.0-preview.22]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.21...v0.1.0-preview.22
 [0.1.0-preview.21]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.20...v0.1.0-preview.21
 [0.1.0-preview.20]: https://github.com/Hafeok/Varve/compare/v0.1.0-preview.19...v0.1.0-preview.20

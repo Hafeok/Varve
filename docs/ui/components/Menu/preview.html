@@ -1,0 +1,17 @@
+<!-- @dsCard group="Molecules" height=400 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8">
+<link rel="stylesheet" href="../../tokens.css"><link rel="stylesheet" href="../../bundle.css"><title>Menu — preview</title>
+<style>html,body{margin:0}body.vw-root{padding:16px}.cases{display:grid;gap:16px}.case{margin:0}.case figcaption{margin-bottom:4px;font-size:11px;line-height:16px;color:var(--ink-muted)}</style></head>
+<body class="vw-root">
+<!-- One figure per contract case in cases/: the markup inside each data-case
+     element is the case's, verbatim, and a test checks it (ADR 0206 point 6).
+     Generated from cases/; never edited by hand. -->
+<div class="cases">
+<figure class="case"><figcaption>busy</figcaption><div data-case="busy"><div class="vw-menu"><button class="vw-button" type="button" aria-expanded="true" aria-controls="m-download">Download</button><ul class="vw-menu__list" id="m-download"><li><button class="vw-menu__item" type="button" aria-disabled="true">TSV<span class="vw-menu__note" role="status">Downloading, 2.4 MB so far</span></button></li><li><button class="vw-menu__item" type="button" aria-disabled="true">CSV</button></li></ul></div></div></figure>
+<figure class="case"><figcaption>closed</figcaption><div data-case="closed"><div class="vw-menu"><button class="vw-button" type="button" aria-expanded="false" aria-controls="m-download">Download</button></div></div></figure>
+<figure class="case"><figcaption>open</figcaption><div data-case="open"><div class="vw-menu"><button class="vw-button" type="button" aria-expanded="true" aria-controls="m-download">Download</button><ul class="vw-menu__list" id="m-download"><li><button class="vw-menu__item" type="button">TSV</button></li><li><button class="vw-menu__item" type="button">CSV</button></li><li><button class="vw-menu__item" type="button">SPARQL results JSON</button></li><li><button class="vw-menu__item" type="button">SPARQL results XML</button></li></ul></div></div></figure>
+</div>
+</body>
+</html>

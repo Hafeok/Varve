@@ -94,9 +94,9 @@ internal static class VarveDiagnostics
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description:
-            "Every Varve assembly declares ArchLayer, an integer from 0 to 6, unless it is a test assembly or "
-            + "Varve.Analyzers; an executable is layer 6 and only an executable is; ArchCompositionRoot is true "
-            + "exactly at layer 6. DD0001 is silent on a project that declares no layer, so this is what keeps an "
+            "Every Varve assembly declares ArchLayer, an integer from 0 to 8, unless it is a test assembly or "
+            + "Varve.Analyzers; an executable is at layer 6 or above, and a library is there only as a host's private "
+            + "assembly naming its host (ADR 0252); ArchCompositionRoot is true exactly at layers 6 and up. DD0001 is silent on a project that declares no layer, so this is what keeps an "
             + "undeclared one from escaping the layering entirely (ADR 0064).",
         helpLinkUri: HelpLinkFor(LayerDeclarationId),
         customTags: WellKnownDiagnosticTags.CompilationEnd);

@@ -160,3 +160,18 @@ Two things are new for a host:
   keeps it there.
 
 The ruling is `BrowserApplicationHost`.
+
+## Amendment, 2026-11-19 — host layers 6 to 8, and a host's private assemblies
+
+Filed by the session for Web UI part 2 (#355, under #96), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24, with [ADR 0252](0252-the-web-uis-private-assemblies.md).
+
+1. **The host layers are 6 and up, and a layer is 0 to 8.** A host that has
+   private assemblies stacks them below itself, each at its own layer, so
+   DD0001 holds every reference among them strictly downward: the Web UI's
+   shared components at 6, its explorer at 7, its host at 8. Every other host
+   stays at 6. The ruling is `HostLayersSixToEight`.
+2. **A library at a host layer is a host's private assembly.** It is never
+   packed, names its host in `VarveHostPartOf`, and is part of its
+   composition root; VARVE0005 refuses any other library there. An
+   executable may be at any host layer. `ArchCompositionRoot` is true exactly
+   at the host layers. The ruling is `PrivateAssembliesOfAHost`.

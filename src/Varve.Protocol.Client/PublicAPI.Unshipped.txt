@@ -602,6 +602,187 @@ Varve.Protocol.Client.ClientLimits.IdempotencyKeys.get -> System.Func<string!>?
 Varve.Protocol.Client.ClientLimits.IdempotencyKeys.init -> void
 Varve.Protocol.Client.ClientLimits.WriteRetries.get -> int
 Varve.Protocol.Client.ClientLimits.WriteRetries.init -> void
+Varve.Protocol.Client.Model.AsOfDistance
+Varve.Protocol.Client.Model.AsOfDistance.AsOfDistance() -> void
+Varve.Protocol.Client.Model.AsOfDistance.AsOfDistance(long value) -> void
+Varve.Protocol.Client.Model.AsOfDistance.Equals(Varve.Protocol.Client.Model.AsOfDistance other) -> bool
+Varve.Protocol.Client.Model.AsOfDistance.Value.get -> long
+Varve.Protocol.Client.Model.AsOfSelector
+Varve.Protocol.Client.Model.AsOfSelector.AsOfSelector() -> void
+Varve.Protocol.Client.Model.AsOfSelector.Equals(Varve.Protocol.Client.Model.AsOfSelector other) -> bool
+Varve.Protocol.Client.Model.AsOfSelector.IsHead.get -> bool
+Varve.Protocol.Client.Model.AsOfSelector.Position.get -> Varve.Delta.Model.FeedPosition?
+Varve.Protocol.Client.Model.AsOfSelector.Time.get -> Varve.Protocol.Client.Model.AsOfTime?
+Varve.Protocol.Client.Model.AsOfTime
+Varve.Protocol.Client.Model.AsOfTime.AsOfTime() -> void
+Varve.Protocol.Client.Model.AsOfTime.AsOfTime(System.DateTimeOffset value) -> void
+Varve.Protocol.Client.Model.AsOfTime.Equals(Varve.Protocol.Client.Model.AsOfTime other) -> bool
+Varve.Protocol.Client.Model.AsOfTime.Value.get -> System.DateTimeOffset
+Varve.Protocol.Client.Model.AskAnswer
+Varve.Protocol.Client.Model.AskAnswer.<Clone>$() -> Varve.Protocol.Client.Model.AskAnswer!
+Varve.Protocol.Client.Model.AskAnswer.AskAnswer(Varve.Protocol.Client.Model.AskResult Result, Varve.Protocol.Client.Model.Entailment? Entailment) -> void
+Varve.Protocol.Client.Model.AskAnswer.Deconstruct(out Varve.Protocol.Client.Model.AskResult Result, out Varve.Protocol.Client.Model.Entailment? Entailment) -> void
+Varve.Protocol.Client.Model.AskAnswer.Entailment.get -> Varve.Protocol.Client.Model.Entailment?
+Varve.Protocol.Client.Model.AskAnswer.Entailment.init -> void
+Varve.Protocol.Client.Model.AskAnswer.Equals(Varve.Protocol.Client.Model.AskAnswer? other) -> bool
+Varve.Protocol.Client.Model.AskAnswer.Result.get -> Varve.Protocol.Client.Model.AskResult
+Varve.Protocol.Client.Model.AskAnswer.Result.init -> void
+Varve.Protocol.Client.Model.AskResult
+Varve.Protocol.Client.Model.AskResult.False = 0 -> Varve.Protocol.Client.Model.AskResult
+Varve.Protocol.Client.Model.AskResult.True = 1 -> Varve.Protocol.Client.Model.AskResult
+Varve.Protocol.Client.Model.CommitTime
+Varve.Protocol.Client.Model.CommitTime.CommitTime() -> void
+Varve.Protocol.Client.Model.CommitTime.CommitTime(System.DateTimeOffset value) -> void
+Varve.Protocol.Client.Model.CommitTime.Equals(Varve.Protocol.Client.Model.CommitTime other) -> bool
+Varve.Protocol.Client.Model.CommitTime.Value.get -> System.DateTimeOffset
+Varve.Protocol.Client.Model.DatasetDescription
+Varve.Protocol.Client.Model.DatasetDescription.<Clone>$() -> Varve.Protocol.Client.Model.DatasetDescription!
+Varve.Protocol.Client.Model.DatasetDescription.DatasetDescription(System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! Graphs, Varve.Rdf.RdfTerm? DefaultEntailment, System.Collections.Generic.IReadOnlyDictionary<Varve.Rdf.RdfTerm!, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!>! Regimes, Varve.Protocol.Client.Model.AsOfDistance? MaxAsOfDistance, System.Collections.Generic.IReadOnlyDictionary<Varve.Rdf.RdfTerm!, Varve.Rdf.RdfTerm!>! ReportGraphs) -> void
+Varve.Protocol.Client.Model.DatasetDescription.Deconstruct(out System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! Graphs, out Varve.Rdf.RdfTerm? DefaultEntailment, out System.Collections.Generic.IReadOnlyDictionary<Varve.Rdf.RdfTerm!, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!>! Regimes, out Varve.Protocol.Client.Model.AsOfDistance? MaxAsOfDistance, out System.Collections.Generic.IReadOnlyDictionary<Varve.Rdf.RdfTerm!, Varve.Rdf.RdfTerm!>! ReportGraphs) -> void
+Varve.Protocol.Client.Model.DatasetDescription.DefaultEntailment.get -> Varve.Rdf.RdfTerm?
+Varve.Protocol.Client.Model.DatasetDescription.DefaultEntailment.init -> void
+Varve.Protocol.Client.Model.DatasetDescription.Equals(Varve.Protocol.Client.Model.DatasetDescription? other) -> bool
+Varve.Protocol.Client.Model.DatasetDescription.Graphs.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!
+Varve.Protocol.Client.Model.DatasetDescription.Graphs.init -> void
+Varve.Protocol.Client.Model.DatasetDescription.MaxAsOfDistance.get -> Varve.Protocol.Client.Model.AsOfDistance?
+Varve.Protocol.Client.Model.DatasetDescription.MaxAsOfDistance.init -> void
+Varve.Protocol.Client.Model.DatasetDescription.Regimes.get -> System.Collections.Generic.IReadOnlyDictionary<Varve.Rdf.RdfTerm!, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>!>!
+Varve.Protocol.Client.Model.DatasetDescription.Regimes.init -> void
+Varve.Protocol.Client.Model.DatasetDescription.ReportGraphs.get -> System.Collections.Generic.IReadOnlyDictionary<Varve.Rdf.RdfTerm!, Varve.Rdf.RdfTerm!>!
+Varve.Protocol.Client.Model.DatasetDescription.ReportGraphs.init -> void
+Varve.Protocol.Client.Model.Download
+Varve.Protocol.Client.Model.Download.<Clone>$() -> Varve.Protocol.Client.Model.Download!
+Varve.Protocol.Client.Model.Download.Deconstruct(out System.Net.Http.Headers.MediaTypeHeaderValue? MediaType) -> void
+Varve.Protocol.Client.Model.Download.Download(System.Net.Http.Headers.MediaTypeHeaderValue? MediaType) -> void
+Varve.Protocol.Client.Model.Download.Equals(Varve.Protocol.Client.Model.Download? other) -> bool
+Varve.Protocol.Client.Model.Download.MediaType.get -> System.Net.Http.Headers.MediaTypeHeaderValue?
+Varve.Protocol.Client.Model.Download.MediaType.init -> void
+Varve.Protocol.Client.Model.Entailment
+Varve.Protocol.Client.Model.Entailment.Entailment() -> void
+Varve.Protocol.Client.Model.Entailment.Entailment(string! value) -> void
+Varve.Protocol.Client.Model.Entailment.Equals(Varve.Protocol.Client.Model.Entailment other) -> bool
+Varve.Protocol.Client.Model.Entailment.Value.get -> string!
+Varve.Protocol.Client.Model.QueryEnd
+Varve.Protocol.Client.Model.QueryEnd.Closed = 2 -> Varve.Protocol.Client.Model.QueryEnd
+Varve.Protocol.Client.Model.QueryEnd.Complete = 1 -> Varve.Protocol.Client.Model.QueryEnd
+Varve.Protocol.Client.Model.QueryEnd.Cut = 3 -> Varve.Protocol.Client.Model.QueryEnd
+Varve.Protocol.Client.Model.QueryEnd.Reading = 0 -> Varve.Protocol.Client.Model.QueryEnd
+Varve.Protocol.Client.Model.QueryForm
+Varve.Protocol.Client.Model.QueryForm.Boolean = 1 -> Varve.Protocol.Client.Model.QueryForm
+Varve.Protocol.Client.Model.QueryForm.Graph = 2 -> Varve.Protocol.Client.Model.QueryForm
+Varve.Protocol.Client.Model.QueryForm.Solutions = 0 -> Varve.Protocol.Client.Model.QueryForm
+Varve.Protocol.Client.Model.QueryReadOptions
+Varve.Protocol.Client.Model.QueryReadOptions.<Clone>$() -> Varve.Protocol.Client.Model.QueryReadOptions!
+Varve.Protocol.Client.Model.QueryReadOptions.AsOf.get -> Varve.Protocol.Client.Model.AsOfSelector
+Varve.Protocol.Client.Model.QueryReadOptions.AsOf.init -> void
+Varve.Protocol.Client.Model.QueryReadOptions.Deconstruct(out Varve.Protocol.Client.Model.AsOfSelector AsOf, out Varve.Protocol.Client.Model.Entailment? Entailment) -> void
+Varve.Protocol.Client.Model.QueryReadOptions.Entailment.get -> Varve.Protocol.Client.Model.Entailment?
+Varve.Protocol.Client.Model.QueryReadOptions.Entailment.init -> void
+Varve.Protocol.Client.Model.QueryReadOptions.Equals(Varve.Protocol.Client.Model.QueryReadOptions? other) -> bool
+Varve.Protocol.Client.Model.QueryReadOptions.QueryReadOptions(Varve.Protocol.Client.Model.AsOfSelector AsOf, Varve.Protocol.Client.Model.Entailment? Entailment = null) -> void
+Varve.Protocol.Client.Model.Solution
+Varve.Protocol.Client.Model.Solution.<Clone>$() -> Varve.Protocol.Client.Model.Solution!
+Varve.Protocol.Client.Model.Solution.Deconstruct(out System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>! Values) -> void
+Varve.Protocol.Client.Model.Solution.Equals(Varve.Protocol.Client.Model.Solution? other) -> bool
+Varve.Protocol.Client.Model.Solution.Solution(System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>! Values) -> void
+Varve.Protocol.Client.Model.Solution.Values.get -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm?>!
+Varve.Protocol.Client.Model.Solution.Values.init -> void
+Varve.Protocol.Client.Model.Statement
+Varve.Protocol.Client.Model.Statement.<Clone>$() -> Varve.Protocol.Client.Model.Statement!
+Varve.Protocol.Client.Model.Statement.Deconstruct(out Varve.Rdf.RdfTerm! Subject, out Varve.Rdf.RdfTerm! Predicate, out Varve.Rdf.RdfTerm! Object) -> void
+Varve.Protocol.Client.Model.Statement.Equals(Varve.Protocol.Client.Model.Statement? other) -> bool
+Varve.Protocol.Client.Model.Statement.Object.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.Client.Model.Statement.Object.init -> void
+Varve.Protocol.Client.Model.Statement.Predicate.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.Client.Model.Statement.Predicate.init -> void
+Varve.Protocol.Client.Model.Statement.Statement(Varve.Rdf.RdfTerm! Subject, Varve.Rdf.RdfTerm! Predicate, Varve.Rdf.RdfTerm! Object) -> void
+Varve.Protocol.Client.Model.Statement.Subject.get -> Varve.Rdf.RdfTerm!
+Varve.Protocol.Client.Model.Statement.Subject.init -> void
+Varve.Protocol.Client.Model.VariableName
+Varve.Protocol.Client.Model.VariableName.Equals(Varve.Protocol.Client.Model.VariableName other) -> bool
+Varve.Protocol.Client.Model.VariableName.Value.get -> string!
+Varve.Protocol.Client.Model.VariableName.VariableName() -> void
+Varve.Protocol.Client.Model.VariableName.VariableName(string! value) -> void
+Varve.Protocol.Client.QueryAnswer
+Varve.Protocol.Client.QueryAnswer.CommitTime.get -> Varve.Protocol.Client.Model.CommitTime?
+Varve.Protocol.Client.QueryAnswer.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Varve.Protocol.Client.QueryAnswer.End.get -> Varve.Protocol.Client.Model.QueryEnd
+Varve.Protocol.Client.QueryAnswer.Entailment.get -> Varve.Protocol.Client.Model.Entailment?
+Varve.Protocol.Client.QueryAnswer.Facts.get -> Varve.Protocol.Client.Model.ResponseFacts
+Varve.Protocol.Client.QueryAnswer.Form.get -> Varve.Protocol.Client.Model.QueryForm
+Varve.Protocol.Client.QueryAnswer.ReadSolutionsAsync(System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<System.Collections.Generic.IReadOnlyList<Varve.Protocol.Client.Model.Solution!>!>!
+Varve.Protocol.Client.QueryAnswer.ReadStatementsAsync(System.Threading.CancellationToken cancellationToken) -> System.Collections.Generic.IAsyncEnumerable<System.Collections.Generic.IReadOnlyList<Varve.Protocol.Client.Model.Statement!>!>!
+Varve.Protocol.Client.QueryAnswer.Variables.get -> System.Collections.Generic.IReadOnlyList<Varve.Protocol.Client.Model.VariableName>!
+Varve.Protocol.Client.SparqlHttpClient.AskAsync(string! query, Varve.Protocol.Client.Model.QueryReadOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.AskAnswer!>!>!
+Varve.Protocol.Client.SparqlHttpClient.DownloadAsync(string! query, string! accept, Varve.Protocol.Client.Model.QueryReadOptions! options, System.IO.Stream! destination, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.Download!>!>!
+Varve.Protocol.Client.SparqlHttpClient.ReadDiffAsync(Varve.Protocol.Client.Model.AsOfSelector from, Varve.Protocol.Client.Model.AsOfSelector to, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Delta.Model.FeedRecord!>!>!
+Varve.Protocol.Client.SparqlHttpClient.ServiceDescriptionAsync(System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.Model.DatasetDescription!>!>!
+Varve.Protocol.Client.SparqlHttpClient.StartQueryAsync(string! query, Varve.Protocol.Client.Model.QueryForm form, Varve.Protocol.Client.Model.QueryReadOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Varve.Protocol.Client.Model.VarveResult<Varve.Protocol.Client.QueryAnswer!>!>!
+override Varve.Protocol.Client.Model.AsOfDistance.GetHashCode() -> int
+override Varve.Protocol.Client.Model.AsOfDistance.ToString() -> string!
+override Varve.Protocol.Client.Model.AsOfSelector.GetHashCode() -> int
+override Varve.Protocol.Client.Model.AsOfTime.GetHashCode() -> int
+override Varve.Protocol.Client.Model.AsOfTime.ToString() -> string!
+override Varve.Protocol.Client.Model.AskAnswer.Equals(object? obj) -> bool
+override Varve.Protocol.Client.Model.AskAnswer.GetHashCode() -> int
+override Varve.Protocol.Client.Model.AskAnswer.ToString() -> string!
+override Varve.Protocol.Client.Model.CommitTime.GetHashCode() -> int
+override Varve.Protocol.Client.Model.CommitTime.ToString() -> string!
+override Varve.Protocol.Client.Model.DatasetDescription.Equals(object? obj) -> bool
+override Varve.Protocol.Client.Model.DatasetDescription.GetHashCode() -> int
+override Varve.Protocol.Client.Model.DatasetDescription.ToString() -> string!
+override Varve.Protocol.Client.Model.Download.Equals(object? obj) -> bool
+override Varve.Protocol.Client.Model.Download.GetHashCode() -> int
+override Varve.Protocol.Client.Model.Download.ToString() -> string!
+override Varve.Protocol.Client.Model.Entailment.GetHashCode() -> int
+override Varve.Protocol.Client.Model.Entailment.ToString() -> string!
+override Varve.Protocol.Client.Model.QueryReadOptions.Equals(object? obj) -> bool
+override Varve.Protocol.Client.Model.QueryReadOptions.GetHashCode() -> int
+override Varve.Protocol.Client.Model.QueryReadOptions.ToString() -> string!
+override Varve.Protocol.Client.Model.Solution.Equals(object? obj) -> bool
+override Varve.Protocol.Client.Model.Solution.GetHashCode() -> int
+override Varve.Protocol.Client.Model.Solution.ToString() -> string!
+override Varve.Protocol.Client.Model.Statement.Equals(object? obj) -> bool
+override Varve.Protocol.Client.Model.Statement.GetHashCode() -> int
+override Varve.Protocol.Client.Model.Statement.ToString() -> string!
+override Varve.Protocol.Client.Model.VariableName.GetHashCode() -> int
+override Varve.Protocol.Client.Model.VariableName.ToString() -> string!
+static Varve.Protocol.Client.Model.AsOfDistance.operator !=(Varve.Protocol.Client.Model.AsOfDistance left, Varve.Protocol.Client.Model.AsOfDistance right) -> bool
+static Varve.Protocol.Client.Model.AsOfDistance.operator ==(Varve.Protocol.Client.Model.AsOfDistance left, Varve.Protocol.Client.Model.AsOfDistance right) -> bool
+static Varve.Protocol.Client.Model.AsOfSelector.At(Varve.Delta.Model.FeedPosition position) -> Varve.Protocol.Client.Model.AsOfSelector
+static Varve.Protocol.Client.Model.AsOfSelector.AtTime(Varve.Protocol.Client.Model.AsOfTime time) -> Varve.Protocol.Client.Model.AsOfSelector
+static Varve.Protocol.Client.Model.AsOfSelector.Head.get -> Varve.Protocol.Client.Model.AsOfSelector
+static Varve.Protocol.Client.Model.AsOfSelector.operator !=(Varve.Protocol.Client.Model.AsOfSelector left, Varve.Protocol.Client.Model.AsOfSelector right) -> bool
+static Varve.Protocol.Client.Model.AsOfSelector.operator ==(Varve.Protocol.Client.Model.AsOfSelector left, Varve.Protocol.Client.Model.AsOfSelector right) -> bool
+static Varve.Protocol.Client.Model.AsOfTime.operator !=(Varve.Protocol.Client.Model.AsOfTime left, Varve.Protocol.Client.Model.AsOfTime right) -> bool
+static Varve.Protocol.Client.Model.AsOfTime.operator ==(Varve.Protocol.Client.Model.AsOfTime left, Varve.Protocol.Client.Model.AsOfTime right) -> bool
+static Varve.Protocol.Client.Model.AskAnswer.operator !=(Varve.Protocol.Client.Model.AskAnswer? left, Varve.Protocol.Client.Model.AskAnswer? right) -> bool
+static Varve.Protocol.Client.Model.AskAnswer.operator ==(Varve.Protocol.Client.Model.AskAnswer? left, Varve.Protocol.Client.Model.AskAnswer? right) -> bool
+static Varve.Protocol.Client.Model.CommitTime.operator !=(Varve.Protocol.Client.Model.CommitTime left, Varve.Protocol.Client.Model.CommitTime right) -> bool
+static Varve.Protocol.Client.Model.CommitTime.operator ==(Varve.Protocol.Client.Model.CommitTime left, Varve.Protocol.Client.Model.CommitTime right) -> bool
+static Varve.Protocol.Client.Model.DatasetDescription.operator !=(Varve.Protocol.Client.Model.DatasetDescription? left, Varve.Protocol.Client.Model.DatasetDescription? right) -> bool
+static Varve.Protocol.Client.Model.DatasetDescription.operator ==(Varve.Protocol.Client.Model.DatasetDescription? left, Varve.Protocol.Client.Model.DatasetDescription? right) -> bool
+static Varve.Protocol.Client.Model.Download.operator !=(Varve.Protocol.Client.Model.Download? left, Varve.Protocol.Client.Model.Download? right) -> bool
+static Varve.Protocol.Client.Model.Download.operator ==(Varve.Protocol.Client.Model.Download? left, Varve.Protocol.Client.Model.Download? right) -> bool
+static Varve.Protocol.Client.Model.Entailment.OfRegime(Varve.Rdf.RdfTerm! regime) -> Varve.Protocol.Client.Model.Entailment?
+static Varve.Protocol.Client.Model.Entailment.Simple.get -> Varve.Protocol.Client.Model.Entailment
+static Varve.Protocol.Client.Model.Entailment.operator !=(Varve.Protocol.Client.Model.Entailment left, Varve.Protocol.Client.Model.Entailment right) -> bool
+static Varve.Protocol.Client.Model.Entailment.operator ==(Varve.Protocol.Client.Model.Entailment left, Varve.Protocol.Client.Model.Entailment right) -> bool
+static Varve.Protocol.Client.Model.QueryReadOptions.operator !=(Varve.Protocol.Client.Model.QueryReadOptions? left, Varve.Protocol.Client.Model.QueryReadOptions? right) -> bool
+static Varve.Protocol.Client.Model.QueryReadOptions.operator ==(Varve.Protocol.Client.Model.QueryReadOptions? left, Varve.Protocol.Client.Model.QueryReadOptions? right) -> bool
+static Varve.Protocol.Client.Model.Solution.operator !=(Varve.Protocol.Client.Model.Solution? left, Varve.Protocol.Client.Model.Solution? right) -> bool
+static Varve.Protocol.Client.Model.Solution.operator ==(Varve.Protocol.Client.Model.Solution? left, Varve.Protocol.Client.Model.Solution? right) -> bool
+static Varve.Protocol.Client.Model.Statement.operator !=(Varve.Protocol.Client.Model.Statement? left, Varve.Protocol.Client.Model.Statement? right) -> bool
+static Varve.Protocol.Client.Model.Statement.operator ==(Varve.Protocol.Client.Model.Statement? left, Varve.Protocol.Client.Model.Statement? right) -> bool
+static Varve.Protocol.Client.Model.VariableName.operator !=(Varve.Protocol.Client.Model.VariableName left, Varve.Protocol.Client.Model.VariableName right) -> bool
+static Varve.Protocol.Client.Model.VariableName.operator ==(Varve.Protocol.Client.Model.VariableName left, Varve.Protocol.Client.Model.VariableName right) -> bool
+~override Varve.Protocol.Client.Model.AsOfDistance.Equals(object obj) -> bool
+~override Varve.Protocol.Client.Model.AsOfSelector.Equals(object obj) -> bool
+~override Varve.Protocol.Client.Model.AsOfSelector.ToString() -> string
+~override Varve.Protocol.Client.Model.AsOfTime.Equals(object obj) -> bool
+~override Varve.Protocol.Client.Model.CommitTime.Equals(object obj) -> bool
+~override Varve.Protocol.Client.Model.Entailment.Equals(object obj) -> bool
+~override Varve.Protocol.Client.Model.VariableName.Equals(object obj) -> bool
 Varve.Protocol.Client.Model.EntailedAnswer
 Varve.Protocol.Client.Model.EntailedAnswer.EntailedAnswer() -> void
 Varve.Protocol.Client.Model.EntailedAnswer.EqualityNotApplied.get -> bool

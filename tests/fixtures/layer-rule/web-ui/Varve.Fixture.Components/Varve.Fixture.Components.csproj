@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- ADR 0252: a host's private assembly at layer 6, the lowest of three. -->
+  <PropertyGroup>
+    <ArchLayer>6</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
+    <VarveHostPartOf>Varve.Fixture.Host</VarveHostPartOf>
+  </PropertyGroup>
+</Project>

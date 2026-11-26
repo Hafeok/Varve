@@ -1,0 +1,21 @@
+{
+  "parameters": {
+    "Id": "m-download",
+    "Label": "Download",
+    "Items": [
+      {
+        "Text": "TSV"
+      },
+      {
+        "Text": "CSV"
+      },
+      {
+        "Text": "SPARQL results JSON"
+      },
+      {
+        "Text": "SPARQL results XML"
+      }
+    ],
+    "Open": true
+  }
+}

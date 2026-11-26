@@ -140,3 +140,34 @@ logger's request line. The reasoning is ADR 0127's.
 **The ledger.** The rulings of this ADR stand; the ruling of this block is
 `ActingApplicationIsASpanAttribute`, unaccepted until the maintainer accepts
 it.
+
+## Amendment, 2026-11-20 — a read the client ended
+
+Filed by the session for Web UI part 2 (#355, under #96), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24. Decided by the maintainer as D6 on the
+part 2 plan, 2026-11-18.
+
+**The gap.** The explorer cancels a query mid-stream: Cancel, leaving the
+screen, running another query, or reaching its 5,000-row ceiling (ADR 0254
+point 5). The browser aborts the `fetch`, and the server stops the read
+(ADR 0095). Before this amendment the server recorded nothing: the span's
+status code stayed 200, and there was no log line and no tag. So an
+operator could not tell a read the client ended from one the server
+finished.
+
+**The decision.**
+- When a bounded read ends because the client left, the request span gains
+  **`varve.request.aborted = true`**.
+- The host's log gains one information line: "`{Method} {Path}` ended by the
+  client before its response did, for request `{RequestId}`" (event 3).
+- **When the client has left:** the client's abort cancelled the read, or the
+  read wrote its body into a connection the client had already closed.
+  Kestrel discards those writes and doesn't refuse them, so both count.
+- **Per request, never per row** (point 1). Nothing else changes: no
+  status, no route and no behaviour. The pin is released with the response,
+  as before.
+- **Not a server limit.** A read cut by a server limit stays the problem or
+  trailer it was (ADR 0095).
+
+**The ledger.** The rulings of this ADR stand. The ruling of this block is
+`AReadTheClientEndedIsTaggedAndLogged`, filed unaccepted and accepted by the maintainer on 2026-11-24. `Varve.Protocol`'s tests hold it.
+

@@ -35,6 +35,8 @@
     <Project Path="src/Varve.Store.S3/Varve.Store.S3.csproj" />
     <Project Path="src/Varve.Turtle/Varve.Turtle.csproj" />
     <Project Path="src/Varve.WebUi/Varve.WebUi.csproj" />
+    <Project Path="src/Varve.WebUi.Components/Varve.WebUi.Components.csproj" />
+    <Project Path="src/Varve.WebUi.Explorer/Varve.WebUi.Explorer.csproj" />
     <Project Path="src/Varve.Xsd/Varve.Xsd.csproj" />
   </Folder>
   <Folder Name="/tests/">

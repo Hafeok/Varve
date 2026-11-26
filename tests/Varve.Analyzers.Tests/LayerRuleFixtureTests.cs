@@ -64,6 +64,37 @@ public class LayerRuleFixtureTests
     }
 
     /// <summary>
+    /// ADR 0252: a host stacks its private assemblies below itself, so the
+    /// Web UI's host at 8, its explorer at 7 and its shared components at 6
+    /// build, every reference strictly downward.
+    /// </summary>
+    [Fact]
+    public async Task A_host_above_its_private_assemblies_builds()
+    {
+        BuildResult result = await FixtureBuild.RunAsync(
+            Path.Combine("layer-rule", "web-ui", "Varve.Fixture.Host", "Varve.Fixture.Host.csproj"));
+
+        Assert.True(
+            result.ExitCode == 0,
+            "Varve.Fixture.Host (8) references Varve.Fixture.Explorer (7), which references Varve.Fixture.Components (6), and should build."
+            + Environment.NewLine + result.Output);
+    }
+
+    [Fact]
+    public async Task The_explorer_referencing_its_host_fails_the_build_with_DD0001()
+    {
+        BuildResult result = await FixtureBuild.RunAsync(
+            Path.Combine("layer-rule", "web-ui-violating", "Varve.Fixture.Explorer", "Varve.Fixture.Explorer.csproj"));
+
+        Assert.True(
+            result.ExitCode != 0,
+            "Varve.Fixture.Explorer (7) references Varve.Fixture.Host (8) and must not build."
+            + Environment.NewLine + result.Output);
+        Assert.Contains("DD0001", result.Output, StringComparison.Ordinal);
+        Assert.Contains("Varve.Fixture.Host", result.Output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// Packable is an MSBuild property like any other, and VARVE0005 only sees
     /// it because Directory.Build.props marks it compiler-visible. A unit test
     /// supplies that value itself and so cannot tell whether the wiring exists.

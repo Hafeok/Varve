@@ -1,0 +1,155 @@
+{
+  "parameters": {
+    "Id": "q-view",
+    "Label": "The query this view runs",
+    "Text": "SELECT ?g ?p ?o WHERE {\n  { <https://notes.example/notes/42> ?p ?o }\n  UNION { GRAPH ?g { <https://notes.example/notes/42> ?p ?o } }\n} ORDER BY ?g ?p ?o LIMIT 501",
+    "Runs": [
+      {
+        "Start": 0,
+        "End": 6,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 7,
+        "End": 9,
+        "Kind": "variable"
+      },
+      {
+        "Start": 10,
+        "End": 12,
+        "Kind": "variable"
+      },
+      {
+        "Start": 13,
+        "End": 15,
+        "Kind": "variable"
+      },
+      {
+        "Start": 16,
+        "End": 21,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 22,
+        "End": 23,
+        "Kind": "punct"
+      },
+      {
+        "Start": 26,
+        "End": 27,
+        "Kind": "punct"
+      },
+      {
+        "Start": 28,
+        "End": 60,
+        "Kind": "iri"
+      },
+      {
+        "Start": 61,
+        "End": 63,
+        "Kind": "variable"
+      },
+      {
+        "Start": 64,
+        "End": 66,
+        "Kind": "variable"
+      },
+      {
+        "Start": 67,
+        "End": 68,
+        "Kind": "punct"
+      },
+      {
+        "Start": 71,
+        "End": 76,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 77,
+        "End": 78,
+        "Kind": "punct"
+      },
+      {
+        "Start": 79,
+        "End": 84,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 85,
+        "End": 87,
+        "Kind": "variable"
+      },
+      {
+        "Start": 88,
+        "End": 89,
+        "Kind": "punct"
+      },
+      {
+        "Start": 90,
+        "End": 122,
+        "Kind": "iri"
+      },
+      {
+        "Start": 123,
+        "End": 125,
+        "Kind": "variable"
+      },
+      {
+        "Start": 126,
+        "End": 128,
+        "Kind": "variable"
+      },
+      {
+        "Start": 129,
+        "End": 130,
+        "Kind": "punct"
+      },
+      {
+        "Start": 131,
+        "End": 132,
+        "Kind": "punct"
+      },
+      {
+        "Start": 133,
+        "End": 134,
+        "Kind": "punct"
+      },
+      {
+        "Start": 135,
+        "End": 140,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 141,
+        "End": 143,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 144,
+        "End": 146,
+        "Kind": "variable"
+      },
+      {
+        "Start": 147,
+        "End": 149,
+        "Kind": "variable"
+      },
+      {
+        "Start": 150,
+        "End": 152,
+        "Kind": "variable"
+      },
+      {
+        "Start": 153,
+        "End": 158,
+        "Kind": "keyword"
+      },
+      {
+        "Start": 159,
+        "End": 162,
+        "Kind": "literal"
+      }
+    ],
+    "ReadOnly": true
+  }
+}

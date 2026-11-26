@@ -16,13 +16,25 @@ namespace Varve.Sparql.Parsing;
 /// </summary>
 internal ref struct Lexer
 {
+    private readonly bool _comments;
     private int _position;
     private int _line;
     private int _lineStart;
 
     internal Lexer(ReadOnlySpan<byte> text)
+        : this(text, comments: false)
+    {
+    }
+
+    /// <summary>
+    /// A lexer that, when <paramref name="comments"/> is set, returns each
+    /// comment as a <see cref="TokenKind.Comment"/> instead of skipping it.
+    /// Only the public tokenizer sets it (ADR 0253); the parser never does.
+    /// </summary>
+    internal Lexer(ReadOnlySpan<byte> text, bool comments)
     {
         Text = text;
+        _comments = comments;
         _position = 0;
         _line = 1;
         _lineStart = 0;
@@ -44,6 +56,17 @@ internal ref struct Lexer
 
         int start = _position;
         byte b = Text[start];
+
+        if (b == (byte)'#')
+        {
+            // Reached only when comments are tokens: SkipTrivia skips them otherwise.
+            while (_position < Text.Length && Text[_position] is not (0x0A or 0x0D))
+            {
+                _position++;
+            }
+
+            return Make(TokenKind.Comment, start, _position - start);
+        }
 
         switch (b)
         {
@@ -163,7 +186,7 @@ internal ref struct Lexer
             {
                 _position++;
             }
-            else if (b == (byte)'#')
+            else if (b == (byte)'#' && !_comments)
             {
                 while (_position < Text.Length && Text[_position] is not (0x0A or 0x0D))
                 {

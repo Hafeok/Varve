@@ -6,6 +6,7 @@
 @inject WebUiSettings Settings
 @inject IServiceProvider Services
 @inject ShellFacts Facts
+@inject Microsoft.JSInterop.IJSRuntime Js
 @* The layout every screen renders in: the Shell template, given the server
    and the instance that answered, each plane's sign-in state with who is
    signed in, and the navigation with the current screen marked: Operate,
@@ -35,9 +36,11 @@
         ("Operate", "Fleet", "fleet"),
     ];
 
-    // The selected dataset's own screens, under the selector.
+    // The selected dataset's own screens, under the selector. The explorer's
+    // (#96) load with their first visit (ADR 0252).
     private static readonly (string Group, string Text, string Path)[] DatasetScreens =
     [
+        ("Explore", "Query", "query"),
         ("History", "Commits", "commits"),
         ("Declarations", "Grants", "grants"),
         ("Declarations", "Agents and roles", "agents"),
@@ -60,7 +63,7 @@
     // Who is signed in, for the parts that say it.
     private SignedIn? Signed() => _session is null ? null : new SignedIn(_session.DataCaller, _session.ManagementCaller);
 
-    private static PlaneState Plane(string name, bool signedIn, Varve.WebUi.SignIn.Caller? caller) =>
+    private static PlaneState Plane(string name, bool signedIn, Varve.WebUi.Components.Caller? caller) =>
         new(name, signedIn ? "signed in" : "signed out", Anonymous: false, Absent: !signedIn, caller?.Agent, caller?.Roles);
 
     /// <inheritdoc />
@@ -138,7 +141,12 @@
         }
     }
 
-    private Task SignOutAsync() => _session!.SignOutAsync(CancellationToken.None);
+    // The tab's query history goes with the sign-in (ADR 0254 point 7).
+    private async Task SignOutAsync()
+    {
+        await Js.InvokeVoidAsync("varveWebUi.historyClear");
+        await _session!.SignOutAsync(CancellationToken.None);
+    }
 
     private void SessionChanged() => _ = InvokeAsync(() =>
     {
