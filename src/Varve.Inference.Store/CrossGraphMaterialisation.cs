@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -51,7 +52,12 @@ internal sealed class CrossGraphMaterialisation : Materialisation
     {
         _merge = new Closure(projection.Binding.Profile, terms, Budget, TBox);
         _sets = new PremiseSets(_merge, []);
+        _first = terms.Handle(RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#first"u8));
+        _rest = terms.Handle(RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#rest"u8));
     }
+
+    private readonly TermHandle _first;
+    private readonly TermHandle _rest;
 
     internal override IReadOnlyDictionary<TermHandle, TermHandle[]> PremiseSetGraphs => _table;
 
@@ -161,7 +167,27 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         // The sets a retraction may change, over the merge as it was; then the
         // merge, then the sets from the delta (ADR 0195 point 3).
         IReadOnlySet<Fact> affected = _sets.Reach(unpaired, (fact, graph) => _explicit.TryGetValue(_graphs[graph.Value], out HashSet<Fact>? held) && held.Contains(fact));
+        ListReadings readings = _merge.ListReadings;
         HashSet<Fact> moved = [.. _merge.Apply([.. asserted], [.. retracted], cancellationToken)];
+        if (_merge.ListReadings != readings)
+        {
+            // The merge read its lists again and was rebuilt: a list rule's instances changed with no
+            // change to their premises, so the sets are labelled again from scratch and every fact is
+            // offered to the graphs it was and is placed in (ADR 0197, amended 2026-11-24).
+            PremiseSets was = _sets;
+            _sets = Label();
+            foreach (Fact fact in _merge.Own.Concat(moved).Distinct())
+            {
+                foreach (TermHandle graph in Placements(was.Of(fact), fact).Concat(Placements(_sets.Of(fact), fact)))
+                {
+                    Into(changed, graph).Add(fact);
+                }
+            }
+
+            was.Release();
+            Mint();
+            return;
+        }
         foreach (Fact fact in affected)
         {
             foreach ((TermHandle graph, HashSet<Fact> facts) in _explicit)
@@ -229,6 +255,34 @@ internal sealed class CrossGraphMaterialisation : Materialisation
             {
                 yield return (graph, fact);
             }
+        }
+    }
+
+    /// <summary>An unread cell of the merge's lists, under each data graph that asserts an <c>rdf:first</c> or <c>rdf:rest</c> of it.</summary>
+    protected override void DataUnreadLists(List<PlacedUnreadList> into)
+    {
+        foreach (UnreadList list in _merge.UnreadLists())
+        {
+            foreach (TermHandle graph in _graphs)
+            {
+                if (_explicit.TryGetValue(graph, out HashSet<Fact>? held) && Asserts(held, list.Cell))
+                {
+                    into.Add(new PlacedUnreadList(graph, list));
+                }
+            }
+        }
+
+        bool Asserts(HashSet<Fact> held, TermHandle cell)
+        {
+            foreach (Fact fact in held)
+            {
+                if (fact.Subject.Value == cell.Value && (fact.Predicate.Value == _first.Value || fact.Predicate.Value == _rest.Value))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 

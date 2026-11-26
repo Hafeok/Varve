@@ -30,6 +30,9 @@ public sealed partial class Closure
     private readonly HashSet<Fact> _explicit = [];
     private readonly HashSet<Fact> _axioms = [];
 
+    // The explicit rdf:first and rdf:rest statements of this closure, which its lists are read from with the TBox closure's (ADR 0197, amended 2026-11-24).
+    private readonly HashSet<Fact> _listStatements = [];
+
     /// <summary>The empty graph's closure under <paramref name="profile"/>: its axioms and what they entail.</summary>
     public Closure(InferenceProfile profile, IInferenceTerms terms)
         : this(Program.Of(profile, terms), Retraction.DeleteAndRederive)
@@ -73,6 +76,11 @@ public sealed partial class Closure
         foreach (Fact axiom in program.Axioms)
         {
             _axioms.Add(axiom);
+        }
+
+        if (program.List is not null)
+        {
+            ReadLists(_listStatements);
         }
 
         Insert(program.Axioms);
@@ -127,9 +135,153 @@ public sealed partial class Closure
         }
     }
 
+    /// <summary>
+    /// The cells of asserted lists the list rules and checks do not read
+    /// (ADR 0197, amended 2026-11-24), each with its reason: those this
+    /// closure's statements make unread, a data graph's beyond the TBox
+    /// closure's beneath it. Empty for a profile without list rules.
+    /// </summary>
+    public IReadOnlyList<UnreadList> UnreadLists()
+    {
+        if (Facts.Lists is not { } lists)
+        {
+            return [];
+        }
+
+        if (Beneath?.Facts.Lists is not { } beneath || beneath.Unread.Count == 0)
+        {
+            return lists.Unread;
+        }
+
+        HashSet<UnreadList> under = [.. beneath.Unread];
+        List<UnreadList> own = [];
+        foreach (UnreadList unread in lists.Unread)
+        {
+            if (!under.Contains(unread))
+            {
+                own.Add(unread);
+            }
+        }
+
+        return own;
+    }
+
+    /// <summary>
+    /// How many times a commit has changed the lists this closure reads, each
+    /// rebuilding it (ADR 0197, amended 2026-11-24). What is kept beside the
+    /// closure and drawn from its rules' instances, such as premise sets, is
+    /// computed again when this moves: an instance can come or go with no
+    /// change to its premises.
+    /// </summary>
+    public ListReadings ListReadings { get; private set; }
+
     internal FactSet Facts { get; }
 
     internal Program Program { get; }
+
+    // What the reading of the lists has taken from the budget: a working entry a statement read.
+    private long _listCharge;
+
+    /// <summary>
+    /// Reads the lists from <paramref name="statements"/>, this closure's
+    /// explicit list statements, with the TBox closure's beneath, charging
+    /// the budget a working entry a statement before the reading is made.
+    /// </summary>
+    /// <exception cref="ClosureLimitExceededException">The reading would pass the budget.</exception>
+    private AssertedLists ReadLists(IReadOnlyCollection<Fact> statements)
+    {
+        ListTerms list = Program.List!.Value;
+        // A statement the data graph and the TBox graphs both assert is one statement.
+        HashSet<Fact> all = [.. statements];
+        AssertedLists? beneath = null;
+        if (Beneath is { } tbox)
+        {
+            all.UnionWith(tbox._listStatements);
+            beneath = tbox.Facts.Lists;
+        }
+
+        long charge = 0;
+        if (Facts.Budget is { } budget)
+        {
+            charge = all.Count * budget.Costs.PerWorkingEntry.Value;
+            budget.Take(new MemoryAmount(charge));
+            budget.Give(new MemoryAmount(_listCharge));
+        }
+
+        _listCharge = charge;
+        AssertedLists lists = AssertedLists.Read(all, list, beneath);
+        Facts.Lists = lists;
+        return lists;
+    }
+
+    /// <summary>
+    /// Whether a delta changes the lists the rules read. When it does, the
+    /// delta is applied to the explicit facts, the lists are read again, and
+    /// the closure is rebuilt from them, since a list read differently is a
+    /// different input to every list rule (ADR 0197, amended 2026-11-24);
+    /// when it does not, only the reading of the cells left unread changes.
+    /// </summary>
+    private bool RebuiltForLists(ReadOnlySpan<Fact> asserted, ReadOnlySpan<Fact> retracted)
+    {
+        if (Program.List is not { } list)
+        {
+            return false;
+        }
+
+        HashSet<Fact>? next = null;
+        foreach (Fact fact in retracted)
+        {
+            if (AssertedLists.IsListStatement(fact, list) && _listStatements.Contains(fact))
+            {
+                next ??= [.. _listStatements];
+                next.Remove(fact);
+            }
+        }
+
+        foreach (Fact fact in asserted)
+        {
+            if (AssertedLists.IsListStatement(fact, list) && !_listStatements.Contains(fact))
+            {
+                next ??= [.. _listStatements];
+                next.Add(fact);
+            }
+        }
+
+        if (next is null)
+        {
+            return false;
+        }
+
+        AssertedLists before = Facts.Lists!;
+        AssertedLists after = ReadLists(next);
+        _listStatements.Clear();
+        _listStatements.UnionWith(next);
+        if (after.SameReading(before))
+        {
+            return false;
+        }
+
+        foreach (Fact fact in retracted)
+        {
+            if (_explicit.Remove(fact))
+            {
+                GiveExplicit();
+            }
+        }
+
+        foreach (Fact fact in asserted)
+        {
+            if (!_explicit.Contains(fact))
+            {
+                TakeExplicit();
+                _explicit.Add(fact);
+            }
+        }
+
+        ListReadings = new ListReadings(ListReadings.Value + 1);
+        Rebuild();
+        return true;
+    }
 
     /// <summary>
     /// Applies an exact delta: <paramref name="retracted"/> were explicit and
@@ -301,8 +453,9 @@ public sealed partial class Closure
     /// <summary>Gives back to the budget everything this closure took: its owner is dropping it.</summary>
     public void Release()
     {
-        Facts.Budget?.Give(new MemoryAmount(_explicitCharge));
+        Facts.Budget?.Give(new MemoryAmount(_explicitCharge + _listCharge));
         _explicitCharge = 0;
+        _listCharge = 0;
         Facts.Uncharge();
     }
 
@@ -330,6 +483,11 @@ public sealed partial class Closure
 
     private void ApplyDelta(ReadOnlySpan<Fact> asserted, ReadOnlySpan<Fact> retracted)
     {
+        if (RebuiltForLists(asserted, retracted))
+        {
+            return;
+        }
+
         List<Fact> gone = [];
         foreach (Fact fact in retracted)
         {
@@ -520,6 +678,8 @@ public sealed partial class Closure
             Facts.Remove(fact);
         }
 
+        Strategy.Rebuilding(this);
+
         Insert(Program.Axioms);
         Insert(_explicit);
     }
@@ -557,6 +717,11 @@ internal abstract class Retraction
 
     /// <summary>Takes out what <paramref name="gone"/>, no longer explicit, alone supported.</summary>
     internal abstract void Retract(Closure closure, List<Fact> gone);
+
+    /// <summary>The closure has dropped every fact it held and is about to insert its axioms and explicit facts again: a strategy forgets what it kept of them.</summary>
+    internal virtual void Rebuilding(Closure closure)
+    {
+    }
 
     private sealed class Dred : Retraction
     {

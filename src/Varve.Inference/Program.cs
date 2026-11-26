@@ -17,8 +17,9 @@ namespace Varve.Inference;
 /// </summary>
 internal sealed class Program
 {
-    private Program(Rule[] rules, Fact[] axioms, Check[] checks)
+    private Program(Rule[] rules, Fact[] axioms, Check[] checks, ListTerms? list)
     {
+        List = list;
         Rules = rules;
         Axioms = axioms;
         Checks = checks;
@@ -35,6 +36,9 @@ internal sealed class Program
     }
 
     internal Rule[] Rules { get; }
+
+    /// <summary>The list vocabulary, when the profile has rules or checks over lists: the closure reads its asserted lists (ADR 0197, amended 2026-11-24).</summary>
+    internal ListTerms? List { get; }
 
     /// <summary>The facts every closure of the profile holds, whatever the graph.</summary>
     internal Fact[] Axioms { get; }
@@ -61,7 +65,7 @@ internal sealed class Program
             }
         }
 
-        return new Program([.. book.Rules], [.. book.Axioms], [.. book.Checks]);
+        return new Program([.. book.Rules], [.. book.Axioms], [.. book.Checks], book.List);
     }
 
     /// <summary>The rules of a profile, written as their specifications give them.</summary>
@@ -77,6 +81,8 @@ internal sealed class Program
         private static readonly Slot W = Slot.Var(7);
 
         internal List<Rule> Rules { get; } = [];
+
+        internal ListTerms? List { get; private set; }
 
         internal List<Fact> Axioms { get; } = [];
 
@@ -234,6 +240,7 @@ internal sealed class Program
 
             // The rules over lists.
             ListTerms list = new(terms.Handle(Vocabulary.First), terms.Handle(Vocabulary.Rest), terms.Handle(Vocabulary.Nil), terms.Handle(Vocabulary.Type));
+            List = list;
             TermHandle intersectionOf = terms.Handle(Vocabulary.IntersectionOf), unionOf = terms.Handle(Vocabulary.UnionOf);
             Rules.Add(new IntersectionMembership(intersectionOf, list));
             Rules.Add(new IntersectionParts(intersectionOf, list));
@@ -263,11 +270,11 @@ internal sealed class Program
 
             TermHandle typeOf = terms.Handle(Vocabulary.Type), sameAsOf = terms.Handle(Vocabulary.SameAs);
             TermHandle members = terms.Handle(Vocabulary.Members);
-            Checks.Add(new MembersCheck("owl2rl", "eq-diff2", typeOf, terms.Handle(Vocabulary.AllDifferent), members, list, (facts, a, b, into) =>
+            Checks.Add(new MembersCheck("owl2rl", "eq-diff2", typeOf, terms.Handle(Vocabulary.AllDifferent), members, (facts, a, b, into) =>
                 Same(facts, a, b, sameAsOf, into)));
-            Checks.Add(new MembersCheck("owl2rl", "eq-diff3", typeOf, terms.Handle(Vocabulary.AllDifferent), terms.Handle(Vocabulary.DistinctMembers), list, (facts, a, b, into) =>
+            Checks.Add(new MembersCheck("owl2rl", "eq-diff3", typeOf, terms.Handle(Vocabulary.AllDifferent), terms.Handle(Vocabulary.DistinctMembers), (facts, a, b, into) =>
                 Same(facts, a, b, sameAsOf, into)));
-            Checks.Add(new MembersCheck("owl2rl", "prp-adp", typeOf, terms.Handle(Vocabulary.AllDisjointProperties), members, list, (facts, a, b, into) =>
+            Checks.Add(new MembersCheck("owl2rl", "prp-adp", typeOf, terms.Handle(Vocabulary.AllDisjointProperties), members, (facts, a, b, into) =>
             {
                 foreach (Fact first in facts.Match(TermHandle.None, a, TermHandle.None))
                 {
@@ -278,7 +285,7 @@ internal sealed class Program
                     }
                 }
             }));
-            Checks.Add(new MembersCheck("owl2rl", "cax-adc", typeOf, terms.Handle(Vocabulary.AllDisjointClasses), members, list, (facts, a, b, into) =>
+            Checks.Add(new MembersCheck("owl2rl", "cax-adc", typeOf, terms.Handle(Vocabulary.AllDisjointClasses), members, (facts, a, b, into) =>
             {
                 foreach (Fact first in facts.Match(TermHandle.None, typeOf, a))
                 {

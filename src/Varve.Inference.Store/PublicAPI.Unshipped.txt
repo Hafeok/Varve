@@ -84,11 +84,9 @@ Varve.Inference.Store.Model.InferenceSnapshot
 Varve.Inference.Store.Model.InferenceSnapshot.<Clone>$() -> Varve.Inference.Store.Model.InferenceSnapshot!
 Varve.Inference.Store.Model.InferenceSnapshot.Clashes.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>!
 Varve.Inference.Store.Model.InferenceSnapshot.Clashes.init -> void
-Varve.Inference.Store.Model.InferenceSnapshot.Deconstruct(out Varve.Store.Log.Position Position, out System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>! Clashes, out System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! PremiseSetGraphs, out Varve.Inference.Model.MemoryAmount Held, out Varve.Inference.Model.MemoryAmount Peak) -> void
 Varve.Inference.Store.Model.InferenceSnapshot.Equals(Varve.Inference.Store.Model.InferenceSnapshot? other) -> bool
 Varve.Inference.Store.Model.InferenceSnapshot.Held.get -> Varve.Inference.Model.MemoryAmount
 Varve.Inference.Store.Model.InferenceSnapshot.Held.init -> void
-Varve.Inference.Store.Model.InferenceSnapshot.InferenceSnapshot(Varve.Store.Log.Position Position, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>! Clashes, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! PremiseSetGraphs, Varve.Inference.Model.MemoryAmount Held, Varve.Inference.Model.MemoryAmount Peak) -> void
 Varve.Inference.Store.Model.InferenceSnapshot.Peak.get -> Varve.Inference.Model.MemoryAmount
 Varve.Inference.Store.Model.InferenceSnapshot.Peak.init -> void
 Varve.Inference.Store.Model.InferenceSnapshot.Position.get -> Varve.Store.Log.Position
@@ -123,3 +121,24 @@ static Varve.Inference.Store.Model.PassStart.operator ==(Varve.Inference.Store.M
 ~override Varve.Inference.Store.Model.ExplainWait.ToString() -> string
 ~override Varve.Inference.Store.Model.PassStart.Equals(object obj) -> bool
 ~override Varve.Inference.Store.Model.PassStart.ToString() -> string
+Varve.Inference.Store.InferenceProjection.UnreadLists() -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Store.Model.NamedUnreadList!>!
+Varve.Inference.Store.Model.NamedUnreadList
+Varve.Inference.Store.Model.NamedUnreadList.<Clone>$() -> Varve.Inference.Store.Model.NamedUnreadList!
+Varve.Inference.Store.Model.NamedUnreadList.Cell.get -> Varve.Rdf.RdfTerm!
+Varve.Inference.Store.Model.NamedUnreadList.Cell.init -> void
+Varve.Inference.Store.Model.NamedUnreadList.Deconstruct(out Varve.Rdf.RdfTerm! Graph, out Varve.Rdf.RdfTerm! Cell, out Varve.Inference.Model.UnreadListReason Reason) -> void
+Varve.Inference.Store.Model.NamedUnreadList.Equals(Varve.Inference.Store.Model.NamedUnreadList? other) -> bool
+Varve.Inference.Store.Model.NamedUnreadList.Graph.get -> Varve.Rdf.RdfTerm!
+Varve.Inference.Store.Model.NamedUnreadList.Graph.init -> void
+Varve.Inference.Store.Model.NamedUnreadList.NamedUnreadList(Varve.Rdf.RdfTerm! Graph, Varve.Rdf.RdfTerm! Cell, Varve.Inference.Model.UnreadListReason Reason) -> void
+Varve.Inference.Store.Model.NamedUnreadList.Reason.get -> Varve.Inference.Model.UnreadListReason
+Varve.Inference.Store.Model.NamedUnreadList.Reason.init -> void
+override Varve.Inference.Store.Model.NamedUnreadList.Equals(object? obj) -> bool
+override Varve.Inference.Store.Model.NamedUnreadList.GetHashCode() -> int
+override Varve.Inference.Store.Model.NamedUnreadList.ToString() -> string!
+static Varve.Inference.Store.Model.NamedUnreadList.operator !=(Varve.Inference.Store.Model.NamedUnreadList? left, Varve.Inference.Store.Model.NamedUnreadList? right) -> bool
+static Varve.Inference.Store.Model.NamedUnreadList.operator ==(Varve.Inference.Store.Model.NamedUnreadList? left, Varve.Inference.Store.Model.NamedUnreadList? right) -> bool
+Varve.Inference.Store.Model.InferenceSnapshot.Deconstruct(out Varve.Store.Log.Position Position, out System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>! Clashes, out System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! PremiseSetGraphs, out Varve.Inference.Model.MemoryAmount Held, out Varve.Inference.Model.MemoryAmount Peak, out System.Collections.Generic.IReadOnlyList<Varve.Inference.Store.Model.NamedUnreadList!>! UnreadLists) -> void
+Varve.Inference.Store.Model.InferenceSnapshot.InferenceSnapshot(Varve.Store.Log.Position Position, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.PlacedClash>! Clashes, System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>! PremiseSetGraphs, Varve.Inference.Model.MemoryAmount Held, Varve.Inference.Model.MemoryAmount Peak, System.Collections.Generic.IReadOnlyList<Varve.Inference.Store.Model.NamedUnreadList!>! UnreadLists) -> void
+Varve.Inference.Store.Model.InferenceSnapshot.UnreadLists.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Store.Model.NamedUnreadList!>!
+Varve.Inference.Store.Model.InferenceSnapshot.UnreadLists.init -> void

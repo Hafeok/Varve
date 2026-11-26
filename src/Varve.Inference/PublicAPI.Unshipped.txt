@@ -173,3 +173,53 @@ Varve.Inference.FactBudget.GiveBeside(Varve.Inference.Model.MemoryAmount amount)
 Varve.Inference.FactBudget.TakeBeside(Varve.Inference.Model.MemoryAmount amount) -> void
 Varve.Inference.FactBudget.FactBudget(Varve.Inference.Model.MemoryAmount limit, Varve.Inference.Model.ClosureCosts! costs, Varve.Inference.FactBudget? pool) -> void
 Varve.Inference.FactBudget.Pool.get -> Varve.Inference.FactBudget?
+Varve.Inference.Closure.UnreadLists() -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.UnreadList>!
+Varve.Inference.Model.PlacedUnreadList
+Varve.Inference.Model.PlacedUnreadList.Deconstruct(out Varve.Rdf.TermHandle Graph, out Varve.Inference.Model.UnreadList List) -> void
+Varve.Inference.Model.PlacedUnreadList.Equals(Varve.Inference.Model.PlacedUnreadList other) -> bool
+Varve.Inference.Model.PlacedUnreadList.Graph.get -> Varve.Rdf.TermHandle
+Varve.Inference.Model.PlacedUnreadList.Graph.init -> void
+Varve.Inference.Model.PlacedUnreadList.List.get -> Varve.Inference.Model.UnreadList
+Varve.Inference.Model.PlacedUnreadList.List.init -> void
+Varve.Inference.Model.PlacedUnreadList.PlacedUnreadList() -> void
+Varve.Inference.Model.PlacedUnreadList.PlacedUnreadList(Varve.Rdf.TermHandle Graph, Varve.Inference.Model.UnreadList List) -> void
+Varve.Inference.Model.UnreadList
+Varve.Inference.Model.UnreadList.Cell.get -> Varve.Rdf.TermHandle
+Varve.Inference.Model.UnreadList.Cell.init -> void
+Varve.Inference.Model.UnreadList.Deconstruct(out Varve.Rdf.TermHandle Cell, out Varve.Inference.Model.UnreadListReason Reason) -> void
+Varve.Inference.Model.UnreadList.Equals(Varve.Inference.Model.UnreadList other) -> bool
+Varve.Inference.Model.UnreadList.Reason.get -> Varve.Inference.Model.UnreadListReason
+Varve.Inference.Model.UnreadList.Reason.init -> void
+Varve.Inference.Model.UnreadList.UnreadList() -> void
+Varve.Inference.Model.UnreadList.UnreadList(Varve.Rdf.TermHandle Cell, Varve.Inference.Model.UnreadListReason Reason) -> void
+Varve.Inference.Model.UnreadListReason
+Varve.Inference.Model.UnreadListReason.Broken = 5 -> Varve.Inference.Model.UnreadListReason
+Varve.Inference.Model.UnreadListReason.Cycle = 4 -> Varve.Inference.Model.UnreadListReason
+Varve.Inference.Model.UnreadListReason.NoFirst = 2 -> Varve.Inference.Model.UnreadListReason
+Varve.Inference.Model.UnreadListReason.NoRest = 3 -> Varve.Inference.Model.UnreadListReason
+Varve.Inference.Model.UnreadListReason.SeveralFirsts = 0 -> Varve.Inference.Model.UnreadListReason
+Varve.Inference.Model.UnreadListReason.SeveralRests = 1 -> Varve.Inference.Model.UnreadListReason
+override Varve.Inference.Model.PlacedUnreadList.GetHashCode() -> int
+override Varve.Inference.Model.UnreadList.GetHashCode() -> int
+static Varve.Inference.Model.PlacedUnreadList.operator !=(Varve.Inference.Model.PlacedUnreadList left, Varve.Inference.Model.PlacedUnreadList right) -> bool
+static Varve.Inference.Model.PlacedUnreadList.operator ==(Varve.Inference.Model.PlacedUnreadList left, Varve.Inference.Model.PlacedUnreadList right) -> bool
+static Varve.Inference.Model.UnreadList.operator !=(Varve.Inference.Model.UnreadList left, Varve.Inference.Model.UnreadList right) -> bool
+static Varve.Inference.Model.UnreadList.operator ==(Varve.Inference.Model.UnreadList left, Varve.Inference.Model.UnreadList right) -> bool
+~override Varve.Inference.Model.PlacedUnreadList.Equals(object obj) -> bool
+~override Varve.Inference.Model.PlacedUnreadList.ToString() -> string
+~override Varve.Inference.Model.UnreadList.Equals(object obj) -> bool
+~override Varve.Inference.Model.UnreadList.ToString() -> string
+Varve.Inference.Model.UnreadListReason.DiffersFromTBox = 6 -> Varve.Inference.Model.UnreadListReason
+Varve.Inference.Closure.ListReadings.get -> Varve.Inference.Model.ListReadings
+Varve.Inference.Model.ListReadings
+Varve.Inference.Model.ListReadings.Deconstruct(out int Value) -> void
+Varve.Inference.Model.ListReadings.Equals(Varve.Inference.Model.ListReadings other) -> bool
+Varve.Inference.Model.ListReadings.ListReadings() -> void
+Varve.Inference.Model.ListReadings.ListReadings(int Value) -> void
+Varve.Inference.Model.ListReadings.Value.get -> int
+Varve.Inference.Model.ListReadings.Value.init -> void
+override Varve.Inference.Model.ListReadings.GetHashCode() -> int
+static Varve.Inference.Model.ListReadings.operator !=(Varve.Inference.Model.ListReadings left, Varve.Inference.Model.ListReadings right) -> bool
+static Varve.Inference.Model.ListReadings.operator ==(Varve.Inference.Model.ListReadings left, Varve.Inference.Model.ListReadings right) -> bool
+~override Varve.Inference.Model.ListReadings.Equals(object obj) -> bool
+~override Varve.Inference.Model.ListReadings.ToString() -> string

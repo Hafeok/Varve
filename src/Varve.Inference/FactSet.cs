@@ -59,6 +59,13 @@ internal sealed class FactSet
     /// </summary>
     internal FactSet? Base { get; init; }
 
+    /// <summary>
+    /// The lists the explicit statements make, as the list rules and checks
+    /// read them (ADR 0197, amended 2026-11-24): set by the closure that owns
+    /// the set, null for a profile without list rules.
+    /// </summary>
+    internal AssertedLists? Lists { get; set; }
+
     // What this set has taken from its budget, and what its pass's record of changes has: each given back whole.
     private long _charged;
     private long _touchedCharge;

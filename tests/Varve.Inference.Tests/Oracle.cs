@@ -15,7 +15,7 @@ namespace Varve.Inference.Tests;
 /// </summary>
 internal static class Oracle
 {
-    internal static HashSet<Fact> Closure(Program program, IEnumerable<Fact> explicitFacts)
+    internal static HashSet<Fact> Closure(Program program, IEnumerable<Fact> explicitFacts, AssertedLists? lists = null)
     {
         FactSet facts = new();
         foreach (Fact axiom in program.Axioms)
@@ -23,9 +23,21 @@ internal static class Oracle
             facts.Add(axiom);
         }
 
+        List<Fact> statements = [];
         foreach (Fact fact in explicitFacts)
         {
             facts.Add(fact);
+            if (program.List is { } list && AssertedLists.IsListStatement(fact, list))
+            {
+                statements.Add(fact);
+            }
+        }
+
+        // The lists are read from the explicit statements, as every closure reads them (ADR 0197, amended 2026-11-24).
+        // Or, given, another closure's reading: a list is then read where its cells' statements are among these facts.
+        if (program.List is { } terms)
+        {
+            facts.Lists = lists ?? AssertedLists.Read(new HashSet<Fact>(statements), terms, beneath: null);
         }
 
         List<Fact> heads = [];

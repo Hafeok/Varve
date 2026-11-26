@@ -302,15 +302,23 @@ public sealed class InferenceProjection : IProjection
     private void Publish(long position)
     {
         IReadOnlyList<PlacedClash> clashes = [];
+        List<NamedUnreadList> unread = [];
         if (_state is { } state)
         {
             // A check names terms through the source: a pinned view of its own, at or above every handle the closure holds.
             using DatasetView view = _dataset.Pin();
             state.Terms.Source = view;
             clashes = state.Clashes();
+            foreach (PlacedUnreadList list in state.UnreadLists())
+            {
+                if (state.Terms.TryExternalise(list.Graph, out RdfTerm? graph) && state.Terms.TryExternalise(list.List.Cell, out RdfTerm? cell))
+                {
+                    unread.Add(new NamedUnreadList(graph, cell, list.List.Reason));
+                }
+            }
         }
 
-        Volatile.Write(ref _snapshot, new InferenceSnapshot(new Position(position), clashes, PremiseSetGraphs(), ClosureHeld, ClosurePeak));
+        Volatile.Write(ref _snapshot, new InferenceSnapshot(new Position(position), clashes, PremiseSetGraphs(), ClosureHeld, ClosurePeak, unread));
     }
 
     /// <summary>
@@ -463,6 +471,15 @@ public sealed class InferenceProjection : IProjection
             built.Release();
         }
     }
+
+    /// <summary>
+    /// The cells of asserted lists the binding's rules do not read at
+    /// <see cref="Position"/> (ADR 0197, amended 2026-11-24), each named with
+    /// its graph and why: reported, never skipped in silence. None while the
+    /// binding is stopped.
+    /// </summary>
+    /// <remarks>The <see cref="Snapshot"/>'s: never waits for a pass (ADR 0195 point 6, amended 2026-11-25).</remarks>
+    public IReadOnlyList<NamedUnreadList> UnreadLists() => Snapshot.UnreadLists;
 
     /// <summary>
     /// The clashes in the binding's closures at <see cref="Position"/> (ADR
