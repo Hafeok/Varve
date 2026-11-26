@@ -96,7 +96,8 @@ internal sealed class KeptClashes
     private IReadOnlyList<Clash>? _all;
 
     // Each premise of a kept clash, to the clashes it is a premise of.
-    private readonly Dictionary<Fact, List<Kept>> _byPremise = [];
+    // A set by reference, not a list: a TBox fact can be a premise of thousands of clashes, and one is dropped at a time.
+    private readonly Dictionary<Fact, HashSet<Kept>> _byPremise = [];
 
     /// <summary>Where each clash kept and dropped is written, for an owner that keeps them placed; none for one that does not.</summary>
     internal ClashLog? Log { get; set; }
@@ -158,9 +159,9 @@ internal sealed class KeptClashes
             {
                 came.Add(fact);
             }
-            else if (_byPremise.TryGetValue(fact, out List<Kept>? gone))
+            else if (_byPremise.TryGetValue(fact, out HashSet<Kept>? gone))
             {
-                foreach (Kept kept in gone.ToArray())
+                foreach (Kept kept in new List<Kept>(gone))
                 {
                     Drop(kept);
                 }
@@ -217,16 +218,13 @@ internal sealed class KeptClashes
             Log?.Came(clash.Clash);
             foreach (Fact premise in premises)
             {
-                if (!_byPremise.TryGetValue(premise, out List<Kept>? of))
+                if (!_byPremise.TryGetValue(premise, out HashSet<Kept>? of))
                 {
-                    of = [];
+                    of = new HashSet<Kept>(ReferenceEqualityComparer.Instance);
                     _byPremise.Add(premise, of);
                 }
 
-                if (!of.Contains(clash))
-                {
-                    of.Add(clash);
-                }
+                of.Add(clash);
             }
         }
     }
@@ -234,15 +232,16 @@ internal sealed class KeptClashes
     /// <summary>The clashes kept with <paramref name="premise"/> among their premises.</summary>
     internal IReadOnlyList<Clash> With(Fact premise)
     {
-        if (!_byPremise.TryGetValue(premise, out List<Kept>? of))
+        if (!_byPremise.TryGetValue(premise, out HashSet<Kept>? of))
         {
             return [];
         }
 
         Clash[] with = new Clash[of.Count];
-        for (int i = 0; i < with.Length; i++)
+        int i = 0;
+        foreach (Kept kept in of)
         {
-            with[i] = of[i].Clash;
+            with[i++] = kept.Clash;
         }
 
         return with;
@@ -260,7 +259,7 @@ internal sealed class KeptClashes
 
         foreach (Fact premise in kept.Clash.Premises)
         {
-            if (_byPremise.TryGetValue(premise, out List<Kept>? of))
+            if (_byPremise.TryGetValue(premise, out HashSet<Kept>? of))
             {
                 of.Remove(kept);
                 if (of.Count == 0)
