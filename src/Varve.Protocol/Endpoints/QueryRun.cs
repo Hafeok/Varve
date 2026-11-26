@@ -184,6 +184,12 @@ internal static class QueryRun
             context.Response.Headers["Varve-Inconsistent"] = "true";
         }
 
+        // An answer under owl2-rl over a graph with list cells the rules do not read says how many, as of its position (ADR 0197, amended 2026-11-26).
+        if (owl2Rl && UnreadLists(exchange, view) is > 0 and int unread)
+        {
+            context.Response.Headers[EntailmentHeader.UnreadListsName] = unread.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
         // Where the answer is narrower than the request suggests, it says so (ADR 0197, the ruling of 2026-11-19):
         // no OWL2RL binding of this part applies the equality rules, and a merge is answered graph by graph.
         if (owl2Rl)
@@ -283,6 +289,41 @@ internal static class QueryRun
 
         return false;
     }
+
+    /// <summary>
+    /// How many asserted list cells an OWL 2 RL binding's rules leave unread,
+    /// as of the view's position, in a graph the caller reads: a data graph in
+    /// its readable scope, the default graph when it reads that, or the
+    /// TBox, which every reader of the dataset reads.
+    /// </summary>
+    private static int UnreadLists(Exchange exchange, DatasetView view)
+    {
+        if (exchange.Scope.Readable.IsEmpty)
+        {
+            return 0;
+        }
+
+        int count = 0;
+        foreach (IInferenceClosure closure in exchange.Options.InferenceClosures?.Of(exchange.Name) ?? [])
+        {
+            if (closure.Profile != Varve.Inference.Model.InferenceProfile.Owl2Rl)
+            {
+                continue;
+            }
+
+            foreach (RdfTerm graph in closure.UnreadListGraphsAt(view))
+            {
+                if (graph.Equals(DefaultGraphName) ? exchange.Scope.Readable.IncludesDefault : graph.Equals(closure.TBoxConclusions) || exchange.Scope.Readable.Allows(graph))
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+
+    private static readonly RdfTerm DefaultGraphName = RdfTerm.Iri("https://w3id.org/varve/ns#defaultGraph"u8);
 
     /// <summary>Whether the dataset has an OWL 2 RL binding whose closure answers <c>owl2-rl</c> (ADR 0197 point 6).</summary>
     private static bool ServesOwl2Rl(Exchange exchange)

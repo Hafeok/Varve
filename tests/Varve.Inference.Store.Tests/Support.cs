@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -219,18 +220,25 @@ internal static class Support
 
         string[] names = [.. graphs.Keys];
         Dictionary<int, HashSet<Fact>> closures = [];
+        FactBudget unbounded = new(new MemoryAmount(long.MaxValue / 4), ClosureCosts.For(binding.Profile));
         for (int mask = 0; mask < 1 << names.Length; mask++)
         {
-            HashSet<Fact> facts = [.. tbox];
+            // The closure of the graphs of the mask over the TBox's, each graph's lists read from its own
+            // statements and the TBox's alone (ADR 0197, amended 2026-11-26).
+            HashSet<Fact> facts = [];
+            Dictionary<DataGraphIndex, ListStatements> lists = [];
             for (int g = 0; g < names.Length; g++)
             {
                 if ((mask & (1 << g)) != 0)
                 {
                     facts.UnionWith(graphs[names[g]]);
+                    lists[new DataGraphIndex(g)] = new ListStatements([.. graphs[names[g]].Where(terms.IsListStatement)], []);
                 }
             }
 
-            Closure closure = new(binding.Profile, terms);
+            Closure closure = new(binding.Profile, terms, unbounded, t);
+            closure.ReadListsPerGraph();
+            closure.ReadListsPerGraph(lists);
             closure.Apply([.. facts], []);
             closures[mask] = [.. closure.All];
         }
@@ -307,6 +315,10 @@ internal static class Support
     {
         private readonly Dictionary<RdfTerm, TermHandle> _handles = new(RdfTerm.Comparer);
         private readonly List<RdfTerm> _terms = [];
+
+        /// <summary>Whether a fact is an <c>rdf:first</c> or <c>rdf:rest</c> statement.</summary>
+        internal bool IsListStatement(Fact fact) =>
+            fact.Predicate == Handle(RdfTerm.Iri(Encoding.UTF8.GetBytes(RdfNs + "first"))) || fact.Predicate == Handle(RdfTerm.Iri(Encoding.UTF8.GetBytes(RdfNs + "rest")));
 
         public TermHandle Handle(RdfTerm term)
         {

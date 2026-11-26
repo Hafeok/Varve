@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+using System;
 using System.Collections.Generic;
 using DecisionDriven;
 using DecisionDriven.Ledger.Varve;
@@ -36,7 +37,104 @@ internal sealed class AssertedLists
     private readonly Dictionary<ulong, List<TermHandle>> _holding = [];
     private readonly List<UnreadList> _unread = [];
 
+    // Under a cross-graph merge, each data graph's reading with the TBox's, by the graph's index; the TBox's own under -1.
+    private readonly SortedDictionary<int, AssertedLists>? _parts;
+
     private AssertedLists(ListTerms list) => _list = list;
+
+    private AssertedLists(ListTerms list, SortedDictionary<int, AssertedLists> parts)
+    {
+        _list = list;
+        _parts = parts;
+        HashSet<UnreadList> seen = [];
+        foreach (AssertedLists part in parts.Values)
+        {
+            foreach (UnreadList unread in part._unread)
+            {
+                if (seen.Add(unread))
+                {
+                    _unread.Add(unread);
+                }
+            }
+        }
+
+        _unread.Sort((a, b) => a.Cell.Value != b.Cell.Value ? a.Cell.Value.CompareTo(b.Cell.Value) : a.Reason.CompareTo(b.Reason));
+    }
+
+    /// <summary>
+    /// The reading of a cross-graph merge's lists (ADR 0197, amended
+    /// 2026-11-26): each data graph's lists from its own statements and the
+    /// TBox's, never across graphs, so one graph's statement never makes
+    /// another graph's list unread. A cell its graph does not complete, or a
+    /// chain that goes on only in another graph, is unread there as
+    /// <see cref="UnreadListReason.SpansGraphs"/>. Two graphs that read one
+    /// head differently each give it a list.
+    /// </summary>
+    internal static AssertedLists PerGraph(IReadOnlyDictionary<int, HashSet<Fact>> byGraph, ListTerms list, AssertedLists? beneath)
+    {
+        Dictionary<ulong, int> graphsNaming = [];
+        foreach (HashSet<Fact> statements in byGraph.Values)
+        {
+            HashSet<ulong> subjects = [];
+            foreach (Fact statement in statements)
+            {
+                if (subjects.Add(statement.Subject.Value))
+                {
+                    graphsNaming[statement.Subject.Value] = graphsNaming.GetValueOrDefault(statement.Subject.Value) + 1;
+                }
+            }
+        }
+
+        SortedDictionary<int, AssertedLists> parts = [];
+        if (beneath is not null)
+        {
+            parts[-1] = beneath;
+        }
+
+        foreach ((int graph, HashSet<Fact> statements) in byGraph)
+        {
+            if (statements.Count == 0)
+            {
+                continue;
+            }
+
+            HashSet<ulong> own = [];
+            foreach (Fact statement in statements)
+            {
+                own.Add(statement.Subject.Value);
+            }
+
+            parts[graph] = Read(statements, list, beneath, subject => graphsNaming.GetValueOrDefault(subject) > (own.Contains(subject) ? 1 : 0));
+        }
+
+        return new AssertedLists(list, parts);
+    }
+
+    /// <summary>The cells one data graph's statements leave unread, with the TBox's beneath: none for a reading not per graph.</summary>
+    internal IReadOnlyList<UnreadList> UnreadIn(int graph)
+    {
+        if (_parts is null || !_parts.TryGetValue(graph, out AssertedLists? part))
+        {
+            return [];
+        }
+
+        if (!_parts.TryGetValue(-1, out AssertedLists? tbox) || tbox._unread.Count == 0)
+        {
+            return part._unread;
+        }
+
+        HashSet<UnreadList> under = [.. tbox._unread];
+        List<UnreadList> own = [];
+        foreach (UnreadList unread in part._unread)
+        {
+            if (!under.Contains(unread))
+            {
+                own.Add(unread);
+            }
+        }
+
+        return own;
+    }
 
     /// <summary>The cells the statements do not make lists of, each with its reason, ordered by handle.</summary>
     internal IReadOnlyList<UnreadList> Unread => _unread;
@@ -51,7 +149,10 @@ internal sealed class AssertedLists
     /// change a TBox list, and a statement of its own that differs is
     /// reported (<see cref="UnreadListReason.DiffersFromTBox"/>).
     /// </summary>
-    internal static AssertedLists Read(IEnumerable<Fact> statements, ListTerms list, AssertedLists? beneath)
+    internal static AssertedLists Read(IEnumerable<Fact> statements, ListTerms list, AssertedLists? beneath) => Read(statements, list, beneath, static _ => false);
+
+    // elsewhere: whether another data graph asserts an rdf:first or rdf:rest of a subject.
+    private static AssertedLists Read(IEnumerable<Fact> statements, ListTerms list, AssertedLists? beneath, Func<ulong, bool> elsewhere)
     {
         AssertedLists lists = new(list);
         Dictionary<ulong, (List<Fact> Firsts, List<Fact> Rests)> bySubject = [];
@@ -111,11 +212,11 @@ internal sealed class AssertedLists
             }
             else if (firsts.Count == 0)
             {
-                unread[subject] = UnreadListReason.NoFirst;
+                unread[subject] = elsewhere(subject) ? UnreadListReason.SpansGraphs : UnreadListReason.NoFirst;
             }
             else if (rests.Count == 0)
             {
-                unread[subject] = UnreadListReason.NoRest;
+                unread[subject] = elsewhere(subject) ? UnreadListReason.SpansGraphs : UnreadListReason.NoRest;
             }
             else if (subject == list.Nil.Value)
             {
@@ -152,13 +253,13 @@ internal sealed class AssertedLists
 
                 if (unread.TryGetValue(at, out UnreadListReason below))
                 {
-                    outcome = below == UnreadListReason.Cycle ? UnreadListReason.Cycle : UnreadListReason.Broken;
+                    outcome = below is UnreadListReason.Cycle or UnreadListReason.SpansGraphs ? below : UnreadListReason.Broken;
                     break;
                 }
 
                 if (!candidates.TryGetValue(at, out Cell cell))
                 {
-                    outcome = UnreadListReason.Broken;
+                    outcome = elsewhere(at) ? UnreadListReason.SpansGraphs : UnreadListReason.Broken;
                     break;
                 }
 
@@ -228,7 +329,33 @@ internal sealed class AssertedLists
     /// <paramref name="facts"/>, as while a rebuild inserts them again: an
     /// instance is only ever one whose premises are all held.
     /// </summary>
-    internal bool TryPath(TermHandle head, List<Cell> path, FactSet facts)
+    internal IEnumerable<List<Cell>> Paths(TermHandle head, FactSet facts)
+    {
+        if (_parts is null)
+        {
+            List<Cell> path = [];
+            if (TryPath(head, path, facts))
+            {
+                yield return path;
+            }
+
+            yield break;
+        }
+
+        // Each graph's reading of the head, once each: graphs that read it alike give it one list.
+        List<List<Cell>> given = [];
+        foreach (AssertedLists part in _parts.Values)
+        {
+            List<Cell> path = [];
+            if (part.TryPath(head, path, facts) && !given.Exists(other => Same(other, path)))
+            {
+                given.Add(path);
+                yield return path;
+            }
+        }
+    }
+
+    private bool TryPath(TermHandle head, List<Cell> path, FactSet facts)
     {
         path.Clear();
         TermHandle at = head;
@@ -248,16 +375,56 @@ internal sealed class AssertedLists
     }
 
     /// <summary>Whether <paramref name="fact"/> is one of the two statements that make a read cell.</summary>
-    internal bool IsCellStatement(in Fact fact) =>
-        _read.TryGetValue(fact.Subject.Value, out Cell cell) && (cell.FirstFact.Equals(fact) || cell.RestFact.Equals(fact));
+    internal bool IsCellStatement(in Fact fact)
+    {
+        if (_parts is not null)
+        {
+            foreach (AssertedLists part in _parts.Values)
+            {
+                if (part.IsCellStatement(fact))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return _read.TryGetValue(fact.Subject.Value, out Cell cell) && (cell.FirstFact.Equals(fact) || cell.RestFact.Equals(fact));
+    }
 
     /// <summary>The read cells whose <c>rdf:first</c> is <paramref name="member"/>.</summary>
-    internal IReadOnlyList<TermHandle> CellsHolding(TermHandle member) =>
-        _holding.TryGetValue(member.Value, out List<TermHandle>? cells) ? cells : [];
+    internal IReadOnlyList<TermHandle> CellsHolding(TermHandle member)
+    {
+        if (_parts is not null)
+        {
+            HashSet<TermHandle> cells = [];
+            foreach (AssertedLists part in _parts.Values)
+            {
+                cells.UnionWith(part.CellsHolding(member));
+            }
+
+            return [.. cells];
+        }
+
+        return _holding.TryGetValue(member.Value, out List<TermHandle>? held) ? held : [];
+    }
 
     /// <summary>The heads of the lists <paramref name="cell"/> is a cell of: itself, and every read cell whose chain reaches it.</summary>
     internal void HeadsReaching(TermHandle cell, HashSet<ulong> into)
     {
+        if (_parts is not null)
+        {
+            foreach (AssertedLists part in _parts.Values)
+            {
+                HashSet<ulong> heads = [];
+                part.HeadsReaching(cell, heads);
+                into.UnionWith(heads);
+            }
+
+            return;
+        }
+
         Stack<TermHandle> pending = new();
         pending.Push(cell);
         while (pending.Count > 0)
@@ -278,9 +445,82 @@ internal sealed class AssertedLists
         }
     }
 
+    /// <summary>
+    /// The heads of every list whose reading differs between this reading and
+    /// <paramref name="other"/>: each cell read in one and not the other, or
+    /// read differently, and every cell whose chain reaches it, in either.
+    /// </summary>
+    internal HashSet<ulong> HeadsChangedFrom(AssertedLists other)
+    {
+        if (_parts is not null || other._parts is not null)
+        {
+            // Graph by graph: a graph read on one side only is compared with what it reads with no
+            // statements of its own, the TBox's lists, or none.
+            AssertedLists none = Part(this, -1) ?? Part(other, -1) ?? new(_list);
+            HashSet<ulong> changed = [];
+            HashSet<int> graphs = [];
+            foreach (int graph in Parts(this))
+            {
+                graphs.Add(graph);
+            }
+
+            foreach (int graph in Parts(other))
+            {
+                graphs.Add(graph);
+            }
+
+            foreach (int graph in graphs)
+            {
+                AssertedLists mine = Part(this, graph) ?? none, theirs = Part(other, graph) ?? none;
+                changed.UnionWith(mine.HeadsChangedFrom(theirs));
+            }
+
+            return changed;
+        }
+
+        HashSet<ulong> heads = [];
+        foreach ((ulong subject, Cell cell) in _read)
+        {
+            if (!other._read.TryGetValue(subject, out Cell theirs) || !theirs.Equals(cell))
+            {
+                HeadsReaching(new TermHandle(subject), heads);
+                other.HeadsReaching(new TermHandle(subject), heads);
+            }
+        }
+
+        foreach (ulong subject in other._read.Keys)
+        {
+            if (!_read.ContainsKey(subject))
+            {
+                HeadsReaching(new TermHandle(subject), heads);
+                other.HeadsReaching(new TermHandle(subject), heads);
+            }
+        }
+
+        return heads;
+    }
+
     /// <summary>Whether <paramref name="other"/> reads the same cells from the same statements: the list rules' input unchanged.</summary>
     internal bool SameReading(AssertedLists other)
     {
+        if (_parts is not null || other._parts is not null)
+        {
+            if (_parts is null || other._parts is null || _parts.Count != other._parts.Count)
+            {
+                return false;
+            }
+
+            foreach ((int graph, AssertedLists part) in _parts)
+            {
+                if (!other._parts.TryGetValue(graph, out AssertedLists? theirs) || !part.SameReading(theirs))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         if (other._read.Count != _read.Count)
         {
             return false;
@@ -295,5 +535,91 @@ internal sealed class AssertedLists
         }
 
         return true;
+    }
+
+    /// <summary>Whether the lists are read per graph, a cross-graph merge's (ADR 0197, amended 2026-11-26).</summary>
+    internal bool IsPerGraph => _parts is not null;
+
+    /// <summary>
+    /// The graphs whose reading holds every one of <paramref name="cells"/>
+    /// as a cell statement: those that read the list an instance over those
+    /// cells took, -1 for the TBox's. Under a cross-graph merge, an
+    /// instance's cells are drawn through one of these graphs, whatever other
+    /// graphs assert the same statements.
+    /// </summary>
+    internal void ReadersOf(List<Fact> cells, List<int> into)
+    {
+        into.Clear();
+        if (_parts is null)
+        {
+            return;
+        }
+
+        foreach ((int graph, AssertedLists part) in _parts)
+        {
+            if (cells.TrueForAll(cell => part.IsCellStatement(cell)))
+            {
+                into.Add(graph);
+            }
+        }
+    }
+
+    /// <summary>The data graphs read, by index: none for a reading not per graph.</summary>
+    internal IEnumerable<int> Graphs
+    {
+        get
+        {
+            foreach (int graph in Parts(this))
+            {
+                if (graph >= 0)
+                {
+                    yield return graph;
+                }
+            }
+        }
+    }
+
+    private static IReadOnlyCollection<int> Parts(AssertedLists lists) => lists._parts is { } parts ? parts.Keys : Array.Empty<int>();
+
+    private static bool Same(List<Cell> a, List<Cell> b)
+    {
+        if (a.Count != b.Count)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (!a[i].Equals(b[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static AssertedLists? Part(AssertedLists lists, int graph) =>
+        lists._parts is not null && lists._parts.TryGetValue(graph, out AssertedLists? part) ? part : null;
+
+    /// <summary>The cells of the read lists of one graph whose heads are among <paramref name="heads"/>, both statements of each: what an instance over them has as premises.</summary>
+    internal IEnumerable<Fact> CellStatementsOf(int graph, IReadOnlySet<ulong> heads)
+    {
+        if (Part(this, graph) is not { } part)
+        {
+            yield break;
+        }
+
+        HashSet<ulong> reached = [];
+        foreach ((ulong subject, Cell cell) in part._read)
+        {
+            reached.Clear();
+            part.HeadsReaching(new TermHandle(subject), reached);
+            if (reached.Overlaps(heads))
+            {
+                yield return cell.FirstFact;
+                yield return cell.RestFact;
+            }
+        }
     }
 }

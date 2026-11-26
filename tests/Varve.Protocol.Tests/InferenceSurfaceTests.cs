@@ -602,6 +602,55 @@ public class InferenceSurfaceTests
         Assert.Equal([reserved], placed);
     }
 
+    /// <summary>
+    /// An answer under <c>owl2-rl</c> whose closure leaves list cells unread
+    /// in a graph the caller reads says how many, as
+    /// <c>Varve-Unread-Lists</c>, which <see cref="SparqlHttpClient.EntailedAnswerOf"/>
+    /// reads; cells in a graph the caller does not read are not counted, and
+    /// an answer as of a position before the cells were asserted says
+    /// nothing (ADR 0197, amended 2026-11-26).
+    /// </summary>
+    [Fact]
+    public async Task An_owl2_rl_answer_says_how_many_list_cells_it_reads_are_unread_as_of_its_position()
+    {
+        await using Dataset dataset = await FilledAsync();
+        CommitRequestBuilder request = new();
+        request.Assert(Term("http://ex/l1"), Term(Rdf + "first"), Term("http://ex/A"), Term("http://ex/g/1"));
+        request.Assert(Term("http://ex/l2"), Term(Rdf + "rest"), Term(Rdf + "nil"), Term("http://ex/g/2"));
+        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(request, P.Ct)).Outcome);
+
+        // A commit after: the projection is above position 2, so an answer as of 2 reads its lists from the view.
+        CommitRequestBuilder after = new();
+        after.Assert(Term("http://ex/bob"), Term(Rdf + "type"), Term("http://ex/Person"), Term("http://ex/g/1"));
+        Assert.Equal(CommitOutcome.Committed, (await dataset.CommitAsync(after, P.Ct)).Outcome);
+        InferenceProjection projection = new(dataset, Binding(InferenceProfile.Owl2Rl));
+        await dataset.CatchUpAsync(projection, P.Ct);
+        const string ask = "ASK { GRAPH ?g { ?s ?p ?o } }";
+
+        foreach ((string[] reads, string? asOf, int expected) in new[]
+        {
+            (new[] { "http://ex/g/1", "http://ex/g/2" }, (string?)null, 2),
+            (new[] { "http://ex/g/1" }, null, 1),
+            (new[] { "http://ex/g/1", "http://ex/g/2" }, "position:2", 2),
+            (new[] { "http://ex/g/2" }, "position:2", 1),
+            (new[] { "http://ex/g/1", "http://ex/g/2" }, "position:1", 0),
+        })
+        {
+            GraphScope readable = GraphScope.Of([.. reads.Select(g => RdfTerm.Iri(Encoding.UTF8.GetBytes(g)))], [], DefaultGraphAccess.Excluded);
+            await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(
+                new ProtocolTestHost.OneDataset(dataset),
+                accessScopes: new DefaultGraphOnly(new CallerScope(readable, readable, AdminAccess.None)),
+                inference: new Closures(projection, Refusal.None),
+                stopping: P.Ct);
+            HttpRequestMessage query = P.Query(Sparql, ask, "application/sparql-results+json", asOf);
+            query.Headers.TryAddWithoutValidation("Varve-Entailment", "owl2-rl");
+            HttpResponseMessage answered = await host.Client.SendAsync(query, P.Ct);
+            Assert.True(answered.StatusCode == HttpStatusCode.OK, await answered.Content.ReadAsStringAsync(P.Ct));
+            Assert.Equal(expected == 0 ? null : expected.ToString(System.Globalization.CultureInfo.InvariantCulture), answered.Headers.TryGetValues("Varve-Unread-Lists", out IEnumerable<string>? values) ? string.Join(",", values) : null);
+            Assert.Equal(expected, SparqlHttpClient.EntailedAnswerOf(answered).UnreadLists.Value);
+        }
+    }
+
     private static InferenceBinding Binding(InferenceProfile profile) =>
         new(RdfTerm.Iri("urn:b"u8), [RdfTerm.Iri("http://ex/tbox"u8)], GraphScope.Of([], ["http://ex/g/"], DefaultGraphAccess.Included), profile);
 
@@ -664,6 +713,8 @@ public class InferenceSurfaceTests
         }
 
         public IReadOnlyList<PlacedClash> Clashes() => projection.Clashes();
+
+        public IReadOnlyList<RdfTerm> UnreadListGraphsAt(DatasetView view) => [.. projection.UnreadListsAt(view).Select(unread => unread.Graph)];
 
         public Explanation Explain(Position position, RdfTerm? graph, RdfTerm subject, RdfTerm predicate, RdfTerm @object)
         {

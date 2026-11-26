@@ -63,6 +63,54 @@ public class ProjectionPropertyTests
     public void a_cross_graph_bindings_reads_place_each_row_by_its_minimal_premise_sets(InferenceProfile profile, long historyBytes) =>
         History.Sample(commits => Check(profile, historyBytes, commits, crossGraph: true).GetAwaiter().GetResult(), iter: Histories, threads: 1);
 
+    // Lists over a few cells, made, broken and spread across graphs: each graph reads its own with the TBox's (ADR 0197, amended 2026-11-26).
+    private static readonly RdfTerm[] Cells = [Ex("l1"), Ex("l2"), Ex("l3")];
+    private static readonly RdfTerm Nil = IriOf(RdfNs + "nil");
+
+    private static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> ListTriple = Gen.Frequency(
+        (4, Triple),
+        (3, Gen.Select(Gen.OneOfConst(Cells), Gen.Const(IriOf(RdfNs + "first")), Gen.OneOfConst(Classes))),
+        (3, Gen.Select(Gen.OneOfConst(Cells), Gen.Const(IriOf(RdfNs + "rest")), Gen.OneOfConst([.. Cells, Nil]))),
+        (2, Gen.Select(Gen.OneOfConst([Ex("U"), Ex("I")]), Gen.OneOfConst([IriOf(OwlNs + "unionOf"), IriOf(OwlNs + "intersectionOf")]), Gen.OneOfConst(Cells))));
+
+    private static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O, int G)[][]> ListHistory =
+        Gen.Select(ListTriple, Gen.Int[0, Graphs.Length - 1], (t, g) => (t.S, t.P, t.O, g)).Array[1, 4].Array[Commits / 2, Commits];
+
+    /// <summary>
+    /// A cross-graph binding over histories that make, break and spread lists
+    /// across data graphs and the TBox: its rows are the closure of each set
+    /// of graphs with each graph's lists read from its own statements and the
+    /// TBox's alone, placed by their minimal premise sets, at every position
+    /// (ADR 0197, amended 2026-11-26).
+    /// </summary>
+    [Fact]
+    public void a_cross_graph_binding_reads_each_graphs_lists_within_that_graph() =>
+        ListHistory.Sample(commits => Check(InferenceProfile.Owl2Rl, 32L << 20, commits, crossGraph: true).GetAwaiter().GetResult(), iter: Histories, threads: 1);
+
+    /// <summary>
+    /// A conclusion two graphs' readings of one list both give, placed by the
+    /// smaller set: when one graph's reading breaks, the conclusion stays and
+    /// its sets move to what the other graph's reading gives. Only the cells
+    /// of the list whose reading changed are relabelled, not every set.
+    /// </summary>
+    [Fact]
+    public async Task a_conclusion_moves_to_another_graphs_reading_when_one_graphs_list_breaks()
+    {
+        RdfTerm first = IriOf(RdfNs + "first"), rest = IriOf(RdfNs + "rest"), unionOf = IriOf(OwlNs + "unionOf");
+        const int tbox = 0, g1 = 2, g2 = 3;
+        (RdfTerm S, RdfTerm P, RdfTerm O, int G)[][] commits =
+        [
+            [
+                (Ex("U"), unionOf, Ex("l1"), tbox),
+                (Ex("l1"), first, Ex("C1"), g1), (Ex("l1"), rest, Nil, g1),
+                (Ex("l1"), first, Ex("C1"), g2), (Ex("l1"), rest, Nil, g2),
+                (Ex("a"), Type, Ex("C1"), g2), (Ex("a"), Type, Ex("C1"), g1),
+            ],
+            [(Ex("l1"), rest, Ex("l2"), g2)],
+        ];
+        await Check(InferenceProfile.Owl2Rl, 32L << 20, commits, crossGraph: true);
+    }
+
     private static async Task Check(InferenceProfile profile, long historyBytes, (RdfTerm S, RdfTerm P, RdfTerm O, int G)[][] commits, bool crossGraph = false)
     {
         CancellationToken ct = TestContext.Current.CancellationToken;

@@ -16,13 +16,23 @@ namespace Varve.Protocol.Client.Model;
 /// </summary>
 public readonly record struct EntailedAnswer
 {
-    private EntailedAnswer(bool inconsistent, bool equalityNotApplied, bool perGraphClosure, IReadOnlyList<GraphWithoutClosure> withoutClosure)
+    private EntailedAnswer(bool inconsistent, bool equalityNotApplied, bool perGraphClosure, IReadOnlyList<GraphWithoutClosure> withoutClosure, UnreadListCount unreadLists)
     {
         Inconsistent = inconsistent;
         EqualityNotApplied = equalityNotApplied;
         PerGraphClosure = perGraphClosure;
         WithoutClosure = withoutClosure;
+        UnreadLists = unreadLists;
     }
+
+    /// <summary>
+    /// <c>Varve-Unread-Lists</c>: how many asserted list cells, in a graph the
+    /// query read or in the TBox, the rules do not read as of the answer's
+    /// position, so conclusions an axiom over them would give are missing
+    /// (ADR 0197, amended 2026-11-26); the binding's status names them. 0
+    /// when the header is absent.
+    /// </summary>
+    public UnreadListCount UnreadLists { get; }
 
     /// <summary><c>Varve-Inconsistent: true</c>: a graph the query read holds a clash, and the answer is the rules' fixpoint all the same (ADR 0197 point 5).</summary>
     public bool Inconsistent { get; }
@@ -63,7 +73,9 @@ public readonly record struct EntailedAnswer
             Is(response, "Varve-Closure", "per-graph"),
             response.Headers.TryGetValues("Varve-Without-Closure", out IEnumerable<string>? without)
                 ? Array.ConvertAll(string.Join(",", without).Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries), entry => new GraphWithoutClosure(entry))
-                : []);
+                : [],
+            response.Headers.TryGetValues("Varve-Unread-Lists", out IEnumerable<string>? unread)
+                && int.TryParse(string.Join(",", unread).Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int count) ? new UnreadListCount(count) : default);
     }
 
     private static bool Is(HttpResponseMessage response, string header, string value) =>

@@ -347,3 +347,21 @@ answered under `Varve-Entailment: owl2-rl`, and absent under any other regime:
 **The ledger.** ADR 0197's `EqualityNotAppliedSaidInBand`,
 `PerGraphClosureSaidInBand` and `UncoveredGraphRefusedOrSaid`.
 
+## Amendment, 2026-11-26 — `Varve-Unread-Lists`
+
+Filed unaccepted (ADR 0066) by #413, under the maintainer's ruling of
+2026-11-25 (ADR [0197](0197-owl-2-rl-and-rdfs-as-rules.md), amended
+2026-11-26). One response header joins those above, on a query answered under
+`Varve-Entailment: owl2-rl`:
+
+- **`Varve-Unread-Lists: <n>`**: the binding's rules leave n asserted list
+  cells unread, as of the answer's position. Only cells in a graph the caller
+  reads count, or in the TBox, which every reader reads. The header is absent
+  when n is 0. Below the projection's position, the count is read from the
+  answer's view, with no closure built. The binding's status names the cells.
+
+`SparqlHttpClient.EntailedAnswerOf` reads it as `EntailedAnswer.UnreadLists`.
+
+**The ledger.** ADR 0197's `ListsReadFromAssertedStatements`, amended
+2026-11-26.
+

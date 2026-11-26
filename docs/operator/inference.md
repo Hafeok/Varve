@@ -181,7 +181,7 @@ graphs as `premiseSets`.
 The `OWL2RL` rules and checks over lists read a list only from asserted
 triples: `owl:intersectionOf`, `owl:unionOf`, `owl:oneOf`,
 `owl:propertyChainAxiom`, `owl:hasKey`, `owl:members` and
-`owl:distinctMembers` (ADR 0197, amended 2026-11-24).
+`owl:distinctMembers` (ADR 0197, amended 2026-11-24 and 2026-11-26).
 - **A cell** is a node the graph, or the binding's TBox graphs, assert
   exactly one `rdf:first` and exactly one `rdf:rest` of.
 - **A list** is the chain of cells from its head to `rdf:nil`.
@@ -189,15 +189,27 @@ triples: `owl:intersectionOf`, `owl:unionOf`, `owl:oneOf`,
   list.** For example, one concluded through `rdfs:subPropertyOf rdf:rest` is
   served like any other conclusion and never read as a list.
 - **Every other node with an asserted `rdf:first` or `rdf:rest` is reported
-  on readiness** as `unreadLists`, with the reason (`several-first`,
-  `several-rest`, `no-first`, `no-rest`, `cycle`, `broken`). Nothing is
-  drawn from it.
+  on readiness** as `unreadLists`, under the graph that leaves it unread,
+  with the reason (`several-first`, `several-rest`, `no-first`, `no-rest`,
+  `cycle`, `broken`, `spans-graphs`). Nothing is drawn from it. An `owl2-rl`
+  answer says how many such cells it read, in the graphs the caller reads and
+  the TBox, as `Varve-Unread-Lists: <n>`, as of its position; there is no
+  header when there are none.
+- **Under a cross-graph binding each graph's lists are read from that graph
+  and the TBox alone.** Another graph's triples never make a graph's list
+  unread. A list that goes on in another graph is unread where it starts, as
+  `spans-graphs`: write each list within one graph.
 - **A data graph neither breaks nor changes a list the TBox graphs make.**
   Its own differing `rdf:first` or `rdf:rest` of such a cell is not read, and
   is reported as `differs-from-tbox`.
 
 A commit that changes which lists a graph's triples make rebuilds that
-graph's closure, which costs a build from scratch of that one graph.
+graph's closure only when an axiom names one of the lists it changes. Under
+a cross-graph binding, that closure is the merge. The rebuild costs a build from
+scratch of that one closure. A list no axiom names, asserted, changed or
+retracted, costs what any other triple does. At REC M a three-cell list
+took 1.2–9.8 ms to assert, against 3.7–5.2 s per graph when it rebuilt the
+graph, and a cross-graph binding stopped at its memory.
 Turtle's `( … )` and RDF/XML's `parseType="Collection"` always write
 well-formed lists.
 

@@ -517,3 +517,114 @@ Every list in their data is well formed and asserted.
   is the second property.
 - `InferenceBindingTests` checks the report on readiness.
 
+
+## Amendment, 2026-11-26 — lists read within one graph, a header for unread lists, and no rebuild for a list no axiom reads
+
+Filed unaccepted (ADR 0066) by #413, on the maintainer's rulings of
+2026-11-25, which answer the two open questions of the amendment of
+2026-11-24 above. It changes `ListsReadFromAssertedStatements` once. The
+code cites it in `AssertedLists`.
+
+**What was wrong.** Measured at REC M, OWL 2 RL, 4 cores, heap limit 10 GiB,
+on `main` at 65e8142b. After the build, these commits went into one data
+graph: a plain commit; a commit asserting a well-formed three-cell `rdf:List`
+that no axiom names; and then its retraction.
+
+| Binding | Plain commit | Assert the list | Retract it |
+|---|---|---|---|
+| per graph | 0.5–17.9 ms | 3.7–5.2 s | 3.5–4.0 s |
+| cross-graph | 22–24 ms | 53.0 s, then the binding stopped at its memory | — |
+
+Each list commit rebuilt the graph's closure, or the merge, and labelled the
+merge's premise sets again from scratch. Under a cross-graph binding at REC M,
+any list a user asserted took inference down.
+
+**The rulings.**
+
+1. **A cross-graph merge reads each data graph's lists from that graph's
+   statements and the TBox's alone, never across graphs.** The graph is the
+   unit of grants.
+   - One graph's statement never makes another graph's list unread.
+   - Graphs that read one head differently each give it a list. A list rule
+     or members check has an instance for each.
+   - A list whose cells span graphs is unread where it starts, with a reason
+     of its own, **`spans-graphs`**. That covers a cell its graph completes
+     only with another graph's `rdf:first` or `rdf:rest`, and a chain that
+     reaches a cell only another graph makes.
+   - Each unread cell is reported under the graph that leaves it unread.
+   - An intra-graph binding already read each graph alone, with the TBox, and
+     is unchanged.
+2. **An answer says how many unread cells it read.** An `owl2-rl` answer
+   carries **`Varve-Unread-Lists: <n>`** (ADR 0119, amended 2026-11-26) when
+   the binding's rules leave asserted list cells unread, as of the answer's
+   position, in a graph the caller reads or in the TBox. There is none when
+   n is 0. `SparqlHttpClient.EntailedAnswerOf` reads it as
+   `EntailedAnswer.UnreadLists`.
+   - **As of a position.** At the projection's position, the count comes from
+     the snapshot (ADR 0195 point 6, amended 2026-11-25). Below it, it comes
+     from the view's own `rdf:first` and `rdf:rest` statements, read as the
+     closures there would read them (`InferenceProjection.UnreadListsAt`).
+     That needs no closure, so a read from the held history and a read from
+     scratch report the same.
+   - `Varve-Inconsistent` still reports the clashes at the projection's
+     position for every read. This amendment does not change it.
+3. **A list no axiom reads rebuilds nothing.**
+   - **When a closure rebuilds.** A closure rebuilds for its lists only when a
+     head reaching a cell whose reading changed, under the old reading or the
+     new, is the object of an axiom it holds before the delta. An axiom here is
+     a fact, asserted or inferred, whose predicate a list rule or check reads a
+     list by: `owl:intersectionOf`, `owl:unionOf`, `owl:oneOf`,
+     `owl:propertyChainAxiom`, `owl:hasKey`, `owl:members` or
+     `owl:distinctMembers`.
+   - **Otherwise** the new reading replaces the old, and the delta is applied
+     as any other, since no instance changes.
+   - **An axiom that arrives after its list**, asserted or inferred, fires the
+     rule over the reading the list already has. Every well-formed list is
+     read, whether an axiom names it or not, and no instance was made under
+     the old reading.
+   - **An axiom retracted in the delta that changes its list** counts as held,
+     and that closure rebuilds.
+
+**The premise sets under a cross-graph binding.** An instance's cells are
+drawn through **one graph that reads them all**: they give `{g}`, or nothing
+for the TBox's reading. They are never drawn through the sets of the cell
+statements as such. Another graph may assert the same statements and not read
+them as that list, for example with a second `rdf:rest` of its own; its set
+gives the instance nothing. A clash is placed the same way
+(`PremiseSets.SetsOfInstance`).
+
+When a change of reading does rebuild the merge, the sets are no longer
+labelled from scratch. The cells of the lists an axiom names whose reading
+changed are taken as retracted and asserted again in their graphs. Only
+what was drawn through them is confirmed again or relabelled, as for any
+other commit (`Closure.ReadListsPerGraph`, `ListChange`).
+
+**Measured after**, the same commits on the same machine, three rounds each:
+
+| Binding | Plain commit | Assert the list | Retract it |
+|---|---|---|---|
+| per graph | 0.3–15.0 ms | 1.2–1.7 ms | 7.4–17.2 ms |
+| cross-graph | 0.6–25.8 ms | 2.0–9.8 ms | 23.3–32.8 ms; the binding stays up |
+
+**Tests.**
+- `ListsFromAssertedStatementsTests`:
+  - a list no axiom names is asserted, broken and retracted with no rebuild,
+    under each strategy, equal to the closure from scratch at each step. This
+    test fails before this amendment;
+  - an axiom asserted or inferred after its list gives the closure both
+    together give.
+- `ProjectionPropertyTests`:
+  - a property over histories that make, break and spread lists across data
+    graphs and the TBox. It holds a cross-graph binding's rows, at every
+    position, to the closure of each set of graphs, each graph's lists read
+    alone, placed by minimal sets. It fails when the merge reads the graphs'
+    lists merged;
+  - a conclusion that two graphs' readings both give moves to the other
+    graph's when one breaks. It fails without the relabel from the changed
+    cells.
+- `ListsPerGraphTests`: a second `rdf:rest` from another graph leaves a
+  graph's list read and its conclusion placed. A chain into another graph's
+  cell is `spans-graphs`. Each cell is under its graph.
+- `InferenceSurfaceTests`: `Varve-Unread-Lists` counts only graphs the
+  caller reads. As of a position below the projection's it is read from the
+  view, and before the cells were asserted it is absent. The client reads it.

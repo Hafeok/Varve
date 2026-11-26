@@ -51,6 +51,7 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         : base(terms, projection)
     {
         _merge = new Closure(projection.Binding.Profile, terms, Budget, TBox);
+        _merge.ReadListsPerGraph();
         _sets = new PremiseSets(_merge, []);
         _first = terms.Handle(RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#first"u8));
         _rest = terms.Handle(RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#rest"u8));
@@ -74,17 +75,21 @@ internal sealed class CrossGraphMaterialisation : Materialisation
             return null;
         }
 
-        // Only the graphs of the row's set: a proof never draws on another.
+        // Only the graphs of the row's set: a proof never draws on another, and reads each graph's lists as the merge does.
         Closure closure = new(Projection.Binding.Profile, Terms, Projection.NewBudget(), TBox);
+        closure.ReadListsPerGraph();
         List<Fact> facts = [];
+        Dictionary<DataGraphIndex, ListStatements> lists = [];
         foreach (TermHandle member in members)
         {
             if (_explicit.TryGetValue(member, out HashSet<Fact>? held))
             {
                 facts.AddRange(held);
+                lists[new DataGraphIndex(_indices[member])] = new ListStatements([.. held.Where(IsListStatement)], []);
             }
         }
 
+        closure.ReadListsPerGraph(lists);
         closure.Apply([.. new HashSet<Fact>(facts)], []);
         return closure;
     }
@@ -99,15 +104,18 @@ internal sealed class CrossGraphMaterialisation : Materialisation
     protected override void Load(Dictionary<TermHandle, List<Fact>> graphs, CancellationToken cancellationToken)
     {
         HashSet<Fact> merged = [];
+        Dictionary<DataGraphIndex, ListStatements> lists = [];
         foreach ((TermHandle graph, List<Fact> facts) in graphs)
         {
             cancellationToken.ThrowIfCancellationRequested();
             Index(graph);
             _explicit[graph] = [.. facts];
             merged.UnionWith(facts);
+            lists[new DataGraphIndex(_indices[graph])] = new ListStatements([.. facts.Where(IsListStatement)], []);
         }
 
         cancellationToken.ThrowIfCancellationRequested();
+        _merge.ReadListsPerGraph(lists);
         _merge.Apply([.. merged], [], cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         _sets = Label();
@@ -119,6 +127,7 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         List<Fact> asserted = [], retracted = [];
         List<(Fact, DataGraphIndex)> unpaired = [];
         List<(Fact, DataGraphIndex)> paired = [];
+        Dictionary<DataGraphIndex, (List<Fact> Added, List<Fact> Removed)> lists = [];
         foreach ((TermHandle graph, (List<Fact> graphAsserted, List<Fact> graphRetracted)) in graphs)
         {
             Index(graph);
@@ -133,6 +142,11 @@ internal sealed class CrossGraphMaterialisation : Materialisation
                 if (held.Remove(fact))
                 {
                     unpaired.Add((fact, index));
+                    if (IsListStatement(fact))
+                    {
+                        ListsOf(lists, index).Removed.Add(fact);
+                    }
+
                     if (!HeldElsewhere(fact))
                     {
                         retracted.Add(fact);
@@ -152,6 +166,11 @@ internal sealed class CrossGraphMaterialisation : Materialisation
                 if (held.Add(fact))
                 {
                     paired.Add((fact, index));
+                    if (IsListStatement(fact))
+                    {
+                        ListsOf(lists, index).Added.Add(fact);
+                    }
+
                 }
 
                 Into(changed, graph).Add(fact);
@@ -164,30 +183,31 @@ internal sealed class CrossGraphMaterialisation : Materialisation
             }
         }
 
+        // Each graph's lists read again from its own statements and the TBox's (ADR 0197, amended
+        // 2026-11-26). When an axiom names a list whose reading changed, the merge is rebuilt and the
+        // instances over that list came or went with no change to their premises: their cells' pairs are
+        // taken as retracted and asserted again in their graph, so the sets their conclusions were drawn
+        // through are confirmed again and the new instances' propagate, as for any other commit.
+        Dictionary<DataGraphIndex, ListStatements> read = [];
+        foreach ((DataGraphIndex graph, (List<Fact> added, List<Fact> removed)) in lists)
+        {
+            read[graph] = new ListStatements(added, removed);
+        }
+
+        ListChange listChange = _merge.ReadListsPerGraph(read);
+        unpaired.AddRange(listChange.CellsBefore);
+        paired.AddRange(listChange.CellsAfter);
+
         // The sets a retraction may change, over the merge as it was; then the
         // merge, then the sets from the delta (ADR 0195 point 3).
         IReadOnlySet<Fact> affected = _sets.Reach(unpaired, (fact, graph) => _explicit.TryGetValue(_graphs[graph.Value], out HashSet<Fact>? held) && held.Contains(fact));
-        ListReadings readings = _merge.ListReadings;
         HashSet<Fact> moved = [.. _merge.Apply([.. asserted], [.. retracted], cancellationToken)];
-        if (_merge.ListReadings != readings)
+        if (listChange.Rebuilds)
         {
-            // The merge read its lists again and was rebuilt: a list rule's instances changed with no
-            // change to their premises, so the sets are labelled again from scratch and every fact is
-            // offered to the graphs it was and is placed in (ADR 0197, amended 2026-11-24).
-            PremiseSets was = _sets;
-            _sets = Label();
-            _placementsStale = true;
-            foreach (Fact fact in _merge.Own.Concat(moved).Distinct())
-            {
-                foreach (TermHandle graph in Placements(was.Of(fact), fact).Concat(Placements(_sets.Of(fact), fact)))
-                {
-                    Into(changed, graph).Add(fact);
-                }
-            }
-
-            was.Release();
-            Mint();
-            return;
+            // A fact the rebuild dropped has its sets dropped with it.
+            HashSet<Fact> widened = [.. affected];
+            widened.UnionWith(moved);
+            affected = widened;
         }
         foreach (Fact fact in affected)
         {
@@ -260,32 +280,34 @@ internal sealed class CrossGraphMaterialisation : Materialisation
         }
     }
 
-    /// <summary>An unread cell of the merge's lists, under each data graph that asserts an <c>rdf:first</c> or <c>rdf:rest</c> of it.</summary>
+    /// <summary>An unread cell of a data graph's lists, as that graph reads them with the TBox's, under that graph (ADR 0197, amended 2026-11-26).</summary>
     protected override void DataUnreadLists(List<PlacedUnreadList> into)
     {
-        foreach (UnreadList list in _merge.UnreadLists())
+        foreach (TermHandle graph in _graphs)
         {
-            foreach (TermHandle graph in _graphs)
+            if (!_explicit.ContainsKey(graph))
             {
-                if (_explicit.TryGetValue(graph, out HashSet<Fact>? held) && Asserts(held, list.Cell))
-                {
-                    into.Add(new PlacedUnreadList(graph, list));
-                }
-            }
-        }
-
-        bool Asserts(HashSet<Fact> held, TermHandle cell)
-        {
-            foreach (Fact fact in held)
-            {
-                if (fact.Subject.Value == cell.Value && (fact.Predicate.Value == _first.Value || fact.Predicate.Value == _rest.Value))
-                {
-                    return true;
-                }
+                continue;
             }
 
-            return false;
+            foreach (UnreadList list in _merge.UnreadListsIn(new DataGraphIndex(_indices[graph])))
+            {
+                into.Add(new PlacedUnreadList(graph, list));
+            }
         }
+    }
+
+    private bool IsListStatement(Fact fact) => fact.Predicate.Value == _first.Value || fact.Predicate.Value == _rest.Value;
+
+    private static (List<Fact> Added, List<Fact> Removed) ListsOf(Dictionary<DataGraphIndex, (List<Fact> Added, List<Fact> Removed)> lists, DataGraphIndex graph)
+    {
+        if (!lists.TryGetValue(graph, out (List<Fact> Added, List<Fact> Removed) found))
+        {
+            found = ([], []);
+            lists[graph] = found;
+        }
+
+        return found;
     }
 
     /// <summary>A clash of the merge, under the graph of each minimal set of its premises: none when the TBox closure finds it alone.</summary>
@@ -359,19 +381,11 @@ internal sealed class CrossGraphMaterialisation : Materialisation
     /// <summary>A clash of the merge, under the graph of each minimal set of its premises: none when the TBox closure finds it alone.</summary>
     private PlacedClash[] Place(Clash clash)
     {
-        List<int[]> unions = [[]];
-        foreach (Fact premise in clash.Premises)
+        // Each union of a set of each premise, a list's cells drawn through a graph that reads them all (ADR 0197, amended 2026-11-26).
+        List<int[]> unions = [];
+        foreach (PremiseSet set in _sets.SetsOfInstance(clash.Premises))
         {
-            List<int[]> next = [];
-            foreach (int[] sofar in unions)
-            {
-                foreach (PremiseSet set in _sets.Of(premise))
-                {
-                    next.Add(Union(sofar, set));
-                }
-            }
-
-            unions = next;
+            unions.Add(Union([], set));
         }
 
         List<PlacedClash> placed = [];

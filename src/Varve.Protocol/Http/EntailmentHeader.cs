@@ -49,6 +49,14 @@ internal static class EntailmentHeader
     internal const string ClosurePerGraph = "per-graph";
 
     /// <summary>
+    /// <c>Varve-Unread-Lists</c>: an answer under <c>owl2-rl</c> whose
+    /// closure leaves asserted list cells unread in a graph the caller reads
+    /// or in the TBox, as of the answer's position; the value is how many
+    /// (ADR 0197, amended 2026-11-26). Absent when there are none.
+    /// </summary>
+    internal const string UnreadListsName = "Varve-Unread-Lists";
+
+    /// <summary>
     /// <c>Varve-Without-Closure</c>: an answer under <c>owl2-rl</c>, or over a
     /// view, whose <c>GRAPH ?g</c> could read named graphs no binding gives a
     /// closure, read with their explicit quads only; the value names them,

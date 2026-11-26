@@ -324,7 +324,9 @@ public sealed class InferenceProjection : IProjection
             }
             foreach (PlacedUnreadList list in state.UnreadLists())
             {
-                if (state.Terms.TryExternalise(list.Graph, out RdfTerm? graph) && state.Terms.TryExternalise(list.List.Cell, out RdfTerm? cell))
+                // The default graph by its reserved name, as a premise-set graph names it.
+                RdfTerm? graph = list.Graph.IsNone ? DefaultGraphTerm : state.Terms.TryExternalise(list.Graph, out RdfTerm? named) ? named : null;
+                if (graph is not null && state.Terms.TryExternalise(list.List.Cell, out RdfTerm? cell))
                 {
                     unread.Add(new NamedUnreadList(graph, cell, list.List.Reason));
                 }
@@ -493,6 +495,76 @@ public sealed class InferenceProjection : IProjection
     /// </summary>
     /// <remarks>The <see cref="Snapshot"/>'s: never waits for a pass (ADR 0195 point 6, amended 2026-11-25).</remarks>
     public IReadOnlyList<NamedUnreadList> UnreadLists() => Snapshot.UnreadLists;
+
+    /// <summary>
+    /// The unread list cells as of <paramref name="view"/>'s position, each
+    /// under the graph that leaves it unread (ADR 0197, amended 2026-11-26):
+    /// the snapshot's at the projection's position, and below it read from
+    /// the <c>rdf:first</c> and <c>rdf:rest</c> statements the view holds,
+    /// with no closure built, as the closures there would read them. What an
+    /// answer as of that position reports.
+    /// </summary>
+    public IReadOnlyList<NamedUnreadList> UnreadListsAt(DatasetView view)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        InferenceSnapshot snapshot = Snapshot;
+        if (snapshot.Position == view.Position)
+        {
+            return snapshot.UnreadLists;
+        }
+
+        if (Binding.Profile != InferenceProfile.Owl2Rl)
+        {
+            return [];
+        }
+
+        ProjectionTerms terms = new(view);
+        List<Fact> tbox = [];
+        Dictionary<TermHandle, List<Fact>> graphs = [];
+        foreach (RdfTerm predicate in new[] { RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#first"u8), RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#rest"u8) })
+        {
+            if (!view.TryInternalise(predicate, out TermHandle handle))
+            {
+                continue;
+            }
+
+            using IQuadCursor cursor = view.Match(TermHandle.None, handle, TermHandle.None, GraphPattern.Any);
+            while (cursor.MoveNext())
+            {
+                Quad quad = cursor.Current;
+                Fact fact = new(quad.Subject, quad.Predicate, quad.Object);
+                if (IsTBox(view, quad.Graph))
+                {
+                    tbox.Add(fact);
+                }
+                else if (quad.Graph.IsNone ? IsData(null) : view.TryExternalise(quad.Graph, out RdfTerm? graph) && IsData(graph))
+                {
+                    if (!graphs.TryGetValue(quad.Graph, out List<Fact>? facts))
+                    {
+                        graphs[quad.Graph] = facts = [];
+                    }
+
+                    facts.Add(fact);
+                }
+            }
+        }
+
+        TermHandle tboxGraph = terms.Handle(TBoxGraph);
+        IReadOnlyList<PlacedUnreadList> placed = Binding.CrossGraph
+            ? Closure.UnreadListsOfMerge(Binding.Profile, terms, tboxGraph, tbox, graphs)
+            : Closure.UnreadListsOf(Binding.Profile, terms, tboxGraph, tbox, graphs);
+        List<NamedUnreadList> named = [];
+        foreach (PlacedUnreadList list in placed)
+        {
+            RdfTerm? graph = list.Graph == tboxGraph ? TBoxGraph : list.Graph.IsNone ? DefaultGraphTerm : terms.TryExternalise(list.Graph, out RdfTerm? data) ? data : null;
+            if (graph is not null && terms.TryExternalise(list.List.Cell, out RdfTerm? cell))
+            {
+                named.Add(new NamedUnreadList(graph, cell, list.List.Reason));
+            }
+        }
+
+        return named;
+    }
 
     /// <summary>
     /// The clashes in the binding's closures at <see cref="Position"/> (ADR

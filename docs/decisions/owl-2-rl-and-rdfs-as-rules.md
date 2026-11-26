@@ -48,13 +48,12 @@ decisions:
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-11-20T00:00:00Z
   - key: ListsReadFromAssertedStatements
-    statement: "Amended 2026-11-24: the list rules and checks read a list only from asserted statements, a cell being a subject the asserted statements give exactly one rdf:first and one rdf:rest and a list the one chain of cells from a head to rdf:nil with no cell twice; an inferred rdf:first or rdf:rest neither makes nor breaks a list, a cell the TBox graphs make is read as they make it under every data graph, a change to the asserted lists rebuilds the closure, and every other subject of an asserted rdf:first or rdf:rest is reported unread with its reason in the binding's status"
-    accepted-by: mailto:emil@okkels-klein.dk
-    accepted-at: 2026-11-25T00:00:00Z
+    statement: "Amended 2026-11-26: the list rules and checks read a list only from asserted statements, a cell being a subject the asserted statements give exactly one rdf:first and one rdf:rest and a list the one chain of cells from a head to rdf:nil with no cell twice; an inferred rdf:first or rdf:rest neither makes nor breaks a list, and a cell the TBox graphs make is read as they make it under every data graph; a cross-graph merge reads each data graph's lists within that graph and the TBox, never across graphs, an instance's cells drawn through a graph that reads them all, and a list going on in another graph is unread as spans-graphs; a change to the asserted lists rebuilds a closure only when an axiom it holds names a list whose reading changed; every other subject of an asserted rdf:first or rdf:rest is reported unread with its reason under the graph that leaves it unread, and an owl2-rl answer carries Varve-Unread-Lists with how many it reads as of its position"
 ---
 
 The rulings of [ADR 0197](../adr/0197-owl-2-rl-and-rdfs-as-rules.md), one line each. The ADR is the
 narrative; this is what code cites. Filed unaccepted by Inference, part 2 (#171) (ADR 0066), and accepted by the
 maintainer on 2026-11-20, written by his delegate (ADR 0239).
 `ListsReadFromAssertedStatements` was filed unaccepted on 2026-11-24 by the fix for #399, ADR 0197's amendment of that
-day, and accepted by the maintainer on 2026-11-25, written by his delegate (ADR 0239).
+day, and accepted by the maintainer on 2026-11-25, written by his delegate (ADR 0239). It was amended on 2026-11-26 by #413, ADR 0197's
+amendment of that day, and is filed unaccepted again.

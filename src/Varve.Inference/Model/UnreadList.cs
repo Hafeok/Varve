@@ -33,6 +33,16 @@ public enum UnreadListReason
     /// and the data graph's statement is not.
     /// </summary>
     DiffersFromTBox,
+
+    /// <summary>
+    /// A cell whose list goes on in another data graph: its graph asserts
+    /// only one of its <c>rdf:first</c> and <c>rdf:rest</c> and another graph
+    /// the other, or its <c>rdf:rest</c> chain reaches a cell only another
+    /// graph makes. Under a cross-graph binding each graph's lists are read
+    /// from its own statements and the TBox's alone (ADR 0197, amended
+    /// 2026-11-26).
+    /// </summary>
+    SpansGraphs,
 }
 
 /// <summary>
