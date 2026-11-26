@@ -751,7 +751,10 @@ RL, cross-graph, on 4 cores (#412):
   clashes, its premise-set graphs, and what its closures hold and have held
   at most. Readiness reads it with no lock, in constant time; so does a
   query's `Varve-Inconsistent`. A probe matches no check. Before the first
-  pass ends the snapshot is the empty projection's.
+  pass ends the snapshot is the empty projection's. A pass publishes before
+  it moves the position, and readiness takes the lag from the snapshot's
+  position, so every figure a probe gives is one snapshot's: a probe never
+  sees a build's position with the empty projection's bytes.
 - **Readiness names the pass running.** A volatile record, set when a pass
   begins and cleared when it ends, gives its kind (`cold-start`,
   `generation`, `commit`, `load`), the position it brings the binding to, and
@@ -784,9 +787,14 @@ RL, cross-graph, on 4 cores (#412):
   one of two, so the charge counts 1.29 to 1.35 times what is held.
   **A closure that fitted its limit before can now stop at
   `memory-limit`**: what it keeps for its clashes was beside the budget,
-  and counts against the limit now. At REC M the clashes are a small share
-  of what a closure holds (the figures are under "Measured after"), and no
-  existing test or benchmark crosses its limit with the charge.
+  and counts against the limit now. At REC M, cross-graph, the closures
+  keep no clash at the head and 56,262 after 500 commits, about 66 MB by
+  the charge against 13.47 GB the budget counts for the closure: under
+  half a percent. Checked with the charge: the inference and store
+  suites, the server's inference tests and `ClosureMemoryGateTests` pass,
+  and `closure-budget-margin.sh` at REC S finishes every profile and mode
+  under the same peaks as before the charge. None crosses its limit. The
+  REC M benchmark runs with no closure limit, so it cannot.
 - **What is published is what changed.** A closure's list of kept clashes
   is the same object until a clash comes or goes; each data graph's clashes
   are placed again only when its list changed, and the snapshot's list is a
@@ -828,14 +836,18 @@ RL, cross-graph, on 4 cores (#412):
 | Readiness probe during a cold build | 58 probes, every one past 1 s, longest 450 s | 1,740 probes, longest 0.40 ms |
 | Readiness probe idle | 7.2 s | 0.001 ms |
 | Readiness probe beside a commit's pass | 7.6 s at the median | at most 0.04 ms |
-| A commit's pass | median 9.8 ms, up to 8.5 s behind a probe | median 44 ms, at most 183 ms |
+| A commit's pass, cross-graph | median 9.8 ms, up to 8.5 s behind a probe | median 44 ms, at most 183 ms; with the clashes kept per pass, p50 25.7 ms, p99 89 ms, against main's 24.2 and 75.6 ms on the same harness |
+| A commit's pass, per graph | — | p50 9.4 ms, p99 69.6 ms, against main's 7.6 and 60.8 ms on the same harness |
 | Explain at the position during a cold build | waited for the build | `inference-behind` after 2.06 s |
 | Explain at the head beside a commit | waited for the pass, then about 8 s for an as-of view of the head | at most 181 ms: the head is pinned, as a pass pins it |
 | A cold build cancelled at 5, 10, 20, 40 and 80 s | returned 290 s after the cancel | returned within 0.08 s, abandoned |
 
-A commit's pass costs more after: it publishes the snapshot, whose
-clashes and premise-set graphs it reads once, and keeps the clashes from the
-facts it changed. The cold build took 849 to 874 s across three runs on this
+A commit's pass costs more after: it publishes the snapshot and keeps the
+clashes from the facts it changed. The pass rows are 500 commits of one
+statement each after the build, on main and on this change in turn. The
+first pass after a build took 290 ms and the next 83 ms; the slowest, 883
+ms, was the 489th, and main's slowest was 1,280 ms, so the tail is not a
+first pass's. The cold build took 849 to 874 s across three runs on this
 machine, the closure at 13.4 GB by the budget's count against a heap of
 10.75 GB; it is not this change's to shorten (#408), and main's own harness
 did not finish its build within 40 minutes on the same machine that day, so
@@ -856,7 +868,10 @@ without building it, trusting the checked envelope (ADR 0213) in place of
 point 5's check against a build. That would make a restart after a saved
 state take the time of a read rather than a build. It changes point 5's
 rule on what is a miss, so it is the maintainer's to rule on; it is not done
-here.
+here. Ruled: a start may take a saved state as the closure without a build
+when its record matches (format, rule set and profile, binding, position,
+and a hash of the rows' content), in a pull request of its own with a dated
+amendment to point 5.
 
 **Checks.** Against ADRs 0068 (a dated amendment), 0113 (readiness, which
 this narrows for inference and does not change otherwise), 0119
