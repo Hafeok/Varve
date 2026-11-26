@@ -110,9 +110,10 @@ public sealed class ShippingRoleTests
         await CommitAsync(dataset, 0, 2);
         await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == dataset.Head.Value);
 
-        // The target refuses writes while the source is damaged, so the shipper meets the damage and not a race with it.
-        // It refuses before it applies them: a write applied with its answer lost would put the whole chunk there.
-        scene.Target.Hook = (operation, _) => operation is ObjectOperation.Create or ObjectOperation.Replace ? throw new IOException("the target is held back") : null;
+        // The target refuses new chunks while the source is damaged, so the shipper meets the damage and not a race
+        // with it. It refuses before it applies them: a create applied with its answer lost would put the whole
+        // chunk there. Only chunks: a round's other writes to the target come before it reads the log.
+        scene.Target.Hook = (operation, name) => operation == ObjectOperation.Create && name.Value.Contains(".chunks/", StringComparison.Ordinal) ? throw new IOException("the target is held back") : null;
         HashSet<string> had = [.. scene.Source.Names()];
         await CommitAsync(dataset, 2, 3);
         string chunk = scene.Source.Names().First(name => !had.Contains(name) && name.Contains(".chunks/", StringComparison.Ordinal));
@@ -120,25 +121,29 @@ public sealed class ShippingRoleTests
         byte[] damaged = [.. whole];
         damaged[^1] ^= 0x01;
         scene.Source.Put(chunk, damaged);
-        scene.Target.Hook = null;
 
+        // The target stays held back until the shipper has reported the damage. A round that read the chunk whole,
+        // before it was damaged, may still be on its way to the create: released now, it would put the whole chunk
+        // there. The check of a source chunk comes before any write to the target, so the report needs none.
         ShippingStatus status = await scene.WaitForAsync(s => s.State == ShippingState.SourceChunkDamaged);
+        scene.Target.Hook = null;
         Assert.Contains("does not verify", status.Detail, StringComparison.Ordinal);
         Assert.DoesNotContain(chunk, scene.Target.Names());
         scene.Source.Put(chunk, whole);
         await scene.WaitForAsync(s => s.State == ShippingState.Shipping && s.ShippedThrough == dataset.Head.Value);
 
-        // A set, damaged before it is copied.
-        scene.Target.Hook = (operation, _) => operation is ObjectOperation.Create or ObjectOperation.Replace ? throw new IOException("the target is held back") : null;
+        // A set, damaged before it is copied. The target refuses that one blob until the shipper has reported the
+        // damage, for the same reason: a round that staged it whole must not get to create it.
+        scene.Target.Hook = (operation, name) => operation == ObjectOperation.Create && name.Value.EndsWith("/terms", StringComparison.Ordinal) ? throw new IOException("the target is held back") : null;
         await dataset.CheckpointAsync(dataset.Head, Ct);
         string blob = scene.Source.Names().First(name => name.StartsWith("orders/derived/extents/", StringComparison.Ordinal) && name.EndsWith("/terms", StringComparison.Ordinal));
         whole = scene.Source.Get(blob)!;
         damaged = [.. whole];
         damaged[damaged.Length / 2] ^= 0x01;
         scene.Source.Put(blob, damaged);
-        scene.Target.Hook = null;
 
         status = await scene.WaitForAsync(s => s.State == ShippingState.WaitingOnDamagedSet);
+        scene.Target.Hook = null;
         Assert.Contains(blob["orders/derived/".Length..], status.Detail, StringComparison.Ordinal);
         Assert.Equal(dataset.Head.Value, status.ShippedThrough);
         Assert.DoesNotContain(blob, scene.Target.Names());
