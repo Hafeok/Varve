@@ -1,0 +1,85 @@
+<https://example.org/learn/asset-display-2-01> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Asset> .
+<https://example.org/learn/asset-display-2-01> <http://www.w3.org/2000/01/rdf-schema#label> "Display, 2.01" .
+<https://example.org/learn/asset-display-2-01> <https://w3id.org/rec#locatedIn> <https://example.org/learn/room-2-01> .
+<https://example.org/learn/asset-display-3-01> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Asset> .
+<https://example.org/learn/asset-display-3-01> <http://www.w3.org/2000/01/rdf-schema#label> "Display, 3.01" .
+<https://example.org/learn/asset-display-3-01> <https://w3id.org/rec#locatedIn> <https://example.org/learn/room-3-02> .
+<https://example.org/learn/asset-purifier-2-02> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Asset> .
+<https://example.org/learn/asset-purifier-2-02> <http://www.w3.org/2000/01/rdf-schema#label> "Air purifier, 2.02" .
+<https://example.org/learn/asset-purifier-2-02> <https://w3id.org/rec#hasPoint> <https://example.org/learn/point-co2-2-02> .
+<https://example.org/learn/asset-purifier-2-02> <https://w3id.org/rec#locatedIn> <https://example.org/learn/room-2-02> .
+<https://example.org/learn/building-hq> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Building> .
+<https://example.org/learn/building-hq> <http://www.w3.org/2000/01/rdf-schema#label> "Harbour House" .
+<https://example.org/learn/building-hq> <https://w3id.org/rec#hasPart> <https://example.org/learn/level-2> .
+<https://example.org/learn/building-hq> <https://w3id.org/rec#hasPart> <https://example.org/learn/level-3> .
+<https://example.org/learn/level-2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Level> .
+<https://example.org/learn/level-2> <http://www.w3.org/2000/01/rdf-schema#label> "Level 2" .
+<https://example.org/learn/level-2> <https://w3id.org/rec#hasPart> <https://example.org/learn/room-2-01> .
+<https://example.org/learn/level-2> <https://w3id.org/rec#hasPart> <https://example.org/learn/room-2-02> .
+<https://example.org/learn/level-2> <https://w3id.org/rec#hasPart> <https://example.org/learn/room-2-03> .
+<https://example.org/learn/level-2> <https://w3id.org/rec#levelNumber> "2"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/learn/level-3> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Level> .
+<https://example.org/learn/level-3> <http://www.w3.org/2000/01/rdf-schema#label> "Level 3" .
+<https://example.org/learn/level-3> <https://w3id.org/rec#hasPart> <https://example.org/learn/room-3-01> .
+<https://example.org/learn/level-3> <https://w3id.org/rec#hasPart> <https://example.org/learn/room-3-02> .
+<https://example.org/learn/level-3> <https://w3id.org/rec#hasPart> <https://example.org/learn/room-3-04> .
+<https://example.org/learn/level-3> <https://w3id.org/rec#levelNumber> "3"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/learn/point-co2-2-02> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://brickschema.org/schema/Brick#CO2_Sensor> .
+<https://example.org/learn/point-co2-2-02> <http://www.w3.org/2000/01/rdf-schema#label> "CO2, air purifier 2.02" .
+<https://example.org/learn/point-temp-2-01> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://brickschema.org/schema/Brick#Temperature_Sensor> .
+<https://example.org/learn/point-temp-2-01> <http://www.w3.org/2000/01/rdf-schema#label> "Temperature, 2.01" .
+<https://example.org/learn/point-temp-3-01> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://brickschema.org/schema/Brick#Temperature_Sensor> .
+<https://example.org/learn/point-temp-3-01> <http://www.w3.org/2000/01/rdf-schema#label> "Temperature, 3.01" .
+<https://example.org/learn/point-temp-3-02> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://brickschema.org/schema/Brick#Temperature_Sensor> .
+<https://example.org/learn/point-temp-3-02> <http://www.w3.org/2000/01/rdf-schema#label> "Temperature, 3.02" .
+<https://example.org/learn/room-2-01-area> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureArea> .
+<https://example.org/learn/room-2-01-area> <https://w3id.org/rec#netArea> "24.5"^^<http://www.w3.org/2001/XMLSchema#float> .
+<https://example.org/learn/room-2-01-capacity> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureCapacity> .
+<https://example.org/learn/room-2-01-capacity> <https://w3id.org/rec#seatingCapacity> "10"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/learn/room-2-01> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Room> .
+<https://example.org/learn/room-2-01> <http://www.w3.org/2000/01/rdf-schema#label> "2.01 Fjord" .
+<https://example.org/learn/room-2-01> <https://w3id.org/rec#area> <https://example.org/learn/room-2-01-area> .
+<https://example.org/learn/room-2-01> <https://w3id.org/rec#capacity> <https://example.org/learn/room-2-01-capacity> .
+<https://example.org/learn/room-2-01> <https://w3id.org/rec#hasPoint> <https://example.org/learn/point-temp-2-01> .
+<https://example.org/learn/room-2-02-area> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureArea> .
+<https://example.org/learn/room-2-02-area> <https://w3id.org/rec#netArea> "310.0"^^<http://www.w3.org/2001/XMLSchema#float> .
+<https://example.org/learn/room-2-02-capacity> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureCapacity> .
+<https://example.org/learn/room-2-02-capacity> <https://w3id.org/rec#seatingCapacity> "40"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/learn/room-2-02> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Room> .
+<https://example.org/learn/room-2-02> <http://www.w3.org/2000/01/rdf-schema#label> "2.02 Open office" .
+<https://example.org/learn/room-2-02> <https://w3id.org/rec#area> <https://example.org/learn/room-2-02-area> .
+<https://example.org/learn/room-2-02> <https://w3id.org/rec#capacity> <https://example.org/learn/room-2-02-capacity> .
+<https://example.org/learn/room-2-03-area> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureArea> .
+<https://example.org/learn/room-2-03-area> <https://w3id.org/rec#netArea> "16.0"^^<http://www.w3.org/2001/XMLSchema#float> .
+<https://example.org/learn/room-2-03> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Room> .
+<https://example.org/learn/room-2-03> <http://www.w3.org/2000/01/rdf-schema#label> "2.03 Kitchen" .
+<https://example.org/learn/room-2-03> <https://w3id.org/rec#area> <https://example.org/learn/room-2-03-area> .
+<https://example.org/learn/room-3-01-area> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureArea> .
+<https://example.org/learn/room-3-01-area> <https://w3id.org/rec#netArea> "18.0"^^<http://www.w3.org/2001/XMLSchema#float> .
+<https://example.org/learn/room-3-01-capacity> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureCapacity> .
+<https://example.org/learn/room-3-01-capacity> <https://w3id.org/rec#seatingCapacity> "6"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/learn/room-3-01> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Room> .
+<https://example.org/learn/room-3-01> <http://www.w3.org/2000/01/rdf-schema#label> "3.01 Harbour" .
+<https://example.org/learn/room-3-01> <https://w3id.org/rec#area> <https://example.org/learn/room-3-01-area> .
+<https://example.org/learn/room-3-01> <https://w3id.org/rec#capacity> <https://example.org/learn/room-3-01-capacity> .
+<https://example.org/learn/room-3-01> <https://w3id.org/rec#hasPoint> <https://example.org/learn/point-temp-3-01> .
+<https://example.org/learn/room-3-02-area> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureArea> .
+<https://example.org/learn/room-3-02-area> <https://w3id.org/rec#netArea> "1.45E2"^^<http://www.w3.org/2001/XMLSchema#float> .
+<https://example.org/learn/room-3-02-capacity> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureCapacity> .
+<https://example.org/learn/room-3-02-capacity> <https://w3id.org/rec#seatingCapacity> "18"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/learn/room-3-02> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Room> .
+<https://example.org/learn/room-3-02> <http://www.w3.org/2000/01/rdf-schema#label> "3.02 Open office, east" .
+<https://example.org/learn/room-3-02> <https://w3id.org/rec#area> <https://example.org/learn/room-3-02-area> .
+<https://example.org/learn/room-3-02> <https://w3id.org/rec#capacity> <https://example.org/learn/room-3-02-capacity> .
+<https://example.org/learn/room-3-04-area> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureArea> .
+<https://example.org/learn/room-3-04-area> <https://w3id.org/rec#netArea> "1.45E2"^^<http://www.w3.org/2001/XMLSchema#float> .
+<https://example.org/learn/room-3-04-capacity> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#ArchitectureCapacity> .
+<https://example.org/learn/room-3-04-capacity> <https://w3id.org/rec#seatingCapacity> "18"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/learn/room-3-04> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Room> .
+<https://example.org/learn/room-3-04> <http://www.w3.org/2000/01/rdf-schema#label> "3.04 Open office, west" .
+<https://example.org/learn/room-3-04> <https://w3id.org/rec#area> <https://example.org/learn/room-3-04-area> .
+<https://example.org/learn/room-3-04> <https://w3id.org/rec#capacity> <https://example.org/learn/room-3-04-capacity> .
+<https://example.org/learn/room-3-04> <https://w3id.org/rec#hasPoint> <https://example.org/learn/point-temp-3-02> .
+<https://example.org/learn/site-harbour> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/rec#Site> .
+<https://example.org/learn/site-harbour> <http://www.w3.org/2000/01/rdf-schema#label> "Harbour Point" .
+<https://example.org/learn/site-harbour> <https://w3id.org/rec#hasPart> <https://example.org/learn/building-hq> .

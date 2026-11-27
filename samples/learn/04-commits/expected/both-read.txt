@@ -1,0 +1,6 @@
+position 4
+asset               | room       | name
+--------------------+------------+-------------
+:asset-display-2-01 | :room-2-01 | 2.01 Fjord
+:asset-display-3-01 | :room-3-01 | 3.01 Harbour
+(2 rows)

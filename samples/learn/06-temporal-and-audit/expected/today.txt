@@ -1,0 +1,7 @@
+position 5
+room       | name                   | area              | seats | point
+-----------+------------------------+-------------------+-------+-----------------
+:room-3-01 | 3.01 Harbour           | 18.0^^xsd:float   | 6     | :point-temp-3-01
+:room-3-02 | 3.02 Open office, east | 1.45E2^^xsd:float | 18    |
+:room-3-04 | 3.04 Open office, west | 1.45E2^^xsd:float | 18    | :point-temp-3-02
+(3 rows)

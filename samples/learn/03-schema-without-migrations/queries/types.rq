@@ -1,0 +1,4 @@
+SELECT ?type (COUNT(?thing) AS ?things)
+WHERE { ?thing a ?type }
+GROUP BY ?type
+ORDER BY ?type

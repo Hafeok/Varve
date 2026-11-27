@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Chapter 5 of the learning track, deletion and history (#94, #411):
+       docs/learn/05-deletion-and-history.md quotes it and its output. -->
+  <PropertyGroup>
+    <RootNamespace>Varve.Learn</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <VarveReference Include="Varve.Store" />
+    <VarveReference Include="Varve.Turtle" />
+    <VarveReference Include="Varve.Sparql.Store" />
+  </ItemGroup>
+
+</Project>

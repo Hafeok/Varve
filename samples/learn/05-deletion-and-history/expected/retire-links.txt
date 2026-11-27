@@ -1,0 +1,7 @@
+Committed at position 4
+s | p
+--+--
+(0 rows)
+point | type | name
+------+------+-----
+(0 rows)

@@ -1,0 +1,11 @@
+PREFIX rec:      <https://w3id.org/rec#>
+PREFIX building: <https://example.org/rec/building/>
+
+SELECT ?type (COUNT(?point) AS ?points)
+WHERE {
+  building:1 rec:hasPart+ ?space .
+  ?space (rec:hasPoint | rec:isLocationOf/rec:hasPoint) ?point .
+  ?point a ?type .
+}
+GROUP BY ?type
+ORDER BY ?type

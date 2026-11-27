@@ -168,3 +168,25 @@ which is what this track needs.
   `tests/Varve.Learn.Tests`.
 - **Analyzer rule.** None. The rules are `eng/learn.cs`'s, as gates.
 - **Open questions owned.** None.
+
+## Amendment, 2026-11-25 — a sample's state leaves out the pinned vocabulary
+
+Filed by the learning track, part (b) (#411, under #94), unaccepted (ADR
+0066).
+
+Point 3 says a sample writes "its dataset's head" as canonical N-Quads. From
+chapter 3, a sample that binds REC's shapes holds REC 4 in the graph
+`https://example.org/learn/rec` (ADR 0141, as amended on 2026-11-25). With
+it, chapter 3's `expected/state.nq` is about 10 MB, of which 8 MB are REC's
+55,126 statements, the same in every such sample, and canonicalising them
+is most of the sample's run.
+
+So a sample names the graph that holds the pinned vocabulary, and its state
+leaves that graph out. Everything else in the head is written as before,
+and the state is validated against REC 4 as before (point 8). The graph is
+not left unchecked: it is loaded from `testdata/rec/<tag>/`, whose tag and
+files `samples/learn/rec.pin` and `Varve.Learn.Tests` hold to the release,
+and a change to it fails the sample's own load, since the shapes gate
+refuses a shapes graph that does not load.
+
+**The ledger.** The ruling is `StateLeavesOutThePinnedVocabulary`.

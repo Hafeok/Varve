@@ -25,6 +25,14 @@
     <None Include="queries/*.rq;queries/*.ru" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- REC 4 as the REC gate composes it (ADR 0176), for the samples that
+       load it into the graph :rec from chapter 3. The tag is rec.pin's, which
+       Varve.Learn.Tests holds to testdata/rec/. -->
+  <ItemGroup Condition="'$(VarveLearnRec)' == 'true'">
+    <Compile Include="$(MSBuildThisFileDirectory)Shared/Rec/*.cs" LinkBase="Shared/Rec" />
+    <None Include="$(MSBuildThisFileDirectory)../../testdata/rec/v4.1.0/*.ttl;$(MSBuildThisFileDirectory)../../testdata/rec/gate/composition.ttl" LinkBase="rec" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(VarveFrom)' == 'project'">
     <ProjectReference Include="@(VarveReference->'$(MSBuildThisFileDirectory)../../src/%(Identity)/%(Identity).csproj')" />
   </ItemGroup>

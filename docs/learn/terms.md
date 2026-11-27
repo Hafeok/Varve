@@ -15,3 +15,4 @@ from chapter 1 without a row.
 |---:|---|
 | 1 | `rec:Room`, `rec:area`, `rec:ArchitectureArea`, `rec:netArea`, `rec:capacity`, `rec:ArchitectureCapacity`, `rec:seatingCapacity` |
 | 2 | `rec:Site`, `rec:Building`, `rec:Level`, `rec:levelNumber`, `rec:hasPart`, `rec:isPartOf`, `rec:Asset`, `rec:locatedIn`, `rec:isLocationOf`, `rec:hasPoint`, `brick:Temperature_Sensor`, `brick:CO2_Sensor` |
+| 3 | `rec:Region`, `rec:Space`, `rec:Architecture`, `rec:Office`, `rec:OfficeLandscape`, `rec:PhoneBooth`, `rec:ConferenceRoom`, `rec:Bathroom`, `rec:Hallway`, `rec:Kitchenette`, `rec:Pantry`, `rec:Cabinet`, `rec:Desk`, `rec:Lamp`, `rec:OfficeChair`, `rec:IAQSensorEquipment`, `rec:OccupancySensorEquipment`, `brick:Entity`, `brick:Class`, `brick:Point`, `brick:Sensor`, `brick:Setpoint`, `brick:Air_Quality_Sensor`, `brick:Humidity_Sensor`, `brick:Occupancy_Count_Sensor`, `brick:Air_Temperature_Setpoint`, `brick:CO2_Level_Sensor` |

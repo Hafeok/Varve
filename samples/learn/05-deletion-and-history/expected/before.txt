@@ -1,0 +1,10 @@
+position 2
+p          | o
+-----------+-------------------------
+rdf:type   | brick:Temperature_Sensor
+rdfs:label | Temperature, 3.01
+(2 rows)
+s          | p
+-----------+-------------
+:room-3-01 | rec:hasPoint
+(1 row)

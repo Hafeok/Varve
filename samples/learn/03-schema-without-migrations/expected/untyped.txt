@@ -1,0 +1,5 @@
+Rejected
+focusNode  | path         | value               | component
+-----------+--------------+---------------------+----------------------------
+:room-9-99 | rec:capacity | :room-9-99-capacity | sh:ClassConstraintComponent
+(1 row)

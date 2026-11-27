@@ -31,6 +31,8 @@ decisions:
     statement: "Amended 2026-11-18: a benchmark axiom set, rec:feeds transitive and the chain feeds then isLocationOf under feeds, not part of REC as published and labelled so, lives beside the benchmarks and is read only by the premise-sets measurement under OWL 2 RL, as an ontology graph of its own; REC M and its hashes do not change"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-11-20T00:00:00Z
+  - key: LearningTrackDataIsTheSliceAndAPinnedCut
+    statement: "Amended 2026-11-25: the learning track uses a hand-written slice and, from chapter 3, REC S cut to two buildings of site 0 and flattened into the default graph, written and pinned by a test against the generator, never the generator itself; its data stays in the default graph until chapter 9, except REC 4 itself, loaded as one commit into a graph of its own to be a shapes binding's shapes graph"
 ---
 
 The rulings of [ADR 0141](../adr/0141-realestatecore-as-the-reference-domain.md), filed unaccepted by

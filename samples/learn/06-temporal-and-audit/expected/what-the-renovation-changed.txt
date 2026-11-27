@@ -1,0 +1,20 @@
+  | subject             | predicate           | object
+--+---------------------+---------------------+-------------------------
++ | :level-3            | rec:hasPart         | :room-3-04
+- | :room-3-02          | rdfs:label          | 3.02 Open office
++ | :room-3-02          | rdfs:label          | 3.02 Open office, east
+- | :room-3-02          | rec:hasPoint        | :point-temp-3-02
+- | :room-3-02-area     | rec:netArea         | 290.0^^xsd:float
++ | :room-3-02-area     | rec:netArea         | 1.45E2^^xsd:float
+- | :room-3-02-capacity | rec:seatingCapacity | 36
++ | :room-3-02-capacity | rec:seatingCapacity | 18
++ | :room-3-04          | rdf:type            | rec:Room
++ | :room-3-04          | rdfs:label          | 3.04 Open office, west
++ | :room-3-04          | rec:area            | :room-3-04-area
++ | :room-3-04          | rec:capacity        | :room-3-04-capacity
++ | :room-3-04          | rec:hasPoint        | :point-temp-3-02
++ | :room-3-04-area     | rdf:type            | rec:ArchitectureArea
++ | :room-3-04-area     | rec:netArea         | 1.45E2^^xsd:float
++ | :room-3-04-capacity | rdf:type            | rec:ArchitectureCapacity
++ | :room-3-04-capacity | rec:seatingCapacity | 18
+(17 rows)

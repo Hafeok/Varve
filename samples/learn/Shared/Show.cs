@@ -33,6 +33,14 @@ internal static class Show
         ("rdfs:", "http://www.w3.org/2000/01/rdf-schema#"),
         ("xsd:", "http://www.w3.org/2001/XMLSchema#"),
         (":", "https://example.org/learn/"),
+        ("region:", "https://example.org/rec/region/"),
+        ("site:", "https://example.org/rec/site/"),
+        ("building:", "https://example.org/rec/building/"),
+        ("level:", "https://example.org/rec/level/"),
+        ("room:", "https://example.org/rec/room/"),
+        ("asset:", "https://example.org/rec/asset/"),
+        ("point:", "https://example.org/rec/point/"),
+        ("sh:", "http://www.w3.org/ns/shacl#"),
     ];
 
     /// <summary>Starts the section named <paramref name="name"/>.</summary>
@@ -100,8 +108,11 @@ internal static class Show
     /// When the sample is run with <c>--state &lt;file&gt;</c>, writes its
     /// dataset's head there as canonical N-Quads (RDFC-1.0), which the learn
     /// gate compares with <c>expected/state.nq</c> and the REC tests validate.
+    /// A sample that holds the pinned REC files in a graph of their own names
+    /// it as <paramref name="vocabulary"/>, and that graph is left out:
+    /// <c>samples/learn/rec.pin</c> already holds it to the release.
     /// </summary>
-    internal static void StateIfAsked(string[] args, Dataset dataset)
+    internal static void StateIfAsked(string[] args, Dataset dataset, RdfTerm? vocabulary = null)
     {
         int at = Array.IndexOf(args, "--state");
         if (at < 0 || at + 1 >= args.Length)
@@ -110,8 +121,40 @@ internal static class Show
         }
 
         using DatasetView head = dataset.Pin();
-        CanonicalDataset canonical = RdfCanonicaliser.Canonicalise(head);
+        CanonicalDataset canonical = RdfCanonicaliser.Canonicalise(vocabulary is null ? head : Without(head, vocabulary));
         System.IO.File.WriteAllBytes(args[at + 1], canonical.NQuads.ToArray());
+    }
+
+    /// <summary>A section's lines, from a finding's terms as the report writes them: an IRI by its prefixed name.</summary>
+    internal static string Written(string term) =>
+        term.Length > 2 && term[0] == '<' && term[^1] == '>' ? Name(term[1..^1]) : term;
+
+    private static InMemoryDataset Without(DatasetView head, RdfTerm graph)
+    {
+        InMemoryDatasetBuilder kept = new();
+        head.TryInternalise(graph, out TermHandle left);
+        using IQuadCursor quads = head.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any);
+        while (quads.MoveNext())
+        {
+            Quad quad = quads.Current;
+            if (!left.IsNone && head.TermComparer.Equals(quad.Graph, left))
+            {
+                continue;
+            }
+
+            head.TryExternalise(quad.Subject, out RdfTerm? s);
+            head.TryExternalise(quad.Predicate, out RdfTerm? p);
+            head.TryExternalise(quad.Object, out RdfTerm? o);
+            RdfTerm? g = null;
+            if (!quad.IsDefaultGraph)
+            {
+                head.TryExternalise(quad.Graph, out g);
+            }
+
+            kept.Add(s!, p!, o!, g);
+        }
+
+        return kept.ToDataset();
     }
 
     private static string Name(string iri)

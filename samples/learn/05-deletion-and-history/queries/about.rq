@@ -1,0 +1,5 @@
+PREFIX :     <https://example.org/learn/>
+
+SELECT ?p ?o
+WHERE { :point-temp-3-01 ?p ?o }
+ORDER BY ?p
