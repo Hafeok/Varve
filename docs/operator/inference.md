@@ -201,6 +201,14 @@ graph's closure, which costs a build from scratch of that one graph.
 Turtle's `( … )` and RDF/XML's `parseType="Collection"` always write
 well-formed lists.
 
+> **Known issue, 2026-11-27 (preview.23).** Under an `OWL2RL` binding,
+> asserting or retracting an `rdf:List` in a data graph rebuilds that
+> graph's closure, even when no axiom names the list: 3.7–5.2 s for a
+> three-cell list at REC M. Under a cross-graph binding it rebuilds the
+> merge, which can stop the binding at its memory limit
+> (`stopped (memory-limit)`). It is fixed by #420 in the release after
+> preview.23.
+
 **Reading it.**
 - `FROM <https://w3id.org/varve/ns#implicit>` reads the implicit part of the
   query's other `FROM` graphs, or of the default graph when there are none;
