@@ -172,6 +172,9 @@ public readonly record struct ProblemType
     /// <summary><c>409</c>: a write to a catalogue graph after the dataset's event declarations froze or moved to the management plane (ADR 0167).</summary>
     public static ProblemType EventCatalogueMoved { get; } = new("event-catalogue-moved");
 
+    /// <summary><c>409</c>: a move of a dataset's event declarations that another request cancelled while it ran; nothing more was committed (ADR 0167, amended for #254).</summary>
+    public static ProblemType EventMoveCancelled { get; } = new("event-move-cancelled");
+
     /// <summary><c>422</c>: a management declaration the code validator refuses (ADR 0166).</summary>
     public static ProblemType DeclarationInvalid { get; } = new("declaration-invalid");
 

@@ -82,6 +82,7 @@ public static class ProblemCatalogue
         new(ProblemType.Conflict, 409, "Another commit came first.", "position", "expectedPosition", "headPosition", "graphs", "graphsTruncated"),
         new(ProblemType.DatasetOpen, 409, "The dataset is open; close it first."),
         new(ProblemType.EventCatalogueMoved, 409, "The dataset's event declarations are on the management plane.", "manage"),
+        new(ProblemType.EventMoveCancelled, 409, "The move of the event declarations was cancelled while it ran.", "position"),
         new(ProblemType.IdempotencyKeyInFlight, 409, "A request with this idempotency key is still being answered."),
         new(ProblemType.PreconditionFailed, 412, "The precondition does not name the current version.", "position", "expectedPosition", "headPosition", "graphs"),
         new(ProblemType.RequestTooLarge, 413, "The request body is over the server's limit.", "limit"),

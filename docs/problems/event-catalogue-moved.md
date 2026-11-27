@@ -20,7 +20,13 @@ graphs' history stays readable as of any position.
 While a move is `Moving`, an operator or the dataset's admin can still cancel
 it by stating `varve:eventDeclarations varve:InDataset` in the dataset's graph,
 its own management commit at m₃; catalogue writes authorised at m₃ or later
-are accepted again.
+are accepted again. A cancel is answered only once it is in force on the
+instance that answers, and the dataset's writer reads the management plane
+again before it refuses a write to a dataset that is `Moving`, so a write sent
+after a cancel's answer is accepted (ADR 0167, amended 2026-11-19). When the
+writer cannot read the management plane then, the write is
+[`management-behind`](management-behind.md), which a client sends again, and
+not this.
 
 ## What to do
 
@@ -28,6 +34,9 @@ A client: send the change to `manage` instead, with a token for the
 management audience, or change the dataset's declaration file and run `varve
 apply` ([Moving event schemas](../operator/moving-event-schemas.md)). Sending
 the same write to the catalogue graph is refused again.
+
+If you were told the move was cancelled and still get this, it is a defect:
+report it with the `instance` member and the cancel's position.
 
 Every problem is `application/problem+json` (RFC 9457) with `type`, `title`
 and `status` as above, `detail` when there is more to say, and `instance`,

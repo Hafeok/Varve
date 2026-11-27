@@ -66,8 +66,9 @@ public class ProblemCatalogueTests
     /// row-restricted write refused, and a classification projection behind,
     /// ADRs 0233 and 0236), <c>InferenceSurfaceTests</c> (a closure's
     /// projection behind, and a binding stopped by its memory limit, ADR 0195),
-    /// and <c>IdempotencyKeyTests</c> (a key reused with another request, a key
-    /// in flight, and a key past its window, ADR 0246).
+    /// <c>IdempotencyKeyTests</c> (a key reused with another request, a key in
+    /// flight, and a key past its window, ADR 0246), and <c>EventMoveTests</c>
+    /// (a move cancelled under its request, #254).
     /// </summary>
     private static readonly ImmutableArray<ProblemType> TestedElsewhere =
     [
@@ -75,6 +76,7 @@ public class ProblemCatalogueTests
         ProblemType.ManagementBehind, ProblemType.DatasetBehind, ProblemType.ValidationBehind, ProblemType.TakeoverRefused,
         ProblemType.RowNotWritable, ProblemType.ClassificationBehind, ProblemType.InferenceBehind, ProblemType.InferenceUnavailable, ProblemType.EntailmentNotAvailable,
         ProblemType.IdempotencyKeyReused, ProblemType.IdempotencyKeyInFlight, ProblemType.IdempotencyKeyExpired,
+        ProblemType.EventMoveCancelled,
     ];
 
     /// <summary>The types the management plane's endpoints emit, triggered by <see cref="every_problem_the_management_endpoints_emit_has_its_catalogued_shape"/>.</summary>

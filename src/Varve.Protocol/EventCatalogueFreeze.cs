@@ -61,6 +61,25 @@ public sealed class EventCatalogueFreeze : ICommitValidator
         return ValidationVerdict.Reject(ValidatorProblem.Report(ProblemType.EventCatalogueMoved, json.WrittenSpan.ToArray()));
     }
 
+    /// <summary>
+    /// The refusal of a catalogue write of <paramref name="dataset"/> while its
+    /// declarations were moving at the last position applied and the host
+    /// could not read the management plane since: a cancel may be in force,
+    /// so the write is neither accepted nor refused as moved. It is
+    /// <c>503 management-behind</c>, which a client sends again (ADR 0246
+    /// point 10; ADR 0167, amended for #254).
+    /// </summary>
+    internal static ValidationVerdict Unconfirmed(DatasetName dataset)
+    {
+        ArrayBufferWriter<byte> json = new();
+        CanonicalJsonWriter writer = new(json);
+        writer.StartObject();
+        writer.WriteName("detail"u8);
+        writer.WriteString("The event declarations of dataset " + dataset.Value + " were moving at the management position this instance applied, and it cannot read the management plane now to learn whether the move was cancelled; send the write again (ADR 0167).");
+        writer.EndObject();
+        return ValidationVerdict.Reject(ValidatorProblem.Report(ProblemType.ManagementBehind, json.WrittenSpan.ToArray()));
+    }
+
     private static bool Touches(IQuadSource proposed, ReadOnlySpan<Quad> quads)
     {
         TermHandle last = TermHandle.None;

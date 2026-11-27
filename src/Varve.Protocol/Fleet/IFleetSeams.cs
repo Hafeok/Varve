@@ -112,6 +112,25 @@ public interface IManagementPlane
     /// </summary>
     IReadOnlyList<RdfTerm>? CheckBindings(Declarations proposed) => null;
 
+    /// <summary>
+    /// Takes the run of <paramref name="dataset"/>'s event declarations move
+    /// on this instance, waiting for a run in progress (ADR 0167, amended for
+    /// #254): one run at a time, so a request's answer is about its own run.
+    /// Disposing the result ends the run. By default every run proceeds at
+    /// once.
+    /// </summary>
+    ValueTask<System.IDisposable> EnterMoveAsync(DatasetName dataset, CancellationToken cancellationToken) =>
+        ValueTask.FromResult<System.IDisposable>(new EveryMoveRun());
+
+    /// <summary>
+    /// Takes the run of <paramref name="dataset"/>'s event declarations move
+    /// on this instance if none is in progress, without waiting: null when
+    /// one is. The interval loop's resume takes it so, and leaves a move to
+    /// the run that holds it (ADR 0167, amended for #254). By default every
+    /// run proceeds at once.
+    /// </summary>
+    System.IDisposable? TryEnterMove(DatasetName dataset) => new EveryMoveRun();
+
     /// <summary>A shapes binding of <paramref name="dataset"/> at the applied position, with its classification where this instance holds the dataset; null when there is no such binding. None by default.</summary>
     BindingDescription? DescribeBinding(DatasetName dataset, RdfTerm binding) => null;
 
@@ -142,4 +161,12 @@ public interface IManagementPlane
     /// no object store, so no epoch to take. None by default.
     /// </summary>
     ValueTask<TakeoverOutcome?> TakeoverAsync(DatasetName? dataset, TakeoverEpoch epoch, CancellationToken cancellationToken) => default;
+}
+
+/// <summary>The run of a move on a host that does not keep moves one at a time: ending it releases nothing.</summary>
+internal sealed class EveryMoveRun : System.IDisposable
+{
+    public void Dispose()
+    {
+    }
 }

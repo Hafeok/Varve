@@ -38,6 +38,14 @@
 # `run` is the night's whole run, the store at full depth, the Linux soak or
 # the Windows soak; or, by hand, the premise sets of a cross-graph binding on
 # REC M with links between buildings (ADR 0195 point 3).
+#
+# A dispatch with `run: repeat`, on any branch, runs one named test filter N
+# times on one OS, under load if asked, and keeps the whole output of every
+# failing run (eng/repeat.cs, docs/testing.md §11, #254). It is how a test
+# that fails now and then is reproduced, and how a fix is shown to hold. It
+# never runs on the schedule, a push or a pull request, and it is never a
+# required check: eng/required-checks.cs refuses a required name reported
+# only by a workflow that does not run on pull requests.
 name: Nightly
 
 on:
@@ -50,7 +58,7 @@ on:
   workflow_dispatch:
     inputs:
       run:
-        description: What to run on main
+        description: What to run (on main, except repeat, which runs on the branch dispatched)
         type: choice
         default: night
         options:
@@ -60,6 +68,42 @@ on:
           - windows soak
           - premise sets
           - closure budget
+          - repeat
+      repeat-project:
+        description: "repeat: the test project's directory"
+        type: string
+        default: tests/Varve.Server.Tests
+      repeat-filter:
+        description: "repeat: xUnit's filter, as -method Full.Name or -class Full.Name, repeatable"
+        type: string
+        default: ""
+      repeat-count:
+        description: "repeat: how many runs"
+        type: number
+        default: 100
+      repeat-os:
+        description: "repeat: the runner"
+        type: choice
+        default: ubuntu-latest
+        options:
+          - ubuntu-latest
+          - windows-latest
+      repeat-load:
+        description: "repeat: beside a competing Release build and one busy thread per processor"
+        type: boolean
+        default: false
+      repeat-at:
+        description: "repeat: the commit to run, when not the branch's head (a head red on CS0618, ADR 0066)"
+        type: string
+        default: ""
+      repeat-compare:
+        description: "repeat: a commit to run against it, alternating, to compare their times"
+        type: string
+        default: ""
+      repeat-services:
+        description: "repeat: with the object stores of the fleet (services) job, Azurite and RustFS"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -71,6 +115,104 @@ env:
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 jobs:
+  repeat:
+    name: repeat (${{ inputs.repeat-os }})
+    # A dispatch only, on whichever branch it names: never the schedule, a
+    # push or a pull request, and never a required check (#254).
+    if: github.event_name == 'workflow_dispatch' && inputs.run == 'repeat'
+    runs-on: ${{ inputs.repeat-os }}
+    timeout-minutes: 340
+
+    # With repeat-services, its object stores come from this repository's private mirror (#118).
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Line endings
+        # As the build job: the bytes tested are the bytes committed (ADR 0036).
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Temporary folder on the runner's temporary drive
+        # As the build job (#126): the tests' temporary folder on D:, not C:.
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+
+      - name: Log in to GHCR
+        if: inputs.repeat-services
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Start the object stores
+        # As the fleet (services) job does, and only on Linux, where it runs.
+        if: inputs.repeat-services
+        shell: bash
+        run: |
+          docker compose --file .github/storage/compose.yaml up --detach
+          for attempt in $(seq 1 60); do
+            azurite=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:10000/devstoreaccount1?comp=list || true)
+            rustfs=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:9000/ || true)
+            token=$(curl --silent --header 'Host: issuer:8080' --data 'grant_type=client_credentials&client_id=varve-storage&client_secret=unchecked&scope=openid' http://127.0.0.1:8090/varve/token | jq -r '.access_token // empty' || true)
+            sts=$(curl --silent --output /dev/null --write-out '%{http_code}' --data-urlencode "WebIdentityToken=$token" --data 'Action=AssumeRoleWithWebIdentity&Version=2011-06-15&DurationSeconds=900' http://127.0.0.1:9000/ || true)
+            [ "$azurite" = 403 ] && [ "$rustfs" = 403 ] && [ "$sts" = 200 ] && exit 0
+            sleep 1
+          done
+          docker compose --file .github/storage/compose.yaml logs
+          exit 1
+
+      - name: Repeat the filter
+        shell: bash
+        env:
+          # Inputs reach the script as values, never as workflow text.
+          REPEAT_PROJECT: ${{ inputs.repeat-project }}
+          REPEAT_FILTER: ${{ inputs.repeat-filter }}
+          REPEAT_COUNT: ${{ inputs.repeat-count }}
+          REPEAT_LOAD: ${{ inputs.repeat-load }}
+          REPEAT_AT: ${{ inputs.repeat-at }}
+          REPEAT_COMPARE: ${{ inputs.repeat-compare }}
+          REPEAT_SERVICES: ${{ inputs.repeat-services }}
+        run: |
+          options=(--trx)
+          if [ "$REPEAT_LOAD" = "true" ]; then options+=(--load); fi
+          if [ -n "$REPEAT_AT" ]; then options+=(--at "$REPEAT_AT"); fi
+          if [ -n "$REPEAT_COMPARE" ]; then options+=(--compare "$REPEAT_COMPARE"); fi
+          if [ "$REPEAT_SERVICES" = "true" ]; then
+            export VARVE_AZURITE=http://127.0.0.1:10000/devstoreaccount1
+            export VARVE_RUSTFS=http://127.0.0.1:9000,varvetest,varvetestsecret
+            export VARVE_RUSTFS_WEB_IDENTITY=http://127.0.0.1:9000/,http://127.0.0.1:8090/varve/token,issuer:8080
+            export VARVE_STORAGE_LEGS_REQUIRED=azurite,rustfs,rustfs-web-identity
+          fi
+          dotnet run eng/repeat.cs -- --project "$REPEAT_PROJECT" --filter "$REPEAT_FILTER" --count "$REPEAT_COUNT" "${options[@]}" --out "$GITHUB_WORKSPACE/artifacts/repeat"
+
+      - name: Upload every failing run's output, and each run's results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: repeat-${{ inputs.repeat-os }}
+          path: ${{ github.workspace }}/artifacts/repeat
+          if-no-files-found: ignore
+
   store:
     name: store, full depth (${{ matrix.os }})
     if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'store at full depth')

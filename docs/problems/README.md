@@ -30,6 +30,7 @@ is the request id, also carried as `Varve-Request-Id`.
 | [`conflict`](conflict.md) | 409 | `position`, `expectedPosition`, `headPosition`, `graphs`, `graphsTruncated` | Another commit came first. |
 | [`dataset-open`](dataset-open.md) | 409 |  | The dataset is open; close it first. |
 | [`event-catalogue-moved`](event-catalogue-moved.md) | 409 | `manage` | The dataset's event declarations are on the management plane. |
+| [`event-move-cancelled`](event-move-cancelled.md) | 409 | `position` | The move of the event declarations was cancelled while it ran. |
 | [`idempotency-key-in-flight`](idempotency-key-in-flight.md) | 409 |  | A request with this idempotency key is still being answered. |
 | [`precondition-failed`](precondition-failed.md) | 412 | `position`, `expectedPosition`, `headPosition`, `graphs` | The precondition does not name the current version. |
 | [`request-too-large`](request-too-large.md) | 413 | `limit` | The request body is over the server's limit. |

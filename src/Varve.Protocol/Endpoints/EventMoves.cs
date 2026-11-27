@@ -186,11 +186,44 @@ internal static class EventMoves
     private static Outcome Refused(ProblemType type, string detail, Action<ProblemMembers>? members = null) =>
         new(0, 0, context => HttpProblems.WriteAsync(context, type, detail, members));
 
+    // The move's own cancel, for a catalogue that does not translate one-to-one.
+    private static Outcome Cancelled(DeclarationProblem problem) =>
+        Refused(ProblemType.EventDeclarationInvalid, "The move was cancelled: the catalogue does not translate one-to-one into the dataset's declarations (ADR 0167). " + problem.Detail + ".", members =>
+        {
+            members.String("declaration", Encoding.UTF8.GetString(problem.Declaration.Lexical));
+            members.String("reason", problem.Reason);
+        });
+
+    // A cancel another request committed while this run held the move in
+    // progress, found at system position `position`: the run commits nothing
+    // more, and never freezes again (#254).
+    private static Outcome CancelledUnder(DatasetName name, long position) =>
+        Refused(ProblemType.EventMoveCancelled, "The move of dataset " + name.Value + "'s event declarations was cancelled by another request, at management position " + position.ToString(CultureInfo.InvariantCulture) + ", while this one ran; nothing more was committed, and the declarations stay in the dataset (ADR 0167).", members =>
+            members.Number("position", position));
+
     private static async Task<Outcome> RunAsync(Move move, CancellationToken cancellationToken)
     {
         ProtocolOptions options = move.Options;
         IManagementPlane plane = move.Plane;
         RdfTerm graph = ManagementVocabulary.DatasetGraph(move.Name.Value);
+
+        // One run of the dataset's move at a time here: a request waits for a
+        // run in progress, so its answer is about its own run; the interval
+        // loop's resume does not wait, and leaves the move to the run that
+        // holds it (ADR 0167, amended for #254).
+        using IDisposable? run = move.Context is null ? plane.TryEnterMove(move.Name) : await plane.EnterMoveAsync(move.Name, cancellationToken).ConfigureAwait(false);
+
+        if (run is null)
+        {
+            return Refused(ProblemType.Conflict, "A run of this dataset's move is in progress here.");
+        }
+
+        // Once this run has seen the move in progress, InDataset means a cancel
+        // was committed meanwhile, and the run never freezes again (#254).
+        bool seenMoving = false;
+
+        // The reason the catalogue does not translate, once this run found it.
+        DeclarationProblem? untranslatable = null;
 
         for (int round = 0; round < Rounds; round++)
         {
@@ -235,6 +268,29 @@ internal static class EventMoves
 
             if (state == EventDeclarationState.InDataset)
             {
+                if (untranslatable is { } judged)
+                {
+                    // This run found the catalogue untranslatable and its own
+                    // cancel lost to an equal one: the move is cancelled, for
+                    // the reason this run found.
+                    return Cancelled(judged);
+                }
+
+                if (seenMoving)
+                {
+                    // Cancelled under this run, by another request (ADR 0167,
+                    // amended for #254): nothing more is committed.
+                    return CancelledUnder(move.Name, applied);
+                }
+
+                if (move.Context is null)
+                {
+                    // The interval loop only finishes a move a request started
+                    // (ADR 0167 point 3); it never starts one, so a cancel it
+                    // finds stands.
+                    return CancelledUnder(move.Name, applied);
+                }
+
                 // The freeze.
                 List<Triple> frozen = current.FindAll(t => !t.Predicate.Equals(ManagementVocabulary.EventDeclarationsProperty));
                 frozen.Add(new Triple(node, ManagementVocabulary.EventDeclarationsProperty, ManagementVocabulary.MovingState));
@@ -245,9 +301,14 @@ internal static class EventMoves
                     return new Outcome(0, 0, problem);
                 }
 
+                // Its own freeze, once committed, is a move this run has seen
+                // in progress: a cancel found after it stands.
+                seenMoving |= !freeze.Stale;
                 await AppliedAsync(move, freeze.Position, cancellationToken).ConfigureAwait(false);
                 continue;
             }
+
+            seenMoving = true;
 
             // The barrier: after it, every commit is authorised at the applied
             // position or later, where the declarations say Moving.
@@ -266,13 +327,15 @@ internal static class EventMoves
 
             HashSet<RdfTerm> held = [.. current.Select(t => t.Subject)];
 
-            if (!ManagedEventDeclarations.TryFromCatalogue(catalogue, out List<(RdfTerm Subject, RdfTerm Predicate, RdfTerm Object)> nodes, out DeclarationProblem? untranslatable)
+            if (!ManagedEventDeclarations.TryFromCatalogue(catalogue, out List<(RdfTerm Subject, RdfTerm Predicate, RdfTerm Object)> nodes, out DeclarationProblem? reason)
                 || nodes.Find(n => held.Contains(n.Subject)) is { Subject: not null } taken)
             {
                 // A catalogue that does not translate one-to-one: the move is
                 // cancelled, and catalogue writes are accepted again.
-                DeclarationProblem problem = untranslatable ?? new DeclarationProblem(
+                DeclarationProblem problem = reason ?? new DeclarationProblem(
                     nodes.Find(n => held.Contains(n.Subject)).Subject, "graph", "the node is already a node of the dataset's declarations; the catalogue cannot be copied into them");
+                untranslatable = problem;
+
                 // The cancel is a commit of its own, m₃: catalogue writes authorised there or later are accepted again.
                 List<Triple> cancelled = current.FindAll(t => !t.Predicate.Equals(ManagementVocabulary.EventDeclarationsProperty));
                 cancelled.Add(new Triple(node, ManagementVocabulary.EventDeclarationsProperty, ManagementVocabulary.InDatasetState));
@@ -283,15 +346,17 @@ internal static class EventMoves
                     continue;
                 }
 
+                if (cancel.Problem is { } failed)
+                {
+                    // Nothing was committed, so the move is not cancelled: the
+                    // write's own problem is the answer (#254).
+                    return new Outcome(0, 0, failed);
+                }
+
                 // Answered once the plane has applied the cancel, as the freeze and
                 // the copy are, so the state read after the answer is in-dataset.
                 await AppliedAsync(move, cancel.Position, cancellationToken).ConfigureAwait(false);
-
-                return Refused(ProblemType.EventDeclarationInvalid, "The move was cancelled: the catalogue does not translate one-to-one into the dataset's declarations (ADR 0167). " + problem.Detail + ".", members =>
-                {
-                    members.String("declaration", Encoding.UTF8.GetString(problem.Declaration.Lexical));
-                    members.String("reason", problem.Reason);
-                });
+                return Cancelled(problem);
             }
 
             // The switch.
@@ -529,13 +594,8 @@ internal static class EventMoves
         switch (result.Outcome)
         {
             case CommitOutcome.Committed:
-                if (move.Options.Management is { } management)
-                {
-                    await management.AdvanceAsync(cancellationToken).ConfigureAwait(false);
-                }
-
-                return new Written(result.Position.Value, false, null);
             case CommitOutcome.NoChange:
+                await ManagementAnswers.AppliedAsync(move.Options, result.Outcome, cancellationToken).ConfigureAwait(false);
                 return new Written(result.Position.Value, false, null);
             case CommitOutcome.Conflict:
                 return new Written(0, true, null);

@@ -445,3 +445,56 @@ release that introduced it, from its published packages
 - coordination records a later version could write are read conservatively
   ([ADR 0217](adr/0217-coordination-records-read-conservatively.md)), tested on
   preview.10's record with its format or its values changed.
+
+## 11. A test that fails now and then — repeat it, then model it
+
+A test that fails once in a hundred runs is a defect, of the code or of the
+test, until it is shown otherwise. It is never made to pass by waiting: no
+sleep, retry or polling is added to get past a window (#254). Two tools find
+the window.
+
+**Repeat it where it failed.** `eng/repeat.cs` builds a test project once, in
+Release, and runs one xUnit filter N times, keeping the whole output of every
+failing run and nothing of a passing one:
+
+```bash
+dotnet run eng/repeat.cs -- --project tests/Varve.Server.Tests \
+  --filter "-method Varve.Server.Tests.EventMoveTests.A_catalogue_that_does_not_translate_one_to_one_cancels_the_move_and_writes_reopen" \
+  --count 500 --load
+```
+
+`--load` runs it beside a competing Release build of the solution, from a
+second checkout so that the binaries under test are never touched, and one
+busy thread per processor: the conditions #254's test first failed in. A
+filter that runs no test exits 2, so a misspelt name is never a pass.
+
+The same runs on GitHub's runners as the nightly workflow's `repeat` job, by
+a dispatch with `run: repeat`, on any branch:
+
+| Input | Means |
+|---|---|
+| `repeat-project` | the test project's directory, `tests/Varve.Server.Tests` by default |
+| `repeat-filter` | xUnit's filter: `-method Full.Name` or `-class Full.Name`, repeatable |
+| `repeat-count` | how many runs, 100 by default |
+| `repeat-os` | `ubuntu-latest` or `windows-latest` |
+| `repeat-load` | the load above |
+| `repeat-at` | the commit to run, when not the branch's head: a head red on an unaccepted decision's `CS0618` (ADR 0066) is measured at the commit before its citations |
+| `repeat-compare` | a second commit, run alternately with the first, the side that goes first changing every round, to say how much slower one is than the other |
+| `repeat-services` | with Azurite and RustFS, as the `fleet (services)` job starts them, on Linux |
+
+Its summary is in the run's step summary: each side's failures and the
+mean, median, least and most wall time of its runs. Every failing run's
+output, and each run's TRX, is the artifact `repeat-<os>`, so that a
+difference in time can be put on the tests that make it. The job never runs on the schedule, a push or a
+pull request, and is never a required check: `eng/required-checks.cs`
+refuses a required name that only a workflow not run on pull requests
+reports.
+
+**Then model it, so the window is closed for every order and not just the
+one that failed.** A race found by repeating gets a test that holds each
+party at a step by a signal and orders the others between them, and, where
+the parties are several, a model-based test over generated orders:
+
+| Test | Land gate | Deeper |
+|---|---|---|
+| `EventMoveModelTests` (#254, ADR 0167): one server a schedule, a round of the interval loop and a move request each held between the move's steps (`Fleet.Advancing`), and between them freezes and cancels by apply, catalogue writes and refused management writes, over a catalogue that translates or does not. After every step: no `moved` after an acknowledged cancel with no move started since; with no move in progress, `in-dataset` and a catalogue write accepted; an answer that says cancelled holds when given, and gives the true reason. Without any one of #254's fixes it fails in every run of 300 schedules | 40 schedules, about 2 s | `VARVE_EVENT_MOVE_SCHEDULES=<n>` (1,000 ran clean at development, about 35 s) |
