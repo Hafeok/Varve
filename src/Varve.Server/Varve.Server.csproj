@@ -39,6 +39,11 @@
   <Import Project="ShippedRuntime.props" />
 
   <ItemGroup>
+    <!-- The compatibility page's states (ADR 0184 decision 9), written by eng/object-stores.cs. -->
+    <EmbeddedResource Include="object-store-providers.txt" LogicalName="Varve.Server.object-store-providers.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Varve.Classification/Varve.Classification.csproj" />
     <ProjectReference Include="../Varve.Events/Varve.Events.csproj" />
     <ProjectReference Include="../Varve.Protocol/Varve.Protocol.csproj" />

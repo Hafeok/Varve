@@ -796,7 +796,7 @@ public sealed class FileStorage : IStorage, IAsyncDisposable
     }
 
     /// <summary>A published blob, read through a held handle.</summary>
-    private sealed class FileBlob(IFileHandle handle) : IReadableBlob
+    internal sealed class FileBlob(IFileHandle handle) : IReadableBlob
     {
         private readonly long _length = handle.Length;
 

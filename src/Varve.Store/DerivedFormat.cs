@@ -68,6 +68,9 @@ internal sealed class LoadedRun
 
     internal DerivedHeader Header { get; }
 
+    /// <summary>Where the term section lies in the blob: from its entries to the end of its filter. Nothing for a run in memory.</summary>
+    internal (long At, long End) TermBytes { get; init; }
+
     /// <summary>The canonical counter at the run's last position: its term section's end.</summary>
     internal long CanonicalCount => Run.Terms.To;
 
@@ -691,7 +694,7 @@ internal static partial class DerivedFormat
     }
 
     [DesignDecision(typeof(VerifiedDerivedData.OlderLocalBlobsAreAMiss), Scope = ExceptionScope.Boundary)]
-    private static LoadedRun? TryLoad(IReadableBlob blob, BlobName name, DatasetId dataset, ushort kind, bool shared)
+    internal static LoadedRun? TryLoad(IReadableBlob blob, BlobName name, DatasetId dataset, ushort kind, bool shared)
     {
         if (!TryReadHeader(blob, dataset, kind, out DerivedHeader header)
             || (IsChecked(kind) && header.Version < CheckedVersion && !shared))
@@ -995,7 +998,10 @@ internal static partial class DerivedFormat
         }
 
         TermSection termSection = TermSection.On(Terms(blob, pageChecks, entriesAt, hashesEnd + (filter is null ? 0 : TermFilter.LengthFor(terms))), canonicalFrom, canonicalTo, entriesAt, entriesLength, offsetsAt, hashesAt, filter);
-        return new LoadedRun(new Run(asserted, retracted, header.From, header.To, termSection, owner), header, blank, extent);
+        return new LoadedRun(new Run(asserted, retracted, header.From, header.To, termSection, owner), header, blank, extent)
+        {
+            TermBytes = (entriesAt, hashesEnd + (filter is null ? 0 : TermFilter.LengthFor(terms))),
+        };
     }
 
     // What a run's term section is read through: the blob, or, in version 6,

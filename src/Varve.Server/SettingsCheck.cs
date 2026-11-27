@@ -33,6 +33,7 @@ internal static class SettingsCheck
     [
         "DatasetsRoot",
         "Fleet:Writer", "Fleet:AutomaticHandover", "Fleet:InternalUrl", "Fleet:FollowInterval", "Fleet:AllowedLag",
+        "Replication:ShipInterval", "Replication:Stores:*:Address", "Replication:Stores:*:Endpoint", "Replication:Stores:*:Region", "Replication:Stores:*:StsEndpoint",
         "Manage:BootstrapOperators:*", "Manage:Urls",
         "ObjectStorage:Provider", "ObjectStorage:ContainerUrl", "ObjectStorage:Endpoint", "ObjectStorage:Bucket", "ObjectStorage:Region", "ObjectStorage:StsEndpoint",
         "ObjectStorage:CachePath", "ObjectStorage:CacheBytes", "ObjectStorage:Instance", "ObjectStorage:ReaderId",

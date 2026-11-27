@@ -151,10 +151,16 @@ internal sealed class EventCatalogues
     /// instance holds reaches; none when they had not moved by then. Its
     /// <see cref="Moved.Applied"/> says how far it reached.
     /// </summary>
-    internal async Task<Moved?> MovedAsync(IManagementPlane plane, Dataset dataset, DatasetName name, long upTo, CancellationToken cancellationToken)
+    internal Task<Moved?> MovedAsync(IManagementPlane plane, Dataset dataset, DatasetName name, long upTo, CancellationToken cancellationToken) =>
+        MovedAsync(plane.System, name, dataset, name, upTo, cancellationToken);
+
+    // The same against a system dataset that may be another fleet's (ADR 0185 decision 8): the one a copy's
+    // commit was written under, in which the dataset is declared as declaredAs. A dataset's two fleets are
+    // kept apart, so a promoted copy's old commits and its new ones each replay their own.
+    internal async Task<Moved?> MovedAsync(Dataset system, DatasetName declaredAs, Dataset dataset, DatasetName name, long upTo, CancellationToken cancellationToken)
     {
-        Dataset system = plane.System;
-        Managed managed = _managed.AddOrUpdate(name.Value, _ => new Managed(system), (_, known) => ReferenceEquals(known.System, system) ? known : new Managed(system));
+        string key = name.Value + "\n" + system.Id.Value.ToString("N");
+        Managed managed = _managed.AddOrUpdate(key, _ => new Managed(system, declaredAs), (_, known) => ReferenceEquals(known.System, system) ? known : new Managed(system, declaredAs));
 
         if (managed.Applied < upTo && managed.Applied < system.Head.Value)
         {
@@ -162,7 +168,7 @@ internal sealed class EventCatalogues
 
             try
             {
-                await ReplayAsync(managed, dataset, name, Math.Min(upTo, system.Head.Value), cancellationToken).ConfigureAwait(false);
+                await ReplayAsync(managed, dataset, managed.DeclaredAs, Math.Min(upTo, system.Head.Value), cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -185,22 +191,38 @@ internal sealed class EventCatalogues
     {
         if (options.Plane is { } plane && Recorded(commit) is long recorded)
         {
-            Moved? moved = await MovedAsync(plane, dataset, name, recorded, cancellationToken).ConfigureAwait(false);
+            // ADR 0185 decision 8: the position a copy's commit records is a position of the fleet that wrote
+            // it. It is resolved in that fleet's system dataset, shipped beside the copy, and never in this one's.
+            ForeignFleet? foreign = await plane.ForeignFleetAsync(name, commit.Position, cancellationToken).ConfigureAwait(false);
 
-            if (moved is null && plane.System.Head.Value < recorded)
+            if (foreign is { System: null })
+            {
+                // Written under another fleet whose system dataset this instance cannot read.
+                return null;
+            }
+
+            Dataset system = foreign?.System ?? plane.System;
+            DatasetName declaredAs = foreign?.Dataset ?? name;
+            Moved? moved = await MovedAsync(system, declaredAs, dataset, name, recorded, cancellationToken).ConfigureAwait(false);
+
+            if (moved is null && system.Head.Value < recorded)
             {
                 // The commit was authorised at a position this instance has not applied yet.
-                if (options.Management is { } management)
+                if (foreign is not null)
+                {
+                    await system.AdvanceAsync(cancellationToken).ConfigureAwait(false);
+                }
+                else if (options.Management is { } management)
                 {
                     await management.AdvanceAsync(cancellationToken).ConfigureAwait(false);
                 }
 
-                if (plane.System.Head.Value < recorded)
+                if (system.Head.Value < recorded)
                 {
                     return null;
                 }
 
-                moved = await MovedAsync(plane, dataset, name, recorded, cancellationToken).ConfigureAwait(false);
+                moved = await MovedAsync(system, declaredAs, dataset, name, recorded, cancellationToken).ConfigureAwait(false);
             }
 
             if (moved is { } after)
@@ -351,9 +373,12 @@ internal sealed class EventCatalogues
         internal SemaphoreSlim Gate { get; } = new(1, 1);
     }
 
-    private sealed class Managed(Dataset system)
+    private sealed class Managed(Dataset system, DatasetName declaredAs)
     {
         internal Dataset System { get; } = system;
+
+        /// <summary>The dataset's name in that system dataset: its own here, and the source's name in a source fleet's.</summary>
+        internal DatasetName DeclaredAs { get; } = declaredAs;
 
         internal SemaphoreSlim Gate { get; } = new(1, 1);
 

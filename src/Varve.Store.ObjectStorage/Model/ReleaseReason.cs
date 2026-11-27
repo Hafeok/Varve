@@ -32,4 +32,12 @@ public enum ReleaseReason
     /// is released, and nothing is done for the reason (ADR 0217).
     /// </summary>
     Unknown,
+
+    /// <summary>
+    /// A promotion of a copy won the record and did not finish, or finished
+    /// on a store no fleet serves (ADR 0185 decisions 5 and 6). Unlike
+    /// <see cref="StorageError"/> it starts no standby race: only promoting
+    /// again completes a promotion.
+    /// </summary>
+    Promotion,
 }

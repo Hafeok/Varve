@@ -91,7 +91,23 @@ internal static class Forwarding
             return true;
         }
 
-        if (route.Kind == WriterRouteKind.NoWriter || route.Address is null)
+        // ADR 0185 decision 3: a replica has no writer, and a retry cannot help. Decided after authorisation,
+        // and naming only the dataset the caller sent: one who may not write it gets what any dataset with no
+        // writer gives.
+        if (route.Kind is WriterRouteKind.Replica or WriterRouteKind.PromotionIncomplete && await Exchange.MayAsync(context, options, DatasetPermissions.Write, target.Dataset).ConfigureAwait(false))
+        {
+            bool incomplete = route.Kind == WriterRouteKind.PromotionIncomplete;
+            await HttpProblems.WriteAsync(
+                context,
+                ProblemType.DatasetIsReplica,
+                incomplete
+                    ? "A promotion of this dataset did not finish. It takes no write until it is promoted again."
+                    : "This dataset is a copy that log shipping writes. It takes no write until an operator promotes it.",
+                members => members.String("reason", incomplete ? "promotion-incomplete" : "replica")).ConfigureAwait(false);
+            return true;
+        }
+
+        if (route.Kind is WriterRouteKind.NoWriter or WriterRouteKind.Replica or WriterRouteKind.PromotionIncomplete || route.Address is null)
         {
             await HttpProblems.WriteAsync(context, ProblemType.Unavailable, "No instance holds the writer epoch now; a writer that starts claims it.",
                 members => members.String("reason", "no-writer")).ConfigureAwait(false);

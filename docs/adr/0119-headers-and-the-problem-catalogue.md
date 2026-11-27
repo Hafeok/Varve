@@ -289,6 +289,34 @@ The catalogue gains:
 
 Each has its page in `docs/problems/` when it is catalogued.
 
+## Amendment, 2026-11-20 — `dataset-is-replica`, and a notice header
+
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md)
+and [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md),
+unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
+
+**One problem type joins the catalogue,** with its page:
+
+| Type | Status | Members | Answered by |
+|---|---|---|---|
+| `dataset-is-replica` | 409 | `reason` | a write sent to a replica, or to a copy whose promotion did not finish (ADR 0185 decision 3) |
+
+A promotion's refusals are `takeover-refused`, with the reasons
+`not-a-replica`, `source-mismatch` and `position-mismatch` beside the
+takeover's own.
+
+**One response header joins the others:** `Varve-Notice`, on a successful
+apply. It says something the caller should know that is no refusal. Its
+one use is `shipping-provider-untested; dataset=…; provider=…; state=…`,
+once per shipping target whose provider the compatibility page does not
+list as verified (ADR 0184 decision 9). A client that does not know a
+notice ignores it.
+
+**`store-unverified` is not a problem type.** No request is answered with
+it. It is a state on readiness.
+
+**The ledger.** No ruling changes.
+
 ## Amendment, 2026-11-06 — `inference-behind`, `inference-unavailable`, and the inference guard's `graph-not-writable`
 
 Filed by Inference, part 2 (#171, under #95), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-20.

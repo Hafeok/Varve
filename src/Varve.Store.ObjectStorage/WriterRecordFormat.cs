@@ -112,6 +112,7 @@ internal static class WriterRecordFormat
                         "operator" => ClaimTrigger.Operator,
                         "abdication" => ClaimTrigger.Abdication,
                         "probe" => ClaimTrigger.Probe,
+                        "promotion" => ClaimTrigger.Promotion,
                         string => ClaimTrigger.Unknown,
                         null => throw new InvalidDataException("A claim in the writer record has no trigger."),
                     },
@@ -147,6 +148,7 @@ internal static class WriterRecordFormat
         ReleaseReason.Placement => "placement",
         ReleaseReason.StorageError => "storage-error",
         ReleaseReason.LocalDiskError => "local-disk-error",
+        ReleaseReason.Promotion => "promotion",
         _ => text ?? throw new ArgumentOutOfRangeException(nameof(reason), reason, "An unknown reason is written only as it was read."),
     };
 
@@ -157,6 +159,7 @@ internal static class WriterRecordFormat
         ClaimTrigger.Operator => "operator",
         ClaimTrigger.Abdication => "abdication",
         ClaimTrigger.Probe => "probe",
+        ClaimTrigger.Promotion => "promotion",
         _ => text ?? throw new ArgumentOutOfRangeException(nameof(trigger), trigger, "An unknown trigger is written only as it was read."),
     };
     private static ReleaseReason Reason(string? name) => name switch
@@ -166,6 +169,7 @@ internal static class WriterRecordFormat
         "placement" => ReleaseReason.Placement,
         "storage-error" => ReleaseReason.StorageError,
         "local-disk-error" => ReleaseReason.LocalDiskError,
+        "promotion" => ReleaseReason.Promotion,
         null => throw new InvalidDataException("The writer record names a release with no reason."),
         _ => ReleaseReason.Unknown,
     };

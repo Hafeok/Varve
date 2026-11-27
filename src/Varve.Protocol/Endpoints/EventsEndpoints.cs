@@ -526,6 +526,20 @@ internal static class EventsEndpoints
         if (options.Plane is { } plane)
         {
             long? recorded = await EventCatalogues.RecordedAtAsync(dataset, position, cancellationToken).ConfigureAwait(false);
+
+            // ADR 0185 decision 8: a copy's commit that another fleet wrote records a position of that fleet's
+            // system dataset. The catalogue in force there is read from it, and this fleet's is not consulted.
+            if (await plane.ForeignFleetAsync(name, position, cancellationToken).ConfigureAwait(false) is { } foreign)
+            {
+                if (foreign.System is { } theirs && recorded is long at
+                    && await options.Catalogues.MovedAsync(theirs, foreign.Dataset, dataset, name, at, cancellationToken).ConfigureAwait(false) is { } shipped)
+                {
+                    return (shipped.History.At(new FeedPosition(Math.Min(at, shipped.Applied))), shipped);
+                }
+
+                return (history.At(new FeedPosition(position.Value)), null);
+            }
+
             long? management = position == dataset.Head ? Math.Max(plane.System.Head.Value, recorded ?? 0) : recorded;
 
             if (management is long m && await options.Catalogues.MovedAsync(plane, dataset, name, m, cancellationToken).ConfigureAwait(false) is { } moved)

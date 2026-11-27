@@ -22,7 +22,7 @@ public sealed class LeaseNamesTests
     [Fact]
     public void lease_shows_every_trigger_and_reason_by_the_records_name()
     {
-        Assert.Equal(["restart", "operator", "abdication", "probe"], Enum.GetValues<ClaimTrigger>().Where(t => t != ClaimTrigger.Unknown).Select(ObjectLease.Shown));
-        Assert.Equal(["shutdown", "operator-takeover", "placement", "storage-error", "local-disk-error"], Enum.GetValues<ReleaseReason>().Where(r => r != ReleaseReason.Unknown).Select(ObjectLease.Shown));
+        Assert.Equal(["restart", "operator", "abdication", "probe", "promotion"], Enum.GetValues<ClaimTrigger>().Where(t => t != ClaimTrigger.Unknown).Select(ObjectLease.Shown));
+        Assert.Equal(["shutdown", "operator-takeover", "placement", "storage-error", "local-disk-error", "promotion"], Enum.GetValues<ReleaseReason>().Where(r => r != ReleaseReason.Unknown).Select(ObjectLease.Shown));
     }
 }

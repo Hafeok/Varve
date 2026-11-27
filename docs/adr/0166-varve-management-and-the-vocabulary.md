@@ -304,3 +304,29 @@ release reads the formats it can; a plan of a format it does not read is
 refused, and the message tells the operator to plan again with this version
 and apply that plan. Format 1, as v0.1.0-preview.10 wrote it, is the fixture
 `testdata/formats/plan-preview.10`.
+
+## Amendment, 2026-11-20 — a shipping target's terms
+
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md),
+unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
+
+A dataset's graph may say where the dataset is shipped. The terms:
+
+| Term | Means |
+|---|---|
+| `varve:shipsTo` | on the dataset's node: a shipping target of the same graph |
+| `varve:ShippingTarget` | `rdf:type` of a target's node |
+| `varve:store` | the target store's address, a container or a bucket |
+| `varve:prefix` | the dataset's prefix in that store |
+| `varve:provider` | the store's provider, an id on the compatibility page (ADR 0183) |
+| `varve:shippedOn` | the instance that ships, when it is not the dataset's writer |
+| `varve:copyOf` | on the dataset's node, in the fleet that serves a copy: the source it is a copy of ([ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md) decision 10) |
+| `varve:ShippingSource` | `rdf:type` of that source's node, with its `varve:store` and `varve:prefix` |
+
+- **The residual check states every rule,** and the shapes none: a target
+  is a store and a prefix with its provider, it is named by `varve:shipsTo`, two
+  targets do not name one place, and only a dataset on
+  `varve:ObjectStorage` has one. A dataset is a copy of at most one source, and a
+  copy has no target.
+- **An address carries no credential** (ADR 0037): no user info, no query
+  and no fragment.

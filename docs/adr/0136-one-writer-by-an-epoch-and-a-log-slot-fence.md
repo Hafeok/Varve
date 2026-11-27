@@ -298,6 +298,49 @@ and a read-only open goes on as a follower that knows no writer. A trigger or
 a release reason it does not know, under a format it does read, is held as
 `Unknown` with its text, written back as read, and never acted on.
 
+## Amendment, 2026-11-18 — a replica is never claimed
+
+Filed by Replication part 2 (#166) with ADR 0185, unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
+
+Decision 2 has every open for write claim the next epoch. One case is now
+refused before the claim:
+
+- **A dataset whose lineage record says it is a replica is never opened for
+  write and never claimed** (ADR 0185 decision 3). The open, a takeover and
+  a claim in place read `lineage` first and refuse with
+  `DatasetIsReplicaException`. Nothing is written, the probe of ADR 0134
+  included, so that nothing but its shipper writes under a replica's
+  prefix.
+- A lineage record this version does not read is a replica (ADR 0217).
+- A dataset with no lineage record opens as it always has. The read is one
+  more request at each open for write and each claim in place.
+
+The trigger and the release reason `promotion`, and the epoch a promotion
+claims, are in the amendment of 2026-11-20 below.
+
+**The ledger.** No ruling changes. The ruling is
+`AReplicaIsNeverOpenedForWrite`, in ADR 0185's set.
+
+## Amendment, 2026-11-20 — the trigger and the release reason `promotion`
+
+Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
+
+- **A promotion claims with the trigger `promotion`,** at one above the
+  highest of the writer record's epoch, the highest epoch in any chunk the
+  promoting follower adopted, and the epoch in the catalog's wrapper. A
+  copy's own record never showed the source writer's epochs, and its log
+  and catalog carry them.
+- **A promotion that won the record and then failed releases with the
+  reason `promotion`.** No member races for that release. Only promoting
+  again claims after it.
+- **A lineage of `promoted` with no fenced `promotion` claim at or above
+  its epoch refuses an open for write,** as a replica does, and says the
+  promotion did not finish.
+
+**The ledger.** No ruling of this ADR changes. The rulings are
+`PromotionIsAnsweredByAWarmMemberOfTheTargetFleet` and
+`AnIncompletePromotionIsCompletedOnlyByPromoting`, in ADR 0185's set.
+
 ## Amendment, 2026-11-24 — a fence stands only at the end of the log
 
 Filed unaccepted for #396 (ADR 0066), and accepted by the maintainer on

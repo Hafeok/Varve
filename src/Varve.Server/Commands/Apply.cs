@@ -215,7 +215,38 @@ internal static class Apply
         }
 
         await io.Out.WriteLineAsync("Applied at system position " + (SparqlHttpClient.PositionOf(response)?.ToString(CultureInfo.InvariantCulture) ?? "?") + ".").ConfigureAwait(false);
+
+        // ADR 0184 decision 9: applied, with what the project has not tested said beside it.
+        if (response.Headers.TryGetValues(Varve.Protocol.Model.UntestedTarget.Header, out IEnumerable<string>? notices))
+        {
+            foreach (string notice in notices)
+            {
+                await io.Error.WriteLineAsync(Notice(notice)).ConfigureAwait(false);
+            }
+        }
+
         return 0;
+    }
+
+    // A Varve-Notice value in a sentence: "shipping-provider-untested; dataset=d; provider=p; state=s".
+    internal static string Notice(string value)
+    {
+        Dictionary<string, string> said = new(StringComparer.Ordinal);
+
+        foreach (string part in value.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            int equals = part.IndexOf('=', StringComparison.Ordinal);
+
+            if (equals > 0)
+            {
+                said[part[..equals]] = part[(equals + 1)..];
+            }
+        }
+
+        return said.TryGetValue("dataset", out string? dataset) && said.TryGetValue("provider", out string? provider) && said.TryGetValue("state", out string? state)
+            ? "Notice: dataset " + dataset + " ships to a store of provider '" + provider + "', which this build's compatibility page lists as " + state.Replace('-', ' ')
+                + ". The project has not tested it. Shipping starts once that store holds a verification record: run 'varve storage verify' against it (docs/operator/object-stores.md)."
+            : "Notice: " + value;
     }
 
     private static async Task<int> FromConfigAsync(string file, Io io)

@@ -528,3 +528,20 @@ The issue offered two places. Readiness is chosen.
   such a run, now at the hold-off's rate. It was one claim before, and a
   dataset that never opened.
 - ADR 0179 point 6's takeover request is not held off.
+
+## Amendment, 2026-11-20 — a replica is followed, and a promotion is answered
+
+Filed by Replication part 2 (#166) under [ADR 0185](0185-promotion-across-copies-and-the-lineage-record.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
+
+- **A member placed on a replica follows it.** It reads the lineage before
+  it decides, and the start rule does not run while the lineage says
+  `replica`.
+- **That is not a store failure.** The claim hold-off is not entered, and
+  nothing is logged as a failed open.
+- **The lineage is read once per dataset when an instance first meets it,**
+  and once a round only while it says `replica`. An ordinary dataset pays
+  one request at start.
+- **A promotion is answered whatever the hold-off,** by the instance that
+  receives it, as a takeover is.
+
+**The ledger.** No ruling changes. The rulings are in ADR 0185's set.
