@@ -77,11 +77,12 @@ images:
     upstream: mcr.microsoft.com/azure-storage/azurite:3.37.0
     digest: sha256:830430c1da1a2d537e08f3e6764dd1f5ae00cf0346bcaf625b968ec3f0971fd5
     licence: MIT (https://github.com/Azure/Azurite/blob/main/LICENSE)
-    jobs: [samples (eventhubs), storage (services), fleet (services), handover (services)]
+    jobs: [samples (eventhubs), storage (services), fleet (services), handover (services), kubernetes (kind)]
     why: >-
       the Event Hubs emulator's metadata and checkpoint store (ADR 0146);
       Azure Blob Storage for the object-storage legs (ADR 0134); and the
-      fleet's shared store (ADR 0163)
+      fleet's shared store (ADR 0163), in kind too, where its Node.js also
+      runs each pod's loopback forwarder to it (.github/kind/)
 
   - name: rustfs
     upstream: ghcr.io/rustfs/rustfs:1.0.1

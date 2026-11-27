@@ -458,7 +458,8 @@ What on this page no CI job runs, and why (ADR 0248):
   --managed-identity` needs Container Apps' `IDENTITY_ENDPOINT`, so it runs
   only on Azure; the command itself runs in ci.yml `fleet-services`, without
   a token.
-- **Deployment.** Neither layout is deployed by a job: ci.yml
-  `kubernetes-sample` validates `deploy/kubernetes/` with kubeconform, and
-  ci.yml `bicep` builds and lints `deploy/azure/`; a Kubernetes deployment in
-  `kind` is pull request D of #129.
+- **Deployment to Azure.** No job deploys `deploy/azure/`: ci.yml `bicep`
+  builds and lints it. `deploy/kubernetes/` is deployed in kind by
+  kubernetes.yml `kind`, every night and on every change to it, anonymous
+  and against Azurite, so without workload identity
+  ([Kubernetes](kubernetes.md#what-ci-deploys-in-kind)).

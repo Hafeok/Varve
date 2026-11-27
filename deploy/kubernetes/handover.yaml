@@ -4,7 +4,8 @@
 # condition turns False after kubelet's failureThreshold, it takes over from
 # that pod over the others, as `varve manage takeover --from` does, with the
 # operator role by workload identity. A late, duplicated or false trigger is a
-# no-op (ADR 0181 point 2). Replace each {…}.
+# no-op (ADR 0181 point 2). Replace each {…}. .github/workflows/kubernetes.yml
+# deploys it in kind, where it takes over from a hung writer.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
