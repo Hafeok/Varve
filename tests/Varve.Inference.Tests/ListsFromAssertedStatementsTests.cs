@@ -70,7 +70,7 @@ public class ListsFromAssertedStatementsTests
                 terms.Fact(Named("l2"), Rest, Nil),
                 terms.Fact(Named("x"), Type, Named("B")),
             ],
-            []);
+            [], TestContext.Current.CancellationToken);
 
         Assert.True(closure.Contains(terms.Fact(Named("x"), Type, Named("U"))));
         Assert.Empty(closure.UnreadLists());
@@ -108,7 +108,7 @@ public class ListsFromAssertedStatementsTests
                 terms.Fact(Named("b1"), First, Named("A")),
                 terms.Fact(Named("b1"), Rest, Named("nowhere")),
             ],
-            []);
+            [], TestContext.Current.CancellationToken);
 
         Dictionary<string, UnreadListReason> unread = closure.UnreadLists().ToDictionary(u => terms.Text(u.Cell), u => u.Reason);
         Assert.Equal(UnreadListReason.SeveralFirsts, unread["<http://example.org/f>"]);
@@ -144,7 +144,7 @@ public class ListsFromAssertedStatementsTests
                 terms.Fact(Named("m1"), Named("next"), Nil),
                 terms.Fact(Named("y"), Type, Named("B")),
             ],
-            []);
+            [], TestContext.Current.CancellationToken);
 
         Assert.True(closure.Contains(terms.Fact(Named("l1"), Rest, Named("m1"))), "the inferred rest is a conclusion like any other");
         Assert.True(closure.Contains(terms.Fact(Named("x"), Type, Named("U"))), "an inferred rest breaks no list");
@@ -181,7 +181,7 @@ public class ListsFromAssertedStatementsTests
         }
 
         Closure closure = new(program, Strategy(strategyName));
-        closure.Apply([.. commit], []);
+        closure.Apply([.. commit], [], TestContext.Current.CancellationToken);
 
         Assert.True(FromScratch(program, commit).SetEquals(closure.All));
         Assert.False(closure.Contains(terms.Fact(Named("m0"), Type, Named("E"))), "no list is read through an inferred rdf:rest");
@@ -213,12 +213,12 @@ public class ListsFromAssertedStatementsTests
         Fact union = terms.Fact(Named("x"), Type, Named("U"));
         Fact second = terms.Fact(Named("l2"), Rest, Named("l1"));
 
-        IReadOnlyCollection<Fact> changed = closure.Apply([.. data], []);
+        IReadOnlyCollection<Fact> changed = closure.Apply([.. data], [], TestContext.Current.CancellationToken);
         Assert.True(closure.Contains(union));
         Assert.True(FromScratch(program, data).SetEquals(closure.All));
 
         // A second rest: l2 is no cell, so l1's chain is broken and the union is no list.
-        changed = closure.Apply([second], []);
+        changed = closure.Apply([second], [], TestContext.Current.CancellationToken);
         data.Add(second);
         Assert.False(closure.Contains(union));
         Assert.Contains(union, changed);
@@ -228,7 +228,7 @@ public class ListsFromAssertedStatementsTests
             closure.UnreadLists().Select(u => (terms.Text(u.Cell), u.Reason)).OrderBy(p => p.Item1, System.StringComparer.Ordinal));
 
         // Retracted: the list is read again, and the union comes back.
-        changed = closure.Apply([], [second]);
+        changed = closure.Apply([], [second], TestContext.Current.CancellationToken);
         data.Remove(second);
         Assert.True(closure.Contains(union));
         Assert.Contains(union, changed);
@@ -250,18 +250,18 @@ public class ListsFromAssertedStatementsTests
                 terms.Fact(Named("l1"), Rest, Nil),
                 terms.Fact(Named("t"), First, Named("A")),
             ],
-            []);
+            [], TestContext.Current.CancellationToken);
         Closure data = new(program, Retraction.DeleteAndRederive, budget: null, tbox: tbox);
-        data.Apply([terms.Fact(Named("x"), Type, Named("A")), terms.Fact(Named("d"), Rest, Nil)], []);
+        data.Apply([terms.Fact(Named("x"), Type, Named("A")), terms.Fact(Named("d"), Rest, Nil)], [], TestContext.Current.CancellationToken);
 
         Assert.True(data.Contains(terms.Fact(Named("x"), Type, Named("U"))));
 
         // A statement both assert is one statement: the cell keeps its one rest.
-        data.Apply([terms.Fact(Named("l1"), Rest, Nil), terms.Fact(Named("V"), UnionOf, Named("l1")), terms.Fact(Named("y"), Type, Named("A"))], []);
+        data.Apply([terms.Fact(Named("l1"), Rest, Nil), terms.Fact(Named("V"), UnionOf, Named("l1")), terms.Fact(Named("y"), Type, Named("A"))], [], TestContext.Current.CancellationToken);
         Assert.True(data.Contains(terms.Fact(Named("y"), Type, Named("V"))));
 
         // A data graph cannot break a TBox list: its second rest on the TBox's cell is reported, and the list is read as the TBox reads it.
-        data.Apply([terms.Fact(Named("l1"), Rest, Named("m"))], []);
+        data.Apply([terms.Fact(Named("l1"), Rest, Named("m"))], [], TestContext.Current.CancellationToken);
         Assert.True(data.Contains(terms.Fact(Named("y"), Type, Named("V"))));
         Assert.Contains(("<http://example.org/l1>", UnreadListReason.DiffersFromTBox), data.UnreadLists().Select(u => (terms.Text(u.Cell), u.Reason)));
         Assert.Equal([UnreadListReason.NoRest], tbox.UnreadLists().Select(u => u.Reason));

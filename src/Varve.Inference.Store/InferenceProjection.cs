@@ -75,6 +75,9 @@ public sealed class InferenceProjection : IProjection
     private Exception? _failure;
     private int _generations;
     private Materialisation? _state;
+    private InferenceSnapshot _snapshot = InferenceSnapshot.None;
+    private InferencePass? _pass;
+    private bool _abandoned;
     private readonly ProjectionTerms _terms = new(Empty);
     private TaskCompletionSource _advanced = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -87,7 +90,8 @@ public sealed class InferenceProjection : IProjection
         Binding = binding;
         _options = options ?? new InferenceOptions();
         TBoxGraph = InferredTBox(binding.Binding.Lexical);
-        Rebuild(Empty, 0);
+        Rebuild(Empty, 0, CancellationToken.None);
+        Publish(0);
     }
 
     /// <summary>The binding projected.</summary>
@@ -151,7 +155,31 @@ public sealed class InferenceProjection : IProjection
     /// <summary>The limit a stopped binding passed, and what its closures held when it stopped: a lower bound on what they need.</summary>
     public (ByteCount Limit, ByteCount Reached) MemoryLimit => (_options.ClosureBytes, _reached);
 
+    /// <summary>
+    /// What the projection published at the end of its last pass: read without
+    /// waiting for a pass, in constant time (ADR 0195 point 6, amended
+    /// 2026-11-25).
+    /// </summary>
+    public InferenceSnapshot Snapshot => Volatile.Read(ref _snapshot);
+
+    /// <summary>The closures now, for the tests: never read outside a pass's lock elsewhere.</summary>
+    internal Materialisation? CurrentState() => _state;
+
+    /// <summary>The pass running now, if any: its kind, the position it brings the projection to, and since when.</summary>
+    public InferencePass? Pass => Volatile.Read(ref _pass);
+
+    /// <summary>
+    /// Whether a pass was cancelled part way: the closures it was changing are
+    /// dropped, nothing more is applied or saved, and the position stays where
+    /// the last whole pass left it, until a reset builds again.
+    /// </summary>
+    public bool Abandoned => Volatile.Read(ref _abandoned);
+
     /// <inheritdoc />
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was cancelled during the pass,
+    /// within a thousand rule firings: the projection is <see cref="Abandoned"/>.
+    /// </exception>
     public async ValueTask ApplyAsync(Commit commit, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(commit);
@@ -159,6 +187,11 @@ public sealed class InferenceProjection : IProjection
         if (position <= Volatile.Read(ref _position))
         {
             return;
+        }
+
+        if (Volatile.Read(ref _abandoned))
+        {
+            throw new InvalidOperationException("A cancelled pass left the projection without closures; reset it before applying more.");
         }
 
         DatasetView view = _dataset.Pin();
@@ -172,7 +205,20 @@ public sealed class InferenceProjection : IProjection
         {
             lock (_applying)
             {
-                Apply(ReadThrough?.Invoke(view) ?? view, commit.Delta, position);
+                Begin(InferencePassKind.Commit, position);
+                try
+                {
+                    Apply(ReadThrough?.Invoke(view) ?? view, commit.Delta, position, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    Abandon();
+                    throw;
+                }
+                finally
+                {
+                    Volatile.Write(ref _pass, null);
+                }
             }
         }
 
@@ -180,10 +226,37 @@ public sealed class InferenceProjection : IProjection
     }
 
     /// <inheritdoc />
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was cancelled during the build: the
+    /// projection is <see cref="Abandoned"/>.
+    /// </exception>
     public ValueTask ResetAsync(DatasetView? checkpoint, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         lock (_applying)
+        {
+            Begin(InferencePassKind.ColdStart, checkpoint?.Position.Value ?? 0);
+            try
+            {
+                Reset(checkpoint, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                Abandon();
+                throw;
+            }
+            finally
+            {
+                Volatile.Write(ref _pass, null);
+            }
+        }
+
+        return ValueTask.CompletedTask;
+    }
+
+    private void Reset(DatasetView? checkpoint, CancellationToken cancellationToken)
+    {
+        Volatile.Write(ref _abandoned, false);
         {
             lock (_rowsLock)
             {
@@ -203,14 +276,62 @@ public sealed class InferenceProjection : IProjection
             }
             else
             {
-                Rebuild(checkpoint is null ? Empty : checkpoint, position);
+                Rebuild(checkpoint is null ? Empty : checkpoint, position, cancellationToken);
             }
 
+            // Published before the position moves, as every pass is: a reader that sees the position sees what the pass left.
+            Publish(position);
             Volatile.Write(ref _floor, position);
             Volatile.Write(ref _position, position);
         }
+    }
 
-        return ValueTask.CompletedTask;
+    // A pass begins: readiness names it until it ends.
+    private void Begin(InferencePassKind kind, long position) =>
+        Volatile.Write(ref _pass, new InferencePass(kind, new Position(position), new PassStart(_options.Clock.GetUtcNow())));
+
+    // A pass was cancelled part way: its closures are dropped, and nothing is applied or saved until a reset.
+    private void Abandon()
+    {
+        _state?.Release();
+        _state = null;
+        Volatile.Write(ref _abandoned, true);
+    }
+
+    /// <summary>
+    /// Publishes what the pass that ends here leaves (ADR 0195 point 6,
+    /// amended 2026-11-25): its clashes, kept per pass and read once here,
+    /// and what the closures hold. Under the pass's lock; read without it.
+    /// </summary>
+    private void Publish(long position)
+    {
+        IReadOnlyList<PlacedClash> clashes = [];
+        List<NamedUnreadList> unread = [];
+        if (_state is { } state)
+        {
+            // A check names terms through the source: a pinned view of its own, at or above every handle the closure holds.
+            using DatasetView view = _dataset.Pin();
+            state.Terms.Source = view;
+            try
+            {
+                clashes = state.Clashes();
+            }
+            catch (ClosureLimitExceededException refused)
+            {
+                // The clashes kept would pass the binding's limit (ADR 0195 point 6): stopped as any pass is, and published stopped.
+                Stop(state, position, refused.Wanted, failure: null);
+                return;
+            }
+            foreach (PlacedUnreadList list in state.UnreadLists())
+            {
+                if (state.Terms.TryExternalise(list.Graph, out RdfTerm? graph) && state.Terms.TryExternalise(list.List.Cell, out RdfTerm? cell))
+                {
+                    unread.Add(new NamedUnreadList(graph, cell, list.List.Reason));
+                }
+            }
+        }
+
+        Volatile.Write(ref _snapshot, new InferenceSnapshot(new Position(position), clashes, PremiseSetGraphs(), ClosureHeld, ClosurePeak, unread));
     }
 
     /// <summary>
@@ -319,13 +440,37 @@ public sealed class InferenceProjection : IProjection
             }
         }
 
-        using DatasetView view = await _dataset.AsOfAsync(at, cancellationToken).ConfigureAwait(false);
-        lock (_applying)
+        // The head pinned when it is the position asked, as a pass pins it: an as-of view of the head costs a read of the log.
+        DatasetView pinned = _dataset.Pin();
+        if (pinned.Position != at)
         {
-            if (at.Value == Volatile.Read(ref _position) && _state is { } live)
+            pinned.Dispose();
+            pinned = await _dataset.AsOfAsync(at, cancellationToken).ConfigureAwait(false);
+        }
+
+        using DatasetView view = pinned;
+        if (at.Value == Volatile.Read(ref _position))
+        {
+            // The live closures are read under the pass's lock, waited for at most
+            // InferenceOptions.ExplainWait: a pass that holds it longer is behind
+            // the answer, and explain says so rather than wait (ADR 0195 point 6,
+            // amended 2026-11-25).
+            if (!_applying.TryEnter(_options.ExplainWait.Value))
             {
-                live.Terms.Source = view;
-                return (InferenceReadOutcome.Held, new Explainer(live, view, Binding).Explain(graph, subject, predicate, @object));
+                return (InferenceReadOutcome.Behind, null);
+            }
+
+            try
+            {
+                if (at.Value == Volatile.Read(ref _position) && _state is { } live)
+                {
+                    live.Terms.Source = view;
+                    return (InferenceReadOutcome.Held, new Explainer(live, view, Binding).Explain(graph, subject, predicate, @object));
+                }
+            }
+            finally
+            {
+                _applying.Exit();
             }
         }
 
@@ -346,29 +491,8 @@ public sealed class InferenceProjection : IProjection
     /// its graph and why: reported, never skipped in silence. None while the
     /// binding is stopped.
     /// </summary>
-    public IReadOnlyList<NamedUnreadList> UnreadLists()
-    {
-        lock (_applying)
-        {
-            if (_state is not { } state)
-            {
-                return [];
-            }
-
-            using DatasetView view = _dataset.Pin();
-            state.Terms.Source = view;
-            List<NamedUnreadList> named = [];
-            foreach (PlacedUnreadList unread in state.UnreadLists())
-            {
-                if (state.Terms.TryExternalise(unread.Graph, out RdfTerm? graph) && state.Terms.TryExternalise(unread.List.Cell, out RdfTerm? cell))
-                {
-                    named.Add(new NamedUnreadList(graph, cell, unread.List.Reason));
-                }
-            }
-
-            return named;
-        }
-    }
+    /// <remarks>The <see cref="Snapshot"/>'s: never waits for a pass (ADR 0195 point 6, amended 2026-11-25).</remarks>
+    public IReadOnlyList<NamedUnreadList> UnreadLists() => Snapshot.UnreadLists;
 
     /// <summary>
     /// The clashes in the binding's closures at <see cref="Position"/> (ADR
@@ -376,21 +500,8 @@ public sealed class InferenceProjection : IProjection
     /// <see cref="TBoxGraph"/>, the rest in the data graph whose closure
     /// holds them. None while the binding is stopped.
     /// </summary>
-    public IReadOnlyList<PlacedClash> Clashes()
-    {
-        lock (_applying)
-        {
-            if (_state is not { } state)
-            {
-                return [];
-            }
-
-            // A check names terms through the source: a pinned view of its own, at or above every handle the closure holds.
-            using DatasetView view = _dataset.Pin();
-            state.Terms.Source = view;
-            return state.Clashes();
-        }
-    }
+    /// <remarks>The <see cref="Snapshot"/>'s: never waits for a pass, and never matches a check.</remarks>
+    public IReadOnlyList<PlacedClash> Clashes() => Snapshot.Clashes;
 
     /// <summary>
     /// Writes the projection's state to <paramref name="store"/>, the local
@@ -406,6 +517,12 @@ public sealed class InferenceProjection : IProjection
         long position;
         lock (_applying)
         {
+            if (_abandoned)
+            {
+                // A cancelled pass dropped the closures: the state saved last stays the newest, and the next start loads it.
+                return;
+            }
+
             lock (_rowsLock)
             {
                 position = _position;
@@ -520,6 +637,34 @@ public sealed class InferenceProjection : IProjection
         using DatasetView view = await _dataset.AsOfAsync(content.Position, cancellationToken).ConfigureAwait(false);
         lock (_applying)
         {
+            Begin(InferencePassKind.Load, saved.Position);
+            try
+            {
+                if (!Load(saved, view, cancellationToken))
+                {
+                    return false;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Cancelled while it built: nothing was taken in, and the projection is as it was, empty at 0.
+                _terms.Restore([]);
+                throw;
+            }
+            finally
+            {
+                Volatile.Write(ref _pass, null);
+            }
+        }
+
+        Advance(saved.Position);
+        return true;
+    }
+
+    // The saved state taken in, when the closure the log gives at its position agrees with its open rows.
+    private bool Load(Saved saved, DatasetView view, CancellationToken cancellationToken)
+    {
+        {
             _terms.Restore(saved.Locals);
             Materialisation? built = null;
             if (saved.StoppedAt == long.MaxValue)
@@ -578,9 +723,9 @@ public sealed class InferenceProjection : IProjection
             _reached = new ByteCount(saved.Reached);
             Volatile.Write(ref _floor, saved.Floor);
             Volatile.Write(ref _stoppedAt, saved.StoppedAt);
+            Publish(saved.Position);
         }
 
-        Advance(saved.Position);
         return true;
     }
 
@@ -707,7 +852,7 @@ public sealed class InferenceProjection : IProjection
     /// budget refusal or a memory failure stops the binding at its memory
     /// limit; any other failure stops it as failed. Neither is retried.
     /// </summary>
-    private void Apply(IQuadSource view, QuadDelta delta, long position)
+    private void Apply(IQuadSource view, QuadDelta delta, long position, CancellationToken cancellationToken)
     {
         if (_state is not { } state)
         {
@@ -724,12 +869,12 @@ public sealed class InferenceProjection : IProjection
                 if (view.TryInternalise(local, out _))
                 {
                     // A term a rule names is the dataset's now: recompile over it.
-                    Rebuild(view, position);
+                    Generation(view, position, cancellationToken);
                     return;
                 }
             }
 
-            changed = state.Apply(view, delta);
+            changed = state.Apply(view, delta, cancellationToken);
         }
         catch (ClosureLimitExceededException refused)
         {
@@ -757,7 +902,7 @@ public sealed class InferenceProjection : IProjection
         if (changed is null)
         {
             // A TBox commit: a generation over the new TBox closure.
-            Rebuild(view, position);
+            Generation(view, position, cancellationToken);
             return;
         }
 
@@ -780,6 +925,15 @@ public sealed class InferenceProjection : IProjection
         }
 
         Learn(state);
+        Publish(position);
+    }
+
+    // A generation in a commit's pass: readiness names it as one, and it publishes as the pass's end.
+    private void Generation(IQuadSource view, long position, CancellationToken cancellationToken)
+    {
+        Begin(InferencePassKind.Generation, position);
+        Rebuild(view, position, cancellationToken);
+        Publish(position);
     }
 
     /// <summary>
@@ -787,12 +941,12 @@ public sealed class InferenceProjection : IProjection
     /// <paramref name="source"/>, and only the rows that differ opened or
     /// closed. Past the memory limit, the binding stops.
     /// </summary>
-    private void Rebuild(IQuadSource source, long position)
+    private void Rebuild(IQuadSource source, long position, CancellationToken cancellationToken)
     {
         Materialisation built;
         try
         {
-            built = Materialisation.Build(source, _terms, this, CancellationToken.None);
+            built = Materialisation.Build(source, _terms, this, cancellationToken);
         }
         catch (ClosureLimitExceededException refused)
         {
@@ -922,6 +1076,7 @@ public sealed class InferenceProjection : IProjection
         _reached = new ByteCount(wanted.Value);
         Volatile.Write(ref _failure, failure);
         Volatile.Write(ref _stoppedAt, position);
+        Publish(position);
     }
 
     private bool IsTBox(DatasetView view, TermHandle graph)

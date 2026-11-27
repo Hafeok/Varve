@@ -879,6 +879,16 @@ internal static partial class ServerHost
                 json.WriteNumber("clashes", status.Clashes);
                 json.WriteNumber("held", status.Held);
                 json.WriteNumber("peak", status.Peak);
+                if (status.Pass is { } pass)
+                {
+                    // The pass running now (ADR 0195 point 6, amended 2026-11-25): what the figures above will change by.
+                    json.WriteStartObject("pass");
+                    json.WriteString("kind", PassNames.Kind(pass.Kind));
+                    json.WriteNumber("position", pass.Position.Value);
+                    json.WriteNumber("seconds", Math.Round(status.PassRunning.TotalSeconds, 1));
+                    json.WriteEndObject();
+                }
+
                 if (status.PremiseSets is { } premiseSets)
                 {
                     json.WriteNumber("premiseSets", premiseSets);

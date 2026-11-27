@@ -512,6 +512,47 @@ internal static class InferenceBench
         return [.. facts.Distinct()];
     }
 
+    /// <summary>
+    /// The bytes a closure keeps per clash and per premise entry of its clash
+    /// index (ADR 0195 point 6, amended 2026-11-25): the managed heap retained
+    /// by the kept clashes over two shapes, <c>cax-dw</c> (three premises, one
+    /// shared by every clash) and <c>eq-diff1</c> (two, each its own), solved
+    /// for a clash and a premise, then what the budget charges against it.
+    /// </summary>
+    internal static void RunClashCosts(int count)
+    {
+        RdfTerm Iri(string local) => RdfTerm.Iri(Encoding.UTF8.GetBytes("http://ex/" + local));
+        RdfTerm type = RdfTerm.Iri("http://www.w3.org/1999/02/22-rdf-syntax-ns#type"u8);
+        RdfTerm disjoint = RdfTerm.Iri("http://www.w3.org/2002/07/owl#disjointWith"u8);
+        RdfTerm sameAs = RdfTerm.Iri("http://www.w3.org/2002/07/owl#sameAs"u8);
+        RdfTerm different = RdfTerm.Iri("http://www.w3.org/2002/07/owl#differentFrom"u8);
+        double Retained(Func<Terms, IEnumerable<Fact>> facts, out int clashes, out long charged)
+        {
+            Terms terms = new();
+            Fact[] given = [.. facts(terms)];
+            FactBudget budget = new(new MemoryAmount(long.MaxValue / 4), ClosureCosts.For(InferenceProfile.Owl2Rl));
+            Closure closure = new(InferenceProfile.Owl2Rl, terms, budget);
+            closure.Apply(given, []);
+            long before = GC.GetTotalMemory(forceFullCollection: true);
+            long usedBefore = budget.Used.Value;
+            clashes = closure.Clashes().Count;
+            long after = GC.GetTotalMemory(forceFullCollection: true);
+            charged = budget.Used.Value - usedBefore;
+            GC.KeepAlive(closure);
+            return (double)(after - before) / clashes;
+        }
+
+        double three = Retained(t => Enumerable.Range(0, count).SelectMany(i => new[] { F(t, Iri("x" + i), type, Iri("C")), F(t, Iri("x" + i), type, Iri("D")) }).Append(F(t, Iri("C"), disjoint, Iri("D"))), out int threeClashes, out long threeCharged);
+        double two = Retained(t => Enumerable.Range(0, count).SelectMany(i => new[] { F(t, Iri("x" + i), sameAs, Iri("y" + i)), F(t, Iri("x" + i), different, Iri("y" + i)) }), out int twoClashes, out long twoCharged);
+        double perPremise = three - two;
+        double perClash = two - (2 * perPremise);
+        Console.WriteLine($"cax-dw: {threeClashes} clashes, {three:F0} B retained a clash, {(double)threeCharged / threeClashes:F0} B charged ({threeCharged / (three * threeClashes):F2} charged per byte)");
+        Console.WriteLine($"eq-diff1: {twoClashes} clashes, {two:F0} B retained a clash, {(double)twoCharged / twoClashes:F0} B charged ({twoCharged / (two * twoClashes):F2} charged per byte)");
+        Console.WriteLine($"solved: {perClash:F0} B a clash, {perPremise:F0} B a premise entry");
+    }
+
+    private static Fact F(Terms terms, RdfTerm s, RdfTerm p, RdfTerm o) => new(terms.Handle(s), terms.Handle(p), terms.Handle(o));
+
     /// <summary>Handles over terms, as the projection's over a dataset's.</summary>
     private sealed class Terms : IInferenceTerms
     {

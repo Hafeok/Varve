@@ -1,7 +1,7 @@
 #nullable enable
 Varve.Inference.Closure
 Varve.Inference.Closure.All.get -> System.Collections.Generic.IEnumerable<Varve.Inference.Model.Fact>!
-Varve.Inference.Closure.Apply(System.ReadOnlySpan<Varve.Inference.Model.Fact> asserted, System.ReadOnlySpan<Varve.Inference.Model.Fact> retracted) -> System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.Fact>!
+Varve.Inference.Closure.Apply(System.ReadOnlySpan<Varve.Inference.Model.Fact> asserted, System.ReadOnlySpan<Varve.Inference.Model.Fact> retracted, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Collections.Generic.IReadOnlyCollection<Varve.Inference.Model.Fact>!
 Varve.Inference.Closure.Closure(Varve.Inference.Model.InferenceProfile profile, Varve.Inference.IInferenceTerms! terms) -> void
 Varve.Inference.Closure.Contains(Varve.Inference.Model.Fact fact) -> bool
 Varve.Inference.Closure.Implicit.get -> System.Collections.Generic.IEnumerable<Varve.Inference.Model.Fact>!
@@ -223,3 +223,24 @@ static Varve.Inference.Model.ListReadings.operator !=(Varve.Inference.Model.List
 static Varve.Inference.Model.ListReadings.operator ==(Varve.Inference.Model.ListReadings left, Varve.Inference.Model.ListReadings right) -> bool
 ~override Varve.Inference.Model.ListReadings.Equals(object obj) -> bool
 ~override Varve.Inference.Model.ListReadings.ToString() -> string
+Varve.Inference.Closure.ClashesInFull() -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>!
+Varve.Inference.Closure.ClashesWith(Varve.Inference.Model.Fact premise) -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>!
+Varve.Inference.Closure.TakeClashChanges() -> Varve.Inference.Model.ClashChanges?
+Varve.Inference.Model.ClashChanges
+Varve.Inference.Model.ClashChanges.<Clone>$() -> Varve.Inference.Model.ClashChanges!
+Varve.Inference.Model.ClashChanges.Came.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>!
+Varve.Inference.Model.ClashChanges.Came.init -> void
+Varve.Inference.Model.ClashChanges.ClashChanges(System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>! Came, System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>! Went) -> void
+Varve.Inference.Model.ClashChanges.Deconstruct(out System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>! Came, out System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>! Went) -> void
+Varve.Inference.Model.ClashChanges.Equals(Varve.Inference.Model.ClashChanges? other) -> bool
+Varve.Inference.Model.ClashChanges.Went.get -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Model.Clash!>!
+Varve.Inference.Model.ClashChanges.Went.init -> void
+override Varve.Inference.Model.ClashChanges.Equals(object? obj) -> bool
+override Varve.Inference.Model.ClashChanges.GetHashCode() -> int
+override Varve.Inference.Model.ClashChanges.ToString() -> string!
+static Varve.Inference.Model.ClashChanges.operator !=(Varve.Inference.Model.ClashChanges? left, Varve.Inference.Model.ClashChanges? right) -> bool
+static Varve.Inference.Model.ClashChanges.operator ==(Varve.Inference.Model.ClashChanges? left, Varve.Inference.Model.ClashChanges? right) -> bool
+Varve.Inference.Model.ClosureCosts.PerClash.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Model.ClosureCosts.PerClash.init -> void
+Varve.Inference.Model.ClosureCosts.PerClashPremise.get -> Varve.Inference.Model.MemoryAmount
+Varve.Inference.Model.ClosureCosts.PerClashPremise.init -> void

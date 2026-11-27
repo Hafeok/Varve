@@ -95,8 +95,15 @@ internal abstract class Materialisation
             {
                 using (IQuadCursor cursor = source.Match(TermHandle.None, TermHandle.None, TermHandle.None, GraphPattern.Any))
                 {
+                    long read = 0;
                     while (cursor.MoveNext())
                     {
+                        if ((++read & 0xFFFF) == 0)
+                        {
+                            // A stop is seen while the store is read too, not only once it has been.
+                            cancellationToken.ThrowIfCancellationRequested();
+                        }
+
                         Quad quad = cursor.Current;
                         Fact fact = new(quad.Subject, quad.Predicate, quad.Object);
                         built.Warm(quad);
@@ -122,7 +129,7 @@ internal abstract class Materialisation
 
                 built.Budget.Admit(new QuadCount(given));
                 cancellationToken.ThrowIfCancellationRequested();
-                built.TBox.Apply([.. tbox], []);
+                built.TBox.Apply([.. tbox], [], cancellationToken);
                 built.Load(graphs, cancellationToken);
             }
             finally
@@ -146,7 +153,8 @@ internal abstract class Materialisation
     /// is a generation.
     /// </summary>
     /// <exception cref="ClosureLimitExceededException">A closure would pass the binding's limit.</exception>
-    internal Dictionary<TermHandle, HashSet<Fact>>? Apply(IQuadSource view, QuadDelta delta)
+    /// <exception cref="OperationCanceledException">The pass was cancelled; the closures are partly applied, and the projection drops them.</exception>
+    internal Dictionary<TermHandle, HashSet<Fact>>? Apply(IQuadSource view, QuadDelta delta, CancellationToken cancellationToken)
     {
         List<Fact> tboxAsserted = [], tboxRetracted = [];
         Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs = [];
@@ -183,7 +191,7 @@ internal abstract class Materialisation
         Dictionary<TermHandle, HashSet<Fact>> changed = [];
         try
         {
-            ApplyData(graphs, emptied, changed);
+            ApplyData(graphs, emptied, changed, cancellationToken);
         }
         catch (Exception error) when (InferenceProjection.IsStorageFailure(error))
         {
@@ -256,17 +264,47 @@ internal abstract class Materialisation
     }
 
     /// <summary>The clashes now, each under the graph whose closure finds it; the TBox closure's under its graph.</summary>
+    /// <remarks>
+    /// Published at the end of every pass (ADR 0195 point 6, amended
+    /// 2026-11-25): the TBox closure's placed once, each data source's again
+    /// only when its kept clashes changed, and the whole a view over those
+    /// pieces, so that a pass copies what it changed and not every clash.
+    /// </remarks>
     internal IReadOnlyList<PlacedClash> Clashes()
     {
+        if (_tboxClashes is null)
+        {
+            List<PlacedClash> placed = [];
+            foreach (Clash clash in TBox.Clashes())
+            {
+                placed.Add(new PlacedClash(TBoxGraph, clash));
+            }
+
+            _tboxClashes = placed;
+        }
+
+        List<IReadOnlyList<PlacedClash>> pieces = [_tboxClashes];
+        DataClashes(pieces);
+        return new PlacedClashes(pieces);
+    }
+
+    /// <summary>The clashes computed again from every closure, nothing cached or kept: what <see cref="Clashes"/> is held to in tests.</summary>
+    internal IReadOnlyList<PlacedClash> ClashesInFull()
+    {
         List<PlacedClash> clashes = [];
-        foreach (Clash clash in TBox.Clashes())
+        foreach (Clash clash in TBox.ClashesInFull())
         {
             clashes.Add(new PlacedClash(TBoxGraph, clash));
         }
 
-        DataClashes(clashes);
+        DataClashesInFull(clashes);
         return clashes;
     }
+
+    protected abstract void DataClashesInFull(List<PlacedClash> into);
+
+    // The TBox closure's clashes, placed: the TBox does not change under a materialisation.
+    private List<PlacedClash>? _tboxClashes;
 
     /// <summary>
     /// The cells of asserted lists the rules do not read (ADR 0197, amended
@@ -301,13 +339,13 @@ internal abstract class Materialisation
 
     /// <summary>Applies a data commit, graph by graph, recording per graph the facts whose row may have changed.</summary>
     /// <summary>Applies a data commit's delta, graph by graph, recording per graph the facts whose row may have changed; <paramref name="emptied"/> the graphs it left with no quad, read before.</summary>
-    protected abstract void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed);
+    protected abstract void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed, CancellationToken cancellationToken);
 
     protected abstract bool IsDataRow(TermHandle graph, in Fact fact);
 
     protected abstract IEnumerable<(TermHandle Graph, Fact Fact)> DataRows();
 
-    protected abstract void DataClashes(List<PlacedClash> into);
+    protected abstract void DataClashes(List<IReadOnlyList<PlacedClash>> into);
 
     protected abstract void DataUnreadLists(List<PlacedUnreadList> into);
 
@@ -420,11 +458,11 @@ internal sealed class PerGraphMaterialisation(ProjectionTerms terms, InferencePr
             cancellationToken.ThrowIfCancellationRequested();
             Closure closure = new(Projection.Binding.Profile, Terms, Budget, TBox);
             _graphs[graph] = closure;
-            closure.Apply([.. facts], []);
+            closure.Apply([.. facts], [], cancellationToken);
         }
     }
 
-    protected override void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed)
+    protected override void ApplyData(Dictionary<TermHandle, (List<Fact> Asserted, List<Fact> Retracted)> graphs, HashSet<TermHandle> emptied, Dictionary<TermHandle, HashSet<Fact>> changed, CancellationToken cancellationToken)
     {
         foreach ((TermHandle graph, (List<Fact> asserted, List<Fact> retracted)) in graphs)
         {
@@ -435,7 +473,7 @@ internal sealed class PerGraphMaterialisation(ProjectionTerms terms, InferencePr
                 _graphs[graph] = closure;
             }
 
-            into.UnionWith(closure.Apply([.. asserted], [.. retracted]));
+            into.UnionWith(closure.Apply([.. asserted], [.. retracted], cancellationToken));
             into.UnionWith(asserted);
             into.UnionWith(retracted);
 
@@ -477,11 +515,48 @@ internal sealed class PerGraphMaterialisation(ProjectionTerms terms, InferencePr
         }
     }
 
-    protected override void DataClashes(List<PlacedClash> into)
+    protected override void DataClashes(List<IReadOnlyList<PlacedClash>> into)
+    {
+        Dictionary<TermHandle, (IReadOnlyList<Clash> From, List<PlacedClash> Placed)> placed = [];
+        foreach ((TermHandle graph, Closure closure) in _graphs)
+        {
+            IReadOnlyList<Clash> clashes = closure.Clashes();
+            if (!_placed.TryGetValue(graph, out (IReadOnlyList<Clash> From, List<PlacedClash> Placed) was) || !ReferenceEquals(was.From, clashes))
+            {
+                // This graph's kept clashes changed since they were last placed.
+                List<PlacedClash> own = [];
+                foreach (Clash clash in clashes)
+                {
+                    bool tboxOnly = true;
+                    foreach (Fact premise in clash.Premises)
+                    {
+                        tboxOnly &= TBox.Contains(premise);
+                    }
+
+                    if (!tboxOnly)
+                    {
+                        own.Add(new PlacedClash(graph, clash));
+                    }
+                }
+
+                was = (clashes, own);
+            }
+
+            placed[graph] = was;
+            if (was.Placed.Count > 0)
+            {
+                into.Add(was.Placed);
+            }
+        }
+
+        _placed = placed;
+    }
+
+    protected override void DataClashesInFull(List<PlacedClash> into)
     {
         foreach ((TermHandle graph, Closure closure) in _graphs)
         {
-            foreach (Clash clash in closure.Clashes())
+            foreach (Clash clash in closure.ClashesInFull())
             {
                 bool tboxOnly = true;
                 foreach (Fact premise in clash.Premises)
@@ -496,4 +571,7 @@ internal sealed class PerGraphMaterialisation(ProjectionTerms terms, InferencePr
             }
         }
     }
+
+    // Each graph's clashes as last placed, with the kept list they were placed from.
+    private Dictionary<TermHandle, (IReadOnlyList<Clash> From, List<PlacedClash> Placed)> _placed = [];
 }

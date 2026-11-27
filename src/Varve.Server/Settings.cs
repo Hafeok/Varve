@@ -254,6 +254,14 @@ internal sealed class InferenceSettings
     /// case. 2 GiB by default, measured at the small-machine settings.
     /// </summary>
     public long ReserveBytes { get; set; } = 2L << 30;
+
+    /// <summary>
+    /// How long a stop waits for a binding's pass to see its cancellation
+    /// before it abandons the pass and saves nothing more (ADR 0195 point 6,
+    /// amended 2026-11-25): 10 s by default, a third of the shipped probes'
+    /// grace period.
+    /// </summary>
+    public TimeSpan StopWait { get; set; } = TimeSpan.FromSeconds(10);
 }
 
 /// <summary>

@@ -33,8 +33,8 @@ public class ExampleTests
         Fact axiom = terms.Fact(IriOf(RdfNs + "type"), IriOf(RdfsNs + "domain"), IriOf(RdfsNs + "Resource"));
         Assert.True(closure.Contains(axiom));
 
-        closure.Apply([axiom], []);
-        closure.Apply([], [axiom]);
+        closure.Apply([axiom], [], TestContext.Current.CancellationToken);
+        closure.Apply([], [axiom], TestContext.Current.CancellationToken);
 
         Assert.True(closure.Contains(axiom));
         Assert.False(closure.IsExplicit(axiom));
@@ -53,10 +53,10 @@ public class ExampleTests
         Fact ab = terms.Fact(Named("A"), subClassOf, Named("B"));
         Fact bc = terms.Fact(Named("B"), subClassOf, Named("C"));
         Fact x = terms.Fact(Named("x"), type, Named("A"));
-        closure.Apply([ab, bc, x], []);
+        closure.Apply([ab, bc, x], [], TestContext.Current.CancellationToken);
         Assert.True(closure.Contains(terms.Fact(Named("x"), type, Named("C"))));
 
-        closure.Apply([], [bc]);
+        closure.Apply([], [bc], TestContext.Current.CancellationToken);
 
         Assert.False(closure.Contains(terms.Fact(Named("x"), type, Named("C"))));
         Assert.False(closure.Contains(terms.Fact(Named("A"), subClassOf, Named("C"))));
@@ -88,7 +88,7 @@ public class ExampleTests
 
         RdfTerm subClassOf = IriOf(RdfsNs + "subClassOf"), type = IriOf(RdfNs + "type");
         Fact[] many = [terms.Fact(Named("A"), subClassOf, Named("B")), .. Enumerable.Range(0, 200).Select(i => terms.Fact(Named("x" + i), type, Named("A")))];
-        ClosureLimitExceededException refused = Assert.Throws<ClosureLimitExceededException>(() => second.Apply(many, []));
+        ClosureLimitExceededException refused = Assert.Throws<ClosureLimitExceededException>(() => second.Apply(many, [], TestContext.Current.CancellationToken));
         Assert.True(budget.Used.Value <= budget.Limit.Value, "a refused request takes nothing");
         Assert.True(refused.Wanted.Value > budget.Limit.Value);
         Assert.True(budget.Peak.Value <= budget.Limit.Value);
@@ -96,7 +96,7 @@ public class ExampleTests
         // Released, a closure gives back exactly what it took, working sets included.
         second.Release();
         Assert.Equal(one, budget.Used.Value);
-        first.Apply([terms.Fact(Named("x"), type, Named("A"))], []);
+        first.Apply([terms.Fact(Named("x"), type, Named("A"))], [], TestContext.Current.CancellationToken);
         Assert.True(budget.Used.Value <= budget.Limit.Value);
         first.Release();
         Assert.Equal(0, budget.Used.Value);

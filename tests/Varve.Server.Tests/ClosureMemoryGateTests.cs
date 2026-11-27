@@ -185,8 +185,8 @@ public class ClosureMemoryGateTests
         Assert.False(server.Exited, server.Log);
     }
 
-    /// <summary>The server as a child process under a hard heap limit, its datasets in memory.</summary>
-    private sealed class ChildServer : IAsyncDisposable
+    /// <summary>The server as a child process under a hard heap limit, its datasets in memory unless a test asks for files.</summary>
+    internal sealed class ChildServer : IAsyncDisposable
     {
         // A small memtable, so its worst case is known, and a quarter of the heap kept for the rest of the server.
         private const int MemtableEntries = 10_000;
@@ -202,14 +202,18 @@ public class ClosureMemoryGateTests
 
         private readonly Process _process;
         private readonly StringBuilder _log = new();
-        private readonly string _root;
+        private bool _keepRoot;
+        private bool _disposed;
 
         private ChildServer(Process process, Uri address, string root)
         {
             _process = process;
             Address = address;
-            _root = root;
+            Root = root;
         }
+
+        /// <summary>Where the server keeps its datasets: another server started over it reads them.</summary>
+        internal string Root { get; }
 
         internal Uri Address { get; }
 
@@ -236,7 +240,7 @@ public class ClosureMemoryGateTests
             ]);
 
         /// <summary>The server under <paramref name="heap"/>, with <paramref name="settings"/> and the defaults for the rest.</summary>
-        internal static async Task<ChildServer> StartWithAsync(long heap, string[] settings)
+        internal static async Task<ChildServer> StartWithAsync(long heap, string[] settings, string? root = null)
         {
             int port;
             using (TcpListener listener = new(IPAddress.Loopback, 0))
@@ -246,7 +250,7 @@ public class ClosureMemoryGateTests
             }
 
             string address = "http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture);
-            string root = Directory.CreateTempSubdirectory("varve-closure-gate-").FullName;
+            root ??= Directory.CreateTempSubdirectory("varve-closure-gate-").FullName;
             ProcessStartInfo start = new("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
             foreach (string argument in (string[])[
                 Path.Combine(AppContext.BaseDirectory, "Varve.Server.dll"),
@@ -288,22 +292,22 @@ public class ClosureMemoryGateTests
             return server;
         }
 
-        /// <summary>A dataset in memory with one materialising binding over <c>http://ex/g/</c>, its TBox <c>http://ex/tbox</c>.</summary>
-        internal async Task DeclareAsync(string dataset, string profile, bool crossGraph)
+        /// <summary>A dataset in memory, or in files, with one materialising binding over <c>http://ex/g/</c>, its TBox <c>http://ex/tbox</c>.</summary>
+        internal async Task DeclareAsync(string dataset, string profile, bool crossGraph, string storage = "Memory")
         {
             string trig =
-                "<urn:varve:from-config:" + dataset + "> a <" + Varve + "Dataset> ; <" + Varve + "datasetName> \"" + dataset + "\" ; <" + Varve + "storage> <" + Varve + "Memory> .\n"
+                "<urn:varve:from-config:" + dataset + "> a <" + Varve + "Dataset> ; <" + Varve + "datasetName> \"" + dataset + "\" ; <" + Varve + "storage> <" + Varve + storage + "> .\n"
                 + "<urn:binding:" + dataset + "> a <" + Varve + "TBoxBinding> ; <" + Varve + "boundGraph> <http://ex/tbox> ; <" + Varve + "profile> <" + Varve + profile + "> ; <"
                 + Varve + "graphPrefix> \"http://ex/g/\"" + (crossGraph ? " ; <" + Varve + "crossGraph> true" : string.Empty) + " .";
             using HttpRequestMessage request = new(HttpMethod.Put, new Uri(Address, "manage/datasets/" + dataset)) { Content = new StringContent(trig, Encoding.UTF8, "application/trig") };
             HttpResponseMessage declared = await Http.SendAsync(request, Ct);
-            Assert.True(declared.StatusCode == HttpStatusCode.Created, await declared.Content.ReadAsStringAsync(Ct));
+            Assert.True(declared.IsSuccessStatusCode, await declared.Content.ReadAsStringAsync(Ct));
         }
 
-        /// <summary>A dataset in memory with no binding.</summary>
-        internal async Task DeclarePlainAsync(string dataset)
+        /// <summary>A dataset in memory, or in files, with no binding.</summary>
+        internal async Task DeclarePlainAsync(string dataset, string storage = "Memory")
         {
-            string trig = "<urn:varve:from-config:" + dataset + "> a <" + Varve + "Dataset> ; <" + Varve + "datasetName> \"" + dataset + "\" ; <" + Varve + "storage> <" + Varve + "Memory> .";
+            string trig = "<urn:varve:from-config:" + dataset + "> a <" + Varve + "Dataset> ; <" + Varve + "datasetName> \"" + dataset + "\" ; <" + Varve + "storage> <" + Varve + storage + "> .";
             using HttpRequestMessage request = new(HttpMethod.Put, new Uri(Address, "manage/datasets/" + dataset)) { Content = new StringContent(trig, Encoding.UTF8, "application/trig") };
             HttpResponseMessage declared = await Http.SendAsync(request, Ct);
             Assert.True(declared.StatusCode == HttpStatusCode.Created, await declared.Content.ReadAsStringAsync(Ct));
@@ -381,8 +385,37 @@ public class ClosureMemoryGateTests
             return binding;
         }
 
+        /// <summary>
+        /// Stops the process as an orchestrator does, by SIGTERM, and how long
+        /// it took to exit; its datasets stay for another server over
+        /// <see cref="Root"/>.
+        /// </summary>
+        internal async Task<TimeSpan> TerminateAsync()
+        {
+            _keepRoot = true;
+            Stopwatch exited = Stopwatch.StartNew();
+            using (Process signal = Process.Start("kill", ["-TERM", _process.Id.ToString(CultureInfo.InvariantCulture)]))
+            {
+                await signal.WaitForExitAsync(Ct);
+            }
+
+            using CancellationTokenSource bound = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+            bound.CancelAfter(TimeSpan.FromSeconds(120));
+            await _process.WaitForExitAsync(bound.Token);
+            return exited.Elapsed;
+        }
+
+        /// <summary>Forgets <see cref="Root"/> when disposed after all: the last server over it removes it.</summary>
+        internal void Release() => _keepRoot = false;
+
         public ValueTask DisposeAsync()
         {
+            if (_disposed)
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            _disposed = true;
             if (!_process.HasExited)
             {
                 _process.Kill(entireProcessTree: true);
@@ -391,9 +424,14 @@ public class ClosureMemoryGateTests
 
             _process.Dispose();
             Http.Dispose();
+            if (_keepRoot)
+            {
+                return ValueTask.CompletedTask;
+            }
+
             try
             {
-                Directory.Delete(_root, recursive: true);
+                Directory.Delete(Root, recursive: true);
             }
             catch (IOException)
             {

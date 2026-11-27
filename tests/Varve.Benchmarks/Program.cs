@@ -88,6 +88,20 @@ internal static class Program
             return;
         }
 
+        // The gate of #412: what readiness, explain and a stop wait on a binding's pass; exits 1 past a bound.
+        if (args.Length == 4 && args[0] == "--pass-waits")
+        {
+            Environment.ExitCode = PassWaitBench.RunAsync(args[1], args[2], args[3] == "cross").GetAwaiter().GetResult();
+            return;
+        }
+
+        // What a kept clash and its premise entries hold, and what the budget charges for them.
+        if (args.Length == 2 && args[0] == "--clash-costs")
+        {
+            InferenceBench.RunClashCosts(int.Parse(args[1], CultureInfo.InvariantCulture));
+            return;
+        }
+
         if (args.Length == 4 && args[0] == "--closure-budget")
         {
             InferenceBench.RunClosureBudget(args[1], args[2], args[3] == "cross");

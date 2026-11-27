@@ -111,6 +111,21 @@ public sealed class InferenceBehindException : Exception
         Projected = projected;
     }
 
+    /// <summary>
+    /// The projection of <paramref name="binding"/> has reached
+    /// <paramref name="position"/> and is in a pass that holds its closures:
+    /// <paramref name="message"/> names the pass (ADR 0195 point 6, amended
+    /// 2026-11-25).
+    /// </summary>
+    public InferenceBehindException(RdfTerm binding, Position position, string message)
+        : base(message)
+    {
+        ArgumentNullException.ThrowIfNull(binding);
+        Binding = binding;
+        Position = position;
+        Projected = position;
+    }
+
     /// <summary>The read was refused; nothing more is known.</summary>
     public InferenceBehindException() => Binding = RdfTerm.Iri("urn:x-varve:binding"u8);
 

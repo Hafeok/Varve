@@ -244,7 +244,8 @@ well-formed lists.
   waits for it. None of them is ever written (`graph-not-writable`).
 
 **When it cannot answer.**
-- A projection not at the read's position after a two-second wait:
+- A projection not at the read's position after a two-second wait, or an
+  explain at its position while a pass holds the closures past two seconds:
   [`503 inference-behind`](../problems/inference-behind.md).
 - A binding stopped by `Varve:Inference:ClosureBytes`, or because its
   projection failed:
@@ -271,7 +272,47 @@ its `state` (`following`, `stopped (memory-limit)`, `stopped (failed)`), its
 its closures hold now and the most they have held, by the budget's count),
 `unreadLists` (the nodes of asserted lists the rules do not read, with
 `unreadListCells` naming the first twenty: `graph`, `cell`, `reason`), and
-for a cross-graph binding `premiseSets`. None of them makes the dataset unready.
+for a cross-graph binding `premiseSets`. While a pass runs, `pass` names
+it: its `kind` (`cold-start`, `generation`, `commit` or `load`), the
+`position` it brings the binding to, and the `seconds` it has run. A build
+of minutes shows as a `cold-start` or `generation` pass with a growing
+`lag`.
+
+**A build never makes the server unready.** Neither a binding's state, its
+lag, nor a pass that runs for minutes makes the instance or the dataset
+unready (ADR 0195 point 6, amended 2026-11-25). Readiness reads what the
+binding published when its last pass ended, so it never waits for the pass
+running now and costs the same however large the closure is: at REC M, at most 0.4 ms in
+process during a 15-minute cold build and 0.001 ms idle. `clashes` and
+`inconsistent` are those at the end of the last pass, and so is a query's
+`Varve-Inconsistent`; neither is computed by the probe.
+
+**Explain during a pass.** An explain at the binding's position waits at most
+two seconds for the pass that holds its closures. Past that it answers
+[`503 inference-behind`](../problems/inference-behind.md) with
+`Retry-After: 1`, its detail naming the pass (kind, position, how long it has
+run); it answers once the pass ends. An explain above the position waits
+for the binding, as a read does; one below it is computed from scratch and
+waits for no pass.
+
+**Stopping.** A stop cancels the pass running. The pass sees it within a
+thousand rule firings, within 0.1 s at REC M at any point of a build, and drops the closures it was
+changing. A pass that has not ended within `Varve:Inference:StopWait` (10
+seconds by default) is abandoned, so the process ends within the shipped
+probes' 30-second grace period. What is saved, in the instance's local
+cache (`derived/` of a file dataset):
+- **when:** after a cold start's build, every 1,000 commits or 5 minutes
+  while commits arrive, and at a stop that cut no pass short. A stop during a
+  pass saves nothing more; the state saved last stays the newest.
+- **what:** the binding's position, floor and held history (open and closed
+  rows), and the terms it minted.
+- **what a start does with it:** it reads the newest state and builds the
+  closures at that position, checking them against the saved rows, then
+  follows the log from there. **That check costs a build**, as long as a cold
+  start's at the same size: a saved state keeps the history and the position,
+  not the build's time. Readiness names it as a `load` pass; the instance is
+  ready throughout. A memory dataset has no local cache, and every start of
+  one is cold.
 
 ## Cost
 

@@ -50,7 +50,7 @@ internal static class SettingsCheck
         "Cors:AllowedOrigins:*", "Cors:MaxAge",
         "Store:GroupCommit:MaxRecords", "Store:GroupCommit:MaxBytes",
         "Store:ExtentMerges:Enabled", "Store:ExtentMerges:FanOut", "Store:ExtentMerges:MaxSetBytes", "Store:MemtableLimit", "Store:ReleaseMemoryAfterCheckpoint", "Store:SeekDirectoryCacheBytes",
-        "Inference:HistoryBytes", "Inference:ClosureBytes", "Inference:ReserveBytes",
+        "Inference:HistoryBytes", "Inference:ClosureBytes", "Inference:ReserveBytes", "Inference:StopWait",
         "Events:Source", "Events:EventHubs:Host", "Events:EventHubs:Hub",
         "WebUi:Path", "WebUi:Enabled", "WebUi:Settings", "WebUi:Server",
         "WebUi:Auth:ClientId", "WebUi:Auth:DataScope", "WebUi:Auth:ManageScope", "WebUi:Auth:ManageGrant", "WebUi:Auth:DataAudience", "WebUi:Auth:ManageAudience",
@@ -296,6 +296,11 @@ internal static class SettingsCheck
         if (settings.Inference.ReserveBytes < 0)
         {
             errors.Add("Varve:Inference:ReserveBytes is zero or more: the heap kept for queries, caches and requests beside the inference bindings' pool and the memtable (ADR 0195).");
+        }
+
+        if (settings.Inference.StopWait <= TimeSpan.Zero)
+        {
+            errors.Add("Varve:Inference:StopWait is more than zero: how long a stop waits for a binding's pass to see its cancellation before it abandons it (ADR 0195).");
         }
 
         // The follower's record is the id with "-follower" (ObjectStores), so

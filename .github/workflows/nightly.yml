@@ -60,6 +60,7 @@ on:
           - windows soak
           - premise sets
           - closure budget
+          - pass waits
 
 permissions:
   contents: read
@@ -376,6 +377,65 @@ jobs:
         with:
           name: closure-budget-${{ strategy.job-index }}
           path: artifacts/closure-budget
+          if-no-files-found: warn
+
+  # #412 (ADR 0195 point 6, amended 2026-11-25): no reader waits for a
+  # binding's pass. At REC M, under both profiles, per graph and cross-graph,
+  # what readiness reads must answer within 100 ms in process during a cold
+  # build, idle and beside each commit; explain within 2.5 s beside a commit
+  # and during a build; and a cancelled build must return within 10 s
+  # (Varve:Inference:StopWait). The gate exits 1 past a bound.
+  pass-waits:
+    name: pass waits (REC ${{ matrix.run }})
+    if: github.ref == 'refs/heads/main' && (github.event.schedule == '41 2 * * *' || inputs.run == 'night' || inputs.run == 'pass waits')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        # One dimension, so required-checks can expand the name: size, profile, build.
+        run: [M rdfs per-graph, M rdfs cross, M owl2rl per-graph, M owl2rl cross]
+
+    steps:
+      - name: Line endings
+        shell: bash
+        run: git config --global core.autocrlf false
+
+      - name: Checkout
+        # REC 4.1.0 and its Brick are vendored under testdata/rec; no submodule.
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up .NET
+        # Exactly global.json's SDK, and the lockfiles written with it (ADR 0224).
+        uses: ./.github/actions/setup-dotnet
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build the benchmarks
+        run: dotnet build tests/Varve.Benchmarks/Varve.Benchmarks.csproj --configuration Release
+
+      - name: The waits, REC ${{ matrix.run }}
+        shell: bash
+        run: |
+          read -r size profile mode <<< "${{ matrix.run }}"
+          mkdir -p artifacts/pass-waits
+          out="artifacts/pass-waits/rec-$size-$profile-$mode.txt"
+          tests/Varve.Benchmarks/bin/Release/net10.0/Varve.Benchmarks --pass-waits "$size" "$profile" "$mode" | tee "$out"
+          status=${PIPESTATUS[0]}
+          { echo '```'; cat "$out"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload the measurement
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: pass-waits-${{ strategy.job-index }}
+          path: artifacts/pass-waits
           if-no-files-found: warn
 
   # REC M through the gate and the projection (ADR 0176), in shards (#219).

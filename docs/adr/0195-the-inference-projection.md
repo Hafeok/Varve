@@ -28,6 +28,11 @@ into the decision here, which reads as one.
 Amends **0119** (`inference-behind`, `inference-unavailable`) and **0242**
 (the `defect` class of ruling 2), each by a dated amendment there.
 
+**Amended 2026-11-25** (ADR 0068), by #412, a 1.0 blocker: no reader waits
+for a pass. Readiness reads a snapshot each pass publishes, a closure keeps
+its clashes per pass, a stop cancels a pass, and explain waits at most a
+read's bound (point 6). Filed unaccepted; the amendment is at the end.
+
 ## Context
 
 Tier 2 of #95 serves the closure of a binding's graphs under the `rdfs` or
@@ -711,3 +716,164 @@ state.
   `PoolIsWhatTheHeapLeaves`, `StoppedStaysRefused`,
   `StopsAreRecoveredByAnAct` and `StorageFailuresHoldOff`; point 4's,
   `GenerationsPublishedWhole` and `GenerationsForStatedCausesOnly`.
+
+## Amendment, 2026-11-25 — no reader waits for a pass
+
+Filed unaccepted by #412, on the maintainer's rulings of 2026-11-25 (B1 to
+B5). It amends point 6: readiness, the clashes it reports, explain at the
+projection's position, and a stop. The ledger holds it as
+`ReadinessFromAPublishedSnapshot`, `ClashesKeptPerPass`,
+`ShutdownCancelsAPass` and `ExplainWaitsAtMostTheReadBound`.
+
+**What was wrong.** Point 6 said that nothing on readiness makes a dataset
+unready, and did not say what readiness waits for. It waited for the pass.
+Readiness counted the clashes by matching every check over every closure,
+under the lock a pass holds from its start to its end. Explain took the same
+lock, and a stop cancelled a token no build read. Measured at REC M, OWL 2
+RL, cross-graph, on 4 cores (#412):
+- a cold build held the lock for **290 s**; each of the 58 readiness probes
+  during it waited over the probes' 1 s timeout, the longest 450 s. The
+  shipped manifests' readiness probe (`fleet.yaml`, the Container Apps
+  template) fails after three timeouts, so a cold start took the instance
+  out of service: a build made it unready.
+- idle, the count alone took **7.2 s**; a commit's pass that waited behind a
+  probe took up to 8.5 s, and a probe beside a commit waited 7.6 s at the
+  median.
+- a stop's cancellation was not seen: a cancelled build returned **290 s**
+  later, past the 30 s grace period, and was then killed.
+
+**The ruling.**
+- **No closure build or pass makes the instance or a dataset unready.**
+  Reads go on through it. A read the closure cannot answer says so in-band,
+  as point 6 says: it waits two seconds, then answers `inference-behind`.
+- **Readiness reads a snapshot.** At the end of every pass, still under its
+  lock, the projection publishes an immutable snapshot: its position, its
+  clashes, its premise-set graphs, and what its closures hold and have held
+  at most. Readiness reads it with no lock, in constant time; so does a
+  query's `Varve-Inconsistent`. A probe matches no check. Before the first
+  pass ends the snapshot is the empty projection's. A pass publishes before
+  it moves the position, and readiness takes the lag from the snapshot's
+  position, so every figure a probe gives is one snapshot's: a probe never
+  sees a build's position with the empty projection's bytes.
+- **Readiness names the pass running.** A volatile record, set when a pass
+  begins and cleared when it ends, gives its kind (`cold-start`,
+  `generation`, `commit`, `load`), the position it brings the binding to, and
+  when it began. Readiness writes it as `pass`, with `kind`, `position` and
+  `seconds`.
+- **A closure keeps its clashes per pass.** It matches every check over the
+  whole closure once after a build. From then on each pass's changed facts
+  keep it: a clash with a premise that left the closure goes, and a match
+  that uses a fact that came is added, found by matching the check with that
+  fact in each of its atoms in turn. A check over a list's members
+  (`eq-diff2`, `eq-diff3`, `prp-adp`, `cax-adc`) is anchored the same way,
+  since lists are read from asserted statements (ADR 0197, amended
+  2026-11-24): a typing or members fact matches its axiom, a cell's
+  statement the axioms whose lists reach it, and a fact a pair matches is
+  paired with the other members of each list holding the member it names.
+  A pass that reads the lists differently, which rebuilds the closure,
+  matches them in full. A check has a gate, the atom with a constant
+  predicate and the most constants: when the closure holds no fact that
+  meets it and the check keeps no clash, a pass skips the check with one
+  probe of the index. Property tests hold the kept clashes to every check
+  matched in full at every commit, under both profiles, DRed and recursive
+  counting, with and without a TBox closure beneath, over histories that
+  make and unmake every list check's clashes.
+- **What is kept is charged.** Each kept clash is taken from the closure's
+  budget before it is held: `ClosureCosts.PerClash`, 700 bytes, and
+  `PerClashPremise`, 160 bytes for each premise's entry in the index from a
+  premise to its clashes. They are given back when the clash goes, and all
+  of it when the closure is released. Measured by `Varve.Benchmarks
+  --clash-costs`: 873 bytes held by a clash of three premises and 793 by
+  one of two, so the charge counts 1.29 to 1.35 times what is held.
+  **A closure that fitted its limit before can now stop at
+  `memory-limit`**: what it keeps for its clashes was beside the budget,
+  and counts against the limit now. At REC M, cross-graph, the closures
+  keep no clash at the head and 56,262 after 500 commits, about 66 MB by
+  the charge against 13.47 GB the budget counts for the closure: under
+  half a percent. Checked with the charge: the inference and store
+  suites, the server's inference tests and `ClosureMemoryGateTests` pass,
+  and `closure-budget-margin.sh` at REC S finishes every profile and mode
+  under the same peaks as before the charge. None crosses its limit. The
+  REC M benchmark runs with no closure limit, so it cannot.
+- **What is published is what changed.** A closure's list of kept clashes
+  is the same object until a clash comes or goes; each data graph's clashes
+  are placed again only when its list changed, and the snapshot's list is a
+  view over those pieces. Under a cross-graph binding the merge writes down
+  the clashes it keeps and drops (`Closure.TakeClashChanges`), and a clash
+  is placed again only when it is new or a premise's premise sets changed.
+  A property test holds the published clashes to every check matched and
+  placed afresh after every commit, per graph and cross-graph.
+- **A stop cancels the pass.** The stop's token reaches every closure a pass
+  changes; a closure sees it within a thousand rule firings or facts
+  asserted, and a build every 65,536 quads it reads and between graphs. A cancelled pass drops its closures, keeps the position,
+  and saves nothing; the projection is then abandoned, and applies nothing
+  until a reset builds it again. The stop waits at most
+  `Varve:Inference:StopWait`, 10 s by default, for the pass to end, then
+  abandons it. Either way the process ends within the shipped 30 s grace
+  period.
+- **What is saved.** The state of point 5 (the position, the floor, the
+  held history and the projection's terms) is saved after a cold start's
+  build, every 1,000 commits or 5 minutes while commits arrive, and at a
+  stop that cut no pass short. A stop during a pass saves nothing more, so
+  the state saved last stays the newest. A start reads it and, as point 5
+  requires, builds the closures at its position and checks them against its
+  open rows: **that check costs a build**, as long as a cold start's at the
+  same size. A saved state keeps the history and the position; it does not
+  keep the build's time. Readiness names it as a `load` pass.
+- **Explain waits at most a read's bound.** At the projection's position it
+  waits at most `InferenceOptions.ExplainWait`, two seconds, for the pass
+  that holds the live closures, then answers `503 inference-behind` with
+  `Retry-After: 1`, its detail naming the pass; it answers once the pass
+  ends. Above the position it waits for the projection and answers as a
+  read does (point 6). Below it, it is from scratch and waits for no pass.
+
+**Measured after**, at REC M, OWL 2 RL, cross-graph, 4 cores
+(`Varve.Benchmarks --pass-waits M owl2rl cross`; the cancellations with
+`VARVE_PHASE=shutdown`):
+
+| What | Before | After |
+|---|---|---|
+| Readiness probe during a cold build | 58 probes, every one past 1 s, longest 450 s | 1,740 probes, longest 0.40 ms |
+| Readiness probe idle | 7.2 s | 0.001 ms |
+| Readiness probe beside a commit's pass | 7.6 s at the median | at most 0.04 ms |
+| A commit's pass, cross-graph | median 9.8 ms, up to 8.5 s behind a probe | median 44 ms, at most 183 ms; with the clashes kept per pass, p50 25.7 ms, p99 89 ms, against main's 24.2 and 75.6 ms on the same harness |
+| A commit's pass, per graph | — | p50 9.4 ms, p99 69.6 ms, against main's 7.6 and 60.8 ms on the same harness |
+| Explain at the position during a cold build | waited for the build | `inference-behind` after 2.06 s |
+| Explain at the head beside a commit | waited for the pass, then about 8 s for an as-of view of the head | at most 181 ms: the head is pinned, as a pass pins it |
+| A cold build cancelled at 5, 10, 20, 40 and 80 s | returned 290 s after the cancel | returned within 0.08 s, abandoned |
+
+A commit's pass costs more after: it publishes the snapshot and keeps the
+clashes from the facts it changed. The pass rows are 500 commits of one
+statement each after the build, on main and on this change in turn. The
+first pass after a build took 290 ms and the next 83 ms; the slowest, 883
+ms, was the 489th, and main's slowest was 1,280 ms, so the tail is not a
+first pass's. The cold build took 849 to 874 s across three runs on this
+machine, the closure at 13.4 GB by the budget's count against a heap of
+10.75 GB; it is not this change's to shorten (#408), and main's own harness
+did not finish its build within 40 minutes on the same machine that day, so
+the 290 s measured before is not comparable. At REC S, where both finish,
+the build took 28.0 s after and 28.1 s before.
+
+**Bounds held.** The nightly's `pass waits` job runs that gate at REC M,
+both profiles, per graph and cross-graph, and fails a run in which a probe
+during a cold build, idle or beside a commit takes over 100 ms in process,
+explain beside a commit or during a build over 2.5 s, or a cancelled build
+over 10 s to return. A pull request's tests hold the same reads over a build
+of seconds: `PassTests` in process, and `InferencePassServerTests` over HTTP
+in a child process, with a probe's bound of 500 ms during a cold build and
+idle, and a SIGTERM during a cold build ending the process within 30 s.
+
+**Open question.** Whether a start may take the saved rows as the closure
+without building it, trusting the checked envelope (ADR 0213) in place of
+point 5's check against a build. That would make a restart after a saved
+state take the time of a read rather than a build. It changes point 5's
+rule on what is a miss, so it is the maintainer's to rule on; it is not done
+here. Ruled: a start may take a saved state as the closure without a build
+when its record matches (format, rule set and profile, binding, position,
+and a hash of the rows' content), in a pull request of its own with a dated
+amendment to point 5.
+
+**Checks.** Against ADRs 0068 (a dated amendment), 0113 (readiness, which
+this narrows for inference and does not change otherwise), 0119
+(`inference-behind`, unchanged), 0197 point 5 (what a clash is, unchanged)
+and 0199 (explain's proof, unchanged). No conflict.

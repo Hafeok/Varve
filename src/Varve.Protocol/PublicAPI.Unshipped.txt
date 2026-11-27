@@ -721,3 +721,4 @@ override Varve.Protocol.NoClosureMemory.ToString() -> string!
 static Varve.Protocol.NoClosureMemory.operator !=(Varve.Protocol.NoClosureMemory? left, Varve.Protocol.NoClosureMemory? right) -> bool
 static Varve.Protocol.NoClosureMemory.operator ==(Varve.Protocol.NoClosureMemory? left, Varve.Protocol.NoClosureMemory? right) -> bool
 Varve.Protocol.IInferenceClosure.PremiseSetGraphs() -> System.Collections.Generic.IReadOnlyList<Varve.Rdf.RdfTerm!>?
+Varve.Protocol.InferenceBehindException.InferenceBehindException(Varve.Rdf.RdfTerm! binding, Varve.Store.Log.Position position, string! message) -> void

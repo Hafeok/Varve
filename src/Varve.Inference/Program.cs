@@ -271,9 +271,9 @@ internal sealed class Program
             TermHandle typeOf = terms.Handle(Vocabulary.Type), sameAsOf = terms.Handle(Vocabulary.SameAs);
             TermHandle members = terms.Handle(Vocabulary.Members);
             Checks.Add(new MembersCheck("owl2rl", "eq-diff2", typeOf, terms.Handle(Vocabulary.AllDifferent), members, (facts, a, b, into) =>
-                Same(facts, a, b, sameAsOf, into)));
+                Same(facts, a, b, sameAsOf, into), SameNames(sameAsOf), SameAt(sameAsOf)));
             Checks.Add(new MembersCheck("owl2rl", "eq-diff3", typeOf, terms.Handle(Vocabulary.AllDifferent), terms.Handle(Vocabulary.DistinctMembers), (facts, a, b, into) =>
-                Same(facts, a, b, sameAsOf, into)));
+                Same(facts, a, b, sameAsOf, into), SameNames(sameAsOf), SameAt(sameAsOf)));
             Checks.Add(new MembersCheck("owl2rl", "prp-adp", typeOf, terms.Handle(Vocabulary.AllDisjointProperties), members, (facts, a, b, into) =>
             {
                 foreach (Fact first in facts.Match(TermHandle.None, a, TermHandle.None))
@@ -283,6 +283,14 @@ internal sealed class Program
                     {
                         into.Add([first, second]);
                     }
+                }
+            }, fact => [fact.Predicate], (facts, fact, _, other, into) =>
+            {
+                // A fact of one member property: a clash with the same pair under another.
+                Fact second = new(fact.Subject, other, fact.Object);
+                if (facts.Contains(second))
+                {
+                    into.Add([fact, second]);
                 }
             }));
             Checks.Add(new MembersCheck("owl2rl", "cax-adc", typeOf, terms.Handle(Vocabulary.AllDisjointClasses), members, (facts, a, b, into) =>
@@ -295,8 +303,31 @@ internal sealed class Program
                         into.Add([first, second]);
                     }
                 }
+            }, fact => fact.Predicate.Value == typeOf.Value ? [fact.Object] : [], (facts, fact, _, other, into) =>
+            {
+                // A typing in one member class: a clash with a typing of the same individual in another.
+                Fact second = new(fact.Subject, typeOf, other);
+                if (facts.Contains(second))
+                {
+                    into.Add([fact, second]);
+                }
             }));
         }
+
+        // The members an owl:sameAs fact names: its subject and its object.
+        private static Func<Fact, TermHandle[]> SameNames(TermHandle sameAs) =>
+            fact => fact.Predicate.Value == sameAs.Value ? [fact.Subject, fact.Object] : [];
+
+        // An owl:sameAs fact between two members of one list: a clash.
+        private static Action<FactSet, Fact, TermHandle, TermHandle, List<Fact[]>> SameAt(TermHandle sameAs) =>
+            (facts, fact, member, other, into) =>
+            {
+                if (fact.Predicate.Value == sameAs.Value
+                    && ((fact.Subject.Value == member.Value && fact.Object.Value == other.Value) || (fact.Subject.Value == other.Value && fact.Object.Value == member.Value)))
+                {
+                    into.Add([fact]);
+                }
+            };
 
         private static void Same(FactSet facts, TermHandle a, TermHandle b, TermHandle sameAs, List<Fact[]> into)
         {

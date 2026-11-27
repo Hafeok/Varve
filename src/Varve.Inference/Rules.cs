@@ -197,6 +197,35 @@ internal sealed class PatternRule : Rule
     internal void Matches(FactSet facts, Action<TermHandle[], Fact[]> found) =>
         Collect(facts, new TermHandle[_variables], skip: -1, next: 0, new Fact[_body.Length], found);
 
+    /// <summary>
+    /// Every match of the whole body over <paramref name="facts"/> that uses
+    /// <paramref name="anchor"/> for at least one atom: a check's new matches
+    /// once <paramref name="anchor"/> is added. A match using it for several
+    /// atoms is found once for each.
+    /// </summary>
+    internal void MatchesAt(in Fact anchor, FactSet facts, Action<TermHandle[], Fact[]> found)
+    {
+        TermHandle[]? bindings = null;
+        Fact[]? chosen = null;
+        for (int i = 0; i < _body.Length; i++)
+        {
+            if (!Fits(_body[i], anchor))
+            {
+                // Most facts a pass changes meet no atom of a check: nothing is allocated for them.
+                continue;
+            }
+
+            bindings ??= new TermHandle[_variables];
+            chosen ??= new Fact[_body.Length];
+            Array.Clear(bindings);
+            if (Unify(_body[i], anchor, bindings))
+            {
+                chosen[i] = anchor;
+                Collect(facts, bindings, skip: i, next: 0, chosen, found);
+            }
+        }
+    }
+
     /// <summary>Every way to match the body's atoms but <paramref name="skip"/> from <paramref name="next"/> on, each with its premises.</summary>
     private void Collect(FactSet facts, TermHandle[] bindings, int skip, int next, Fact[] chosen, Action<TermHandle[], Fact[]> found)
     {
@@ -307,6 +336,19 @@ internal sealed class PatternRule : Rule
     }
 
     private static TermHandle Resolve(Slot slot, TermHandle[] bindings) => slot.IsVariable ? bindings[slot.Variable] : slot.Constant;
+
+    /// <summary>
+    /// Whether <paramref name="fact"/> meets <paramref name="atom"/>'s
+    /// constants and repeated variables: what <see cref="Unify"/> decides,
+    /// with no bindings.
+    /// </summary>
+    internal static bool Fits(Atom atom, in Fact fact) =>
+        (atom.S.IsVariable || atom.S.Constant.Value == fact.Subject.Value)
+        && (atom.P.IsVariable || atom.P.Constant.Value == fact.Predicate.Value)
+        && (atom.O.IsVariable || atom.O.Constant.Value == fact.Object.Value)
+        && (!atom.S.IsVariable || !atom.P.IsVariable || atom.S.Variable != atom.P.Variable || fact.Subject.Value == fact.Predicate.Value)
+        && (!atom.S.IsVariable || !atom.O.IsVariable || atom.S.Variable != atom.O.Variable || fact.Subject.Value == fact.Object.Value)
+        && (!atom.P.IsVariable || !atom.O.IsVariable || atom.P.Variable != atom.O.Variable || fact.Predicate.Value == fact.Object.Value);
 
     private static bool Unify(Atom atom, in Fact fact, TermHandle[] bindings) =>
         Bind(atom.S, fact.Subject, bindings) && Bind(atom.P, fact.Predicate, bindings) && Bind(atom.O, fact.Object, bindings);

@@ -62,14 +62,14 @@ public class ClashTests
             Closure closure = new(Program.Of(InferenceProfile.Owl2Rl, terms), Strategies.Named(strategy));
             Fact[] facts = [.. graph.Split('|').Select(t => Parse(terms, t))];
 
-            closure.Apply(facts.AsSpan(0, facts.Length - 1), []);
+            closure.Apply(facts.AsSpan(0, facts.Length - 1), [], TestContext.Current.CancellationToken);
             Assert.DoesNotContain(closure.Clashes(), c => Name(c) == check);
 
-            closure.Apply([facts[^1]], []);
+            closure.Apply([facts[^1]], [], TestContext.Current.CancellationToken);
             Clash clash = Assert.Single(closure.Clashes(), c => Name(c) == check);
             Assert.All(clash.Premises, premise => Assert.True(closure.Contains(premise)));
 
-            closure.Apply([], [facts[^1]]);
+            closure.Apply([], [facts[^1]], TestContext.Current.CancellationToken);
             Assert.DoesNotContain(closure.Clashes(), c => Name(c) == check);
         }
     }
@@ -82,15 +82,15 @@ public class ClashTests
             Terms terms = new();
             Closure closure = new(profile, terms);
             RdfTerm range = IriOf(RdfsNs + "range"), p = Named("p");
-            closure.Apply([terms.Fact(p, range, IriOf(XsdNs + "string")), terms.Fact(Named("a"), p, RdfTerm.Literal("x"u8))], []);
+            closure.Apply([terms.Fact(p, range, IriOf(XsdNs + "string")), terms.Fact(Named("a"), p, RdfTerm.Literal("x"u8))], [], TestContext.Current.CancellationToken);
             Assert.Empty(closure.Clashes());
 
             Fact tagged = terms.Fact(Named("a"), p, RdfTerm.Literal("x"u8, "en"u8));
-            closure.Apply([tagged], []);
+            closure.Apply([tagged], [], TestContext.Current.CancellationToken);
             Clash clash = Assert.Single(closure.Clashes());
             Assert.Equal(Check.RuleNamespace + "rdfs/dt-not-type", Encoding.UTF8.GetString(clash.Rule.Lexical));
 
-            closure.Apply([], [tagged]);
+            closure.Apply([], [tagged], TestContext.Current.CancellationToken);
             Assert.Empty(closure.Clashes());
         }
     }
@@ -105,7 +105,7 @@ public class ClashTests
         [
             terms.Fact(p, IriOf(RdfsNs + "range"), IriOf(XsdNs + "string")),
             terms.Fact(Named("a"), p, RdfTerm.Literal("1"u8, IriOf(XsdNs + "integer"))),
-        ], []);
+        ], [], TestContext.Current.CancellationToken);
         Assert.Empty(closure.Clashes());
     }
 
@@ -115,8 +115,8 @@ public class ClashTests
         Terms terms = new();
         Closure clashing = new(InferenceProfile.Owl2Rl, terms), plain = new(InferenceProfile.Owl2Rl, terms);
         Fact[] graph = [.. "C disjointWith D|a type C|a type D".Split('|').Select(t => Parse(terms, t))];
-        clashing.Apply(graph, []);
-        plain.Apply(graph, []);
+        clashing.Apply(graph, [], TestContext.Current.CancellationToken);
+        plain.Apply(graph, [], TestContext.Current.CancellationToken);
         Assert.NotEmpty(clashing.Clashes());
         Assert.Equal(plain.All.ToHashSet(), clashing.All.ToHashSet());
         Assert.DoesNotContain(terms.Fact(Named("a"), Type, Named("Z")), clashing.All);
