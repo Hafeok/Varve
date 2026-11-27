@@ -1,0 +1,20 @@
+<div class="vw-field"><label for="q">Query</label><div class="vw-editor"><div class="vw-editor__gutter" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></div><div class="vw-editor__layers"><pre class="vw-editor__code" aria-hidden="true"><span class="vw-tok vw-tok--keyword">PREFIX</span> <span class="vw-tok vw-tok--iri">dct:</span> <span class="vw-tok vw-tok--iri">&lt;http://purl.org/dc/terms/&gt;</span>
+<span class="vw-tok vw-tok--keyword">PREFIX</span> <span class="vw-tok vw-tok--iri">notes:</span> <span class="vw-tok vw-tok--iri">&lt;https://notes.example/notes/&gt;</span>
+<span class="vw-tok vw-tok--keyword">PREFIX</span> <span class="vw-tok vw-tok--iri">xsd:</span> <span class="vw-tok vw-tok--iri">&lt;http://www.w3.org/2001/XMLSchema#&gt;</span>
+<span class="vw-tok vw-tok--comment"># Titles of the notes created this week</span>
+<span class="vw-tok vw-tok--keyword">SELECT</span> <span class="vw-tok vw-tok--keyword">DISTINCT</span> <span class="vw-tok vw-tok--variable">?note</span> <span class="vw-tok vw-tok--variable">?title</span> <span class="vw-tok vw-tok--keyword">WHERE</span> <span class="vw-tok vw-tok--punct">{</span>
+  <span class="vw-tok vw-tok--keyword">GRAPH</span> <span class="vw-tok vw-tok--variable">?g</span> <span class="vw-tok vw-tok--punct">{</span> <span class="vw-tok vw-tok--variable">?note</span> <span class="vw-tok vw-tok--keyword">a</span> <span class="vw-tok vw-tok--iri">notes:Note</span> <span class="vw-tok vw-tok--punct">;</span> <span class="vw-tok vw-tok--iri">dct:title</span> <span class="vw-tok vw-tok--variable">?title</span> <span class="vw-tok vw-tok--punct">;</span> <span class="vw-tok vw-tok--iri">dct:created</span> <span class="vw-tok vw-tok--variable">?d</span> <span class="vw-tok vw-tok--punct">.</span> <span class="vw-tok vw-tok--punct">}</span>
+  <span class="vw-tok vw-tok--keyword">FILTER</span> <span class="vw-tok vw-tok--punct">(</span><span class="vw-tok vw-tok--variable">?d</span> <span class="vw-tok vw-tok--punct">&gt;=</span> <span class="vw-tok vw-tok--literal">&quot;2026-10-20&quot;</span><span class="vw-tok vw-tok--punct">^^</span><span class="vw-tok vw-tok--iri">xsd:date</span> <span class="vw-tok vw-tok--punct">&amp;&amp;</span> <span class="vw-tok vw-tok--keyword">LANG</span><span class="vw-tok vw-tok--punct">(</span><span class="vw-tok vw-tok--variable">?title</span><span class="vw-tok vw-tok--punct">)</span> <span class="vw-tok vw-tok--punct">=</span> <span class="vw-tok vw-tok--literal">&quot;en&quot;</span><span class="vw-tok vw-tok--punct">)</span>
+  <span class="vw-tok vw-tok--keyword">OPTIONAL</span> <span class="vw-tok vw-tok--punct">{</span> <span class="vw-tok vw-tok--variable">?note</span> <span class="vw-tok vw-tok--iri">dct:creator</span> <span class="vw-tok vw-tok--bnode">_:who</span> <span class="vw-tok vw-tok--punct">}</span>
+<span class="vw-tok vw-tok--punct">}</span>
+<span class="vw-tok vw-tok--keyword">ORDER</span> <span class="vw-tok vw-tok--keyword">BY</span> <span class="vw-tok vw-tok--keyword">DESC</span><span class="vw-tok vw-tok--punct">(</span><span class="vw-tok vw-tok--variable">?d</span><span class="vw-tok vw-tok--punct">)</span> <span class="vw-tok vw-tok--keyword">LIMIT</span> <span class="vw-tok vw-tok--literal">500</span>
+</pre><textarea class="vw-editor__input" id="q" rows="10" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="q-help">PREFIX dct: &lt;http://purl.org/dc/terms/&gt;
+PREFIX notes: &lt;https://notes.example/notes/&gt;
+PREFIX xsd: &lt;http://www.w3.org/2001/XMLSchema#&gt;
+# Titles of the notes created this week
+SELECT DISTINCT ?note ?title WHERE {
+  GRAPH ?g { ?note a notes:Note ; dct:title ?title ; dct:created ?d . }
+  FILTER (?d &gt;= &quot;2026-10-20&quot;^^xsd:date &amp;&amp; LANG(?title) = &quot;en&quot;)
+  OPTIONAL { ?note dct:creator _:who }
+}
+ORDER BY DESC(?d) LIMIT 500</textarea></div></div><span class="vw-field__help" id="q-help">Tab inserts two spaces. Press Escape, then Tab, to leave the editor.</span></div>

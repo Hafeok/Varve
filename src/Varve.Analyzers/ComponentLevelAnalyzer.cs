@@ -38,12 +38,30 @@ namespace Varve.Analyzers;
 ///   the server, only in Pages and App. This holds for every type of the Web
 ///   UI, in a level or not: a type outside the levels names no service, so no
 ///   level reaches the server through it.</item>
+///   <item><b>The three assemblies</b> (ADR 0252). The levels span the host,
+///   <c>Varve.WebUi</c>, the eager <c>Varve.WebUi.Components</c> that both page
+///   sets share, and the lazy <c>Varve.WebUi.Explorer</c>. <c>Components</c>
+///   names nothing of the host's or the explorer's, and declares no routed
+///   page and nothing of the app; the explorer names nothing of the host's;
+///   and the host names nothing of the explorer's, so nothing loads the lazy
+///   assembly before its route does.</item>
 ///   <item><b>The model holds values only.</b> A type in
 ///   <c>Varve.Protocol.Client.Model</c> names no other type under
 ///   <c>Varve.Protocol.Client</c>. Otherwise a part could reach a service
 ///   through the model. This check needs no Blazor, so it runs in the client
 ///   itself.</item>
 /// </list>
+/// <para>
+/// The rulings it holds, by key, since an analyzer assembly takes no
+/// reference to the decision ledger and so cannot carry <c>[Contract]</c>:
+/// <c>TheWebUiDesignSource.AtomicLevelsAreADependencyRule</c>,
+/// <c>.OnlyPagesCallTheApi</c>, <c>.TheAppIsTheTopLevel</c> and
+/// <c>.NoTypeOutsideTheLevelsHoldsAService</c> (ADR 0206);
+/// <c>TheWebUiDesignSource.LevelsAcrossThreeAssemblies</c> (ADR 0206, amended
+/// by ADR 0252 point 4); and
+/// <c>TheWebUisPrivateAssemblies.VarveSixHoldsTheThreeApart</c> (ADR 0252
+/// point 5). The last two are filed unaccepted.
+/// </para>
 /// <para>
 /// Razor compiles a component to C# through a source generator, and that is
 /// generated code, which an analyzer neither analyses nor reports in unless it
@@ -102,6 +120,33 @@ public sealed class ComponentLevelAnalyzer : DiagnosticAnalyzer
         "keep the model to values, and let the service that calls the server take or return them | if the type "
         + "named is a value that calls nothing, move it into Varve.Protocol.Client.Model";
 
+    // The assemblies the levels span (ADR 0252).
+    internal const string HostAssembly = "Varve.WebUi";
+
+    internal const string ComponentsAssembly = "Varve.WebUi.Components";
+
+    internal const string ExplorerAssembly = "Varve.WebUi.Explorer";
+
+    internal const string AcrossFormat = "names '{0}' of {1}, which {2} never names";
+
+    internal const string ComponentsAcrossDecide =
+        "move what both page sets need into Varve.WebUi.Components, and pass the rest down from the page that has it | "
+        + "if only one page set uses it, it stays in that set's assembly";
+
+    internal const string ExplorerAcrossDecide =
+        "move what the explorer shares with the console into Varve.WebUi.Components | keep the explorer's own copy "
+        + "of what only it uses";
+
+    internal const string HostAcrossDecide =
+        "reach the explorer's components through the router, from the assemblies the lazy loader returns, never by "
+        + "naming a type of it, which would load it with the first screen";
+
+    internal const string ComponentsDeclaresFormat = "is declared in Varve.WebUi.Components at level {0}, which holds no {1}";
+
+    internal const string ComponentsDeclaresDecide =
+        "move it to the page set it belongs to: the console's to Varve.WebUi, the explorer's to Varve.WebUi.Explorer | "
+        + "if it is a service both page sets use, it belongs in Varve.WebUi.Pages.Services";
+
     internal const string ModelDecide =
         "take the values as parameters of the abstract kind this level takes (words, tones, numbers, slots), and "
         + "map the model in a part | if this component holds Varve's domain, it belongs in Varve.WebUi.Parts";
@@ -128,16 +173,27 @@ public sealed class ComponentLevelAnalyzer : DiagnosticAnalyzer
             // no level are checked too. Its tests reference the levels, and
             // are not the Web UI.
             bool webUi = DeclaresLevels(start.Compilation.Assembly.GlobalNamespace);
+            string assembly = start.Compilation.Assembly.Name;
 
             start.RegisterSyntaxNodeAction(
-                node => Analyze(node, component, webUi),
+                node => Analyze(node, component, webUi, assembly),
                 SyntaxKind.IdentifierName,
                 SyntaxKind.GenericName);
+
+            if (component is not null && assembly == ComponentsAssembly)
+            {
+                start.RegisterSymbolAction(symbol => AnalyzeComponentsDeclaration(symbol, component), SymbolKind.NamedType);
+            }
         });
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol? component, bool webUi)
+    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol? component, bool webUi, string assembly)
     {
+        if (component is not null && AnalyzeAcross(context, assembly))
+        {
+            return;
+        }
+
         // A cref in a documentation comment, and a nameof, name a type without
         // using it; Razor writes a nameof for each parameter it sets, beside
         // the OpenComponent that is the use.
@@ -232,6 +288,77 @@ public sealed class ComponentLevelAnalyzer : DiagnosticAnalyzer
             SameOrHigherDecide));
     }
 
+    // The assembly boundaries (ADR 0252); true when one was crossed and reported.
+    private static bool AnalyzeAcross(SyntaxNodeAnalysisContext context, string assembly)
+    {
+        string? decide = assembly switch
+        {
+            ComponentsAssembly => ComponentsAcrossDecide,
+            ExplorerAssembly => ExplorerAcrossDecide,
+            HostAssembly => HostAcrossDecide,
+            _ => null,
+        };
+
+        if (decide is null
+            || context.Node.IsPartOfStructuredTrivia()
+            || InsideNameOf(context.Node)
+            || context.ContainingSymbol is not { } containing
+            || TopLevelType(containing) is not { } user
+            || context.SemanticModel.GetSymbolInfo(context.Node, context.CancellationToken).Symbol is not INamedTypeSymbol named
+            || named.OriginalDefinition.ContainingAssembly?.Name is not { } owner)
+        {
+            return false;
+        }
+
+        bool crossed = assembly switch
+        {
+            ComponentsAssembly => owner is HostAssembly or ExplorerAssembly,
+            ExplorerAssembly => owner == HostAssembly,
+            _ => owner == ExplorerAssembly,
+        };
+
+        if (!crossed)
+        {
+            return false;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(
+            VarveDiagnostics.ComponentLevel,
+            context.Node.GetLocation(),
+            user.ToDisplayString(),
+            assembly,
+            string.Format(System.Globalization.CultureInfo.InvariantCulture, AcrossFormat, named.OriginalDefinition.ToDisplayString(), owner, assembly),
+            decide));
+        return true;
+    }
+
+    // Components holds the design system's levels, the parts both page sets
+    // share and Pages.Services: no routed page, nothing of the app.
+    private static void AnalyzeComponentsDeclaration(SymbolAnalysisContext context, INamedTypeSymbol component)
+    {
+        if (context.Symbol is not INamedTypeSymbol type || type.ContainingType is not null)
+        {
+            return;
+        }
+
+        int level = LevelOf(type.ContainingNamespace);
+        string space = type.ContainingNamespace?.ToDisplayString() ?? string.Empty;
+        string? held = level == Levels.IndexOf("App") ? "type of the app"
+            : level == Levels.IndexOf("Pages") && !space.EndsWith(".Pages.Services", StringComparison.Ordinal) && !space.Contains(".Pages.Services.") ? (Implements(type, component) ? "routed page" : "type of a page outside Pages.Services")
+            : null;
+
+        if (held is not null)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(
+                VarveDiagnostics.ComponentLevel,
+                type.Locations.Length > 0 ? type.Locations[0] : Location.None,
+                type.ToDisplayString(),
+                Levels[level],
+                string.Format(System.Globalization.CultureInfo.InvariantCulture, ComponentsDeclaresFormat, Levels[level], held),
+                ComponentsDeclaresDecide));
+        }
+    }
+
     private static void AnalyzeModel(SyntaxNodeAnalysisContext context, INamedTypeSymbol user, string userNamespace)
     {
         if (context.SemanticModel.GetSymbolInfo(context.Node, context.CancellationToken).Symbol is not INamedTypeSymbol named)
@@ -260,20 +387,35 @@ public sealed class ComponentLevelAnalyzer : DiagnosticAnalyzer
             string.Format(System.Globalization.CultureInfo.InvariantCulture, format, used.ToDisplayString()),
             decide));
 
-    // The level of a namespace: Varve.WebUi.<Level> or below it, else -1.
-    internal static int LevelOf(INamespaceSymbol? space)
-    {
-        string name = space?.ToDisplayString() ?? string.Empty;
+    // The level of a namespace: Varve.WebUi.<Level>, or the shared components'
+    // or the explorer's own, Varve.WebUi.Components.<Level> and
+    // Varve.WebUi.Explorer.<Level> (ADR 0252), or below one; else -1.
+    internal static int LevelOf(INamespaceSymbol? space) => LevelOf(space?.ToDisplayString() ?? string.Empty);
 
+    internal static int LevelOf(string name)
+    {
         if (!name.StartsWith(LevelPrefix, StringComparison.Ordinal))
         {
             return -1;
         }
 
         string rest = name.Substring(LevelPrefix.Length);
+
+        foreach (string part in AssemblyParts)
+        {
+            if (rest.StartsWith(part + ".", StringComparison.Ordinal))
+            {
+                rest = rest.Substring(part.Length + 1);
+                break;
+            }
+        }
+
         int dot = rest.IndexOf('.');
         return Levels.IndexOf(dot < 0 ? rest : rest.Substring(0, dot));
     }
+
+    // The namespaces of the host's private assemblies, under Varve.WebUi.
+    private static readonly ImmutableArray<string> AssemblyParts = ImmutableArray.Create("Components", "Explorer");
 
     // Whether the assembly declares a type in a level namespace.
     private static bool DeclaresLevels(INamespaceSymbol global)
@@ -304,6 +446,17 @@ public sealed class ComponentLevelAnalyzer : DiagnosticAnalyzer
             if (Levels.Contains(level.Name) && level.GetTypeMembers().Length > 0)
             {
                 return true;
+            }
+
+            if (AssemblyParts.Contains(level.Name))
+            {
+                foreach (INamespaceSymbol inner in level.GetNamespaceMembers())
+                {
+                    if (Levels.Contains(inner.Name) && inner.GetTypeMembers().Length > 0)
+                    {
+                        return true;
+                    }
+                }
             }
         }
 

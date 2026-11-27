@@ -1,0 +1,29 @@
+{
+  "parameters": {
+    "Id": "g",
+    "Summary": "3 graphs returned to you · 4 changes",
+    "Sections": [
+      {
+        "Graph": null,
+        "Count": "1 change",
+        "Body": "<table class=\"vw-triples\"><caption class=\"vw-visually-hidden\">Changes in the default graph</caption><thead><tr><th scope=\"col\"><span class=\"vw-visually-hidden\">Change</span></th><th scope=\"col\">Subject</th><th scope=\"col\">Predicate</th><th scope=\"col\">Object</th><th scope=\"col\">Note</th></tr></thead><tbody><tr class=\"vw-triple vw-triple--added\"><td class=\"vw-triple__sign\"><span aria-hidden=\"true\">+</span><span class=\"vw-visually-hidden\">added</span></td><td><span class=\"vw-term vw-term--iri\">notes:42</span></td><td class=\"vw-triple__p\"><span class=\"vw-term vw-term--iri\">schema:about</span></td><td><span class=\"vw-term vw-term--iri\">topics:sync</span></td><td class=\"vw-triple__note\">asserted</td></tr></tbody></table>"
+      },
+      {
+        "Graph": {
+          "Kind": "Iri",
+          "Text": "users:42"
+        },
+        "Count": "2 changes",
+        "Body": "<table class=\"vw-triples\"><caption class=\"vw-visually-hidden\">Changes in users:42</caption><thead><tr><th scope=\"col\"><span class=\"vw-visually-hidden\">Change</span></th><th scope=\"col\">Subject</th><th scope=\"col\">Predicate</th><th scope=\"col\">Object</th><th scope=\"col\">Note</th></tr></thead><tbody><tr class=\"vw-triple vw-triple--removed\"><td class=\"vw-triple__sign\"><span aria-hidden=\"true\">−</span><span class=\"vw-visually-hidden\">removed</span></td><td><span class=\"vw-term vw-term--iri\">notes:42</span></td><td class=\"vw-triple__p\"><span class=\"vw-term vw-term--iri\">dct:title</span></td><td><span class=\"vw-term vw-term--literal\"><span class=\"vw-term__value\">Sync</span></span></td><td class=\"vw-triple__note\">retracted</td></tr><tr class=\"vw-triple vw-triple--added\"><td class=\"vw-triple__sign\"><span aria-hidden=\"true\">+</span><span class=\"vw-visually-hidden\">added</span></td><td><span class=\"vw-term vw-term--iri\">notes:42</span></td><td class=\"vw-triple__p\"><span class=\"vw-term vw-term--iri\">dct:title</span></td><td><span class=\"vw-term vw-term--literal\"><span class=\"vw-term__value\">Weekly sync</span><span class=\"vw-term__type\">@en</span></span></td><td class=\"vw-triple__note\">asserted</td></tr></tbody></table>"
+      },
+      {
+        "Graph": {
+          "Kind": "Iri",
+          "Text": "users:7"
+        },
+        "Count": "1 change",
+        "Body": "<table class=\"vw-triples\"><caption class=\"vw-visually-hidden\">Changes in users:7</caption><thead><tr><th scope=\"col\"><span class=\"vw-visually-hidden\">Change</span></th><th scope=\"col\">Subject</th><th scope=\"col\">Predicate</th><th scope=\"col\">Object</th><th scope=\"col\">Note</th></tr></thead><tbody><tr class=\"vw-triple vw-triple--added\"><td class=\"vw-triple__sign\"><span aria-hidden=\"true\">+</span><span class=\"vw-visually-hidden\">added</span></td><td><span class=\"vw-term vw-term--iri\">notes:7</span></td><td class=\"vw-triple__p\"><span class=\"vw-term vw-term--iri\">dct:references</span></td><td><span class=\"vw-term vw-term--iri\">notes:42</span></td><td class=\"vw-triple__note\">asserted</td></tr></tbody></table>"
+      }
+    ]
+  }
+}

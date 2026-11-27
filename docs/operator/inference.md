@@ -177,6 +177,30 @@ recomputes the sets over the whole closure, so a cross-graph binding's
 commits cost more than an intra-graph one's; readiness counts its reserved
 graphs as `premiseSets`.
 
+**Lists: only well-formed asserted lists are read.**
+The `OWL2RL` rules and checks over lists read a list only from asserted
+triples: `owl:intersectionOf`, `owl:unionOf`, `owl:oneOf`,
+`owl:propertyChainAxiom`, `owl:hasKey`, `owl:members` and
+`owl:distinctMembers` (ADR 0197, amended 2026-11-24).
+- **A cell** is a node the graph, or the binding's TBox graphs, assert
+  exactly one `rdf:first` and exactly one `rdf:rest` of.
+- **A list** is the chain of cells from its head to `rdf:nil`.
+- **An inferred `rdf:first` or `rdf:rest` neither makes nor breaks a
+  list.** For example, one concluded through `rdfs:subPropertyOf rdf:rest` is
+  served like any other conclusion and never read as a list.
+- **Every other node with an asserted `rdf:first` or `rdf:rest` is reported
+  on readiness** as `unreadLists`, with the reason (`several-first`,
+  `several-rest`, `no-first`, `no-rest`, `cycle`, `broken`). Nothing is
+  drawn from it.
+- **A data graph neither breaks nor changes a list the TBox graphs make.**
+  Its own differing `rdf:first` or `rdf:rest` of such a cell is not read, and
+  is reported as `differs-from-tbox`.
+
+A commit that changes which lists a graph's triples make rebuilds that
+graph's closure, which costs a build from scratch of that one graph.
+Turtle's `( … )` and RDF/XML's `parseType="Collection"` always write
+well-formed lists.
+
 **Reading it.**
 - `FROM <https://w3id.org/varve/ns#implicit>` reads the implicit part of the
   query's other `FROM` graphs, or of the default graph when there are none;
@@ -245,7 +269,9 @@ the settings.
 its `state` (`following`, `stopped (memory-limit)`, `stopped (failed)`), its
 `lag`, `heldFrom`, `inconsistent` and `clashes`, `held` and `peak` (the bytes
 its closures hold now and the most they have held, by the budget's count),
-and for a cross-graph binding `premiseSets`. None of them makes the dataset unready.
+`unreadLists` (the nodes of asserted lists the rules do not read, with
+`unreadListCells` naming the first twenty: `graph`, `cell`, `reason`), and
+for a cross-graph binding `premiseSets`. None of them makes the dataset unready.
 
 ## Cost
 

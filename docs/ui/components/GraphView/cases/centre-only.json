@@ -1,0 +1,31 @@
+{
+  "parameters": {
+    "Id": "gv",
+    "Title": "Neighbourhood of notes:42 at position 18417",
+    "Layout": {
+      "MinX": -82.0,
+      "MinY": -30.0,
+      "Width": 164,
+      "Height": 60,
+      "Nodes": [
+        {
+          "X": 0,
+          "Y": 0,
+          "Height": 28,
+          "Label": "notes:42",
+          "Shown": "notes:42",
+          "Kind": "iri",
+          "Centre": true,
+          "Type": null,
+          "Diff": null,
+          "Expand": null,
+          "Name": "notes:42, the resource at the centre",
+          "Href": "#"
+        }
+      ],
+      "Edges": [],
+      "Labels": []
+    },
+    "Empty": "No statements about notes:42 are returned to you at position 18417."
+  }
+}

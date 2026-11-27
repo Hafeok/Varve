@@ -223,3 +223,26 @@ request (#187, 2026-10-28).
    The ruling is `GrantReadKeepsClaimTypeAndMatch`.
 
 Nothing is removed (`NothingIsRemoved`).
+
+## Amendment, 2026-11-19 — the data explorer's reads
+
+Filed by the session for Web UI part 2 (#355, under #96), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24. The reads follow ADR 0254.
+
+1. **A streamed answer.** `StartQueryAsync(query, form, options, …)` answers
+   a `QueryAnswer`: the head (facts, the echoed regime as an `Entailment`,
+   the commit time as a `CommitTime`, a SELECT's `VariableName`s) at once,
+   then `ReadSolutionsAsync` or `ReadStatementsAsync` in batches as they
+   arrive. A problem before the body is the result's problem. Disposing the
+   answer closes the response; how it ended is `QueryEnd`. The ruling is
+   `StreamedAnswer`.
+2. **The other reads.** `AskAsync` (an `AskAnswer` with an `AskResult`),
+   `DownloadAsync` (the server's bytes copied to a stream, never held whole),
+   `ReadDiffAsync` (the diff record between two `AsOfSelector`s) and
+   `ServiceDescriptionAsync` (a `DatasetDescription`: the readable graphs,
+   the regimes per graph and the default, `MaxAsOfDistance`, and the report
+   graphs by binding). A selector is the head, a position or an `AsOfTime`.
+   The ruling is `ExplorerReads`.
+3. **Named values.** Each new value on the surface has a name
+   (`Entailment`, `VariableName`, `AsOfTime`, `CommitTime`, `AsOfDistance`),
+   and graphs and regimes are `RdfTerm`s, so no member is a bare string,
+   number or time (DD0013). Nothing is removed.

@@ -47,8 +47,48 @@ public class TelemetryTests
         Assert.Equal(3L, select.GetTagItem("db.response.returned_rows"));
         Assert.Equal(200, select.GetTagItem("http.response.status_code"));
         Assert.Null(select.GetTagItem("db.query.text"));
+        Assert.Null(select.GetTagItem("varve.request.aborted"));
         Assert.Equal(1L, update.GetTagItem("varve.position"));
         Assert.Null(update.GetTagItem("db.query.text"));
+    }
+
+    // ADR 0112, amended 2026-11-20 (D6): a read the client ends before the
+    // server finished it is said on its span and in the log, by request id.
+    [Fact]
+    public async Task a_read_the_client_ends_is_tagged_on_its_span_and_logged_by_request_id()
+    {
+        await using Dataset dataset = await P.NewDatasetAsync();
+        Lines log = new();
+        await using ProtocolTestHost host = await ProtocolTestHost.StartAsync(dataset, stopping: P.Ct, logger: log);
+        using Spans spans = new();
+
+        // A hundred statements; three of them joined are a million rows, more
+        // than any buffer between the server and the client holds.
+        string statements = string.Concat(Enumerable.Range(0, 100).Select(i => "<http://ex/s" + i + "> <http://ex/p> " + i + " . "));
+        await host.Client.SendAsync(P.Update("datasets/d/sparql", "INSERT DATA { " + statements + "}"), P.Ct);
+        string id;
+
+        using (HttpResponseMessage response = await host.Client.SendAsync(P.Query("datasets/d/sparql", "SELECT * { ?a ?p ?b . ?c ?q ?d . ?e ?r ?f }", "text/tab-separated-values"), HttpCompletionOption.ResponseHeadersRead, P.Ct))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            id = response.Headers.GetValues("Varve-Request-Id").Single();
+            await using System.IO.Stream body = await response.Content.ReadAsStreamAsync(P.Ct);
+            Assert.True(await body.ReadAsync(new byte[4096], P.Ct) > 0);
+        }
+
+        // The span stops once the server has noticed and stopped the read.
+        Activity? select = null;
+
+        for (int wait = 0; wait < 200 && select is null; wait++)
+        {
+            select = spans.All.FirstOrDefault(span => span.DisplayName == "SELECT");
+            await Task.Delay(50, P.Ct);
+        }
+
+        Assert.NotNull(select);
+        Assert.Equal(id, select.GetTagItem("varve.request_id"));
+        Assert.Equal(true, select.GetTagItem("varve.request.aborted"));
+        Assert.Contains(log.Written, line => line == "GET /datasets/d/sparql ended by the client before its response did, for request " + id);
     }
 
     [Fact]
@@ -132,6 +172,27 @@ public class TelemetryTests
         Assert.Equal(0L, metrics.Gauge("varve.store.projection.lag", "metered"));
         Assert.True(metrics.Gauge("varve.store.log.bytes", "metered") > 0);
         Assert.True(metrics.Gauge("varve.store.derived.bytes", "metered") > 0);
+    }
+
+    /// <summary>Every line logged at information or above, formatted.</summary>
+    internal sealed class Lines : Microsoft.Extensions.Logging.ILogger
+    {
+        private readonly ConcurrentQueue<string> _written = new();
+
+        internal IReadOnlyCollection<string> Written => _written;
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull => null;
+
+        public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => logLevel >= Microsoft.Extensions.Logging.LogLevel.Information;
+
+        public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (IsEnabled(logLevel))
+            {
+                _written.Enqueue(formatter(state, exception));
+            }
+        }
     }
 
     /// <summary>Every span the source <c>Varve.Protocol</c> finished while this listened.</summary>

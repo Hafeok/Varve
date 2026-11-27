@@ -47,8 +47,14 @@ decisions:
     statement: "Amended 2026-11-19: owl2-rl, or a view, naming by FROM, FROM NAMED, the protocol or GRAPH <g> a graph no binding gives a closure is 400 entailment-unsupported naming the graph; GRAPH ?g over named graphs some of which have no closure is answered, and carries Varve-Without-Closure listing those the caller reads, at most twenty then +N more"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-11-20T00:00:00Z
+  - key: ListsReadFromAssertedStatements
+    statement: "Amended 2026-11-24: the list rules and checks read a list only from asserted statements, a cell being a subject the asserted statements give exactly one rdf:first and one rdf:rest and a list the one chain of cells from a head to rdf:nil with no cell twice; an inferred rdf:first or rdf:rest neither makes nor breaks a list, a cell the TBox graphs make is read as they make it under every data graph, a change to the asserted lists rebuilds the closure, and every other subject of an asserted rdf:first or rdf:rest is reported unread with its reason in the binding's status"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-25T00:00:00Z
 ---
 
 The rulings of [ADR 0197](../adr/0197-owl-2-rl-and-rdfs-as-rules.md), one line each. The ADR is the
 narrative; this is what code cites. Filed unaccepted by Inference, part 2 (#171) (ADR 0066), and accepted by the
 maintainer on 2026-11-20, written by his delegate (ADR 0239).
+`ListsReadFromAssertedStatements` was filed unaccepted on 2026-11-24 by the fix for #399, ADR 0197's amendment of that
+day, and accepted by the maintainer on 2026-11-25, written by his delegate (ADR 0239).

@@ -1,0 +1,248 @@
+{
+  "parameters": {
+    "Id": "gv",
+    "Title": "Neighbourhood of notes:42 at position 18417",
+    "Layout": {
+      "MinX": -370.0656382370192,
+      "MinY": -336.0656382370192,
+      "Width": 753,
+      "Height": 655,
+      "Nodes": [
+        {
+          "X": 0,
+          "Y": 0,
+          "Height": 40,
+          "Label": "notes:42",
+          "Shown": "notes:42",
+          "Kind": "iri",
+          "Centre": true,
+          "Type": "schema:Note",
+          "Diff": null,
+          "Expand": null,
+          "Name": "notes:42, the resource at the centre",
+          "Href": "#"
+        },
+        {
+          "X": 119.320694211435,
+          "Y": -288.0656382370192,
+          "Height": 40,
+          "Label": "users:alice",
+          "Shown": "users:alice",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": "schema:Person",
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:creator → users:alice, outgoing",
+          "Href": "#"
+        },
+        {
+          "X": 288.0656382370192,
+          "Y": -119.32069421143498,
+          "Height": 28,
+          "Label": "\"2026-10-27\"",
+          "Shown": "\"2026-10-27\"",
+          "Kind": "literal",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": null,
+          "Name": "dct:created → \"2026-10-27\", outgoing",
+          "Href": "#"
+        },
+        {
+          "X": 288.0656382370192,
+          "Y": 119.32069421143498,
+          "Height": 28,
+          "Label": "topics:planning",
+          "Shown": "topics:planning",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:subject → topics:planning, outgoing, inferred",
+          "Href": "#"
+        },
+        {
+          "X": 119.320694211435,
+          "Y": 288.0656382370192,
+          "Height": 28,
+          "Label": "topics:sync",
+          "Shown": "topics:sync",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:subject → topics:sync, outgoing",
+          "Href": "#"
+        },
+        {
+          "X": -119.32069421143495,
+          "Y": 288.0656382370192,
+          "Height": 28,
+          "Label": "\"Weekly sync\"@en",
+          "Shown": "\"Weekly sync\"@en",
+          "Kind": "literal",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": null,
+          "Name": "dct:title → \"Weekly sync\"@en, outgoing",
+          "Href": "#"
+        },
+        {
+          "X": -288.0656382370192,
+          "Y": 119.32069421143501,
+          "Height": 28,
+          "Label": "_:b7",
+          "Shown": "_:b7",
+          "Kind": "bnode",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "schema:about → _:b7, outgoing, inferred",
+          "Href": "#"
+        },
+        {
+          "X": -288.0656382370192,
+          "Y": -119.32069421143494,
+          "Height": 28,
+          "Label": "notes:7",
+          "Shown": "notes:7",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:references ← notes:7, incoming",
+          "Href": "#"
+        },
+        {
+          "X": -119.32069421143488,
+          "Y": -288.0656382370192,
+          "Height": 28,
+          "Label": "notes:9",
+          "Shown": "notes:9",
+          "Kind": "iri",
+          "Centre": false,
+          "Type": null,
+          "Diff": null,
+          "Expand": "Expand",
+          "Name": "dct:references ← notes:9, incoming",
+          "Href": "#"
+        }
+      ],
+      "Edges": [
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": 119.320694211435,
+          "Y2": -288.0656382370192,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": 288.0656382370192,
+          "Y2": -119.32069421143498,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": 288.0656382370192,
+          "Y2": 119.32069421143498,
+          "Kind": "inferred"
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": 119.320694211435,
+          "Y2": 288.0656382370192,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -119.32069421143495,
+          "Y2": 288.0656382370192,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -288.0656382370192,
+          "Y2": 119.32069421143501,
+          "Kind": "inferred"
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -288.0656382370192,
+          "Y2": -119.32069421143494,
+          "Kind": null
+        },
+        {
+          "X1": 0,
+          "Y1": 0,
+          "X2": -119.32069421143488,
+          "Y2": -288.0656382370192,
+          "Kind": null
+        }
+      ],
+      "Labels": [
+        {
+          "X": 101.4219103600822,
+          "Y": -244.8541515130987,
+          "Text": "dct:creator",
+          "Kind": null
+        },
+        {
+          "X": 215.40516163987542,
+          "Y": -89.22373935640516,
+          "Text": "dct:created",
+          "Kind": null
+        },
+        {
+          "X": 184.42117356133957,
+          "Y": 76.38975127786932,
+          "Text": "dct:subject · inferred",
+          "Kind": null
+        },
+        {
+          "X": 103.90719173432078,
+          "Y": 250.85415151309874,
+          "Text": "dct:subject",
+          "Kind": null
+        },
+        {
+          "X": -104.87373935640512,
+          "Y": 253.18760389101436,
+          "Text": "dct:title",
+          "Kind": null
+        },
+        {
+          "X": -181.6044473723818,
+          "Y": 75.22302508891156,
+          "Text": "schema:about · inferred",
+          "Kind": null
+        },
+        {
+          "X": -206.95498307300198,
+          "Y": -85.72356078953172,
+          "Text": "dct:references",
+          "Kind": null
+        },
+        {
+          "X": -102.45737030119409,
+          "Y": -247.35397294622533,
+          "Text": "dct:references",
+          "Kind": null
+        }
+      ]
+    }
+  }
+}

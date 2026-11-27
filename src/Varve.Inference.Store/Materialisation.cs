@@ -268,6 +268,23 @@ internal abstract class Materialisation
         return clashes;
     }
 
+    /// <summary>
+    /// The cells of asserted lists the rules do not read (ADR 0197, amended
+    /// 2026-11-24), each under the graph whose statements make it unread; the
+    /// TBox closure's under its graph.
+    /// </summary>
+    internal IReadOnlyList<PlacedUnreadList> UnreadLists()
+    {
+        List<PlacedUnreadList> unread = [];
+        foreach (UnreadList list in TBox.UnreadLists())
+        {
+            unread.Add(new PlacedUnreadList(TBoxGraph, list));
+        }
+
+        DataUnreadLists(unread);
+        return unread;
+    }
+
     /// <summary>Gives every closure's facts back to the budget.</summary>
     internal virtual void Release()
     {
@@ -291,6 +308,8 @@ internal abstract class Materialisation
     protected abstract IEnumerable<(TermHandle Graph, Fact Fact)> DataRows();
 
     protected abstract void DataClashes(List<PlacedClash> into);
+
+    protected abstract void DataUnreadLists(List<PlacedUnreadList> into);
 
     protected void Dropped(TermHandle graph) => _dropped.Add(graph);
 
@@ -443,6 +462,17 @@ internal sealed class PerGraphMaterialisation(ProjectionTerms terms, InferencePr
                 {
                     yield return (graph, fact);
                 }
+            }
+        }
+    }
+
+    protected override void DataUnreadLists(List<PlacedUnreadList> into)
+    {
+        foreach ((TermHandle graph, Closure closure) in _graphs)
+        {
+            foreach (UnreadList list in closure.UnreadLists())
+            {
+                into.Add(new PlacedUnreadList(graph, list));
             }
         }
     }

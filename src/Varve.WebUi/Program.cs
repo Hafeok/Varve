@@ -14,6 +14,8 @@ using Microsoft.JSInterop;
 using Varve.Protocol.Client;
 using Varve.WebUi;
 using Varve.WebUi.App;
+using Varve.WebUi.Components;
+using Varve.WebUi.Components.Pages.Services;
 using Varve.WebUi.Pages.Services;
 using Varve.WebUi.SignIn;
 

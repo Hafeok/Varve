@@ -1,0 +1,6 @@
+<div class="vw-field"><label for="q">Query</label><div class="vw-editor"><div class="vw-editor__gutter" aria-hidden="true"><span>1</span><span>2</span><span>3</span></div><div class="vw-editor__layers"><pre class="vw-editor__code" aria-hidden="true"><span class="vw-tok vw-tok--keyword">SELECT</span> <span class="vw-tok vw-tok--variable">?note</span> <span class="vw-tok vw-tok--keyword">WHERE</span> <span class="vw-tok vw-tok--punct">{</span>
+  <span class="vw-tok vw-tok--keyword">FILTER</span> <span class="vw-tok vw-tok--punct vw-tok--match">(</span><span class="vw-tok vw-tok--keyword">LANG</span><span class="vw-tok vw-tok--punct">(</span><span class="vw-tok vw-tok--variable">?title</span><span class="vw-tok vw-tok--punct">)</span> <span class="vw-tok vw-tok--punct">=</span> <span class="vw-tok vw-tok--literal">&quot;en&quot;</span><span class="vw-tok vw-tok--punct vw-tok--match">)</span>
+<span class="vw-tok vw-tok--punct">}</span>
+</pre><textarea class="vw-editor__input" id="q" rows="3" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="q-help">SELECT ?note WHERE {
+  FILTER (LANG(?title) = &quot;en&quot;)
+}</textarea></div></div><span class="vw-field__help" id="q-help">Tab inserts two spaces. Press Escape, then Tab, to leave the editor.</span></div>

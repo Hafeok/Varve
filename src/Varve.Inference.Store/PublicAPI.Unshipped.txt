@@ -50,3 +50,20 @@ Varve.Inference.Store.InferenceProjection.ClosurePeak.get -> Varve.Inference.Mod
 static Varve.Inference.Store.Model.InferenceOptions.TermBytes.get -> Varve.Inference.Model.MemoryAmount
 static Varve.Inference.Store.InferenceProjection.IsStorageFailure(System.Exception! error) -> bool
 Varve.Inference.Store.InferenceProjection.Refuse() -> void
+Varve.Inference.Store.InferenceProjection.UnreadLists() -> System.Collections.Generic.IReadOnlyList<Varve.Inference.Store.Model.NamedUnreadList!>!
+Varve.Inference.Store.Model.NamedUnreadList
+Varve.Inference.Store.Model.NamedUnreadList.<Clone>$() -> Varve.Inference.Store.Model.NamedUnreadList!
+Varve.Inference.Store.Model.NamedUnreadList.Cell.get -> Varve.Rdf.RdfTerm!
+Varve.Inference.Store.Model.NamedUnreadList.Cell.init -> void
+Varve.Inference.Store.Model.NamedUnreadList.Deconstruct(out Varve.Rdf.RdfTerm! Graph, out Varve.Rdf.RdfTerm! Cell, out Varve.Inference.Model.UnreadListReason Reason) -> void
+Varve.Inference.Store.Model.NamedUnreadList.Equals(Varve.Inference.Store.Model.NamedUnreadList? other) -> bool
+Varve.Inference.Store.Model.NamedUnreadList.Graph.get -> Varve.Rdf.RdfTerm!
+Varve.Inference.Store.Model.NamedUnreadList.Graph.init -> void
+Varve.Inference.Store.Model.NamedUnreadList.NamedUnreadList(Varve.Rdf.RdfTerm! Graph, Varve.Rdf.RdfTerm! Cell, Varve.Inference.Model.UnreadListReason Reason) -> void
+Varve.Inference.Store.Model.NamedUnreadList.Reason.get -> Varve.Inference.Model.UnreadListReason
+Varve.Inference.Store.Model.NamedUnreadList.Reason.init -> void
+override Varve.Inference.Store.Model.NamedUnreadList.Equals(object? obj) -> bool
+override Varve.Inference.Store.Model.NamedUnreadList.GetHashCode() -> int
+override Varve.Inference.Store.Model.NamedUnreadList.ToString() -> string!
+static Varve.Inference.Store.Model.NamedUnreadList.operator !=(Varve.Inference.Store.Model.NamedUnreadList? left, Varve.Inference.Store.Model.NamedUnreadList? right) -> bool
+static Varve.Inference.Store.Model.NamedUnreadList.operator ==(Varve.Inference.Store.Model.NamedUnreadList? left, Varve.Inference.Store.Model.NamedUnreadList? right) -> bool

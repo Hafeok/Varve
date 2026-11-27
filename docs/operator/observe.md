@@ -85,6 +85,7 @@ where they do not.
 | `varve.position` | the position the response describes: the view's for a read, the committed one for a write |
 | `varve.as_of` | the `Varve-As-Of` selector as sent, when there was one |
 | `varve.azp` | the application that acted for the caller: the token's `Auth:ApplicationClaim` (`azp`), for a token exchanged on a user's behalf as for an application's own (ADR 0127); never in the log or the logger |
+| `varve.request.aborted` | `true` on a read the client ended before the server finished it: a cancel, a closed tab, or the explorer's 5,000-row ceiling (ADR 0112, amended 2026-11-20); absent otherwise |
 | `http.response.status_code` | the status; the span's status is an error at `5xx` |
 
 W3C Trace Context is honoured: a `traceparent` on the request makes the span
@@ -128,11 +129,12 @@ queue and rejections, ADR 0114), `System.Net.Http` (outbound `SERVICE` and
 
 `ILogger`, as any .NET host: the console by default, with
 `Logging:LogLevel:*` as the configuration, and the OTLP log exporter beside
-it when the exporter is on. The protocol logs two events, category
+it when the exporter is on. The protocol logs three events, category
 `Varve.Protocol`, at Information:
 
 - a commit: `{Operation} on '{Dataset}' committed position {Position} for request {RequestId}`;
-- a refusal: `{Method} {Path} answered {Status} for request {RequestId}`.
+- a refusal: `{Method} {Path} answered {Status} for request {RequestId}`;
+- a read the client ended: `{Method} {Path} ended by the client before its response did, for request {RequestId}`.
 
 ASP.NET Core's hosting scope carries `RequestId` and `RequestPath` for each
 line a request writes, but neither the console formatter nor the OTLP log

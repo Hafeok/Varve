@@ -1,0 +1,30 @@
+@* NodeBudget (docs/ui/components/NodeBudget): the graph view's budget line.
+   Over budget, it says how many nodes were left out and offers the table. *@
+@if (Total <= Shown)
+{
+<p class="vw-budget" role="status">@Count(Total) nodes, within the budget of @Count(Budget).</p>
+}
+else
+{
+<p class="vw-budget vw-budget--over" role="status">@Count(Shown) of @Count(Total) nodes shown, @Count(Total - Shown) left out. <a href="@TableHref">Show the table</a></p>
+}
+
+@code {
+    /// <summary>The nodes drawn.</summary>
+    [Parameter, EditorRequired]
+    public int Shown { get; set; }
+
+    /// <summary>The nodes the neighbourhood has.</summary>
+    [Parameter, EditorRequired]
+    public int Total { get; set; }
+
+    /// <summary>The node budget.</summary>
+    [Parameter, EditorRequired]
+    public int Budget { get; set; }
+
+    /// <summary>The same statements as a table.</summary>
+    [Parameter, EditorRequired]
+    public string TableHref { get; set; } = "";
+
+    private static string Count(int value) => value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+}

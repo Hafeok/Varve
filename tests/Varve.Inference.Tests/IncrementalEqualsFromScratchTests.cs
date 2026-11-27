@@ -27,6 +27,9 @@ public class IncrementalEqualsFromScratchTests
     private static readonly int Histories = Long ? 400 : 40;
     private static readonly int Commits = Long ? 200 : 60;
 
+    // The vocabulary as data rebuilds a near-complete closure from scratch at every commit, so its histories are shorter.
+    private static readonly int VocabularyCommits = Long ? 40 : 16;
+
     private static readonly RdfTerm[] Individuals = [Named("a"), Named("b"), Named("c")];
     private static readonly RdfTerm[] Classes = [Named("C1"), Named("C2"), Named("C3")];
     private static readonly RdfTerm[] Properties = [Named("p1"), Named("p2"), Named("p3")];
@@ -47,12 +50,34 @@ public class IncrementalEqualsFromScratchTests
 
     private static readonly RdfTerm[] Nodes = [.. Individuals, .. Classes, .. Properties, .. Schema, .. Vocab];
 
-    /// <summary>A triple: mostly data and schema, now and then one about the vocabulary itself.</summary>
+    /// <summary>
+    /// A triple of data and schema over the graph's own terms: no axiom has
+    /// an RDF, RDFS or OWL term as its subject or object, so the vocabulary
+    /// is never data and no closure grows dense through it (#399). The
+    /// vocabulary as data is <see cref="VocabularyTriple"/>'s, over few terms.
+    /// </summary>
     internal static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> Triple = Gen.Frequency(
         (6, Gen.Select(Gen.OneOfConst(Individuals), Gen.OneOfConst(Properties), Gen.OneOfConst([.. Individuals, .. Literals]))),
         (4, Gen.Select(Gen.OneOfConst(Individuals), Gen.Const(Schema[0]), Gen.OneOfConst(Classes))),
-        (4, Gen.Select(Gen.OneOfConst([.. Classes, .. Properties]), Gen.OneOfConst(Schema[1..]), Gen.OneOfConst([.. Classes, .. Properties]))),
-        (1, Gen.Select(Gen.OneOfConst(Nodes), Gen.OneOfConst([.. Properties, .. Schema, Vocab[7]]), Gen.OneOfConst([.. Nodes, .. Literals]))));
+        (4, Gen.Select(Gen.OneOfConst([.. Classes, .. Properties]), Gen.OneOfConst(Schema[1..]), Gen.OneOfConst([.. Classes, .. Properties]))));
+
+    // The few terms the vocabulary as data is drawn over: one individual, one class and one property beside the vocabulary.
+    private static readonly RdfTerm[] OneIndividual = [Named("a")];
+    private static readonly RdfTerm[] OneClass = [Named("C1")];
+    private static readonly RdfTerm[] OneProperty = [Named("p1")];
+    private static readonly RdfTerm[] FewVocabulary = [IriOf(RdfsNs + "Resource"), IriOf(RdfsNs + "Class"), IriOf(RdfNs + "Property"), IriOf(RdfsNs + "member"), IriOf(RdfNs + "_1")];
+    private static readonly RdfTerm[] FewNodes = [.. OneIndividual, .. OneClass, .. OneProperty, .. Schema, .. FewVocabulary];
+
+    /// <summary>
+    /// A triple with the vocabulary as data: RDF and RDFS terms as subjects
+    /// and objects of schema axioms (meta-modelling), over a universe of
+    /// terms small enough that a complete closure finishes in seconds.
+    /// </summary>
+    internal static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> VocabularyTriple = Gen.Frequency(
+        (2, Gen.Select(Gen.OneOfConst(OneIndividual), Gen.OneOfConst(OneProperty), Gen.OneOfConst([.. OneIndividual, .. Literals]))),
+        (2, Gen.Select(Gen.OneOfConst(OneIndividual), Gen.Const(Schema[0]), Gen.OneOfConst(OneClass))),
+        (2, Gen.Select(Gen.OneOfConst([.. OneClass, .. OneProperty]), Gen.OneOfConst(Schema[1..]), Gen.OneOfConst([.. OneClass, .. OneProperty]))),
+        (4, Gen.Select(Gen.OneOfConst(FewNodes), Gen.OneOfConst([.. OneProperty, .. Schema, FewVocabulary[4]]), Gen.OneOfConst([.. FewNodes, Literals[0]]))));
 
     private const string OwlNs = "http://www.w3.org/2002/07/owl#";
 
@@ -88,9 +113,57 @@ public class IncrementalEqualsFromScratchTests
         (3, Gen.Select(Gen.OneOfConst(Cells), Gen.Const(IriOf(RdfNs + "rest")), Gen.OneOfConst([.. Cells, Nil, Nil]))),
         (2, Gen.Select(Gen.OneOfConst([.. Classes, .. Properties]), Gen.OneOfConst(ListAxioms), Gen.OneOfConst(Cells))));
 
+    private static readonly RdfTerm[] OneRestriction = [Named("R1")];
+    private static readonly RdfTerm[] OneCell = [Named("L1")];
+    private static readonly RdfTerm[] OwlVocabulary = [OwlTypes[0], OwlTypes[1], OwlPairs[0], OwlPairs[2], IriOf(OwlNs + "Thing")];
+
+    /// <summary>
+    /// OWL's axioms with OWL's vocabulary as data, over few terms: OWL terms
+    /// as the subjects and objects of axioms, over one individual, class,
+    /// property, restriction and list cell. RDF and RDFS terms are not drawn
+    /// as data here: under OWL 2 RL they join the profile's whole axiomatic
+    /// vocabulary into one complete closure of 48 terms, 110,592 facts, which
+    /// takes tens of seconds from scratch (#408).
+    /// </summary>
+    internal static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> VocabularyOwlTriple = Gen.Frequency(
+        (2, Gen.Select(Gen.OneOfConst(OneIndividual), Gen.OneOfConst(OneProperty), Gen.OneOfConst([.. OneIndividual, .. Literals]))),
+        (2, Gen.Select(Gen.OneOfConst(OneIndividual), Gen.Const(Schema[0]), Gen.OneOfConst(OneClass))),
+        (2, Gen.Select(Gen.OneOfConst([.. OneClass, .. OneProperty]), Gen.OneOfConst(Schema[1..]), Gen.OneOfConst([.. OneClass, .. OneProperty]))),
+        (2, Gen.Select(Gen.OneOfConst(OneProperty), Gen.Const(Schema[0]), Gen.OneOfConst(OwlTypes))),
+        (2, Gen.Select(Gen.OneOfConst([.. OneClass, .. OneProperty]), Gen.OneOfConst(OwlPairs), Gen.OneOfConst([.. OneClass, .. OneProperty]))),
+        (1, Gen.Select(Gen.OneOfConst(OneRestriction), Gen.Const(IriOf(OwlNs + "onProperty")), Gen.OneOfConst(OneProperty))),
+        (1, Gen.Select(Gen.OneOfConst(OneRestriction), Gen.OneOfConst([IriOf(OwlNs + "someValuesFrom"), IriOf(OwlNs + "allValuesFrom")]), Gen.OneOfConst([.. OneClass, IriOf(OwlNs + "Thing")]))),
+        (1, Gen.Select(Gen.OneOfConst(OneIndividual), Gen.Const(Schema[0]), Gen.OneOfConst(OneRestriction))),
+        (2, Gen.Select(Gen.OneOfConst(OneCell), Gen.Const(IriOf(RdfNs + "first")), Gen.OneOfConst([.. OneClass, .. OneProperty, .. OneIndividual]))),
+        (2, Gen.Select(Gen.OneOfConst(OneCell), Gen.Const(IriOf(RdfNs + "rest")), Gen.OneOfConst([.. OneCell, Nil, Nil]))),
+        (1, Gen.Select(Gen.OneOfConst([.. OneClass, .. OneProperty]), Gen.OneOfConst(ListAxioms), Gen.OneOfConst(OneCell))),
+        (4, Gen.Select(Gen.OneOfConst([.. OneClass, .. OneProperty, .. OwlVocabulary]), Gen.OneOfConst([.. Schema[1..], .. OwlPairs]), Gen.OneOfConst([.. OneClass, .. OneProperty, .. OwlVocabulary]))));
+
+    /// <summary>The generators of <c>main</c> at 693c328a, which drew #399's seeds: a fixed seed replays only the generator it was drawn by.</summary>
+    private static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> TripleOf399 = Gen.Frequency(
+        (6, Gen.Select(Gen.OneOfConst(Individuals), Gen.OneOfConst(Properties), Gen.OneOfConst([.. Individuals, .. Literals]))),
+        (4, Gen.Select(Gen.OneOfConst(Individuals), Gen.Const(Schema[0]), Gen.OneOfConst(Classes))),
+        (4, Gen.Select(Gen.OneOfConst([.. Classes, .. Properties]), Gen.OneOfConst(Schema[1..]), Gen.OneOfConst([.. Classes, .. Properties]))),
+        (1, Gen.Select(Gen.OneOfConst(Nodes), Gen.OneOfConst([.. Properties, .. Schema, Vocab[7]]), Gen.OneOfConst([.. Nodes, .. Literals]))));
+
+    private static readonly Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> OwlTripleOf399 = Gen.Frequency(
+        (10, TripleOf399),
+        (2, Gen.Select(Gen.OneOfConst(Properties), Gen.Const(Schema[0]), Gen.OneOfConst(OwlTypes))),
+        (2, Gen.Select(Gen.OneOfConst([.. Classes, .. Properties]), Gen.OneOfConst(OwlPairs), Gen.OneOfConst([.. Classes, .. Properties]))),
+        (2, Gen.Select(Gen.OneOfConst(Restrictions), Gen.Const(IriOf(OwlNs + "onProperty")), Gen.OneOfConst(Properties))),
+        (2, Gen.Select(Gen.OneOfConst(Restrictions), Gen.OneOfConst([IriOf(OwlNs + "someValuesFrom"), IriOf(OwlNs + "allValuesFrom")]), Gen.OneOfConst([.. Classes, IriOf(OwlNs + "Thing")]))),
+        (1, Gen.Select(Gen.OneOfConst(Restrictions), Gen.Const(IriOf(OwlNs + "hasValue")), Gen.OneOfConst(Individuals))),
+        (1, Gen.Select(Gen.OneOfConst(Restrictions), Gen.Const(IriOf(OwlNs + "maxCardinality")), Gen.Const(RdfTerm.Literal("1"u8, IriOf(XsdNs + "nonNegativeInteger"))))),
+        (2, Gen.Select(Gen.OneOfConst(Individuals), Gen.Const(Schema[0]), Gen.OneOfConst(Restrictions))),
+        (3, Gen.Select(Gen.OneOfConst(Cells), Gen.Const(IriOf(RdfNs + "first")), Gen.OneOfConst([.. Classes, .. Properties, .. Individuals]))),
+        (3, Gen.Select(Gen.OneOfConst(Cells), Gen.Const(IriOf(RdfNs + "rest")), Gen.OneOfConst([.. Cells, Nil, Nil]))),
+        (2, Gen.Select(Gen.OneOfConst([.. Classes, .. Properties]), Gen.OneOfConst(ListAxioms), Gen.OneOfConst(Cells))));
+
     /// <summary>A history: each commit asserts some triples and retracts some explicit ones, chosen by index.</summary>
-    private static Gen<(int Seed, (RdfTerm S, RdfTerm P, RdfTerm O)[][] Commits)> History(Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> triple) =>
-        Gen.Select(Gen.Int, triple.Array[1, 4].Array[Commits / 2, Commits]);
+    private static Gen<(int Seed, (RdfTerm S, RdfTerm P, RdfTerm O)[][] Commits)> History(Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> triple, int commits) =>
+        Gen.Select(Gen.Int, triple.Array[1, 4].Array[commits / 2, commits]);
+
+    private static Gen<(int Seed, (RdfTerm S, RdfTerm P, RdfTerm O)[][] Commits)> History(Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> triple) => History(triple, Commits);
 
     [Fact]
     public void delete_and_rederive_equals_from_scratch_at_every_commit() => Holds(InferenceProfile.Rdfs, Retraction.DeleteAndRederive);
@@ -125,10 +198,27 @@ public class IncrementalEqualsFromScratchTests
     [InlineData(InferenceProfile.Rdfs, "RecursiveCounting")]
     [InlineData(InferenceProfile.Owl2Rl, "DeleteAndRederive")]
     [InlineData(InferenceProfile.Owl2Rl, "RecursiveCounting")]
-    public void a_closure_over_a_tbox_beneath_equals_from_scratch_at_every_commit(InferenceProfile profile, string strategyName)
+    public void a_closure_over_a_tbox_beneath_equals_from_scratch_at_every_commit(InferenceProfile profile, string strategyName) =>
+        Beneath(profile, strategyName, profile == InferenceProfile.Rdfs ? Triple : OwlTriple, seed: null);
+
+    /// <summary>
+    /// #399: the seed of the property above, drawn by <c>main</c>'s generator
+    /// at 693c328a, whose history made the closure's nodes a dense graph of
+    /// inferred <c>rdf:first</c> and <c>rdf:rest</c>, on which the list
+    /// rules, reading every path, ran out of memory there. Read from the
+    /// asserted statements (ADR 0197, amended 2026-11-24), the history holds
+    /// at every commit. #399's other seed, <c>eGI5Cz8BVtI1</c>, reads no list
+    /// after the fix, and its closure's work is #408's.
+    /// </summary>
+    [Theory]
+    [InlineData("akRsD4X_QWj2", "DeleteAndRederive")]
+    [InlineData("akRsD4X_QWj2", "RecursiveCounting")]
+    public void The_seed_of_399_holds_over_a_tbox_beneath(string seed, string strategyName) =>
+        Beneath(InferenceProfile.Owl2Rl, strategyName, OwlTripleOf399, seed);
+
+    private static void Beneath(InferenceProfile profile, string strategyName, Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> triple, string? seed)
     {
         Retraction strategy = Strategies.Named(strategyName);
-        Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> triple = profile == InferenceProfile.Rdfs ? Triple : OwlTriple;
         Gen.Select(triple.Array[0, 8], History(triple)).Sample(sample =>
         {
             Terms terms = new();
@@ -159,23 +249,57 @@ public class IncrementalEqualsFromScratchTests
                 closure.Apply([.. asserted], [.. retracted]);
                 data.ExceptWith(retracted);
                 data.UnionWith(asserted);
-                HashSet<Fact> expected = FromScratch(program, [.. tbox, .. data]);
+                // From scratch as the projection builds it: the data's closure over the TBox's, each from scratch.
+                HashSet<Fact> expected = FromScratchOver(program, tbox, data);
                 HashSet<Fact> actual = [.. closure.All];
+
+                // A data graph that asserts nothing differing about a TBox list's cell (ADR 0197, amended 2026-11-24) is also the closure of the TBox's and its triples together.
+                if (!closure.UnreadLists().Any(u => u.Reason == UnreadListReason.DiffersFromTBox))
+                {
+                    Assert.True(FromScratch(program, [.. tbox, .. data]).SetEquals(expected), $"{profile}: the layered closure differs from the closure of the union");
+                }
+
                 Assert.True(expected.SetEquals(actual), $"{profile}, {strategy}: missing {expected.Except(actual).Count()}, extra {actual.Except(expected).Count()}");
                 Assert.True(frozen.SetEquals(beneath.All), "the TBox closure beneath changed");
             }
-        }, iter: Long ? 100 : 15, threads: 1);
+        }, seed: seed, iter: seed is not null ? 1 : Long ? 100 : 15, threads: 1);
     }
 
     /// <summary>The naive oracle recomputes a whole closure per round, so its OWL 2 RL case runs fewer histories.</summary>
     private static readonly int NaiveHistories = Long ? 40 : 8;
 
+    /// <summary>
+    /// ADR 0195 point 9 with the vocabulary as data (#399): RDF, RDFS and OWL
+    /// terms as the subjects and objects of axioms, which can make every
+    /// term relate to every other, over one individual, one class, one
+    /// property, one restriction and one list cell beside the vocabulary, so
+    /// a closure that grows complete still finishes in seconds.
+    /// </summary>
+    [Theory]
+    [InlineData(InferenceProfile.Rdfs, "DeleteAndRederive")]
+    [InlineData(InferenceProfile.Owl2Rl, "DeleteAndRederive")]
+    [InlineData(InferenceProfile.Owl2Rl, "RecursiveCounting")]
+    public void with_the_vocabulary_as_data_incremental_equals_from_scratch_at_every_commit(InferenceProfile profile, string strategyName) =>
+        Holds(profile, Strategies.Named(strategyName), profile == InferenceProfile.Rdfs ? VocabularyTriple : VocabularyOwlTriple, VocabularyCommits);
+
     private static void Holds(InferenceProfile profile, Retraction strategy) =>
-        History(profile == InferenceProfile.Rdfs ? Triple : OwlTriple)
+        Holds(profile, strategy, profile == InferenceProfile.Rdfs ? Triple : OwlTriple, Commits);
+
+    private static void Holds(InferenceProfile profile, Retraction strategy, Gen<(RdfTerm S, RdfTerm P, RdfTerm O)> triple, int commits) =>
+        History(triple, commits)
             .Sample(
                 history => Check(profile, strategy, history.Seed, history.Commits),
                 iter: profile == InferenceProfile.Owl2Rl && strategy == Retraction.FromScratch ? NaiveHistories : Histories,
                 threads: 1);
+
+    private static HashSet<Fact> FromScratchOver(Program program, Fact[] tbox, HashSet<Fact> data)
+    {
+        Closure beneath = new(program, Retraction.FromScratch);
+        beneath.Apply(tbox, []);
+        Closure fresh = new(program, Retraction.FromScratch, budget: null, tbox: beneath);
+        fresh.Apply([.. data], []);
+        return [.. fresh.All];
+    }
 
     private static HashSet<Fact> FromScratch(Program program, HashSet<Fact> explicitFacts)
     {

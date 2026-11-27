@@ -1,0 +1,15 @@
+{
+  "parameters": {
+    "Id": "f-regime-d",
+    "Label": "Entailment",
+    "Options": [
+      {
+        "Value": "simple",
+        "Text": "simple"
+      }
+    ],
+    "Selected": "simple",
+    "Disabled": true,
+    "Help": "No TBox binding covers this dataset's graphs."
+  }
+}

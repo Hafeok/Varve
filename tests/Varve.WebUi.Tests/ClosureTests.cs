@@ -32,7 +32,8 @@ public class ClosureTests
             string name = Path.GetFileNameWithoutExtension(project);
             string assets = Path.Combine(Path.GetDirectoryName(project)!, "obj", "project.assets.json");
 
-            if (name == "Varve.WebUi" || !File.Exists(assets))
+            // The Web UI's host and its two private assemblies (ADR 0252).
+            if (WebUi.Contains(name) || !File.Exists(assets))
             {
                 continue;
             }
@@ -55,6 +56,8 @@ public class ClosureTests
         Assert.Contains("Varve.Server", checkedProjects);
         Assert.Empty(findings);
     }
+
+    private static readonly string[] WebUi = ["Varve.WebUi", "Varve.WebUi.Components", "Varve.WebUi.Explorer"];
 
     [Fact]
     public void The_web_ui_itself_has_blazor_in_its_closure()

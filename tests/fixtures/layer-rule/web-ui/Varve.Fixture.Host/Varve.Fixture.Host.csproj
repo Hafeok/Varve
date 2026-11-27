@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- ADR 0252: the host at layer 8, referencing its explorer (7) and its
+       components (6). Downward, and therefore legal. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <ArchLayer>8</ArchLayer>
+    <ArchCompositionRoot>true</ArchCompositionRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Varve.Fixture.Explorer/Varve.Fixture.Explorer.csproj" />
+    <ProjectReference Include="../Varve.Fixture.Components/Varve.Fixture.Components.csproj" />
+  </ItemGroup>
+</Project>
