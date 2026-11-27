@@ -23,6 +23,22 @@ namespace Varve.Store.Tests.Objects;
 /// </summary>
 internal sealed class ObjectHarness : IAsyncDisposable
 {
+    /// <summary>Every object's bytes now, by name. A name deleted between the listing and the read is left out.</summary>
+    public Dictionary<string, byte[]> Snapshot()
+    {
+        Dictionary<string, byte[]> all = new(StringComparer.Ordinal);
+
+        foreach (string name in Store.Names())
+        {
+            if (Store.Get(name) is { } bytes)
+            {
+                all[name] = bytes;
+            }
+        }
+
+        return all;
+    }
+
     private readonly List<string> _caches = [];
     private readonly List<Backend> _opened = [];
     private int _instances;

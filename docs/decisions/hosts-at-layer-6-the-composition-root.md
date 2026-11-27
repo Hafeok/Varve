@@ -27,6 +27,14 @@ decisions:
     statement: "A host may be a browser application published as static files and never packed; it declares VarveShipped so the native-asset gate walks its closure, and its framework packages are scoped to it in the register"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-28T00:00:00Z
+  - key: HostLayersSixToEight
+    statement: "The host layers are 6 and up and a layer is 0 to 8: a host with private assemblies stacks them below itself at their own layers, and every other host stays at 6"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-24T00:00:00Z
+  - key: PrivateAssembliesOfAHost
+    statement: "A library at a host layer is a host's private assembly, never packed, naming its host in VarveHostPartOf, part of its composition root; ArchCompositionRoot is true exactly at the host layers"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-24T00:00:00Z
 ---
 
 The rulings of [ADR 0060](../adr/0060-hosts-at-layer-6-the-composition-root.md) still in force, one line each. The ADR is the

@@ -194,6 +194,7 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
             throw new InvalidOperationException("This storage holds an epoch already; only a read-only open claims in place.");
         }
 
+        await RefuseAReplicaAsync(_store, _names, cancellationToken).ConfigureAwait(false);
         await ProbeAsync(_store, _names, randomness, _clock, cancellationToken).ConfigureAwait(false);
         (WriterRecord? record, ObjectVersion? version) = await ClaimAsync(_store, _names, instance, address, trigger, from, _clock, cancellationToken).ConfigureAwait(false);
         Writer = record;
@@ -218,6 +219,169 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
         return !IsSuperseded;
     }
 
+    /// <summary>
+    /// A follower's storage promotes the replica it follows and becomes its
+    /// writer's, in place (ADR 0185 decision 4). In order: the lineage record
+    /// is replaced with <c>promoted</c>, recording the verified tail; the
+    /// writer record is claimed with the trigger <c>promotion</c>, at one
+    /// above the highest of the record's epoch, the highest epoch in any
+    /// adopted chunk, and the epoch in the catalog's wrapper; the log and
+    /// the catalog are fenced. The host then applies what the fence adopted
+    /// and calls <see cref="CompletePromotionAsync"/>, which is the
+    /// promotion's last write.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Promoting again is idempotent on the same lineage (decision 6): a
+    /// lineage <c>promoted</c> with no fence, at the position the request
+    /// names, is kept as it is, and the claim and the fence are made. A
+    /// promotion that wins the record and then fails releases with the
+    /// reason <c>promotion</c>, which starts no standby race.
+    /// </para>
+    /// <para>
+    /// A shipper that was mid-round when the lineage was replaced may create
+    /// chunks before the fence is written. The fence adopts them. A chunk it
+    /// tries to create at the fence slot or after finds other bytes there,
+    /// and it stops as diverged.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">This storage was opened for write.</exception>
+    /// <exception cref="ConditionalWritesNotEnforcedException">The store does not enforce conditional writes.</exception>
+    [DesignDecision(typeof(PromotionAcrossCopies.PromotionIsAnsweredByAWarmMemberOfTheTargetFleet), Scope = ExceptionScope.Boundary)]
+    public async ValueTask<PromotionOutcome> PromoteInPlaceAsync(PromotionRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (_log.Writes)
+        {
+            throw new InvalidOperationException("This storage holds an epoch already; only a read-only open promotes in place.");
+        }
+
+        if (await ConditionalWrites.ReadWholeAsync(_store, _names.Lineage, cancellationToken).ConfigureAwait(false) is not { } read
+            || LineageRecordFormat.Read(read.Bytes.Span) is not { Understood: true, Source: { } source } lineage)
+        {
+            // None, or one this build does not read, which is never written on (ADR 0217).
+            return PromotionOutcome.NotAReplica;
+        }
+
+        if (source.Store != request.Source)
+        {
+            return PromotionOutcome.SourceMismatch;
+        }
+
+        // A first promotion keeps what the operator states, checked against the tail this instance replayed. One
+        // that completes an earlier attempt is the same request again: the position that attempt recorded.
+        if (lineage.Promoted is { } attempted ? attempted.Position != request.Expected : request.Expected != request.Verified)
+        {
+            return PromotionOutcome.PositionMismatch;
+        }
+
+        if (lineage.Promoted is { Fence: not null })
+        {
+            // Promoted and finished: there is nothing to promote.
+            return PromotionOutcome.NotAReplica;
+        }
+
+        await ProbeAsync(_store, _names, request.Randomness, _clock, cancellationToken).ConfigureAwait(false);
+        ObjectRead? writer = await ConditionalWrites.ReadWholeAsync(_store, _names.Writer, cancellationToken).ConfigureAwait(false);
+        WriterRecord? current = writer is null ? null : WriterRecordFormat.Read(writer.Bytes.Span);
+        long highest = Math.Max(current?.Epoch.Value ?? 0, Math.Max(_log.AdoptedEpoch, await _derived.CatalogEpochAsync(cancellationToken).ConfigureAwait(false)));
+        WriterEpoch epoch = new(highest + 1);
+
+        if (lineage.Promoted is null)
+        {
+            LineageRecord promoted = lineage with
+            {
+                State = LineageState.Promoted,
+                Promoted = new LineagePromotion { Epoch = epoch, Position = request.Verified, Hash = request.Hash, At = new ClaimTime(_clock.GetUtcNow()), By = request.Instance },
+            };
+
+            if (await ConditionalWrites.ReplaceAsync(_store, _names.Lineage, read.Version, LineageRecordFormat.Write(promoted), _clock, cancellationToken).ConfigureAwait(false) is null)
+            {
+                return PromotionOutcome.Lost;
+            }
+        }
+
+        (WriterRecord? record, ObjectVersion? version) = await ClaimAsync(_store, _names, request.Instance, request.Address, ClaimTrigger.Promotion, current?.Epoch, _clock, cancellationToken, epoch).ConfigureAwait(false);
+        Writer = record;
+
+        if (version is null)
+        {
+            return PromotionOutcome.Lost;
+        }
+
+        _recordVersion = version;
+        Holder = request.Instance;
+        Announcing = ReaderAnnouncing.Required;
+
+        try
+        {
+            await _log.ClaimInPlaceAsync(record!.Epoch.Value, cancellationToken).ConfigureAwait(false);
+
+            if (!_log.Superseded && _log.Fence is { } fence)
+            {
+                await RecordFenceAsync(fence, cancellationToken).ConfigureAwait(false);
+                await _derived.FenceCatalogAsync(record.Epoch.Value, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (Exception failure) when (failure is System.IO.IOException or LogVerificationException)
+        {
+            // Decision 6: never storage-error, which a standby would answer by finishing the promotion itself.
+            await ReleaseAsync(ReleaseReason.Promotion, CancellationToken.None).ConfigureAwait(false);
+            throw;
+        }
+
+        return IsSuperseded ? PromotionOutcome.Lost : PromotionOutcome.Promoted;
+    }
+
+    /// <summary>
+    /// The last write of a promotion (ADR 0185 decisions 4 and 6): the
+    /// lineage records the position and the header hash as they are at the
+    /// fence, and the fence slot. Until it is written the promotion has not
+    /// finished. The position may be above the one the promotion first
+    /// recorded: a shipper that was mid-round may have created chunks before
+    /// the fence, and the promoted copy keeps those commits, which the source
+    /// had acknowledged and its fleet wrote.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">This storage did not promote: it holds no epoch, or its log has no fence.</exception>
+    /// <exception cref="IOException">The lineage record changed under the write, or the fence is not at the end of the log: a shipper consolidated its segment meanwhile. The promotion has not finished.</exception>
+    [DesignDecision(typeof(PromotionAcrossCopies.AnIncompletePromotionIsCompletedOnlyByPromoting), Scope = ExceptionScope.Boundary)]
+    public async ValueTask CompletePromotionAsync(Position tail, CommitHeaderHash hash, CancellationToken cancellationToken = default)
+    {
+        if (!_log.Writes || _log.Fence is not { } fence)
+        {
+            throw new InvalidOperationException("Only the storage that promoted completes the promotion, once its log is fenced.");
+        }
+
+        // The fence must be the end of the log. The fence procedure itself now sees to that: a fence that lands in
+        // a slot a consolidation left finds the segment's object and is made again at the end (ADR 0136, amended
+        // 2026-11-24, #396), so no order of a shipper and a promoter reaches this check (ADR 0185, amended
+        // 2026-11-25). It stays as the last write's own guard: a fence in a segment that has its object is not
+        // the end of the log by any path, and a promotion recorded there would be behind the object.
+        int segment = int.Parse(fence.Value.AsSpan(0, 8), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture);
+
+        if (await _store.ReadAsync(_names.Segment(segment), new ByteOffset(0), new ByteCount(1), cancellationToken).ConfigureAwait(false) is not null)
+        {
+            throw new IOException("The promotion's fence at log slot " + fence + " is in a segment that has been consolidated, so it is not at the end of the log. "
+                + "Nothing was written after it, and the promotion has not finished (ADR 0185). Promote again, naming the same source and position.");
+        }
+
+        ObjectRead read = await ConditionalWrites.ReadWholeAsync(_store, _names.Lineage, cancellationToken).ConfigureAwait(false)
+            ?? throw new IOException("The lineage record of the copy being promoted is gone.");
+
+        if (LineageRecordFormat.Read(read.Bytes.Span) is not { Understood: true, Promoted: { } promoted } lineage)
+        {
+            throw new IOException("The lineage record of the copy being promoted no longer says promoted.");
+        }
+
+        LineageRecord finished = lineage with { Promoted = promoted with { Position = tail, Hash = hash, Fence = fence } };
+
+        if (await ConditionalWrites.ReplaceAsync(_store, _names.Lineage, read.Version, LineageRecordFormat.Write(finished), _clock, cancellationToken).ConfigureAwait(false) is null)
+        {
+            throw new IOException("The lineage record of the copy being promoted changed under the promotion's last write.");
+        }
+    }
+
     /// <summary>Reads a dataset's writer record, or none when no writer has claimed it. Changes nothing.</summary>
     public static async ValueTask<WriterRecord?> ReadWriterAsync(IObjectStore store, ObjectName? prefix, CancellationToken cancellationToken = default)
     {
@@ -225,6 +389,71 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
         ObjectRead? read = await ConditionalWrites.ReadWholeAsync(store, new ObjectNames(prefix).Writer, cancellationToken).ConfigureAwait(false);
         return read is null ? null : WriterRecordFormat.Read(read.Bytes.Span);
     }
+
+    /// <summary>
+    /// The dataset's lineage record, read from the store without opening the
+    /// dataset (ADR 0185), or none: a dataset with no lineage record is not a
+    /// copy. One of a format this build does not read is returned as not
+    /// understood, and is a replica (ADR 0217).
+    /// </summary>
+    public static async ValueTask<LineageRecord?> ReadLineageAsync(IObjectStore store, ObjectName? prefix, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        ObjectRead? read = await ConditionalWrites.ReadWholeAsync(store, new ObjectNames(prefix).Lineage, cancellationToken).ConfigureAwait(false);
+        return read is { } found ? LineageRecordFormat.Read(found.Bytes.Span) : null;
+    }
+
+    /// <summary>
+    /// Whether the dataset under <paramref name="prefix"/> may be opened for
+    /// write (ADR 0185 decisions 3 and 6), read from the store without
+    /// opening it. A host asks before it claims, so that a replica is
+    /// followed and never counted as a store that failed.
+    /// </summary>
+    public static async ValueTask<ReplicaState> ReplicaStateAsync(IObjectStore store, ObjectName? prefix, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        return (await ReplicaAsync(store, new ObjectNames(prefix), cancellationToken).ConfigureAwait(false)).State;
+    }
+
+    private static async ValueTask<(ReplicaState State, LineageRecord? Lineage)> ReplicaAsync(IObjectStore store, ObjectNames names, CancellationToken cancellationToken)
+    {
+        if (await ConditionalWrites.ReadWholeAsync(store, names.Lineage, cancellationToken).ConfigureAwait(false) is not { } read)
+        {
+            return (ReplicaState.None, null);
+        }
+
+        LineageRecord lineage = LineageRecordFormat.Read(read.Bytes.Span);
+
+        if (lineage.IsReplica)
+        {
+            return (ReplicaState.Replica, lineage);
+        }
+
+        // Promoted: finished once the lineage records the fence, which the promotion writes last (decision 6).
+        if (lineage.Promoted is { Fence: not null })
+        {
+            return (ReplicaState.None, lineage);
+        }
+
+        return (ReplicaState.PromotionIncomplete, lineage);
+    }
+
+    // An open for write, and a claim in place, of a dataset whose lineage
+    // record says it is a replica, or whose promotion did not finish:
+    // refused, with nothing written (ADR 0185).
+    private static async ValueTask RefuseAReplicaAsync(IObjectStore store, ObjectNames names, CancellationToken cancellationToken)
+    {
+        switch (await ReplicaAsync(store, names, cancellationToken).ConfigureAwait(false))
+        {
+            case (ReplicaState.Replica, { } lineage):
+                throw new DatasetIsReplicaException(lineage);
+            case (ReplicaState.PromotionIncomplete, { } lineage):
+                throw DatasetIsReplicaException.PromotionIncomplete(lineage);
+        }
+    }
+
+    private static async ValueTask<WriterRecord?> ReadWriterAsync(IObjectStore store, ObjectNames names, CancellationToken cancellationToken) =>
+        await ConditionalWrites.ReadWholeAsync(store, names.Writer, cancellationToken).ConfigureAwait(false) is { } read ? WriterRecordFormat.Read(read.Bytes.Span) : null;
 
     /// <summary>
     /// A follower's refresh (ADR 0164): probes the next log slot, and adopts
@@ -724,6 +953,13 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
 
         try
         {
+            // A replica is never opened for write (ADR 0185): refused before
+            // the probe, so that nothing but its shipper writes under its prefix.
+            if (write)
+            {
+                await RefuseAReplicaAsync(options.Store, names, cancellationToken).ConfigureAwait(false);
+            }
+
             // Before a writer reads or writes anything: a store that does not
             // refuse what the fence and the writer record need refused is
             // never given a log (ADR 0134). A follower writes nothing, so a
@@ -802,7 +1038,8 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
     // operator named. A lost claim is not retried (ADR 0136): retrying would
     // supersede the winner.
     private static async ValueTask<(WriterRecord? Record, ObjectVersion? Version)> ClaimAsync(
-        IObjectStore store, ObjectNames names, WriterInstance instance, WriterAddress? address, ClaimTrigger trigger, WriterEpoch? from, TimeProvider clock, CancellationToken cancellationToken)
+        IObjectStore store, ObjectNames names, WriterInstance instance, WriterAddress? address, ClaimTrigger trigger, WriterEpoch? from, TimeProvider clock, CancellationToken cancellationToken,
+        WriterEpoch? atLeast = null)
     {
         ObjectRead? read = await ConditionalWrites.ReadWholeAsync(store, names.Writer, cancellationToken).ConfigureAwait(false);
         WriterRecord? current = read is null ? null : WriterRecordFormat.Read(read.Bytes.Span);
@@ -813,6 +1050,13 @@ public sealed class ObjectStorage : ITailingStorage, IStorageMaintenance, IExten
         }
 
         WriterEpoch epoch = current?.Epoch.Next ?? new WriterEpoch(1);
+
+        // A promotion claims above every epoch the copy's log and catalog carry, which its own record may not show (ADR 0185).
+        if (atLeast is { } floor && floor.Value > epoch.Value)
+        {
+            epoch = floor;
+        }
+
         List<EpochClaim> history = current is null ? [] : [.. current.History];
         history.Add(new EpochClaim { Epoch = epoch, Holder = instance, Trigger = trigger, ClaimedAt = new ClaimTime(clock.GetUtcNow()), Address = address });
         WriterRecord claimed = new() { Epoch = epoch, Holder = instance, History = history };

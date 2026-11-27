@@ -186,6 +186,13 @@ internal static class ManagementEndpoints
                 await TakeoverAsync(context, options, plane, from).ConfigureAwait(false);
                 return;
             }
+
+            // A promotion is the store's too (ADR 0185 decision 4): answered here, never forwarded.
+            if (ReadPromotion(put.Value.Bytes) is { } ask)
+            {
+                await PromoteAsync(context, options, plane, ask).ConfigureAwait(false);
+                return;
+            }
         }
 
         if (DatasetOf(context) is not { } name)
@@ -625,6 +632,23 @@ internal static class ManagementEndpoints
             return;
         }
 
+        // ADR 0185 decision 10: a dataset this instance can see is written in this fleet is not declared a copy.
+        if (await plane.CheckCopiesAsync(Proposed(desired), context.RequestAborted).ConfigureAwait(false) is { } contradicted)
+        {
+            await HttpProblems.WriteAsync(context, ProblemType.DeclarationInvalid, contradicted.Detail.Value, members =>
+            {
+                Utf8JsonWriter json = members.Raw("findings");
+                json.WriteStartArray("findings");
+                json.WriteStartObject();
+                json.WriteString("graph", ManagementVocabulary.DatasetGraphPrefix + contradicted.Dataset.Value);
+                json.WriteString("path", ManagementVocabulary.Namespace + "copyOf");
+                json.WriteString("message", contradicted.Detail.Value);
+                json.WriteEndObject();
+                json.WriteEndArray();
+            }).ConfigureAwait(false);
+            return;
+        }
+
         CommitRequestBuilder request;
 
         using (DatasetView view = system.Pin())
@@ -668,6 +692,16 @@ internal static class ManagementEndpoints
             // The writer applies its own write before it answers: the next
             // request here is decided by it, and its datasets converge to it.
             await management.AdvanceAsync(context.RequestAborted).ConfigureAwait(false);
+        }
+
+        if (result.Outcome == CommitOutcome.Committed)
+        {
+            // ADR 0184 decision 9: the compatibility page is a notice, not a refusal. The declaration is applied,
+            // and the answer says, per target, that the project has not tested its provider.
+            foreach (UntestedTarget untested in plane.UntestedTargets(Proposed(desired)))
+            {
+                context.Response.Headers.Append(UntestedTarget.Header, untested.HeaderValue);
+            }
         }
 
         await Writes.AnswerAsync(exchange, result, result.Outcome == CommitOutcome.Committed ? created : StatusCodes.Status204NoContent, evidence: new ConflictEvidence(request.ExpectedPosition!.Value, request.ExpectedGraphs)).ConfigureAwait(false);
@@ -881,6 +915,93 @@ internal static class ManagementEndpoints
             members.String("reason", reason);
             members.Number("epoch", outcome.Epoch.Value);
         }).ConfigureAwait(false);
+    }
+
+    // A promotion of the replica the path names (ADR 0185 decision 4): an
+    // operator's act, authorised at this instance's applied position and
+    // answered here. If-Match does not apply: it acts on the store.
+    private static async Task PromoteAsync(HttpContext context, ProtocolOptions options, IManagementPlane plane, PromotionAsk ask)
+    {
+        if (DatasetOf(context) is not { } dataset)
+        {
+            await HttpProblems.DatasetNotFound(context).ConfigureAwait(false);
+            return;
+        }
+
+        if (!await Exchange.AuthorizeServerAsync(context, options, DatasetPermissions.ServerAdmin).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        if (await plane.PromoteAsync(dataset, ask, context.RequestAborted).ConfigureAwait(false) is not { } answer)
+        {
+            await HttpProblems.WriteAsync(context, ProblemType.TakeoverRefused, "This instance has no object store, so it serves no replica to promote.", members =>
+            {
+                members.String("reason", "not-a-replica");
+                members.Number("epoch", 0);
+            }).ConfigureAwait(false);
+            return;
+        }
+
+        if (answer.Refusal == PromotionRefusal.None)
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            await WriteJsonAsync(context, StatusCodes.Status200OK, json =>
+            {
+                json.WriteNumber("epoch", answer.Epoch.Value);
+
+                // Where the promotion finished, and what was asked. A shipper mid-round may have created chunks
+                // before the fence, and the copy keeps them: the answer says so when that happened (ADR 0185 decision 4).
+                json.WriteNumber("position", answer.Position.Value);
+                json.WriteNumber("asked", ask.Position.Value);
+
+                if (answer.Position.Value > ask.Position.Value)
+                {
+                    json.WriteNumber("keptAboveAsked", answer.Position.Value - ask.Position.Value);
+                }
+            }).ConfigureAwait(false);
+            return;
+        }
+
+        (string reason, string detail) = answer.Refusal switch
+        {
+            PromotionRefusal.NotInWriterSet => ("not-in-writer-set", "This instance is neither the dataset's placedOn nor one of its standbyOn. Ask one that is."),
+            PromotionRefusal.Cold => ("cold", "This instance does not follow the replica warm yet; readiness says why."),
+            PromotionRefusal.NotAReplica => ("not-a-replica", "The dataset is not a replica this instance can promote: it has no lineage record, or one this version does not read."),
+            PromotionRefusal.SourceMismatch => ("source-mismatch", "The copy's lineage record names another source than the one asked for. Nothing was changed."),
+            PromotionRefusal.PositionMismatch => ("position-mismatch", "The copy's last position is " + answer.Position.Value + ", not the " + ask.Position.Value + " asked for. Nothing was changed; ask again with the position you mean to keep."),
+            _ => ("epoch-moved", "Another promotion or another claim came first. Read the dataset's state, and promote again if it is still a replica."),
+        };
+
+        await HttpProblems.WriteAsync(context, ProblemType.TakeoverRefused, detail, members =>
+        {
+            members.String("reason", reason);
+            members.Number("epoch", answer.Epoch.Value);
+        }).ConfigureAwait(false);
+    }
+
+    // What a promotion body asks, {"promote": {"source": "<address>", "position": p}}; none for any other body.
+    private static PromotionAsk? ReadPromotion(byte[]? body)
+    {
+        if (body is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(body);
+            return document.RootElement is { ValueKind: JsonValueKind.Object } root
+                && root.TryGetProperty("promote", out JsonElement promote) && promote.ValueKind == JsonValueKind.Object
+                && promote.TryGetProperty("source", out JsonElement source) && source.ValueKind == JsonValueKind.String && source.GetString() is { Length: > 0 } address
+                && promote.TryGetProperty("position", out JsonElement position) && position.TryGetInt64(out long value) && value >= 0
+                ? new PromotionAsk(address, new Position(value))
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     // The epoch a takeover body names, {"takeover": {"epoch": n}}; none for any other body.

@@ -1,0 +1,40 @@
+@* Select (docs/ui/components/Select): a labelled native select in Field's
+   form, with an optional help line referenced by aria-describedby. It knows
+   nothing of what the choices mean. *@
+<div class="vw-field"><label for="@Id">@Label</label><select id="@Id" disabled="@Disabled" aria-describedby="@(Help is null ? null : Id + "-help")" @onchange="ChangeAsync">@foreach (SelectOption option in Options)
+{<option value="@option.Value" selected="@(option.Value == Selected)">@option.Text</option>}</select>@if (Help is not null)
+{
+<span class="vw-field__help" id="@(Id + "-help")">@Help</span>
+}</div>
+
+@code {
+    /// <summary>A stable id, unique on the page.</summary>
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    /// <summary>The label, in sentence case, naming what is chosen.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    /// <summary>The choices, in the order shown.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<SelectOption> Options { get; set; } = [];
+
+    /// <summary>The chosen value.</summary>
+    [Parameter]
+    public string? Selected { get; set; }
+
+    /// <summary>Raised when another choice is made.</summary>
+    [Parameter]
+    public EventCallback<string> SelectedChanged { get; set; }
+
+    /// <summary>A help line, saying what the choice does or why it can't be made.</summary>
+    [Parameter]
+    public string? Help { get; set; }
+
+    /// <summary>No choice can be made.</summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    private Task ChangeAsync(ChangeEventArgs e) => SelectedChanged.InvokeAsync(e.Value as string ?? "");
+}

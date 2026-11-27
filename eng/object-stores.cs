@@ -52,7 +52,8 @@ if (check)
 else if (ObjectStoresPage.Generate(Read, List, problems) is { } page)
 {
     File.WriteAllText(Path.Combine(root, ObjectStoresPage.PagePath), page);
-    Console.WriteLine($"ok  wrote {ObjectStoresPage.PagePath}");
+    File.WriteAllText(Path.Combine(root, ObjectStoresPage.StatesPath), ObjectStoresPage.GenerateStates(Read, List, problems)!);
+    Console.WriteLine($"ok  wrote {ObjectStoresPage.PagePath} and {ObjectStoresPage.StatesPath}");
     return 0;
 }
 

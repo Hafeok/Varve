@@ -261,6 +261,24 @@ state (`recorded`, `absent` or `mismatch`). Each dataset carries:
   reads;
 - `validation`: each shapes binding's projection lag, beside `warm` and never
   part of it;
+- `shipping`, on a dataset this instance ships (ADR 0184): one member per
+  declared target, named by its store and prefix. It never makes the
+  instance unready, and a target's failure never affects the dataset.
+  - `state`: `shipping`, `retrying`, `store-unverified`,
+    `target-unconfigured`, `shipping-diverged`,
+    `shipping-target-not-empty` or `replica-promoted`. In the last three
+    the shipper has stopped for that target and changes nothing there.
+    Each state has a page with what to do, under
+    [Shipping states](shipping/README.md), and `varve status --server
+    <address>` prints them with their detail.
+  - `shippedThrough` and `lag`: the source position the target's log holds
+    at least, and how many positions the dataset's head is past it. The
+    lag is what would be lost if the source were lost now.
+  - `catalogPosition`: the position of the checkpoint the target holds. A
+    promoted target replays from there to its tail at its first open, so
+    the source's checkpoint policy bounds how long that takes.
+  - `failures` and `detail`: how many rounds in a row failed, and what the
+    last one said.
 - `degraded`, `{"reason": …, "releases": n, "since": …}`, on a dataset this
   instance released for `storage-error` or `local-disk-error`: the reason of
   its last such release, how many it has made in a row, and when the first

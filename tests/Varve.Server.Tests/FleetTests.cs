@@ -1671,7 +1671,7 @@ public abstract class FleetCases : IAsyncDisposable
         return read.Headers.GetValues("Varve-Position").Single();
     }
 
-    private static int FreePort()
+    internal static int FreePort()
     {
         using TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
@@ -1679,7 +1679,7 @@ public abstract class FleetCases : IAsyncDisposable
     }
 
     /// <summary>One server process of the fleet, anonymous, on a fixed loopback port.</summary>
-    private sealed class Server : IAsyncDisposable
+    internal sealed class Server : IAsyncDisposable
     {
         private readonly Process _process;
         private readonly StringBuilder _log = new();

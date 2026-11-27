@@ -218,6 +218,24 @@ around it, and the rule itself does not:
   writer's catalog, as before. It does keep the scan's commit bodies only
   up to 8 MiB of log, and none once it is open.
 
+## Amendment, 2026-11-20 — a follower of a replica
+
+Filed by Replication part 2 (#166) under [ADR 0184](0184-log-shipping.md), unaccepted (ADR 0066), and accepted by the maintainer on 2026-11-24.
+
+- **A replica is followed as any dataset is.** Its log, its sets and its
+  catalog are the source's objects, byte for byte, so a follower opens it
+  with no change.
+- **A follower of a replica is bounded by the replica's catalog,** which
+  the shipper publishes last in a round. Until a round has shipped one, it
+  replays the log.
+- **A member that would write the dataset follows a replica as a standby,**
+  tailing on the interval, so that it is warm when an operator promotes.
+- **It opens at the two moments a shipper passes through:** the newest
+  segment holding only its opening chunk, or its trailer and no seal
+  chunk. That was #384, and the amendment below is its fix.
+
+**The ledger.** No ruling changes.
+
 ## Amendment, 2026-11-20 — a follower opens at the last whole record and never appends
 
 Filed for #384. It changes no ruling, and was read by the maintainer with

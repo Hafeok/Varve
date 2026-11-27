@@ -15,8 +15,8 @@ using Bunit;
 using Bunit.Rendering;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
-using Varve.WebUi.Molecules;
-using Varve.WebUi.Organisms;
+using Varve.WebUi.Components.Molecules;
+using Varve.WebUi.Components.Organisms;
 using Xunit;
 
 namespace Varve.WebUi.Tests;
@@ -268,12 +268,38 @@ public class ComponentContractTests
             return Enum.Parse(plain, value.GetString()!, ignoreCase: false);
         }
 
-        return value.Deserialize(type);
+        return value.Deserialize(type, CaseJson);
     }
+
+    // A case's parameters as JSON: enums by name, and a fragment of markup
+    // wherever a parameter or a member of one is a RenderFragment.
+    private static readonly JsonSerializerOptions CaseJson = new()
+    {
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(), new MarkupFragment() },
+    };
+
+    private sealed class MarkupFragment : System.Text.Json.Serialization.JsonConverter<RenderFragment>
+    {
+        public override RenderFragment Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            string markup = reader.GetString() ?? string.Empty;
+            return builder => builder.AddMarkupContent(0, markup);
+        }
+
+        public override void Write(Utf8JsonWriter writer, RenderFragment value, JsonSerializerOptions options) =>
+            throw new NotSupportedException("Cases are read, never written.");
+    }
+
+    // The host, the shared components and the explorer (ADR 0252).
+    private static readonly Assembly[] WebUiAssemblies =
+        [typeof(Program).Assembly, typeof(Varve.WebUi.Components.Atoms.Button).Assembly, typeof(Varve.WebUi.Explorer.Parts.QueryColouring).Assembly];
+
+    // A level's namespace in each assembly (ADR 0252).
+    private static readonly string[] Prefixes = ["Varve.WebUi.", "Varve.WebUi.Components.", "Varve.WebUi.Explorer."];
 
     private static Type? ComponentType(string name) =>
         Levels
-            .Select(level => typeof(Program).Assembly.GetType($"Varve.WebUi.{level}.{name}"))
+            .SelectMany(level => WebUiAssemblies.SelectMany(assembly => Prefixes.Select(prefix => assembly.GetType($"{prefix}{level}.{name}"))))
             .FirstOrDefault(type => type is not null && typeof(IComponent).IsAssignableFrom(type));
 
     private static string ComponentsRoot() => Path.Combine(RepositoryRoot(), "docs", "ui", "components");

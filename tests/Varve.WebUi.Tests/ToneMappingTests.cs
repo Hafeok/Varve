@@ -9,9 +9,11 @@ using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Varve.Protocol.Model;
-using Varve.WebUi.Atoms;
+using Varve.WebUi.Components.Atoms;
 using Xunit;
 using ClientModel = Varve.Protocol.Client.Model;
+
+using Varve.WebUi.Components;
 
 namespace Varve.WebUi.Tests;
 

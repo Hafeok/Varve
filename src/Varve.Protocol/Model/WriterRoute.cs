@@ -54,6 +54,12 @@ public enum WriterRouteKind : byte
 
     /// <summary>No instance holds the epoch now: it was released and not claimed again.</summary>
     NoWriter = 2,
+
+    /// <summary>The dataset is a replica: log shipping writes it, and it has no writer until an operator promotes it (ADR 0185).</summary>
+    Replica = 3,
+
+    /// <summary>The dataset's promotion did not finish: it has no writer until it is promoted again (ADR 0185 decision 6).</summary>
+    PromotionIncomplete = 4,
 }
 
 /// <summary>Who writes a dataset (ADR 0168).</summary>

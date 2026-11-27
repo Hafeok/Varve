@@ -1,0 +1,10 @@
+{
+  "parameters": {
+    "Kind": "Inferred",
+    "Subject": "<span class=\"vw-term vw-term--iri\">schema:Note</span>",
+    "Predicate": "<span class=\"vw-term vw-term--iri\">rdfs:subClassOf</span>",
+    "Object": "<span class=\"vw-term vw-term--iri\">schema:CreativeWork</span>",
+    "Note": "from the ontology"
+  },
+  "within": "tbody"
+}

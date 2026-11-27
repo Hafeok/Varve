@@ -1,0 +1,17 @@
+# QueryEditor
+
+The SPARQL editor (ADR 0250): a real `textarea` over an `aria-hidden` coloured layer and a line-number gutter, all three in one grid with identical font metrics. The browser does all the editing: selection, undo, IME, copy and paste. Assistive technology sees an ordinary labelled text field.
+
+- **Consumer provides:** the field's id and label, the text, its coloured runs (`EditorRun`: a UTF-16 range and a class), and the parse error if any (`EditorError`: its UTF-16 offset and message). Optional: the matched bracket pair (the starts of its two runs), read-only, and the help line. The organism knows no tokenizer (ADR 0206 point 4): the part `QueryColouring` makes the runs from ADR 0253's `SparqlTokenizer` over the same text, and a test holds every case's runs to it.
+- **Colouring** is one `span.vw-tok vw-tok--<kind>` per token, mapped from `SparqlTokenKind`: `Keyword` → keyword; `Iri`, `PrefixedName` → iri; `BlankNodeLabel`, `Anon` → bnode; `Variable` → variable; `String`, `Integer`, `Decimal`, `Double`, `Boolean` → literal; `LangTag` → annotation; `Punctuation`, `Operator`, `Nil`, the six brackets and the RDF 1.2 brackets → punct; `Comment` → comment; `Word` → word. Whitespace is text, never a span.
+- **Never colour alone.** Keywords are bold and comments italic. The error is a wavy `critical` underline **and** its message in the field's error slot, tied to the `textarea` by `aria-describedby` and announced politely; the error wraps the run that starts at or holds its offset, and at the end of the text it is a one-space span, `vw-tok--error vw-tok--error-end`, at least two characters wide (`error-at-end`). A matched bracket pair gets an outline, not just a fill.
+- **Keyboard.** Tab inserts two spaces; Shift+Tab removes two at the line's start. Escape, then Tab, leaves the editor (WCAG 2.1.2). The help line says so, in every editable case.
+- **Sizing.** The `textarea` grows to its content (`field-sizing: content`, or `rows` set by `webui.js`), so only the editor's container scrolls, horizontally; the gutter has one line per text line.
+- **Forced colours:** the coloured layer is hidden and the `textarea`'s own text shows.
+- **Read-only** shows the query a view runs, on `surface-sunk`, with no help line.
+- Colours are the `tok-*` tokens, used nowhere else, distinct from the state and change tokens.
+- **Cases are real.** A case's runs are what the tokenizer gives for its text, and every case is held to the parser in both directions:
+  - **a case that draws an error parses to the error it draws**: the parser, run over the text, gives that offset, line, column and message. Those are the server's `sparql-syntax` words, so the editor and the server say the same thing;
+  - **a case that draws no error parses**, unless its text is blank, where the editor shows no error.
+
+  `QueryColouringTests` holds every case to all of this. `error-at-end` must stay an end-of-input error, so it shows the marker at the end.

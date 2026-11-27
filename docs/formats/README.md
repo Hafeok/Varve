@@ -42,7 +42,7 @@ named in its README.
 | Reader record, with `maxDerived` | 1 | — | v0.1.0-preview.15 | read forever | `objects-preview.15` |
 | Verification record `varve-verification` | 1 | `src/Varve.Store.ObjectStorage/Verification/VerificationRecordFormat.cs` `Version` | the release that ships `varve storage verify` (#117) | versioned | `verification-next` |
 | Object-store result record | 1 | `src/Varve.Server/Commands/StorageVerify.cs` `Format` | the release that ships `varve storage verify` (#117) | versioned | `verification-next` |
-| Lineage record (Replication) | — | — | not on `main` (#175) | read forever | gap: written by the release that lands #175 |
+| Lineage record `lineage` (Replication) | 1 | `src/Varve.Store.ObjectStorage/LineageRecordFormat.cs` `Version` | the release that ships log shipping (#166) | read forever | gap: written by the release that ships log shipping, #166 |
 | Delta (`application/vnd.varve.delta`) | 1 | `src/Varve.Delta/DeltaFormat.cs` `Current` | v0.1.0-preview.6 | read forever | `delta-preview.6` |
 | CloudEvents rendering | unversioned | — | v0.1.0-preview.7 | read forever | `events-preview.7` |
 | Event schemas | unversioned | — | v0.1.0-preview.7 | read forever | `events-preview.7` |

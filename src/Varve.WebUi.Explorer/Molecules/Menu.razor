@@ -1,0 +1,51 @@
+@* Menu (docs/ui/components/Menu): a disclosure button that opens a list of
+   actions. Buttons, not an ARIA menu: no roving focus to get wrong. Escape
+   closes it and returns focus to the button (webui.js). *@
+<div class="vw-menu"><button class="@(Small ? "vw-button vw-button--small" : "vw-button")" type="button" aria-expanded="@(Open ? "true" : "false")" aria-controls="@Id" @onclick="ToggleAsync">@Label</button>@if (Open)
+{
+<ul class="vw-menu__list" id="@Id">@for (int i = 0; i < Items.Count; i++)
+{
+    int index = i;
+    MenuItem item = Items[i];
+<li><button class="vw-menu__item" type="button" aria-disabled="@(Busy ? "true" : null)" @onclick="() => ChooseAsync(index)">@item.Text@if (item.Note is not null)
+{<span class="vw-menu__note" role="status">@item.Note</span>}</button></li>
+}</ul>
+}</div>
+
+@code {
+    /// <summary>The list's id, which the button controls.</summary>
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    /// <summary>The button's words.</summary>
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = "";
+
+    /// <summary>The actions.</summary>
+    [Parameter, EditorRequired]
+    public IReadOnlyList<MenuItem> Items { get; set; } = [];
+
+    /// <summary>The list is shown.</summary>
+    [Parameter]
+    public bool Open { get; set; }
+
+    /// <summary>Raised when the button opens or closes the list.</summary>
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    /// <summary>Raised with the index of the action chosen.</summary>
+    [Parameter]
+    public EventCallback<int> OnChoose { get; set; }
+
+    /// <summary>An action is running: none can be chosen until it ends.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>The small button, beside other small buttons.</summary>
+    [Parameter]
+    public bool Small { get; set; }
+
+    private Task ToggleAsync() => OpenChanged.InvokeAsync(!Open);
+
+    private Task ChooseAsync(int index) => Busy ? Task.CompletedTask : OnChoose.InvokeAsync(index);
+}

@@ -15,6 +15,18 @@ decisions:
     statement: "The Web UI's size is measured on a publish from a clean tree into an empty folder"
     accepted-by: mailto:emil@okkels-klein.dk
     accepted-at: 2026-10-28T00:00:00Z
+  - key: TwoRowsFirstScreenAndLazySet
+    statement: "The size gate measures two rows, the first screen without the lazy set at the unchanged budget, and the lazy set the boot manifest marks, at its own budget"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-24T00:00:00Z
+  - key: TheLazySetIsNamed
+    statement: "eng/browser-size.json names the lazy assemblies, and the gate fails when the boot manifest's lazy set differs from them"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-24T00:00:00Z
+  - key: ExplorerBudgetMeasured
+    statement: "The explorer's budget is its lazy set measured from a clean tree plus 5 percent, rounded up to 10 kB: 100,000 bytes for Varve.WebUi.Explorer, Varve.Sparql and Varve.Sparql.Results, from 91,087 bytes measured with the Query screen on 2026-11-19"
+    accepted-by: mailto:emil@okkels-klein.dk
+    accepted-at: 2026-11-24T00:00:00Z
 ---
 
 The rulings of [ADR 0205](../adr/0205-the-web-uis-size-budget-and-no-aot.md), one line each.

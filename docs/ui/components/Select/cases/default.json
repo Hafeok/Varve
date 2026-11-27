@@ -1,0 +1,17 @@
+{
+  "parameters": {
+    "Id": "f-regime",
+    "Label": "Entailment",
+    "Options": [
+      {
+        "Value": "simple",
+        "Text": "simple"
+      },
+      {
+        "Value": "rdfs",
+        "Text": "rdfs"
+      }
+    ],
+    "Selected": "rdfs"
+  }
+}

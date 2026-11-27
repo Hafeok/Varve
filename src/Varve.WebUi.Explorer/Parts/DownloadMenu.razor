@@ -1,0 +1,66 @@
+@using DecisionDriven
+@using DecisionDriven.Ledger.Varve
+@attribute [Contract(typeof(TheWebUiDesignSource.DomainChoicesArePartsOverGenericComponents), Role = "the formats an answer downloads in")]
+@* Download an answer (ADR 0254 point 5; ADR 0206 ruling D8): a part over the
+   Menu molecule, offering the formats the server writes an answer of its form
+   in. While a download runs the menu stays open, says so beside its format
+   and takes no second choice; when it ends, the menu closes. *@
+<Menu Id="@Id" Label="Download" Small="true" Items="Items()" Open="_open" OpenChanged="value => _open = value" OnChoose="ChooseAsync" Busy="Busy" />
+
+@code {
+    private bool _open;
+    private bool _wasBusy;
+
+    /// <summary>A stable id, unique on the page: the list's.</summary>
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    /// <summary>The answer's form, which decides the formats.</summary>
+    [Parameter]
+    public QueryForm Form { get; set; }
+
+    /// <summary>Whether a download is running.</summary>
+    [Parameter]
+    public bool Busy { get; set; }
+
+    /// <summary>What the running download has done, beside its format: "Downloading…", or how much.</summary>
+    [Parameter]
+    public string? Progress { get; set; }
+
+    /// <summary>Which format is downloading.</summary>
+    [Parameter]
+    public DownloadFormat? Downloading { get; set; }
+
+    /// <summary>Raised with the format chosen.</summary>
+    [Parameter]
+    public EventCallback<DownloadFormat> OnDownload { get; set; }
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        if (_wasBusy && !Busy)
+        {
+            _open = false;
+        }
+
+        _wasBusy = Busy;
+    }
+
+    private IReadOnlyList<MenuItem> Items() =>
+        [.. DownloadFormat.For(Form).Select(format => new MenuItem(format.Text, Busy && format == Downloading ? Progress ?? "Downloading…" : null))];
+
+    private async Task ChooseAsync(int index)
+    {
+        if (Busy)
+        {
+            return;
+        }
+
+        IReadOnlyList<DownloadFormat> formats = DownloadFormat.For(Form);
+
+        if (index >= 0 && index < formats.Count)
+        {
+            await OnDownload.InvokeAsync(formats[index]);
+        }
+    }
+}

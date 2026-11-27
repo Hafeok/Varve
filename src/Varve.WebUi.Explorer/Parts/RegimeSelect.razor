@@ -1,0 +1,68 @@
+@using DecisionDriven
+@using DecisionDriven.Ledger.Varve
+@using Varve.Rdf
+@attribute [Contract(typeof(TheWebUiDesignSource.DomainChoicesArePartsOverGenericComponents), Role = "the regimes a query is answered under")]
+@* The entailment regime a query is answered under (ADR 0206 ruling D8): a
+   part over the Select atom. It offers simple, which every dataset answers,
+   and the regimes the dataset's service description lists, and no other: a
+   regime this client knows no token of is not offered. Until the description
+   is read, simple alone. *@
+<Select Id="@Id" Label="Entailment" Options="Options()" Selected="@Current().Value" SelectedChanged="ChooseAsync" Help="@Help()" />
+
+@code {
+    /// <summary>A stable id, unique on the page: the select's.</summary>
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = "";
+
+    /// <summary>The dataset's service description, once read.</summary>
+    [Parameter]
+    public DatasetDescription? Description { get; set; }
+
+    /// <summary>The regime chosen; none for the dataset's default.</summary>
+    [Parameter]
+    public Entailment? Selected { get; set; }
+
+    /// <summary>Raised with the regime the reader chose.</summary>
+    [Parameter]
+    public EventCallback<Entailment> SelectedChanged { get; set; }
+
+    /// <summary>The regimes offered: simple first, then the description's, each once, in the order it lists them.</summary>
+    internal IReadOnlyList<Entailment> Offered()
+    {
+        List<Entailment> offered = [Entailment.Simple];
+
+        if (Description is null)
+        {
+            return offered;
+        }
+
+        IEnumerable<RdfTerm> listed = Description.DefaultEntailment is RdfTerm fallback
+            ? Description.Regimes.Values.SelectMany(regimes => regimes).Prepend(fallback)
+            : Description.Regimes.Values.SelectMany(regimes => regimes);
+
+        foreach (RdfTerm regime in listed)
+        {
+            if (Entailment.OfRegime(regime) is Entailment known && !offered.Contains(known))
+            {
+                offered.Add(known);
+            }
+        }
+
+        return offered;
+    }
+
+    private Entailment Default() =>
+        Description?.DefaultEntailment is RdfTerm fallback && Entailment.OfRegime(fallback) is Entailment known ? known : Entailment.Simple;
+
+    private Entailment Current() => Selected is Entailment chosen && Offered().Contains(chosen) ? chosen : Default();
+
+    private IReadOnlyList<SelectOption> Options() =>
+        [.. Offered().Select(regime => new SelectOption(regime.Value, regime == Entailment.Simple ? "simple: the data as asserted" : regime.Value))];
+
+    private string Help() => "The dataset's default is " + Default().Value + ".";
+
+    private Task ChooseAsync(string value) =>
+        Offered().FirstOrDefault(regime => regime.Value == value) is Entailment chosen && chosen.Value is not null
+            ? SelectedChanged.InvokeAsync(chosen)
+            : Task.CompletedTask;
+}

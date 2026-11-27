@@ -112,6 +112,25 @@ public interface IManagementPlane
     /// </summary>
     IReadOnlyList<RdfTerm>? CheckBindings(Declarations proposed) => null;
 
+    /// <summary>
+    /// The shipping targets of <paramref name="proposed"/> whose provider the
+    /// compatibility page compiled into this build does not list as verified
+    /// (ADR 0184 decision 9). An apply is never refused for one: its answer
+    /// carries a notice for each. None by default.
+    /// </summary>
+    IReadOnlyList<UntestedTarget> UntestedTargets(Declarations proposed) => [];
+
+    /// <summary>
+    /// The first dataset <paramref name="proposed"/> declares a copy
+    /// (<c>varve:copyOf</c>) that this instance can see is written in this
+    /// fleet with no lineage naming that source (ADR 0185 decision 10), or
+    /// null. The apply is refused for it before anything is committed. Where
+    /// the instance cannot see it, the store unread or the dataset another
+    /// instance's, the answer is null and readiness reports the
+    /// contradiction once the declaration is applied. None by default.
+    /// </summary>
+    ValueTask<CopyRefusal?> CheckCopiesAsync(Declarations proposed, CancellationToken cancellationToken) => default;
+
     /// <summary>A shapes binding of <paramref name="dataset"/> at the applied position, with its classification where this instance holds the dataset; null when there is no such binding. None by default.</summary>
     BindingDescription? DescribeBinding(DatasetName dataset, RdfTerm binding) => null;
 
@@ -142,4 +161,22 @@ public interface IManagementPlane
     /// no object store, so no epoch to take. None by default.
     /// </summary>
     ValueTask<TakeoverOutcome?> TakeoverAsync(DatasetName? dataset, TakeoverEpoch epoch, CancellationToken cancellationToken) => default;
+
+    /// <summary>
+    /// The fleet that wrote the commit of <paramref name="dataset"/> at
+    /// <paramref name="position"/>, where it is not this one (ADR 0185
+    /// decision 8): every commit of a replica, and every commit at or below
+    /// a promoted copy's promoted position. Null for a commit this fleet
+    /// wrote. It is asked only for what a foreign commit's recorded position
+    /// meant, events and audit, and never for authorisation. None by default.
+    /// </summary>
+    ValueTask<ForeignFleet?> ForeignFleetAsync(DatasetName dataset, Position position, CancellationToken cancellationToken) => default;
+
+    /// <summary>
+    /// Promotes the replica <paramref name="dataset"/> on this instance (ADR
+    /// 0185 decision 4): answered here and never forwarded, since it acts on
+    /// the store and not on a declaration. Null where this instance has no
+    /// object store. None by default.
+    /// </summary>
+    ValueTask<PromotionAnswer?> PromoteAsync(DatasetName dataset, PromotionAsk ask, CancellationToken cancellationToken) => default;
 }

@@ -1,0 +1,46 @@
+{
+  "parameters": {
+    "Caption": "1,204 rows · answered under simple",
+    "Variables": [
+      "note",
+      "title",
+      "created"
+    ],
+    "Rows": [
+      [
+        {
+          "Kind": "Iri",
+          "Text": "notes:42"
+        },
+        {
+          "Kind": "Literal",
+          "Text": "Weekly sync",
+          "Type": "@en"
+        },
+        {
+          "Kind": "Literal",
+          "Text": "2026-10-27",
+          "Type": "xsd:date"
+        }
+      ],
+      [
+        {
+          "Kind": "Iri",
+          "Text": "notes:43"
+        },
+        {
+          "Kind": "Literal",
+          "Text": "Planning",
+          "Type": "@en"
+        },
+        {
+          "Kind": "Literal",
+          "Text": "2026-10-28",
+          "Type": "xsd:date"
+        }
+      ]
+    ],
+    "Status": "Showing 500 of 1,204 rows.",
+    "Actions": "<button class=\"vw-button vw-button--small\" type=\"button\">Show 500 more</button>"
+  }
+}

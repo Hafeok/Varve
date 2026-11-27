@@ -23,4 +23,7 @@ public enum ClaimTrigger
     /// as written and never acted on (ADR 0217).
     /// </summary>
     Unknown,
+
+    /// <summary>An operator promoted a copy of the dataset on another store (ADR 0185).</summary>
+    Promotion,
 }

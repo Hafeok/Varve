@@ -19,20 +19,26 @@ checked by nothing. This rule is what places them.
 
 For a compilation whose assembly name starts `Varve.`:
 
-1. **It declares `ArchLayer`**, an integer from 0 to 6, unless it is a test
+1. **It declares `ArchLayer`**, an integer from 0 to 8, unless it is a test
    assembly (`*.Tests`) or `Varve.Analyzers`, which declare none. A packable
    assembly always declares one, whatever it is called. A test assembly that
    declares a layer is reported too.
-2. **An executable declares 6, and only an executable declares 6.** An
-   executable is an `OutputType` of `Exe` or `WinExe`. A test assembly is an
-   executable under Microsoft.Testing.Platform and declares none, as before.
-3. **`ArchCompositionRoot` is `true` exactly when `ArchLayer` is 6.** ADR 0060
+2. **An executable declares 6 or above, and a library declares 6 or above
+   only as a host's private assembly that names its host in
+   `VarveHostPartOf`** ([ADR 0252](../adr/0252-the-web-uis-private-assemblies.md)).
+   A host that has private assemblies stacks them below itself, each at its
+   own layer, so `DD0001` holds them strictly downward: the Web UI's shared
+   components at 6, its explorer at 7, its host at 8. An executable is an
+   `OutputType` of `Exe` or `WinExe`. A test assembly is an executable under
+   Microsoft.Testing.Platform and declares none, as before.
+3. **`ArchCompositionRoot` is `true` exactly when `ArchLayer` is 6 or above.** ADR 0060
    rejected a composition-root flag separate from the layer, because a second
    declaration can disagree with the first. The package needs the flag, so this
    makes disagreement an error instead.
 
 It reads `ArchLayer` and `ArchCompositionRoot` (made visible by the package),
-and `IsPackable` and `OutputType` (made visible by `Directory.Build.props`). It
+and `IsPackable`, `OutputType` and `VarveHostPartOf` (made visible by
+`Directory.Build.props`). It
 reports against the compilation, so it appears as `CSC : error VARVE0005`.
 
 ## Configuration

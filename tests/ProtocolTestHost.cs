@@ -78,8 +78,9 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         IRandomSource? randomness = null,
         bool http2 = false,
         TelemetryOptions? telemetry = null,
+        Microsoft.Extensions.Logging.ILogger? logger = null,
         CancellationToken stopping = default) =>
-        StartAsync(new OneDataset(dataset), map, limits, clock, identity, serviceHandler, accessScopes, loadSource, randomness, null, null, http2, telemetry, stopping: stopping);
+        StartAsync(new OneDataset(dataset), map, limits, clock, identity, serviceHandler, accessScopes, loadSource, randomness, null, null, http2, telemetry, stopping: stopping, logger: logger);
 
     /// <summary>
     /// Starts a server whose datasets <paramref name="datasets"/> names.
@@ -107,6 +108,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
         IRowClassifications? rowClassifications = null,
         IEntailmentBindings? entailment = null,
         IInferenceClosures? inference = null,
+        Microsoft.Extensions.Logging.ILogger? logger = null,
         CancellationToken stopping = default)
     {
         WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
@@ -153,6 +155,7 @@ internal sealed class ProtocolTestHost : IAsyncDisposable
             RowClassifications = rowClassifications,
             Entailment = entailment,
             InferenceClosures = inference,
+            Logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance,
         };
 
         if (map is null)

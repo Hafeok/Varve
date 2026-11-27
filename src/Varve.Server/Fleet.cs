@@ -98,7 +98,26 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
             WithoutMemory = InferenceProjections.NoMemory(settings),
         };
         Entailment = new EntailmentBindingsOfTheFleet(this);
+        Shipping = new Shipping(() => Volatile.Read(ref _snapshot).Table.Declarations, Datasets, objects, settings.Replication, () => System, clock, logger);
     }
+
+    // The source fleets' system datasets beside the copies this fleet serves (ADR 0185 decision 8); none in a fleet of one.
+    private ShippedFleets? _shippedFleets;
+
+    /// <inheritdoc />
+    public ValueTask<ForeignFleet?> ForeignFleetAsync(DatasetName dataset, Position position, CancellationToken cancellationToken)
+    {
+        if (_objects is null)
+        {
+            return default;
+        }
+
+        ShippedFleets shipped = LazyInitializer.EnsureInitialized(ref _shippedFleets, () => new ShippedFleets(_objects, Datasets));
+        return shipped.OfAsync(dataset, position, cancellationToken);
+    }
+
+    /// <summary>The shippers of the datasets this instance ships (ADR 0184).</summary>
+    internal Shipping Shipping { get; }
 
     /// <summary>The datasets' TBox bindings as a query reads them, and their schema caches (ADRs 0193, 0194).</summary>
     internal EntailmentBindingsOfTheFleet Entailment { get; }
@@ -433,6 +452,40 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         ShapesBindings.Check(proposed, name => Datasets.TryResolve(name, out Dataset? dataset) ? dataset : null);
 
     /// <inheritdoc />
+    public IReadOnlyList<UntestedTarget> UntestedTargets(Declarations proposed) => CompatibilityPage.Untested(proposed);
+
+    /// <inheritdoc />
+    public async ValueTask<CopyRefusal?> CheckCopiesAsync(Declarations proposed, CancellationToken cancellationToken)
+    {
+        if (_objects is null)
+        {
+            return null;
+        }
+
+        foreach ((string name, DatasetDeclaration declared) in proposed.Datasets)
+        {
+            if (declared.CopyOf is not { } copy)
+            {
+                continue;
+            }
+
+            try
+            {
+                if (await _objects.CopyContradictionAsync(name, copy, cancellationToken).ConfigureAwait(false) is { } detail)
+                {
+                    return new CopyRefusal(new DatasetName(name), new RefusalDetail(detail));
+                }
+            }
+            catch (Exception error) when (error is IOException or global::System.Net.Http.HttpRequestException or TimeoutException or InvalidDataException)
+            {
+                // The store was not read, so this instance cannot see it. Readiness reports a contradiction once applied.
+            }
+        }
+
+        return null;
+    }
+
+    /// <inheritdoc />
     public BindingDescription? DescribeBinding(DatasetName dataset, RdfTerm binding)
     {
         GrantTable table = Pinned().Table;
@@ -572,6 +625,41 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         }
     }
 
+    /// <inheritdoc />
+    public async ValueTask<PromotionAnswer?> PromoteAsync(DatasetName dataset, PromotionAsk ask, CancellationToken cancellationToken)
+    {
+        if (_objects is null)
+        {
+            return null;
+        }
+
+        // Inside the advance, as a takeover is: no round switches the dataset's storage under the claim.
+        await _advance.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            if (!Volatile.Read(ref _snapshot).Table.Declarations.Datasets.TryGetValue(dataset.Value, out DatasetDeclaration? declared))
+            {
+                return new PromotionAnswer(PromotionRefusal.NotAReplica, new TakeoverEpoch(0), new Position(0));
+            }
+
+            Placement placement = new(_instance, _mayClaim, _role == ManagementRole.Writer, IsFleetOfOne);
+            PromotionAnswer answer = await Datasets.PromoteAsync(dataset.Value, ask, declared, placement, cancellationToken).ConfigureAwait(false);
+
+            if (answer.Refusal == PromotionRefusal.None)
+            {
+                _routes.TryRemove(dataset.Value, out _);
+                Volatile.Read(ref _shippedFleets)?.Forget(dataset);
+            }
+
+            return answer;
+        }
+        finally
+        {
+            _advance.Release();
+        }
+    }
+
     // The system dataset's takeover (ADR 0179 point 13), by the same rules.
     private async Task<TakeoverOutcome> TakeOverSystemAsync(TakeoverEpoch from, CancellationToken cancellationToken)
     {
@@ -655,6 +743,7 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
         {
             Projections.Reconcile(entry.Name);
             Classifications.Reconcile(entry.Name);
+            Shipping.Reconcile(entry.Name);
         }
     }
 
@@ -954,6 +1043,15 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
                 return WriterRoute.Local;
             }
 
+            // A replica has no writer to route to (ADR 0185 decision 3). Never kept: a promotion ends it.
+            switch (Datasets.ReplicaOf(dataset))
+            {
+                case ReplicaState.Replica:
+                    return new WriterRoute(WriterRouteKind.Replica, null, 0);
+                case ReplicaState.PromotionIncomplete:
+                    return new WriterRoute(WriterRouteKind.PromotionIncomplete, null, 0);
+            }
+
             name = dataset.Value;
         }
         else
@@ -1023,6 +1121,12 @@ internal sealed partial class Fleet : IManagementPlane, IManagementAuthority, ID
 
     public async ValueTask DisposeAsync()
     {
+        await Shipping.DisposeAsync().ConfigureAwait(false);
+
+        if (Volatile.Read(ref _shippedFleets) is { } shippedFleets)
+        {
+            await shippedFleets.DisposeAsync().ConfigureAwait(false);
+        }
         await Projections.DisposeAsync().ConfigureAwait(false);
         await Classifications.DisposeAsync().ConfigureAwait(false);
         await Inference.DisposeAsync().ConfigureAwait(false);

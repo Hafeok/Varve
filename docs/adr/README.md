@@ -389,11 +389,13 @@ Filed by [#165](https://github.com/Hafeok/Varve/issues/165), part 1 of Replicati
 
 ## Replication, part 2 (#166)
 
-Filed by [#166](https://github.com/Hafeok/Varve/issues/166), part 2 of Replication ([#97](https://github.com/Hafeok/Varve/issues/97)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered 0183–0186, in three pull requests. The first is 0183, for [#117](https://github.com/Hafeok/Varve/issues/117). Amended by it, likewise unaccepted: 0134 (the suite as shipped code, a second broken store); 0216 (the verification record and the result record); 0217 (the verification record read by its rule).
+Filed by [#166](https://github.com/Hafeok/Varve/issues/166), part 2 of Replication ([#97](https://github.com/Hafeok/Varve/issues/97)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). Numbered 0183–0186, in three pull requests. The first is 0183, for [#117](https://github.com/Hafeok/Varve/issues/117); the second is 0184 and 0185, whose dated amendments are filed with the code that makes them true. Amended by 0183, likewise unaccepted: 0134 (the suite as shipped code, a second broken store); 0216 (the verification record and the result record); 0217 (the verification record read by its rule).
 
 | # | Title | Status |
 |---:|---|---|
 | [0183](0183-object-store-verification-and-the-compatibility-page.md) | Object store verification: the suite as shipped code, a record at the store, and a generated compatibility page | Filed unaccepted (#166, for #117) |
+| [0184](0184-log-shipping.md) | Log shipping: a byte-identical copy of a dataset in another store, written by create-if-absent | Filed unaccepted (#166) |
+| [0185](0185-promotion-across-copies-and-the-lineage-record.md) | Promotion across copies: an operator's act, a lineage record, and a management position that belongs to its fleet | Filed unaccepted (#166) |
 
 ## Milestone Inference — RDFS by rewriting, OWL 2 RL and rules as a projection, inconsistency at commit
 
@@ -554,6 +556,18 @@ Filed by the session for [#364](https://github.com/Hafeok/Varve/issues/364), par
 | # | Title | Status |
 |---:|---|---|
 | [0249](0249-the-learning-tracks-pages-quote-what-ci-ran.md) | The learning track's pages quote what CI ran | Filed unaccepted (#364) |
+
+## Web UI part 2, the data explorer (#96)
+
+Filed by the session for Web UI part 2 ([#96](https://github.com/Hafeok/Varve/issues/96); PR (a) is [#355](https://github.com/Hafeok/Varve/issues/355)), unaccepted until the maintainer accepts them on their pull requests (ADR 0066). The plan, approved with the rulings of 2026-11-18, numbered them 0248–0252; 0248 was then taken on `main` by #129 and 0249 on an open branch, so on 2026-11-20 the tokenizer became 0253 and the explorer's reads 0254, by the maintainer's ruling on #387, and 0250–0252 kept theirs.
+
+| # | Title | Status |
+|---:|---|---|
+| [0250](0250-the-query-editor.md) | The query editor: a textarea over a coloured layer, coloured and checked by the parser, once a frame | Filed unaccepted (#355) |
+| [0251](0251-the-graph-view.md) | The graph view: SVG through Razor, a deterministic radial layout, a node budget of 50 from the spike | Filed unaccepted (#355) |
+| [0252](0252-the-web-uis-private-assemblies.md) | The Web UI's private assemblies: the components at layer 6, the lazy explorer at 7, the host at 8 | Filed unaccepted (#355); amends 0060, 0200, 0206 |
+| [0253](0253-a-public-sparql-tokenizer.md) | A public SPARQL tokenizer: the parser's lexer, reachable, with comments and classified words, in the input's units | Filed unaccepted (#355) |
+| [0254](0254-the-data-explorers-reads.md) | The data explorer's reads: one position per view, streamed lines, a read-ahead to a ceiling, history per tab | Filed unaccepted (#355); amends 0203 |
 
 ## Conformance — differential testing against Oxigraph
 
